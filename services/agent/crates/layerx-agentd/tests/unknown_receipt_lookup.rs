@@ -200,7 +200,10 @@ fn signed_receipt(
     let bytes = encoded_receipt(tx_hash, sender, success, Some(signature));
     let decoded = must(layerx_wire::receipt::decode(&bytes));
     assert_eq!(
-        decoded.protocol().unwrap().asset(),
+        decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("test value missing"))
+            .asset(),
         sha256(PAYMENT_DENOM.as_bytes())
     );
     let key = ReceiptKeyEntry {
@@ -307,7 +310,7 @@ fn unknown_submission_resolves_to_executed_from_a_signed_receipt() {
     exchanges.push(("pax_sequencerReceipt", hash_params, receipt.clone()));
     exchanges.extend(authenticated_receipt_exchanges(hash, receipt));
     let (endpoint, server) = serve(exchanges);
-    assert_receipted_resolution(raw, endpoint);
+    assert_receipted_resolution(&raw, endpoint);
     must(server.join());
 }
 
@@ -332,7 +335,7 @@ fn unknown_submission_with_consumed_nonce_fails() {
         ("pax_sequencerReceipt", hash_params, Value::Null),
         ("eth_getTransactionCount", nonce_params, pending_nonce),
     ]);
-    assert_consumed_nonce_resolution(raw, endpoint);
+    assert_consumed_nonce_resolution(&raw, endpoint);
     must(server.join());
 }
 
@@ -342,12 +345,12 @@ fn real_unknown_submission_resolves_against_an_owned_sequencer() {
     unknown_submission_with_consumed_nonce_fails();
 }
 
-fn assert_receipted_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
-    let (transaction, _) = must(decode_signed(&raw));
+fn assert_receipted_resolution(raw: &[u8], mut endpoint: SequencerEndpoint) {
+    let (transaction, _) = must(decode_signed(raw));
     let directory = Directory::new();
     let mut store = must(Store::open(&directory.0));
-    let (mut outbox, hash) = unknown(&mut store, raw.clone());
-    assert_eq!(hash, transaction_hash(&raw));
+    let (mut outbox, hash) = unknown(&mut store, raw.to_owned());
+    assert_eq!(hash, transaction_hash(raw));
     let keys = must(endpoint.receipt_keys());
     assert!(!keys.is_empty(), "published receipt keys required");
     let Lookup::Verified(receipt) = must(lookup_authenticated(
@@ -384,6 +387,54 @@ fn assert_receipted_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
         ResolutionObservation::UnverifiedReceipt
     );
     assert_eq!(unverified.resend, ResendObservation::NotWarranted);
+    finish_assert_receipted_resolution_1_unknown_receipt_lookup(
+        FinishAssertReceiptedResolution1UnknownReceiptLookupContext {
+            raw,
+            endpoint,
+            directory,
+            store,
+            outbox,
+            hash,
+            keys,
+            receipt,
+            surface,
+            context,
+            unverified,
+        },
+    );
+}
+
+struct FinishAssertReceiptedResolution1UnknownReceiptLookupContext<'a> {
+    raw: &'a [u8],
+    endpoint: SequencerEndpoint,
+    directory: Directory,
+    store: Store,
+    outbox: Outbox,
+    hash: [u8; 32],
+    keys: Vec<ReceiptKeyEntry>,
+    receipt: layerx_client::rpc::receipt::AuthenticatedReceipt,
+    surface: Surface,
+    context: OperatorContext,
+    unverified: layerx_agentd::outbox::UnknownResolution,
+}
+
+fn finish_assert_receipted_resolution_1_unknown_receipt_lookup(
+    context: FinishAssertReceiptedResolution1UnknownReceiptLookupContext<'_>,
+) {
+    let FinishAssertReceiptedResolution1UnknownReceiptLookupContext {
+        raw,
+        mut endpoint,
+        directory,
+        mut store,
+        mut outbox,
+        hash,
+        keys,
+        receipt,
+        mut surface,
+        context,
+        unverified,
+    } = context;
+
     assert!(outbox
         .status(hash)
         .unwrap_or_else(|| panic!("unknown status missing"))
@@ -425,41 +476,18 @@ fn assert_receipted_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
     assert_eq!(resolved.resend, ResendObservation::NotWarranted);
     assert_eq!(resolved.age.attempt_count, 2);
     assert!(store.get(&state_key(hash)).is_none());
-    let evidence = outbox
-        .status(hash)
-        .and_then(|status| status.evidence)
-        .unwrap_or_else(|| panic!("verified execution evidence missing"));
-    assert_eq!(evidence.block_height(), receipt.height());
-    assert_eq!(evidence.transaction_index(), receipt.execution().index);
-    let receipt_ref: [u8; 32] = Sha256::digest(receipt.canonical_bytes()).into();
-    assert_eq!(evidence.receipt_ref(), receipt_ref);
-    let receipt_key = must(TenantKey::new(
-        tenant(),
-        ObjectKind::Receipt,
-        receipt_ref.to_vec(),
-    ));
-    assert_eq!(
-        store
-            .get(&receipt_key)
-            .unwrap_or_else(|| panic!("signed receipt not retained"))
-            .bytes(),
-        receipt.canonical_bytes()
-    );
-    assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
-    let mut restored = Outbox::default();
-    must(restored.restore(&store, tenant(), hash));
-    assert_eq!(restored.status(hash), outbox.status(hash));
+    assert_retained_resolution(&store, &outbox, hash, &receipt, raw);
 }
 
-fn assert_consumed_nonce_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
-    let (transaction, signature) = must(decode_signed(&raw));
+fn assert_consumed_nonce_resolution(raw: &[u8], mut endpoint: SequencerEndpoint) {
+    let (transaction, signature) = must(decode_signed(raw));
     let sender = must(recover_sender(&transaction, &signature));
-    let hash = transaction_hash(&raw);
+    let hash = transaction_hash(raw);
     assert_eq!(must(endpoint.sequencer_receipt(&hash)), None);
     assert!(must(endpoint.pending_nonce(&sender)) > transaction.nonce);
     let directory = Directory::new();
     let mut store = must(Store::open(&directory.0));
-    let (mut outbox, stored_hash) = unknown(&mut store, raw.clone());
+    let (mut outbox, stored_hash) = unknown(&mut store, raw.to_owned());
     assert_eq!(stored_hash, hash);
     let keys = must(endpoint.receipt_keys());
     let result = must(resolve_unknown(
@@ -547,7 +575,10 @@ fn missing_or_changed_payment_denomination_refuses_authenticated_lookup_and_reco
         let hash = transaction_hash(&raw);
         let (mut receipt, _, key) = signed_receipt(hash, sender, true);
         if missing {
-            receipt.as_object_mut().unwrap().remove("paymentDenom");
+            receipt
+                .as_object_mut()
+                .unwrap_or_else(|| panic!("test value missing"))
+                .remove("paymentDenom");
         } else {
             receipt["paymentDenom"] = json!("upax");
         }
@@ -585,17 +616,28 @@ fn missing_or_changed_payment_denomination_refuses_authenticated_lookup_and_reco
         assert_eq!(result.state, SubmissionState::Unknown);
         assert_eq!(result.observation, ResolutionObservation::UnverifiedReceipt);
         assert_eq!(result.resend, ResendObservation::NotWarranted);
-        assert!(outbox.status(hash).unwrap().evidence.is_none());
+        assert!(outbox
+            .status(hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .evidence
+            .is_none());
         drop(outbox);
         drop(store);
         let store = must(Store::open(&directory.0));
         let mut restored = Outbox::default();
         must(restored.restore(&store, tenant(), hash));
         assert_eq!(
-            restored.status(hash).unwrap().state,
+            restored
+                .status(hash)
+                .unwrap_or_else(|| panic!("test value missing"))
+                .state,
             SubmissionState::Unknown
         );
-        assert!(restored.status(hash).unwrap().evidence.is_none());
+        assert!(restored
+            .status(hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .evidence
+            .is_none());
         assert_eq!(must(restored.exact_signed_bytes(hash)), raw);
     }
 }
@@ -651,4 +693,37 @@ fn published_key_windows_are_enforced_after_reconnect() {
         must(server.join());
         drop(endpoint);
     }
+}
+
+fn assert_retained_resolution(
+    store: &Store,
+    outbox: &Outbox,
+    hash: [u8; 32],
+    receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    raw: &[u8],
+) {
+    let evidence = outbox
+        .status(hash)
+        .and_then(|status| status.evidence)
+        .unwrap_or_else(|| panic!("verified execution evidence missing"));
+    assert_eq!(evidence.block_height(), receipt.height());
+    assert_eq!(evidence.transaction_index(), receipt.execution().index);
+    let receipt_ref: [u8; 32] = Sha256::digest(receipt.canonical_bytes()).into();
+    assert_eq!(evidence.receipt_ref(), receipt_ref);
+    let receipt_key = must(TenantKey::new(
+        tenant(),
+        ObjectKind::Receipt,
+        receipt_ref.to_vec(),
+    ));
+    assert_eq!(
+        store
+            .get(&receipt_key)
+            .unwrap_or_else(|| panic!("signed receipt not retained"))
+            .bytes(),
+        receipt.canonical_bytes()
+    );
+    assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+    let mut restored = Outbox::default();
+    must(restored.restore(store, tenant(), hash));
+    assert_eq!(restored.status(hash), outbox.status(hash));
 }

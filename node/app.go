@@ -33,6 +33,7 @@ import (
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/api"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
+	servergrpc "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/grpc"
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	storev2_rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
@@ -1591,7 +1592,9 @@ func (app *App) HandleClose() error {
 
 	// Stop admin gRPC server
 	if app.adminServer != nil {
-		app.adminServer.GracefulStop()
+		if !servergrpc.StopGRPCServer(app.adminServer, 5*time.Second) {
+			logger.Warn("admin gRPC shutdown grace period elapsed; canceled outstanding RPCs")
+		}
 	}
 
 	// Note: stateStore (ssStore) is already closed by cms.Close() in BaseApp.Close()

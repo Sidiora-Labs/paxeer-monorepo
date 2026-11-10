@@ -29,6 +29,8 @@ fn socket_path(label: &str) -> PathBuf {
     ))
 }
 
+/// # Panics
+/// Panics if the supplied result is an error.
 pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
@@ -90,6 +92,7 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (NodeRpcConfig, JoinHandle<()
     (config, server)
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn empty_node_config(
     chain_checks: usize,
     receipt_checks: usize,
@@ -125,6 +128,9 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the authority fixture cannot be initialized or validated.
 pub fn config() -> StartupConfig {
     let authority_source = socket_path("authority").with_extension("csv");
     let key = receipt_public_key();

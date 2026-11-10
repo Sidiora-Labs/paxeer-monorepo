@@ -121,10 +121,10 @@ fn text<T, E: std::fmt::Debug>(result: Result<T, E>, label: &str) -> T {
 }
 
 fn owned_durable(subscriptions: SubscriptionStore) -> Store {
-    match subscriptions.into_durable() {
-        Ok(durable) => durable,
-        Err(_) => panic!("owned subscription store returned unexpected Err(Self)"),
-    }
+    let Ok(durable) = subscriptions.into_durable() else {
+        panic!("owned subscription store returned unexpected Err(Self)");
+    };
+    durable
 }
 
 fn filter(tenant: &str, agent_name: &str) -> SubscriptionFilter {
@@ -270,65 +270,7 @@ fn restart_resumes_from_acknowledged_cursor_and_remembers_deliveries() {
     }
     drop(subscriptions);
 
-    let durable = match Store::open(&root) {
-        Ok(value) => value,
-        Err(error) => panic!("store restart failed: {error}"),
-    };
-    let mut restarted = match SubscriptionStore::open(durable, tenant_id) {
-        Ok(value) => value,
-        Err(error) => panic!("subscription restart failed: {error}"),
-    };
-    assert!(matches!(
-        restarted.resume_cursor(&target),
-        Ok(Cursor {
-            block_height: 11,
-            tx_index: 0,
-            log_index: 0
-        })
-    ));
-    assert_eq!(restarted.list(&subscription_scope).len(), 1);
-    if let Err(error) = restarted.mark_delivered(
-        &target,
-        Cursor {
-            block_height: 12,
-            tx_index: 0,
-            log_index: 0,
-        },
-    ) {
-        panic!("unacknowledged cursor was not redeliverable after restart: {error}");
-    }
-    let delivered_before_restart = CursorAcknowledgement {
-        scope: subscription_scope.clone(),
-        subscription_id: id.clone(),
-        cursor: ApiCursor {
-            block_height: 12,
-            tx_index: 0,
-            log_index: 0,
-        },
-    };
-    if let Err(error) = restarted.acknowledge(&delivered_before_restart) {
-        panic!("durable delivered cursor was forgotten: {error}");
-    }
-    let never_delivered = CursorAcknowledgement {
-        scope: subscription_scope,
-        subscription_id: id,
-        cursor: ApiCursor {
-            block_height: 13,
-            tx_index: 0,
-            log_index: 0,
-        },
-    };
-    assert!(matches!(
-        restarted.acknowledge(&never_delivered),
-        Err(SubscriptionError::CursorNeverDelivered {
-            cursor: Cursor {
-                block_height: 13,
-                tx_index: 0,
-                log_index: 0
-            }
-        })
-    ));
-    let _ = fs::remove_dir_all(root);
+    assert_restarted_subscription(&root, tenant_id, subscription_scope, id, &target);
 }
 
 #[test]
@@ -356,7 +298,8 @@ fn legacy_subscription_without_a_session_generation_requires_cursor_reset() {
     for _ in 0..2 {
         let error =
             SubscriptionStore::open(text(Store::open(&root), "store restart"), tenant_id.clone())
-                .expect_err("legacy cursor must require an explicit reset");
+                .err()
+                .unwrap_or_else(|| panic!("legacy cursor must require an explicit reset"));
         // 2986: open reports the upgrade interface with the affected tenant and subscription.
         assert!(
             matches!(&error, SubscriptionError::UpgradeRequired { tenant, subscription_id }
@@ -366,7 +309,7 @@ fn legacy_subscription_without_a_session_generation_requires_cursor_reset() {
         let durable = text(Store::open(&root), "inspect legacy record");
         assert!(durable
             .get(&subscription_key(&tenant_id, &id))
-            .expect("legacy record remains present")
+            .unwrap_or_else(|| panic!("legacy record remains present"))
             .bytes()
             .starts_with(b"LXSB"));
     }
@@ -1193,9 +1136,8 @@ fn poisoned_shared_backing_reports_unavailable() {
     );
     let poisoner = Arc::clone(&shared);
     let handle = thread::spawn(move || {
-        let _guard = match poisoner.lock() {
-            Ok(guard) => guard,
-            Err(_) => panic!("shared backing was poisoned before the poisoning thread"),
+        let Ok(_guard) = poisoner.lock() else {
+            panic!("shared backing was poisoned before the poisoning thread");
         };
         panic!("poisoning the shared durable backing");
     });
@@ -1220,13 +1162,17 @@ fn anchored_local_cursors_keep_strict_delivery_and_exact_acknowledgements() {
     let scope = scope("tenant-a", "agent-a", "capability-a");
     let id = subscription_id("subscription-a");
     let target = subscription_target(&scope, &id);
-    let mut store = SubscriptionStore::open(Store::open(&root).unwrap(), tenant.clone()).unwrap();
+    let mut store = SubscriptionStore::open(
+        Store::open(&root).unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        tenant.clone(),
+    )
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     store
         .create(
             id.clone(),
             request(scope.clone(), filter("tenant-a", "agent-a"), 0),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let first = Cursor {
         block_height: 0,
         // 2985: attempt-1 (0, 0, 1) -> (0, MAX, 0).
@@ -1239,32 +1185,118 @@ fn anchored_local_cursors_keep_strict_delivery_and_exact_acknowledgements() {
         tx_index: u32::MAX,
         log_index: 1,
     };
-    store.mark_delivered(&target, first).unwrap();
+    store
+        .mark_delivered(&target, first)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert!(
         matches!(store.mark_delivered(&target, first), Err(SubscriptionError::CursorOutOfOrder { expected, received }) if expected == second && received == first)
     );
     assert!(
         matches!(store.acknowledge(&CursorAcknowledgement { scope: scope.clone(), subscription_id: id.clone(), cursor: second.into() }), Err(SubscriptionError::CursorNeverDelivered { cursor }) if cursor == second)
     );
-    store.mark_delivered(&target, second).unwrap();
+    store
+        .mark_delivered(&target, second)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     store
         .acknowledge(&CursorAcknowledgement {
             scope: scope.clone(),
             subscription_id: id.clone(),
             cursor: first.into(),
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     drop(store);
-    let mut store = SubscriptionStore::open(Store::open(&root).unwrap(), tenant).unwrap();
-    assert_eq!(store.resume_cursor(&target).unwrap(), first);
+    let mut store = SubscriptionStore::open(
+        Store::open(&root).unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        tenant,
+    )
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    assert_eq!(
+        store
+            .resume_cursor(&target)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        first
+    );
     store
         .acknowledge(&CursorAcknowledgement {
             scope,
             subscription_id: id,
             cursor: second.into(),
         })
-        .unwrap();
-    assert_eq!(store.resume_cursor(&target).unwrap(), second);
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    assert_eq!(
+        store
+            .resume_cursor(&target)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        second
+    );
     drop(store);
-    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+}
+
+fn assert_restarted_subscription(
+    root: &Path,
+    tenant_id: TenantId,
+    subscription_scope: SubscriptionScope,
+    id: SubscriptionId,
+    target: &SubscriptionTarget,
+) {
+    let durable = match Store::open(root) {
+        Ok(value) => value,
+        Err(error) => panic!("store restart failed: {error}"),
+    };
+    let mut restarted = match SubscriptionStore::open(durable, tenant_id) {
+        Ok(value) => value,
+        Err(error) => panic!("subscription restart failed: {error}"),
+    };
+    assert!(matches!(
+        restarted.resume_cursor(target),
+        Ok(Cursor {
+            block_height: 11,
+            tx_index: 0,
+            log_index: 0
+        })
+    ));
+    assert_eq!(restarted.list(&subscription_scope).len(), 1);
+    if let Err(error) = restarted.mark_delivered(
+        target,
+        Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
+    ) {
+        panic!("unacknowledged cursor was not redeliverable after restart: {error}");
+    }
+    let delivered_before_restart = CursorAcknowledgement {
+        scope: subscription_scope.clone(),
+        subscription_id: id.clone(),
+        cursor: ApiCursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
+    };
+    if let Err(error) = restarted.acknowledge(&delivered_before_restart) {
+        panic!("durable delivered cursor was forgotten: {error}");
+    }
+    let never_delivered = CursorAcknowledgement {
+        scope: subscription_scope,
+        subscription_id: id,
+        cursor: ApiCursor {
+            block_height: 13,
+            tx_index: 0,
+            log_index: 0,
+        },
+    };
+    assert!(matches!(
+        restarted.acknowledge(&never_delivered),
+        Err(SubscriptionError::CursorNeverDelivered {
+            cursor: Cursor {
+                block_height: 13,
+                tx_index: 0,
+                log_index: 0
+            }
+        })
+    ));
+    let _ = fs::remove_dir_all(root);
 }

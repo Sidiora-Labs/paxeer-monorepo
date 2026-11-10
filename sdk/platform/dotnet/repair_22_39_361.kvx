@@ -1,0 +1,46 @@
+[repair.22.39.361]
+base_revision = "85a5a12b6acf02912d362035fe9e3c4196587cc2"
+decision = "3247"
+gotcha = "4174"
+mode = "BUILD"
+revision_evidence = "The final build and verify entries in the private /out/run/gates.jsonl ledger name the exact qualified candidate revision, command, exit code and log. This record is finalized before qualification so both gates cover the same candidate."
+vectors = "Published conformance and sequencer source vectors are unchanged."
+reference = "sdk/platform/go/conformance_vectors_test.go:243 and sdk/platform/go/sequencer_receipt_test.go:445 verify the preexecution refusal with status zero, result code one, empty return data and logs, no LXP code or decoded reason, and matching canonical bytes and digest."
+
+[case.PublishedVectorFilesMatchRecordedCases]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs"
+cause = "The wrapper invokes SequencerReceiptV2RevertDecodesReason, whose singleton assumption rejects the published two-case V2 vector."
+change = "Keep the existing calls and add SequencerReceiptPreexecutionRefusal so both published V2 cases execute with their distinct authenticated outcomes. Pin both case ids and retain the V1 and V3 checks."
+
+[case.SequencerReceiptV2RevertDecodesReason]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs"
+cause = "Assert.Single over all V2 cases fails after the preexecution refusal was added to the published vector."
+change = "Select exactly one V2-layerxledger-revert by id; preserve every assertion about its verifier result, rung, result code, signed bytes, digest, LXP reason, VM error, return data and effects. A separate fact covers V2-pax-transfer-insufficient-funds at least as strictly as Go."
+
+[case.PortableReceiptRoundTripsAtReceipted]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+cause = "Single over the V2 section of sequencer-receipt-v1.json encounters both the ledger revert and preexecution refusal."
+change = "Select the ledger revert by id and retain its status and revert assertions, adding the recorded code and reason. Export and verify the preexecution refusal separately, asserting its expected verifier and rung, status, result code, canonical bytes, digest, empty return data and logs, absent LXP code and decoded reason, recorded VM error and byte-preserving round trip."
+
+[case.PortableExportMatchesPublishedVectorV5]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+cause = "The nanosecond assertions pin an earlier committed recording rather than the timestamps in the published vector-v4-committed.json."
+change = "Pin commit signature nanoseconds 706362949 and next-commit signature nanoseconds 778303533; retain byte equality with published V5, committed verification and every tamper refusal."
+
+[qualification]
+build_command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+verify_command = "test -s sdk/platform/dotnet/repair_22_39_361.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~SequencerReceiptTests|FullyQualifiedName~PortableReceiptTests'"
+done_command = "cg spec done 22.39.361 -f layerx-merge --root /work/paxeer-monorepo"
+counts_evidence = "The bounded verification log records the actual run counts; qualification requires all 13 selected facts to pass with zero failed and zero skipped. The five sequencer facts include the wrapper, which also executes the preexecution refusal; the portable class contains eight facts. No result is claimed until hf-done passes."
+sequencer_facts = 5
+portable_facts = 8
+selected_total = 13
+required_passed = 13
+required_failed = 0
+required_skipped = 0
+private_evidence_ledger = "/out/run/gates.jsonl"
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+
+[gotcha.scope]
+observed = "The explicit task scope excludes GOTCHA.kvx and spec files; task notes belong in this repair record, and existing runner workflow changes are preserved. No C# formatter is configured; touched C# follows the existing four-space style and root .editorconfig whitespace rules. KVX has no configured formatter."

@@ -8,6 +8,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { PeerIdentity } from "../src/identity.mjs";
+import { SignalClient } from "../src/transport.mjs";
+import { RoomHost, manifest, vector } from "./host-signal.mjs";
 import {
   DealClient,
   dealDigest,
@@ -188,9 +190,13 @@ async function setup(
   const offer = {
     model_digest: Array.from(source.digest),
     runtime_digest: fixed(6),
-    model_source: {
-      manifest_url: `http://127.0.0.1:${server.address().port}/manifest.json`,
-    },
+    room_id: fixed(4),
+    layer_plan: peers.map((identity, i) => ({
+      peer_key: Array.from(Buffer.from(identity.peerKey, "hex")),
+      first_layer: i * 2,
+      end_layer: i * 2 + 2,
+    })),
+    price: "100000000000000000000",
   };
   const deal = {
     chain: fixed(1),
@@ -220,6 +226,26 @@ async function setup(
       })),
     },
   };
+  const modelSource = {
+    manifest_url: `http://127.0.0.1:${server.address().port}/manifest.json`,
+  };
+  const signalHost = new RoomHost(),
+    signalPeers = new Map();
+  const signalURL = await signalHost.listen(t, (connection, frame) => {
+    if (frame.type === "hello") {
+      signalPeers.set(toHex(frame.peer_key), connection);
+      connection.send({ type: "offer", offer });
+    } else if (frame.type === "deal_ack") {
+      assert.deepEqual(frame.deal_id, deal.deal_id);
+      assert.deepEqual(Buffer.from(frame.digest), hostDigest(deal));
+      connection.send({ type: "deal_live", deal_id: deal.deal_id });
+    }
+  });
+  const signals = peers.map(
+    (identity) => new SignalClient(signalURL, { roomId, identity, manifest }),
+  );
+  for (const signal of signals) t.after(() => signal.close());
+  await Promise.all(signals.map((signal) => signal.connect()));
   const [host, a, b] = identities.map(
     (identity) => new SocketEndpoint(identity.peerKey),
   );
@@ -234,17 +260,29 @@ async function setup(
         roomId,
         identity,
         offer,
+        modelSource,
         runtime: runtimes[i],
         mesh: [a, b][i],
         hostPeerKey: hostIdentity.peerKey,
         validateDeal: async (received) =>
           validate && JSON.stringify(received) === JSON.stringify(deal),
-        acknowledge: (ack) => [a, b][i].send(host.key, "deal-ack", ack),
+        acknowledge: (ack) => signals[i].acknowledgeDeal(ack),
       }),
   );
-  for (const client of clients) t.after(() => client.close());
+  for (const [i, client] of clients.entries()) {
+    t.after(() => client.close());
+    signals[i].addEventListener("frame", ({ detail }) => {
+      if (["deal", "deal_live"].includes(detail.type))
+        client.handleFrame(detail).catch((error) => {
+          client.dispatchEvent(new CustomEvent("error", { detail: error }));
+        });
+    });
+  }
   return {
     source,
+    signalHost,
+    signalPeers,
+    modelSource,
     downloads,
     offer,
     deal,
@@ -258,22 +296,25 @@ async function setup(
 }
 
 async function admit(context) {
-  const { host, clients, peers, deal } = context;
-  const acknowledgements = peers.map((peer) =>
-    event(
-      host,
-      "frame",
-      ({ peerKey, frame }) =>
-        peerKey === peer.peerKey && frame.kind === "deal-ack",
-    ),
+  const { signalHost, signalPeers, clients, peers, deal } = context;
+  const acknowledgements = peers.map(
+    (peer) =>
+      new Promise((resolve) => {
+        signalHost.on("frame", (connection, frame) => {
+          if (
+            toHex(connection.frames[0].peer_key) === peer.peerKey &&
+            frame.type === "deal_ack"
+          )
+            resolve({ frame });
+        });
+      }),
   );
   const ready = clients.map((client) => event(client, "ready"));
-  await Promise.all(
-    peers.map((peer) => host.send(peer.peerKey, "deal", { deal })),
-  );
+  for (const peer of peers)
+    signalPeers.get(peer.peerKey).send({ type: "deal", deal });
   await Promise.all(ready);
   for (const [i, incoming] of (await Promise.all(acknowledgements)).entries()) {
-    const ack = incoming.frame.payload;
+    const ack = incoming.frame;
     assert.equal(ack.type, "deal_ack");
     assert.deepEqual(ack.deal_id, deal.deal_id);
     assert.deepEqual(Buffer.from(ack.digest), hostDigest(deal));
@@ -377,11 +418,13 @@ async function twoPeerSplitReproducesSingleProcessTokenForToken(t) {
 async function wrongShardDigestRefusesDealWithoutAcknowledgement(t) {
   const context = await setup(t, { corruptShard: 1 });
   let acknowledgements = 0;
-  context.host.addEventListener("frame", ({ detail }) => {
-    if (detail.frame.kind === "deal-ack") acknowledgements++;
+  context.signalHost.on("frame", (connection, frame) => {
+    if (frame.type === "deal_ack") acknowledgements++;
   });
   const refused = event(context.clients[0], "error");
-  await context.host.send(context.a.key, "deal", { deal: context.deal });
+  context.signalPeers
+    .get(context.a.key)
+    .send({ type: "deal", deal: context.deal });
   assert.match((await refused).message, /Shard digest mismatch: layer-1.json/);
   assert.equal(acknowledgements, 0);
   assert.equal(context.clients[0].state, "closed");
@@ -401,7 +444,9 @@ async function manifestDigestAndDealValidationRefuseBeforeWeights(t) {
       async (t) => {
         const context = await setup(t, options);
         const refused = event(context.clients[0], "error");
-        await context.host.send(context.a.key, "deal", { deal: context.deal });
+        context.signalPeers
+          .get(context.a.key)
+          .send({ type: "deal", deal: context.deal });
         assert.match(
           (await refused).message,
           options.corruptManifest
@@ -606,6 +651,7 @@ async function shardBoundariesCannotDownloadUnassignedWeights(t) {
   await assert.rejects(
     loadLayerRange({
       offer: context.offer,
+      modelSource: context.modelSource,
       firstLayer: 1,
       endLayer: 5,
       runtime: context.runtimes[0],

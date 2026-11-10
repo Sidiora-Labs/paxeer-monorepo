@@ -1,0 +1,62 @@
+[meta]
+task = "22.39.374"
+decision = "3283"
+gotcha = "4211"
+base_revision = "96827b7c720780e46ce3b77d0094df61997ea1c0"
+scope = "services/launchpad/pnl-tracker/internal/production/l16"
+
+[producer]
+path = "services/launchpad/indexer/internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz"
+revision = "fbc5b81dcb649cdee143dd4b18b6343b8641c77a"
+comparison = "Compared the gzip-decoded records at the producer revision and its first parent by request key: exactly one addition, zero removals, and zero changed replies across all 266 previous keys. The working-tree transcript equals the committed producer file."
+previous_records = 266
+records = 267
+previous_sha256 = "4b5ebff5adc5d1fa33b2275ed4f27d9b68ff955a6443bda441eb191470214f60"
+sha256 = "8e30a49734f6381b6234e64d2ee01367a9c47939d1cd1c13b5755914e43b61a1"
+added_method = "eth_getCode"
+added_address = "0x85fcd13735f4309833a503ee804ea32395851479"
+added_block_hash = "0xd955d693c649ee8e9a69be1e9d6d683ac05a6b846ecbb6f0d165ff1a698ceb68"
+added_block_parameter = "EIP-1898 blockHash object"
+code_bytes = 4230
+code_sha256 = "32ae0f6e3bebe0f39b69a2790c61f7899a77c6b6d5584f53c8783053cf98e9a4"
+rpc_result_text_sha256 = "a6f8767743edb07b7bf2a9d9e9fca3cac039aeee6d43b3cead807a60439da5b4"
+reason = "services/launchpad/indexer/repair_22_39_162.kvx:324-335 records TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket requesting the historical emitter runtime through internal/receipt/identity.go:proveHistoricalMarket. Task 22.39.162 used the existing chainfixture record mode against a chain-125 archive to supply the missing code-epoch proof at the recorded historical block hash."
+
+[changes]
+checksum = "repair_63_test.go:266 repair63RecordedRPC binds the exact committed 267-record gzip SHA-256 instead of its parent's pin (original line 259)."
+regression = "repair_63_test.go:246-252 TestRepair_63_RecordedReplayHeaders requests the added emitter code through ethclient.CodeAtHash and the real recorded RPC loader, asserting its exact byte count and decoded-code SHA-256. Every existing header, next-parent, by-hash equality and transaction assertion is retained."
+expectations = "The added response does not replace any existing request key or any block record, so both existing header expectations still follow the producer transcript. The strict RPC loader and parameter validation are unchanged."
+supplemental_headers = "testdata/repair_63_headers.jsonl and its fb6c89748c9e21bc2824fcc4df39cd8dc448332f1fcf1141e2e1cee2826db418 pin are unchanged: the addition is historical emitter code, not a header, and changes neither supplemental block's identity, parent or transaction."
+
+[search]
+roots = ["services/launchpad", "sdk/launchpad"]
+terms = "Exact previous transcript SHA-256 and word-bounded record count 266"
+inside = "The only previous-checksum pin found is repair_63_test.go:259 before this task, repaired at line 266. No other pin or current total-record-count assertion was found in either search root."
+outside = "services/launchpad/indexer/repair_22_39_162.kvx:332 says all 266 pre-existing request keys and replies compare unchanged against the base fixture. This is an accurate historical count, not a current total of 266; it remains unchanged and is outside scope. Line 215's other 266 occurrence is a source line number, not a transcript count."
+
+[caller.recorded_replay_headers]
+test = "TestRepair_63_RecordedReplayHeaders"
+call = "repair_63_test.go:217 -> repair63RecordedRPC"
+result = "Runs in the declared hf-done verification; its actual result, candidate revision and exit are owned by the final verify row in /out/run/gates.jsonl and /out/logs/verify-1.log. No pre-gate result is claimed."
+
+[caller.active_snapshot_update_grant]
+test = "TestRepair_63_ActiveSnapshotUpdateGrant"
+calls = "Original repair_63_test.go:502 via repair63Database -> repair63CurrentFillRows; :661 and :666 via repair63Service for primary and archive, including reopened service"
+result = "Not run here: database-dependent baseline case retained unchanged. tests/ci/data/launchpad_go_test_baseline.json lists its existing migration-fixture path failure; it must pass migration checks and real coordinator PostgreSQL bootstrap before reaching the recorded RPC callers. It is outside the declared verification filter. No skip or baseline edit was added."
+
+[caller.wallet_range_schema_migrated]
+test = "TestRepair_63_WalletRangeSchemaMigrated"
+calls = "Original repair_63_test.go:502 via repair63Database -> repair63CurrentFillRows; :661 and :666 via repair63Service for primary and archive, including reopened service"
+result = "Not run here: database-dependent baseline case retained unchanged. tests/ci/data/launchpad_go_test_baseline.json lists its existing migration-fixture path failure; it must pass migration checks and real coordinator PostgreSQL bootstrap before reaching the recorded RPC callers. It is outside the declared verification filter. No skip or baseline edit was added."
+
+[qualification]
+build_command = "cd services/launchpad/pnl-tracker && go vet ./internal/production/l16/"
+verify_command = "test -s services/launchpad/pnl-tracker/internal/production/l16/repair_22_39_374.kvx && cd services/launchpad/pnl-tracker && go test -count=1 ./internal/production/l16/ -run 'TestRepair_63_RecordedReplayHeaders|TestRepair_63_TranscriptBlockParameter'"
+gate_command = "cg spec done 22.39.374 -f layerx-merge --root /work/paxeer-monorepo"
+verified_revision = "The exact revision field of the final hf-done evidence line and final verify row in /out/run/gates.jsonl identifies the qualified candidate; it must equal the build row's revision."
+evidence = "Private /out/run/gates.jsonl records revision, command, exit and log for each bounded gate. First-run logs are /out/logs/build-1.log and /out/logs/verify-1.log; bounded repair successors, if needed, are named by the ledger. No gate success is declared in advance and no file is edited after successful hf-done."
+parameter_case = "TestRepair_63_TranscriptBlockParameter runs alongside the replay case in the declared verification, retaining acceptance of producer string tags and blockHash objects and explicit malformed-parameter rejection."
+
+[gotcha.comparison]
+observed = "A read-only comparison initially treated every RPC result as a block object and stopped on a non-block list result after reporting the complete old/new transcript delta."
+repair = "Filter by eth_getBlock method and dictionary result before inspecting block fields; the focused read confirmed both existing expected headers and next-parent links."

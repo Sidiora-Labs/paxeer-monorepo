@@ -12,7 +12,7 @@ use layerx_client::ai_market::{
 use layerx_client::sequencer::SequencerEndpoint;
 use market::{
     admission::{AdmissionTable, Participant},
-    rooms::{LayerSplit, RecordDealRequest, RoomBook, MAX_DEAL_PEERS},
+    rooms::{LayerSplit, RecordDealRequest, RoomBook, RoomRecord, MAX_DEAL_PEERS},
     state::{self, Section},
     types::{Digest32, RequestId, RosterDigest},
     workers::{WorkerState, WorkerTable},
@@ -43,7 +43,15 @@ impl From<io::Error> for DealError {
 }
 impl std::fmt::Display for DealError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "deal negotiation refused: {self:?}")
+        match self {
+            Self::Client(error) => write!(f, "deal negotiation refused: Client({error:?})"),
+            Self::Signal(error) => write!(f, "deal negotiation refused: Signal({error:?})"),
+            Self::Io(error) => write!(f, "deal negotiation refused: Io({error:?})"),
+            Self::Invalid(error) => write!(f, "deal negotiation refused: Invalid({error:?})"),
+            Self::InsufficientCapacity => {
+                write!(f, "deal negotiation refused: InsufficientCapacity")
+            }
+        }
     }
 }
 impl std::error::Error for DealError {}
@@ -146,9 +154,12 @@ pub fn plan_layers(
         if peer.owner == host || !used.insert(peer.owner) {
             continue;
         }
-        let capacity = u32::from(peer.layer_capacity)
-            .min(peer.accelerator_memory_mib / layer_memory_mib)
-            .min(u32::from(layer_count - end)) as u16;
+        let capacity = u16::try_from(
+            u32::from(peer.layer_capacity)
+                .min(peer.accelerator_memory_mib / layer_memory_mib)
+                .min(u32::from(layer_count - end)),
+        )
+        .map_err(|_| DealError::Invalid("invalid model geometry"))?;
         if capacity == 0 {
             continue;
         }
@@ -194,6 +205,7 @@ pub struct DealFrame {
     pub plan: LayerPlan,
 }
 impl DealFrame {
+    #[cfg(test)]
     pub fn verify_recorded(
         &self,
         endpoint: &SequencerEndpoint,
@@ -257,7 +269,9 @@ impl DealFrame {
         hash.update(self.plan.embedding_host);
         hash.update(self.plan.head_host);
         hash.update(self.plan.layer_count.to_be_bytes());
-        hash.update((self.plan.layers.len() as u16).to_be_bytes());
+        let layer_count = u16::try_from(self.plan.layers.len())
+            .map_err(|_| DealError::Invalid("invalid host or layer count"))?;
+        hash.update(layer_count.to_be_bytes());
         for split in &self.plan.layers {
             for value in [
                 split.peer_key,
@@ -273,6 +287,7 @@ impl DealFrame {
         Ok(hash.finalize().into())
     }
 
+    #[cfg(test)]
     pub fn acknowledgement(
         &self,
         peer_key: &[u8; 32],
@@ -318,6 +333,10 @@ pub enum DealAcknowledgement {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "large_enum_variant: tests/inference_deals.rs constructs DealServerFrame::Deal with an unboxed DealFrame"
+)]
 pub enum DealServerFrame {
     Deal { deal: DealFrame },
     DealLive { deal_id: [u8; 32] },
@@ -615,6 +634,7 @@ impl DealEngine {
         };
         Ok(negotiation.ready() && Self::record_matches(snapshot, &negotiation.frame)?)
     }
+    #[cfg(test)]
     pub fn excluded(&self, peer: &[u8; 32]) -> bool {
         self.session.excluded.contains(peer)
     }
@@ -708,7 +728,7 @@ impl DealEngine {
             .current_epoch()
             .ok_or(DealError::Invalid("admission epoch is unavailable"))?;
         let roster = market::roster::roster_digest(&admission, epoch)?.bytes();
-        let mut dropped = Vec::new();
+        let dropped = Vec::new();
         if let Some(current) = &self.session.current {
             if Self::record_matches(&snapshot, &current.frame)? {
                 if current.submitted.is_none() || !current.ready() {
@@ -727,6 +747,22 @@ impl DealEngine {
         }
         let view_bytes = client::book_view(&snapshot, room.model_digest)?;
         let view = BookView::decode(&view_bytes)?;
+        let dropped = self.refresh_negotiation(&snapshot, &book, epoch, roster, now_ms)?;
+        self.negotiate(&snapshot, &book, &room, &view, (epoch, roster), now_ms)?;
+        self.snapshot = Some(snapshot);
+        self.persist()?;
+        Ok(dropped)
+    }
+
+    fn refresh_negotiation(
+        &mut self,
+        snapshot: &FinalizedSnapshot,
+        book: &RoomBook<'_>,
+        epoch: u64,
+        roster: [u8; 32],
+        now_ms: u64,
+    ) -> Result<Vec<[u8; 32]>, DealError> {
+        let mut dropped = Vec::new();
         if let Some(current) = &self.session.current {
             let valid = current.frame.roster_digest == roster
                 && current.frame.epoch == epoch
@@ -736,7 +772,7 @@ impl DealEngine {
                     .is_some_and(|ask| ask.state == market::rooms::AskState::Open)
                 && current.frame.plan.layers.iter().all(|split| {
                     self.peers.get(&split.peer_key).is_some_and(|peer| {
-                        self.admitted_peer(&snapshot, &split.peer_key, &peer.bytes)
+                        self.admitted_peer(snapshot, &split.peer_key, &peer.bytes)
                             .is_ok()
                     })
                 });
@@ -753,50 +789,75 @@ impl DealEngine {
                 self.session.current = None;
             }
         }
+        Ok(dropped)
+    }
+
+    fn plan_candidates(
+        &self,
+        snapshot: &FinalizedSnapshot,
+        book: &RoomBook<'_>,
+        room: &RoomRecord,
+        view: &BookView<'_>,
+        ask_index: usize,
+    ) -> Result<Vec<PlanPeer>, DealError> {
+        let mut candidates = Vec::new();
+        for (_, bid_index) in view
+            .crossing_pairs()
+            .filter(|(index, _)| *index == ask_index)
+        {
+            let placement = view.bid(bid_index)?;
+            let bid = book
+                .bid(placement.order_id)?
+                .ok_or(DealError::Invalid("book bid is unavailable"))?;
+            for (key, peer) in &self.peers {
+                if self.session.excluded.contains(key)
+                    || self.admitted_peer(snapshot, key, &peer.bytes).is_err()
+                {
+                    continue;
+                }
+                let manifest = workers::decode_manifest(&peer.bytes)?;
+                if manifest.owner != bid.peer_key
+                    || bid.peer_key == room.host_key
+                    || bid.capability_digest.bytes() != manifest.digest.bytes()
+                    || bid.bond_amount < room.profile.minimum_bond
+                {
+                    continue;
+                }
+                let capabilities = manifest
+                    .capabilities
+                    .ok_or(DealError::Invalid("peer has no accelerator manifest"))?;
+                candidates.push(PlanPeer {
+                    peer_key: *key,
+                    owner: bid.peer_key.bytes(),
+                    bid_id: bid.bid_id.bytes(),
+                    manifest_digest: manifest.digest.bytes(),
+                    accelerator_memory_mib: capabilities.accelerator_memory_mib,
+                    layer_capacity: bid.layer_capacity,
+                    minimum_price: bid.minimum_price_per_thousand_tokens,
+                });
+            }
+        }
+        Ok(candidates)
+    }
+
+    fn negotiate(
+        &mut self,
+        snapshot: &FinalizedSnapshot,
+        book: &RoomBook<'_>,
+        room: &RoomRecord,
+        view: &BookView<'_>,
+        (epoch, roster): (u64, [u8; 32]),
+        now_ms: u64,
+    ) -> Result<(), DealError> {
         if self.session.current.is_none() && room.state == market::rooms::RoomState::Open {
+            let config = &self.session.config;
             let mut considered = BTreeSet::new();
             for (ask_index, _) in view.crossing_pairs() {
                 let ask = view.ask(ask_index)?;
                 if ask.room_id != room.room_id || !considered.insert(ask.order_id) {
                     continue;
                 }
-                let mut candidates = Vec::new();
-                for (_, bid_index) in view
-                    .crossing_pairs()
-                    .filter(|(index, _)| *index == ask_index)
-                {
-                    let placement = view.bid(bid_index)?;
-                    let bid = book
-                        .bid(placement.order_id)?
-                        .ok_or(DealError::Invalid("book bid is unavailable"))?;
-                    for (key, peer) in &self.peers {
-                        if self.session.excluded.contains(key)
-                            || self.admitted_peer(&snapshot, key, &peer.bytes).is_err()
-                        {
-                            continue;
-                        }
-                        let manifest = workers::decode_manifest(&peer.bytes)?;
-                        if manifest.owner != bid.peer_key
-                            || bid.peer_key == room.host_key
-                            || bid.capability_digest.bytes() != manifest.digest.bytes()
-                            || bid.bond_amount < room.profile.minimum_bond
-                        {
-                            continue;
-                        }
-                        let capabilities = manifest
-                            .capabilities
-                            .ok_or(DealError::Invalid("peer has no accelerator manifest"))?;
-                        candidates.push(PlanPeer {
-                            peer_key: *key,
-                            owner: bid.peer_key.bytes(),
-                            bid_id: bid.bid_id.bytes(),
-                            manifest_digest: manifest.digest.bytes(),
-                            accelerator_memory_mib: capabilities.accelerator_memory_mib,
-                            layer_capacity: bid.layer_capacity,
-                            minimum_price: bid.minimum_price_per_thousand_tokens,
-                        });
-                    }
-                }
+                let candidates = self.plan_candidates(snapshot, book, room, view, ask_index)?;
                 let plan = match plan_layers(
                     room.host_key.bytes(),
                     config.layer_count,
@@ -853,7 +914,7 @@ impl DealEngine {
                 };
                 frame.digest()?;
                 let deadline_ms = now_ms
-                    .checked_add(u64::from(room.profile.acknowledgement_window_ms))
+                    .checked_add(room.profile.acknowledgement_window_ms)
                     .ok_or(DealError::Invalid("acknowledgement deadline overflow"))?;
                 self.session.current = Some(Negotiation {
                     frame,
@@ -864,9 +925,7 @@ impl DealEngine {
                 break;
             }
         }
-        self.snapshot = Some(snapshot);
-        self.persist()?;
-        Ok(dropped)
+        Ok(())
     }
 
     pub fn envelope(&self, expiry: u64) -> Result<Vec<u8>, DealError> {
@@ -988,82 +1047,6 @@ pub struct DealSignalListener {
     live_announced: BTreeSet<[u8; 32]>,
 }
 impl DealSignalListener {
-    pub fn start(
-        listener: TcpListener,
-        offer: RoomOffer,
-        authority: SignalAuthority,
-        engine: Arc<Mutex<DealEngine>>,
-        clock: fn() -> Result<u64, String>,
-    ) -> Result<Self, String> {
-        offer
-            .digest()
-            .map_err(|error| format!("invalid signal offer: {error:?}"))?;
-        listener
-            .set_nonblocking(true)
-            .map_err(|error| error.to_string())?;
-        let address = listener.local_addr().map_err(|error| error.to_string())?;
-        let stop = Arc::new(AtomicBool::new(false));
-        let shared = Arc::new(Mutex::new(Connections::default()));
-        let worker_stop = Arc::clone(&stop);
-        let worker_shared = Arc::clone(&shared);
-        let worker_engine = Arc::clone(&engine);
-        let worker = thread::Builder::new().name("inference-deals-signal".to_owned()).spawn(move || {
-            let next = AtomicU64::new(1);
-            let mut workers: Vec<JoinHandle<()>> = Vec::new();
-            let result = (|| {
-                while !worker_stop.load(Ordering::Acquire) {
-                    let mut index = 0;
-                    while index < workers.len() {
-                        if workers[index].is_finished() { workers.swap_remove(index).join().map_err(|_| "deal signal connection panicked")?; }
-                        else { index += 1; }
-                    }
-                    match listener.accept() {
-                        Ok((mut stream, _)) => {
-                            stream.set_read_timeout(Some(IO_DEADLINE)).map_err(|error| error.to_string())?;
-                            stream.set_write_timeout(Some(IO_DEADLINE)).map_err(|error| error.to_string())?;
-                            let id = next.fetch_add(1, Ordering::Relaxed);
-                            let mut connections = worker_shared.lock().map_err(|_| "signal connections unavailable")?;
-                            if connections.sockets.len() == MAX_CONNECTIONS {
-                                drop(connections);
-                                let _ = stream.write_all(b"HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
-                                continue;
-                            }
-                            connections.sockets.insert(id, stream.try_clone().map_err(|error| error.to_string())?);
-                            drop(connections);
-                            let connection = Connection { id, shared: Arc::clone(&worker_shared) };
-                            let offer = offer.clone();
-                            let authority = authority.clone();
-                            let engine = Arc::clone(&worker_engine);
-                            workers.push(thread::Builder::new().name("inference-deals-peer".to_owned()).spawn(move || {
-                                let _connection = connection;
-                                let _ = serve_deal_connection(&mut stream, &offer, &authority, &_connection, &engine, clock);
-                            }).map_err(|error| error.to_string())?);
-                        }
-                        Err(error) if error.kind() == io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(5)),
-                        Err(error) => return Err(error.to_string()),
-                    }
-                }
-                Ok(())
-            })();
-            if let Ok(connections) = worker_shared.lock() { for stream in connections.sockets.values() { let _ = stream.shutdown(Shutdown::Both); } }
-            for worker in workers { let _ = worker.join(); }
-            result
-        }).map_err(|error| error.to_string())?;
-        Ok(Self {
-            signal: SignalListener {
-                address,
-                stop,
-                shared,
-                thread: Some(worker),
-            },
-            engine,
-            announced: None,
-            live_announced: BTreeSet::new(),
-        })
-    }
-    pub fn local_addr(&self) -> SocketAddr {
-        self.signal.local_addr()
-    }
     pub fn check(&self) -> Result<(), String> {
         self.signal.check()
     }
@@ -1175,111 +1158,6 @@ impl Drop for AdmittedConnection<'_> {
     }
 }
 
-fn serve_deal_connection(
-    stream: &mut TcpStream,
-    offer: &RoomOffer,
-    authority: &SignalAuthority,
-    connection: &Connection,
-    engine: &Arc<Mutex<DealEngine>>,
-    clock: fn() -> Result<u64, String>,
-) -> Result<(), SignalError> {
-    if !upgrade(stream, authority)? {
-        return Ok(());
-    }
-    let writer = Arc::new(Mutex::new(
-        stream.try_clone().map_err(|_| SignalError::Backpressure)?,
-    ));
-    let mut nonce = [0; 32];
-    getrandom::fill(&mut nonce).map_err(|_| SignalError::ChainUnavailable)?;
-    send(&writer, &ServerFrame::Challenge { nonce })?;
-    let result = (|| {
-        let mut fragments = None;
-        let ClientFrame::Hello(hello) = receive(stream, &writer, &mut fragments)? else {
-            return Err(SignalError::InvalidFrame);
-        };
-        hello.verify(&nonce, &offer.room_id)?;
-        authority.admit(&hello, offer)?;
-        let _admitted = {
-            let mut connections = connection
-                .shared
-                .lock()
-                .map_err(|_| SignalError::Backpressure)?;
-            if connections.peers.contains_key(&hello.peer_key) {
-                return Err(SignalError::DuplicatePeer);
-            }
-            engine
-                .lock()
-                .map_err(|_| SignalError::Backpressure)?
-                .admit(connection.id, &hello, &nonce)
-                .map_err(|_| SignalError::Unenrolled)?;
-            let admitted = AdmittedConnection {
-                engine,
-                key: hello.peer_key,
-                connection: connection.id,
-            };
-            send(
-                &writer,
-                &ServerFrame::Offer {
-                    offer: offer.clone(),
-                },
-            )?;
-            connections.peers.insert(
-                hello.peer_key,
-                Peer {
-                    connection: connection.id,
-                    writer: Arc::clone(&writer),
-                },
-            );
-            admitted
-        };
-        loop {
-            match receive_deal(stream, &writer, &mut fragments)? {
-                DealClientFrame::Acknowledgement(ack) => {
-                    let now = clock().map_err(|_| SignalError::ChainUnavailable)?;
-                    engine
-                        .lock()
-                        .map_err(|_| SignalError::Backpressure)?
-                        .acknowledge(&hello.peer_key, &ack, now)
-                        .map_err(|error| match error {
-                            DealError::Signal(code) => code,
-                            _ => SignalError::InvalidFrame,
-                        })?;
-                }
-                DealClientFrame::Signal(ClientFrame::Description { to, description }) => {
-                    relay_description(&connection.shared, &hello.peer_key, &to, description)?
-                }
-                DealClientFrame::Signal(ClientFrame::Candidate { to, candidate }) => relay(
-                    &connection.shared,
-                    &to,
-                    &ServerFrame::Candidate {
-                        from: hello.peer_key,
-                        candidate,
-                    },
-                )?,
-                DealClientFrame::Signal(ClientFrame::Hello(_)) => {
-                    return Err(SignalError::InvalidFrame)
-                }
-            }
-        }
-    })();
-    if let Err(code) = &result {
-        let _ = send(&writer, &ServerFrame::Error { code: code.clone() });
-        if let Ok(mut writer) = writer.lock() {
-            let _ = write_frame(
-                &mut writer,
-                8,
-                &(if *code == SignalError::FrameTooLarge {
-                    1009_u16
-                } else {
-                    1008_u16
-                })
-                .to_be_bytes(),
-            );
-        }
-    }
-    result
-}
-
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum DealClientFrame {
@@ -1287,6 +1165,7 @@ pub enum DealClientFrame {
     Signal(ClientFrame),
 }
 
+#[cfg(test)]
 pub fn receive_deal(
     stream: &mut TcpStream,
     writer: &Arc<Mutex<TcpStream>>,
@@ -1337,7 +1216,8 @@ pub fn receive_deal(
         stream
             .read_exact(&mut mask)
             .map_err(|_| SignalError::InvalidFrame)?;
-        let mut bytes = vec![0; length as usize];
+        let length = usize::try_from(length).map_err(|_| SignalError::FrameTooLarge)?;
+        let mut bytes = vec![0; length];
         stream
             .read_exact(&mut bytes)
             .map_err(|_| SignalError::InvalidFrame)?;
@@ -1345,7 +1225,6 @@ pub fn receive_deal(
             *byte ^= mask[index % 4];
         }
         match opcode {
-            8 => return Err(SignalError::InvalidFrame),
             9 => {
                 let mut writer = writer.lock().map_err(|_| SignalError::Backpressure)?;
                 write_frame(&mut writer, 10, &bytes).map_err(|_| SignalError::Backpressure)?;
