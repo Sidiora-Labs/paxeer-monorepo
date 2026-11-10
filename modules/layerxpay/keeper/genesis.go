@@ -130,35 +130,21 @@ func (g RecoveryGenesis) Validate() error {
 	}
 	var kernels, metadata, receipts uint64
 	var lastKernel, lastMetadata, lastReceipt []byte
-	var gates []kv.Pair
-	var owned []kv.Pair
+	complete := types.GenesisState{Params: g.Params}
 	for i, chunk := range g.Chunks {
 		size := len(chunk.KernelRecords) + len(chunk.AgentStreamMetadata) + len(chunk.EscrowReceipts)
 		if size == 0 || size > types.MaxKernelRecords {
 			return types.ErrInvalidGenesis.Wrapf("recovery chunk %d has invalid count", i)
 		}
-		// Reuse the existing key, value and gate validation within each bounded
-		// chunk; the full envelope is checked below for global consistency.
-		bounded := types.GenesisState{Params: types.DefaultParams(), KernelRecords: chunk.KernelRecords, AgentStreamMetadata: chunk.AgentStreamMetadata, EscrowReceipts: chunk.EscrowReceipts}
-		if err := bounded.Validate(); err != nil {
-			return err
-		}
+		complete.KernelRecords = append(complete.KernelRecords, chunk.KernelRecords...)
+		complete.EscrowReceipts = append(complete.EscrowReceipts, chunk.EscrowReceipts...)
+		complete.AgentStreamMetadata = append(complete.AgentStreamMetadata, chunk.AgentStreamMetadata...)
 		for _, record := range chunk.KernelRecords {
-			owned = append(owned, record)
 			if lastKernel != nil && bytes.Compare(lastKernel, record.Key) >= 0 {
 				return types.ErrInvalidGenesis.Wrap("recovery kernel keys must be strictly ordered")
 			}
 			lastKernel = record.Key
 			kernels++
-			for _, id := range []uint16{types.EscrowModuleID, types.BudgetModuleID, types.StreamModuleID, types.ServiceModuleID} {
-				key, err := types.KernelModuleEnableKey(id)
-				if err != nil {
-					return err
-				}
-				if bytes.Equal(key, record.Key) {
-					gates = append(gates, record)
-				}
-			}
 		}
 		for _, record := range chunk.EscrowReceipts {
 			if lastReceipt != nil && bytes.Compare(lastReceipt, record.Key) >= 0 {
@@ -178,16 +164,9 @@ func (g RecoveryGenesis) Validate() error {
 	if kernels != g.KernelRecordCount || metadata != g.MetadataRecordCount || receipts != g.EscrowReceiptCount || g.Checksum != g.checksum() {
 		return types.ErrInvalidGenesis.Wrap("incomplete or altered recovery envelope")
 	}
-	if metadata > types.MaxKernelRecords {
-		return types.ErrInvalidGenesis.Wrapf("agent stream metadata count %d exceeds %d", metadata, types.MaxKernelRecords)
-	}
-	if err := validateEscrowRecords(owned); err != nil {
-		return types.ErrInvalidGenesis.Wrap(err.Error())
-	}
-	if err := validateServiceRecords(owned); err != nil {
-		return types.ErrInvalidGenesis.Wrap(err.Error())
-	}
-	return (types.GenesisState{Params: g.Params, KernelRecords: gates}).Validate()
+	// References can cross chunk boundaries in a canonical export. Validate the
+	// complete envelope after enforcing chunk bounds, order, counts and checksum.
+	return ValidateOwnedGenesis(complete)
 }
 
 func (k Keeper) ExportRecoveryGenesis(ctx sdk.Context) *RecoveryGenesis {

@@ -617,6 +617,10 @@
   },
   "documentation_paths": [
     {
+      "pattern": "contracts/*.md",
+      "reason": "The reviewed API contracts document current interfaces, retained compatibility ABIs and retired source references without invoking the retired executors."
+    },
+    {
       "path": "spec/layerx-merge/spec.kvx",
       "reason": "reviewed merge specification: requirement, acceptance and task text names each retired component it retires"
     },
@@ -667,25 +671,54 @@
     {
       "pattern": "apps/launchpad/web/public/charting_library/**",
       "reason": "The third-party charting library bundles contain vendor vocabulary rather than retired product callers."
+    },
+    {
+      "path": "services/platform/examples/marketplace/repair-22-31-349.kvx",
+      "reason": "Decision 3125 classifies this historical repair record, including its lx_getSequence test-contract finding, as documentation rather than a live caller."
+    },
+    {
+      "pattern": "tools/bringup/repair-*.kvx",
+      "reason": "The bringup repair records document historical findings and transport removals rather than production callers."
     }
   ],
   "allowed_references": [
     {
-      "path": "engine/executor",
+      "path": "Makefile",
       "symbols": [
-        "layerxanchor",
-        "layerxcustody",
-        "layerxverify"
+        "bridge_credit",
+        "history.lxl",
+        "lxp_test_golden_replay",
+        "state_feed"
       ],
-      "citation": "Decision 3125 retains the fail-fast refusal list for retired precompiles 0x1012 through 0x1014 so accelerated execution aborts and ordinary execution enforces their upgrade-height and module-disabled behavior."
+      "citation": "Decision 3125 and task 22.39.277 retain the live golden replay source and fixture plus the regression targets that assert retired credit symbols are absent and state feeds are unbound."
     },
     {
-      "path": "modules/lxphost",
+      "path": "contracts/launchpad/contracts/core",
       "symbols": [
-        "receipt_authority",
-        "fee_governance"
+        "recordDeposit"
       ],
-      "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
+      "citation": "Decision 3125 permits the live factory call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/interfaces",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live ITreasury.recordDeposit interface for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/periphery",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live router call to ITreasury.recordDeposit for launchpad fee accounting, which is distinct from the retired exchange-intents method."
+    },
+    {
+      "path": "contracts/launchpad/contracts/protocol",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decision 3125 permits the live Treasury.recordDeposit implementation that accounts prior token transfers under DEPOSITOR_ROLE, which is distinct from the retired exchange-intents method."
     },
     {
       "path": "modules/layerxanchor/keeper/custody_reader.go",
@@ -1237,6 +1270,64 @@
       "citation": "Decision 3125 permits the live kernel identifiers lxp_grant_encode, lxp_grant_id_compute, lxp_verified_receipt_authority_facts, lxp_replay_engine and lxp_programs_fee_governance_stage, which carry the retired name as a prefix."
     },
     {
+      "path": "services/platform/hosted/agent-boundary",
+      "symbols": [
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade"
+      ],
+      "citation": "Decision 3125 retains the obsolete internal deployment and upgrade route names solely for explicit mutation refusals in the shipping agent boundary."
+    },
+    {
+      "path": "services/platform/hosted/authority",
+      "symbols": [
+        "authority_replica"
+      ],
+      "citation": "Decision 3125 retains authority_replica_id as the historical receipt evidence wire identity pinned to the configured producer independently of committed-chain verification."
+    },
+    {
+      "path": "services/platform/hosted/core",
+      "symbols": [
+        "sign_disclosed"
+      ],
+      "citation": "Decision 3125 retains the live sign_disclosed_call helper that validates disclosure-bound EIP-1559 transactions and signs through the secp256k1 Signer trait."
+    },
+    {
+      "path": "services/platform/hosted/indexer",
+      "symbols": [
+        "FINALIZED_RANK",
+        "LNI",
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains disabled-precompile ABI exclusions and historical decoder regression rows, the committed-block publication rank, and obsolete socket input used to assert node RPC configuration ignores it."
+    },
+    {
+      "path": "services/platform/hosted/registry",
+      "symbols": [
+        "authority_replica",
+        "lni",
+        "lni_",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the shipping independent receipt evidence endpoint and producer pins used to cross-check committed-chain proofs, plus the public compatibility socket field that remains unset."
+    },
+    {
+      "path": "services/platform/hosted/testnet",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the shipping receipt_authority readiness dependency and its documented payment and receipt-inspection admission checks."
+    },
+    {
+      "path": "services/platform/hosted/webhooks",
+      "symbols": [
+        "FINALIZED_RANK",
+        "authority_replica"
+      ],
+      "citation": "Decision 3125 retains the publication rank gated by verified block commits and native store proofs and the historical authority evidence regression using its pinned producer identity."
+    },
+    {
       "path": "src/ledger",
       "symbols": [
         "lxp_grant",
@@ -1286,6 +1377,217 @@
         "paxeer-reserve"
       ],
       "citation": "Decision 3125 keeps the system:paxeer-reserve name table rows for genesis and history replay until the account is retired with a state migration after the upgrade."
+    },
+    {
+      "path": "services/human/schema/human-api",
+      "symbols": [
+        "settlement_domain",
+        "SettlementDomain"
+      ],
+      "citation": "Decision 3125 retains the settlement_domain and SettlementDomain declarations and golden vectors as the schema record of retirement, including the retired markers asserted by verification_level_retires_settlement_values_and_maps_rungs in services/human/tools/schema-check/tests/journey_vocabulary.rs."
+    },
+    {
+      "path": "src/modules/asset",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/governance",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "src/modules/programs",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "tests/replay",
+      "symbols": [
+        "fee_governance",
+        "lxp_grant",
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/ai_market.rs",
+      "symbols": [
+        "FINALIZED_RANK"
+      ],
+      "citation": "Decision 3125 retains the live FINALIZED_RANK from programs/crates/layerx-programs-ai-market/src/queries.rs because ObservedSnapshot::finalize assigns it only after matching the verified Comet block commit and ICS23 program-state witness to the captured state."
+    },
+    {
+      "path": "services/agent/crates/layerx-crypto/src",
+      "symbols": [
+        "KeystoreSigner",
+        "RemoteSigner",
+        "sign_disclosed"
+      ],
+      "citation": "Decision 3125 retains KeystoreSigner and RemoteSigner for typed bind consent and native payer authorization with activity signing refused before I/O, and sign_disclosed_call is the live secp256k1 EIP-1559 replacement matched by the retired sign_disclosed prefix."
+    },
+    {
+      "path": "services/platform/hosted/human/README.md",
+      "lines": [
+        "- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at",
+        "`/run/layerx/node/layerxd.lni.sock` for the retained-material migration"
+      ],
+      "citation": "Decision 3125 permits documenting the retained socket projection required by test_hosted_human_first_batch_migration_barriers, which cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/human/history_material.py",
+      "lines": [
+        "for name in ('LAYERX_AGENT_SEQUENCER_TRUST_HISTORY', 'LAYERX_AGENT_GENESIS_TRUST', 'LAYERX_AGENT_HANDOVER_FINALITY'):"
+      ],
+      "citation": "Decision 3125 permits the live migration refusal to name obsolete trust inputs that it rejects before publishing authenticated merged-chain receipts."
+    },
+    {
+      "path": "services/platform/hosted/human/material.py",
+      "lines": [
+        "'HUMAN_NODE_LNI': '/run/layerx/node/layerxd.lni.sock',"
+      ],
+      "citation": "Decision 3125 permits the historical socket projection required by test_hosted_human_first_batch_migration_barriers while the current agent uses NODE_RPC_URL and NODE_CHAIN_ID and the projection cannot establish merged node readiness."
+    },
+    {
+      "path": "services/platform/hosted/node/generation_client.py",
+      "lines": [
+        "\"LAYERX_CORE_LNI_SOCKET\",",
+        "if any(key in RETIRED_FIELDS or key.startswith((\"LAYERX_AUTHORITY_\", \"LAYERX_GUARANTOR_\"))"
+      ],
+      "citation": "Decision 3125 permits the live inherited-environment refusal to name obsolete socket settings and authority or guarantor prefixes that it rejects before adopting current generation files."
+    },
+    {
+      "path": "services/platform/hosted/gateway",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains the optional hosted backend diagnostic identifier in the gateway OpenRPC contract and backend roster; native receipt verification uses governed chain keys and block commitment."
+    },
+    {
+      "path": "services/platform/hosted/gateway/src",
+      "symbols": [
+        "/v1/programs/call",
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade",
+        "/v1/programs/wind-down",
+        "RouteBinding",
+        "lx_getProgramEvents",
+        "lx_getSequence",
+        "lx_getWalletCaps",
+        "paxeer-x/anchors",
+        "paxeer-x/receipts"
+      ],
+      "citation": "Decision 3125 retains these retired method and route literals as refusal-test inputs and the live hosted upstream RouteBinding configuration type, which is independent of execution intent events."
+    },
+    {
+      "path": "services/platform/tools/dependency-policy.sh",
+      "symbols": [
+        "layerx-paxeer-client"
+      ],
+      "citation": "Decision 3125 preserves the explicit retired crate name in both the full dependency graph ban and the ramp transitive dependency ban so the policy continues to reject it."
+    },
+    {
+      "path": "services/platform/ramps",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 permits the live kernel identifier lxp_verified_receipt_authority_facts on the ramp surface because its receipt_authority prefix does not denote the retired finality service."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src",
+      "symbols": [
+        "SETTLEMENT_ANCHORED",
+        "SettlementAnchored",
+        "paxeer-reserve",
+        "settlement_anchored"
+      ],
+      "citation": "Decision 3125 permits the reserve-account refusal cases and the deprecated archive verification labels, whose current decoders, policy comparisons and write-rung mapping explicitly refuse current authority."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src/historical",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3104 and 3125 retain the live historical settlement_domains document reader for archive compatibility without using its configuration as current chain trust."
+    },
+    {
+      "path": "services/agent/crates/layerx-types/src/vectors",
+      "symbols": [
+        "settlement_domain"
+      ],
+      "citation": "Decisions 3104 and 3125 retain settlement_domain in the published historical checkpoint vectors and their live loader so existing archive verification corpora remain readable."
+    },
+    {
+      "path": "services/human/crates/layerx-human-kms/src/attestor.rs",
+      "lines": [
+        "let mut future = signer::sign_disclosed_call(&signer, call, disclosure, from);"
+      ],
+      "citation": "Decision 3125 retains this live EIP-1559 disclosure-bound signer from services/agent/crates/layerx-crypto/src/signer.rs; the retired sign_disclosed prefix also matches its sign_disclosed_call replacement."
+    },
+    {
+      "path": "services/human/tools/boundary-check/src/lib.rs",
+      "lines": [
+        "const RETIRED_CRATES: &[&str] = &[\"layerx-human-movement-provider\", \"layerx-paxeer-client\"];",
+        "\"layerx_client::lni\",",
+        "\"layerx_proof::checkpoint::SettlementDomain\",",
+        "\"layerx_wire::activity\","
+      ],
+      "citation": "Decision 3125 retains these exact rejection patterns for retired crates and imports under removals 11047, 11021, 11024, 11028 and 11030; the checker rejects these APIs rather than consuming them."
+    },
+    {
+      "path": "services/human/tools/dependency-policy.sh",
+      "lines": [
+        "banned=\"$banned\"'|layerx-human-movement-provider|layerx-paxeer-client|ctor|inventory)$'"
+      ],
+      "citation": "Decision 3125 retains these exact retired package names solely to reject forbidden dependencies in resolved Cargo metadata under the human two-domain removal 11047."
+    },
+    {
+      "path": "tools/bringup",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify",
+        "relay-archive"
+      ],
+      "citation": "Decision 3125 and task 22.39.274 retain the shipping merge-disabled module, API and precompile names in the generated runtime dependency inventory and the explicit retired genesis-module and identity-owner rejection checks."
+    },
+    {
+      "path": "tools/chain/upgrade-replay",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "The upgrade replay harness retains the historical anchor, custody and verify modules and precompiles to prove activation, exact retirement refusals and committed state recovery across upgrades."
+    },
+    {
+      "path": "engine/executor",
+      "symbols": [
+        "layerxanchor",
+        "layerxcustody",
+        "layerxverify"
+      ],
+      "citation": "Decision 3125 retains the fail-fast refusal list for retired precompiles 0x1012 through 0x1014 so accelerated execution aborts and ordinary execution enforces their upgrade-height and module-disabled behavior."
+    },
+    {
+      "path": "modules/lxphost",
+      "symbols": [
+        "receipt_authority",
+        "fee_governance"
+      ],
+      "citation": "Decision 3125 permits live kernel receipt-authority validation and fee-governance runtime resolution, whose identifiers carry retired names as prefixes while supplying canonical receipt facts and recorded fee schedules to Programs execution."
     }
   ]
 }

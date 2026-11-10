@@ -1,4 +1,4 @@
-//! Loader for the cross-language checkpoint identity and freshness vectors.
+//! Loader for the historical cross-language checkpoint identity and freshness vectors.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -78,7 +78,7 @@ pub struct CheckpointVectorAttestation {
     pub digest: [u8; 32],
 }
 
-/// One complete checkpoint vector.
+/// One complete historical checkpoint vector, retaining its archive settlement fields.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CheckpointVector {
     pub case_name: String,

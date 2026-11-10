@@ -118,19 +118,15 @@ ordinary frame. The decoder rejects trailing data. Authentication comes from
 the Unix peer UID, not from these bytes. See the
 [selector table](agent-human-peer.md#selectors).
 
-## LNI frame
+## Node JSON-RPC
 
-This anchor is retained for obsolete registry links. The pre-merge LNI frame
-schema is removed from the current agent tree. Active node communication uses
-[JSON-RPC clients](agent-rust-api.md#client); the local
-[Human peer frame](#human-peer-frame) is a different transport and format.
-
-## LNI capabilities
-
-The pre-merge LNI capability list is retired with that schema. Do not infer
-method availability from its historical capability names. Agent operations use
-the current [catalogue](agent-api.md#operation-catalogue), and hosted `px_`
-methods use the gateway's [OpenRPC document](../services/platform/hosted/gateway/openrpc.json).
+Node writes submit exact signed EIP-1559 bytes with `eth_sendRawTransaction`.
+Read precompile views with `eth_call`, and native state with gRPC queries and
+ICS23 proofs pinned to a committed block height. Offline evidence binds chain
+ID 125, the committed header and the validator set at that height. See the
+[JSON-RPC client](agent-rust-api.md#client) and the current
+[operation catalogue](agent-api.md#operation-catalogue). The local
+[Human peer frame](#human-peer-frame) has its own codec and authentication.
 
 ## MCP binding document
 

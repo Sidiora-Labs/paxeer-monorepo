@@ -190,7 +190,7 @@ fn record_digest(header_tail: &[u8], raw_transaction: &[u8]) -> [u8; RECORD_DIGE
 }
 
 /// In-process JSON-RPC producer with authenticated, durable transaction admission.
-/// The retired Unix LNI listener is replaced by the same HTTP boundary NodeRpc uses.
+/// Uses the same HTTP boundary as NodeRpc for signed EVM transaction submission.
 pub struct EvidenceNode {
     journal: AdmissionJournal,
     receipt_key: [u8; 32],
