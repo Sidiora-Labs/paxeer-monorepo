@@ -3045,8 +3045,16 @@ mod program_actual_allocation_tests {
         assert_eq!(limiter.consumed(LimitId([1; 16])), Ok(0));
     }
 
-    #[test]
-    fn program_actual_store_commit_is_atomic_and_restart_replays_without_double_charge() {
+    struct ActualFixture {
+        root: std::path::PathBuf,
+        tenant: TenantId,
+        configs: Vec<LimitConfig>,
+        store: Store,
+        limiter: BudgetLimiter,
+        ids: [LimitId; 4],
+    }
+
+    fn actual_fixture() -> ActualFixture {
         let stamp =
             must(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)).as_nanos();
         let root = std::env::temp_dir().join(format!(
@@ -3129,16 +3137,23 @@ mod program_actual_allocation_tests {
             )),
             vec![ids[0]]
         );
-        let record = codec_record(&limiter, rows(ids));
-        assert!(crate::budget::program_consumption_updates(&store, &tenant, &record).is_err());
-        let companion = must(TenantKey::new(
-            tenant.clone(),
-            ObjectKind::Configuration,
-            b"allocation-companion".to_vec(),
-        ));
-        must(store.put_local(companion.clone(), must(record.encode())));
-        must(limiter.restore_program_reservation(&record));
-        let mut live_configs = configs.clone();
+        ActualFixture {
+            root,
+            tenant,
+            configs,
+            store,
+            limiter,
+            ids,
+        }
+    }
+
+    fn install_actual_renewal(
+        store: &mut Store,
+        limiter: &BudgetLimiter,
+        tenant: &TenantId,
+        configs: &[LimitConfig],
+    ) -> (Vec<LimitConfig>, LimitId) {
+        let mut live_configs = configs.to_vec();
         live_configs[0] = LimitConfig {
             id: LimitId([6; 16]),
             name: "renewed-global".to_owned(),
@@ -3147,9 +3162,9 @@ mod program_actual_allocation_tests {
             consumed: 0,
         };
         let renewed = must(crate::budget::install_enrolment_renewals(
-            &mut store,
-            &limiter,
-            &tenant,
+            store,
+            limiter,
+            tenant,
             &live_configs,
             &[crate::budget::EnrolmentPredecessor {
                 successor: live_configs[0].id,
@@ -3161,13 +3176,34 @@ mod program_actual_allocation_tests {
             .find(|row| row.enrolment == live_configs[0].id)
             .unwrap_or_else(|| panic!("missing successor"))
             .limit_id;
+        (live_configs, successor)
+    }
+
+    #[test]
+    fn program_actual_store_commit_is_atomic_and_restart_replays_without_double_charge() {
+        let ActualFixture {
+            root,
+            tenant,
+            configs,
+            mut store,
+            limiter,
+            ids,
+        } = actual_fixture();
+        let record = codec_record(&limiter, rows(ids));
+        assert!(crate::budget::program_consumption_updates(&store, &tenant, &record).is_err());
+        let companion = must(TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Configuration,
+            b"allocation-companion".to_vec(),
+        ));
+        must(store.put_local(companion.clone(), must(record.encode())));
+        must(limiter.restore_program_reservation(&record));
+        let (live_configs, successor) =
+            install_actual_renewal(&mut store, &limiter, &tenant, &configs);
         assert_eq!(limiter.held_exposure(successor), Ok(90));
-        assert_eq!(
-            must(crate::budget::program_settlement_recorded(
-                &store, &tenant, record.id
-            )),
-            false
-        );
+        assert!(!must(crate::budget::program_settlement_recorded(
+            &store, &tenant, record.id
+        )));
         let (totals, actual) = must(program_actual_totals(&record, &debits()));
         let marker = must(program_settlement_marker(&record, [11; 32], &actual));
         let key = must(crate::budget::program_settlement_key(&tenant, record.id));
@@ -3214,21 +3250,18 @@ mod program_actual_allocation_tests {
             &live_configs,
         ));
         assert_eq!(restarted.consumed(successor), Ok(20));
-        assert_eq!(
-            must(crate::budget::program_settlement_recorded(
-                &store, &tenant, record.id
-            )),
-            true
-        );
+        assert!(must(crate::budget::program_settlement_recorded(
+            &store, &tenant, record.id
+        )));
         assert_eq!(restarted.consumed(ids[0]), Ok(20));
         assert_eq!(restarted.consumed(ids[1]), Ok(7));
         assert_eq!(restarted.consumed(ids[2]), Ok(11));
         assert_eq!(restarted.consumed(ids[3]), Ok(19));
         assert_eq!(
-            store.get(&companion).map(|value| value.bytes()),
+            store.get(&companion).map(crate::store::StoredValue::bytes),
             Some(b"settled".as_slice())
         );
-        let prior = store.get(&key).map(|value| value.bytes());
+        let prior = store.get(&key).map(crate::store::StoredValue::bytes);
         let replay = must(restarted.stage_program_actuals(&record, &totals, marker, prior));
         let replay = must(crate::budget::finish_program_settlement_stage(
             &store, &tenant, key, replay,
