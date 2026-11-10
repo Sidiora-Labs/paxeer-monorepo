@@ -194284,7 +194284,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.364]
 title = "Document the errors of the ask stream reads of the agent daemon library"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
