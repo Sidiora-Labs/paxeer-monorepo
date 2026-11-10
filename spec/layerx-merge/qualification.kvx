@@ -40554,3 +40554,11 @@ symbol = "fuel_budget.rs"
 observed = "Attempt 10 at 52b3dca95be5 on base 134b9c7b6d94: the build exits 0 and the dependents exit 0; the verification exits 1 at 52b3dca95be5 with 19 cases of target fuel_budget passed and f11_fuel_table failed at tests/fuel_budget.rs:4050, selector 0x0b01, kernel status -3, program replay record refused, capture witness bytes observed 1049276 permitted 1048576 at step 456; log /out/logs/verify-1.log."
 assumption = "The acceptance text asked every F11 operation on the full state for a whole replay record, which the form of the record cannot hold."
 severity = "high"
+
+[finding.22.38.36.5]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 5 at d361e917edb0 on base 08f298a6371b: the build exits 0 and the dependents exit 0; the verification exits 1 at d361e917edb0, the room proof stops at inference_market_room.py:906 with execution reverted: LXP_NOT_FOUND: getCurrentMeteringSchedule: LXP_ERR_UNKNOWN_FIELD; log /out/logs/verify-1.log."
+assumption = "A chain started from the default genesis of the node holds no schedule of Programs and the fixture of the driver stated none."
+severity = "high"
