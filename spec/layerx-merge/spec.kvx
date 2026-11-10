@@ -163679,7 +163679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.25]
 title = "Present a chain identity in the peer hello and enrol through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.24", "22.38.15"]
@@ -193803,7 +193803,7 @@ do_4 = "Attempt 2 (continue, gotcha 4005, decision 3125): the attempt-1 tree cf8
 
 [task.22.39.253]
 title = "Repair the retired references of the agent daemon crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.245"]
@@ -306196,7 +306196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1667.1]
 title = "Issue #1667: Initialize V6 token genesis for all-vector recording"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.282"]

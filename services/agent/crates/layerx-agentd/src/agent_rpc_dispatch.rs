@@ -750,6 +750,7 @@ mod receipt_rung_wire_tests {
         for code in [4, 5, 6] {
             assert_eq!(rung(code), Some(Rung::Committed));
         }
+        // The retained archive constant must never be accepted as current evidence.
         assert_eq!(
             crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
             Err(HumanOperationError::Refused)

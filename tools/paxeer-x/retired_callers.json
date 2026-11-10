@@ -1908,6 +1908,85 @@
         "let signature = sign_disclosed_call("
       ],
       "citation": "Decisions 3104 and 3130 retain sign_disclosed_call as the live disclosure-bound secp256k1 EIP-1559 signer, preserving sender recovery and exact transaction receipt binding."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/host-tests/retired_env.rs",
+      "lines": [
+        "\"LAYERX_AGENT_HANDOVER_FINALITY\",",
+        "\"LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN\","
+      ],
+      "citation": "Decisions 3104 and 3130 retain these exact obsolete environment names as negative inputs that prove startup rejects stale trust configuration."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decision 3104 retains the retired wire spelling solely as a rejection input to the current public request decoder."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs",
+      "lines": [
+        "\"SettlementAnchored\","
+      ],
+      "citation": "Decision 3104 retains the retired wire spelling solely to prove the current wait-request decoder refuses incompatible protocol levels."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs",
+      "lines": [
+        "crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),"
+      ],
+      "citation": "Decision 3104 retains the shipped archive-only verification constant solely to assert that the current receipt encoder refuses it."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/capability/effects.rs",
+      "lines": [
+        "\"EvmPayoutBinding\""
+      ],
+      "citation": "Decision 3104 retains the shipped disclosure kind name solely to report an unsupported-kind refusal without authorizing the retired operation."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/human_runtime.rs",
+      "lines": [
+        "\"/v1/agent/authorized-batch?tenant={}&principal={}&activity_id={}&signed_activity={}\",",
+        "\"/v1/agent/authorized-batch?tenant={}&principal={}&activity_id={}\",",
+        "\"checkpoint_finalised\" | \"settlement_anchored\" => VerificationLevel::COMMITTED.wire_label(),",
+        "for name in [\"committed\", \"checkpoint_finalised\", \"settlement_anchored\"] {"
+      ],
+      "citation": "Decisions 3104 and 3130 retain the shipping subject-bound historical activity endpoint and archive observation labels with their compatibility coverage, without granting current proof-owned evidence."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/main.rs",
+      "lines": [
+        "authority_replica_id: [u8; 32],",
+        "authority_replica_id: parse_digest(\"LAYERX_AGENT_AUTHORITY_REPLICA_ID\")?,",
+        "replica_id: config.authority_replica_id,",
+        "authority_replica_id: [1; 32],"
+      ],
+      "citation": "Decision 3104 retains the live independent program-authority replica identity in configuration and its consumers because that connection still ships."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/node_rpc.rs",
+      "lines": [
+        "\"LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN\",",
+        "\"LAYERX_AGENT_HANDOVER_FINALITY\","
+      ],
+      "citation": "Decision 3104 retains the exact obsolete environment names solely to refuse their presence before startup, including empty and non-Unicode values."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/protocol_evidence.rs",
+      "lines": [
+        "fn committed_time_requires_the_handshake_network_and_receipt_authority() {"
+      ],
+      "citation": "Decision 3104 retains the live handshake receipt-key test name and its network and key refusal assertions because it does not consume the retired finality service."
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/src/read/program_node.rs",
+      "lines": [
+        "replica_id: authority_replica_id,",
+        "|| authority_replica_id == [0; 32]"
+      ],
+      "citation": "Decision 3104 retains the live independent program-authority replica identity and its mandatory nonzero validation because that program reader still ships."
     }
   ]
 }
