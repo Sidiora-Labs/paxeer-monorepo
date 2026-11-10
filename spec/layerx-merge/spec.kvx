@@ -12166,6 +12166,12 @@ value = "The read-only baseline costs more than the first aggregation chunk, so 
 basis = "Gotchas 4096 and 4073, decision 3148."
 affects = ["22.33.223"]
 
+[decision.3176]
+title = "The base application cases that read state at a height run over the store that serves versioned state, and 22.39.315 verifies the cases of its own file"
+value = "The legacy rootmulti store refuses versioned state by rule (ErrVersionedStateUnsupported, audit record 22.30.165), so a case that queries at a height builds its application over sdk/storev2/rootmulti; the refusal is not lifted for a test. Task 22.39.327 owns the base application suite: it moves TestQuery, TestGRPCQuery and TestBaseAppCreateQueryContext and repairs every other red case of the package. The verification of 22.39.315 runs the keeper suite and the two cases of sdk/baseapp/query_grpc_error_test.go."
+basis = "Gotcha 4098, decision 3130."
+affects = ["22.39.315", "22.39.327"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41826,6 +41832,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.327]
+title = "Move the height query cases of the base application suite to the store that serves versioned state"
+reqs = ["22998.1"]
+touches = ["sdk/baseapp"]
+tests = ["sdk/baseapp/deliver_tx_test.go", "sdk/baseapp/abci_test.go"]
+verification_contract = "test -s sdk/baseapp/repair_22_39_327.kvx && go test -count=1 -timeout 30m ./sdk/baseapp/"
+do_1 = "do_1 Decision 3176, gotcha 4098. Run go test -count=1 -timeout 30m ./sdk/baseapp/ on the starting revision and record every failing case with its first error. Red at f738d3da0346 were TestQuery at deliver_tx_test.go:323, TestGRPCQuery at :353 and TestBaseAppCreateQueryContext/valid_height at abci_test.go:166, each on the refusal of versioned state by the legacy store. When every case passes on the starting revision, record the run and change nothing else."
+symbols = []
 
 [capability.22.39.326]
 title = "Regenerate the native witness and host transcript fixtures of the proof library and settle the module tree width verdict"
@@ -223807,6 +223822,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.327]
+title = "Move the height query cases of the base application suite to the store that serves versioned state"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.327"]
+interfaces = []
+do_1 = "do_1 Decision 3176, gotcha 4098. Run go test -count=1 -timeout 30m ./sdk/baseapp/ on the starting revision and record every failing case with its first error. Red at f738d3da0346 were TestQuery at deliver_tx_test.go:323, TestGRPCQuery at :353 and TestBaseAppCreateQueryContext/valid_height at abci_test.go:166, each on the refusal of versioned state by the legacy store. When every case passes on the starting revision, record the run and change nothing else."
+do_2 = "do_2 Give every case that reads state at a height an application over sdk/storev2/rootmulti, the way the production application is assembled, through the fixture builder of the package so that the cases keep their assertions. Do not lift or bypass ErrVersionedStateUnsupported of sdk/store/rootmulti/store.go and do not turn a height query into a latest-state query. Repair every other red case of the package at its cause; do not skip, delete or weaken a case."
+do_3 = "do_3 Record each case, its cause and the repair in sdk/baseapp/repair_22_39_327.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/baseapp"]
+tests = ["sdk/baseapp/deliver_tx_test.go", "sdk/baseapp/abci_test.go"]
+planned_paths = ["sdk/baseapp/repair_22_39_327.kvx"]
+build_cmd = "go build ./sdk/baseapp/... && go test -count=1 -run '^$' ./sdk/baseapp/"
+verify_cmd = "test -s sdk/baseapp/repair_22_39_327.kvx && go test -count=1 -timeout 30m ./sdk/baseapp/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.325]
 title = "Repair the optical callback, collection, fee right and treasury surface cases of the launchpad precompile"
 status = "pending"
@@ -224004,7 +224049,7 @@ touches = ["modules/launchpad/keeper", "sdk/baseapp/abci.go", "sdk/baseapp/query
 tests = ["modules/launchpad/keeper/market_test.go", "modules/launchpad/keeper/migrate_v6120_test.go", "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"]
 planned_paths = ["modules/launchpad/keeper/repair_22_39_315.kvx"]
 build_cmd = "go build ./modules/launchpad/... ./sdk/baseapp/... && go vet ./modules/launchpad/keeper/"
-verify_cmd = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
+verify_cmd = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run '^(TestHandleQueryGRPCKeepsModuleCodespace|TestIssue1678GRPCQueryRedaction)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -224016,6 +224061,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 4098, decision 3176): the attempt-1 tree ff52845cb6c8 stands (the constant of the v6.12.0 migration, the market and migration cases, the AirdropEpoch query cases, the response height of handleQueryGRPC, the two cases of sdk/baseapp/query_grpc_error_test.go, the record). The keeper suite passed. TestQuery, TestGRPCQuery and TestBaseAppCreateQueryContext/valid_height of sdk/baseapp fail on the refusal of versioned state by the legacy store, at the base as well; they belong to 22.39.327 and the verification now runs only the two cases of query_grpc_error_test.go beside the keeper suite. Rebase on main, change nothing of the tree, and run the build once and the verification once at the final revision."
 
 [task.22.39.314]
 title = "Complete the development candle path of the launchpad chart service and API"
