@@ -12214,6 +12214,24 @@ value = "Decision 3130 hands a red case to its own repair task only when it lies
 basis = "Gotcha 4105, decisions 3046, 3130 and 3174."
 affects = ["22.39.321"]
 
+[decision.3184]
+title = "A suite of the launchpad production interfaces that needs explicit bindings is verified through its binding cases, and the compatibility record follows the SDK sources in its own task"
+value = "test_capability_check.py, compatibility_check_test.py and examples_check_test.py refuse to run without explicit authority and are never named directly in a verification; their binding cases in test_repair_22_33_963.py and test_repair_22_33_964.py run them. The verification of 22.39.329 runs test_repair_22_33_963.py and deselects test_compatibility_authority_path and test_compatibility_test_authority, which are red for the compatibility record and not for the manifest digest. Task 22.39.331 brings testdata/repair_22_33_963/compatibility.json to the current sources of the five SDK packages: every source interface field and wire field is mapped, a field without a counterpart is a finding, and no diagnostic of compatibility_check.py is removed."
+basis = "Gotcha 4106, decisions 3130 and 3177."
+affects = ["22.39.329", "22.39.331"]
+
+[decision.3185]
+title = "The send of a transaction adopts the reservation of an earlier sign-only signature of the same operation, and the signature is counted once"
+value = "The case at test/attestor.test.ts:1236 states the contract: after a sign-only signature whose nonce lease has passed its broadcast deadline, and after the lookup proves the transaction was never submitted, the send of the same transaction succeeds and broadcasts the same signed bytes. The refusal at src/db/signatureAccounting.ts:99 lies in the path of 22.39.290 and is repaired there (decision 3183): the send route reserves once for the operation and adopts the row of the earlier signature when the operation hash and the accounting fields match, instead of holding a second row for its own request hash. Two rows of different operations, a retargeted reservation and an expired unresolved reservation still refuse, and the daily limits count the signature once."
+basis = "Gotcha 4107, decisions 3046 and 3183."
+affects = ["22.39.290"]
+
+[decision.3186]
+title = "A tree whose last repair was built but could not be verified within the allowed runs is requalified unchanged"
+value = "When the only red case of the last verification is a fixture value the attempt then corrected, and the build of the final revision passed, the next attempt changes nothing: it rebases on main, builds once and verifies once. For 22.39.318 that is the expiry of the budget record in the header time case of tests/repair_22_39_318.rs; when the case is still red at the final revision the attempt repairs the fixture within its one cycle and does not change the selection by block time."
+basis = "Gotcha 4108, decision 3171."
+affects = ["22.39.318"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41874,6 +41892,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.331]
+title = "Bring the compatibility record of the launchpad production interfaces to the current SDK sources"
+reqs = ["22998.1"]
+touches = ["tools/launchpad/production/interfaces"]
+tests = ["tools/launchpad/production/interfaces/test_repair_22_33_963.py", "tools/launchpad/production/interfaces/test_repair_22_33_964.py"]
+verification_contract = "test -s tools/launchpad/production/interfaces/repair_22_39_331.kvx && python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+do_1 = "do_1 Decision 3184, gotcha 4106. Run python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_repair_22_33_964.py on the starting revision and record every failing case with its first error. Red at 9d4cd4e08b56 were test_compatibility_authority_path and test_compatibility_test_authority with thirteen diagnostics of compatibility_check.py: source hash drift for sdk/launchpad/packages/candles-sdk, indexer-sdk, ranking-algo-sdk, metadata-sdk and users-sdk (src/index.ts each), and unmapped source interface fields and unmapped or invented wire fields for the latter four."
+symbols = []
 
 [capability.22.39.330]
 title = "Restore the provenance line of the explorer OpenAPI document and bring two audit cases to the explorer as it stands"
@@ -161521,6 +161548,7 @@ do_3 = "Attempt 2 (continue, gotcha 4021): the attempt-1 tree cc426f01afe6 stand
 do_4 = "Attempt 3 (continue, gotcha 4041): the attempt-2 tree c14d6aaf9117 stands (the protocol split, the loopback material, the base comparison and the cause classification of the record). Complete do_3 now: repair every environment cause the record classifies (rpc_health, external_precompile, external_executable, agent_setup, configuration_import, tee_abi, fixture_contract) in the seventeen files that still fail, so that the scheduler and streams settle routes reach eth_estimateGas on the local JSON-RPC stub, the e2e gateway file starts against the loopback node material, the attestor cases get the owner-approved inventory fixture, the nonce cases get a member stub that answers the transaction, the custody snapshot failure is an AttestorQuorumError where the case expects one, and the provisioning and backfill cases run against the loopback material within their timeouts. Leave every product cause unrepaired and listed in the record with file, case, observed and expected. Run the build once and the verification once at the final revision."
 do_5 = "Attempt 4 (continue, gotcha 4070): the attempt-3 tree 08501fd25a23 stands (the loopback chain material, the precompile RPC stub, the provisioning and nonce fixtures, the cause classification of the record). Thirty-four cases in sixteen files remain red; repair them in this order and record each with its cause and, where a producer changed, the producer commit. First, the frozen precompile ABI: the streams and teeAttestor selector parity and teeAttestorFrozenEventParity of test/precompiles.test.ts, schedulerRoutesEncodeNodeAbiSelectors and streamsRoutesEncodeNodeAbiSelectors compare a frozen copy with the registered node ABI; the node ABI is the producer, align the frozen copies and the expected selector sets (gotcha 3046). Second, schedulerRoutesTargetServedAddress and streamsRoutesTargetServedAddress expect CONTRACT_DENYLISTED and SELECTOR_DENYLISTED answers and the settle route reaching eth_estimateGas: give the stub the denylist answers and the estimate the route issues. Third, the attestor signing routes, the six e2e gateway cases, evmSignSendsThroughSequencerWithReceipt, the owner broadcast 202 poll_receipt case, the three sign-client nonce cases, sponsoredQuoteAnswersBudgetExhausted, hostedEvmSdkRoundTrip and the three humanDailyCap cases need the receipt, nonce, broadcast outcome and budget answers the case drives: extend the loopback material with those answers from the published contract. Fourth, sequencerReceiptMatchesNodeVectors in test/repair-22-33-210.test.ts and test/support/chain-sequencer-receipt.test.ts compare with the node vectors on main, which are the producer. Fifth, the TxRequest unknown-key case strips unknown inner keys, and the five provisioning cases complete within their timeouts against the loopback station. No case is skipped and the gateway source is not weakened; a case whose failure is a product change is aligned to the producer and recorded. Run the build once and the verification once at the final revision."
 do_6 = "Attempt 5 (continue, gotcha 4093): the attempt-4 tree 96730306a637 stands; eleven cases in seven files remain. Repair in this order and run each file alone with pnpm --dir services/wallet/gateway exec vitest run on that file before the gate. First, the loopback node of the tests gives an applied transaction a canonical receipt, so that RpcPool.sequencerReceipt at src/rpc/pool.ts:456 and readReceipt at src/provision/bind.ts:326 find it (test/provisioning.test.ts:815 and the flow cases at :947, :1054 and :1430). Second, the station double of the tests answers in the form the published station contract states, so that src/provision/state.ts:850 no longer raises station_contract_violation (test/provisioning-station.test.ts at :863, :916 and :951, and the setup steps of test/repair-22-33-207.test.ts:138 and test/e2e/gateway.e2e.test.ts:373, which hold 24 further cases); when the double is right and the gateway misreads the contract, repair the gateway. Third, the settle route of test/agent-precompiles-streams.test.ts reaches eth_estimateGas: give the double the state the route reads before it estimates (:296, :375, :387). Fourth, test/attestor.test.ts:1208: the owner-approved wallet inventory of the fixture admits the sign operation the case performs, the way the custody authority reads it. Fifth, test/evm-sign.test.ts:818: find the third call and decide from the route contract whether it is a call the route now makes by rule, in which case the case counts it and names it, or a duplicate to remove. Assert the names the producer serves (gotcha 3046) and do not skip or weaken a case. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 6 (continue, gotcha 4107, decision 3185): the attempt-5 tree 64529f6115eb stands (the fixture repairs of provisioning, station, recovery, streams, gateway e2e and the inventory of the attestor case, the record); 435 cases pass. One case remains, test/attestor.test.ts:1236: the send of a transaction signed before through the sign route answers 500 with signature accounting request conflicts with another transaction (src/db/signatureAccounting.ts:99). The refusal lies in services/wallet/gateway/src, a path of this task, and is repaired here. First establish the rows: in the case, before the send, select the rows of wallet_signature_reservations for the wallet with kind transaction and print request hash, operation hash and signed evidence; then follow the send route (src/routes/sign.ts and the callers of reserveSignature) to see which reservation it writes before the lookup returns two rows. Repair at the producer so that the send reserves once for the operation and adopts the row of the earlier sign-only signature when the operation hash and the accounting fields (user, address, recipient, value, chain, principal) match; keep the refusals for two rows of different operations, for a retargeted reservation and for an expired unresolved reservation. Add to the case, or to a case beside it, the assertions that after the send exactly one row of wallet_signatures stands for the operation and that the daily count of the wallet rose by one, and run test/repair-22-31-371.test.ts and test/attestor.test.ts alone with pnpm --dir services/wallet/gateway exec vitest run before the gate. Change no assertion of the existing cases. Move the finding of the record to a repaired case. Run the build once and the verification once at the final revision."
 
 [task.22.39.288]
 title = "Bring the agent SDK px surfaces and receipt cases to the gateway contract and the inclusion evidence"
@@ -184112,7 +184140,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.326]
 title = "Regenerate the native witness and host transcript fixtures of the proof library and settle the module tree width verdict"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193229,6 +193257,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 4108, decision 3186): the attempt-1 tree 34cfa7c2917f stands (the selection of the receipts of a period by block time in human_runtime.rs, budget/reconcile.rs and budget/divergence.rs, the header time source, the 23 cases of tests/repair_22_39_318.rs, the suites brought to millisecond bounds, the record). 22 cases passed at e1fcc0bd8531 and the fixture expiry of the remaining case was corrected afterwards; the final revision was built but not verified. Rebase on main, change nothing of the tree, and run the build once and the verification once at the final revision."
 
 [task.22.39.312]
 title = "Repair the retained settlement cases of the agent daemon refused at the witness binding"
@@ -206876,7 +206905,7 @@ do_11 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the 
 
 [task.22.33.223]
 title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.478", "22.99.77"]
@@ -223927,7 +223956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.327]
 title = "Move the height query cases of the base application suite to the store that serves versioned state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -223957,7 +223986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.325]
 title = "Repair the optical callback, collection, fee right and treasury surface cases of the launchpad precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.315"]
@@ -224017,7 +224046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.323]
 title = "Repair the receipt, gas conformance, grant and lifecycle cases of the layerxauth precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224047,7 +224076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.322]
 title = "Repair the frozen vector, committed capacity and preimage cases of the xweb module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -224138,7 +224167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.315]
 title = "Repair the pool runtime and AirdropEpoch ABCI cases of the launchpad keeper suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -351459,9 +351488,39 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.331]
+title = "Bring the compatibility record of the launchpad production interfaces to the current SDK sources"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.329"]
+reqs = ["22998.1"]
+capabilities = ["22.39.331"]
+interfaces = []
+do_1 = "do_1 Decision 3184, gotcha 4106. Run python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_repair_22_33_964.py on the starting revision and record every failing case with its first error. Red at 9d4cd4e08b56 were test_compatibility_authority_path and test_compatibility_test_authority with thirteen diagnostics of compatibility_check.py: source hash drift for sdk/launchpad/packages/candles-sdk, indexer-sdk, ranking-algo-sdk, metadata-sdk and users-sdk (src/index.ts each), and unmapped source interface fields and unmapped or invented wire fields for the latter four."
+do_2 = "do_2 For each of the five packages read the commits that changed src/index.ts since the digest the record names, and bring tools/launchpad/production/interfaces/testdata/repair_22_33_963/compatibility.json to the source as it stands: map every source interface field to its wire field as the schemas of the directory and the serving route state it, remove a mapping whose field the source no longer carries, and only then set the source digest to the SHA-256 of the current file. A source field without a wire counterpart, or a wire field no source carries, is recorded as a finding with the package, the field and the commit and is not mapped by invention. Change no diagnostic of compatibility_check.py and no assertion of the cases."
+do_3 = "do_3 A further red case of the two files is repaired at its cause when the cause lies in the directory and recorded as a finding when it lies outside. Do not name test_capability_check.py, compatibility_check_test.py or examples_check_test.py directly in a run: they need explicit bindings and run through the binding cases. Record each mapping added or removed with its commit, the former and the new digests and the cases in tools/launchpad/production/interfaces/repair_22_39_331.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/launchpad/production/interfaces"]
+tests = ["tools/launchpad/production/interfaces/test_repair_22_33_963.py", "tools/launchpad/production/interfaces/test_repair_22_33_964.py"]
+planned_paths = ["tools/launchpad/production/interfaces/repair_22_39_331.kvx"]
+build_cmd = "python3 -m pip install -q pytest -r tools/launchpad/production/interfaces/requirements.txt && python3 -m pytest -q --collect-only tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_repair_22_33_964.py > /dev/null"
+verify_cmd = "test -s tools/launchpad/production/interfaces/repair_22_39_331.kvx && python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.330]
 title = "Restore the provenance line of the explorer OpenAPI document and bring two audit cases to the explorer as it stands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -351507,7 +351566,7 @@ touches = ["tools/launchpad/production/interfaces"]
 tests = ["tools/launchpad/production/interfaces/test_repair_22_33_963.py", "tools/launchpad/production/interfaces/test_capability_check.py"]
 planned_paths = ["tools/launchpad/production/interfaces/repair_22_39_329.kvx"]
 build_cmd = "python3 -m pip install -q pytest -r tools/launchpad/production/interfaces/requirements.txt && python3 -m pytest -q --collect-only tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_capability_check.py > /dev/null"
-verify_cmd = "test -s tools/launchpad/production/interfaces/repair_22_39_329.kvx && python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py tools/launchpad/production/interfaces/test_capability_check.py"
+verify_cmd = "test -s tools/launchpad/production/interfaces/repair_22_39_329.kvx && python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_963.py --deselect tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_authority_path --deselect tools/launchpad/production/interfaces/test_repair_22_33_963.py::test_compatibility_test_authority"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-launchpad"
@@ -351519,10 +351578,11 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 4106, decision 3184): the attempt-1 tree 9d4cd4e08b56 stands (the regenerated capabilities.json with the core-manifest digest of the current contracts manifest, the record). test_capability_authority_path passes; the seventeen failures are the fifteen cases of a suite that needs explicit bindings and two compatibility cases that belong to 22.39.331, and the verification no longer names them. Rebase on main, change nothing of the tree, and run the build once and the verification once at the final revision."
 
 [task.22.39.319]
 title = "Restore the retirement statements and retained fields that audit cases pin and register them as allowed references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
