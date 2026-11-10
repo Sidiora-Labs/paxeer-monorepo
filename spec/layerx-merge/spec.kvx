@@ -184642,7 +184642,7 @@ do_8 = "Attempt 7 (continue after 22.39.333 lands, gotcha 4114, decision 3192): 
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.283", "22.39.303", "22.39.318"]
@@ -193417,7 +193417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.311]
 title = "Make the clock-bound Human service lib cases self-contained"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
