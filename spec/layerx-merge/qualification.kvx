@@ -39490,3 +39490,11 @@ symbol = "cli"
 observed = "Attempt 1 at 98d21e7362dd: build exit 0; verification exit 1: go test -count=1 ./modules/launchpad/client/... passes and go test -count=1 ./modules/launchpad/keeper/... fails TestQueryAirdropEpochABCICodes (six cases, :217 and :219), TestCreateMarket (market_test.go:325) and TestEveryPoolMigrates (migrate_v6120_test.go:450) after 189 seconds; log /out/logs/verify-1.log."
 assumption = "The client paths are repaired; the three keeper cases are red on main."
 severity = "high"
+
+[finding.22.39.288.4]
+task = "22.39.288"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px.test.ts"
+observed = "Attempt 6 at f2f7d256ee21: build exit 0; verification exit 1: 52 TypeScript test files executed, 0 failed; python3 -m pytest -q services/agent/sdk/python/tests reports 1 failed, 148 passed: test_retained_receipt_and_commit_verification_are_public at tests/test_retired_kernel_receipts.py:313 expects inclusion identity and reads invalid committed transaction field; log /out/logs/verify-1.log."
+assumption = "The Python suite was reached for the first time; its one failure is red on main since the commit of issue 1833."
+severity = "high"
