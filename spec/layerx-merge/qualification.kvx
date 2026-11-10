@@ -39706,3 +39706,11 @@ symbol = "SequencerReceiptTest.java"
 observed = "Attempt 1 at 91a2708e8ba4 on base 5df422806409: build exit 0 at 91a2708e8ba4 (log /out/logs/build-2.log); the second verification at 91a2708e8ba4 exits 1 with 122 cases run and 2 failures: PortableReceiptTest.portableExportMatchesPublishedVectorV5:240 and Repair22331391Test.portableNormalizationRemainsAnExplicitIndependentVectorTest:44 report array lengths differ, expected 13859 but was 13857; log /out/logs/verify-2.log."
 assumption = "The export writes an empty text for an absent signature and both repair cycles were used before it could be corrected."
 severity = "high"
+
+[finding.17.4.6.6]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 11 at 1a315827bebd on base 408cf9b7bf87: build exit 0 at 1a315827bebd (log /out/logs/build-2.log); the second verification at 1a315827bebd exits 1 after 2076 seconds with 47 of 50 rows passing: test_parity_rows_pass_on_merged_revision fails at spec/layerx-merge/programme/tests/test_parity_run.py:52 naming construct.existing-wallet-human-service-and-explorer-playwright, construct.new-explorer-signature and construct.new-signed-receipt-logs-new-case; log /out/logs/verify-2.log. The gate also reports a file changed outside the task paths, apps/wallet/next-env.d.ts."
+assumption = "The wallet rows need the local node of their owning task, the explorer row is red on main, and a row rewrites a tracked file."
+severity = "high"

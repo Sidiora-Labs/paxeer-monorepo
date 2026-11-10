@@ -12244,6 +12244,18 @@ value = "A verifier may hold the signature of a validator that did not sign as e
 basis = "Gotcha 4110, decision 3170, gotcha 3046."
 affects = ["22.39.317"]
 
+[decision.3189]
+title = "The parity run executes a selector under the environment its owning task declares and leaves the tree as it found it"
+value = "A row whose selector needs a running node gets that node from the script the owning task names in its verification, started by the parity run and stopped after the last row that uses it; a missing environment is never a reason to drop a row, to weaken it or to make its case skip. A tracked file outside the task paths that a row rewrites is restored after the row and named in the report. A row that is red for a cause on main waits for its own repair task, which the parity task then requires."
+basis = "Gotcha 4111, decisions 3130 and 3157."
+affects = ["17.4.6", "22.39.332"]
+
+[decision.3190]
+title = "The route cases of the explorer web application follow the governed receipt fixtures"
+value = "A case that serves a signed receipt through a route configures the governed keys and the chain of the vectors it serves, through the fixtures module the cases of the explorer application use, and restores the former configuration on exit. The key guard of the receipt verification and the routes stay as they are; a case that asserts a refusal keeps asserting it under a governed configuration."
+basis = "Gotcha 4112, decisions 3180 and 3046, task 22.39.308."
+affects = ["22.39.332"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -41904,6 +41916,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.332]
+title = "Bring the signature and status route cases of the explorer web application to the governed key guard"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"]
+verification_contract = "test -s services/explorer/backend/repair_22_39_332.kvx && cd services/explorer/backend && mix test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+do_1 = "do_1 Decision 3190, gotcha 4112. In services/explorer/backend run mix test on transaction_signature_controller_test.exs, transaction_signature_committed_test.exs, transaction_status_controller_test.exs and transaction_status_committed_test.exs of apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x on the starting revision and record every failing case with its first error. Red at 1a315827bebd was signature_route_returns_verified_receipt at transaction_signature_controller_test.exs:32 with status 404 where 200 is expected."
+symbols = []
 
 [capability.22.39.331]
 title = "Bring the compatibility record of the launchpad production interfaces to the current SDK sources"
@@ -332454,7 +332475,7 @@ title = "Run the parity inventory once on the merged revision"
 status = "pending"
 mode = "BUILD"
 wave = 49
-requires = ["17.4.5", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "22.39.230", "22.39.231", "22.39.232", "22.39.233", "22.39.240", "22.39.241", "22.39.280"]
+requires = ["17.4.5", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "22.39.230", "22.39.231", "22.39.232", "22.39.233", "22.39.240", "22.39.241", "22.39.280", "22.39.332"]
 reqs = ["17053.1"]
 capabilities = ["17.4.6"]
 interfaces = []
@@ -332465,7 +332486,7 @@ symbols = ["run_all"]
 touches = ["spec/layerx-merge/programme/parity.py", "spec/layerx-merge/programme/tests/test_parity_run.py", "spec/layerx-merge/programme/data/parity.kvx"]
 tests = ["spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"]
 planned_paths = ["spec/layerx-merge/programme/parity.py", "spec/layerx-merge/programme/tests/test_parity_run.py"]
-build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity.py && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet exec playwright install chromium && (cd apps/explorer && yarn) && services/explorer/deploy/tools/mix-in-builder.sh deps.compile"
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/parity.py && make -f chain.mk install && pnpm --dir apps/wallet install --frozen-lockfile && pnpm --dir apps/wallet exec playwright install chromium && (cd apps/explorer && yarn) && services/explorer/deploy/tools/mix-in-builder.sh deps.compile"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision -q"
 gate_kind = "planned"
 sandbox_profile = "mixed"
@@ -332485,6 +332506,7 @@ do_7 = "Attempt 5 (continue after 22.39.280 lands; gotcha 3960, decision 3115): 
 do_8 = "Attempt 8 (continue, gotcha 4001): attempt 7 wrote no evidence because the environment ran out of disk during the parity run (OSError Errno 28 at spec/layerx-merge/programme/parity.py:442). Continue from the attempt-6 tree. Before the verification, make the parity run write its per-row logs under the task log directory instead of the pytest temporary directory and remove each row log once its row is recorded in the report, so the run never holds more than one row log; keep the report content unchanged. Run the build once and the verification once at the final revision."
 do_9 = "do_9 Attempt 9 (continue, gotcha 4037): attempt 8 wrote no evidence because the qualification environment ran out of disk again during the parity run (OSError Errno 28 at spec/layerx-merge/programme/parity.py:480 and :354 of its tree) after twelve rows. Continue from the attempt-4 tree, the latest the record holds, and apply the do_8 log placement again. Then, in spec/layerx-merge/programme/parity.py: record the free space of the working volume (df -k of the repository root) at the start of each row in that row log; embed only the last two hundred lines of a row output in report.jsonl and note the omitted line count; after a row is recorded, remove the build outputs that row produced which no later row reads (the cargo target directory of a Rust row, the Playwright report and trace directories of a wallet row, the explorer build output), and leave the Go build cache in place. Keep the report rows and their pass criteria unchanged. Run the build once and the verification once at the final revision."
 do_10 = "do_10 Attempt 10 (continue, gotcha 4076, decision 3157): attempts 8 and 9 left no result because the parity run filled the working volume of the go-cgo environment and the candidate commit failed on the full disk; the task now qualifies in the mixed environment, which starts with about 18 GiB free. Start from the latest tree the record holds, apply do_8 and do_9 again where the tree lacks them (the row log placement, the free-space line per row, the per-row removal of build outputs no later row reads), record the free space at the start and the end of the run in the task record, and run the build once and the verification once at the final revision."
+do_11 = "Attempt 12 (continue after 22.39.332 lands, gotcha 4111, decision 3189): the attempt-11 tree 1a315827bebd stands (parity.py with the row logs under the task log directory, the free space line per row, the last two hundred lines per row and the removal of build outputs, test_parity_run.py, data/parity.kvx). 47 of 50 rows pass and three repairs remain. First, the rows construct.existing-wallet-human-service-and-explorer-playwright and construct.new-signed-receipt-logs-new-case run the send case of apps/wallet/e2e/send.spec.ts, which throws at :877 without a local node. Give parity.py a declared environment for a selector, and for this selector start the node the owning task 12.35.2 declares (bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out with a file under the row log directory), read that file, and pass WALLET_TRANSFER_TRUTH_ANVIL_URL and WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL from LOCAL_NODE_SEQUENCER_RPC, WALLET_TRANSFER_TRUTH_SENDER from LOCAL_NODE_ADDRESS and WALLET_TRANSFER_TRUTH_SEQUENCER_KEY from LOCAL_NODE_KEY to the row command. Start the node once for both rows, stop it and remove its home directory after the second, and never write the key into a row log or the report. The build command now installs the node binary first (make -f chain.mk install); the working volume had 4.3 GiB free at the wallet row, so remove what the node leaves behind. Second, the gate refused the result because the wallet development server rewrote apps/wallet/next-env.d.ts: after every row restore each tracked file outside the task paths that the row changed (git status --porcelain, then git checkout of those paths) and name the restored files in the row report. Third, the row construct.new-explorer-signature is red for a cause on main that 22.39.332 repairs; change nothing for it and do not drop or weaken the row. Keep the report rows and their pass criteria unchanged. Rebase on main and run the build once and the verification once at the final revision."
 
 [task.17.5.1]
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
@@ -417241,6 +417263,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.332]
+title = "Bring the signature and status route cases of the explorer web application to the governed key guard"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.332"]
+interfaces = []
+do_1 = "do_1 Decision 3190, gotcha 4112. In services/explorer/backend run mix test on transaction_signature_controller_test.exs, transaction_signature_committed_test.exs, transaction_status_controller_test.exs and transaction_status_committed_test.exs of apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x on the starting revision and record every failing case with its first error. Red at 1a315827bebd was signature_route_returns_verified_receipt at transaction_signature_controller_test.exs:32 with status 404 where 200 is expected."
+do_2 = "do_2 Bring each case that is red for the key guard to a governed configuration: configure chain_id and receipt_keys for the vectors the case serves the way Explorer.Chain.PaxeerX.GovernedReceiptFixtures of apps/explorer/test/support/fixture/paxeer_x/governed_receipt_fixtures.exs does (configure_receipted for receipt_vectors.json, configure_committed for committed_vectors.json), keep router_url unset where the case serves its own RPC answers, and restore the former configuration on exit. Load the fixtures module the way the cases of the explorer application load it and do not copy it. A case that asserts a refusal for an unverified receipt keeps that refusal under a governed configuration. Change no assertion on a response body, a rung or the recorded RPC calls, and do not edit sequencer_receipt.ex or a controller: when a case stays red under a governed configuration because the route misreports, record a finding with the case, the request and the answer."
+do_3 = "do_3 Record each case, its cause, the producer commit and the repair in services/explorer/backend/repair_22_39_332.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"]
+planned_paths = ["services/explorer/backend/repair_22_39_332.kvx"]
+build_cmd = "cd services/explorer/backend && mix deps.get && mix compile"
+verify_cmd = "test -s services/explorer/backend/repair_22_39_332.kvx && cd services/explorer/backend && mix test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
