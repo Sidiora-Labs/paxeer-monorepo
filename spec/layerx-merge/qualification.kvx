@@ -39834,3 +39834,19 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 13 at 0d064cbe7515 on base 2968a4aeb9fb: the verification exits 1, the wave gate returns 125 with status source-identity-refusal phase before for make workspace-build, twelve ignored build directories of the preparation are listed; log /out/logs/verify-1.log."
 assumption = "The preparation leaves build directories that the output policy of the runner does not name."
 severity = "high"
+
+[finding.22.39.338.1]
+task = "22.39.338"
+file = "services/platform/hosted/paxeer/repair_467_test.go::TestRepair467_RestoredContent"
+symbol = "repair_467_test.go::TestRepair467_RestoredContent"
+observed = "Attempt 1 at 29744acf5552 on base 779bb0fbe4b5 (gates at a491cab991c3): the verification exits 1, TestRepair467_RestoredContent at repair_467_test.go:48 and TestRepairM_1319_NativeDeployment at repair_m1319_test.go:453 fail because deployment.yaml has SHA-256 ba84aff35348 and the pin is 7f681de19c1c; log /out/logs/verify-1.log."
+assumption = "The pin was left behind by the commit of task 18.1790.1 that changed the manifest."
+severity = "high"
+
+[finding.18.1749.1.8]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 8 at 934b544b6f52 on base 1da5e223456f: the verification exits 101, reward_reopen_preserves_recipient_balances stops at the Claim at height 290 with receipt result code -736 and no absent account line of the kernel; log /out/logs/verify-1.log."
+assumption = "The runtime compares the receipt root of the resolved account with a root over the identity bytes."
+severity = "high"

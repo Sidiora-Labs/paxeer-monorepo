@@ -12358,6 +12358,18 @@ value = "permitted_output of scripts/gates/run_gate.py treats as build output, f
 basis = "Gotcha 4129, decisions 3059, 3130 and 3201."
 affects = ["22.39.339", "17.5.7"]
 
+[decision.3208]
+title = "A digest pin of a tracked file follows the commit that changes the file"
+value = "When a case pins the digest of a tracked file and a later commit changes that file on purpose, the pin is stale and the case is red for every task that runs it. The task that meets the stale pin inside its paths and inside its verification moves the pin to the digest of the file on main, after reading the producer commit and stating in its record that the change is the intended one, and changes nothing else of the case (decision 3183). A task that changes a pinned file runs the cases that pin it (decision 3046). For services/platform/hosted/paxeer/deployment.yaml the producer is commit 9e17ec8e4d of task 18.1790.1 and the digest on main begins ba84aff35348."
+basis = "Gotcha 4130, decisions 2533, 3046, 3183 and 3203."
+affects = ["22.39.338"]
+
+[decision.3209]
+title = "The runtime binds the payment account of an identity destination, and the account-bound evidence gains a version 2 that carries the destination names"
+value = "Decision 3200 stays: a program transfer leg whose destination names an identity pays the payment account of that identity. Both sides must commit to the same bytes. In the step that binds the payment account of a source (bind_payment_accounts of the runtime, under the same protocol version condition), the runtime asks the kernel for the name of the payment account of every destination that is neither the id of an account nor the fee account of the asset, derives the account id from the identity, the asset and the name with the derivation it uses for a source, which proves that the name belongs to the identity, and writes that id into bytes 33 to 65 of the leg in the kernel canonical legs before it computes the root. The grant and capability checks keep comparing the bytes the program wrote. The authorization evidence of such a set uses the domain LayerX/programs/402LXP/account-bound-set/v2 followed by one zero byte: the u32 length and the bytes of the original evidence, then for every leg the u16 length and bytes of the source name and the u16 length and bytes of the destination name, the destination name empty for a destination that is an account id. Version 2 is written only when at least one destination is bound and a version 2 form with every destination name empty is refused, so every set has one encoding and every set without an identity destination keeps its version 1 bytes. The kernel keeps its resolution, refuses an identity without one payment account for the asset and applies nothing in that case. The decoders of the Go, .NET, JVM and Swift SDKs and the three documents that describe the wrapper follow the producer from one committed vector file. This is a protocol extension ruled to unblock the payouts of the AI market and is open to an owner overrule."
+basis = "Gotcha 4131, decisions 3046, 3101, 3193 and 3200."
+affects = ["22.39.340", "22.39.341", "22.39.342", "22.39.343", "22.39.344", "22.39.345", "18.1749.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42018,6 +42030,60 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.345]
+title = "Describe the version 2 account-bound evidence and identity destinations in the programs documents"
+reqs = ["22998.1"]
+touches = ["docs/site/docs/programs/index.md", "docs/wiki/Programs.md", "programs/porting/evm/MIGRATION.md", "programs/README.md"]
+tests = []
+verification_contract = "test -s docs/wiki/repair_22_39_345.kvx && grep -q 'account-bound-set/v2' docs/site/docs/programs/index.md && grep -q 'account-bound-set/v2' docs/wiki/Programs.md && grep -q 'account-bound-set/v2' programs/porting/evm/MIGRATION.md && grep -q 'destination-authorization-vectors.json' programs/README.md"
+do_1 = "do_1 Decisions 3200 and 3209. Read the encoding as task 22.39.340 landed it (src/transfer.rs of the programs runtime and its record). In docs/site/docs/programs/index.md (the paragraph at :367), docs/wiki/Programs.md (:338) and programs/porting/evm/MIGRATION.md (:530) state beside the version 1 wrapper: a leg may name an identity as destination and then pays the one payment account of that identity for the asset; a destination without one payment account is refused; the evidence of such a set uses the domain LayerX/programs/402LXP/account-bound-set/v2 with the source name and the destination name of every leg; a set without an identity destination keeps version 1."
+symbols = []
+
+[capability.22.39.344]
+title = "Verify the version 2 account-bound evidence in the Swift SDK"
+reqs = ["22998.1"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift::testNativeDestinationAuthorizationVectors"]
+verification_contract = "test -s sdk/platform/swift/repair_22_39_344.kvx && swift test --package-path sdk/platform/swift --filter 'ReceiptFixtureTests'"
+do_1 = "do_1 Decision 3209. In sdk/platform/swift/Sources/LayerXSDK/Programs.swift make the two readers of the account-bound wrapper (:1421 and :1452) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence decodes as before."
+symbols = ["ProgramsWireTestSupport"]
+
+[capability.22.39.343]
+title = "Verify the version 2 account-bound evidence in the JVM SDK"
+reqs = ["22998.1"]
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java::programDestinationAuthorizationVectors"]
+verification_contract = "test -s sdk/platform/jvm/repair_22_39_343.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='ProgramsContractTest#programTransferAuthorizationRecomputesV1AndV2RootsAndRejectsMutation+programDestinationAuthorizationVectors' -Dsurefire.failIfNoSpecifiedTests=true"
+do_1 = "do_1 Decision 3209. In sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java make the two readers of the account-bound wrapper (:1265 and :1286) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence verifies as before."
+symbols = ["ProgramsClient"]
+
+[capability.22.39.342]
+title = "Verify the version 2 account-bound evidence in the .NET SDK"
+reqs = ["22998.1"]
+touches = ["sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs"]
+tests = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"]
+verification_contract = "test -s sdk/platform/dotnet/repair_22_39_342.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ReceiptFixtureTests'"
+do_1 = "do_1 Decision 3209. In sdk/platform/dotnet/Programs.cs make the two readers of the account-bound wrapper (:719 and :740) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence decodes as before."
+symbols = ["DecodeAuthorizationRoot"]
+
+[capability.22.39.341]
+title = "Verify the version 2 account-bound evidence in the Go SDK"
+reqs = ["22998.1"]
+touches = ["sdk/platform/go/programs.go", "sdk/platform/go/programs_http_test.go"]
+tests = ["sdk/platform/go/programs_http_test.go::TestProgramDestinationAuthorizationVectors"]
+verification_contract = "test -s sdk/platform/go/repair_22_39_341.kvx && go -C sdk/platform/go test -count=1 -run '^(TestProgramTransferAuthorizationRecomputesCanonicalRoot|TestProgramDestinationAuthorizationVectors)$' ."
+do_1 = "do_1 Decision 3209. In sdk/platform/go/programs.go make programAuthorizationV2 (:1547) and verifyProgramTransferAuthorization (:1592) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination with programPrincipalPaymentAccount from the identity of the leg and its asset, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence verifies as before."
+symbols = ["verifyProgramTransferAuthorization"]
+
+[capability.22.39.340]
+title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
+reqs = ["22998.1"]
+touches = ["include/layerx/programs.h", "src/modules/programs/call.c", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs", "programs/crates/layerx-programs-runtime/src/ffi_transfer.rs", "tests/programs/test_call_escrow_principal.c", "tests/programs/test_call_activity.c", "programs/fixtures/pay5"]
+tests = ["tests/programs/test_call_activity.c::main", "tests/programs/test_call_escrow_principal.c::main"]
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_340.kvx && test -s programs/fixtures/pay5/destination-authorization-vectors.json && make -C . build/tests/programs_call_escrow_principal build/tests/programs_call_activity && ./build/tests/programs_call_escrow_principal && ./build/tests/programs_call_activity && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --lib transfer::"
+do_1 = "do_1 Decision 3209, gotcha 4131. Kernel: beside layerx_programs_call_payment_name_byte in src/modules/programs/call.c (:2122) add a function, declared in include/layerx/programs.h, that takes the token, the four words of a destination, the four words of an asset and an offset. It reports length 0 when the destination is the id of an account or the fee account of the asset, and otherwise the length and the bytes of the name of the account that lxp_kernel_program_payment_account resolves for the destination as principal, with the result of the resolution when it refuses. Change nothing in layerx_programs_call_transfer_leg. Bring every list that enumerates the functions of the header to the new function and name each in the record."
+symbols = ["bind_payment_accounts", "bind_account_names", "verify_authorization_root"]
 
 [capability.22.39.339]
 title = "Name the Maven, SwiftPM and .NET build directories as permitted output of the gate runner"
@@ -184366,6 +184432,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.340]
+title = "Bind the payment account of an identity destination in the programs runtime and write the version 2 account-bound evidence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.340"]
+interfaces = []
+do_1 = "do_1 Decision 3209, gotcha 4131. Kernel: beside layerx_programs_call_payment_name_byte in src/modules/programs/call.c (:2122) add a function, declared in include/layerx/programs.h, that takes the token, the four words of a destination, the four words of an asset and an offset. It reports length 0 when the destination is the id of an account or the fee account of the asset, and otherwise the length and the bytes of the name of the account that lxp_kernel_program_payment_account resolves for the destination as principal, with the result of the resolution when it refuses. Change nothing in layerx_programs_call_transfer_leg. Bring every list that enumerates the functions of the header to the new function and name each in the record."
+do_2 = "do_2 Runtime: in bind_payment_accounts of programs/crates/layerx-programs-runtime/src/ffi_call.rs (:1627) read the destination name of every leg through the new function. In src/transfer.rs give the binding at :882 the destination names: for a leg with a name derive the account id with principal_payment_account from the identity in leg.to, the asset and the name, write it into bytes 33 to 65 of the leg in the canonical kernel legs, and compute the root from those bytes. Keep leg.to and every grant and capability check on the bytes of the program. Write the version 2 evidence of decision 3209 only when at least one destination is bound; a set without one keeps its version 1 bytes exactly."
+do_3 = "do_3 Decoding: make the decoder at src/transfer.rs:921 to :947 accept the version 2 domain, bind both name lists and require that the canonical form of the decoded set equals the input. Refuse a version 2 form whose destination names are all empty, a destination name that does not belong to the identity of the leg, a nested wrapper, trailing bytes and every truncation. verify_authorization_root accepts a version 2 evidence with its root. Read every reader of kernel_canonical and kernel_root in the crate (src/ffi_call.rs :1792 to :1815, :2972 and :3401, src/ffi_transfer.rs :114 and :383) and state in the record for each that it reads the bound bytes; the separate transfer activity keeps its lookup by account id."
+do_4 = "do_4 Cases. In tests/programs/test_call_escrow_principal.c prove the new function for a destination that is an account id, for the fee account, for an identity with one payment account, for an identity without one and for an identity with two. In the lib cases of src/transfer.rs prove the version 2 round trip, the unchanged version 1 bytes of a set without an identity destination and each refusal of do_3. In tests/programs/test_call_activity.c add a call whose leg pays an identity with one payment account for the asset through the real kernel and the real runtime: the call succeeds, the terminal carries the version 2 evidence, the balance of that account grows by the amount and no other balance of the recipient changes; add a second call to an identity without a payment account that is refused with nothing applied."
+do_5 = "do_5 Vectors. Extend the dump of test_call_activity.c and programs/fixtures/pay5/generate_sdk_account_fixtures.py so the generator also writes programs/fixtures/pay5/destination-authorization-vectors.json in the shape of account-authorization-vectors.json (name, encoded, root, accept): accepted vectors for one leg to an identity and for a set that mixes an account id destination with an identity destination, and refused vectors for trailing bytes, a nested wrapper, each truncation, a destination name of another identity, a wrong asset in an asset account name and a version 2 form with every destination name empty. Commit the file and leave every other committed fixture of the directory byte for byte; a lib case of the runtime reads the committed file and proves each vector."
+do_6 = "do_6 Record in programs/crates/layerx-programs-runtime/repair_22_39_340.kvx the function of the kernel, the lines changed in the runtime, the result of the reading of do_3, the cases and the vector file with its digest. Change no source of the AI market guest. Run the build once and the verification once at the final revision."
+symbols = ["bind_payment_accounts", "bind_account_names", "verify_authorization_root"]
+touches = ["include/layerx/programs.h", "src/modules/programs/call.c", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs", "programs/crates/layerx-programs-runtime/src/ffi_transfer.rs", "tests/programs/test_call_escrow_principal.c", "tests/programs/test_call_activity.c", "programs/fixtures/pay5"]
+tests = ["tests/programs/test_call_activity.c::main", "tests/programs/test_call_escrow_principal.c::main"]
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_340.kvx", "programs/fixtures/pay5/destination-authorization-vectors.json"]
+build_cmd = "make -C . build/liblayerx.a && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_340.kvx && test -s programs/fixtures/pay5/destination-authorization-vectors.json && make -C . build/tests/programs_call_escrow_principal build/tests/programs_call_activity && ./build/tests/programs_call_escrow_principal && ./build/tests/programs_call_activity && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --lib transfer::"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.338]
 title = "Remove the two historical deployment scripts of the Paxeer compatibility root with their pins"
 status = "pending"
@@ -184396,6 +184495,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 4130, decision 3208): the attempt-1 tree 29744acf5552 stands (the two scripts and the profile suite removed, the Makefile entry, the absence checks, the four findings closed as retained, the record). The two red cases pin the digest of deployment.yaml, which commit 9e17ec8e4d of task 18.1790.1 changed on purpose at :148. Read that commit, then in services/platform/hosted/paxeer/repair_467_test.go:19 set the entry of deployment.yaml in repair467OriginalSHA256 to the SHA-256 of the manifest on main (it begins ba84aff35348) and change nothing else of the table or of the cases; the manifest itself stays unchanged. Replace the finding on the inherited digest in the record with the pin moved, the producer commit and the line it changed. Run the build once and the verification once at the final revision."
 
 [task.22.39.333]
 title = "Give the AI market guest one packaging recipe, bring it under the deployment bound and regenerate its fixtures"
@@ -184776,7 +184876,7 @@ title = "Issue #1749: Prove Claim and RefundFree replay preserves recipient bala
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.33.223", "22.39.333", "22.39.336"]
+requires = ["22.33.223", "22.39.333", "22.39.336", "22.39.340"]
 reqs = ["181749.1"]
 capabilities = ["18.1749.1"]
 interfaces = []
@@ -184806,6 +184906,7 @@ do_6 = "Attempt 5 (continue, gotcha 3923): the attempt-4 tree 5e4ecdb9c872 stand
 do_7 = "Attempt 6 (continue after 22.33.223 lands, gotcha 3947): the attempt-5 tree d6bc790807e3 stands (the enrolment deadline, the reopen case, the boundary operation, the repaired reward replay). The task now requires 22.33.223 and sits in wave 3; merge main once that task is on it so the roster CPU cap it sets admits the minimum roster of the case, change nothing in the case for the cap, run the build once and the verification once at the final revision; if the case still fails, record the first failing assertion and stop."
 do_8 = "Attempt 7 (continue after 22.39.333 lands, gotcha 4114, decision 3192): the attempt-6 tree 557742ea3eb0 stands (the reopen case, the boundary operation, the repaired reward replay). Its build stopped at the size test of the target for the guest of main, before the harness and the case ran. The task now requires 22.39.333; merge main once that task is on it, change nothing for the size or the recipe, run the build once and the verification once at the final revision; if the case fails, record the first failing assertion and stop."
 do_9 = "Attempt 8 (continue after 22.39.336 lands, gotcha 4124, decision 3200): the attempt-7 tree aa64b3a9fa82 stands (the reopen case, the boundary operation, the repaired reward replay). The case now runs through enrolment, funding and aggregation and stops at the Claim, which the kernel refuses with -736 because the destination the guest names is the identity of the participant and no account has that id. Task 22.39.336 makes the kernel resolve such a destination to the payment account of the identity, and the task now requires it: merge main once that task is on it and change nothing in the guest, in the fixture or in the assertions for the destination. The proof operation already expects the payment account of the principal at tests/programs/test_ai_host_boundary.c:980 to :984. Run the build once and the verification once at the final revision; if the case fails, record the first failing assertion and stop."
+do_10 = "Attempt 9 (continue after 22.39.340 lands, gotcha 4131, decision 3209): the attempt-8 tree 934b544b6f52 stands (the reopen case, the boundary operation, the repaired reward replay). The kernel now pays the payment account of the identity and the runtime refuses the Claim because its root is computed from the bytes the program wrote. Task 22.39.340 binds the resolved account in the runtime and the task now requires it: merge main once that task is on it and change nothing in the guest, in the fixture or in the assertions for the destination. Run the build once and the verification once at the final revision; if the case fails, record the first failing assertion with the result code and stop."
 
 [task.18.1724.1]
 title = "Issue #1724: Prove nonzero restart accounting with node-produced transaction receipts"
@@ -186538,6 +186639,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.344]
+title = "Verify the version 2 account-bound evidence in the Swift SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.340"]
+reqs = ["22998.1"]
+capabilities = ["22.39.344"]
+interfaces = []
+do_1 = "do_1 Decision 3209. In sdk/platform/swift/Sources/LayerXSDK/Programs.swift make the two readers of the account-bound wrapper (:1421 and :1452) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence decodes as before."
+do_2 = "do_2 In sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift add testNativeDestinationAuthorizationVectors beside testNativeAccountAuthorizationVectors, reading programs/fixtures/pay5/destination-authorization-vectors.json with the same accept and refuse rule. Keep the existing case unchanged."
+do_3 = "do_3 Record the lines changed and the vector count in sdk/platform/swift/repair_22_39_344.kvx. Run the build once and the verification once at the final revision."
+symbols = ["ProgramsWireTestSupport"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift::testNativeDestinationAuthorizationVectors"]
+planned_paths = ["sdk/platform/swift/repair_22_39_344.kvx"]
+build_cmd = "swift build --package-path sdk/platform/swift"
+verify_cmd = "test -s sdk/platform/swift/repair_22_39_344.kvx && swift test --package-path sdk/platform/swift --filter 'ReceiptFixtureTests'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -224222,6 +224353,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.341]
+title = "Verify the version 2 account-bound evidence in the Go SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.340"]
+reqs = ["22998.1"]
+capabilities = ["22.39.341"]
+interfaces = []
+do_1 = "do_1 Decision 3209. In sdk/platform/go/programs.go make programAuthorizationV2 (:1547) and verifyProgramTransferAuthorization (:1592) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination with programPrincipalPaymentAccount from the identity of the leg and its asset, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence verifies as before."
+do_2 = "do_2 In sdk/platform/go/programs_http_test.go add TestProgramDestinationAuthorizationVectors, which reads programs/fixtures/pay5/destination-authorization-vectors.json and requires that every accepted vector verifies against its root and every other vector is refused. Keep TestProgramTransferAuthorizationRecomputesCanonicalRoot unchanged."
+do_3 = "do_3 Record the lines changed and the vector count in sdk/platform/go/repair_22_39_341.kvx. Run the build once and the verification once at the final revision."
+symbols = ["verifyProgramTransferAuthorization"]
+touches = ["sdk/platform/go/programs.go", "sdk/platform/go/programs_http_test.go"]
+tests = ["sdk/platform/go/programs_http_test.go::TestProgramDestinationAuthorizationVectors"]
+planned_paths = ["sdk/platform/go/repair_22_39_341.kvx"]
+build_cmd = "go -C sdk/platform/go build ./..."
+verify_cmd = "test -s sdk/platform/go/repair_22_39_341.kvx && go -C sdk/platform/go test -count=1 -run '^(TestProgramTransferAuthorizationRecomputesCanonicalRoot|TestProgramDestinationAuthorizationVectors)$' ."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.334]
 title = "Describe the frozen vectors of the web module attestation document without the foreign chain id"
@@ -281780,6 +281941,36 @@ do_7 = "Attempts 1 to 4 fail compiling sdk/platform/jvm/src/main/java/com/sidior
 do_8 = "Delete the two tests of sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java that construct LocalVerifier.AuthorizedReceiptBatch: actualKernelExecutionReceiptsKeepPinnedAuthorityAndAttachmentBindings (:437-466, reads the kernel receipt-programs-executed-v3/v4 vectors tasks 8.47.5 and 8.47.6 retire) and nativeTerminalV5CorpusBindsSignedRequestsReceiptsAndEveryOutcome (:468-534, calls the deleted verifyProgramTerminalV5Receipt and verifyReceiptOutcome). Leave every other test and helper, including the /v1/programs route tests task 8.42.6 retires."
 do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java:28-62 (it constructs LocalVerifier.AuthorizedReceiptBatch and calls the deleted LocalVerifier.verifyReceipt); keep nativeAccountAuthorizationVectors (:19-26) and drop imports that become unused. Task 8.47.6 still deletes the whole file later. The clients.md anchors of do_1 to do_3 now sit at spec/layerx-merge/contracts/clients.md:60 and :121."
 
+[task.22.39.343]
+title = "Verify the version 2 account-bound evidence in the JVM SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.340"]
+reqs = ["22998.1"]
+capabilities = ["22.39.343"]
+interfaces = []
+do_1 = "do_1 Decision 3209. In sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java make the two readers of the account-bound wrapper (:1265 and :1286) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence verifies as before."
+do_2 = "do_2 In sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java add the case programDestinationAuthorizationVectors, which reads programs/fixtures/pay5/destination-authorization-vectors.json and requires that every accepted vector yields its root and every other vector is refused. Keep programTransferAuthorizationRecomputesV1AndV2RootsAndRejectsMutation unchanged."
+do_3 = "do_3 Record the lines changed and the vector count in sdk/platform/jvm/repair_22_39_343.kvx. Run the build once and the verification once at the final revision."
+symbols = ["ProgramsClient"]
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java::programDestinationAuthorizationVectors"]
+planned_paths = ["sdk/platform/jvm/repair_22_39_343.kvx"]
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "test -s sdk/platform/jvm/repair_22_39_343.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='ProgramsContractTest#programTransferAuthorizationRecomputesV1AndV2RootsAndRejectsMutation+programDestinationAuthorizationVectors' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.335]
 title = "Bring the receipt key configuration case of the Spring integration to the network identifier the producer accepts"
 status = "done"
@@ -283216,6 +283407,38 @@ do_12 = "Decision 2116: sdk/platform/conformance/operations.json:1442-1463: inte
 do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platform/conformance/operations.json:392-404) and rerun generate_portable.py so the Swift and .NET catalogues lose their faucet case; sdk/platform/go/agent_operation_envelope_test.go:498 encodes Operation: 'faucet.claim' as a string literal instead of string(AgentOperationFaucetClaim); delete testSdkSwiftFaucetClaimIsRetiredUnavailableCapability (sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift:181-190) and RetiredFaucetClaimReturnsTerminalUnavailableCapability (sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:198-210). The regenerated Go agent catalogue has 53 operations, equal to the agent sections of services/agent/schema/agent-api."
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
+
+[task.22.39.342]
+title = "Verify the version 2 account-bound evidence in the .NET SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.340"]
+reqs = ["22998.1"]
+capabilities = ["22.39.342"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3209. In sdk/platform/dotnet/Programs.cs make the two readers of the account-bound wrapper (:719 and :740) accept the version 2 domain: read the source name and the destination name of every leg, derive the account of a named destination from the identity of the leg and its asset with the derivation the file uses for a source, place it in the leg before the root is computed, and refuse a version 2 form whose destination names are all empty, a name that does not belong to the identity, a nested wrapper and trailing bytes. Version 1 evidence decodes as before."
+do_2 = "do_2 In sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs add the case NativeDestinationAuthorizationVectors beside NativeAccountAuthorizationVectors, reading programs/fixtures/pay5/destination-authorization-vectors.json with the same accept and refuse rule. Keep the existing case unchanged."
+do_3 = "do_3 Record the lines changed and the vector count in sdk/platform/dotnet/repair_22_39_342.kvx. Run the build once and the verification once at the final revision."
+symbols = ["DecodeAuthorizationRoot"]
+touches = ["sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs"]
+tests = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"]
+planned_paths = ["sdk/platform/dotnet/repair_22_39_342.kvx"]
+build_cmd = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
+verify_cmd = "test -s sdk/platform/dotnet/repair_22_39_342.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~ReceiptFixtureTests'"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 
 [task.22.39.317]
 title = "Bring the JVM platform SDK suite to green against the fixtures and vectors on main"
@@ -351885,6 +352108,36 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.345]
+title = "Describe the version 2 account-bound evidence and identity destinations in the programs documents"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.340"]
+reqs = ["22998.1"]
+capabilities = ["22.39.345"]
+interfaces = []
+do_1 = "do_1 Decisions 3200 and 3209. Read the encoding as task 22.39.340 landed it (src/transfer.rs of the programs runtime and its record). In docs/site/docs/programs/index.md (the paragraph at :367), docs/wiki/Programs.md (:338) and programs/porting/evm/MIGRATION.md (:530) state beside the version 1 wrapper: a leg may name an identity as destination and then pays the one payment account of that identity for the asset; a destination without one payment account is refused; the evidence of such a set uses the domain LayerX/programs/402LXP/account-bound-set/v2 with the source name and the destination name of every leg; a set without an identity destination keeps version 1."
+do_2 = "do_2 In programs/README.md name destination-authorization-vectors.json beside account-authorization-vectors.json in the list of the pay5 fixtures (:341) with one sentence on what it proves. Describe nothing that the code does not do and change no statement about version 1."
+do_3 = "do_3 Record the four places in docs/wiki/repair_22_39_345.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/docs/programs/index.md", "docs/wiki/Programs.md", "programs/porting/evm/MIGRATION.md", "programs/README.md"]
+tests = []
+planned_paths = ["docs/wiki/repair_22_39_345.kvx"]
+build_cmd = "test -f docs/site/docs/programs/index.md && test -f docs/wiki/Programs.md && test -f programs/porting/evm/MIGRATION.md"
+verify_cmd = "test -s docs/wiki/repair_22_39_345.kvx && grep -q 'account-bound-set/v2' docs/site/docs/programs/index.md && grep -q 'account-bound-set/v2' docs/wiki/Programs.md && grep -q 'account-bound-set/v2' programs/porting/evm/MIGRATION.md && grep -q 'destination-authorization-vectors.json' programs/README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.339]
 title = "Name the Maven, SwiftPM and .NET build directories as permitted output of the gate runner"
