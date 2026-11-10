@@ -77,7 +77,8 @@
     370002,
     380002,
     150006,
-    160004
+    160004,
+    190005
   ],
   "registrations": [
     {
@@ -2584,6 +2585,33 @@
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l16/queries.go",
           "sha256": "6baff8a48286a7d8dd458998ee8f992600d7d2d6a393171f331430df268dc0a4"
+        }
+      ]
+    },
+    {
+      "migration_id": 190005,
+      "service": "core/ranking-algo",
+      "schema": "ranking",
+      "owner_lane": "L19",
+      "path": "launchpad/spec/production-system/integration/migrations/190005.sql",
+      "sha256": "1a53574ab41ddd5117887e05c3c565b7bf6547c6d0cd60c52195ab1942ea8379",
+      "predecessor_ids": [
+        190000
+      ],
+      "legacy_dependencies": [],
+      "legacy_predecessors": [],
+      "interface_digest": null,
+      "reader_min_version": null,
+      "estimated_lock_ms": null,
+      "transaction_mode": "transactional",
+      "rollback_strategy": "Retain all eight category histories; roll back readers only. A compensating constraint requires independent approval.",
+      "backfill_strategy": "None: existing rows remain valid; gainers and losers are admitted from ranker.Categories.",
+      "destructive": false,
+      "approval_manifest_digest": null,
+      "source_inputs": [
+        {
+          "path": "services/launchpad/ranking-algo/internal/ranker/snapshot.go",
+          "sha256": "29e68c87ae2014adc335b39915a68a9a25186229d78044965fd94c40128c4640"
         }
       ]
     }

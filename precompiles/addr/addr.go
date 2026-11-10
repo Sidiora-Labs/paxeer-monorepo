@@ -50,7 +50,7 @@ const (
 
 	// LayerXBindSignatureGas is the EVM gas charged for the strict Ed25519
 	// verification of a bind, on top of the metered store reads and writes. It
-	// equals the per-signature charge of the layerxVerify precompile.
+	// is 4000 gas per signature independently of retired precompile activation.
 	LayerXBindSignatureGas uint64 = 4000
 )
 

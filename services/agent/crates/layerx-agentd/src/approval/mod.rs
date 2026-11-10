@@ -1968,6 +1968,8 @@ pub struct ApprovalSubmissionQueue {
 }
 
 impl ApprovalSubmissionQueue {
+    /// # Errors
+    /// Returns an error if approval recovery or the underlying registry operation fails.
     pub fn recover_released(
         &self,
         registry: &ApprovalRegistry,
@@ -2360,23 +2362,11 @@ impl<'a> ApprovalService<'a> {
             Err(error) => return outcome_or_error(error),
         };
         if intended == ApprovalOutcome::Defective {
-            let Some(decision_record) = decision_record else {
-                self.registry
-                    .abort_claim(approval_id)
-                    .map_err(ApprovalOperationError::Registry)?;
-                return Err(ApprovalOperationError::Durability(
-                    ApprovalExpiryError::Corrupt,
-                ));
-            };
-            self.registry.finish_claim_releasing(
+            self.finish_defective_approval(
                 approval_id,
-                ApprovalState::Defective,
                 approver,
-                "held_preparation_changed_after_approval_hold",
-                self.limiter,
                 current_sequence,
                 decision_record,
-                self.expiry.decision_store(),
             )?;
             return Ok(decision(ApprovalOutcome::Defective, None));
         }
@@ -2396,6 +2386,34 @@ impl<'a> ApprovalService<'a> {
                 .map_err(ApprovalOperationError::Registry)?;
         }
         released
+    }
+    fn finish_defective_approval(
+        &self,
+        approval_id: [u8; 32],
+        approver: ApproverId,
+        current_sequence: u64,
+        decision_record: Option<expiry::PreparedDecision>,
+    ) -> Result<(), ApprovalOperationError> {
+        let Some(decision_record) = decision_record else {
+            self.registry
+                .abort_claim(approval_id)
+                .map_err(ApprovalOperationError::Registry)?;
+            return Err(ApprovalOperationError::Durability(
+                ApprovalExpiryError::Corrupt,
+            ));
+        };
+        self.registry.finish_claim_releasing(
+            approval_id,
+            ApprovalState::Defective,
+            approver,
+            "held_preparation_changed_after_approval_hold",
+            self.limiter,
+            current_sequence,
+            decision_record,
+            self.expiry.decision_store(),
+        )?;
+
+        Ok(())
     }
 
     fn persist_grant(
@@ -2631,11 +2649,13 @@ impl ApprovalService<'_> {
         self.registry.complete_program_decision(
             request,
             context,
-            current_prepared,
+            &crate::policy::approval::ProgramDecisionResources {
+                current_prepared,
+                expiry: self.expiry,
+                limiter: self.limiter,
+                submissions,
+            },
             approve,
-            self.expiry,
-            self.limiter,
-            submissions,
         )
     }
 }

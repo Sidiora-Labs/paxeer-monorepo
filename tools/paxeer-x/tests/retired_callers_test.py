@@ -196,7 +196,7 @@ def documentation_matches(path, entry):
     if "pattern" in entry:
         pattern = entry["pattern"]
         return fnmatchcase(path if "/" in pattern else PurePosixPath(path).name, pattern)
-    return (
+    return path == entry["path"] or (
         PurePosixPath(path).suffix in DOCUMENTATION_SUFFIXES
         and below(path, entry["path"])
     )
@@ -355,7 +355,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
     }
     pathspecs.extend(
         ":(top,exclude,literal)" + path
-        for path in sorted({CATALOGUE_PATH} | deleted_trees | retiring_trees)
+        for path in sorted({CATALOGUE_PATH, "core/deps"} | deleted_trees | retiring_trees)
     )
     pathspecs.extend(
         ":(top,exclude,glob)**/" + directory + "/**"
@@ -375,7 +375,7 @@ def scan(root, catalogue, component_ids, paths, deleted=False):
             )
             continue
         tree = entry["path"]
-        if PurePosixPath(tree).suffix in DOCUMENTATION_SUFFIXES:
+        if tree in tracked:
             pathspecs.append(":(top,exclude,literal)" + tree)
         escaped_tree = re.sub(r"([\\*?\[\]])", r"\\\1", tree)
         pathspecs.extend(
@@ -525,6 +525,7 @@ def self_test(catalogue):
             for entry in catalogue["documentation_paths"]
         ],
         [
+            "contracts/*.md",
             "spec/layerx-merge/spec.kvx",
             "spec/layerx-merge/qualification.kvx",
             "spec/layerx-merge/docs",
@@ -538,6 +539,13 @@ def self_test(catalogue):
             "core/deps/geth/signer/fourbyte/**",
             "programs/vendor/**",
             "apps/launchpad/web/public/charting_library/**",
+            "services/platform/examples/marketplace/repair-22-31-349.kvx",
+            "tools/bringup/repair-*.kvx",
+            "api/README.md",
+            "modules/README.md",
+            "GOTCHA.kvx",
+            "CHANGELOG.md",
+            "CODEMAP.md",
         ],
         "reviewed documentation paths",
     )
@@ -1133,6 +1141,45 @@ def self_test(catalogue):
             message,
             "documentation pattern exact refusal " + pattern,
         )
+    with tempfile.TemporaryDirectory(prefix="retired-callers-doc-files-") as directory:
+        root = Path(directory)
+        git(root, ["init", "-q"])
+        documents = ["history.txt", "history.rst", "history.json", "HISTORY"]
+        document = validate_catalogue(
+            {
+                **catalogue,
+                "documentation_paths": [
+                    {"path": path, "reason": "history quotes retired names by design"}
+                    for path in [*documents, "notes"]
+                ],
+            }
+        )
+        write_tracked(
+            root,
+            {
+                **{path: "layerxverify\n" for path in documents},
+                "notes/retired.md": "layerxverify\n",
+                "notes/retired.kvx": "layerxverify\n",
+                "notes/live.rs": "use layerxverify;\n",
+                "history.txt.next": "layerxverify\n",
+                "HISTORY_NEXT": "layerxverify\n",
+            },
+        )
+        check_equal(
+            scan(root, document, ["verify"], [], deleted=True),
+            [
+                ("HISTORY_NEXT", 1, "verify", "layerxverify"),
+                ("history.txt.next", 1, "verify", "layerxverify"),
+                ("notes/live.rs", 1, "verify", "layerxverify"),
+            ],
+            "listed files allow every suffix but directory code and neighbours remain callers",
+        )
+        for path in documents:
+            check_equal(
+                scan(root, document, ["verify"], [path], deleted=True),
+                [],
+                "explicit documentation file filter " + path,
+            )
     for path, reason, message in (
         (
             "services/agent/crates/layerx-paxeer-verifier",

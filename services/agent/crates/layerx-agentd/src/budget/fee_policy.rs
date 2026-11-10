@@ -120,6 +120,9 @@ fn denom_call(signature: &[u8], denom: &[u8]) -> Vec<u8> {
     call
 }
 
+/// # Errors
+/// Returns an error if the node fee read fails or the returned fee policy cannot be
+/// validated.
 pub fn native_fee_policy(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -128,6 +131,9 @@ pub fn native_fee_policy(
 }
 
 /// Reads the selected fee denomination for the authenticated native transaction payer.
+/// # Errors
+/// Returns an error if the node fee read fails or the returned fee policy cannot be
+/// validated.
 pub fn native_fee_policy_for(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -150,51 +156,11 @@ pub fn native_fee_policy_for(
     call.extend(payer);
     let answer = endpoint.call_at(height, &FEE_TOKEN, &call)?;
     let denom = text(&answer, 0, 1, 128).map_err(|_| FeeReadError::Denomination)?;
-    if !denom.iter().all(|byte| byte.is_ascii_graphic()) {
+    if !denom.iter().all(u8::is_ascii_graphic) {
         return Err(FeeReadError::Denomination);
     }
     let asset = if let Some(hex) = denom.strip_prefix(b"layerx/") {
-        if hex.len() != 64 {
-            return Err(FeeReadError::Denomination);
-        }
-        let mut id = [0; 32];
-        for (out, pair) in id.iter_mut().zip(hex.chunks_exact(2)) {
-            let digit = |byte: u8| match byte {
-                b'0'..=b'9' => Ok(byte - b'0'),
-                b'a'..=b'f' => Ok(byte - b'a' + 10),
-                b'A'..=b'F' => Ok(byte - b'A' + 10),
-                _ => Err(FeeReadError::Denomination),
-            };
-            *out = digit(pair[0])? * 16 + digit(pair[1])?;
-        }
-        let mut call = selector(b"getAsset(bytes32)");
-        call.extend(id);
-        let answer = endpoint.call_at(height, &LEDGER, &call)?;
-        let returned_id = word(&answer, 0)?;
-        let decimals = u8::try_from(small(&answer, 3)?).map_err(|_| FeeReadError::Metadata)?;
-        let paused = small(&answer, 10)?;
-        if returned_id != id || paused > 1 || answer.len() < 12 * 32 {
-            return Err(FeeReadError::Metadata);
-        }
-        let issuer_kind = u8::try_from(small(&answer, 7)?).map_err(|_| FeeReadError::Metadata)?;
-        if issuer_kind > 2 {
-            return Err(FeeReadError::Metadata);
-        }
-        AssetMetadata {
-            asset_id: returned_id,
-            symbol: text(&answer, 1, 12, 16)?,
-            name: String::from_utf8(dynamic(&answer, 2, 12, 32)?)
-                .map_err(|_| FeeReadError::Metadata)?,
-            decimals,
-            supply_cap: units(&answer, 4)?,
-            issuer_did: word(&answer, 5)?,
-            salt: word(&answer, 6)?,
-            issuer_kind,
-            custody_kind: u8::try_from(small(&answer, 8)?).map_err(|_| FeeReadError::Metadata)?,
-            custody_reference: dynamic(&answer, 9, 12, 128)?,
-            paused: paused == 1,
-            total_units: units(&answer, 11)?,
-        }
+        read_native_asset_metadata(endpoint, height, hex)?
     } else {
         let symbol = endpoint.call_at(height, &BANK, &denom_call(b"symbol(string)", &denom))?;
         let decimals = endpoint.call_at(height, &BANK, &denom_call(b"decimals(string)", &denom))?;
@@ -239,6 +205,53 @@ pub fn native_fee_policy_for(
     })
 }
 
+fn read_native_asset_metadata(
+    endpoint: &SequencerEndpoint,
+    height: u64,
+    hex: &[u8],
+) -> Result<AssetMetadata, FeeReadError> {
+    if hex.len() != 64 {
+        return Err(FeeReadError::Denomination);
+    }
+    let mut id = [0; 32];
+    for (out, pair) in id.iter_mut().zip(hex.chunks_exact(2)) {
+        let digit = |byte: u8| match byte {
+            b'0'..=b'9' => Ok(byte - b'0'),
+            b'a'..=b'f' => Ok(byte - b'a' + 10),
+            b'A'..=b'F' => Ok(byte - b'A' + 10),
+            _ => Err(FeeReadError::Denomination),
+        };
+        *out = digit(pair[0])? * 16 + digit(pair[1])?;
+    }
+    let mut call = selector(b"getAsset(bytes32)");
+    call.extend(id);
+    let answer = endpoint.call_at(height, &LEDGER, &call)?;
+    let returned_id = word(&answer, 0)?;
+    let decimals = u8::try_from(small(&answer, 3)?).map_err(|_| FeeReadError::Metadata)?;
+    let paused = small(&answer, 10)?;
+    if returned_id != id || paused > 1 || answer.len() < 12 * 32 {
+        return Err(FeeReadError::Metadata);
+    }
+    let issuer_kind = u8::try_from(small(&answer, 7)?).map_err(|_| FeeReadError::Metadata)?;
+    if issuer_kind > 2 {
+        return Err(FeeReadError::Metadata);
+    }
+    Ok(AssetMetadata {
+        asset_id: returned_id,
+        symbol: text(&answer, 1, 12, 16)?,
+        name: String::from_utf8(dynamic(&answer, 2, 12, 32)?)
+            .map_err(|_| FeeReadError::Metadata)?,
+        decimals,
+        supply_cap: units(&answer, 4)?,
+        issuer_did: word(&answer, 5)?,
+        salt: word(&answer, 6)?,
+        issuer_kind,
+        custody_kind: u8::try_from(small(&answer, 8)?).map_err(|_| FeeReadError::Metadata)?,
+        custody_reference: dynamic(&answer, 9, 12, 128)?,
+        paused: paused == 1,
+        total_units: units(&answer, 11)?,
+    })
+}
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

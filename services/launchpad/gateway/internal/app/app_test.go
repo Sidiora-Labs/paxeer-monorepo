@@ -267,6 +267,7 @@ func TestRun_GracefulShutdown(t *testing.T) {
 	port := internaltest.FreePorts(t, 1)[0]
 
 	for k, v := range map[string]string{
+		"NODE_ENV":             "development",
 		"REDIS_URL":            redisURL,
 		"LOG_LEVEL":            "error",
 		"PORT":                 strconv.Itoa(port),

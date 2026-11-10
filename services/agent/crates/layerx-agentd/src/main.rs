@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[path = "inference_market/signal.rs"]
+mod inference_signal;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
@@ -2045,7 +2048,7 @@ fn program_reader(
 
 struct InferenceSupervision {
     market: layerx_agentd::boot::inference_market::InferenceMarket,
-    signal: HttpPool,
+    signal: inference_signal::SignalListener,
     completion: HttpPool,
     reader: LayerxdProgramBalanceReader,
     agent: ureq::Agent,
@@ -2219,15 +2222,28 @@ fn inference_boot(
         .map_err(|error| format!("inference boot refused: {error:?}"))?;
     inference_enrol_host(config, &inference)?;
     let market = inference_market::serve_inference_market(inference, gate)?;
-    let signal_gate = Arc::clone(&market.gate);
-    let signal = HttpPool::start(
+    let offer: inference_signal::RoomOffer = serde_json::from_slice(&market.room_profile)
+        .map_err(|error| format!("inference room offer is invalid: {error}"))?;
+    if offer.model_digest != market.config.model_digest
+        || offer.runtime_digest != market.config.runtime_digest
+    {
+        return Err("inference room offer disagrees with configured digests".to_owned());
+    }
+    let signal_authority = inference_signal::SignalAuthority::new(
+        agent.clone(),
+        config.node_endpoint.clone(),
+        config.node_bearer.clone(),
+        config.expected_chain_id,
+        config.probe_program.bytes(),
+        Arc::clone(&market.gate),
+    )?;
+    let signal = inference_signal::SignalListener::start(
         market
             .signal_listener
             .try_clone()
             .map_err(|error| error.to_string())?,
-        move |mut stream| {
-            let _ = inference_market::serve_health(&mut stream, &signal_gate);
-        },
+        offer,
+        signal_authority,
     )?;
     let completion_gate = Arc::clone(&market.gate);
     let completion = HttpPool::start(

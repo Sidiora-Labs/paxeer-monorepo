@@ -1,24 +1,3 @@
-// `checkpoint_height` is the kernel height the checkpoint commits to and `sealed_height` the
-// height it seals; both, like the state root, are optional columns of the anchor log.
-export type PaxeerXArchiveAnchor = {
-  frozen: true;
-  batch_number: number;
-  checkpoint_id: string;
-  checkpoint_height: number | null;
-  sealed_height: number | null;
-  state_root: string | null;
-  block_number: number;
-  timestamp: string;
-};
-
-export type PaxeerXArchiveAnchorsResponse = {
-  items: Array<PaxeerXArchiveAnchor>;
-  next_page_params: {
-    batch_number: number;
-    items_count: number;
-  } | null;
-};
-
 type PaxeerXArchiveReceiptCommon = {
   id: string;
   account: string | null;
