@@ -1247,21 +1247,53 @@ mod source_vectors {
 
     #[test]
     fn traced_abi_one_execution_v3_is_not_candidate_evidence() {
-        let mut bytes = b"LXP/program-execution/v3\0".to_vec();
-        bytes.extend_from_slice(&1_u16.to_be_bytes());
-        bytes.extend_from_slice(&1_u16.to_be_bytes());
-        bytes.extend_from_slice(&1_u32.to_be_bytes());
-        bytes.extend_from_slice(&0_u128.to_be_bytes());
-        for value in [1_u64, 2, 3, 4] {
-            bytes.extend_from_slice(&value.to_be_bytes());
-        }
-        bytes.extend_from_slice(&0_u32.to_be_bytes());
-        bytes.extend_from_slice(&10_u128.to_be_bytes());
-        bytes.push(1);
-        bytes.extend_from_slice(&0_u64.to_be_bytes());
+        use crate::test_support::{
+            code_section, export_section, func_body, function_section, module, type_section,
+            OP_END, OP_I32_CONST, TYPE_I32,
+        };
+        use crate::{Executor, TracePolicy, WasmEngine, WasmValue};
+
+        let wasm = module(&[
+            type_section(&[(&[], &[TYPE_I32])]),
+            function_section(&[0]),
+            export_section(&[("run", 0)]),
+            code_section(&[func_body(&[], &[OP_I32_CONST, 7, OP_END])]),
+        ]);
+        let validated = WasmEngine::declared()
+            .unwrap_or_else(|error| panic!("engine refused: {error}"))
+            .validate(&wasm)
+            .unwrap_or_else(|error| panic!("ABI1 module refused: {error}"));
+        let policy =
+            TracePolicy::new(1, 16).unwrap_or_else(|error| panic!("trace policy refused: {error}"));
+        let record = Executor::declared()
+            .with_trace_policy(policy)
+            .execute(&validated, "run", &[])
+            .unwrap_or_else(|error| panic!("traced ABI1 execution refused: {error}"));
+        assert_eq!(record.abi_version, 1);
+        assert_eq!(record.outputs, vec![WasmValue::I32(7)]);
+        let trace = record
+            .trace
+            .as_ref()
+            .unwrap_or_else(|| panic!("missing trace"))
+            .canonical_arbitration_bytes()
+            .unwrap_or_else(|error| panic!("trace encoding refused: {error}"));
+        let bytes = record.canonical_evidence();
         let Ok(decoded) = decode_terminal_payload(1, 1, &bytes) else {
             panic!("traced ABI1 producer vector rejected")
         };
+        assert_eq!(decoded.execution_encoding_version(), Some(3));
+        assert_eq!(
+            decoded.detail,
+            TerminalDetail::Execution(ExecutionTerminal::Legacy {
+                encoding_version: 3,
+                runtime_version: record.runtime_version,
+                abi_version: record.abi_version,
+                metering_schedule_version: record.metering_schedule_version,
+                values: vec![super::ExecutionValue::I32(7)],
+                usage: record.usage,
+                trace: Some(trace),
+            })
+        );
         assert!(matches!(
             decoded.detail,
             TerminalDetail::Execution(ExecutionTerminal::Legacy {

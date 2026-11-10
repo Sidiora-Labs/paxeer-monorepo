@@ -683,6 +683,20 @@
   ],
   "allowed_references": [
     {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "receipt_authority"
+      ],
+      "citation": "Decision 3125 retains read_native_receipt_authority, decode_native_receipt_authority and native_receipt_authority_length for the live native CALL V2 receipt projection bound to block height and digest, with V1 explicitly refused."
+    },
+    {
+      "path": "programs/crates/layerx-programs-runtime/src",
+      "symbols": [
+        "SETTLEMENT_DOMAIN"
+      ],
+      "citation": "Decision 3125 retains SANDBOX_SETTLEMENT_DOMAIN for the live sandbox usage-receipt envelope authenticated by attach_sandbox_settlement and decoded by terminal::unwrap, preserving its public name and wire bytes."
+    },
+    {
       "path": "Makefile",
       "symbols": [
         "bridge_credit",
