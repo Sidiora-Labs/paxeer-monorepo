@@ -2011,6 +2011,7 @@ fn node_state(config: &Config) -> Result<NodeProgramStateSource, String> {
         &config.sequencer_trust_history,
         config.staleness_ms,
     )?;
+    // Cross-check the node response with the independently authenticated evidence source.
     NodeProgramStateSource::connect_with_identity(
         &config.node_endpoint,
         config.node_authorization.clone(),

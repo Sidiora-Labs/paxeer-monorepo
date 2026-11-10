@@ -846,7 +846,7 @@ mod migration_v2_request_tests {
     }
 
     #[test]
-    fn mapping_body_cannot_supply_owner_or_receipt_authority() {
+    fn mapping_body_rejects_forged_sequencer_key() {
         assert!(direct_body::<MigrationAccountRequestV2>(&request(
             br#"{"chain":"ethereum","source_evidence":"AQ=="}"#,
         ))
@@ -856,6 +856,8 @@ mod migration_v2_request_tests {
             br#"{"chain":"ethereum","source_evidence":"AQ==","layerx_identity":"other"}"#
                 .as_slice(),
             br#"{"chain":"ethereum","source_evidence":"AQ==","layerx_receipt":true}"#.as_slice(),
+            br#"{"chain":"ethereum","source_evidence":"AQ==","sequencer_public_key":"other"}"#
+                .as_slice(),
             br#"{"chain":"paxeer","source_evidence":"AQ=="}"#.as_slice(),
             br#"{"chain":"ethereum","chain":"solana","source_evidence":"AQ=="}"#.as_slice(),
         ] {
@@ -897,7 +899,7 @@ mod migration_v2_request_tests {
     }
 
     #[test]
-    fn history_body_cannot_inject_owner_or_receipt_authority() {
+    fn history_body_rejects_forged_sequencer_key() {
         assert!(direct_body::<MigrationHistoryImportRequestV2>(&request(
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag=="}"#,
         ))
@@ -909,12 +911,14 @@ mod migration_v2_request_tests {
         for body in [
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag==","principal":"other"}"#.as_slice(),
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag==","layerx_receipt":true}"#.as_slice(),
+            br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag==","sequencer_public_key":"other"}"#.as_slice(),
         ] {
             assert!(direct_body::<MigrationHistoryImportRequestV2>(&request(body)).is_err());
         }
         for body in [
             br#"{"cursor":null,"limit":1,"principal":"other"}"#.as_slice(),
             br#"{"cursor":null,"limit":1,"layerx_receipt":true}"#.as_slice(),
+            br#"{"cursor":null,"limit":1,"sequencer_public_key":"other"}"#.as_slice(),
             br#"{"cursor":null,"limit":-1}"#.as_slice(),
         ] {
             assert!(direct_body::<MigrationHistoryReadRequestV2>(&request(body)).is_err());
@@ -3311,7 +3315,15 @@ mod tests {
         assert!(document["components"].get("hosted").is_none());
         assert!(document["components"].get("authority").is_none());
         assert!(document["components"].get("hosted_gateway").is_none());
-        assert!(document["components"].get("receipt_authority").is_none());
+        assert_eq!(
+            document["components"]
+                .as_object()
+                .ok_or("readiness components must be an object")?
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["durable_gateway_store", "sequencer"]
+        );
 
         for published in [
             Vec::new(),

@@ -2720,7 +2720,7 @@ Contract context <code>contract_context.7.served-methods</code>:
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
+| <code>interface.7.rpc-pax-sequencerreceipt</code> | notes | pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 "served by sequencer" (rpc/sequencer_receipt.go:49, :99) |
 
 | Decision | Title | Value | Basis | Affects |
 |---|---|---|---|---|
@@ -3608,8 +3608,21 @@ state; its coin-list read returns `identity_binding_unavailable`.
 
 Asset enumeration uses `[evm].px_indexer_url` or `WithPxIndexerURL` on each server; no hosted gateway
 or environment variable is required. A missing indexer returns `-32001`,
-`Paxeer read unavailable`, data.code `indexer_not_configured`. The joined result
-is sorted by asset ID, capped at sixteen, and uses local metadata at one height.
+`Paxeer read unavailable`, data.code `indexer_not_configured`. Each call fetches exactly one indexer page with limit=16, preserving producer
+registration order. An omitted cursor (absent params or an empty positional
+array) starts enumeration; a present cursor whose value is JSON null is invalid.
+The HTTP and WebSocket `pxParamsGuard` rewrites an explicit null first parameter
+to its invalid-params method before positional decoding. `ListAssets` accepts a
+string pointer, where nil starts the first page; omission still returns `-32001`
+if the indexer is unavailable. A supplied cursor must decode to a canonical positive signed-64-bit
+decimal string, passed unchanged to the indexer. Invalid arguments return
+`-32602` before indexer access. The joined result includes `order: "registration"`,
+`joined_limit: 16`, and a string `next_cursor` for continuation or null at the end.
+Continuation remains valid across a node restart against the same indexer records.
+Local metadata uses one committed height under a ten-second aggregate deadline;
+malformed indexer envelopes or nonadvancing continuations fail closed.
+Bank asset decimals use the committed metadata's display-unit exponent; supply
+remains an integer string in base units.
 Failed per-asset metadata reads retain the documented null fields. Successful
 ledger reads alone carry authenticated snapshot verification and paused state.
 

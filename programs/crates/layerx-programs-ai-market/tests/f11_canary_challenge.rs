@@ -194,8 +194,12 @@ impl Market {
                     host_share_bps: 1000,
                     protocol_share_bps: 500,
                     settlement_account: AccountId::new([8; 32])?,
+                    max_generated_tokens: 4096,
+                    queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+                    liveness_timeout_ms: 30_000,
+                    acknowledgement_window_ms: 5_000,
+                    canary_relative_tolerance_bps: bps,
                 },
-                relative_tolerance_bps: bps,
             },
             peer_signature: Signature64([0; 64]),
         };
@@ -696,6 +700,16 @@ fn canary_codecs_reject_truncation_trailing_bytes_and_noncanonical_authenticatio
     let mut m = Market::new()?;
     let task = m.task(100, &EXPECTED, 17)?;
     let payload = task.encode()?;
+    assert_eq!(
+        payload.len(),
+        240 + layerx_programs_ai_market::policy::ROOM_PROFILE_BYTES
+    );
+    let mut unsupported = payload;
+    unsupported[..8].copy_from_slice(b"CANARY1\0");
+    assert_eq!(CanaryTask::decode(&unsupported), Err(errors::BAD_VERSION));
+    let mut trailing = payload.to_vec();
+    trailing.push(0);
+    assert_eq!(CanaryTask::decode(&trailing), Err(errors::NON_CANONICAL));
     for n in 0..payload.len() {
         assert!(CanaryTask::decode(&payload[..n]).is_err());
     }
@@ -726,6 +740,16 @@ fn canary_codecs_reject_truncation_trailing_bytes_and_noncanonical_authenticatio
             .count(),
         1
     );
+    let mut old_region = state.control.feature_bytes.to_vec();
+    let at = old_region
+        .windows(8)
+        .position(|bytes| bytes == b"CANARYS2")
+        .unwrap();
+    old_region[at..at + 8].copy_from_slice(b"CANARYS1");
+    assert!(matches!(
+        CanaryRegion::decode(&old_region),
+        Err(errors::BAD_VERSION)
+    ));
     assert!(m.bytes.len() <= MAX_STATE_BYTES);
     Ok(())
 }
@@ -757,5 +781,78 @@ fn room_terms_are_frozen_and_canary_state_enforces_its_capacity() -> CodecResult
         canary::CANARY_CAPACITY
     );
     assert!(m.bytes.len() <= MAX_STATE_BYTES);
+    Ok(())
+}
+
+#[test]
+fn canary_uses_decoded_room_profile_tolerance_after_restart() -> CodecResult<()> {
+    use layerx_programs_ai_market::{
+        policy::{MarketPolicy, MARKET_POLICY_BYTES},
+        registry_ops::PolicySection,
+    };
+
+    for (bps, delta, expected_status) in [
+        (0, 0, ChallengeStatus::Hit),
+        (0, 1, ChallengeStatus::Miss),
+        (1, 1, ChallengeStatus::Hit),
+    ] {
+        let mut m = Market::new()?;
+        let mut answer = EXPECTED;
+        answer[2] += delta;
+        let mut task = m.task(bps, &answer, 18)?;
+        let policy = MarketPolicy {
+            task_policy: PolicySection::decode(
+                decode_shared_state(&m.bytes)?.section(Section::PolicyLifecycle)?,
+            )?
+            .current,
+            room_profile: task.profile.room,
+        };
+        let mut encoded = [0; MARKET_POLICY_BYTES];
+        policy.encode(&mut encoded)?;
+        let decoded = MarketPolicy::decode(&encoded)?;
+        assert_eq!(decoded.room_profile.canary_relative_tolerance_bps, bps);
+        task.profile = CanaryRoomProfile {
+            room: decoded.room_profile,
+        };
+        let id = m.commit(&task)?;
+        let mut m = m.restart()?;
+        m.challenge(&task, id)?;
+        let mut m = m.restart()?;
+        m.reveal(&task, id)?;
+        let mut m = m.restart()?;
+        let persisted = canary::commitment_from_state(&m.bytes, id)?;
+        assert_eq!(persisted.task.profile.room, decoded.room_profile);
+        let request = m.resolve_bytes(&task, id, answer)?;
+        let before = m.bytes.clone();
+        let reply = m.send(&request, principal(0x71)?, REVEAL + 1)?;
+        assert_applied(&reply)?;
+        let m = m.restart()?;
+        let resolved = canary::commitment_from_state(&m.bytes, id)?;
+        assert_eq!(resolved.status, expected_status, "bps={bps}, delta={delta}");
+        assert_eq!(resolved.task.profile.room, decoded.room_profile);
+        assert_eq!(
+            resolved.peer_at_fault(),
+            expected_status == ChallengeStatus::Miss
+        );
+        assert_eq!(
+            resolved.refundable_deposit(),
+            if expected_status == ChallengeStatus::Hit {
+                DEPOSIT
+            } else {
+                0
+            },
+        );
+        assert_eq!(
+            canary::value_action(dispatch::ResolveChallenge, &before, &m.bytes)?,
+            if expected_status == ChallengeStatus::Hit {
+                ValueAction::Pay {
+                    recipient: AccountId::new(principal(0x70)?.bytes())?,
+                    amount: DEPOSIT,
+                }
+            } else {
+                ValueAction::None
+            },
+        );
+    }
     Ok(())
 }

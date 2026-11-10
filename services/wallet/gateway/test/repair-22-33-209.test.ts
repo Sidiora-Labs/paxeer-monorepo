@@ -30,7 +30,8 @@ const repairRecord = {
     'retired-custody-e2e': 'retainedRoutesAuthenticateWhileCustodyStaysAbsent',
     'retired-production-adapters': 'evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart',
   },
-  baseline: 'Not run: the bounded gate order prohibits verification before implementation.',
+  baseline:
+    'Former callback-less TODO collection did not execute these assertions and cannot substantiate repair qualification.',
   wiring:
     'tools/qualification/paxeer-x/wallet-signing-adapters.py (tools-ops): invoke the retained EVM driver and expose arm-evm, returning null for the pre-broadcast receipt lookup, dropping the accepted broadcast reply, and withholding subsequent receipts until receipts is called.',
 } as const;
@@ -598,6 +599,16 @@ async function evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart(): Promise
   expect(fixtureErrors).toEqual([]);
 }
 
-test(attestorListenersStayReservedUntilDaemonHandoff);
-test(retainedRoutesAuthenticateWhileCustodyStaysAbsent);
-test(evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart, 60000);
+test(
+  attestorListenersStayReservedUntilDaemonHandoff.name,
+  attestorListenersStayReservedUntilDaemonHandoff
+);
+test(
+  retainedRoutesAuthenticateWhileCustodyStaysAbsent.name,
+  retainedRoutesAuthenticateWhileCustodyStaysAbsent
+);
+test(
+  evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart.name,
+  evmApprovalRetainsFeesOwnershipAndReceiptAcrossRestart,
+  60000
+);

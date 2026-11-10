@@ -296,7 +296,10 @@ mod wire_label_tests {
     }
 
     #[test]
-    #[allow(deprecated)]
+    #[allow(
+        deprecated,
+        reason = "Verify the retained legacy decoder cannot manufacture a current verification level."
+    )]
     fn wire_label_names_archives_but_refuses_retired_and_unknown_labels() {
         assert_eq!(
             VerificationLevel::CHECKPOINT_FINALISED.wire_label(),
@@ -306,6 +309,16 @@ mod wire_label_tests {
             VerificationLevel::SETTLEMENT_ANCHORED.wire_label(),
             "settlement_anchored"
         );
+        for archived in [
+            VerificationLevel::CHECKPOINT_FINALISED,
+            VerificationLevel::SETTLEMENT_ANCHORED,
+        ] {
+            assert!(!archived.is_current());
+            assert!(VerificationLevel::from_wire_rank(archived.wire_rank()).is_err());
+            assert_eq!(archived.rung(), None);
+            assert!(archived.compare(VerificationLevel::COMMITTED).is_lt());
+            assert!(VerificationLevel::COMMITTED.compare(archived).is_lt());
+        }
         for label in [
             "checkpoint_finalised",
             "settlement_anchored",

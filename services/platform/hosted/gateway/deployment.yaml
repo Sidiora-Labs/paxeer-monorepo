@@ -187,13 +187,19 @@ spec:
   podSelector: {matchLabels: {app: layerx-gateway}}
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}}, {podSelector: {matchLabels: {app: layerx-mainnet-beta-control}}}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+        - namespaceSelector: {matchLabels: {layerx-control-plane: enabled}}
+          podSelector: {matchLabels: {layerx-plane: control}}
       ports: [{protocol: TCP, port: 9443}]
     - from:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-internal}}
           podSelector: {matchExpressions: [{key: app, operator: In, values: [layerx-internal-payments, layerx-internal-programs]}]}
       ports: [{protocol: TCP, port: 9443}]
-    - from: [{podSelector: {matchLabels: {app: layerx-node}}}, {podSelector: {matchLabels: {app: layerx-program-registry}}}]
+    - from:
+        - podSelector: {matchLabels: {app: layerx-node}}
+        - namespaceSelector: {matchLabels: {layerx.io/gateway-peer-namespace: "true"}}
+          podSelector: {matchLabels: {app: layerx-program-registry}}
       ports: [{protocol: TCP, port: 9443}]
   egress:
     - to: [{podSelector: {matchLabels: {app: layerx-gateway-redis}}}]
@@ -201,11 +207,17 @@ spec:
     # Public node roots use HTTPS outside the cluster.
     - to: [{ipBlock: {cidr: 0.0.0.0/0}}]
       ports: [{protocol: TCP, port: 443}]
-    - to: [{podSelector: {matchLabels: {app: layerx-program-registry}}}]
+    - to:
+        - namespaceSelector: {matchLabels: {layerx.io/gateway-peer-namespace: "true"}}
+          podSelector: {matchLabels: {app: layerx-program-registry}}
       ports: [{protocol: TCP, port: 9420}]
-    - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
+    - to:
+        - namespaceSelector: {matchLabels: {layerx.io/gateway-peer-namespace: "true"}}
+          podSelector: {matchLabels: {layerx-plane: trusted-boundary}}
       ports: [{protocol: TCP, port: 9443}, {protocol: TCP, port: 9445}, {protocol: TCP, port: 9446}]
-    - to: [{podSelector: {matchLabels: {app: layerx-faucet}}}]
+    - to:
+        - namespaceSelector: {matchLabels: {layerx.io/gateway-peer-namespace: "true"}}
+          podSelector: {matchLabels: {app: layerx-faucet}}
       ports: [{protocol: TCP, port: 9443}]
     - to: [{namespaceSelector: {}}]
       ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]

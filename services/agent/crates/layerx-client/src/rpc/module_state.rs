@@ -9,7 +9,7 @@ use layerx_crypto::evm_transaction::transaction_hash;
 pub struct ModuleReadContext {
     pub precompile: [u8; 20],
     pub committed_height: u64,
-    /// Block hash authenticated by the caller's ServedCheckpoint.
+    /// Block hash authenticated by the caller's `ServedCheckpoint`.
     pub block_hash: [u8; 32],
     /// App hash authenticated by the same checkpoint.
     pub app_hash: [u8; 32],
@@ -42,6 +42,9 @@ pub enum ModuleReadError {
     Witness(StorageWitnessError),
 }
 
+/// # Errors
+///
+/// Returns `ModuleReadError::SelectorMismatch` for an unsupported precompile or a key longer than 129 bytes.
 pub fn module_slot(precompile: [u8; 20], key: &[u8]) -> Result<[u8; 32], ModuleReadError> {
     let address = u16::from_be_bytes([precompile[18], precompile[19]]);
     let module_id = address
@@ -55,6 +58,9 @@ pub fn module_slot(precompile: [u8; 20], key: &[u8]) -> Result<[u8; 32], ModuleR
     Ok(transaction_hash(&derived))
 }
 
+/// # Errors
+///
+/// Returns selector, RPC, commit or witness errors unless the requested slot and value are authenticated under the pinned committed header.
 pub fn module_state(
     endpoint: &SequencerEndpoint,
     key: &[u8],
@@ -87,6 +93,9 @@ pub fn module_state(
     })
 }
 
+/// # Errors
+///
+/// Returns selector, RPC, commit or witness errors unless the requested slot and value are authenticated under the pinned committed header.
 pub fn module_state_with_history(
     endpoint: &SequencerEndpoint,
     key: &[u8],

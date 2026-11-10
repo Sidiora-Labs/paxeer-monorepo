@@ -750,6 +750,7 @@ mod receipt_rung_wire_tests {
         for code in [4, 5, 6] {
             assert_eq!(rung(code), Some(Rung::Committed));
         }
+        // The retained archive constant must never be accepted as current evidence.
         assert_eq!(
             crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
             Err(HumanOperationError::Refused)
@@ -2480,7 +2481,7 @@ mod middleware_submission_contract_tests {
     use serde_json::Value;
 
     // Shared serde_json output transcript for the middleware loopback transport test.
-    const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"{"raw_transaction":"02f901287d80010283030d4094000000000000000000000000000000000000101a80b8c478ea11db33333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000061a8000000000000000000000000000000000000000000000000000000000000000143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab2c001a043d7fc8901d40aa3a43790d0b77e69eefeb5ac9a5771686e3e60949a99a98276a0429fa45350cf784e01c11fd73c93ade98c13c52f062f7a08a5938ec5ea36b06f","receipt_key":{"keyId":"0x0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","firstHeight":"0x1","lastHeight":"0x3e8","publicKey":"0xea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"submit":{"preparation_ref":"repair-preparation","state":"Receipted","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"},"pending":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Unknown","rung":"submitted","evidence":[],"transitions":[{"to":"Unknown","cause":"transport-lost","at":"1","from":"Submitted"}]},"receipt":null},"committed":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Committed","rung":"committed","evidence":[],"transitions":[],"receipt_ref":"ac73faf315ec0dd1f7a3ff5ffddf39fdedd5550696c74489038fe5153e9b6a69"},"receipt":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","canonical_bytes":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","authorised_batch":{"batch_id":"0000000000000000000000000000000000000000000000000000000000000007","asset":"0e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73","previous_state_root":"5555555555555555555555555555555555555555555555555555555555555555","resulting_state_root":"6666666666666666666666666666666666666666666666666666666666666666","sequencer_public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"rung":"committed","verification_level":"1","receipt_hash":"3598baf029c4a4f7b725956848a9326ddbd84541da0ace05cec946502289aff3","block_height":"7","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","receipt_key_id":"0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c","first_height":"1","last_height":"1000","inclusion_height":"7"}}}"#;
+    const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"{"raw_transaction":"02f901287d80010283030d4094000000000000000000000000000000000000101a80b8c478ea11db33333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000061a8000000000000000000000000000000000000000000000000000000000000000143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab2c001a043d7fc8901d40aa3a43790d0b77e69eefeb5ac9a5771686e3e60949a99a98276a0429fa45350cf784e01c11fd73c93ade98c13c52f062f7a08a5938ec5ea36b06f","receipt_key":{"keyId":"0x0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","firstHeight":"0x1","lastHeight":"0x3e8","publicKey":"0xea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"submit":{"preparation_ref":"repair-preparation","state":"Receipted","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"},"pending":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Unknown","rung":"submitted","evidence":[],"transitions":[{"to":"Unknown","cause":"transport-lost","at":"1","from":"Submitted"}]},"receipt":null},"committed":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Committed","rung":"committed","evidence":[],"transitions":[],"receipt_ref":"b34a82b73a2ab4bdef6823c3877be59cb624043b59fcd08bcfed38da26584220"},"receipt":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","canonical_bytes":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","authorised_batch":{"batch_id":"0000000000000000000000000000000000000000000000000000000000000007","asset":"0e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73","previous_state_root":"5555555555555555555555555555555555555555555555555555555555555555","resulting_state_root":"6666666666666666666666666666666666666666666666666666666666666666","sequencer_public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"rung":"committed","verification_level":"1","receipt_hash":"3598baf029c4a4f7b725956848a9326ddbd84541da0ace05cec946502289aff3","block_height":"7","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","receipt_key_id":"0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c","first_height":"1","last_height":"1000","inclusion_height":"7"}}}"#;
 
     fn bytes(value: &Value) -> Vec<u8> {
         let text = value.as_str().expect("hex field");
@@ -2499,6 +2500,246 @@ mod middleware_submission_contract_tests {
                 .to_be_bytes(),
         );
         out.extend_from_slice(data);
+    }
+
+    #[test]
+    fn receipt_reference_reaches_recovery_consumer() {
+        use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+        use crate::outbox::{SubmissionState, SubmissionStatus};
+        use layerx_proof::receipt::AuthorizedBatch;
+        use layerx_types::{rung::Rung, verify::VerificationLevel};
+        use sha2::{Digest, Sha256};
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+        let receipt = &transcript["committed"]["receipt"];
+        let canonical = bytes(&receipt["canonical_bytes"]);
+        let decoded = layerx_wire::receipt::decode(&canonical).expect("canonical receipt");
+        let protocol = decoded.protocol().expect("protocol receipt");
+        let key = layerx_client::sequencer::ReceiptKeyEntry {
+            key_id: bytes(&receipt["receipt_key_id"])
+                .try_into()
+                .expect("key ID"),
+            public_key: bytes(&receipt["public_key"])
+                .try_into()
+                .expect("public key"),
+            first_height: 1,
+            last_height: 1000,
+        };
+        let authenticated =
+            crate::finality::VerifiedReceipt::verify(protocol.activity_id(), &canonical, &[key])
+                .expect("authenticated native receipt");
+        let unsigned = layerx_wire::receipt::encode_unsigned(&decoded).expect("unsigned receipt");
+        let mut preimage = b"LXP/v1/receipt\0".to_vec();
+        preimage.extend_from_slice(&unsigned);
+        let expected: [u8; 32] = Sha256::digest(&preimage).into();
+        assert_eq!(
+            crate::protocol_evidence::canonical_receipt_reference(&canonical)
+                .expect("canonical reference"),
+            expected,
+        );
+        assert!(crate::protocol_evidence::canonical_receipt_reference(&canonical[..10]).is_err());
+        let status = SubmissionStatus {
+            submission_id: protocol.activity_id(),
+            state: SubmissionState::Executed,
+            activity_id: protocol.activity_id(),
+            evidence: None,
+            transitions: Vec::new(),
+        };
+        let native = crate::human_runtime::write_submission(&status, Some(&authenticated))
+            .expect("native tracking writer");
+        let height = u64::from_be_bytes(protocol.batch_id()[24..].try_into().expect("height"));
+        let frame = ReceiptLookupFrame {
+            canonical_bytes: canonical.clone(),
+            authorised_batch: AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            ),
+            verification_level: VerificationLevel::SEQUENCER_SIGNED,
+            tx_hash: protocol.activity_id(),
+            receipt_hash: Sha256::digest(&canonical).into(),
+            block_height: height,
+            rung: Rung::Receipted,
+            signed_receipt: canonical.clone(),
+            receipt_key_id: key.key_id,
+            public_key: key.public_key,
+            first_height: key.first_height,
+            last_height: key.last_height,
+            inclusion_height: height,
+        };
+        let lookup_wire = ReceiptLookupAnswer::Found(frame.clone())
+            .encode()
+            .expect("receipt writer");
+        let mut observation_wire = protocol.activity_id().to_vec();
+        observation_wire.extend_from_slice(native.bytes());
+        observation_wire.extend_from_slice(&lookup_wire);
+        let mut reader = Reader {
+            bytes: &observation_wire,
+            offset: 0,
+        };
+        let (observation, rung) =
+            decode_observation(&mut reader).expect("production observation decoder");
+        assert_eq!(reader.finish(), Some(()));
+        assert_eq!(rung, Some(Rung::Receipted));
+        assert_eq!(
+            observation["submission"]["receipt_ref"],
+            super::lower_hex(&expected)
+        );
+        assert_eq!(
+            observation["submission"]["evidence"][0]["digest"],
+            super::lower_hex(&expected)
+        );
+        assert_eq!(
+            observation["submission"]["receipt_ref"],
+            transcript["committed"]["submission"]["receipt_ref"]
+        );
+        assert_ne!(
+            observation["submission"]["receipt_ref"],
+            observation["receipt"]["receipt_hash"]
+        );
+        let mut reader = Reader {
+            bytes: &lookup_wire,
+            offset: 0,
+        };
+        let (lookup, lookup_rung) =
+            super::decode_receipt_lookup(&mut reader).expect("production receipt decoder");
+        assert_eq!(reader.finish(), Some(()));
+        assert_eq!(lookup_rung, rung);
+        assert_eq!(lookup["receipt"], observation["receipt"]);
+        for change in ["signature", "root", "rung", "hash"] {
+            let mut changed = frame.clone();
+            match change {
+                "signature" => {
+                    let last = changed.canonical_bytes.len() - 1;
+                    changed.canonical_bytes[last] ^= 1;
+                    changed.signed_receipt = changed.canonical_bytes.clone();
+                    changed.receipt_hash = Sha256::digest(&changed.canonical_bytes).into();
+                }
+                "root" => {
+                    changed.authorised_batch = AuthorizedBatch::new(
+                        protocol.batch_id(),
+                        protocol.asset(),
+                        [0x99; 32],
+                        protocol.resulting_state_root(),
+                        key.public_key,
+                    )
+                }
+                "rung" => changed.rung = Rung::Submitted,
+                "hash" => changed.receipt_hash = expected,
+                _ => unreachable!(),
+            }
+            let wire = ReceiptLookupAnswer::Found(changed)
+                .encode()
+                .expect("changed frame");
+            assert!(
+                super::decode_receipt_lookup(&mut Reader {
+                    bytes: &wire,
+                    offset: 0
+                })
+                .is_none(),
+                "{change}"
+            );
+        }
+        let mut signed_preimage = b"LXP/v1/receipt\0".to_vec();
+        signed_preimage.extend_from_slice(&canonical);
+        let tagged_signed: [u8; 32] = Sha256::digest(&signed_preimage).into();
+        let signed_hash: [u8; 32] = Sha256::digest(&canonical).into();
+        assert_ne!(expected, tagged_signed);
+        assert_ne!(expected, signed_hash);
+        let payload = serde_json::json!({
+            "tracked": {"value": observation["submission"], "verification_status": {"state": "achieved", "rung": "receipted"}},
+            "lookup": {"value": lookup, "verification_status": {"state": "achieved", "rung": "receipted"}},
+            "raw_transaction": transcript["raw_transaction"],
+            "key": transcript["receipt_key"],
+            "expected": super::lower_hex(&expected),
+            "unsigned": super::lower_hex(&unsigned),
+            "wrong_references": [super::lower_hex(&tagged_signed), super::lower_hex(&signed_hash)],
+        });
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+        let mut child = Command::new("python3")
+            .current_dir(root)
+            .arg("-c")
+            .arg(r#"
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+spec = importlib.util.spec_from_file_location("native_recovery_consumer", Path("tools/qualification/paxeer-x/mcp_daemon_revocation.py"))
+consumer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(consumer)
+from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt, _decode_sequencer_receipt
+payload = json.load(sys.stdin)
+tracked = payload["tracked"]
+lookup = payload["lookup"]
+reference = tracked["value"]["tx_hash"]
+submission = consumer.tracked_evidence(tracked, reference)
+facts = consumer.recovered_receipt(lookup, submission)
+key = payload["key"]
+canonical = bytes.fromhex(lookup["value"]["receipt"]["canonical_bytes"])
+verified = verify_sequencer_receipt(canonical, bytes.fromhex(payload["raw_transaction"]), (
+    ReceiptKey(bytes.fromhex(key["keyId"][2:]), bytes.fromhex(key["publicKey"][2:]),
+               int(key["firstHeight"], 16), int(key["lastHeight"], 16)),
+))
+assert _decode_sequencer_receipt(canonical)[1].hex() == payload["unsigned"]
+assert payload["expected"] == verified.receipt_digest.hex() == submission["receipt_ref"] == facts["receipt_ref"]
+assert submission is tracked["value"]
+for wrong in payload["wrong_references"]:
+    changed = copy.deepcopy(tracked)
+    changed["value"]["receipt_ref"] = wrong
+    changed["value"]["evidence"][0]["digest"] = wrong
+    try:
+        consumer.recovered_receipt(lookup, consumer.tracked_evidence(changed, reference))
+    except consumer.READINESS.HTTP.Failure as error:
+        assert "digest mismatch" in str(error)
+    else:
+        raise AssertionError("signed-byte substitution accepted")
+for change in ("signature", "root", "rung", "hash"):
+    changed = copy.deepcopy(lookup)
+    receipt = changed["value"]["receipt"]
+    if change == "signature":
+        raw = bytearray(canonical)
+        raw[-1] ^= 1
+        import hashlib
+        receipt["canonical_bytes"] = receipt["signed_receipt"] = raw.hex()
+        receipt["receipt_hash"] = hashlib.sha256(raw).hexdigest()
+    elif change == "root":
+        receipt["authorised_batch"]["resulting_state_root"] = "99" * 32
+    elif change == "rung":
+        changed["verification_status"]["rung"] = "submitted"
+    else:
+        receipt["receipt_hash"] = payload["expected"]
+    try:
+        consumer.recovered_receipt(changed, submission)
+    except consumer.READINESS.HTTP.Failure:
+        pass
+    else:
+        raise AssertionError(change + " substitution accepted")
+print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified.receipt_digest.hex()}))
+"#)
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
+            .spawn().expect("real Python recovery consumer");
+        child
+            .stdin
+            .take()
+            .expect("subprocess pipe")
+            .write_all(&serde_json::to_vec(&payload).expect("unchanged native JSON"))
+            .expect("pipe native JSON");
+        let output = child.wait_with_output().expect("consumer result");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let consumed: Value = serde_json::from_slice(&output.stdout).expect("consumer references");
+        assert_eq!(consumed["receipt_ref"], super::lower_hex(&expected));
+        assert_eq!(consumed["sdk_reference"], consumed["receipt_ref"]);
     }
 
     #[test]

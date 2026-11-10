@@ -18,7 +18,9 @@ pub fn verify_ed25519(key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> b
     let Some(a) = GeP3::from_bytes_negate_vartime(key) else {
         return false;
     };
-    let expected_bytes: &[u8; 32] = signature[..32].try_into().unwrap();
+    let expected_bytes: &[u8; 32] = signature[..32]
+        .try_into()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     let Some(expected) = GeP3::from_bytes_vartime(expected_bytes) else {
         return false;
     };
@@ -32,6 +34,73 @@ pub fn verify_ed25519(key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> b
     (expected - GeP3::from(r)).has_small_order()
 }
 
+const SHA256_ROUND_CONSTANTS: [u32; 64] = [
+    0x428a_2f98,
+    0x7137_4491,
+    0xb5c0_fbcf,
+    0xe9b5_dba5,
+    0x3956_c25b,
+    0x59f1_11f1,
+    0x923f_82a4,
+    0xab1c_5ed5,
+    0xd807_aa98,
+    0x1283_5b01,
+    0x2431_85be,
+    0x550c_7dc3,
+    0x72be_5d74,
+    0x80de_b1fe,
+    0x9bdc_06a7,
+    0xc19b_f174,
+    0xe49b_69c1,
+    0xefbe_4786,
+    0x0fc1_9dc6,
+    0x240c_a1cc,
+    0x2de9_2c6f,
+    0x4a74_84aa,
+    0x5cb0_a9dc,
+    0x76f9_88da,
+    0x983e_5152,
+    0xa831_c66d,
+    0xb003_27c8,
+    0xbf59_7fc7,
+    0xc6e0_0bf3,
+    0xd5a7_9147,
+    0x06ca_6351,
+    0x1429_2967,
+    0x27b7_0a85,
+    0x2e1b_2138,
+    0x4d2c_6dfc,
+    0x5338_0d13,
+    0x650a_7354,
+    0x766a_0abb,
+    0x81c2_c92e,
+    0x9272_2c85,
+    0xa2bf_e8a1,
+    0xa81a_664b,
+    0xc24b_8b70,
+    0xc76c_51a3,
+    0xd192_e819,
+    0xd699_0624,
+    0xf40e_3585,
+    0x106a_a070,
+    0x19a4_c116,
+    0x1e37_6c08,
+    0x2748_774c,
+    0x34b0_bcb5,
+    0x391c_0cb3,
+    0x4ed8_aa4a,
+    0x5b9c_ca4f,
+    0x682e_6ff3,
+    0x748f_82ee,
+    0x78a5_636f,
+    0x84c8_7814,
+    0x8cc7_0208,
+    0x90be_fffa,
+    0xa450_6ceb,
+    0xbef9_a3f7,
+    0xc671_78f2,
+];
+
 pub struct Sha256(Vec<u8>);
 impl Sha256 {
     pub fn new() -> Self {
@@ -44,39 +113,33 @@ impl Sha256 {
         Self::digest(self.0)
     }
     pub fn digest(input: impl AsRef<[u8]>) -> [u8; 32] {
-        const K: [u32; 64] = [
-            0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
-            0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
-            0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
-            0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-            0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
-            0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-            0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
-            0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-            0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
-            0xc67178f2,
-        ];
         let mut bytes = input.as_ref().to_vec();
-        let length = (bytes.len() as u64).checked_mul(8).unwrap();
+        let length = u64::try_from(bytes.len())
+            .unwrap_or_else(|error| panic!("SHA-256 length: {error:?}"))
+            .checked_mul(8)
+            .unwrap_or_else(|| panic!("required value"));
         bytes.push(0x80);
         while bytes.len() % 64 != 56 {
             bytes.push(0);
         }
         bytes.extend_from_slice(&length.to_be_bytes());
         let mut h = [
-            0x6a09e667_u32,
-            0xbb67ae85,
-            0x3c6ef372,
-            0xa54ff53a,
-            0x510e527f,
-            0x9b05688c,
-            0x1f83d9ab,
-            0x5be0cd19,
+            0x6a09_e667_u32,
+            0xbb67_ae85,
+            0x3c6e_f372,
+            0xa54f_f53a,
+            0x510e_527f,
+            0x9b05_688c,
+            0x1f83_d9ab,
+            0x5be0_cd19,
         ];
         for chunk in bytes.chunks_exact(64) {
             let mut w = [0_u32; 64];
             for (i, word) in chunk.chunks_exact(4).enumerate() {
-                w[i] = u32::from_be_bytes(word.try_into().unwrap());
+                w[i] = u32::from_be_bytes(
+                    word.try_into()
+                        .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                );
             }
             for i in 16..64 {
                 let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -86,28 +149,29 @@ impl Sha256 {
                     .wrapping_add(w[i - 7])
                     .wrapping_add(s1);
             }
-            let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut hh] = h;
-            for i in 0..64 {
-                let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-                let choice = (e & f) ^ (!e & g);
-                let t1 = hh
-                    .wrapping_add(s1)
+            let mut working = h;
+            for (constant, word) in SHA256_ROUND_CONSTANTS.iter().zip(w) {
+                let sum_one = working[4].rotate_right(6)
+                    ^ working[4].rotate_right(11)
+                    ^ working[4].rotate_right(25);
+                let choice = (working[4] & working[5]) ^ (!working[4] & working[6]);
+                let temporary = working[7]
+                    .wrapping_add(sum_one)
                     .wrapping_add(choice)
-                    .wrapping_add(K[i])
-                    .wrapping_add(w[i]);
-                let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
-                let majority = (a & b) ^ (a & c) ^ (b & c);
-                hh = g;
-                g = f;
-                f = e;
-                e = d.wrapping_add(t1);
-                d = c;
-                c = b;
-                b = a;
-                a = t1.wrapping_add(s0.wrapping_add(majority));
+                    .wrapping_add(*constant)
+                    .wrapping_add(word);
+                let sum_zero = working[0].rotate_right(2)
+                    ^ working[0].rotate_right(13)
+                    ^ working[0].rotate_right(22);
+                let majority = (working[0] & working[1])
+                    ^ (working[0] & working[2])
+                    ^ (working[1] & working[2]);
+                working.rotate_right(1);
+                working[4] = working[4].wrapping_add(temporary);
+                working[0] = temporary.wrapping_add(sum_zero.wrapping_add(majority));
             }
-            for (v, n) in h.iter_mut().zip([a, b, c, d, e, f, g, hh]) {
-                *v = v.wrapping_add(n);
+            for (value, addition) in h.iter_mut().zip(working) {
+                *value = value.wrapping_add(addition);
             }
         }
         let mut out = [0; 32];
@@ -119,17 +183,20 @@ impl Sha256 {
 }
 
 #[test]
-fn reference_crypto_matches_nist_and_rfc8032_vectors() {
+fn reference_crypto_matches_nist_and_rfc8032_vectors() -> Result<(), String> {
     use layerx_types::json::decode_hex;
     assert_eq!(
         Sha256::digest(b"abc").to_vec(),
-        decode_hex("0xba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad").unwrap()
+        decode_hex("0xba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+            .map_err(|error| format!("required value: {error:?}"))?
     );
     let key = decode_hex("0xd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a")
-        .unwrap()
+        .map_err(|error| format!("required value: {error:?}"))?
         .try_into()
-        .unwrap();
-    let signature = decode_hex("0xe5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b").unwrap().try_into().unwrap();
+        .map_err(|error| format!("required value: {error:?}"))?;
+    let signature = decode_hex("0xe5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b").map_err(|error| format!("required value: {error:?}"))?.try_into().map_err(|error| format!("required value: {error:?}"))?;
     assert!(verify_ed25519(&key, b"", &signature));
     assert!(!verify_ed25519(&key, b"changed", &signature));
+
+    Ok(())
 }

@@ -1,10 +1,12 @@
 """Keep every interop workspace member on the CI test path."""
 
 import json
+import os
 from pathlib import Path
 import re
 import shlex
 import subprocess
+import sys
 import tomllib
 
 import yaml
@@ -88,20 +90,31 @@ def test_interop_workspace_test_job_exists():
 
 
 def test_interop_test_target_uses_workspace():
-    command = interop_test_command()
-    assert command[:7] == [
-        "cargo", "test", "--locked", "--manifest-path", MANIFEST,
-        "--workspace", "--no-fail-fast",
-    ]
-    assert command[7:9] == ["--", "--exact"]
+    commands = interop_test_command()
+    assert commands
     entries = workspace_runner.read_baseline()
-    assert command[9:] == [
-        argument for entry in entries
-        for argument in ("--skip", entry["qualified_test_name"])
-    ]
-    assert workspace_runner.workspace_test_command("cargo +1.91.1")[:2] == [
-        "cargo", "+1.91.1",
-    ]
+    for command in commands:
+        assert command[:5] == [
+            "cargo", "test", "--locked", "--manifest-path", MANIFEST,
+        ]
+        assert command[5] == "--package"
+        assert command[7] == "--no-fail-fast"
+        assert "--workspace" not in command and "--exclude" not in command
+        if command[8] == "--doc":
+            assert command[8:] == ["--doc"]
+            continue
+        boundary = command.index("--")
+        selector = shlex.join(command[8:boundary])
+        assert command[boundary:] == [
+            "--", "--exact",
+            *(argument for entry in entries
+              if (entry["member"], entry["target"]) == (command[6], selector)
+              for argument in ("--skip", entry["qualified_test_name"])),
+        ]
+    pinned_commands = workspace_runner.workspace_test_command("cargo +1.91.1")
+    assert pinned_commands
+    assert all(command[:2] == ["cargo", "+1.91.1"] for command in pinned_commands)
+    assert [command[2:] for command in pinned_commands] == [command[1:] for command in commands]
     manifest = tomllib.loads((ROOT / MANIFEST).read_text())
     assert manifest["profile"]["test"]["debug"] == 0
 
@@ -130,9 +143,26 @@ def test_every_interop_member_covered():
     assert {Path(package["manifest_path"]).parent.resolve() for package in members} == inventory
     for package in members:
         assert any(target["test"] for target in package["targets"]), package["name"]
-    command = interop_test_command()[:7]
-    assert "--workspace" in command
-    assert not {"-p", "--package", "--exclude", "--lib", "--bins", "--test", "--"}.intersection(command)
+    expected = set()
+    for package in members:
+        for target in package["targets"]:
+            if target["test"]:
+                kind = target["kind"]
+                if kind[0] in ("bin", "test", "example", "bench"):
+                    selector = (f"--{kind[0]}", target["name"])
+                else:
+                    assert set(kind) <= {"lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"}
+                    selector = ("--lib",)
+                expected.add((package["name"], selector))
+            if target["doctest"]:
+                expected.add((package["name"], ("--doc",)))
+    commands = interop_test_command()
+    actual = [
+        (command[6], tuple(command[8:command.index("--")] if "--" in command else command[8:]))
+        for command in commands
+    ]
+    assert set(actual) == expected
+    assert len(actual) == len(expected)
 
 
 def test_interop_baseline_entries_name_retiring_tasks():
@@ -188,3 +218,154 @@ def test_interop_baseline_entries_name_retiring_tasks():
             re.search(r"\bfn\s+" + re.escape(leaf) + r"\s*\(", source.read_text())
             for source in {target_source.resolve(), *member_root.rglob("*.rs")}
         ), entry
+
+
+def cargo_marker_source(marker, *, fail=False, name="same_name", suffix=False):
+    assertion = 'assert_eq!(1, 2, "intentional unlisted failure");' if fail else ""
+    extra = ""
+    if suffix:
+        extra = cargo_marker_source("suffix", name="same_name_suffix").split("mod shared {\n", 1)[1].rsplit("}", 1)[0]
+    return f'''#[cfg(test)]
+mod shared {{
+    #[test]
+    fn {name}() {{
+        let directory = std::env::var("INTEROP_MARKER_DIR").unwrap();
+        std::fs::write(std::path::Path::new(&directory).join("{marker}"), "executed").unwrap();
+        {assertion}
+    }}
+{extra}}}
+'''
+
+
+def write_cargo_file(workspace, path, source):
+    destination = workspace / path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(source)
+
+
+def lock_cargo_workspace(workspace):
+    result = subprocess.run(
+        ["cargo", "generate-lockfile", "--offline", "--manifest-path", str(workspace / "Cargo.toml")],
+        cwd=workspace, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def run_interop_workspace(workspace, baseline, markers):
+    markers.mkdir()
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tests/ci/interop_workspace_test.py"),
+         "--manifest-path", str(workspace / "Cargo.toml"), "--baseline-path", str(baseline)],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+        env={**os.environ, "INTEROP_MARKER_DIR": str(markers),
+             "CARGO_TARGET_DIR": str(workspace / "target"), "CARGO_NET_OFFLINE": "true"},
+    )
+    return result
+
+
+def cargo_test_totals(output):
+    summaries = re.findall(
+        r"test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; \d+ ignored; \d+ measured; (\d+) filtered out;",
+        output,
+    )
+    assert summaries, output
+    return tuple(sum(int(summary[index]) for summary in summaries) for index in range(3))
+
+
+def test_interop_baseline_skips_are_scoped_to_cargo_targets(tmp_path):
+    workspace = tmp_path / "workspace"
+    write_cargo_file(workspace, "Cargo.toml", '''[workspace]
+members = ["relayer", "fiat"]
+resolver = "2"
+''')
+    write_cargo_file(workspace, "relayer/Cargo.toml", '''[package]
+name = "layerx-bridge-relayer"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "coverage"
+test = true
+
+[[bench]]
+name = "coverage"
+test = true
+''')
+    doctest = '''//! ```
+//! let directory = std::env::var("INTEROP_MARKER_DIR").unwrap();
+//! std::fs::write(std::path::Path::new(&directory).join("doc"), "executed").unwrap();
+//! ```
+'''
+    write_cargo_file(workspace, "relayer/src/lib.rs", doctest + cargo_marker_source("retired"))
+    write_cargo_file(
+        workspace, "relayer/tests/retained.rs",
+        cargo_marker_source("retained", suffix=True),
+    )
+    write_cargo_file(workspace, "relayer/examples/coverage.rs", "fn main() {}\n" + cargo_marker_source("example"))
+    write_cargo_file(workspace, "relayer/benches/coverage.rs", cargo_marker_source("bench"))
+    write_cargo_file(workspace, "fiat/Cargo.toml", '''[package]
+name = "layerx-fiat"
+version = "0.1.0"
+edition = "2021"
+''')
+    write_cargo_file(workspace, "fiat/src/main.rs", "fn main() {}\n" + cargo_marker_source("unlisted"))
+    lock_cargo_workspace(workspace)
+    baseline = tmp_path / "baseline.json"
+    entries = [
+        {"member": "layerx-bridge-relayer", "target": target,
+         "qualified_test_name": "shared::same_name", "first_error_line": "recorded assertion failure",
+         "retiring_task": "22.39.124"}
+        for target in ("--lib", "--test retained")
+    ]
+    always = {"unlisted", "suffix", "example", "bench", "doc"}
+    for phase, remaining, expected_markers, totals in (
+        ("before", entries, always, (5, 0, 2)),
+        ("retired", entries[1:], always | {"retired"}, (6, 0, 1)),
+        ("empty", [], always | {"retired", "retained"}, (7, 0, 0)),
+    ):
+        baseline.write_text(json.dumps(remaining))
+        assert workspace_runner.read_baseline(baseline) == remaining
+        commands = workspace_runner.workspace_test_command(
+            manifest_path=str(workspace / "Cargo.toml"), baseline_path=baseline,
+        )
+        assert len(commands) == 6
+        for command in commands:
+            if "--skip" in command:
+                assert command[6] == "layerx-bridge-relayer"
+                boundary = command.index("--")
+                assert command[boundary:] == ["--", "--exact", "--skip", "shared::same_name"]
+                assert any(entry["target"] == shlex.join(command[8:boundary]) for entry in remaining)
+        markers = tmp_path / phase
+        result = run_interop_workspace(workspace, baseline, markers)
+        output = result.stdout + result.stderr
+        assert result.returncode == 0, output
+        assert {path.name for path in markers.iterdir()} == expected_markers, output
+        assert all(path.read_text() == "executed" for path in markers.iterdir())
+        assert cargo_test_totals(output) == totals, output
+        assert result.stdout.count("Interop baseline:") == len(remaining), output
+        for entry in remaining:
+            assert f"{entry['member']} {entry['target']} {entry['qualified_test_name']}" in output
+            assert f"retiring task {entry['retiring_task']} | {entry['first_error_line']}" in output
+
+
+def test_interop_target_failure_propagates_and_continues(tmp_path):
+    workspace = tmp_path / "workspace"
+    write_cargo_file(workspace, "Cargo.toml", '''[package]
+name = "layerx-bridge-relayer"
+version = "0.1.0"
+edition = "2021"
+''')
+    write_cargo_file(workspace, "tests/a_failure.rs", cargo_marker_source("failure", fail=True))
+    write_cargo_file(workspace, "tests/z_later.rs", cargo_marker_source("later"))
+    lock_cargo_workspace(workspace)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text("[]")
+    markers = tmp_path / "markers"
+    result = run_interop_workspace(workspace, baseline, markers)
+    output = result.stdout + result.stderr
+    assert result.returncode == 101, output
+    assert {path.name for path in markers.iterdir()} == {"failure", "later"}, output
+    assert (markers / "later").read_text() == "executed"
+    assert "intentional unlisted failure" in output
+    assert result.stdout.index("--test a_failure") < result.stdout.index("--test z_later"), output
+    assert cargo_test_totals(output) == (1, 1, 0), output

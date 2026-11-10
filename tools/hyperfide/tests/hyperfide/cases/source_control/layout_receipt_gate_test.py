@@ -34,6 +34,7 @@ class LayoutReceiptGateTest(unittest.TestCase):
         self.root.mkdir(parents=True)
         self.git('init', '-q')
         self.mapping = copy.deepcopy(PRODUCER.document(PRODUCER.PACK / 'repository-layout.json'))
+        self.write('.gitignore', 'build/\n__pycache__/\n')
         self.write('spec/hyperfide-source-control/repository-layout.json', self.mapping)
         self.copy('tests/hyperfide/source-control/layout-receipt.schema.json')
         self.copy('tools/repository/layout-inventory.py')
@@ -92,11 +93,96 @@ class LayoutReceiptGateTest(unittest.TestCase):
         self.assertEqual(bindings['untracked_paths'], [
             'tools/hyperfide/core/untracked output\nπ.txt', 'untracked-host.txt'])
         self.assertEqual(bindings['untracked_paths_count'], 2)
+        bindings.update(PRODUCER.capture_bindings(self.root))
         self.report['checks'] = [check]
         self.assertEqual(self.emit(), 0)
         emitted = CONSUMER.require_layout_receipt(self.root)
         self.assertEqual(emitted['bindings']['untracked_paths'], bindings['untracked_paths'])
         self.assertEqual(emitted['bindings']['untracked_paths_count'], 2)
+
+    def test_retained_pass_receipt_rejects_stale_source_bindings(self):
+        for name in ['0_9', '0_10']:
+            self.copy('tests/hyperfide/cases/source_control/' + name + '.py')
+        source = self.root / 'core/runtime.txt'
+        obsolete = self.root / 'services/obsolete.txt'
+        neighbor = self.host / 'neighbor.txt'
+        mapping_path = self.root / 'spec/hyperfide-source-control/repository-layout.json'
+        mapping_bytes = mapping_path.read_bytes()
+        restart = "import importlib.util; from pathlib import Path; s=importlib.util.spec_from_file_location('consumer', 'tests/hyperfide/cases/source_control/0_10.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.require_layout_receipt(Path.cwd())['status'])"
+        mutations = [(kind, state) for kind in ['edit', 'delete', 'mode', 'workspace', 'excluded', 'obsolete']
+                     for state in ['unstaged', 'staged', 'committed']
+                     if kind != 'obsolete' or state != 'unstaged']
+        mutations.extend([('unchanged', 'restart'), ('outside', 'unstaged'),
+                          ('outside', 'staged'), ('outside', 'committed'), ('untracked', 'unstaged')])
+        for kind, state in mutations:
+            with self.subTest(kind=kind, state=state):
+                self.write('core/runtime.txt', 'runtime source\n')
+                source.chmod(0o644)
+                self.write('pnpm-workspace.yaml', 'packages:\n  - core/*\n')
+                self.write('tests/tracked.txt', 'tracked test input\n')
+                neighbor.write_text('outside source\n')
+                if obsolete.exists():
+                    obsolete.unlink()
+                    obsolete.parent.rmdir()
+                self.git('add', '.')
+                self.git('commit', '--allow-empty', '-qm', 'Prepare clean receipt candidate')
+                bindings = PRODUCER.capture_bindings(self.root)
+                check = PRODUCER.check_final_revision_clean(bindings, self.root)
+                self.assertEqual(check['status'], 'PASS')
+                self.report['bindings'].update(bindings)
+                self.report['checks'] = [check]
+                self.assertEqual(self.emit(), 0)
+                PRODUCER.validate_layout_receipt(PRODUCER.document(self.path))
+                accepted = CONSUMER.require_layout_receipt(self.root)
+                self.assertEqual(accepted['status'], 'PASS')
+                retained = self.path.read_bytes()
+
+                if kind == 'edit':
+                    source.write_text('changed runtime source\n')
+                elif kind == 'delete':
+                    source.unlink()
+                elif kind == 'mode':
+                    source.chmod(0o755)
+                elif kind == 'workspace':
+                    self.write('pnpm-workspace.yaml', 'packages:\n  - core/*\n  - apps/*\n')
+                elif kind == 'excluded':
+                    self.write('tests/tracked.txt', 'changed tracked test input\n')
+                elif kind == 'obsolete':
+                    self.write('services/obsolete.txt', 'obsolete source container\n')
+                elif kind == 'outside':
+                    neighbor.write_text('changed outside source\n')
+                elif kind == 'untracked':
+                    self.write('tests/untracked.txt', 'untracked test output\n')
+                if state in ['staged', 'committed']:
+                    self.git('add', '-A')
+                if state == 'committed':
+                    self.git('commit', '-qm', 'Commit candidate mutation')
+
+                self.assertEqual(self.path.read_bytes(), retained)
+                self.assertEqual(mapping_path.read_bytes(), mapping_bytes)
+                current = PRODUCER.capture_bindings(self.root)
+                clean = PRODUCER.check_final_revision_clean(current, self.root)
+                if kind in ['unchanged', 'outside', 'untracked']:
+                    self.assertEqual(clean['status'], 'PASS')
+                    self.assertEqual(CONSUMER.require_layout_receipt(self.root), accepted)
+                    if kind == 'outside' and state == 'committed':
+                        self.assertNotEqual(current['source_revision'], bindings['source_revision'])
+                        self.assertEqual(current['source_tree_id'], bindings['source_tree_id'])
+                    result = subprocess.run([sys.executable, '-c', restart], cwd=self.root,
+                                            text=True, capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.strip(), 'PASS')
+                else:
+                    if state == 'committed':
+                        self.assertEqual(clean['status'], 'PASS')
+                        self.assertNotEqual(current['source_tree_id'], bindings['source_tree_id'])
+                    else:
+                        self.assertEqual(clean['status'], 'FAIL')
+                    if kind == 'excluded':
+                        self.assertEqual(current['source_snapshot'], bindings['source_snapshot'])
+                    with self.assertRaisesRegex(ValueError, 'LAYOUT_RECEIPT_REQUIRED'):
+                        CONSUMER.require_layout_receipt(self.root)
+                self.assertEqual(self.path.read_bytes(), retained)
 
     def test_modified_tracked_candidate_file_fails_final_revision_clean(self):
         bindings = self.report['bindings']

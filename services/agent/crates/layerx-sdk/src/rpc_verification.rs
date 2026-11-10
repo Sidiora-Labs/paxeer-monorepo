@@ -21,13 +21,15 @@ pub struct ReceiptPolicy {
     pub trusted_checkpoint_context_digest: Option<[u8; 32]>,
 }
 
+type CommittedBlock = (u64, [u8; 32]);
+
 pub struct VerifiedRpcReceipt {
     receipt: Receipt,
     commitment: Commitment,
     canonical: Vec<u8>,
     batch_evidence: Option<VerifiedBatchEvidence>,
     canonical_activity: Option<Vec<u8>>,
-    committed_block: Option<(u64, [u8; 32])>,
+    committed_block: Option<CommittedBlock>,
 }
 
 /// Exact inclusion material retained after SDK verification for daemon evidence ingress.
@@ -119,6 +121,9 @@ impl RpcClient {
     }
 
     /// Verifies the covering Comet commit and signed sequence batch using caller-pinned trust.
+    /// # Errors
+    ///
+    /// Returns receipt lookup, timeout or verification errors if the receipt, covering commit or sequence batch cannot be authenticated with the supplied trust.
     pub fn wait_for_with_commit(
         &self,
         activity: [u8; 32],
@@ -187,7 +192,7 @@ impl RpcClient {
                 Ok(Some(receipt)) => return Ok(receipt),
                 Ok(None)
                 | Err(RpcError::Remote {
-                    code: -32001 | -32005,
+                    code: -32_001 | -32_005,
                     ..
                 }) => {}
                 Err(error) => return Err(error),
@@ -233,6 +238,82 @@ impl RpcClient {
             return Ok(None);
         }
         result.map(Some)
+    }
+
+    fn committed_receipt_block(
+        &self,
+        result: &Value,
+        receipt: &Receipt,
+        policy: &ReceiptPolicy,
+        deadline: &mut Deadline,
+        commit: Option<&layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>>,
+    ) -> Result<Option<CommittedBlock>, RpcError> {
+        if result["rung"] != "committed" {
+            return Ok(None);
+        }
+        let height = node_quantity(result, "blockNumber")?;
+        let hash = node_fixed::<32>(result, "blockHash")?;
+        let Some(material) = self.read_before_deadline(
+            "px_getCommit",
+            &serde_json::json!([height.to_string()]),
+            deadline,
+        )?
+        else {
+            return Ok(None);
+        };
+        let Some(block) = self.read_before_deadline(
+            "eth_getBlockByNumber",
+            &serde_json::json!([format!("0x{height:x}"), false]),
+            deadline,
+        )?
+        else {
+            return Ok(None);
+        };
+        if node_quantity(&block, "number")? != height || node_fixed::<32>(&block, "hash")? != hash {
+            return Err(RpcError::Verification);
+        }
+        if let Some(evidence) = commit {
+            verify_supplied_commit(&material, receipt, result, (height, hash), policy, evidence)?;
+        } else {
+            let (authority, coverage_override) = self
+                .node_commit
+                .as_ref()
+                .ok_or(RpcError::MissingFinalityTrust)?;
+            let served_coverage;
+            let coverage = if coverage_override.is_override() {
+                coverage_override
+            } else {
+                let Some(batch) = self
+                    .read_before_deadline(
+                        "px_getSequenceBatch",
+                        &serde_json::json!([height.to_string()]),
+                        deadline,
+                    )
+                    .map_err(|error| match error {
+                        RpcError::Remote { code: -32_602, .. } => RpcError::Verification,
+                        other => other,
+                    })?
+                else {
+                    return Ok(None);
+                };
+                served_coverage = node_commit::NodeCommitCoverage::from_sequence_batch(
+                    &batch,
+                    height,
+                    receipt.protocol().ok_or(RpcError::Verification)?,
+                )?;
+                &served_coverage
+            };
+            node_commit::verify_committed(
+                &material["signedHeader"],
+                receipt.protocol().ok_or(RpcError::Verification)?,
+                node_quantity(result, "height")?,
+                (height, hash),
+                authority,
+                coverage,
+                &policy.sequencer,
+            )?;
+        }
+        Ok(Some((height, hash)))
     }
 
     fn receipt_at_commitment(
@@ -282,101 +363,12 @@ impl RpcClient {
         let committed_block = if commitment == Commitment::Executed {
             None
         } else {
-            if result["rung"] != "committed" {
-                return Ok(None);
-            }
-            let height = node_quantity(&result, "blockNumber")?;
-            let hash = node_fixed::<32>(&result, "blockHash")?;
-            let Some(material) = self.read_before_deadline(
-                "px_getCommit",
-                &serde_json::json!([height.to_string()]),
-                deadline,
-            )?
+            let Some(block) =
+                self.committed_receipt_block(&result, &receipt, policy, deadline, commit)?
             else {
                 return Ok(None);
             };
-            let Some(block) = self.read_before_deadline(
-                "eth_getBlockByNumber",
-                &serde_json::json!([format!("0x{height:x}"), false]),
-                deadline,
-            )?
-            else {
-                return Ok(None);
-            };
-            if node_quantity(&block, "number")? != height
-                || node_fixed::<32>(&block, "hash")? != hash
-            {
-                return Err(RpcError::Verification);
-            }
-            if let Some(evidence) = commit {
-                if height != evidence.covering_height || height < node_quantity(&result, "height")?
-                {
-                    return Err(RpcError::Verification);
-                }
-                let head = layerx_client::rpc::commit::verify_commit_material(
-                    &material["signedHeader"],
-                    evidence.verifier,
-                )
-                .map_err(|_| RpcError::Verification)?;
-                if u64::try_from(head.height()).ok() != Some(height) || head.header_hash() != hash {
-                    return Err(RpcError::Verification);
-                }
-                let pin = layerx_client::sequencer::ReceiptKeyEntry {
-                    key_id: policy.sequencer.sequencer_id(),
-                    public_key: policy.sequencer.public_key(),
-                    first_height: policy.sequencer.first_batch_number(),
-                    last_height: policy.sequencer.last_batch_number(),
-                };
-                layerx_client::rpc::receipt_commit::verify_receipt_coverage(
-                    receipt.protocol().ok_or(RpcError::Verification)?,
-                    node_quantity(&result, "height")?,
-                    &head,
-                    evidence,
-                    &[pin],
-                )
-                .map_err(|_| RpcError::Verification)?;
-            } else {
-                let (authority, coverage_override) = self
-                    .node_commit
-                    .as_ref()
-                    .ok_or(RpcError::MissingFinalityTrust)?;
-                let served_coverage;
-                let coverage = if coverage_override.is_override() {
-                    coverage_override
-                } else {
-                    let Some(batch) = self
-                        .read_before_deadline(
-                            "px_getSequenceBatch",
-                            &serde_json::json!([height.to_string()]),
-                            deadline,
-                        )
-                        .map_err(|error| match error {
-                            RpcError::Remote { code: -32602, .. } => RpcError::Verification,
-                            other => other,
-                        })?
-                    else {
-                        return Ok(None);
-                    };
-                    served_coverage = node_commit::NodeCommitCoverage::from_sequence_batch(
-                        &batch,
-                        height,
-                        &block,
-                        receipt.protocol().ok_or(RpcError::Verification)?,
-                    )?;
-                    &served_coverage
-                };
-                node_commit::verify_committed(
-                    &material["signedHeader"],
-                    receipt.protocol().ok_or(RpcError::Verification)?,
-                    node_quantity(&result, "height")?,
-                    height,
-                    hash,
-                    authority,
-                    coverage,
-                    &policy.sequencer,
-                )?;
-            }
-            Some((height, hash))
+            Some(block)
         };
         Ok(Some(VerifiedRpcReceipt {
             receipt,
@@ -402,7 +394,7 @@ fn verify_rpc_inclusion(
         return Err(RpcError::Verification);
     }
     let signed = &value["signed_header"];
-    let header = hex_field(signed, "canonical_header", 65536)?;
+    let header = hex_field(signed, "canonical_header", 65_536)?;
     let signature: [u8; 64] = hex_field(signed, "signature", 64)?
         .try_into()
         .map_err(|_| RpcError::InvalidResponse)?;
@@ -472,20 +464,9 @@ fn decode_hex(value: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
         .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    #[test]
-    fn acknowledgement_is_not_inclusion() {
-        let policy = ReceiptPolicy {
-            protocol_version: 3,
-            network_id: 17,
-            sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 10),
-            trusted_checkpoint_context_digest: None,
-        };
-        assert!(verify_rpc_inclusion(&json!({"state":"accepted"}), "01", &[1], &policy).is_err());
-    }
+fn invalid_response(field: &str) -> RpcError {
+    eprintln!("RpcError::InvalidResponse: refused field {field}");
+    RpcError::InvalidResponse
 }
 
 fn node_quantity(value: &Value, name: &str) -> Result<u64, RpcError> {
@@ -493,98 +474,54 @@ fn node_quantity(value: &Value, name: &str) -> Result<u64, RpcError> {
         .get(name)
         .and_then(Value::as_str)
         .and_then(|s| s.strip_prefix("0x"))
-        .ok_or(RpcError::InvalidResponse)?;
+        .ok_or_else(|| invalid_response(name))?;
     if text.is_empty()
         || (text.len() > 1 && text.starts_with('0'))
         || !text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
     {
-        return Err(RpcError::InvalidResponse);
+        return Err(invalid_response(name));
     }
-    u64::from_str_radix(text, 16).map_err(|_| RpcError::InvalidResponse)
+    u64::from_str_radix(text, 16).map_err(|_| invalid_response(name))
 }
 fn node_bytes(value: &Value, name: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
     let text = value
         .get(name)
         .and_then(Value::as_str)
         .and_then(|s| s.strip_prefix("0x"))
-        .ok_or(RpcError::InvalidResponse)?;
+        .ok_or_else(|| invalid_response(name))?;
     if text.len() % 2 != 0 || text.len() / 2 > maximum {
-        return Err(RpcError::InvalidResponse);
+        return Err(invalid_response(name));
     }
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
             u8::from_str_radix(
-                std::str::from_utf8(pair).map_err(|_| RpcError::InvalidResponse)?,
+                std::str::from_utf8(pair).map_err(|_| invalid_response(name))?,
                 16,
             )
-            .map_err(|_| RpcError::InvalidResponse)
+            .map_err(|_| invalid_response(name))
         })
         .collect()
 }
 fn node_fixed<const N: usize>(value: &Value, name: &str) -> Result<[u8; N], RpcError> {
     node_bytes(value, name, N)?
         .try_into()
-        .map_err(|_| RpcError::InvalidResponse)
+        .map_err(|_| invalid_response(name))
 }
 
 /// Authenticates the node summary and every served execution field under height-ranged pins.
 /// The payment asset is bound to its denomination independently of the fee denomination.
+/// # Errors
+///
+/// Returns `Verification` or `InvalidResponse` for malformed or inconsistent execution fields, an invalid canonical receipt, or a receipt outside the pinned signature authority.
 pub fn verify_node_receipt(
     value: &Value,
     activity: [u8; 32],
     policy: &ReceiptPolicy,
 ) -> Result<(Receipt, Vec<u8>), RpcError> {
-    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+    use layerx_proof::sequencer_logs::verify_logs;
     use sha2::{Digest as _, Sha256};
-    let fields = value.as_object().ok_or(RpcError::InvalidResponse)?;
-    const EXECUTION_FIELDS: &[&str] = &[
-        "rung",
-        "txHash",
-        "nonce",
-        "seq",
-        "height",
-        "index",
-        "timestamp",
-        "status",
-        "returnData",
-        "logs",
-        "gasUsed",
-        "cumulativeGasUsed",
-        "effectiveGasPrice",
-        "paymentDenom",
-        "feeDenom",
-        "feeAmount",
-        "sponsor",
-        "from",
-        "to",
-        "contractAddress",
-        "vmError",
-        "keyId",
-        "signingKey",
-        "receipt",
-    ];
-    let committed = match value["rung"].as_str() {
-        Some("receipted") => false,
-        Some("committed") => true,
-        _ => return Err(RpcError::InvalidResponse),
-    };
-    let expected_fields = EXECUTION_FIELDS.len()
-        + 2 * usize::from(committed)
-        + usize::from(fields.contains_key("inclusion"));
-    if fields.len() != expected_fields
-        || EXECUTION_FIELDS
-            .iter()
-            .any(|field| !fields.contains_key(*field))
-    {
-        return Err(RpcError::InvalidResponse);
-    }
-    if committed
-        && (node_quantity(value, "blockNumber")? < node_quantity(value, "height")?
-            || node_fixed::<32>(value, "blockHash")? == [0; 32])
-    {
-        return Err(RpcError::Verification);
-    }
+    validate_node_receipt_fields(value)?;
     let canonical = node_bytes(value, "receipt", 1_048_576)?;
     let receipt = layerx_proof::receipt::verify_sequencer_signature(
         &canonical,
@@ -592,34 +529,7 @@ pub fn verify_node_receipt(
     )
     .map_err(|_| RpcError::Verification)?;
     let protocol = receipt.protocol().ok_or(RpcError::Verification)?;
-    let logs = value["logs"].as_array().ok_or(RpcError::InvalidResponse)?;
-    let logs = logs
-        .iter()
-        .map(|log| {
-            let fields = log.as_object().ok_or(RpcError::InvalidResponse)?;
-            if fields.len() != 4
-                || ["address", "topics", "data", "logIndex"]
-                    .iter()
-                    .any(|f| !fields.contains_key(*f))
-            {
-                return Err(RpcError::InvalidResponse);
-            }
-            let topics = log["topics"]
-                .as_array()
-                .filter(|v| v.len() <= 4)
-                .ok_or(RpcError::InvalidResponse)?;
-            let topics = topics
-                .iter()
-                .map(|topic| node_fixed::<32>(&serde_json::json!({"topic":topic}), "topic"))
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(SequencerLog::new(
-                node_fixed(log, "address")?,
-                topics,
-                node_bytes(log, "data", 1_048_576)?,
-                node_quantity(log, "logIndex")?,
-            ))
-        })
-        .collect::<Result<Vec<_>, RpcError>>()?;
+    let logs = decode_node_logs(value)?;
     let verified = verify_logs(&receipt, logs).map_err(|_| RpcError::Verification)?;
     let summary = verified.summary();
     let returned = node_bytes(value, "returnData", 1_048_576)?;
@@ -674,4 +584,148 @@ pub fn verify_node_receipt(
         return Err(RpcError::Verification);
     }
     Ok((receipt, canonical))
+}
+
+fn validate_node_receipt_fields(value: &Value) -> Result<(), RpcError> {
+    const EXECUTION_FIELDS: &[&str] = &[
+        "rung",
+        "txHash",
+        "nonce",
+        "seq",
+        "height",
+        "index",
+        "timestamp",
+        "status",
+        "returnData",
+        "logs",
+        "gasUsed",
+        "cumulativeGasUsed",
+        "effectiveGasPrice",
+        "paymentDenom",
+        "feeDenom",
+        "feeAmount",
+        "sponsor",
+        "from",
+        "to",
+        "contractAddress",
+        "vmError",
+        "keyId",
+        "signingKey",
+        "receipt",
+    ];
+    let fields = value.as_object().ok_or(RpcError::InvalidResponse)?;
+    let committed = match value["rung"].as_str() {
+        Some("receipted") => false,
+        Some("committed") => true,
+        _ => return Err(RpcError::InvalidResponse),
+    };
+    let expected_fields = EXECUTION_FIELDS.len()
+        + 2 * usize::from(committed)
+        + usize::from(fields.contains_key("inclusion"));
+    if fields.len() != expected_fields
+        || EXECUTION_FIELDS
+            .iter()
+            .any(|field| !fields.contains_key(*field))
+    {
+        let refused = EXECUTION_FIELDS
+            .iter()
+            .find(|field| !fields.contains_key(**field))
+            .copied()
+            .unwrap_or("receipt field set");
+        return Err(invalid_response(refused));
+    }
+    if committed
+        && (node_quantity(value, "blockNumber")? < node_quantity(value, "height")?
+            || node_fixed::<32>(value, "blockHash")? == [0; 32])
+    {
+        return Err(RpcError::Verification);
+    }
+    Ok(())
+}
+
+fn decode_node_logs(
+    value: &Value,
+) -> Result<Vec<layerx_proof::sequencer_logs::SequencerLog>, RpcError> {
+    use layerx_proof::sequencer_logs::SequencerLog;
+    let logs = value["logs"].as_array().ok_or(RpcError::InvalidResponse)?;
+    let logs = logs
+        .iter()
+        .map(|log| {
+            let fields = log.as_object().ok_or(RpcError::InvalidResponse)?;
+            if fields.len() != 4
+                || ["address", "topics", "data", "logIndex"]
+                    .iter()
+                    .any(|f| !fields.contains_key(*f))
+            {
+                return Err(RpcError::InvalidResponse);
+            }
+            let topics = log["topics"]
+                .as_array()
+                .filter(|v| v.len() <= 4)
+                .ok_or(RpcError::InvalidResponse)?;
+            let topics = topics
+                .iter()
+                .map(|topic| node_fixed::<32>(&serde_json::json!({"topic":topic}), "topic"))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(SequencerLog::new(
+                node_fixed(log, "address")?,
+                topics,
+                node_bytes(log, "data", 1_048_576)?,
+                node_quantity(log, "logIndex")?,
+            ))
+        })
+        .collect::<Result<Vec<_>, RpcError>>()?;
+    Ok(logs)
+}
+
+fn verify_supplied_commit(
+    material: &Value,
+    receipt: &Receipt,
+    result: &Value,
+    (height, hash): (u64, [u8; 32]),
+    policy: &ReceiptPolicy,
+    evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+) -> Result<(), RpcError> {
+    if height != evidence.covering_height || height < node_quantity(result, "height")? {
+        return Err(RpcError::Verification);
+    }
+    let head = layerx_client::rpc::commit::verify_commit_material(
+        &material["signedHeader"],
+        evidence.verifier,
+    )
+    .map_err(|_| RpcError::Verification)?;
+    if u64::try_from(head.height()).ok() != Some(height) || head.header_hash() != hash {
+        return Err(RpcError::Verification);
+    }
+    let pin = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: policy.sequencer.sequencer_id(),
+        public_key: policy.sequencer.public_key(),
+        first_height: policy.sequencer.first_batch_number(),
+        last_height: policy.sequencer.last_batch_number(),
+    };
+    layerx_client::rpc::receipt_commit::verify_receipt_coverage(
+        receipt.protocol().ok_or(RpcError::Verification)?,
+        node_quantity(result, "height")?,
+        &head,
+        evidence,
+        &[pin],
+    )
+    .map_err(|_| RpcError::Verification)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn acknowledgement_is_not_inclusion() {
+        let policy = ReceiptPolicy {
+            protocol_version: 3,
+            network_id: 17,
+            sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 10),
+            trusted_checkpoint_context_digest: None,
+        };
+        assert!(verify_rpc_inclusion(&json!({"state":"accepted"}), "01", &[1], &policy).is_err());
+    }
 }

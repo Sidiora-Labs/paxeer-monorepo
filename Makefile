@@ -43,9 +43,7 @@ ifneq ($(filter x86_64 i386 i486 i586 i686 aarch64 arm64,$(C_TARGET_ARCH)),)
 CONSENSUS_CFLAGS := -mgeneral-regs-only
 endif
 
-LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c \
-	src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c \
-	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c
+LIB_EXCLUDED_SOURCES := src/storage/lxp_projection.c
 LIB_SOURCES := $(filter-out $(LIB_EXCLUDED_SOURCES), \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
@@ -262,8 +260,9 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_harness
 
 .PHONY: test-tests-python
-test-tests-python:
-	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
+test-tests-python: $(LIBRARY)
+	LAYERX_TEST_LIBRARY="$(abspath $(LIBRARY))" \
+		python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci tools/ci/tests
 	bash tools/ci/tests/publish-images.test.sh
@@ -1999,7 +1998,7 @@ agent-lint:
 
 AGENT_WIRE_FUZZ_TARGETS := primitive_decode envelope_decode payload_decode \
 	receipt_decode proof_decode roundtrip
-AGENT_INTERFACE_FUZZ_TARGETS := lni_frame contract_request policy_loader tenant_key
+AGENT_INTERFACE_FUZZ_TARGETS := contract_request policy_loader tenant_key
 AGENT_FUZZ_TARGETS := $(AGENT_WIRE_FUZZ_TARGETS) $(AGENT_INTERFACE_FUZZ_TARGETS)
 AGENT_FUZZ_RUNS ?= 128
 AGENT_FUZZ_LONG_SECONDS ?= 300
@@ -2659,9 +2658,14 @@ specgen-lint:
 	go vet ./tools/specgen
 	go run ./tools/specgen -root . -check
 
-.PHONY: test-core-ports core-test-all
+.PHONY: test-payer-grant-archive test-core-ports core-test-all
 
-test-core-ports: $(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
+test-payer-grant-archive: $(LIBRARY)
+	LAYERX_TEST_LIBRARY="$(abspath $(LIBRARY))" \
+		python3 -m pytest -q tests/ci/test_core_test_all_wired.py -k payer_grant_archive
+
+test-core-ports: test-payer-grant-archive \
+	$(BUILD_DIR)/tests/kernel/codec/lxp_test_handover_retired \
 	$(BUILD_DIR)/tests/kernel/codec/lxp_test_state_feed_unbound \
 	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_payer_grant \
 	$(BUILD_DIR)/tests/kernel/fuzz/lxp_prop_prepare_workers

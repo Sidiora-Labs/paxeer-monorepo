@@ -1,5 +1,6 @@
 .PHONY: paxeer-x-build-104.32.4 paxeer-x-native-104.32.4
 
+# The fee-relay removal keeps this governed-schedule qualification runner.
 paxeer-x-build-104.32.4:
 	python3 tools/qualification/paxeer-x/program_fee_governance.py --build --build-dir '$(BUILD_DIR)' --cc '$(CC)'
 

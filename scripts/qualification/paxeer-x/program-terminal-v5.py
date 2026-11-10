@@ -23,10 +23,22 @@ CASES = {f'abi{abi}-{outcome}' for abi in (3, 4)
     for outcome in ('success', 'failure', 'resource', 'callback', 'settlement')}
 RUST_CASES = ('terminal::source_vectors::execution_v5_closed_profile_and_abi_binding',
     'terminal::source_vectors::current_candidate_v4_success_decodes_exactly')
+MAX_HTTP_RESPONSE_BYTES = 9 * 1_048_576
+RECORDING_INPUTS = ('Makefile', 'src', 'include', 'tests/programs', 'programs',
+    'services/agent/crates/layerx-types')
 
 
-def build(output):
-    source = producer.identity()
+def recording_identity():
+    producer.capture(['git', 'diff', '--exit-code', 'HEAD', '--', *RECORDING_INPUTS])
+    producer.require(not producer.capture(['git', 'ls-files', '--others',
+        '--exclude-standard', '--', *RECORDING_INPUTS]), 'uncommitted recorder inputs')
+    return {'revision': producer.capture(['git', 'rev-parse', 'HEAD^{commit}']),
+        'tree': producer.capture(['git', 'rev-parse', 'HEAD^{tree}']),
+        'inputs': list(RECORDING_INPUTS)}
+
+
+def build(output, recording=False):
+    source = recording_identity() if recording else producer.identity()
     directory = producer.private_directory(output, create=True)
     producer.require(not any(directory.iterdir()), 'fresh empty build output required')
     native_dir = directory / 'native-build'
@@ -38,16 +50,17 @@ def build(output):
     producer.require(original.count(entry) == 1, 'exact native fixture entrypoint required')
     projection = generated / 'terminal-v5-language-fixture.inc'
     projection.write_text(renamed + ';\n' + original.replace(entry, renamed, 1))
-    cargo_dir = Path(os.environ['CARGO_TARGET_DIR']).absolute()
+    cargo_dir = Path(os.environ.get('CARGO_TARGET_DIR', str(directory / 'cargo-target'))).absolute()
     environment = dict(os.environ, CARGO_BUILD_JOBS='2', CARGO_PROFILE_DEV_DEBUG='0',
-        CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', PYTHONDONTWRITEBYTECODE='1')
+        CARGO_PROFILE_TEST_DEBUG='0', CARGO_INCREMENTAL='0', PYTHONDONTWRITEBYTECODE='1',
+        CARGO_TARGET_DIR=str(cargo_dir))
     library = native_dir / 'liblayerx.a'
     sandbox = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
     native = directory / 'program-terminal-v5-native'
     commands = [
         ['make', '--no-print-directory', '-j2', 'BUILD_DIR=' + str(native_dir),
             'LXP_REVISION=' + source['revision'], str(library)],
-        ['cargo', '+1.91.1', 'build', '--locked', '--manifest-path', 'programs/Cargo.toml',
+        ['cargo', '+1.91.1', 'build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
             '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
         ['cc', '-Iinclude', '-Itests/programs', '-I' + str(generated), '-std=c17',
             '-pedantic', '-Werror', '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Wvla',
@@ -58,10 +71,13 @@ def build(output):
             '-p', 'layerx-programs-runtime', '--lib', '--no-run', '--message-format=json'],
     ]
     logs = []
-    for index, command in enumerate(commands):
+    for index, command in enumerate(commands[:3] if recording else commands):
         log = directory / f'build-{index}.log'
-        producer.build_step(command, log, environment, ROOT)
+        producer.build_step(command, log, environment, ROOT / 'programs' if index == 1 else ROOT)
         logs.append(log)
+    if recording:
+        producer.require(recording_identity() == source, 'recorder inputs changed during build')
+        return native, source
     binaries = []
     finished = False
     for line in logs[-1].read_text().splitlines():
@@ -82,6 +98,38 @@ def build(output):
             'projection': producer.artifact(projection)}, 'cases': sorted(CASES),
         'rust_cases': list(RUST_CASES)})
     print(directory / 'manifest.json')
+
+
+def record(output):
+    native, source = build(output, recording=True)
+    environment = dict(os.environ, PAXEER_X_MAINLINE=source['revision'])
+    process = subprocess.run([str(native), '--dump-corpus'], cwd=ROOT, env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
+    producer.write_private(native.parent / 'native-result.json', {
+        'exit_code': process.returncode, 'stdout': process.stdout, 'stderr': process.stderr})
+    producer.require(process.returncode == 0, 'native recording failed')
+    corpus = json.loads(process.stdout)
+    producer.require(corpus.get('source_revision') == source['revision'] and
+        corpus.get('trusted_sequencer_public_key_hex') == PIN, 'native authority or revision differs')
+    names = [case['name'] for case in corpus['cases']]
+    producer.require(set(names) == CASES and len(names) == len(CASES) and
+        not corpus.get('missing'), 'complete genuine native corpus required')
+    producer.require(recording_identity() == source, 'recorder inputs changed during capture')
+    corpus['producer'] = {
+        'script': str(Path(__file__).relative_to(ROOT)),
+        'script_sha256': producer.digest(Path(__file__)),
+        'recorder': 'tests/programs/test_terminal_v5.c',
+        'source': source,
+        'native_sha256': producer.digest(native),
+        'height': 1,
+        'height_kind': 'in-process kernel batch_number from language_setup; no public chain block',
+    }
+    encoded = (json.dumps(corpus, indent=2, sort_keys=True) + '\n').encode()
+    producer.require(len(encoded) <= MAX_HTTP_RESPONSE_BYTES, 'recording exceeds SDK response bound')
+    path = native.parent / 'terminal-v5-corpus.json'
+    producer.write_private(path, corpus)
+    print(path)
+    return 0
 
 
 def verify(path):
@@ -125,10 +173,15 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser()
     parser.add_argument('--build', action='store_true')
+    parser.add_argument('--record', action='store_true')
     parser.add_argument('--output')
     parser.add_argument('--manifest', default=os.environ.get('PAXEER_X_PROGRAM_TERMINAL_V5_ARTIFACTS'))
     args = parser.parse_args()
     try:
+        producer.require(not (args.build and args.record), 'select build or recording')
+        if args.record:
+            producer.require(args.output, 'private recording output required')
+            return record(args.output)
         if args.build:
             producer.require(args.output, 'private build output required')
             build(args.output)

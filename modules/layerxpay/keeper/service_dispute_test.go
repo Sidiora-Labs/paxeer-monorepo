@@ -183,18 +183,22 @@ func TestServiceDisputeArbiterRefusals(t *testing.T) {
 	}
 	for _, operation := range []string{"open", "resolve"} {
 		for _, link := range []struct {
-			name   string
-			offset int
+			name           string
+			offset         int
+			withoutArbiter bool
+			unauthorized   bool
 		}{
-			{"escrow_id", 0},
-			{"owner", 32},
-			{"beneficiary", 96},
-			{"asset", 160},
-			{"missing_escrow", -1},
-			{"missing_offer", -2},
+			{name: "escrow_id", offset: 0},
+			{name: "escrow_id_without_arbiter", offset: 0, withoutArbiter: true},
+			{name: "escrow_id_unauthorized", offset: 0, unauthorized: true},
+			{name: "owner", offset: 32},
+			{name: "beneficiary", offset: 96},
+			{name: "asset", offset: 160},
+			{name: "missing_escrow", offset: -1},
+			{name: "missing_offer", offset: -2},
 		} {
 			t.Run(operation+"_link_"+link.name, func(t *testing.T) {
-				h, arbiter, escrowID, agreementID, disputeID := serviceDisputeSetup(t, true, operation == "resolve")
+				h, arbiter, escrowID, agreementID, disputeID := serviceDisputeSetup(t, !link.withoutArbiter, operation == "resolve")
 				store := h.ctx.KVStore(h.hostKey)
 				key := types.KernelKVKey(types.EscrowModuleID, append([]byte("hold:"), escrowID[:]...))
 				switch link.offset {
@@ -214,9 +218,17 @@ func TestServiceDisputeArbiterRefusals(t *testing.T) {
 				var receipt lxphost.Receipt
 				var err error
 				if operation == "open" {
-					receipt, err = h.keeper.ServiceDisputeOpen(h.ctx, h.actors[0].address, disputeID, agreementID, [][32]byte{{161}})
+					caller := h.actors[0].address
+					if link.unauthorized {
+						caller = arbiter.address
+					}
+					receipt, err = h.keeper.ServiceDisputeOpen(h.ctx, caller, disputeID, agreementID, [][32]byte{{161}})
 				} else {
-					receipt, err = h.keeper.ServiceDisputeResolve(h.ctx, arbiter.address, disputeID, 1, 5000, escrowID)
+					caller := arbiter.address
+					if link.unauthorized {
+						caller = h.actors[0].address
+					}
+					receipt, err = h.keeper.ServiceDisputeResolve(h.ctx, caller, disputeID, 1, 5000, escrowID)
 				}
 				require.ErrorIs(t, err, lxphost.Code(-739))
 				require.ErrorContains(t, err, "LXP_ESCROW_LINK_MISMATCH")

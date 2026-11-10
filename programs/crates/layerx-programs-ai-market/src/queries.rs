@@ -27,6 +27,9 @@ use crate::{
 use sha2::{Digest, Sha256};
 
 pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
+/// Compatibility discriminator retained by the snapshot wire format and its consumers.
+/// Finality comes from a verified block commit and the corresponding state proof;
+/// this byte alone authenticates neither.
 pub const FINALIZED_RANK: u8 = 4;
 pub const PAGE_MAX_ROWS: usize = 32;
 pub const PAGE_MAX_BYTES: usize = 65_536;
@@ -274,13 +277,9 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
     let bytes = shared.room_market()?.1;
     let book = RoomBook::decode(bytes)?;
     let room = book.room(id)?.ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
-    let counts = book.counts();
-    let mut r = Reader::new(bytes);
-    r.take(14 + *counts.guest_index(0) * ROOM_RECORD_BYTES)?;
-    let asks = r.take(*counts.guest_index(1) * ASK_RECORD_BYTES)?;
-    let bids = r.take(*counts.guest_index(2) * BID_RECORD_BYTES)?;
-    let deals = r.take(*counts.guest_index(3) * DEAL_RECORD_BYTES)?;
-    r.finish()?;
+    let asks = book.table(1);
+    let bids = book.table(2);
+    let deals = book.table(3);
     let mut consumed = [false; BID_CAPACITY];
     for row in deals
         .as_chunks::<{ DEAL_RECORD_BYTES }>()
@@ -897,7 +896,9 @@ impl SnapshotBinding {
         let n = w.len();
         codec::domain_hash("PAXAI/view/v1", prefix.get(..n).ok_or(CAPACITY)?)
     }
-    /// Finalized endpoints and webhook publication require actual rank-4 evidence.
+    /// Checks the snapshot's compatibility discriminator and nonzero commit hashes.
+    /// The caller must authenticate the block commit and state proof separately;
+    /// this structural check does not verify either proof.
     ///
     /// # Errors
     /// `FinalityUnavailable` unless rank is 4 and block and app hashes are nonzero.
@@ -943,7 +944,18 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
     let policy = shared.section(Section::PolicyLifecycle)?;
     *out.guest_index_mut(0) = decoded(policy, || policy_of(&shared));
     *out.guest_index_mut(10) = match *out.guest_index(0) {
-        Availability::Available => Availability::NotEnabled,
+        Availability::Available => match policy_of(&shared).and_then(|policy| {
+            let bytes = shared.room_market()?.1;
+            let book = crate::rooms::RoomBook::decode(bytes)?;
+            if *book.counts().guest_index(0) == 0 {
+                return Ok(Availability::NotEnabled);
+            }
+            placement::PlacementBook::decode(bytes, policy.current.commitments.model_artifact)?;
+            Ok(Availability::Available)
+        }) {
+            Ok(availability) => availability,
+            Err(_) => Availability::ContentUnavailable,
+        },
         availability => availability,
     };
     *out.guest_index_mut(1) = decoded(shared.section(Section::IdentityRoster)?, || {

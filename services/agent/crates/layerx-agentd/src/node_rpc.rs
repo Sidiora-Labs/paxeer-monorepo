@@ -88,6 +88,7 @@ pub mod environment {
     }
 
     pub fn refuse_retired_environment() -> Result<(), String> {
+        // Presence alone is an error; retain the old names to reject stale configuration.
         for name in [
             "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
             "LAYERX_AGENT_SEQUENCER_TRUST_HISTORY",

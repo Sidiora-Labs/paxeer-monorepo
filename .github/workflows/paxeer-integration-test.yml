@@ -157,6 +157,9 @@ defaults:
 permissions:
   contents: read
 
+env:
+  LOCALNODE_IMAGE_TAG: ci-${{ github.run_id }}
+
 jobs:
   # Build localnode/rpcnode images and paxd once; matrix jobs pull the images
   # from GHCR (tagged with the run id) and download paxd as a small artifact.
@@ -199,7 +202,9 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
-          tags: pax-chain/localnode
+          tags: |
+            pax-chain/localnode
+            ghcr.io/sidiora-labs/localnode:${{ env.LOCALNODE_IMAGE_TAG }}
           # Run-id label makes each run's image digest unique (config-only
           # change, layer cache unaffected) so old run tags can be pruned without
           # touching digests other runs still reference.
@@ -595,6 +600,7 @@ jobs:
           docker pull "${GHCR_LOCALNODE_RUN_IMAGE}"
           docker pull "${GHCR_RPCNODE_RUN_IMAGE}"
           docker tag "${GHCR_LOCALNODE_RUN_IMAGE}" pax-chain/localnode
+          docker tag "${GHCR_LOCALNODE_RUN_IMAGE}" "ghcr.io/sidiora-labs/localnode:${LOCALNODE_IMAGE_TAG}"
           docker tag "${GHCR_RPCNODE_RUN_IMAGE}" pax-chain/rpcnode
       - name: Start 4 node docker cluster
         run: DOCKER_DETACH=true INVARIANT_CHECK_INTERVAL=10 ${{matrix.test.env}} make -f chain.mk docker-cluster-start-ci

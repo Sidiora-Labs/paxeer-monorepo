@@ -202,6 +202,11 @@ impl Market {
             host_share_bps: 1000,
             protocol_share_bps: 1000,
             settlement_account: AccountId::new([80; 32]).unwrap(),
+            max_generated_tokens: 4096,
+            queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+            liveness_timeout_ms: 30_000,
+            acknowledgement_window_ms: 5_000,
+            canary_relative_tolerance_bps: 100,
         };
         market.call(
             dispatch::OpenRoom,
@@ -313,6 +318,26 @@ impl Market {
         payload: &[u8],
         at: u64,
     ) -> Vec<u8> {
+        if op == dispatch::PostBid {
+            let mut r = codec::Reader::new(payload);
+            let room = r.digest32().unwrap();
+            let bid = r.digest32().unwrap();
+            r.take(48).unwrap();
+            let amount = r.u128().unwrap();
+            if layerx_programs_ai_market::bonds::bond_from_state(&self.bytes, bid)
+                .unwrap()
+                .is_none()
+            {
+                self.call(
+                    dispatch::LockBond,
+                    who,
+                    &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
+                        .encode()
+                        .unwrap(),
+                    at,
+                );
+            }
+        }
         let e = self.envelope(op, who, payload);
         producers::apply(&mut self.bytes, &e, who, at).unwrap();
         e
@@ -559,10 +584,7 @@ impl Market {
             prompt_digest: digest(90),
             expected_logits_digest: canary::logits_digest(&[100_000; 8]).unwrap(),
             answer_digest: canary::logits_digest(&answer).unwrap(),
-            profile: CanaryRoomProfile {
-                room: room.profile,
-                relative_tolerance_bps: 100,
-            },
+            profile: CanaryRoomProfile { room: room.profile },
             peer_signature: Signature64([0; 64]),
         };
         task.peer_signature = Signature64(

@@ -53,7 +53,7 @@ custody modules. Secrets belong behind the signer boundary; debug output for
 ## Proof
 
 [`layerx-proof`](../services/agent/crates/layerx-proof/src/lib.rs) owns offline
-verification in `receipt`, `inclusion`, `sequencer_logs`, `checkpoint`, `state`,
+verification in `receipt`, `inclusion`, `sequencer_logs`, `state`,
 `state_witness`, `state_range`, `program`, `signed_authority`, `merkle`,
 `availability`, `evidence`, `level`, `export` and `export_codec`.
 `level::achieved` and `achieved_rung` read the token inseparably carried by
@@ -61,9 +61,9 @@ verified evidence. The achieved-token constructor is private; caller-selected
 rank integers and RPC-published authority do not establish trust.
 
 Use the exact producer's bytes, pinned receipt keys and protected commit trust.
-The retained `settlement` module is compatibility code, not an additional
-network finality requirement. [Exports](agent-formats.md#offline-export) carry
-facts and evidence for independent verification.
+[Exports](agent-formats.md#offline-export) carry chain identity, committed
+headers and validator sets for independent verification. The removed checkpoint
+and settlement proof modules are not part of the current crate API.
 
 ## Client
 
@@ -149,9 +149,10 @@ lengths under the `layerx-human/subject-tenant/v1` domain. Retain the returned
 transport binding and agent tenant; do not accept a request's arbitrary tenant
 as the storage authority.
 
-## Paxeer verifier
+## Commit verification
 
-The former `layerx-paxeer-verifier` crate is removed from the current agent
-workspace. This anchor remains for historical registry links. Current node
-receipt and commit acquisition belongs to [client](#client), verification to
-[proof](#proof), and runtime trust/receipt storage to [agentd](#agentd).
+Acquire node receipts and commits through [client](#client), verify the CometBFT
+commit and header at the selected height, and verify per-key native state proofs
+against the committed app hash. The retained node commit/header verifier is
+[custodyproof.Verify](../custodyproof/verify.go); [proof](#proof) owns the current
+Rust evidence API, and [agentd](#agentd) owns runtime trust and receipt storage.

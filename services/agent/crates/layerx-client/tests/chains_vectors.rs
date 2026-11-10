@@ -160,6 +160,12 @@ fn chains_vectors_match_and_round_trip() {
         expected_params
     );
 
+    assert_chain_events(&vectors, &expected_chain);
+    assert_chain_limits(&expected_chain, &expected_params);
+    assert_malformed_chain_encodings(&chain_bytes, &params_bytes);
+}
+
+fn assert_chain_events(vectors: &Value, expected_chain: &ChainRecord) {
     let events = [
         ChainEvent::Created {
             id: expected_chain.id,
@@ -226,7 +232,9 @@ fn chains_vectors_match_and_round_trip() {
     }
     assert!(decode_event(&[], &[]).is_err());
     assert!(decode_event(&[[0; 32]], &[]).is_err());
+}
 
+fn assert_chain_limits(expected_chain: &ChainRecord, expected_params: &ChainsParams) {
     assert_eq!(virtual_chain_id(1), 125_000_001);
     assert_eq!(virtual_chain_id(0), 125_000_000);
     assert_eq!(virtual_chain_id(u32::MAX), 4_419_967_295);
@@ -289,7 +297,7 @@ fn chains_vectors_match_and_round_trip() {
         max_gas_allowance: u64::MAX,
         total_gas_allowance_left: u64::MAX,
         max_chains: u32::MAX,
-        ..expected_params
+        authority: expected_params.authority,
     };
     assert_eq!(must(decode_params(&full_params.encode())), full_params);
     let full_event = ChainEvent::Funded {
@@ -299,7 +307,9 @@ fn chains_vectors_match_and_round_trip() {
     };
     let (topics, data) = full_event.encode();
     assert_eq!(must(decode_event(&topics, &data)), full_event);
+}
 
+fn assert_malformed_chain_encodings(chain_bytes: &[u8], params_bytes: &[u8]) {
     for length in [0, 31, 32, 351, chain_bytes.len() - 1] {
         assert!(decode_get_chain(&chain_bytes[..length]).is_err());
     }
@@ -316,18 +326,18 @@ fn chains_vectors_match_and_round_trip() {
         352,
         chain_bytes.len() - 1,
     ] {
-        let mut invalid = chain_bytes.clone();
+        let mut invalid = chain_bytes.to_vec();
         invalid[position] = 255;
         assert!(
             decode_get_chain(&invalid).is_err(),
             "invalid chain byte {position}"
         );
     }
-    let mut invalid_utf8 = chain_bytes.clone();
+    let mut invalid_utf8 = chain_bytes.to_vec();
     invalid_utf8[384] = 255;
     assert!(decode_get_chain(&invalid_utf8).is_err());
     for position in [0, 96, 128, 160, 192] {
-        let mut invalid = params_bytes.clone();
+        let mut invalid = params_bytes.to_vec();
         invalid[position] = 255;
         assert!(decode_params(&invalid).is_err());
     }

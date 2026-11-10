@@ -102,6 +102,11 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
         header.protocol_version(),
         header.network_id(),
     ));
+    let unsigned = checked(layerx_wire::receipt::encode_unsigned(&decoded));
+    let mut preimage = b"LXP/v1/receipt\0".to_vec();
+    preimage.extend_from_slice(&unsigned);
+    let expected_reference: [u8; 32] = <sha2::Sha256 as sha2::Digest>::digest(&preimage).into();
+    assert_eq!(terminal.receipt_ref(), expected_reference);
     assert_eq!(terminal.activity_id(), protocol.activity_id());
     assert_eq!(terminal.result_code(), 0);
     prove_terminal_recovery();
@@ -264,6 +269,11 @@ fn native_type2_bytes_and_matching_node_receipt_survive_restart() {
     prove_terminal_recovery();
 }
 
+#[test]
+fn receipt_reference_survives_terminal_recovery() {
+    actual_daemon_terminal_requires_the_complete_maintained_transition();
+}
+
 fn prove_terminal_recovery() {
     use crate::outbox::{resolve_unknown, Outbox, ResolutionObservation, SubmissionState};
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
@@ -283,7 +293,30 @@ fn prove_terminal_recovery() {
     assert_eq!(verified.activity_id(), hash);
     assert_eq!(format!("0x{}", hex::encode(hash)), receipt_view["txHash"]);
     let canonical_receipt = decode_hex(receipt_view["receipt"].as_str().expect("node receipt"));
-    let receipt_digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let receipt_hash: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let decoded = checked(layerx_wire::receipt::decode(&canonical_receipt));
+    let unsigned = checked(layerx_wire::receipt::encode_unsigned(&decoded));
+    let mut preimage = b"LXP/v1/receipt\0".to_vec();
+    preimage.extend_from_slice(&unsigned);
+    let receipt_reference: [u8; 32] = Sha256::digest(&preimage).into();
+    assert_eq!(
+        checked(super::canonical_receipt_reference(&canonical_receipt)),
+        receipt_reference
+    );
+    assert_ne!(receipt_reference, receipt_hash);
+    let tracking = |status: &crate::outbox::SubmissionStatus, canonical: &[u8]| {
+        let verified = checked(crate::finality::VerifiedReceipt::verify(
+            hash, canonical, &keys,
+        ));
+        let response = checked(crate::human_runtime::write_submission(
+            status,
+            Some(&verified),
+        ));
+        checked(crate::agent_rpc_dispatch::decode_write_answer(
+            layerx_agent_api::error::RequestId(1684),
+            response,
+        ))
+    };
     let listener = checked(std::net::TcpListener::bind("127.0.0.1:0"));
     let mut endpoint = checked(SequencerEndpoint::new(
         &format!("http://{}", checked(listener.local_addr())),
@@ -393,6 +426,18 @@ fn prove_terminal_recovery() {
     assert_eq!(result.observation, ResolutionObservation::ExecutedReceipt);
     assert_eq!(result.state, SubmissionState::Executed);
     checked(server.join());
+    let before_reopen = tracking(
+        outbox.status(hash).expect("terminal before reopen"),
+        &canonical_receipt,
+    );
+    assert_eq!(
+        before_reopen.0["receipt_ref"],
+        hex::encode(receipt_reference)
+    );
+    assert_eq!(
+        before_reopen.0["evidence"][0]["digest"],
+        hex::encode(receipt_reference)
+    );
     drop(outbox);
     drop(store);
     let store = checked(Store::open(&root));
@@ -401,17 +446,28 @@ fn prove_terminal_recovery() {
     let status = recovered.status(hash).expect("recovered native execution");
     assert_eq!(status.state, SubmissionState::Executed);
     let evidence = status.evidence.expect("authenticated node receipt");
-    assert_eq!(evidence.receipt_ref(), receipt_digest);
+    assert_eq!(evidence.receipt_ref(), receipt_hash);
     assert_eq!(evidence.block_height(), 1001);
     assert_eq!(evidence.transaction_index(), 1);
     let receipt_key = checked(TenantKey::new(
         tenant,
         ObjectKind::Receipt,
-        receipt_digest.to_vec(),
+        receipt_hash.to_vec(),
     ));
     assert_eq!(
         store.get(&receipt_key).expect("durable receipt").bytes(),
         canonical_receipt
+    );
+    let retained = store.get(&receipt_key).expect("retained signed receipt");
+    let after_reopen = tracking(status, retained.bytes());
+    assert_eq!(after_reopen, before_reopen);
+    assert_eq!(
+        after_reopen.0["receipt_ref"],
+        hex::encode(receipt_reference)
+    );
+    assert_eq!(
+        checked(super::canonical_receipt_reference(retained.bytes())),
+        receipt_reference
     );
     assert_eq!(checked(recovered.exact_signed_bytes(hash)), signed);
     assert!(recovered.bytes_for_transmission(hash).is_err());

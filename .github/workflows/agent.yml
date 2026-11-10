@@ -194,8 +194,14 @@ jobs:
         run: go mod download
       - name: Run the sanitizer variants
         shell: bash
+        env:
+          LAYERX_RELEASE_GATE_SPEC: ${{ vars.LAYERX_RELEASE_GATE_SPEC }}
+          LAYERX_RELEASE_GATE_TASK: ${{ vars.LAYERX_RELEASE_AGENT_SANITIZERS_TASK }}
         run: |
           set -euo pipefail
+          umask 077
+          evidence_root=$(mktemp -d "$RUNNER_TEMP/agent-sanitizers-evidence.XXXXXXXX")
+          sudo chown root:root "$evidence_root"
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "GOMODCACHE=$(go env GOMODCACHE)" "GOPATH=$(go env GOPATH)" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
@@ -208,7 +214,11 @@ jobs:
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
             "LAYERX_TEST_NATIVE_BIN_DIR=$PWD/build/bin" \
-            make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
+            scripts/ci/release-gate.sh --job agent-sanitizers \
+            --spec "${LAYERX_RELEASE_GATE_SPEC:?Set LAYERX_RELEASE_GATE_SPEC to the gate task spec}" \
+            --task "${LAYERX_RELEASE_GATE_TASK:?Set LAYERX_RELEASE_AGENT_SANITIZERS_TASK}" \
+            --ledger "$evidence_root/qualification.kvx" --evidence-root "$evidence_root" \
+            --timeout 1800 -- make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
       - name: Retain the sanitizer gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -234,9 +244,18 @@ jobs:
           cargo install cargo-fuzz --locked
       - name: Run committed fuzz corpus
         shell: bash
+        env:
+          LAYERX_RELEASE_GATE_SPEC: ${{ vars.LAYERX_RELEASE_GATE_SPEC }}
+          LAYERX_RELEASE_GATE_TASK: ${{ vars.LAYERX_RELEASE_AGENT_FUZZ_CORPUS_TASK }}
         run: |
           set -euo pipefail
-          make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
+          umask 077
+          evidence_root=$(mktemp -d "$RUNNER_TEMP/agent-fuzz-corpus-evidence.XXXXXXXX")
+          scripts/ci/release-gate.sh --job agent-fuzz-corpus \
+            --spec "${LAYERX_RELEASE_GATE_SPEC:?Set LAYERX_RELEASE_GATE_SPEC to the gate task spec}" \
+            --task "${LAYERX_RELEASE_GATE_TASK:?Set LAYERX_RELEASE_AGENT_FUZZ_CORPUS_TASK}" \
+            --ledger "$evidence_root/qualification.kvx" --evidence-root "$evidence_root" \
+            --timeout 1800 -- make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
       - name: Retain the fuzz gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

@@ -43,7 +43,7 @@ pub const EVENT_ID_PREFIX: &str = "0x";
 pub const SUBJECT_PREFIX: &str = "paxai_market_";
 /// The only capture decoder version this adapter admits.
 pub const DECODER_VERSION: u16 = 1;
-/// Weakest verification rank that permits finalized publication.
+/// Publication rank required alongside a verified block commit and native store proof.
 pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;
 /// Largest exact serialized market state a snapshot binds.
 pub const MAXIMUM_STATE_BYTES: usize = 262_144;

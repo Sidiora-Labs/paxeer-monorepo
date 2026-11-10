@@ -490,6 +490,7 @@ const fn untyped_kind(disclosure: &Disclosure) -> &'static str {
     } else if disclosure.session_grant.is_some() {
         "SessionGrant"
     } else if disclosure.evm_payout_binding.is_some() {
+        // The disclosure field still ships; report its unsupported kind without authorizing it.
         "EvmPayoutBinding"
     } else {
         "Send"

@@ -15,11 +15,11 @@ use layerx_proof::receipt::{
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::receipt_execution_batch_id;
+use layerx_wire::hash::{receipt_digest, receipt_execution_batch_id};
 use layerx_wire::historical::activity::{decode_signed, peek_signed_activity_type};
 use layerx_wire::historical::hash::activity_id;
 use layerx_wire::limits::PROTOCOL_VERSION;
-use layerx_wire::receipt::{decode, decode_batch_header, BatchHeader};
+use layerx_wire::receipt::{decode, decode_batch_header, encode_unsigned, BatchHeader};
 use sha2::{Digest, Sha256};
 
 use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
@@ -30,6 +30,20 @@ const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
 const MAX_CUMULATIVE_EVIDENCE_ITEMS: usize = 4_096;
 const KERNEL_MODULE_COUNT: u16 = 11;
+
+pub(crate) fn canonical_receipt_reference(
+    canonical_receipt: &[u8],
+) -> Result<[u8; 32], ReceiptEvidenceError> {
+    let reference = || {
+        let receipt = decode(canonical_receipt)?;
+        receipt_digest(&encode_unsigned(&receipt)?)
+    };
+    reference().map_err(|_| {
+        ReceiptEvidenceError::Receipt(VerificationFailure {
+            check: ReceiptCheck::Decode,
+        })
+    })
+}
 
 #[derive(Debug)]
 enum ActivityActorBinding {
@@ -483,7 +497,7 @@ impl ProtocolEvidenceVerifier {
             .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
                 check: ReceiptCheck::ReceiptShape,
             }))?;
-        let receipt_ref = Sha256::digest(verified.canonical_bytes()).into();
+        let receipt_ref = canonical_receipt_reference(verified.canonical_bytes())?;
         Ok((
             VerifiedReceiptEvidence {
                 receipt_ref,
@@ -752,7 +766,7 @@ impl EvidenceAuthority {
             }));
         }
         Ok(VerifiedSpendReceipt {
-            receipt_ref: Sha256::digest(&raw.canonical_receipt).into(),
+            receipt_ref: canonical_receipt_reference(&raw.canonical_receipt)?,
             activity_id: protocol.activity_id(),
             global_sequence: protocol.global_sequence(),
             result_code: protocol.result_code(),
@@ -828,7 +842,8 @@ impl EvidenceAuthority {
                     .verify_signed_receipt_inclusion(raw, &self.receipt_keys)
                     .map_err(CumulativeUseError::Receipt)?,
             };
-            let receipt_ref: [u8; 32] = Sha256::digest(entry.receipt().canonical_receipt()).into();
+            let receipt_ref = canonical_receipt_reference(entry.receipt().canonical_receipt())
+                .map_err(CumulativeUseError::Receipt)?;
             if !receipt_refs.insert(receipt_ref) || !activity_ids.insert(receipt.activity_id()) {
                 return Err(CumulativeUseError::Duplicate);
             }
@@ -1816,7 +1831,7 @@ impl VerifiedReceiptEvidence {
             .protocol()
             .ok_or(ReceiptEvidenceError::BatchIdentity)?;
         Ok(Self {
-            receipt_ref: Sha256::digest(verified.canonical_bytes()).into(),
+            receipt_ref: canonical_receipt_reference(verified.canonical_bytes())?,
             activity_id: protocol.activity_id(),
             global_sequence: protocol.global_sequence(),
             result_code: protocol.result_code(),
@@ -2380,6 +2395,7 @@ mod tests {
 
     #[test]
     fn committed_time_requires_the_handshake_network_and_receipt_authority() {
+        // This checks the current handshake receipt key, with pinned committed validators.
         let (authority, actor, batch, observed) = captured_batch();
         let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
         let wrong_network = checked(

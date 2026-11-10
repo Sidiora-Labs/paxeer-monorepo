@@ -8,7 +8,7 @@ use crate::independent::chain_proof::{
     tx::verify_tx,
     validators::{TrustedValidator, ValidatorSet},
     vote::{BlockId, CommitSig, PartSetHeader},
-    ChainProofError, ChainProofVerifier, Commit,
+    ChainProofError, ChainProofVerifier, Commit, VerifiedChainHead,
 };
 use crate::independent::{verify_ed25519, Sha256};
 use crate::write_contract::CanonicalBytes;
@@ -17,8 +17,12 @@ use layerx_types::result::ResultCode;
 
 pub const RECORDED: &str =
     include_str!("../../../layerx-agent-api/tests/fixtures/committed-landing-block.json");
+/// Decode the pinned committed transcript.
+///
+/// # Panics
+/// Panics if the checked-in transcript is malformed.
 pub fn document() -> JsonValue {
-    parse(RECORDED).expect("recorded node output")
+    parse(RECORDED).unwrap_or_else(|error| panic!("{}: {error:?}", "recorded node output"))
 }
 fn check(condition: bool) -> Result<(), String> {
     condition
@@ -26,7 +30,14 @@ fn check(condition: bool) -> Result<(), String> {
         .ok_or_else(|| "evidence binding mismatch".into())
 }
 fn quantity(doc: &JsonValue, field: &str) -> u64 {
-    u64::from_str_radix(doc.str_at(field).unwrap().strip_prefix("0x").unwrap(), 16).unwrap()
+    u64::from_str_radix(
+        doc.str_at(field)
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("test or reference input rejected")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
 }
 fn hex_text(bytes: &[u8]) -> Result<Vec<u8>, String> {
     decode_hex(&format!(
@@ -147,34 +158,41 @@ fn validators(bytes: &[u8]) -> Result<ValidatorSet, ChainProofError> {
 fn recorded_proof(recording: &JsonValue, name: &str) -> SimpleProof {
     // Transaction proofs commit SHA256(tx), whereas result proofs commit the
     // deterministic protobuf result directly. Keep the node's leaf_hash.
-    let p = recording.field(name).unwrap();
+    let p = recording
+        .field(name)
+        .unwrap_or_else(|| panic!("test or reference input rejected"));
     SimpleProof {
         total: p
             .str_at("total")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             .parse::<u64>()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             .try_into()
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
         index: p
             .str_at("index")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             .parse::<u64>()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             .try_into()
-            .unwrap(),
-        leaf_hash: decode_base64(p.str_at("leaf_hash").unwrap())
-            .try_into()
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+        leaf_hash: decode_base64(
+            p.str_at("leaf_hash")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+        )
+        .try_into()
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
         aunts: p
             .array_at("aunts")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             .iter()
             .map(|a| {
                 let JsonValue::String(text) = a else {
                     panic!("recorded aunt string")
                 };
-                decode_base64(text).try_into().unwrap()
+                decode_base64(text)
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             })
             .collect(),
     }
@@ -191,12 +209,14 @@ fn decode_base64(text: &str) -> Vec<u8> {
         let digit = alphabet
             .iter()
             .position(|b| *b == byte)
-            .expect("base64 digit");
-        word = (word << 6) | digit as u32;
+            .unwrap_or_else(|| panic!("base64 digit"));
+        word = (word << 6)
+            | u32::try_from(digit)
+                .unwrap_or_else(|error| panic!("base64 digit out of range: {error}"));
         bits += 6;
         if bits >= 8 {
             bits -= 8;
-            out.push((word >> bits) as u8);
+            out.push((word >> bits).to_le_bytes()[0]);
         }
     }
     out
@@ -212,10 +232,22 @@ fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     }
     let prefix = if list { 0xc0 } else { 0x80 };
     let mut result = if payload.len() < 56 {
-        vec![prefix + payload.len() as u8]
+        vec![
+            prefix
+                + u8::try_from(payload.len())
+                    .unwrap_or_else(|error| panic!("short RLP length: {error}")),
+        ]
     } else {
-        let length = minimal_integer(payload.len() as u128);
-        let mut r = vec![prefix + 55 + length.len() as u8];
+        let length = minimal_integer(
+            u128::try_from(payload.len())
+                .unwrap_or_else(|error| panic!("RLP payload length: {error}")),
+        );
+        let mut r = vec![
+            prefix
+                + 55
+                + u8::try_from(length.len())
+                    .unwrap_or_else(|error| panic!("RLP length prefix: {error}")),
+        ];
         r.extend(length);
         r
     };
@@ -266,12 +298,17 @@ pub struct Authenticated {
     pub signed_receipt: CanonicalBytes,
 }
 
-// These pins are read from the original committed transcript, independently
-// of the response under test. Altering a response never alters its trust root.
-pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
+fn authenticate_chain(
+    response: &JsonValue,
+    trusted: &JsonValue,
+) -> Result<VerifiedChainHead, String> {
     let err = |e: ChainProofError| e.to_string();
-    let trusted = document();
-    let pinned = validators(&trusted.hex_at("bundle.validatorSet").unwrap()).map_err(err)?;
+    let pinned = validators(
+        &trusted
+            .hex_at("bundle.validatorSet")
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    )
+    .map_err(err)?;
     let served = validators(
         &response
             .hex_at("bundle.validatorSet")
@@ -296,7 +333,12 @@ pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
     )
     .map_err(err)?;
     let head = verifier.verify_head(&header, &terminal).map_err(err)?;
-    check(head.header_hash() == trusted.hex_array_at::<32>("commitmentBlockHash").unwrap())?;
+    check(
+        head.header_hash()
+            == trusted
+                .hex_array_at::<32>("commitmentBlockHash")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    )?;
     let execution = ChainHeader::decode(
         &response
             .hex_at("executionHeader")
@@ -316,9 +358,68 @@ pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
         header.height == execution.height + 1
             && header.last_block_id.hash == landing.header_hash()
             && execution.next_validators_hash == header.validators_hash
-            && landing.header_hash() == trusted.hex_array_at::<32>("executionBlockHash").unwrap(),
+            && landing.header_hash()
+                == trusted
+                    .hex_array_at::<32>("executionBlockHash")
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
     )?;
 
+    Ok(landing)
+}
+
+fn authenticate_receipt_signature(
+    response: &JsonValue,
+    trusted: &JsonValue,
+    signed: &[u8],
+) -> Result<([u8; 32], [u8; 32]), String> {
+    let tail = signed.len().checked_sub(69).ok_or("signature tail")?;
+    check(signed.get(tail..tail + 5) == Some(&[1, 0, 0, 0, 64]))?;
+    let mut unsigned = signed[..tail].to_vec();
+    unsigned.push(0);
+    let mut hash = Sha256::new();
+    hash.update(b"LXP/v1/receipt\0");
+    hash.update(&unsigned);
+    let digest = hash.finalize();
+    check(
+        digest
+            == response
+                .hex_array_at::<32>("bundle.receiptDigest")
+                .map_err(|e| e.to_string())?,
+    )?;
+    let public_key = trusted
+        .hex_array_at("bundle.receiptKey.publicKey")
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
+    check(
+        response
+            .path("bundle.receiptKey")
+            .map_err(|e| e.to_string())?
+            == trusted
+                .path("bundle.receiptKey")
+                .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    )?;
+    check(verify_ed25519(
+        &public_key,
+        &digest,
+        signed[tail + 5..]
+            .try_into()
+            .map_err(|_| "signature length")?,
+    ))?;
+    Ok((digest, public_key))
+}
+
+// These pins are read from the original committed transcript, independently
+// of the response under test. Altering a response never alters its trust root.
+/// Authenticate the response against the pinned transcript and native proof rules.
+///
+/// # Errors
+/// Returns an error for malformed proofs, invalid signatures, or mismatched commitments.
+///
+/// # Panics
+/// Panics if the checked-in trust transcript is malformed.
+pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
+    let trusted = document();
+    let landing = authenticate_chain(response, &trusted)?;
+    let err = |e: ChainProofError| e.to_string();
     let transaction = response.hex_at("transaction").map_err(|e| e.to_string())?;
     let proof = recorded_proof(response, "transactionProof");
     verify_tx(&landing, &transaction, &proof).map_err(err)?;
@@ -338,51 +439,46 @@ pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
     let signed = response
         .hex_at("bundle.signedReceipt")
         .map_err(|e| e.to_string())?;
-    let tail = signed.len().checked_sub(69).ok_or("signature tail")?;
-    check(signed.get(tail..tail + 5) == Some(&[1, 0, 0, 0, 64]))?;
-    let mut unsigned = signed[..tail].to_vec();
-    unsigned.push(0);
-    let mut hash = Sha256::new();
-    hash.update(b"LXP/v1/receipt\0");
-    hash.update(&unsigned);
-    let digest = hash.finalize();
-    check(
-        digest
-            == response
-                .hex_array_at::<32>("bundle.receiptDigest")
-                .map_err(|e| e.to_string())?,
-    )?;
-    let public_key = trusted.hex_array_at("bundle.receiptKey.publicKey").unwrap();
-    check(
-        response
-            .path("bundle.receiptKey")
-            .map_err(|e| e.to_string())?
-            == trusted.path("bundle.receiptKey").unwrap(),
-    )?;
-    check(verify_ed25519(
-        &public_key,
-        &digest,
-        signed[tail + 5..]
-            .try_into()
-            .map_err(|_| "signature length")?,
-    ))?;
+    let (digest, public_key) = authenticate_receipt_signature(response, &trusted, &signed)?;
     // Fixed prefix of the signed native receipt: structure/version, activity,
     // sequence, state roots, activity root, and exact result code.
     check(signed.len() >= 162 && signed[..10] == [0, 2, 0x52, 1, 0, 2, 0, 0, 0, 32])?;
-    let id: [u8; 32] = signed[10..42].try_into().unwrap();
+    let id: [u8; 32] = signed[10..42]
+        .try_into()
+        .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"));
     check(
         id == response
             .hex_array_at::<32>("bundle.receiptJson.txHash")
             .map_err(|e| e.to_string())?,
     )?;
-    let sequence = u64::from_be_bytes(signed[42..50].try_into().unwrap());
-    let result = ResultCode::from_wire_bytes(signed[158..162].try_into().unwrap());
+    let sequence = u64::from_be_bytes(
+        signed[42..50]
+            .try_into()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    );
+    let result = ResultCode::from_wire_bytes(
+        signed[158..162]
+            .try_into()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    );
     let domain = b"PAXEER/v1/sequence-batch\0";
     let start = domain.len();
     check(batch.len() == 241 && batch.starts_with(domain))?;
-    let height = u64::from_be_bytes(batch[start..start + 8].try_into().unwrap());
-    let from = u64::from_be_bytes(batch[start + 8..start + 16].try_into().unwrap());
-    let to = u64::from_be_bytes(batch[start + 16..start + 24].try_into().unwrap());
+    let height = u64::from_be_bytes(
+        batch[start..start + 8]
+            .try_into()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    );
+    let from = u64::from_be_bytes(
+        batch[start + 8..start + 16]
+            .try_into()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    );
+    let to = u64::from_be_bytes(
+        batch[start + 16..start + 24]
+            .try_into()
+            .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}")),
+    );
     check(
         height == u64::try_from(landing.height()).map_err(|_| "height")?
             && height == quantity(response, "bundle.receiptJson.height")
@@ -395,7 +491,7 @@ pub fn authenticate(response: &JsonValue) -> Result<Authenticated, String> {
             && batch[start + 120..start + 152]
                 == trusted
                     .hex_array_at::<32>("bundle.receiptKey.keyId")
-                    .unwrap()
+                    .unwrap_or_else(|error| panic!("test or reference input rejected: {error:?}"))
             && quantity(&trusted, "bundle.receiptKey.firstHeight") <= height
             && height <= quantity(&trusted, "bundle.receiptKey.lastHeight"),
     )?;

@@ -362,7 +362,7 @@ function FundingTabPanel({
                 <span className="text-[10px] text-muted-foreground truncate">{row.name}</span>
               </div>
               <span className="text-xs font-mono tabular-nums text-foreground text-right">
-                {row.price > 0 ? `$${row.price.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"}
+                {row.price !== null && row.price > 0 ? `$${row.price.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"}
               </span>
               <span className={`text-xs font-mono tabular-nums text-right ${fundingClass(funding8h.sign)}`}>
                 {funding8h.text}

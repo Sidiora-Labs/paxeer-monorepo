@@ -3,6 +3,7 @@
 use super::{Cursor, TerminalDecodeError};
 use crate::{FeeSchedule, FeeScheduleParameters, MeteredUsage};
 
+/// Live sandbox usage-receipt envelope retained by decision 3125.
 pub const SANDBOX_SETTLEMENT_DOMAIN: &[u8] = b"LXP/programs/sandbox-settlement/v1\0";
 const USAGE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/usage-receipt/v4\0";
 pub const MAX_SANDBOX_USAGE_RECEIPT_BYTES: usize = 4096;
@@ -16,6 +17,10 @@ pub enum SandboxSettlementFrameError {
 
 impl SandboxSettlementFrameError {
     #[must_use]
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the established public signature for callers"
+    )]
     pub const fn result_code(self) -> i32 {
         -3 // NON_CANONICAL, including authentication failures.
     }
@@ -83,6 +88,9 @@ impl SandboxSettlement {
 
     /// Encodes the frozen native usage-receipt contract and validates conservation.
     /// The host authenticates lease transition fields and transfer inclusion separately.
+    /// # Errors
+    ///
+    /// Returns a terminal decoding refusal for malformed receipt framing, inconsistent bindings, invalid usage accounting, or a mismatched digest.
     pub fn canonical_usage_receipt(&self) -> Result<Vec<u8>, TerminalDecodeError> {
         let mut bytes = Vec::new();
         self.append_usage_receipt(&mut bytes);
@@ -146,6 +154,9 @@ impl SandboxSettlement {
     }
 
     /// Authenticates the attachment against fields of the included native receipt.
+    /// # Errors
+    ///
+    /// Returns a terminal decoding refusal for malformed receipt framing, inconsistent bindings, invalid usage accounting, or a mismatched digest.
     pub fn authenticate(&self, binding: SandboxReceiptBinding) -> Result<(), TerminalDecodeError> {
         if self.activity_id != binding.activity_id
             || self.program != binding.program
@@ -241,29 +252,7 @@ impl SandboxSettlement {
         {
             return Err(Malformed);
         }
-        let execution_fee = [
-            (usage.cpu_fuel, fees.cpu_price()),
-            (usage.memory_bytes, fees.memory_byte_price()),
-            (usage.storage_read_bytes, fees.storage_read_byte_price()),
-            (usage.storage_write_bytes, fees.storage_write_byte_price()),
-            (u64::from(usage.output_values), fees.output_value_price()),
-            (usage.output_bytes, fees.output_byte_price()),
-        ]
-        .into_iter()
-        .try_fold(0u128, |total, (units, price)| {
-            total.checked_add(u128::from(units).checked_mul(u128::from(price))?)
-        })
-        .ok_or(Malformed)?;
-        let occupancy_fee = usage
-            .occupancy_byte_batches
-            .checked_mul(u128::from(fees.occupancy_byte_batch_price()))
-            .ok_or(Malformed)?;
-        if usage.fee_units != execution_fee
-            || usage.occupancy_fee_units != occupancy_fee
-            || charged != execution_fee.checked_add(occupancy_fee).ok_or(Malformed)?
-        {
-            return Err(Malformed);
-        }
+        Self::validate_usage_fee(usage, fees, charged)?;
         let receipt_digest =
             crate::hash_bytes(crate::HashAlgorithm::Sha256, receipt).map_err(|_| Malformed)?;
         Ok(Self {
@@ -289,6 +278,37 @@ impl SandboxSettlement {
             cumulative_spent,
         })
     }
+    fn validate_usage_fee(
+        usage: MeteredUsage,
+        fees: FeeSchedule,
+        charged: u128,
+    ) -> Result<(), TerminalDecodeError> {
+        use TerminalDecodeError::Malformed;
+        let execution_fee = [
+            (usage.cpu_fuel, fees.cpu_price()),
+            (usage.memory_bytes, fees.memory_byte_price()),
+            (usage.storage_read_bytes, fees.storage_read_byte_price()),
+            (usage.storage_write_bytes, fees.storage_write_byte_price()),
+            (u64::from(usage.output_values), fees.output_value_price()),
+            (usage.output_bytes, fees.output_byte_price()),
+        ]
+        .into_iter()
+        .try_fold(0u128, |total, (units, price)| {
+            total.checked_add(u128::from(units).checked_mul(u128::from(price))?)
+        })
+        .ok_or(Malformed)?;
+        let occupancy_fee = usage
+            .occupancy_byte_batches
+            .checked_mul(u128::from(fees.occupancy_byte_batch_price()))
+            .ok_or(Malformed)?;
+        if usage.fee_units != execution_fee
+            || usage.occupancy_fee_units != occupancy_fee
+            || charged != execution_fee.checked_add(occupancy_fee).ok_or(Malformed)?
+        {
+            return Err(Malformed);
+        }
+        Ok(())
+    }
 }
 
 /// Authenticates a native storage-environment frame consisting of canonical usage
@@ -297,7 +317,7 @@ impl SandboxSettlement {
 ///
 /// # Errors
 ///
-/// Refuses a short frame, a digest mismatch or a malformed canonical body as NON_CANONICAL.
+/// Refuses a short frame, a digest mismatch or a malformed canonical body as `NON_CANONICAL`.
 pub fn attach_sandbox_settlement(
     execution: &mut Vec<u8>,
     receipt: &[u8],
@@ -331,7 +351,11 @@ pub fn attach_sandbox_settlement(
     execution[..SANDBOX_SETTLEMENT_DOMAIN.len()].copy_from_slice(SANDBOX_SETTLEMENT_DOMAIN);
     execution[SANDBOX_SETTLEMENT_DOMAIN.len()..prefix]
         .copy_from_slice(&encoded_length.to_be_bytes());
-    execution.extend_from_slice(&(canonical.len() as u32).to_be_bytes());
+    execution.extend_from_slice(
+        &u32::try_from(canonical.len())
+            .map_err(|_| SandboxSettlementFrameError::MalformedCanonical)?
+            .to_be_bytes(),
+    );
     settlement.append_usage_receipt(execution);
     execution.extend_from_slice(&transfer_root);
     Ok(())

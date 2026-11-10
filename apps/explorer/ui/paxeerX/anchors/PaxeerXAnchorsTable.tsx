@@ -2,6 +2,9 @@ import React from 'react';
 
 import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
+import { route } from 'nextjs/routes';
+
+import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
@@ -16,6 +19,9 @@ interface Props {
 const PaxeerXAnchorsTable = ({ items, top = 0, isLoading }: Props) => {
   return (
     <TableRoot variant="scan" minW="1000px" data-label="paxeer-x-anchors">
+      <caption>
+        Frozen checkpoint archive. View <Link href={ route({ pathname: '/blocks' }) }>blocks</Link> for current chain data.
+      </caption>
       <TableHeaderSticky top={ top }>
         <TableRow>
           <TableColumnHeader width="100px">Batch</TableColumnHeader>

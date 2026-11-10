@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { test } from "node:test";
 import {
   getPaxeerWallet,
@@ -78,5 +79,74 @@ async function configured_endpoint_is_used_by_the_embedded_client() {
   });
 }
 
+async function disabled_embedded_wallet_keeps_injected_connector() {
+  await withBrowserConfiguration(async () => {
+    Reflect.deleteProperty(globalThis, "window");
+    assert.equal(resolvePaxeerConfig(), null);
+    assert.equal(getPaxeerWallet(), null);
+
+    const { JSDOM } = await import("../src/ui/atoms/test-support/dom");
+    const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+      url: "https://perps.example.test",
+      pretendToBeVisual: true,
+    });
+    const savedCustomEvent = Object.getOwnPropertyDescriptor(
+      globalThis,
+      "CustomEvent",
+    );
+    Object.defineProperty(globalThis, "window", {
+      value: dom.window,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "CustomEvent", {
+      value: dom.window.CustomEvent,
+      configurable: true,
+    });
+    const require = createRequire(import.meta.url);
+    const wagmiPath = require.resolve("../src/core/wagmi");
+    const savedWagmiModule = require.cache[wagmiPath];
+    try {
+      for (const publishableKey of [undefined, ""]) {
+        if (publishableKey === undefined)
+          delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+        else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishableKey;
+        for (const endpoint of [
+          undefined,
+          "",
+          "   ",
+          "https://wallet-api.example.test/connector",
+        ]) {
+          if (endpoint === undefined)
+            delete process.env.NEXT_PUBLIC_PAXEER_WALLET_API;
+          else process.env.NEXT_PUBLIC_PAXEER_WALLET_API = endpoint;
+          assert.equal(resolvePaxeerConfig(), null);
+          assert.equal(getPaxeerWallet(), null);
+
+          delete require.cache[wagmiPath];
+          const { wagmiConfig }: typeof import("../src/core/wagmi") =
+            require(wagmiPath);
+          try {
+            assert.deepEqual(
+              wagmiConfig.connectors.map((connector) => connector.id),
+              ["injected"],
+            );
+            assert.equal(wagmiConfig.connectors[0].type, "injected");
+          } finally {
+            wagmiConfig._internal.mipd?.destroy();
+          }
+        }
+      }
+    } finally {
+      delete require.cache[wagmiPath];
+      if (savedWagmiModule) require.cache[wagmiPath] = savedWagmiModule;
+      if (savedCustomEvent)
+        Object.defineProperty(globalThis, "CustomEvent", savedCustomEvent);
+      else Reflect.deleteProperty(globalThis, "CustomEvent");
+      dom.window.close();
+    }
+  });
+}
+
+test(disabled_embedded_wallet_keeps_injected_connector);
 test(missing_endpoint_refuses_with_the_setting_name);
 test(configured_endpoint_is_used_by_the_embedded_client);

@@ -47,6 +47,10 @@ mod compatibility {
     use layerx_types::rung::Rung;
     use layerx_types::verify::{InvalidVerificationRank, VerificationLevel};
     #[test]
+    #[allow(
+        deprecated,
+        reason = "Test retained historical wire labels without granting current authority."
+    )]
     fn verification_levels_form_the_declared_order() {
         let levels = [
             VerificationLevel::UNVERIFIED,
@@ -65,6 +69,10 @@ mod compatibility {
     }
 
     #[test]
+    #[allow(
+        deprecated,
+        reason = "Test retained historical wire labels without granting current authority."
+    )]
     fn verification_level_maps_onto_rungs_by_decision() {
         let cases = [
             (VerificationLevel::UNVERIFIED, Rung::Submitted, 0),
@@ -80,6 +88,10 @@ mod compatibility {
     }
 
     #[test]
+    #[allow(
+        deprecated,
+        reason = "Test retained historical wire labels without granting current authority."
+    )]
     fn settlement_anchored_level_has_no_rung() {
         const RUNG: Option<Rung> = VerificationLevel::SETTLEMENT_ANCHORED.rung();
         assert_eq!(RUNG, None);
@@ -91,6 +103,10 @@ mod compatibility {
     }
 
     #[test]
+    #[allow(
+        deprecated,
+        reason = "Verify the retained historical rank decoder rejects unknown wire labels."
+    )]
     fn historical_ranks_round_trip_and_unknown_ranks_are_refused() {
         let levels = [
             VerificationLevel::UNVERIFIED,
@@ -101,8 +117,16 @@ mod compatibility {
             VerificationLevel::SETTLEMENT_ANCHORED,
         ];
         for (rank, level) in levels.into_iter().enumerate() {
-            assert_eq!(VerificationLevel::from_wire_rank(rank as u8), Ok(level));
-            assert_eq!(level.wire_rank(), rank as u8);
+            assert_eq!(
+                VerificationLevel::from_wire_rank(
+                    u8::try_from(rank).unwrap_or_else(|error| panic!("historical rank: {error}"))
+                ),
+                Ok(level)
+            );
+            assert_eq!(
+                level.wire_rank(),
+                u8::try_from(rank).unwrap_or_else(|error| panic!("historical rank: {error}"))
+            );
             // Even a historical label that maps onto a rung is refused as a
             // current wire label. Decoding does not establish that rung.
             for label in [

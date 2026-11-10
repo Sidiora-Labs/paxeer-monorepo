@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use ed25519_dalek::{Signer as _, SigningKey as EdSigningKey};
 use k256::ecdsa::{Signature, SigningKey};
 use layerx_crypto::secp256k1;
@@ -37,7 +39,11 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        must(write!(text, "{byte:02x}"));
+    }
+    text
 }
 
 fn id(value: u8) -> [u8; 32] {
@@ -127,8 +133,10 @@ fn receipt_with_state(
         encoder.finish()
     };
     let digest = must(receipt_digest(&encode(None)));
-    let signed = encode(Some(signer.sign(&digest).to_bytes()));
-    must(layerx_wire::receipt::encode(&must(decode_receipt(&signed))))
+    let receipt_bytes = encode(Some(signer.sign(&digest).to_bytes()));
+    must(layerx_wire::receipt::encode(&must(decode_receipt(
+        &receipt_bytes,
+    ))))
 }
 
 fn ed_key(value: u8) -> EdSigningKey {
@@ -220,7 +228,9 @@ fn receipt_record_bytes(activity: [u8; 32], receipt: &[u8], sequencer: [u8; 32])
     lp(&mut out, receipt_ref(activity).as_bytes());
     lp(&mut out, receipt);
     let decoded = must(decode_receipt(receipt));
-    let protocol = decoded.protocol().expect("protocol receipt fixture");
+    let Some(protocol) = decoded.protocol() else {
+        panic!("protocol receipt fixture");
+    };
     out.extend_from_slice(&protocol.batch_id());
     out.extend_from_slice(&protocol.asset());
     out.extend_from_slice(&protocol.previous_state_root());
@@ -1189,29 +1199,38 @@ fn occupancy_leaf(root: [u8; 32]) -> Vec<u8> {
     bytes
 }
 
-fn state_export(maintained: bool) -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+fn native_account_vector_value(name: &str) -> Vec<u8> {
     let vectors = include_str!("../../../../../tests/vectors/program_account_state_v2.vec");
-    let entry = |name: &str| {
-        vectors
-            .lines()
-            .find_map(|line| {
-                let (key, value) = line.split_once('=')?;
-                (key == name).then_some(value)
-            })
-            .unwrap_or_else(|| panic!("missing native account vector {name}"))
-    };
-    let unhex = |text: &str| {
-        text.as_bytes()
-            .chunks_exact(2)
-            .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
-            .collect::<Vec<_>>()
-    };
-    let account: [u8; 32] = must(unhex(entry("account_id")).try_into());
-    let account_value = unhex(entry("account_value"));
+    let text = vectors
+        .lines()
+        .find_map(|line| {
+            let (key, value) = line.split_once('=')?;
+            (key == name).then_some(value)
+        })
+        .unwrap_or_else(|| panic!("missing native account vector {name}"));
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
+        .collect()
+}
+
+fn native_account_vector() -> ([u8; 32], Vec<u8>) {
+    (
+        must(native_account_vector_value("account_id").try_into()),
+        native_account_vector_value("account_value"),
+    )
+}
+
+fn native_account_leaf() -> Vec<u8> {
+    native_account_vector_value("account_leaf")
+}
+
+fn state_export(maintained: bool) -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+    let (account, account_value) = native_account_vector();
     let mut key = vec![4];
     key.extend_from_slice(&account);
     let leaf = state_leaf(&key, &account_value);
-    assert_eq!(leaf.as_slice(), unhex(entry("account_leaf")));
+    assert_eq!(leaf.as_slice(), native_account_leaf());
     let sibling = state_leaf(b"other-account", b"recorded peer");
     let mut node = b"LXP/v1/state-node\0".to_vec();
     node.extend_from_slice(&leaf);
@@ -1393,7 +1412,7 @@ fn complete_export_decoder_refuses_checkpoint_and_activity_records() {
         checkpoint_ref(activity, 1),
     ] {
         assert_eq!(
-            decode(&[reference.clone()], &encoded.proofs, &[]).err(),
+            decode(std::slice::from_ref(&reference), &encoded.proofs, &[]).err(),
             Some(ArtifactDecodeError::Facts(FactRefError::UnknownKind))
         );
         let record = inclusion_bytes(2, &reference, b"retired", &single_proof(), [1; 32]);

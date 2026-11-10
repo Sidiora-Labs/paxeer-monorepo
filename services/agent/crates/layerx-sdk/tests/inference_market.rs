@@ -42,6 +42,11 @@ fn profile() -> RoomProfile {
         host_share_bps: 1000,
         protocol_share_bps: 100,
         settlement_account: must(AccountId::new([80; 32])),
+        max_generated_tokens: 4096,
+        queue_depth: program::policy::DEFAULT_QUEUE_DEPTH,
+        liveness_timeout_ms: 30_000,
+        acknowledgement_window_ms: 5_000,
+        canary_relative_tolerance_bps: 100,
     }
 }
 
@@ -64,7 +69,7 @@ fn ask_request() -> PostAskRequest {
     }
 }
 
-fn assert_fixture(operation: MarketOperation, producer: Operation, expected: &[u8]) {
+fn assert_fixture(operation: &MarketOperation, producer: Operation, expected: &[u8]) {
     assert_eq!(operation.operation(), producer);
     assert_eq!(operation.payload(), expected);
     let request = operation.request(OperationContext {
@@ -88,13 +93,15 @@ fn assert_fixture(operation: MarketOperation, producer: Operation, expected: &[u
 fn room_and_deal_encoders_reproduce_program_fixtures() {
     let open = room_request();
     assert_fixture(
-        must(open_room(&open)),
+        &must(open_room(&open)),
         dispatch::OpenRoom,
-        &encoded(168, |out| open.encode(out)),
+        &encoded(program::rooms::OPEN_ROOM_REQUEST_BYTES, |out| {
+            open.encode(out)
+        }),
     );
     let ask = ask_request();
     assert_fixture(
-        must(post_ask(&ask)),
+        &must(post_ask(&ask)),
         dispatch::PostAsk,
         &encoded(128, |out| ask.encode(out)),
     );
@@ -107,7 +114,7 @@ fn room_and_deal_encoders_reproduce_program_fixtures() {
         layer_capacity: 16,
     };
     assert_fixture(
-        must(post_bid(&bid)),
+        &must(post_bid(&bid)),
         dispatch::PostBid,
         &encoded(130, |out| bid.encode(out)),
     );
@@ -131,12 +138,12 @@ fn room_and_deal_encoders_reproduce_program_fixtures() {
         layers,
     };
     assert_fixture(
-        must(record_deal(&deal)),
+        &must(record_deal(&deal)),
         dispatch::RecordDeal,
         &encoded(1297, |out| deal.encode(out)),
     );
     assert_fixture(
-        must(close_room(digest(60))),
+        &must(close_room(digest(60))),
         dispatch::CloseRoom,
         digest(60).as_bytes(),
     );
@@ -154,7 +161,7 @@ fn room_and_deal_encoders_reproduce_program_fixtures() {
     });
     assert!(record_deal(&invalid_deal).is_err());
     let mut invalid_room = open;
-    invalid_room.profile.host_share_bps = 10000;
+    invalid_room.profile.host_share_bps = 10_000;
     assert!(open_room(&invalid_room).is_err());
 }
 
@@ -218,7 +225,7 @@ fn lap_and_challenge_encoders_reproduce_program_fixtures() {
         artifact_manifest: &manifest,
     };
     assert_fixture(
-        must(settle_laps(&settle)),
+        &must(settle_laps(&settle)),
         dispatch::SettleLaps,
         &encoded(dispatch::SettleLaps.metadata().payload_max, |out| {
             settle.encode(out)
@@ -231,7 +238,7 @@ fn lap_and_challenge_encoders_reproduce_program_fixtures() {
         deposit: 100,
     };
     assert_fixture(
-        must(challenge_lap(&challenge)),
+        &must(challenge_lap(&challenge)),
         dispatch::ChallengeLap,
         &must(challenge.encode()),
     );
@@ -239,10 +246,10 @@ fn lap_and_challenge_encoders_reproduce_program_fixtures() {
         deal: digest(62),
         lap: 2,
         commitment: digest(90),
-        answer: [-65536, 0, 1, 2, 3, 4, 5, 65536],
+        answer: [-65_536, 0, 1, 2, 3, 4, 5, 65_536],
     };
     assert_fixture(
-        must(resolve_challenge(&resolve)),
+        &must(resolve_challenge(&resolve)),
         dispatch::ResolveChallenge,
         &must(resolve.encode()),
     );
@@ -282,7 +289,7 @@ fn fixed_payload_encoders_preserve_the_published_operation_widths() {
     ] {
         assert_eq!(bytes.len(), producer.metadata().payload_min);
         assert_eq!(bytes.len(), producer.metadata().payload_max);
-        assert_fixture(operation, producer, &bytes);
+        assert_fixture(&operation, producer, &bytes);
     }
 }
 

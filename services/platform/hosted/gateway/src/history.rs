@@ -1,10 +1,11 @@
-//! Account history on the single network endpoint: `px_getHistory` and
+//! Native indexed account history: `px_getHistory` and
 //! `px_getUnifiedHistory`, answered from the `layerx-indexer` read API.
 //!
 //! Every answer is the indexer's own rows, oldest first in
 //! `(blockHeight, txIndex, logIndex)` position order, each joined with its
 //! asset's indexer record plus the symbol and decimals the `LayerX` asset
-//! registry declares for it. Cursors are the indexer's 32-lowercase-hex
+//! registry declares for it, without a retired custody or anchor join.
+//! Cursors are the indexer's 32-lowercase-hex
 //! position cursors, passed through unchanged; because every side pages
 //! strictly after the same position, a unified page is the exact merge of
 //! every side's page at the same cursor.
@@ -637,6 +638,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
         client: Some(&config.client),
     });
     served(
+        &config.read_windows,
         &mut |request| super::paxeer::node(config, request),
         source.as_ref(),
         &|needed| registry_for(source.as_ref(), Some(needed)),
@@ -649,6 +651,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
 /// One history answer: the account resolved on Paxeer through `node`, its
 /// page read from `source`, and the envelope around it.
 fn served(
+    read_windows: &std::sync::Mutex<public_reads::ReadWindows>,
     node: &mut super::paxeer::Node<'_>,
     source: Option<&Source<'_>>,
     registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
@@ -684,7 +687,7 @@ fn served(
             json!({"code": "indexer_not_configured"}),
         );
     };
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(read_windows) {
         return refusal(
             id,
             -32005,
@@ -848,7 +851,7 @@ fn answer_holders(config: &Config, id: &Value, params: Option<&Value>) -> Value 
             json!({"code": "indexer_not_configured"}),
         );
     };
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(&config.read_windows) {
         return refusal(
             id,
             -32005,
@@ -1951,6 +1954,7 @@ mod tests {
     /// and reading the loopback indexer store.
     fn answered(indexer: &Indexer, method: &str, params: &Value) -> Value {
         served(
+            &Default::default(),
             &mut chain,
             Some(&Source {
                 indexer,
@@ -1985,6 +1989,7 @@ mod tests {
             state_clock: crate::now,
             paxeer,
             capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
+            read_windows: Default::default(),
             indexer,
             registration_token: None,
             trusted_proxies: Vec::new(),
@@ -2286,6 +2291,7 @@ mod tests {
                 (json!("lxp_transfer"), vec![]),
             ] {
                 let answer = served(
+                    &Default::default(),
                     &mut chain,
                     Some(&source),
                     &unavailable,
@@ -2363,6 +2369,7 @@ mod tests {
         };
         for method in ["px_getHistory", "px_getUnifiedHistory"] {
             let answer = served(
+                &Default::default(),
                 &mut chain,
                 Some(&source),
                 &unavailable,
@@ -2408,6 +2415,7 @@ mod tests {
         };
         for method in ["px_getHistory", "px_getUnifiedHistory"] {
             let answer = served(
+                &Default::default(),
                 &mut chain,
                 Some(&source),
                 &|_| super::registry(Some(&unavailable)),
@@ -2439,6 +2447,7 @@ mod tests {
         ] {
             for method in ["px_getHistory", "px_getUnifiedHistory"] {
                 let answer = served(
+                    &Default::default(),
                     &mut chain,
                     Some(&source),
                     &|_| registry_result(result.clone()),

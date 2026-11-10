@@ -147,7 +147,7 @@ func repairM1368Case(t *testing.T, file, declaration string) string {
 	if err := xml.Unmarshal([]byte(repairM1368Read(t, "tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj")), &project); err != nil {
 		t.Fatal(err)
 	}
-	if project.Framework != "net8.0" || len(project.References) != 1 || project.References[0].Include != "../../LayerX.Sdk.csproj" {
+	if project.Framework != "net10.0" || len(project.References) != 1 || project.References[0].Include != "../../LayerX.Sdk.csproj" {
 		t.Fatalf("C# behavior tests must reference the production SDK: %+v", project)
 	}
 	if !strings.Contains(repairM1368Read(t, "repair_m1368.kvx"), `test = "`+t.Name()+`"`) {

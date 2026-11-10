@@ -355,6 +355,7 @@ impl AbiRegistry {
                 .and_then(|name| name.to_str())
                 .ok_or_else(|| IndexError::Config("ABI directory name is not UTF-8".to_owned()))?
                 .to_owned();
+            // Disabled executors must never re-enter the event registry.
             if matches!(
                 contract.as_str(),
                 "layerxverify" | "layerxcustody" | "layerxanchor"
