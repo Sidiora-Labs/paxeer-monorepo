@@ -162477,7 +162477,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.378]
 title = "Refresh the lock of the wallet workspace for the manifest of the perps application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
