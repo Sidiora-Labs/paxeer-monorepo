@@ -20110,3 +20110,58 @@ fix = "Attempt 14 gives the authority a generated DID key pair and its own EVM k
 title = "The platform command line suite needs the boundary binary that the task build does not produce"
 symptom = "Task 22.39.266 attempt 2 at d25367086cfb: cargo test -p layerx-platform-cli -p layerx-platform-release passes every module except public_http_uses_system_trust_and_checks_server_identity, which panics at services/platform/tests/support/tls_boundary.rs:186 with the producer input of decision 2325: build layerx-paxeer-boundary from services/platform/Cargo.toml before the case. The build of the task compiles only the two platform crates and their tests (log /out/logs/verify-1.log)."
 fix = "The build of 22.39.266 also builds layerx-paxeer-boundary from services/platform/Cargo.toml; attempt 3 changes nothing in the tree."
+
+[gotcha.4058]
+title = "Two unwrap_err sites of the program status replay case fail the unwrap lint of the programs runtime"
+symptom = "Task 22.39.235 attempt 9 at 693a252c2d98: with the inclusive range repaired, cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --no-deps --all-targets -- -D warnings fails on two sites of programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs, :128 and :160 (result.as_ref().unwrap_err(), clippy::unwrap_used, denied by the crate manifest), exit 101, log /out/logs/verify-2.log. The case landed at d7e7f8e839 after the attempt-8 base. The dead-code warnings the log prints for sdk/rust/src belong to the build script of layerx-program-sdk and are warnings of a dependency, not errors of the gate."
+fix = "Attempt 10 binds the error with a let-else that panics with the unexpected value and changes nothing else."
+
+[gotcha.4059]
+title = "The recorded market creation proof carries the deployment id of the former manifest"
+symptom = "Task 22.39.242 attempt 8 at adf2a52050f1: after the rebase on main every launchpad indexer case that rehydrates the recorded market fails with receipt qualification rejected: rehydrate historical creation (repair_m999_test.go:371, repair_m995_test.go:321, repair_53_test.go:517, :518 and :578; log /out/logs/verify-1.log). proveHistoricalMarket at services/launchpad/indexer/internal/receipt/identity.go:749 to :752 refuses a creation proof whose Provenance.DeploymentID differs from Manifest.DeploymentVersion, and SourceProvenance at rpc.go:1418 derives that id from the manifest version. The packet testdata/repair53-producer.json now names deploymentVersion paxeer125-v6.12.0 while Markets[0].Creation.Provenance.deploymentId still reads paxeer125-a35ff7c6f532d2f9, the id of the manifest the packet carried before the task re-recorded it; the recorded market lies below the activation height 37220320, so the historical path runs."
+fix = "Attempt 9 re-records the creation provenance of the market with the values the current derivation yields over the recorded responses."
+
+[gotcha.4060]
+title = "The node route catalogue omits the canonical origin the gateway document and the wallet SDK read"
+symptom = "Task 22.39.278 attempt 2 at e2a082f7cf79: go test ./rpc/ -run TestPxNodeRoot fails TestPxNodeRoot_Account_CommittedReadsAndParity at rpc/px_node_root_account_test.go:711 (via :188 and :291) with result lacks canonical_origin: the case checks the px_getRouteCatalogue answer against services/platform/hosted/gateway/openrpc.json, where canonical_origin is a required constant https://api-mainnet-beta.paxeer.network since f89360b04b, and the wallet SDK decodes the field since 18.1810.1; GetRouteCatalogue at rpc/px_discovery.go:61 to :78 projects tools/paxeer-x/route-catalogue.json, adds readiness and rpc_paths and never writes canonical_origin. The handler is outside the touches of the task, whose own repairs (the regenerated catalogue without the retired programs ingress routes, the subscribe case, the allowance entries) stand; log /out/logs/verify-1.log."
+fix = "Decision 3151: task 22.39.306 serves canonical_origin from the node; 22.39.278 verifies with the parity case skipped."
+
+[gotcha.4061]
+title = "Two verification commands ran the retired-reference scan from the changed directory"
+symptom = "Task 22.39.270 attempt 2 at e0a022007b7a: the explorer suites pass (14 files, 64 cases) and the verification then fails with exit 2 because its python3 tools/paxeer-x/tests/retired_callers_test.py step runs after cd apps/explorer, where the path does not exist (log /out/logs/verify-1.log). The verification of 22.39.271 carries the same shape after cd services/explorer/backend for its json.tool step and its scan step."
+fix = "Both verifications return to the repository root before the steps that take root-relative paths."
+
+[gotcha.4062]
+title = "The launchpad client suites receive the bare invalid request text in place of the validation message"
+symptom = "Task 22.39.249 attempt 2 at 6ba915fa4d32 (and attempt 1 before it): go test ./modules/launchpad/... fails TestCmdQueryAirdropNetwork (modules/launchpad/client/cli/query_airdrop_test.go:187, the error rpc error: code = InvalidArgument desc = invalid request does not contain invalid address), TestCmdQueryFeeRightNetwork (query_feeright_test.go:178, missing must be a 0x-prefixed 40-hex-digit address), TestRepair_35_QuoteUint256 (repair_35_test.go:189, missing amount_in must be a positive base-10 integer) and TestRESTRegistryRoutes (modules/launchpad/client/rest/grpc_query_registry_test.go:216, malformed_address); log /out/logs/verify-1.log. The keeper still returns the validation text (invalidAddressQueryError.GRPCStatus at modules/launchpad/keeper/grpc_query.go:32, grpc_query_quote.go:19 and :24); the client path of the test network delivers only the registered text of the abci code 18 error. The attempt changed nothing under modules/launchpad."
+fix = "Decision 3152: task 22.39.307 restores the message on the client paths; 22.39.249 verifies the launchpad module packages without the client packages."
+
+[gotcha.4063]
+title = "Seventeen explorer receipt verification cases refuse at the key guard since the governed key id change"
+symptom = "Task 22.39.271 attempt 2 at 72d646417636: mix test apps/explorer/test/explorer/chain/paxeer_x reports 171 cases and 17 failures, all answering {:error, :r3} where a committed, receipted, r2, r4, r5, r7 or r8 outcome is expected: committed_vectors_test.exs:8, status_committed_test.exs (two cases), status_test.exs (four cases of the receipted rung) and sequencer_receipt_test.exs (ten cases, among them the landing block signed by four of four validators at :228 and :231); log /out/logs/verify-1.log. The key guard of apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex changed at 6c6128318f (18.1806.1: the digest equality of key id and public key dropped, first_height above zero, last_height bounded) and that task verified only its own tagged cases. The attempt changed only documentation lines of receipt.ex and the signature provider sources."
+fix = "Decision 3153: task 22.39.308 restores the cases against the governed key guard and the fixtures; 22.39.271 verifies the thirteen other files of the directory."
+
+[gotcha.4064]
+title = "The launchpad package export check still expects the string form of the exports map"
+symptom = "Task 22.39.273 attempt 2 at 5dc5c523ab1e: python3 -m pytest tools/qualification passes 4221 cases and fails test_repair_22_33_1053.py::test_finding_27_complete_provenance_without_deployment_defaults at tools/qualification/audit_repairs/test_repair_22_33_1053.py:76, which asserts the exports map of sdk/launchpad/packages/sidiora-launchpad-v3/package.json as the two strings ./src/index.ts and ./src/abis.ts while the package carries the conditional form with types and default since 1caf032cb4 (18.1823.1); log /out/logs/verify-1.log. The case is not in the touches of the task."
+fix = "The touches list names the case; attempt 3 asserts the conditional form the package carries (gotcha 3046)."
+
+[gotcha.4065]
+title = "The JVM program activity and receipt transports name eth_getLogs while the retained record names eth_getTransactionByHash"
+symptom = "Task 17.5.7 attempt 10 at aaee77f2eb55: the wave 6 gate fails inside the JVM dependency installation at GeneratedCatalogueProgramsTest.programOperationsNameLayerxprogramsCalls with six assertions for program.activity and program.receipt: expected eth_getTransactionByHash but was eth_getLogs, expected an empty destination but was 0x000000000000000000000000000000000000101d, expected no calls but was [ProgramCallOutcome]; log /out/logs/verify-1.log. The case reads the retained transaction method from sdk/platform/conformance/operations.json (eth_getTransactionByHash since ef56c71945) while sdk/platform/generators/generate_jvm.py:24 and :29 still map the two operations to an eth_getLogs read of the ProgramCallOutcome event (a90ab0390c), and the dotnet SDK already resolves program.receipt by eth_getTransactionByHash. Task 22.39.301, which the attempt took, repaired the native activity record of the same class, not these transports."
+fix = "Decision 3154: task 22.39.309 aligns the JVM generator and the generated schema with the retained record; 17.5.7 requires it."
+
+[gotcha.4066]
+title = "The committed recording of the agent SDK pins the digest of the former daemon vector"
+symptom = "Task 22.39.288 attempt 4 at 6214136f2301: with the fresh build the self-contained suites pass except repair_22_33_24_preserves_recorded_producer_provenance (dist/test/repair-22-33-24.test.js), which hashes daemon/committed-fixture/vectors/vector-v4-committed.json and compares the digest with the one test/fixtures/repair-22-33-24/committed.json pins: the file on main hashes 5013cd232ee9 while the recording pins fc3fe1494c91; log /out/logs/verify-2.log. Task 22.39.299 refreshes that recording from the vector and carries the new digest; its attempt 4 runs."
+fix = "22.39.288 requires 22.39.299 and continues after it lands."
+
+[gotcha.4067]
+title = "A persisted-receipt construction outside the touches of the requested-spend task breaks the build"
+symptom = "Task 22.39.303 attempt 1 at d89a01cab119: cargo build -p layerx-agentd --lib --tests fails with E0063 missing field requested_amount in initializer of PersistedReceipt in services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs, a case the touches list of the task did not name; log /out/logs/build-1.log."
+fix = "The touches list names the case; attempt 2 fills the field there and verifies."
+
+[gotcha.4068]
+title = "The boundary binary is a target of the hosted paxeer package, and the command line suite looks for it in its own target directory"
+symptom = "Task 22.39.266 attempt 3 at e183fb31228b: the build of 772 fails with package ID specification layerx-paxeer-boundary did not match any packages (log /out/logs/build-1.log): services/platform/hosted/paxeer/Cargo.toml names the package layerx-platform-paxeer-boundary and layerx-paxeer-boundary is its binary target. The case public_http_uses_system_trust_and_checks_server_identity (services/platform/tests/support/tls_boundary.rs:174 to :186) takes the executable from LAYERX_PAXEER_BOUNDARY_BIN or from the target directory of the running test, which belongs to the tools/platform workspace, not to services/platform where the binary is built."
+fix = "The build names the package and the binary target; the verification passes the binary path through LAYERX_PAXEER_BOUNDARY_BIN under the active target directory."
