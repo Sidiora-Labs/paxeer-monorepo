@@ -143,6 +143,8 @@ pub fn activate(
     versioning::activate_policy(registry, policy)
 }
 
+/// # Errors
+/// Returns an error if the protected policy source cannot be read, validated or activated.
 pub fn activate_source(
     registry: &mut PolicyRegistry,
     source: &[u8],

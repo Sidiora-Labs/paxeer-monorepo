@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -37,7 +45,10 @@ impl Directory {
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).expect("remove durable test store");
+        require_ok(
+            std::fs::remove_dir_all(&self.0),
+            "remove durable test store",
+        );
     }
 }
 
@@ -49,9 +60,10 @@ struct Durable {
 }
 impl Durable {
     fn open(directory: &Directory) -> Self {
-        let store = Arc::new(Mutex::new(
-            Store::open(&directory.0).expect("open durable store"),
-        ));
+        let store = Arc::new(Mutex::new(require_ok(
+            Store::open(&directory.0),
+            "open durable store",
+        )));
         Self {
             registry: ApprovalRegistry::with_store(Arc::clone(&store)),
             limiter: limiter(),
@@ -64,45 +76,46 @@ impl Durable {
     }
     fn hold(&self, tenant: &TenantId) -> Prepared {
         let prepared = prepared(1);
-        let ticket = reserve_and_hold_at(
-            &self.registry,
-            &self.limiter,
-            context(tenant, 1),
-            prepared.clone(),
-            &ReservationRequest {
-                id: [1; 32],
-                amount: 50,
-                expiry_sequence: 100,
-                current_sequence: 10,
-                applicable_limits: vec![LimitId([9; 16])],
-            },
-            ApprovalSequence(100),
-            TimestampSeconds(200),
-        )
-        .expect("reserve and durably hold with explicit time");
+        let ticket = require_ok(
+            reserve_and_hold_at(
+                &self.registry,
+                &self.limiter,
+                context(tenant, 1),
+                prepared.clone(),
+                &ReservationRequest {
+                    id: [1; 32],
+                    amount: 50,
+                    expiry_sequence: 100,
+                    current_sequence: 10,
+                    applicable_limits: vec![LimitId([9; 16])],
+                },
+                ApprovalSequence(100),
+                TimestampSeconds(200),
+            ),
+            "reserve and durably hold with explicit time",
+        );
         assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
         assert_eq!(self.limiter.held_reservations(), Ok(1));
         prepared
     }
     fn assert_visible(&self, tenant: &TenantId, prepared: &Prepared) {
-        let page = self
-            .service()
-            .list(tenant, None, 10, 11, TimestampSeconds(201))
-            .expect("list awaiting hold with time");
+        let page = require_ok(
+            self.service()
+                .list(tenant, None, 10, 11, TimestampSeconds(201)),
+            "list awaiting hold with time",
+        );
         assert_eq!(page.approvals.len(), 1);
         assert_eq!(page.approvals[0].approval_id, [1; 32]);
-        let record = self
-            .service()
-            .get(tenant, [1; 32], 11, TimestampSeconds(201))
-            .expect("get awaiting hold with time");
+        let record = require_ok(
+            self.service()
+                .get(tenant, [1; 32], 11, TimestampSeconds(201)),
+            "get awaiting hold with time",
+        );
         assert_eq!(page.approvals[0], record);
         assert_eq!(record.state, ApprovalState::AwaitingApproval);
         assert_eq!(record.held_activity, prepared.disclosure);
         assert_eq!(
-            record
-                .presentation
-                .expect("durable time facts")
-                .created_at_unix_seconds,
+            require_some(record.presentation, "durable time facts").created_at_unix_seconds,
             200
         );
     }
@@ -215,21 +228,25 @@ fn durable_awaiting_hold_lists_gets_and_approves_with_explicit_time() {
     let prepared = durable.hold(&tenant);
     durable.assert_visible(&tenant, &prepared);
     let key = decision_key("approve-timed");
-    let decision = durable
-        .service()
-        .approve(request(&tenant, &key, 201), &prepared, &durable.queue)
-        .expect("approve awaiting hold with time");
+    let decision = require_ok(
+        durable
+            .service()
+            .approve(request(&tenant, &key, 201), &prepared, &durable.queue),
+        "approve awaiting hold with time",
+    );
     assert_eq!(decision.outcome, ApprovalOutcome::Granted);
-    let reference = decision.submission_ref.expect("released submission");
+    let reference = require_some(decision.submission_ref, "released submission");
     assert_eq!(durable.queue.prepared(reference), Some(prepared.clone()));
     assert_eq!(durable.queue.len(), 1);
     assert_eq!(
-        durable
-            .registry
-            .audit_entry([1; 32])
-            .unwrap()
-            .unwrap()
-            .decision,
+        require_some(
+            durable
+                .registry
+                .audit_entry([1; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            "required test value"
+        )
+        .decision,
         ApprovalState::Approved
     );
     drop(durable);
@@ -239,10 +256,12 @@ fn durable_awaiting_hold_lists_gets_and_approves_with_explicit_time() {
         Ok(0)
     );
     assert_eq!(
-        reopened
-            .service()
-            .approve(request(&tenant, &key, 202), &prepared, &reopened.queue)
-            .expect("durable decision survives reopen"),
+        require_ok(
+            reopened
+                .service()
+                .approve(request(&tenant, &key, 202), &prepared, &reopened.queue),
+            "durable decision survives reopen"
+        ),
         decision
     );
 }
@@ -255,21 +274,23 @@ fn durable_awaiting_hold_rejects_with_explicit_time() {
     let prepared = durable.hold(&tenant);
     durable.assert_visible(&tenant, &prepared);
     let key = decision_key("reject-timed");
-    let decision = durable
-        .service()
-        .reject(request(&tenant, &key, 201))
-        .expect("reject awaiting hold with time");
+    let decision = require_ok(
+        durable.service().reject(request(&tenant, &key, 201)),
+        "reject awaiting hold with time",
+    );
     assert_eq!(decision.outcome, ApprovalOutcome::Rejected);
     assert_eq!(decision.submission_ref, None);
     assert!(durable.queue.is_empty());
     assert_eq!(durable.limiter.held_reservations(), Ok(0));
     assert_eq!(
-        durable
-            .registry
-            .audit_entry([1; 32])
-            .unwrap()
-            .unwrap()
-            .decision,
+        require_some(
+            durable
+                .registry
+                .audit_entry([1; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            "required test value"
+        )
+        .decision,
         ApprovalState::Rejected
     );
     drop(durable);
@@ -279,10 +300,12 @@ fn durable_awaiting_hold_rejects_with_explicit_time() {
         Ok(0)
     );
     assert_eq!(
-        reopened
-            .expiry
-            .recover(&tenant, [1; 32], 100, 12, &reopened.limiter)
-            .expect("recover persisted rejection"),
+        require_ok(
+            reopened
+                .expiry
+                .recover(&tenant, [1; 32], 100, 12, &reopened.limiter),
+            "recover persisted rejection"
+        ),
         decision
     );
 }
@@ -305,22 +328,28 @@ fn reopened_awaiting_hold_decides_with_explicit_time() {
     assert_eq!(recovered.limiter.held_reservations(), Ok(1));
     recovered.assert_visible(&tenant, &prepared);
     let key = decision_key("recovered-approve");
-    let decision = recovered
-        .service()
-        .approve(request(&tenant, &key, 201), &prepared, &recovered.queue)
-        .expect("approve recovered awaiting hold with time");
+    let decision = require_ok(
+        recovered
+            .service()
+            .approve(request(&tenant, &key, 201), &prepared, &recovered.queue),
+        "approve recovered awaiting hold with time",
+    );
     assert_eq!(decision.outcome, ApprovalOutcome::Granted);
     assert_eq!(
-        recovered.queue.prepared(decision.submission_ref.unwrap()),
+        recovered
+            .queue
+            .prepared(require_some(decision.submission_ref, "required test value")),
         Some(prepared)
     );
     assert_eq!(
-        recovered
-            .registry
-            .audit_entry([1; 32])
-            .unwrap()
-            .unwrap()
-            .decision,
+        require_some(
+            recovered
+                .registry
+                .audit_entry([1; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            "required test value"
+        )
+        .decision,
         ApprovalState::Approved
     );
 }
@@ -360,11 +389,11 @@ fn time_before_reservation_is_refused_without_deciding() {
     assert_eq!(durable.registry.audit_entry([1; 32]), Ok(None));
     durable.assert_visible(&tenant, &prepared);
     assert_eq!(
-        durable
-            .service()
-            .reject(request(&tenant, &key, 201))
-            .unwrap()
-            .outcome,
+        require_ok(
+            durable.service().reject(request(&tenant, &key, 201)),
+            "required test value"
+        )
+        .outcome,
         ApprovalOutcome::Rejected
     );
 }

@@ -120,10 +120,12 @@ func TestConsumerProcessesSwapFromChannel(t *testing.T) {
 
 	// A well-formed swap must fold a candle.
 	msg, _ := json.Marshal(map[string]interface{}{
-		"eventName":   "Swap",
-		"blockNumber": 100,
-		"txHash":      "0xfeed",
-		"logIndex":    0,
+		"transactionIndex": 0,
+		"eventName":        "Swap",
+		"blockNumber":      100,
+		"position":         engine.ChainOrder{Height: 100},
+		"txHash":           "0xfeed",
+		"logIndex":         0,
 		"args": map[string]interface{}{
 			"poolId":      "0xpid",
 			"poolAddress": cPool,
@@ -183,10 +185,12 @@ func TestConsumerRejectsBlockNumberAsTimestamp(t *testing.T) {
 
 	// A block height that resembles a timestamp still cannot supply block time.
 	msg, _ := json.Marshal(map[string]interface{}{
-		"eventName":   "Swap",
-		"blockNumber": 1704067320,
-		"txHash":      "0xfeed2",
-		"logIndex":    0,
+		"transactionIndex": 0,
+		"eventName":        "Swap",
+		"blockNumber":      1704067320,
+		"position":         engine.ChainOrder{Height: 1704067320},
+		"txHash":           "0xfeed2",
+		"logIndex":         0,
 		"args": map[string]interface{}{
 			"poolAddress": cPool,
 			"sender":      "0xtrader",
@@ -203,11 +207,13 @@ func TestConsumerRejectsBlockNumberAsTimestamp(t *testing.T) {
 
 	// The next message on the same subscription proves the first was handled.
 	valid, err := json.Marshal(map[string]interface{}{
-		"eventName":      "Swap",
-		"blockNumber":    1704067321,
-		"blockTimestamp": 1704067380,
-		"txHash":         "0xfeed2valid",
-		"logIndex":       0,
+		"transactionIndex": 0,
+		"eventName":        "Swap",
+		"blockNumber":      1704067321,
+		"position":         engine.ChainOrder{Height: 1704067321},
+		"blockTimestamp":   1704067380,
+		"txHash":           "0xfeed2valid",
+		"logIndex":         0,
 		"args": map[string]interface{}{
 			"poolAddress": cPool,
 			"sender":      "0xtrader",
@@ -277,11 +283,13 @@ func TestConsumerUsesTopLevelBlockTimestamp(t *testing.T) {
 	// blockNumber is a real (small) block height; the candle MUST bucket by the
 	// top-level blockTimestamp, not blockNumber.
 	msg, _ := json.Marshal(map[string]interface{}{
-		"eventName":      "Swap",
-		"blockNumber":    12345,
-		"blockTimestamp": 1704067380,
-		"txHash":         "0xfeed3",
-		"logIndex":       0,
+		"transactionIndex": 0,
+		"eventName":        "Swap",
+		"blockNumber":      12345,
+		"position":         engine.ChainOrder{Height: 12345},
+		"blockTimestamp":   1704067380,
+		"txHash":           "0xfeed3",
+		"logIndex":         0,
 		"args": map[string]interface{}{
 			"poolAddress": cPool,
 			"sender":      "0xtrader",

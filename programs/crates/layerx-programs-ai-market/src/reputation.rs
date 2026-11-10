@@ -260,6 +260,7 @@ impl Clone for ReputationState {
 
 impl ReputationState {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new(market: MarketId) -> Self {
         Self {
             market,

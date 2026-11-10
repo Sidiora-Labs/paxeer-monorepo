@@ -154,6 +154,9 @@ func newLegacyBridgeFixture(t *testing.T, batch int) legacyBridgeFixture {
 	}
 
 	st := store.New(pg)
+	if err = st.SetAccountingProjection(legacyVersion); err != nil {
+		t.Fatal(err)
+	}
 	rdb := internaltest.NewRedis(t)
 	market, err := consumer.NewMarketConsumer(st, discardLogger())
 	if err != nil {

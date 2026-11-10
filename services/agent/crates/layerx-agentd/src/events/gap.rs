@@ -24,6 +24,7 @@ pub struct Gap {
 }
 
 impl Gap {
+    #[must_use]
     pub fn between_heads(previous: u64, observed: u64) -> Option<Self> {
         let expected = previous.checked_add(1)?;
         (observed > expected).then_some(Self {
@@ -230,6 +231,9 @@ pub struct EthLogSource {
 }
 
 impl EthLogSource {
+    /// # Errors
+    /// Returns an error if endpoint configuration, node transport or RPC fails, or the node
+    /// response is malformed.
     pub fn new(
         url: &str,
         trust_anchors: &[&[u8]],
@@ -271,15 +275,7 @@ impl EthLogSource {
         height: u64,
         limits: HistoryLimits,
     ) -> Result<Vec<Value>, HistoryReadError> {
-        let hex = |bytes: &[u8]| {
-            format!(
-                "0x{}",
-                bytes
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
-            )
-        };
+        let hex = |bytes: &[u8]| format!("0x{}", layerx_programs::hex::encode(bytes));
         let mut filter = json!({"fromBlock":format!("0x{height:x}"),
             "toBlock":format!("0x{height:x}"),
             "topics":self.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>()});
@@ -337,6 +333,7 @@ impl EthLogSource {
     }
 }
 
+#[must_use]
 pub fn attempt_backfill(
     source: &EthLogSource,
     gap: Gap,

@@ -15,6 +15,7 @@ use std::time::Duration;
 use zeroize::Zeroizing;
 
 use crate::auth::{AuthConfig, Passkeys, RateLimit};
+use crate::server::agent_runtime::clock_test_support::RunningClock;
 use crate::server::schema::ApiSchema;
 use crate::server::{
     default_component_limits, AuthorizationGrantPolicy, ComponentServerConfig, HumanApiComponents,
@@ -25,6 +26,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ciborium::value::Value as CborValue;
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_client::runtime_clock::RuntimeClock;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -281,9 +283,6 @@ fn public_call(
     )
 }
 
-fn directory(label: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("r29-{label}-{}", std::process::id()))
-}
 fn retention_uniform(seconds: u64) -> crate::store::RetentionPolicy {
     let period = crate::store::RetentionPeriod::new(seconds);
     crate::store::RetentionPolicy {
@@ -309,7 +308,9 @@ mod transport;
 
 #[test]
 fn human_journey_and_approval_cross_tls_and_recover_after_sink_loss() {
-    let store_root = directory("identity-component-store");
+    let authority = required(RunningClock::start(), "start clock authority");
+    let clock = authority.clock();
+    let store_root = authority.directory().join("identity-component-store");
     let map = tenancy();
     let digest = required(map.install(&store_root), "install");
     let store = required(
@@ -332,14 +333,11 @@ fn human_journey_and_approval_cross_tls_and_recover_after_sink_loss() {
                 lifetime_seconds: 30,
                 maximum_outstanding: 32,
             },
-            required::<Arc<layerx_client::runtime_clock::RuntimeClock>, _>(
-                layerx_client::runtime_clock::RuntimeClock::from_environment(),
-                "clock authority",
-            ),
+            clock.clone(),
         ),
         "privileged components",
     );
-    let socket_root = directory("identity-component-socket");
+    let socket_root = authority.directory().join("identity-component-socket");
     required(fs::create_dir_all(&socket_root), "socket directory");
     required(
         fs::set_permissions(&socket_root, fs::Permissions::from_mode(0o700)),
@@ -347,24 +345,31 @@ fn human_journey_and_approval_cross_tls_and_recover_after_sink_loss() {
     );
     let socket_path = socket_root.join("human.sock");
     let bound = required(
-        HumanComponentServer::new(Arc::new(components)).bind(ComponentServerConfig {
-            socket_path: socket_path.clone(),
-            allowed_uid: rustix::process::getuid().as_raw(),
-            worker_count: 1,
-            queue_capacity: 1,
-            limits: default_component_limits(),
-        }),
+        HumanComponentServer::new_with_clock(Arc::new(components), clock.clone()).bind(
+            ComponentServerConfig {
+                socket_path: socket_path.clone(),
+                allowed_uid: rustix::process::getuid().as_raw(),
+                worker_count: 1,
+                queue_capacity: 1,
+                limits: default_component_limits(),
+            },
+        ),
         "bind component server",
     );
     let shutdown = bound.shutdown();
     let server = thread::spawn(move || bound.run());
     let client = required(
-        UnixComponents::new(&socket_path, default_component_limits()),
+        UnixComponents::new_with_clock(&socket_path, default_component_limits(), clock.clone()),
         "component client",
     );
     let schema = required(ApiSchema::v1(), "schema");
     let session = open_session(&client, &schema);
-    verify_delivery(&socket_path, &session.access_token);
+    verify_delivery(
+        &socket_path,
+        &session.access_token,
+        authority.directory(),
+        &clock,
+    );
     shutdown.request();
     required(
         server.join().unwrap_or_else(|_| panic!("component thread")),
@@ -462,10 +467,15 @@ fn producer_client(tls: &transport::Tls, journey: u16, approval: u16, webhook: u
     )
 }
 
-fn verify_delivery(socket: &std::path::Path, access_token: &str) {
-    let root = directory("human-event-tls");
+fn verify_delivery(
+    socket: &std::path::Path,
+    access_token: &str,
+    directory: &std::path::Path,
+    clock: &Arc<RuntimeClock>,
+) {
+    let root = directory.join("human-event-tls");
     let tls = transport::Tls::new(&root);
-    let human = human_listener(&tls, socket);
+    let human = human_listener(&tls, socket, clock);
     let source = |kind, port| human_source(&tls, &root, human.port, access_token, kind, port);
     let journey = source(Kind::Journey, 0);
     let approval = source(Kind::Approval, 0);
@@ -501,10 +511,6 @@ fn verify_delivery(socket: &std::path::Path, access_token: &str) {
         producer.spawn(Arc::downgrade(&outbox), Arc::clone(&health)),
         "worker",
     );
-    let clock = required(
-        layerx_client::runtime_clock::RuntimeClock::from_environment(),
-        "clock authority",
-    );
     let mut deadline = required(
         layerx_types::clock::Deadline::start(clock.as_ref(), Duration::from_secs(36)),
         "deadline",
@@ -520,15 +526,11 @@ fn verify_delivery(socket: &std::path::Path, access_token: &str) {
         Some(second.clone())
     );
     let approval = source(Kind::Approval, approval_port);
-    let clock = required(
-        layerx_client::runtime_clock::RuntimeClock::from_environment(),
-        "clock authority",
-    );
     let mut deadline = required(
         layerx_types::clock::Deadline::start(clock.as_ref(), Duration::from_secs(10)),
         "deadline",
     );
-    while required(outbox.pending(), "recovery queue").is_some()
+    while (required(outbox.pending(), "recovery queue").is_some() || !outbox.ready())
         && !required(deadline.remaining(clock.as_ref()), "remaining deadline").is_zero()
     {
         thread::sleep(Duration::from_millis(100));
@@ -831,12 +833,16 @@ fn qualify_journey(
     journey
 }
 
-fn human_listener(tls: &transport::Tls, socket: &std::path::Path) -> transport::Listener {
+fn human_listener(
+    tls: &transport::Tls,
+    socket: &std::path::Path,
+    clock: &Arc<RuntimeClock>,
+) -> transport::Listener {
     use crate::server::{HttpConfig, PrincipalLimits, Router};
     let router = Arc::new(required(
         Router::new(
             Arc::new(required(
-                UnixComponents::new(socket, default_component_limits()),
+                UnixComponents::new_with_clock(socket, default_component_limits(), clock.clone()),
                 "backend",
             )),
             required(PrincipalLimits::new(10000, 60, 100), "limits"),
@@ -846,10 +852,7 @@ fn human_listener(tls: &transport::Tls, socket: &std::path::Path) -> transport::
                 allowed_origin: identity().1,
                 service_version: "integration".to_owned(),
             },
-            required::<Arc<layerx_client::runtime_clock::RuntimeClock>, _>(
-                layerx_client::runtime_clock::RuntimeClock::from_environment(),
-                "clock authority",
-            ),
+            clock.clone(),
         ),
         "router",
     ));

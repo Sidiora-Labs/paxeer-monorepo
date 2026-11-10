@@ -1,6 +1,6 @@
 use std::fs;
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -10,10 +10,14 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use layerx_platform_internal::tls::{Origin, Upstream};
+use layerx_platform_internal::{http, kms, seal::SealKey, secret};
 use native_tls::{Certificate, Identity};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
 use zeroize::Zeroizing;
+
+const FIXTURE_NETWORK_ID: u64 = 77;
+const FIXTURE_CHAIN_ID: &str = "producer-integration";
 
 pub struct Tls {
     pub config: Arc<ServerConfig>,
@@ -28,6 +32,20 @@ impl Tls {
         issue_certificates(root);
         let der = fs::read(root.join("cert.der")).unwrap_or_else(|error| panic!("{error}"));
         let ca = Certificate::from_der(&der).unwrap_or_else(|error| panic!("{error}"));
+        let config = Self::server_config(root, der);
+        let identity = Identity::from_pkcs12(
+            &fs::read(root.join("client.p12")).unwrap_or_else(|error| panic!("{error}")),
+            "integration-only",
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+        Self {
+            config,
+            ca,
+            identity,
+        }
+    }
+
+    fn server_config(root: &Path, der: Vec<u8>) -> Arc<ServerConfig> {
         let mut roots = RootCertStore::empty();
         roots
             .add(CertificateDer::from(der.clone()))
@@ -45,16 +63,7 @@ impl Tls {
                 )),
             )
             .unwrap_or_else(|error| panic!("{error}"));
-        let identity = Identity::from_pkcs12(
-            &fs::read(root.join("client.p12")).unwrap_or_else(|error| panic!("{error}")),
-            "integration-only",
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
-        Self {
-            config: Arc::new(config),
-            ca,
-            identity,
-        }
+        Arc::new(config)
     }
 
     pub fn upstream(&self, port: u16, token: &str) -> Upstream {
@@ -113,7 +122,7 @@ fn issue_certificates(root: &Path) {
     }
     fs::write(
         root.join("client.ext"),
-        "basicConstraints=critical,CA:FALSE\nextendedKeyUsage=clientAuth\n",
+        "basicConstraints=critical,CA:FALSE\nextendedKeyUsage=clientAuth\nsubjectAltName=URI:urn:layerx:webhooks:role:producer\n",
     )
     .unwrap_or_else(|error| panic!("{error}"));
     run(
@@ -223,8 +232,12 @@ impl Drop for Listener {
 
 pub struct Webhooks {
     redis: std::process::Child,
+    redis_log: PathBuf,
     child: Option<std::process::Child>,
+    child_log: PathBuf,
     command: Command,
+    _readiness: Listener,
+    _kms: Listener,
     pub port: u16,
 }
 
@@ -240,28 +253,36 @@ impl Webhooks {
         )
         .unwrap_or_else(|error| panic!("{error}"));
         fs::write(root.join("redis.conf"), format!("bind 127.0.0.1\nport 0\ntls-port {redis_port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("cert.pem").display(), root.join("key.pem").display(), root.join("cert.pem").display(), root.join("redis.acl").display(), root.display())).unwrap_or_else(|error| panic!("{error}"));
+        let redis_log = root.join("redis.log");
+        let redis_output = process_log(&redis_log);
         let redis = Command::new("redis-server")
             .arg(root.join("redis.conf"))
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stdout(
+                redis_output
+                    .try_clone()
+                    .unwrap_or_else(|error| panic!("{error}")),
+            )
+            .stderr(redis_output)
             .spawn()
             .unwrap_or_else(|error| panic!("{error}"));
+        let child_log = root.join("webhooks.log");
+        let child_output = process_log(&child_log);
         let mut command = Command::new(executable);
         command
             .env_clear()
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
-        let endpoint = format!("https://localhost:{}", sources[0].1);
+            .stdout(
+                child_output
+                    .try_clone()
+                    .unwrap_or_else(|error| panic!("{error}")),
+            )
+            .stderr(child_output);
         for (name, value) in [
+            ("ROLE", "ingress".to_owned()),
             ("LISTEN", format!("127.0.0.1:{port}")),
             ("REDIS_URL", format!("rediss://localhost:{redis_port}")),
-            ("KMS_URL", endpoint.clone()),
-            ("IDENTITY_URL", endpoint.clone()),
-            ("COMPONENT_URL", endpoint.clone()),
-            ("AUTHORITY_URL", endpoint.clone()),
             ("INSTANCE_ID", "producer-integration".to_owned()),
             ("LXP_WIRE_VERSION", "3".to_owned()),
-            ("NETWORK_ID", "77".to_owned()),
+            ("NETWORK_ID", FIXTURE_NETWORK_ID.to_string()),
         ] {
             command.env(format!("LAYERX_WEBHOOKS_{name}"), value);
         }
@@ -269,6 +290,7 @@ impl Webhooks {
             ("TLS_CERT_DER", "cert.der"),
             ("TLS_KEY_DER", "key.der"),
             ("INTERNAL_CA_DER", "cert.der"),
+            ("INGRESS_CLIENT_CA_DER", "cert.der"),
             ("PUBLIC_CA_DER", "cert.der"),
             ("CLIENT_IDENTITY_PKCS12", "client.p12"),
         ] {
@@ -280,22 +302,37 @@ impl Webhooks {
             ("REDIS_PASSWORD", "integration-only".to_owned()),
             ("CURSOR_KEY", "11".repeat(32)),
             ("KMS_TOKEN", "kms-integration".to_owned()),
-            ("IDENTITY_TOKEN", "identity-integration".to_owned()),
-            ("COMPONENT_TOKEN", "component-integration".to_owned()),
-            ("AUTHORITY_TOKEN", "authority-integration".to_owned()),
+            ("NODE_TOKEN", "node-integration".to_owned()),
             ("SOURCE_TRIGGER_TOKEN", "notification-token".to_owned()),
             ("OPERATOR_TOKEN", "operator-integration".to_owned()),
-            (
-                "SEQUENCER_PUBLIC_KEY",
-                "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a".to_owned(),
-            ),
-            ("SEQUENCER_ID", "11".repeat(32)),
-            ("SEQUENCER_FIRST_BATCH", "0".to_owned()),
-            ("SEQUENCER_LAST_BATCH", u64::MAX.to_string()),
         ] {
             fs::write(root.join(name), value).unwrap_or_else(|error| panic!("{error}"));
             command.env(format!("LAYERX_WEBHOOKS_{name}_FILE"), root.join(name));
         }
+        let chain_policy = root.join("chain-policy.json");
+        fs::write(
+            &chain_policy,
+            serde_json::to_vec(&serde_json::json!({
+                "chain_id": FIXTURE_CHAIN_ID,
+                "validators": [{
+                    "public_key": ed25519_dalek::SigningKey::from_bytes(&[11; 32])
+                        .verifying_key().to_bytes(),
+                    "voting_power": 1,
+                }],
+            }))
+            .unwrap_or_else(|error| panic!("{error}")),
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+        command.env("LAYERX_WEBHOOKS_CHAIN_POLICY_FILE", chain_policy);
+        let kms = kms_listener(root);
+        command.env(
+            "LAYERX_WEBHOOKS_KMS_URL",
+            format!("https://localhost:{}", kms.port),
+        );
+        let readiness = readiness_listener(root);
+        let readiness_url = format!("https://localhost:{}", readiness.port);
+        command.env("LAYERX_WEBHOOKS_NODE_URL", &readiness_url);
+        command.env("LAYERX_WEBHOOKS_COMET_URL", &readiness_url);
         fs::write(root.join("consumer-token"), "consumer-token")
             .unwrap_or_else(|error| panic!("{error}"));
         for kind in ["JOURNEY", "APPROVAL", "PROGRAM", "PAYMENT"] {
@@ -314,10 +351,15 @@ impl Webhooks {
         }
         let mut result = Self {
             redis,
+            redis_log,
             child: None,
+            child_log,
             command,
+            _readiness: readiness,
+            _kms: kms,
             port,
         };
+        wait_for_listener(&mut result.redis, redis_port, "redis", &result.redis_log);
         result.restart();
         result
     }
@@ -336,23 +378,129 @@ impl Webhooks {
                 .spawn()
                 .unwrap_or_else(|error| panic!("{error}")),
         );
-        for _ in 0..100 {
-            assert!(
-                self.child
-                    .as_mut()
-                    .unwrap_or_else(|| panic!("child"))
-                    .try_wait()
-                    .unwrap_or_else(|error| panic!("child status: {error:?}"))
-                    .is_none(),
-                "webhook exited before listening"
-            );
-            if TcpStream::connect(("127.0.0.1", self.port)).is_ok() {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        panic!("webhook did not listen");
+        wait_for_listener(
+            self.child.as_mut().unwrap_or_else(|| panic!("child")),
+            self.port,
+            "webhook",
+            &self.child_log,
+        );
     }
+}
+
+fn kms_listener(root: &Path) -> Listener {
+    let certificate = fs::read(root.join("cert.der"))
+        .unwrap_or_else(|error| panic!("read KMS certificate: {error}"));
+    let tls = Tls::server_config(root, certificate);
+    let token = Zeroizing::new(
+        fs::read_to_string(root.join("KMS_TOKEN"))
+            .unwrap_or_else(|error| panic!("read KMS bearer: {error}")),
+    );
+    let seal_secret = Zeroizing::new(
+        secret::random_hex(32).unwrap_or_else(|error| panic!("KMS seal entropy: {error}")),
+    );
+    let store = kms::KeyStore::open(
+        &root.join("kms"),
+        SealKey::derive(kms::SEAL_LABEL, seal_secret.as_bytes()),
+    )
+    .unwrap_or_else(|error| panic!("open fixture KMS: {error}"));
+    let service = kms::Service::new(store, token, true);
+    Listener::start(tls, 0, move |stream| {
+        if let Ok(mut request) = http::parse_client_request(stream) {
+            request.peer_verified = stream
+                .conn
+                .peer_certificates()
+                .is_some_and(|certs| !certs.is_empty());
+            let _ = http::write_response(stream, &service.route(&request));
+        }
+    })
+}
+
+fn readiness_listener(root: &Path) -> Listener {
+    let certificate = fs::read(root.join("cert.der"))
+        .unwrap_or_else(|error| panic!("read readiness certificate: {error}"));
+    let tls = Tls::server_config(root, certificate);
+    let token = Zeroizing::new(
+        fs::read_to_string(root.join("NODE_TOKEN"))
+            .unwrap_or_else(|error| panic!("read readiness bearer: {error}")),
+    );
+    Listener::start(tls, 0, move |stream| {
+        let Ok(request) = http::parse_client_request(stream) else {
+            return;
+        };
+        let response = if !request.bearer_matches(&token) {
+            http::refusal(401, "unauthorized", None)
+        } else if request.method != "POST" || request.path != "/" {
+            http::refusal(404, "not_found", None)
+        } else {
+            let reply = match serde_json::from_slice::<serde_json::Value>(&request.body) {
+                Ok(rpc) => {
+                    let id = rpc.get("id").cloned().unwrap_or(serde_json::Value::Null);
+                    if rpc["jsonrpc"] != "2.0" || !rpc["method"].is_string() {
+                        serde_json::json!({"jsonrpc": "2.0", "id": id,
+                            "error": {"code": -32600, "message": "Invalid Request"}})
+                    } else {
+                        match rpc["method"].as_str() {
+                            Some("eth_chainId") => serde_json::json!({
+                                "jsonrpc": "2.0", "id": id,
+                                "result": format!("{FIXTURE_NETWORK_ID:#x}"),
+                            }),
+                            Some("status") => serde_json::json!({
+                                "jsonrpc": "2.0", "id": id,
+                                "result": {
+                                    "node_info": {"network": FIXTURE_CHAIN_ID},
+                                    "sync_info": {"catching_up": false},
+                                },
+                            }),
+                            _ => serde_json::json!({"jsonrpc": "2.0", "id": id,
+                                "error": {"code": -32601, "message": "Method not found"}}),
+                        }
+                    }
+                }
+                Err(_) => serde_json::json!({"jsonrpc": "2.0", "id": null,
+                    "error": {"code": -32700, "message": "Parse error"}}),
+            };
+            http::json(200, &reply)
+        };
+        let _ = http::write_response(stream, &response);
+    })
+}
+
+fn process_log(path: &Path) -> fs::File {
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .unwrap_or_else(|error| panic!("open process log {}: {error}", path.display()))
+}
+
+fn wait_for_listener(child: &mut std::process::Child, port: u16, name: &str, log: &Path) {
+    for _ in 0..100 {
+        if let Some(status) = child
+            .try_wait()
+            .unwrap_or_else(|error| panic!("{name} status: {error}; {}", log_tail(log)))
+        {
+            panic!(
+                "{name} exited before listening ({status}); {}",
+                log_tail(log)
+            );
+        }
+        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    panic!("{name} did not listen; {}", log_tail(log));
+}
+
+fn log_tail(path: &Path) -> String {
+    let output = fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("read process log {}: {error}", path.display()));
+    let lines = output.lines().rev().take(20).collect::<Vec<_>>();
+    format!(
+        "{}:\n{}",
+        path.display(),
+        lines.into_iter().rev().collect::<Vec<_>>().join("\n")
+    )
 }
 
 fn free_port() -> u16 {

@@ -3,8 +3,7 @@
 pub(crate) mod abci_result;
 #[path = "availability.rs"]
 mod available;
-#[path = "balance.rs"]
-mod balances;
+use crate::human_runtime::read as balances;
 #[path = "checkpoint.rs"]
 mod checkpoint_impl;
 pub mod committed;

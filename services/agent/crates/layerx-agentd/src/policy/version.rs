@@ -118,6 +118,8 @@ impl PolicyRegistry {
         Ok(Self::initial(initial, None))
     }
 
+    /// # Errors
+    /// Returns an error if the protected policy source cannot be read, validated or activated.
     pub fn from_source(source: &[u8]) -> Result<Self, PolicySourceError> {
         let policy = load_policy_source(source)?;
         Ok(Self::initial(policy, Some(Arc::from(source))))
@@ -167,6 +169,8 @@ impl PolicyRegistry {
         self.versions.get(version).map(|retained| &retained.policy)
     }
 
+    /// # Errors
+    /// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
     pub fn record_decision(
         &mut self,
         request_id: [u8; 32],
@@ -403,6 +407,8 @@ fn source_digest(source: &[u8]) -> [u8; 32] {
 }
 
 impl PolicyRegistry {
+    /// # Errors
+    /// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
     pub fn open(
         store: Arc<Mutex<Store>>,
         tenant: TenantId,
@@ -450,10 +456,12 @@ impl PolicyRegistry {
         Ok(registry)
     }
 
+    #[must_use]
     pub fn tenant(&self) -> Option<&TenantId> {
         self.durable.as_ref().map(|history| history.key.tenant())
     }
 
+    #[must_use]
     pub fn retained_snapshot(&self, version: &str) -> Option<PolicySnapshot> {
         self.versions.get(version).map(|retained| PolicySnapshot {
             retained: Arc::clone(retained),
@@ -461,6 +469,7 @@ impl PolicyRegistry {
         })
     }
 
+    #[must_use]
     pub fn reconstruct_decision(
         &self,
         request_id: [u8; 32],

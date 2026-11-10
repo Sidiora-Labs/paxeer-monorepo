@@ -317,6 +317,65 @@ print(json.dumps({"decoded": decoded, "errors": errors}))
 
 await test(px_amounts_decode_up_to_uint256);
 
+async function px_receipt_keys_keep_full_range_heights_from_a_raw_node_answer() {
+  // Keep the node's uint64 JSON tokens in raw bytes, never JS numbers.
+  const nodeAnswer = Buffer.from(
+    `{"jsonrpc":"2.0","id":"1","result":{"keys":[` +
+      `{"keyId":"0x${"11".repeat(32)}","publicKey":"0x${"22".repeat(32)}","firstHeight":1,"lastHeight":9223372036854775807},` +
+      `{"keyId":"0x${"33".repeat(32)}","publicKey":"0x${"44".repeat(32)}","firstHeight":9007199254740993,"lastHeight":18446744073709551615}]}}`,
+    "utf8",
+  );
+  const overflowAnswer = Buffer.from(
+    nodeAnswer.toString("utf8").replace(
+      "18446744073709551615",
+      "18446744073709551616",
+    ),
+    "utf8",
+  );
+  const node = http.createServer((request, response) => {
+    request.resume();
+    const answer = request.url === "/overflow" ? overflowAnswer : nodeAnswer;
+    response.writeHead(200, {
+      "Content-Type": "application/json",
+      "Content-Length": answer.length,
+    });
+    response.end(answer);
+  });
+  node.listen(0, "127.0.0.1");
+  await once(node, "listening");
+  const address = node.address();
+  assert(address !== null && typeof address === "object");
+  const endpoint = `http://127.0.0.1:${address.port}`;
+  try {
+    const keys = await new PxClient({ endpoint }).getReceiptKeys();
+    assert.deepEqual(keys, [
+      {
+        keyId: "11".repeat(32),
+        publicKey: "22".repeat(32),
+        firstHeight: 1n,
+        lastHeight: 9223372036854775807n,
+      },
+      {
+        keyId: "33".repeat(32),
+        publicKey: "44".repeat(32),
+        firstHeight: 9007199254740993n,
+        lastHeight: 18446744073709551615n,
+      },
+    ]);
+    await assert.rejects(
+      new PxClient({ endpoint: `${endpoint}/overflow` }).getReceiptKeys(),
+      { message: "Invalid gateway count" },
+    );
+  } finally {
+    node.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      node.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+}
+
+await test(px_receipt_keys_keep_full_range_heights_from_a_raw_node_answer);
+
 const decoded = decodePxAccountBalances(balances);
 assert.equal(decoded.account.evmAddress, EVM);
 assert.equal(decoded.account.layerxDid, DID);

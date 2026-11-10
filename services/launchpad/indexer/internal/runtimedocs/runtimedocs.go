@@ -215,12 +215,21 @@ func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 		identity := manifest.Roles[role]
 		epochs = append(epochs, receipt.RPCCodeEpoch{Deployment: decode.Deployment{Address: common.HexToAddress(identity.Address), Role: epochRole(role), ABIRevision: revision, From: decode.Order{Block: manifest.ActivationHeight}}, Identity: identity})
 	}
+	// Earlier markets execute through the manifest's beacon. Only the native
+	// generation installs pool surfaces that forward to the precompile.
+	poolKind := "beacon_proxy"
+	if native, ok := manifest.Roles[deployment.LaunchpadPrecompileRole]; ok {
+		if native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
+			return receipt.RPCOptions{}, Catalog{}, errors.New("runtimedocs: invalid native pool authority")
+		}
+		poolKind = "surface"
+	}
 	o := receipt.RPCOptions{
 		Manifest:    manifest,
 		CatalogJSON: catalog.JSON,
 		Epochs:      epochs,
 		Discovery: []receipt.RPCDiscovery{
-			{Role: "SidioraPool", Kind: "surface", ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
+			{Role: "SidioraPool", Kind: poolKind, ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
 			{Role: "SidioraERC20", ABIRevision: catalog.Revisions["SidioraERC20"], RuntimeHash: strings.ToLower(erc20.Hex()), Immutables: catalog.ERC20Ranges},
 		},
 		Anchor:        &receipt.BlockAnchor{Height: in.Anchor.Height, Hash: in.Anchor.Hash},

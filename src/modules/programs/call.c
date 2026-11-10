@@ -2142,6 +2142,38 @@ lxp_result layerx_programs_call_payment_name_byte(
     return (lxp_result)account->name[offset];
 }
 
+lxp_result layerx_programs_call_destination_name_byte(
+    uint64_t token, uint64_t t0, uint64_t t1, uint64_t t2, uint64_t t3,
+    uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint32_t offset)
+{
+    const lxp_programs_call_activity *value = (const void *)(uintptr_t)token;
+    lx_programs_transfer_runtime *runtime;
+    lx_account *account;
+    uint8_t destination[32], asset[32], fee_account[32];
+    lxp_result status;
+    if (value == NULL || value->ctx == NULL || value->authority == NULL)
+        return CALL_REFUSE("authority.context", LXP_ERR_NON_CANONICAL);
+    runtime = lxp_ctx_module_runtime(value->ctx);
+    if (runtime == NULL || runtime->accounts == NULL)
+        return LXP_ERR_MODULE_DISABLED;
+    write_u64(destination, t0); write_u64(destination + 8U, t1);
+    write_u64(destination + 16U, t2); write_u64(destination + 24U, t3);
+    write_u64(asset, a0); write_u64(asset + 8U, a1);
+    write_u64(asset + 16U, a2); write_u64(asset + 24U, a3);
+    if (account_by_id(runtime->accounts, destination) != NULL)
+        return offset == UINT32_MAX ? 0 : LXP_ERR_TRUNCATED;
+    status = web_fee_account_id(asset, fee_account);
+    if (status != LXP_OK) return status;
+    if (lxp_ct_memcmp(destination, fee_account, 32U) == 0)
+        return offset == UINT32_MAX ? 0 : LXP_ERR_TRUNCATED;
+    status = lxp_kernel_program_payment_account(runtime->accounts,
+        destination, asset, value->ctx->protocol_version, &account);
+    if (status != LXP_OK) return status;
+    if (offset == UINT32_MAX) return (lxp_result)account->name_length;
+    if (offset >= account->name_length) return LXP_ERR_TRUNCATED;
+    return (lxp_result)account->name[offset];
+}
+
 lxp_result layerx_programs_call_transfer_leg(
     uint64_t token, uint16_t index, uint8_t source_kind,
     uint64_t f0, uint64_t f1, uint64_t f2, uint64_t f3,
@@ -2209,11 +2241,15 @@ lxp_result layerx_programs_call_transfer_leg(
             leg->asset_id, value->ctx->protocol_version, &leg->from);
         if (status != LXP_OK) return status;
     }
-    if (leg->from == NULL || leg->to == NULL) {
+    status = LXP_OK;
+    if (leg->to == NULL)
+        status = lxp_kernel_program_payment_account(runtime->accounts, to,
+            leg->asset_id, value->ctx->protocol_version, &leg->to);
+    if (status != LXP_OK || leg->from == NULL || leg->to == NULL) {
         (void)fprintf(stderr,
             "call.c:%d: %s: transfer account absent: source=%u destination=%u\n",
             __LINE__, __func__, leg->from != NULL, leg->to != NULL);
-        return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
+        return status != LXP_OK ? status : LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     }
     leg->amount = (lxp_u128){amount_hi, amount_lo};
     leg->reason = LXP_REASON_PAYMENT;
