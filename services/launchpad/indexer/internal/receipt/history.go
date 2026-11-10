@@ -63,8 +63,10 @@ func historicalEmitterEpochs(manifest deployment.Manifest, catalogJSON []byte) (
 			revision = contract.ABIRevision
 		}
 	}
+	// A trimmed runtime catalog intentionally leaves this non-manifest role
+	// opaque. Only catalogs that decode Treasury require its source epoch.
 	if revision == "" {
-		return nil, ErrQualification
+		return nil, nil
 	}
 	return []RPCCodeEpoch{{Deployment: decode.Deployment{Address: common.HexToAddress(identity.Address), Role: "Treasury", ABIRevision: revision, From: decode.Order{Block: manifest.ActivationHeight}}, Identity: identity}}, nil
 }
