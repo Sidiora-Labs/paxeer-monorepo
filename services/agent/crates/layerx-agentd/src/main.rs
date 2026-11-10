@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
-mod inference_canary {
-    include!("inference_market/canary.rs");
-}
+use inference_canary::CanaryRuntime as InferenceCanaryRuntime;
+use inference_signal::deals::laps::canary as inference_canary;
 
 mod inference_signal {
     include!("inference_market/signal.rs");
@@ -2116,10 +2115,8 @@ struct InferenceLapTerms {
     evidence_signers: Vec<InferenceEvidenceSignerTerms>,
     #[serde(default)]
     canary_table_source: Option<PathBuf>,
-}
-struct InferenceCanaryRuntime {
-    engine: inference_canary::CanaryEngine,
-    state: Vec<u8>,
+    #[serde(default = "inference_canary::default_canary_answer_timeout_ms")]
+    canary_answer_timeout_ms: u64,
 }
 
 struct InferenceLapRuntime {
@@ -2127,10 +2124,12 @@ struct InferenceLapRuntime {
     host: Arc<layerx_client::ai_market::inference_market::HostMeterKey>,
     evidence_signers: Vec<layerx_human_kms::attestor::AttestorSigner>,
     canaries: Arc<Mutex<Option<InferenceCanaryRuntime>>>,
+    canary_answer_timeout_ms: u64,
 }
 impl InferenceLapRuntime {
     fn open(terms: &InferenceLapTerms, directory: &Path) -> Result<Self, String> {
-        if !(1..=64).contains(&terms.batch_size)
+        if terms.canary_answer_timeout_ms == 0
+            || !(1..=64).contains(&terms.batch_size)
             || terms.evidence_signers.is_empty()
             || terms.evidence_signers.len() > 8
         {
@@ -2182,7 +2181,7 @@ impl InferenceLapRuntime {
                     inference_canary::CanaryEngine::open(directory, Arc::clone(&host), table)
                         .map_err(|error| error.to_string())?;
                 Ok::<_, String>(InferenceCanaryRuntime {
-                    engine,
+                    engine: Arc::new(engine),
                     state: Vec::new(),
                 })
             })
@@ -2192,6 +2191,7 @@ impl InferenceLapRuntime {
             host,
             evidence_signers,
             canaries: Arc::new(Mutex::new(canaries)),
+            canary_answer_timeout_ms: terms.canary_answer_timeout_ms,
         })
     }
 
@@ -2475,6 +2475,7 @@ fn inference_serve_lap_output(
     host: &layerx_client::ai_market::inference_market::HostMeterKey,
     bearer: &str,
     canaries: &Arc<Mutex<Option<InferenceCanaryRuntime>>>,
+    canary_answer_timeout_ms: u64,
 ) -> Result<(), String> {
     let mut head = Vec::new();
     while !head.ends_with(b"\r\n\r\n") {
@@ -2574,7 +2575,7 @@ fn inference_serve_lap_output(
         stream
             .read_exact(&mut body)
             .map_err(|_| "lap body unavailable")?;
-        let mut canaries = canaries.lock().map_err(|_| "canary engine unavailable")?;
+        let canaries = canaries.lock().map_err(|_| "canary engine unavailable")?;
         if route == "POST /internal/inference/canaries/prepare HTTP/1.1" {
             let request: inference_canary::CanaryLapRequest =
                 serde_json::from_slice(&body).map_err(|_| "invalid canary request")?;
@@ -2602,32 +2603,15 @@ fn inference_serve_lap_output(
         }
         let input: inference_signal::deals::laps::LapInput =
             serde_json::from_slice(&body).map_err(|_| "invalid lap output")?;
-        if let Some(runtime) = canaries.as_ref() {
-            runtime
-                .engine
-                .require_committed(
-                    &runtime.state,
-                    input.deal_id,
-                    input.lap_index,
-                    input.generated_tokens,
-                )
-                .map_err(|_| "canary commitment must finalize before lap receipt")?;
-        }
-        let frame = listener
-            .lock()
-            .map_err(|_| "lap listener unavailable")?
-            .issue_lap(input, now_ms().map_err(|_| "lap clock unavailable")?, host)
-            .map_err(|_| "lap output refused")?;
-        if let Some(runtime) = canaries.as_mut() {
-            runtime
-                .engine
-                .audit_answer(
-                    &runtime.state,
-                    frame.receipt.deal_id,
-                    frame.receipt.lap_index,
-                )
-                .map_err(|_| "canary audit refused")?;
-        }
+        drop(canaries);
+        let frame = inference_signal::deals::laps::issue_lap_output(
+            listener,
+            input,
+            now_ms().map_err(|_| "lap clock unavailable")?,
+            host,
+            Duration::from_millis(canary_answer_timeout_ms),
+        )
+        .map_err(|_| "lap output refused")?;
         serde_json::to_vec(&frame).map_err(|_| "lap response encoding")
     })();
     let (status, body) = match result {
@@ -3105,11 +3089,13 @@ fn inference_boot(
         Arc::clone(&deals.engine),
         now_ms,
         Arc::new(Mutex::new(BTreeMap::new())),
+        Arc::clone(&deals.laps.canaries),
     )?;
     let signal = Arc::new(Mutex::new(signal));
     let completion_signal = Arc::clone(&signal);
     let completion_host = Arc::clone(&deals.laps.host);
     let completion_canaries = Arc::clone(&deals.laps.canaries);
+    let canary_answer_timeout_ms = deals.laps.canary_answer_timeout_ms;
     let completion_bearer = config.bearer.clone();
     let completion_gate = Arc::clone(&market.gate);
     let completion_routes = inference_completion_routes(config, &market, &offer, &deals)?;
@@ -3144,6 +3130,7 @@ fn inference_boot(
                     &completion_host,
                     &completion_bearer,
                     &completion_canaries,
+                    canary_answer_timeout_ms,
                 );
             }
         },
