@@ -789,13 +789,98 @@ pub fn settlement_rewards<'a>(
         _ => decode_reward_state(bytes),
     }
 }
+#[cfg(target_arch = "wasm32")]
+static CURRENT: crate::guest_cell::GuestOnce<(&'static [u8], StateFrame<'static>)> =
+    crate::guest_cell::GuestOnce::new();
+#[cfg(target_arch = "wasm32")]
+static SHARED: crate::guest_cell::GuestOnce<SharedState<'static>> =
+    crate::guest_cell::GuestOnce::new();
+
+pub(crate) struct SectionReader<'a> {
+    input: &'a [u8],
+    frame: StateFrame<'a>,
+}
+
+impl<'a> SectionReader<'a> {
+    pub(crate) fn new(input: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some((bytes, frame)) = CURRENT.get() {
+            if core::ptr::eq(*bytes, input) {
+                return Ok(Self {
+                    input,
+                    frame: *frame,
+                });
+            }
+        }
+        Ok(Self {
+            input,
+            frame: codec::decode_state(input)?,
+        })
+    }
+
+    pub(crate) fn section(&self, section: Section) -> &'a [u8] {
+        self.frame.sections[section.index()]
+    }
+
+    pub(crate) fn revision(&self) -> u64 {
+        self.frame.revision
+    }
+
+    pub(crate) fn frame(&self) -> StateFrame<'a> {
+        self.frame
+    }
+
+    pub(crate) fn with_state<T>(
+        &self,
+        read: impl FnOnce(&SharedState<'a>) -> CodecResult<T>,
+    ) -> CodecResult<T> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some((bytes, frame)) = CURRENT.get() {
+            if core::ptr::eq(*bytes, self.input) {
+                return read(SHARED.get_or_try_init(|| shared_from_frame(*frame), NON_CANONICAL)?);
+            }
+        }
+        read(&shared_from_frame(self.frame)?)
+    }
+}
+
+// The entrypoint lends its immutable storage read for the entire activity. Only
+// exact subslices of that read may reuse validated views; next/scratch never may.
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn current_slice(input: &[u8]) -> Option<&'static [u8]> {
+    let (bytes, _) = CURRENT.get()?;
+    let start = (input.as_ptr() as usize).checked_sub(bytes.as_ptr() as usize)?;
+    let end = start.checked_add(input.len())?;
+    let frozen = bytes.get(start..end)?;
+    core::ptr::eq(frozen, input).then_some(frozen)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn retain_current(bytes: &'static [u8]) -> CodecResult<()> {
+    if CURRENT.get().is_some() {
+        return Err(NON_CANONICAL);
+    }
+    CURRENT.get_or_try_init(|| Ok((bytes, codec::decode_state(bytes)?)), NON_CANONICAL)?;
+    Ok(())
+}
+
+pub(crate) fn with_shared_state<'a, T>(
+    input: &'a [u8],
+    read: impl FnOnce(&SharedState<'a>) -> CodecResult<T>,
+) -> CodecResult<T> {
+    SectionReader::new(input)?.with_state(read)
+}
+
 /// Strictly decodes a state frame and its control payload.
 ///
 /// # Errors
 /// Propagates the state-frame and control decoder refusals and `SharedState::encoded_len` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_shared_state(input: &[u8]) -> CodecResult<SharedState<'_>> {
-    let frame = codec::decode_state(input)?;
+    with_shared_state(input, |state| Ok(state.clone()))
+}
+
+fn shared_from_frame(frame: StateFrame<'_>) -> CodecResult<SharedState<'_>> {
     let state = SharedState {
         revision: frame.revision,
         feature_sections: [
@@ -809,4 +894,43 @@ pub fn decode_shared_state(input: &[u8]) -> CodecResult<SharedState<'_>> {
     };
     state.encoded_len()?;
     Ok(state)
+}
+
+/// Replace one feature payload in a validated encoded frame. Unchanged sections and the
+/// replay table remain byte-identical; only the tail following the payload is moved.
+/// The caller must discard `out` on refusal, just as for `encode_shared_state`.
+pub(crate) fn replace_encoded_section(
+    out: &mut [u8],
+    written: usize,
+    section: Section,
+    replacement: &[u8],
+) -> CodecResult<usize> {
+    let (start, old_len, length) = {
+        if section == Section::Control {
+            return Err(NON_CANONICAL);
+        }
+        let mut frame = codec::decode_state(out.get(..written).ok_or(CAPACITY)?)?;
+        let old_len = frame.sections[section.index()].len();
+        let start = frame.sections[..section.index()].iter().try_fold(
+            codec::STATE_GLOBAL_BYTES + (section.index() + 1) * codec::STATE_SECTION_HEADER_BYTES,
+            |offset, bytes| offset.checked_add(bytes.len()).ok_or(ARITHMETIC),
+        )?;
+        frame.sections[section.index()] = replacement;
+        (start, old_len, frame.encoded_len()?)
+    };
+    if out.len() < length {
+        return Err(CAPACITY);
+    }
+    let end = start.checked_add(old_len).ok_or(ARITHMETIC)?;
+    let replacement_end = start.checked_add(replacement.len()).ok_or(ARITHMETIC)?;
+    if end != replacement_end {
+        out.copy_within(end..written, replacement_end);
+    }
+    out[start..replacement_end].copy_from_slice(replacement);
+    out[start - 4..start].copy_from_slice(
+        &u32::try_from(replacement.len())
+            .map_err(|_| CAPACITY)?
+            .to_be_bytes(),
+    );
+    Ok(length)
 }

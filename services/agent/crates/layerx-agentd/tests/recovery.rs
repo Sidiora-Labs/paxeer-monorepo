@@ -405,3 +405,25 @@ fn restarted_resolution_refuses_missing_and_changed_payment_denomination_without
         std::fs::remove_dir_all(root).expect("cleanup");
     }
 }
+
+#[test]
+fn recovery_keeps_legacy_receipt_amount_for_requested_spend() {
+    let root = directory("legacy-requested-spend");
+    let mut store = Store::open(&root).expect("store");
+    let receipts = [PersistedReceipt {
+        expected_activity_id: [0x71; 32],
+        requested_amount: 100,
+        evidence: support::raw_receipt([0x71; 32], 0, 25),
+    }];
+    let recovered = recover(&mut store, &tenant(), &recovery_inputs(&[], &receipts, &[]))
+        .expect("legacy recovery");
+    assert_eq!(recovered.budget_accounting.receipt_consumed, 25);
+    assert!(!recovered.budget_accounting.reconciled);
+    assert!(matches!(
+        recovered.require_write_ready(),
+        Err(RecoveryError::WritesBlocked)
+    ));
+    drop(recovered);
+    drop(store);
+    std::fs::remove_dir_all(root).expect("cleanup");
+}

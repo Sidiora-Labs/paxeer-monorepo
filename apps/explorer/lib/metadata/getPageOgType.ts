@@ -47,10 +47,8 @@ const OG_TYPE_DICT: Record<Route['pathname'], OGPageType> = {
   '/feed': 'Root page',
   '/feed/update/[hash]': 'Regular page',
   '/feed/market/[id]': 'Regular page',
+  '/paxeer-x/inference': 'Regular page',
   '/paxeer-x/account/[hash]': 'Regular page',
-  '/paxeer-x/anchors': 'Root page',
-  '/paxeer-x/receipts': 'Root page',
-  '/paxeer-x/receipts/[id]': 'Regular page',
   '/dispute-games': 'Root page',
   '/batches': 'Root page',
   '/batches/[number]': 'Regular page',
@@ -105,6 +103,8 @@ const OG_TYPE_DICT: Record<Route['pathname'], OGPageType> = {
   '/api/proxy': 'Regular page',
   '/api/csrf': 'Regular page',
   '/api/healthz': 'Regular page',
+  '/api/assistant': 'Regular page',
+  '/api/inference': 'Regular page',
   '/api/config': 'Regular page',
 };
 

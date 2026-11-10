@@ -1,0 +1,315 @@
+[meta]
+task = "22.39.258"
+status = "implemented-not-qualified"
+baseline_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path services/agent/sdk"
+baseline_exit = 1
+baseline_log = "/out/run/sdk-retired-baseline.log"
+findings = 20
+repaired_findings = 6
+catalogue_findings = 14
+qualification_evidence = "Private runner ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log; no passing gate is claimed in this record."
+
+[finding.1]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 52
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.2]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 647
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.3]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 731
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.4]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 1160
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.5]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 1883
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.6]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 1887
+component = "checkpoint-finality"
+symbol = "FINALIZED_RANK"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "This is the live AI projection wire rank, not kernel checkpoint evidence; OperationJournal.finalize already authenticates transaction inclusion through CommitTrust.verify and records Rung.COMMITTED."
+
+[finding.7]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 429
+component = "exchange-intents"
+symbol = "request_settlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.8]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 430
+component = "exchange-intents"
+symbol = "requestSettlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.9]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 431
+component = "exchange-intents"
+symbol = "requestSettlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.10]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 483
+component = "exchange-intents"
+symbol = "request_settlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.11]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 487
+component = "exchange-intents"
+symbol = "request_settlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.12]
+path = "services/agent/sdk/python/layerx_sdk/revert.py"
+line = 140
+component = "da"
+symbol = "LXP_DA_"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "LXP_DA_MISSING is still the layerxpay service-delivery error in spec/layerx-merge/contracts/address-table.md:341; this entry is generated by scripts/ci/result-codes-gen.py and is not a retired kernel DA implementation."
+
+[finding.13]
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 38
+component = "programs-ingress"
+symbol = "/v1/programs/deploy"
+status = "repaired"
+repair = "Removed the obsolete REST write mapping and its unused lifecycle binding branch; unsupported writes refuse before dispatch, while read and simulation routes remain available. EVM transactions use JsonRpcClient.sendRawTransaction with separately signed transactions to 0x101D."
+
+[finding.14]
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 39
+component = "programs-ingress"
+symbol = "/v1/programs/upgrade"
+status = "repaired"
+repair = "Removed the obsolete REST write mapping and its unused lifecycle binding branch; unsupported writes refuse before dispatch, while read and simulation routes remain available. EVM transactions use JsonRpcClient.sendRawTransaction with separately signed transactions to 0x101D."
+
+[finding.15]
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 40
+component = "programs-ingress"
+symbol = "/v1/programs/wind-down"
+status = "repaired"
+repair = "Removed the obsolete REST write mapping and its unused lifecycle binding branch; unsupported writes refuse before dispatch, while read and simulation routes remain available. EVM transactions use JsonRpcClient.sendRawTransaction with separately signed transactions to 0x101D."
+
+[finding.16]
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 44
+component = "programs-ingress"
+symbol = "/v1/programs/call"
+status = "repaired"
+repair = "Removed the obsolete REST write mapping and its unused lifecycle binding branch; unsupported writes refuse before dispatch, while read and simulation routes remain available. EVM transactions use JsonRpcClient.sendRawTransaction with separately signed transactions to 0x101D."
+
+[finding.17]
+path = "services/agent/sdk/typescript/src/exchange.ts"
+line = 616
+component = "exchange-intents"
+symbol = "requestSettlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.18]
+path = "services/agent/sdk/typescript/src/exchange.ts"
+line = 618
+component = "exchange-intents"
+symbol = "requestSettlement"
+status = "allowed-reference"
+repair = "Added a symbol-specific directory allowance in tools/paxeer-x/retired_callers.json with its live-contract citation."
+reason = "The catalogue replacement explicitly retains the settlement selector as an ErrRetired rejection surface, and the SDK retains the historical ABI; TypeScript precompile-calls and proof_exchange tests still exercise its real precompile rejection."
+
+[finding.19]
+path = "services/agent/sdk/typescript/src/verifier.ts"
+line = 87
+component = "authorized-batch"
+symbol = "AuthorizedReceiptBatch"
+status = "repaired"
+repair = "Removed the unreferenced batch interface and narrowed the always-refused web-search authority callback to Promise<never>; receiptKeys and the retained pinned receipt verifier remain the supported trust path."
+
+[finding.20]
+path = "services/agent/sdk/typescript/src/web-search.ts"
+line = 96
+component = "authorized-batch"
+symbol = "AuthorizedReceiptBatch"
+status = "repaired"
+repair = "Removed the unreferenced batch interface and narrowed the always-refused web-search authority callback to Promise<never>; receiptKeys and the retained pinned receipt verifier remain the supported trust path."
+
+[scope.catalogue]
+file = "tools/paxeer-x/retired_callers.json"
+observed = "Attempt 3 admits the catalogue and records the retained symbols as directory allowances ordered by path, resolving the earlier scope conflict without altering the generated error table."
+severity = "note"
+
+[scope.baseline_paths]
+paths = ["services/agent/sdk/python/layerx_sdk/px.py", "services/agent/sdk/python/layerx_sdk/px.pyi", "services/agent/sdk/typescript/src/history.ts", "services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/typescript/src/rpc.ts"]
+observed = "These five paths already use committed network finality and retained gateway interfaces; their declarations now clarify that a gateway or indexer observation is distinct from independently authenticated transaction inclusion."
+severity = "note"
+
+[qualification.build_environment]
+revision = "2bf3eaad7360ea0424eba4f822f2f37c1f582a6c"
+command = "pnpm --dir services/agent/sdk/typescript run build && python3 -m py_compile services/agent/sdk/python/layerx_sdk/ai_market.py services/agent/sdk/python/layerx_sdk/exchange.py services/agent/sdk/python/layerx_sdk/px.py services/agent/sdk/python/layerx_sdk/revert.py"
+exit = 127
+log = "/out/logs/build-1.log"
+observed = "The sandbox had no installed TypeScript SDK dependencies, so the build failed with tsc: not found before compilation."
+repair = "Install the exact SDK package-lock.json dependencies with npm ci --ignore-scripts --no-audit --no-fund before the bounded build retry; no source or lockfile changes are required."
+
+[qualification.result]
+revision = "110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e"
+command = "cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+build_exit = 0
+build_log = "/out/logs/build-2.log"
+status = "implemented-not-qualified"
+observed = "The TypeScript self-contained gate executed 52 test files and six failed; shell short-circuiting prevented the Python suite and final retired-reference scan from running. The build passed at this same candidate revision. This outcome record was appended after qualification; no passing verification is claimed for it."
+
+[qualification.finding.1]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+symbol = "proof_gas_station_producer_transport_consumer"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: Cannot find package viem imported by sdk/wallet/src/modules/gas-station.ts."
+assumption = "The wallet dependency installation is absent independently of this task's source edits."
+severity = "blocker"
+
+[qualification.finding.2]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/px.test.ts"
+symbol = "px_amounts_decode_up_to_uint256, px_methods_list_is_the_hosted_gateway_px_set, receipt_keys_shape, python_px_matches_ts"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: Unchanged expectations reject the existing test script, five inference RPC methods in PX_METHODS and Python gateway parity."
+assumption = "The gateway contract and test expectations require a separate reconciliation; removing live methods or weakening assertions is forbidden."
+severity = "blocker"
+
+[qualification.finding.3]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+symbol = "commit_inclusion_refuses_unrelated_valid_commit"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: The test's base64 helper passes null to Buffer.from while building commit evidence, before production verification."
+assumption = "The commit fixture adapter is outside this task's scope and was not changed."
+severity = "blocker"
+
+[qualification.finding.4]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/revert.test.ts"
+symbol = "registry hash assertion"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: The unchanged registry digest is 6a9f742816f66fc1707c20ded000821c47bf9ac4715387e825e2da8e2b63615f while the test pins 33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155."
+assumption = "The registry and its pinned test are outside scope; changing the pin or generated data to bypass this assertion is not authorized."
+severity = "blocker"
+
+[qualification.finding.5]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "imported registry hash assertion"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: This test fails on the same imported revert.test.ts registry hash assertion."
+assumption = "This is the same unchanged registry mismatch, not a second source defect to investigate."
+severity = "blocker"
+
+[qualification.finding.6]
+task = "22.39.258"
+file = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"
+symbol = "web_search_client_verifies_the_payment_with_pinned_receipt_keys, web_search_receipt_shape_matches_sequencer"
+observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: Fixture mutations fail with hash_mismatch and later cases receive receipt-unverified before their expected settlement errors."
+assumption = "Removing an unused TypeScript interface and narrowing an always-refused callback changes no receipt verifier runtime; the fixture/verifier contradiction is unrelated and assertions must remain intact."
+severity = "blocker"
+
+[continuation.attempt_3]
+merged_revision = "18e8d34ccd22526c96391e0aa7f6c462ae05ebcd"
+prerequisite = "22.39.288"
+baseline = "The original twenty findings above are retained as the baseline evidence; the bounded hf-done verification runs the final SDK scan after both SDK suites."
+implementation = "Preserved the earlier lifecycle route removals, unreferenced authorized-batch type removal and always-refused authority callback narrowing; added the four directory allowances below and clarified the retained source contracts."
+qualification_status = "awaiting-bounded-gates"
+verified_revision_record = "/out/run/gates.jsonl: the final verify row contains the exact immutable candidate revision, command, exit and private log, and is valid only with a passing build at the same revision."
+evidence_policy = "The record is finalized before hf-build; qualification results live in the private runner ledger so recording them does not change the candidate after its build."
+
+[continuation.allowed_reference.1]
+path = "services/agent/sdk/python/layerx_sdk"
+symbols = ["FINALIZED_RANK"]
+findings = [1, 2, 3, 4, 5, 6]
+reason = "The market program still ships this projection wire rank, while OperationJournal.finalize verifies transaction inclusion with CommitTrust before advancing to Rung.COMMITTED."
+
+[continuation.allowed_reference.2]
+path = "services/agent/sdk/python/layerx_sdk"
+symbols = ["LXP_DA_"]
+findings = [12]
+reason = "The generated LXP_DA_MISSING entry remains the layerxpay service-delivery error in the result-code registry, independently of the retired kernel DA implementation."
+
+[continuation.allowed_reference.3]
+path = "services/agent/sdk/python/layerx_sdk"
+symbols = ["requestSettlement", "request_settlement"]
+findings = [7, 8, 9, 10, 11]
+reason = "The historical exchange ABI still exposes the selector whose ErrRetired rejection the catalogue explicitly preserves after v6.12.0."
+
+[continuation.allowed_reference.4]
+path = "services/agent/sdk/typescript/src"
+symbols = ["requestSettlement"]
+findings = [17, 18]
+reason = "The historical exchange ABI still exposes the selector whose ErrRetired rejection the catalogue explicitly preserves after v6.12.0."
+
+[continuation.prerequisite_repairs]
+task = "22.39.288"
+revision = "381b4a1273b41e15c280a9b2bf684fbd4460af48"
+observed = "The qualified prerequisite is merged into the starting tree and carries the gateway px parity, receipt inclusion fixtures, wallet installation and generated error snapshot alignment needed by the earlier qualification findings."
+
+[continuation.environment_finding]
+task = "22.39.258"
+file = "sdk/wallet/package.json"
+symbol = "viem"
+observed = "At revision 21cdb40321841040a5393a7ff92a81811a20c36e, cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log records Cannot find module viem in proof_gas_station_producer_transport_consumer after the other 51 TypeScript files passed."
+assumption = "The fresh sandbox did not inherit the wallet dependency installation performed by prerequisite 22.39.288, so its real consumer dependency must be installed before qualification can finish."
+severity = "blocker"
+
+[continuation.environment_repair]
+command = "pnpm --dir services/wallet --filter @paxeer/wallet install --no-frozen-lockfile --ignore-scripts"
+exit = 0
+log = "/out/logs/wallet-deps-repair-resolved.log"
+repair = "Installed the declared wallet dependency without changing manifests or assertions; the permitted generated wallet lockfile is not part of the published task because its manifest is outside scope."
+related_finding = "The prerequisite frozen installation and a wallet-filtered frozen installation both exited 1 because apps/perps/package.json pins @types/react 18.3.31 while the existing workspace lockfile specifies ^18.3.5; logs /out/logs/wallet-deps-repair.log and /out/logs/wallet-deps-repair-filtered.log."
+qualification = "Run hf-build and hf-done on this final record and source candidate; the private ledger binds both results to their exact revision."

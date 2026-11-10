@@ -63,8 +63,15 @@ func (a *pxAccountAPI) GetRouteCatalogue(ctx context.Context) (result map[string
 	defer func() {
 		recordMetricsWithError(ctx, "px_getRouteCatalogue", a.state.connectionType, start, returnErr, recover())
 	}()
+	// Preserve the generated contract metadata, including canonical_origin.
 	if err := json.Unmarshal(pxRouteDefinitions, &result); err != nil {
 		return nil, pxUnavailable("route_catalogue_unavailable")
+	}
+	result["node_rpc"] = map[string]interface{}{
+		"origin": result["canonical_origin"], "rpc_path": "/", "chain_id": result["chain_id"],
+	}
+	result["hosted_gateway"] = map[string]interface{}{
+		"location_source": "operator-provided", "rpc_path": "/", "catalogue_path": "/v1/routes",
 	}
 	readiness := map[string]interface{}{}
 	for _, service := range result["services"].([]interface{}) {
