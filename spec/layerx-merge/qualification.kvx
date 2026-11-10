@@ -40034,3 +40034,11 @@ symbol = "tests"
 observed = "Attempt 2 at 313617fcd332 on base 896caeace6fa: build 3 exits 0 at 86714094a977 and the verification exits 101 at 86714094a977 with one too_many_lines error at tests/metrics_rungs.rs:58 and two needless_borrows_for_generic_args errors at tests/protocol2_restart.rs:183 and :258; log /out/logs/verify-1.log."
 assumption = "Both repair cycles were used by the two red builds before the only verification."
 severity = "high"
+
+[finding.22.39.346.4]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 4 at 7729d7911128 on base ad52c8e6d41f: both builds exit 0; verification 2 exits 1 at 7729d7911128 with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:30, ENOENT for the conformance fixture one directory above the repository; the send case did not run; log /out/logs/verify-2.log."
+assumption = "The fixture path of the new case holds one parent segment too many."
+severity = "high"
