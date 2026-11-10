@@ -507,6 +507,60 @@ func TestProgramTransferAuthorizationRecomputesCanonicalRoot(t *testing.T) {
 	}
 }
 
+func TestProgramDestinationAuthorizationVectors(t *testing.T) {
+	raw, err := os.ReadFile("../../../programs/fixtures/pay5/destination-authorization-vectors.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors []struct {
+		Name    string `json:"name"`
+		Encoded string `json:"encoded"`
+		Root    string `json:"root"`
+		Accept  bool   `json:"accept"`
+	}
+	if err := json.Unmarshal(raw, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	if len(vectors) != 1271 {
+		t.Fatalf("expected all 1271 destination authorization vectors, got %d", len(vectors))
+	}
+	accepted, rejected := 0, 0
+	for _, vector := range vectors {
+		if vector.Accept {
+			accepted++
+		} else {
+			rejected++
+		}
+		t.Run(vector.Name, func(t *testing.T) {
+			encoded, err := hex.DecodeString(vector.Encoded)
+			if err != nil {
+				t.Fatalf("decode authorization: %v", err)
+			}
+			rootBytes, err := hex.DecodeString(vector.Root)
+			if err != nil || len(rootBytes) != 32 {
+				t.Fatalf("decode 32-byte root: length=%d error=%v", len(rootBytes), err)
+			}
+			var root [32]byte
+			copy(root[:], rootBytes)
+			if err := verifyProgramTransferAuthorization(encoded, root); (err == nil) != vector.Accept {
+				t.Fatalf("authorization acceptance: want %t, error=%v", vector.Accept, err)
+			}
+			if vector.Accept {
+				if !programAuthorizationV2(encoded) {
+					t.Fatal("destination account-bound authorization lost its version 2 transfer domain")
+				}
+				root[0] ^= 1
+				if err := verifyProgramTransferAuthorization(encoded, root); err == nil {
+					t.Fatal("destination account-bound authorization accepted a different root")
+				}
+			}
+		})
+	}
+	if accepted != 2 || rejected != 1269 {
+		t.Fatalf("expected 2 accepted and 1269 refused destination vectors, got %d and %d", accepted, rejected)
+	}
+}
+
 func TestProgramOccupancySettlementBindsCountersFeesAndAssetRoot(t *testing.T) {
 	asset := [32]byte{4}
 	settlement := canonicalEmptyProgramOccupancyFixture()
