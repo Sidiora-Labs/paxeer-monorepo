@@ -158,6 +158,10 @@ impl FileDeploymentJournal {
         })
     }
 
+    /// Opens a journal bound to persisted chain trust.
+    ///
+    /// # Errors
+    /// Refuses unavailable or invalid trust and journal directories that cannot be created.
     pub fn open_from_chain_trust(
         root: PathBuf,
         trust_root: &Path,
@@ -169,6 +173,10 @@ impl FileDeploymentJournal {
         Ok(journal)
     }
 
+    /// Verifies and appends an authenticated chain deployment.
+    ///
+    /// # Errors
+    /// Refuses invalid proofs, missing trust and journal persistence failures.
     pub fn append_chain_deployment(
         &self,
         proof: &[u8],
@@ -259,6 +267,9 @@ impl FileDeploymentJournal {
     }
 
     /// Replays complete units in authenticated deployment order, never digest order.
+    ///
+    /// # Errors
+    /// Refuses corrupt stored evidence and journal or projection failures.
     pub fn replay_deployments(
         &self,
         source: &crate::NodeProgramStateSource,
@@ -859,14 +870,14 @@ fn verify_chain_deployment_package(
         return Err("deployment proof must use the lxphost store".into());
     }
     let observation = now_ms.ok_or("chain deployment verification needs an observation time")?;
-    let verified = verifier
+    let admitted = verifier
         .verify_deployment(&admission, observation)
         .map_err(|error| format!("chain deployment execution verification refused: {error}"))?;
     let evidence = admission
         .deployment
         .verify(&head)
         .map_err(|error| format!("chain deployment proof verification refused: {error}"))?;
-    Ok((evidence, verified, head.header_hash()))
+    Ok((evidence, admitted, head.header_hash()))
 }
 
 fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
@@ -884,7 +895,7 @@ fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
                 round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
             }
             (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
-                block_id = Some(decode_chain_block_id(value)?)
+                block_id = Some(decode_chain_block_id(value)?);
             }
             (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
             _ => return Err(ChainProofError::NonCanonical),
@@ -918,7 +929,7 @@ fn decode_chain_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
                             );
                         }
                         (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
-                            part_hash = Some(value.to_vec())
+                            part_hash = Some(value.to_vec());
                         }
                         _ => return Err(ChainProofError::NonCanonical),
                     }

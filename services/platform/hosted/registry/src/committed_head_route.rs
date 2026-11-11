@@ -41,14 +41,10 @@ pub fn route(
         || HEAD_PATH.to_owned(),
         |height| format!("{HEAD_PATH}?height={height}"),
     );
-    let document = match fetch(&target) {
-        Ok(document) => document,
-        Err(_) => return refusal(503, "committed_head_unavailable"),
+    let Ok(document) = fetch(&target) else {
+        return refusal(503, "committed_head_unavailable");
     };
-    let replica = replica_id
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let replica = layerx_programs::hex::encode(&replica_id);
     // Keep the producer identity pinned as well as the committed evidence coordinates.
     if replica_id == [0; 32]
         || document["authority_replica_id"].as_str() != Some(replica.as_str())
