@@ -288859,7 +288859,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.426]
 title = "Run again the parts of the workspace recipes that changed after the record of task 22.39.409"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
