@@ -78,6 +78,16 @@ import {
 import { SnapshotCache } from '../../src/runtime/offline-cache.ts';
 import type { WalletExecutionProvider } from '../../src/runtime/lifecycle.ts';
 
+const deployment: { sourceManifestSha256: string } = JSON.parse(
+  await readFile(
+    new URL(
+      '../../../../../sdk/launchpad/shared/config/deployment/current.json',
+      import.meta.url,
+    ),
+    'utf8',
+  ),
+);
+
 type StorageKey = Parameters<CredentialStore['get']>[0];
 class DiskCredentialStore implements CredentialStore {
   private closed = false;
@@ -381,8 +391,7 @@ function configuration(): PublicConfiguration {
     streamOrigin: 'wss://mobile.example.com',
     approvedStreamOrigins: ['wss://mobile.example.com'],
     production: true,
-    manifestDigest:
-      'a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a',
+    manifestDigest: deployment.sourceManifestSha256,
     manifestURL: `${origin}/manifest.json`,
     optionalFeatures: { chat: false, live: false },
     approvedPlaybackOrigins: [],
