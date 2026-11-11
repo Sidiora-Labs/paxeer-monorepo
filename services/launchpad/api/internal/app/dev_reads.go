@@ -29,7 +29,9 @@ func registerDevelopmentReads(r chi.Router, deps developmentReadDeps) error {
 		return err
 	}
 	// trade history, candles, search, discovery public reads
-	registerDevelopmentHistorySearchDiscovery(r, deps)
+	if err := registerDevelopmentHistorySearchDiscovery(r, deps); err != nil {
+		return err
+	}
 	// network authority and preflight
 	registerDevelopmentNetworkAuthority(r, deps)
 	// deployment manifest, transaction status, cups and the not-served v2 operations

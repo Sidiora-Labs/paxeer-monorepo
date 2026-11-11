@@ -1132,6 +1132,7 @@ dependencies = [
  "getrandom 0.4.3",
  "layerx-crypto",
  "layerx-platform-gateway",
+ "layerx-program-sdk",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-programs-runtime",
