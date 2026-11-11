@@ -227029,7 +227029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.2]
 title = "Add the records of the chain launch to the launchpad module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286337,7 +286337,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.377]
 title = "Make the install target of the workspace pass on a clean checkout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.392"]
