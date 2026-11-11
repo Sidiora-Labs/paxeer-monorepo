@@ -2925,7 +2925,7 @@ fn bind(
 
 /// Binds the transition to the current Program's rewards account and asset and
 /// checks the counters move by exactly the effect; inside the Program activity
-/// it also reads the sight balance, checks cover and stages the one transfer.
+/// it stages the one transfer under its spending grant.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn stage_value(
     ctx: &CallContext,
