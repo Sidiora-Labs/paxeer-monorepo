@@ -1,21 +1,21 @@
-//! Proves: StartupConfig producers -> protected key=value files and exact LAYERX_* overrides -> config::load, Gate::new, RuntimeConfig::load and explorer-receipt-reader.py::main.
+//! Proves: `StartupConfig` producers -> protected key=value files and exact LAYERX_* overrides -> `config::load`, `Gate::new`, `RuntimeConfig::load` and `explorer-receipt-reader.py::main`.
 //!
-//! Repairs config.rs::reject_retired_setting: the removed sequencer authority
+//! Repairs `config.rs::reject_retired_setting`: the removed sequencer authority
 //! source must be classified as Retired, just like the removed protocol version.
-//! Repairs runtime.rs::run: bound the actual configuration read, rather than
+//! Repairs `runtime.rs::run`: bound the actual configuration read, rather than
 //! trusting a metadata length obtained before an unbounded read.
 //! Repairs this proof's Python launch: retain the interpreter's toolchain
 //! environment and use Python isolated mode to exclude ambient Python settings.
 //!
 //! The inventory describes the former LNI interface. At this revision the two
-//! legacy keys are retired; the successful path uses expected_chain_id and
-//! receipt_key_source. The explorer producer is retired and the mirror consumes
+//! legacy keys are retired; the successful path uses `expected_chain_id` and
+//! `receipt_key_source`. The explorer producer is retired and the mirror consumes
 //! its own paxeer JSON configuration, not agentd's old keys. Both real consumers
 //! must refuse those old inputs. No daemon, RPC transport or receipt is doubled.
 //! Current readiness is also exercised from a freshly reopened protected config
 //! and loopback node, including a second start and malformed key refusal.
 //! Main's private environment loader still requires the wiring request recorded
-//! in repair_22_33_1537.kvx.
+//! in `repair_22_33_1537.kvx`.
 
 #[path = "config.rs"]
 mod config_consumer;
@@ -77,8 +77,8 @@ fn publisher_source(config: &StartupConfig) -> Value {
         }],
         "quorum": 1,
         "connect_timeout_ms": 3000,
-        "request_timeout_ms": 15000,
-        "maximum_response_bytes": 16777216
+        "request_timeout_ms": 15_000,
+        "maximum_response_bytes": 16_777_216
     });
     json!({
         "state_directory": "/var/lib/layerx-mirror",
@@ -107,10 +107,10 @@ fn publisher_source(config: &StartupConfig) -> Value {
             "archive_code_hash_hex": hex::encode([6_u8; 32]),
             "required_confirmations": 12,
             "maximum_reorg_depth": 256,
-            "chunk_bytes": 65536,
-            "transaction_gas_limit": 12000000,
-            "maximum_fee_per_gas": 1000000000,
-            "maximum_priority_fee_per_gas": 1000000,
+            "chunk_bytes": 65_536,
+            "transaction_gas_limit": 12_000_000,
+            "maximum_fee_per_gas": 1_000_000_000,
+            "maximum_priority_fee_per_gas": 1_000_000,
             "signer": {
                 "key_handle": "mirror/ethereum/alpha",
                 "public_key": hex::encode([7_u8; 33]),
@@ -131,8 +131,10 @@ fn node_endpoint() {
     let values = config_consumer::values();
     let agent = sources.agent(&values);
     let publisher = sources.path("mirror.json");
-    let configuration_error =
-        MirrorVerifier::publisher_configuration(&sources.path("missing.json")).unwrap_err();
+    let configuration_error = lint_error(
+        MirrorVerifier::publisher_configuration(&sources.path("missing.json")),
+        "test operation must fail",
+    );
     assert_eq!(format!("{configuration_error:?}"), "Configuration");
     let from_file = must(load(&agent, &BTreeMap::new()));
     assert_eq!(from_file.node_endpoint, "https://node.example/rpc");
@@ -142,17 +144,17 @@ fn node_endpoint() {
             BTreeMap::from([("LAYERX_NODE_ENDPOINT".to_owned(), endpoint.to_owned())]);
         // Each call reopens the file; writing a new value also detects caching.
         for _ in 0..2 {
-            let produced = must(load(&agent, &environment));
-            assert_eq!(produced.node_endpoint, endpoint);
+            let loaded_config = must(load(&agent, &environment));
+            assert_eq!(loaded_config.node_endpoint, endpoint);
             let client = must(layerx_sdk::Client::direct_node(
-                &produced.node_endpoint,
+                &loaded_config.node_endpoint,
                 &[],
             ));
             assert_eq!(client.deployment(), layerx_sdk::Deployment::DirectNode);
             assert!(client.direct_node_client().is_some());
-            write_publisher(&publisher, &publisher_source(&produced));
+            write_publisher(&publisher, &publisher_source(&loaded_config));
             let observed = must(MirrorVerifier::publisher_configuration(&publisher));
-            assert_eq!(observed.paxeer.chain_id, produced.expected_chain_id);
+            assert_eq!(observed.paxeer.chain_id, loaded_config.expected_chain_id);
             assert_eq!(observed.paxeer.rpc.endpoints[0].url, endpoint);
         }
     }
@@ -198,8 +200,10 @@ fn assert_retired(file_key: &str, environment_key: &str) {
     let sources = Sources::new();
     let baseline = config_consumer::values();
     let publisher = sources.path("mirror.json");
-    let configuration_error =
-        MirrorVerifier::publisher_configuration(&sources.path("missing.json")).unwrap_err();
+    let configuration_error = lint_error(
+        MirrorVerifier::publisher_configuration(&sources.path("missing.json")),
+        "test operation must fail",
+    );
     assert_eq!(format!("{configuration_error:?}"), "Configuration");
     for value in ["2", "", "malformed"] {
         let mut producer = baseline.clone();
@@ -225,8 +229,8 @@ fn assert_retired(file_key: &str, environment_key: &str) {
                 })
             );
         }
-        let produced = must(load(&agent, &BTreeMap::new()));
-        let mut source = publisher_source(&produced);
+        let loaded_config = must(load(&agent, &BTreeMap::new()));
+        let mut source = publisher_source(&loaded_config);
         source[file_key] = json!(value);
         write_publisher(&publisher, &source);
         assert_eq!(
@@ -312,11 +316,11 @@ fn explorer_consumer_refuses_the_retired_producer_twice() {
     let reader = root.join("tools/qualification/paxeer-x/explorer-receipt-reader.py");
     assert!(reader.is_file(), "missing consumer: {}", reader.display());
     for _ in 0..2 {
-        let produced = must(load(&agent, &BTreeMap::new()));
+        let loaded_config = must(load(&agent, &BTreeMap::new()));
         let output = Command::new("python3")
             .arg("-I")
             .arg(&reader)
-            .env("LAYERX_NODE_ENDPOINT", &produced.node_endpoint)
+            .env("LAYERX_NODE_ENDPOINT", &loaded_config.node_endpoint)
             .env("LAYERX_EXPECTED_PROTOCOL_VERSION", "2")
             .env(
                 "LAYERX_SEQUENCER_AUTHORITY_SOURCE",
@@ -339,4 +343,12 @@ mod support;
 #[test]
 fn node_readiness_restarts_from_loaded_configuration_and_refuses_malformed_producer() {
     support::current_node::startup_restart();
+}
+
+#[track_caller]
+fn lint_error<T: std::fmt::Debug, E>(result: Result<T, E>, context: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{context}: unexpected success {value:?}"),
+    }
 }

@@ -782,8 +782,11 @@ func (a *RPCQualification) proveHistoricalMarket(ctx context.Context, market Dis
 			return ErrQualification
 		}
 		actual, err := qualified.SourceProvenance(ctx, log.Address)
-		if err != nil || actual != proof.Provenance {
-			return ErrQualification
+		if err != nil {
+			return err
+		}
+		if err = verifyHistoricalProvenance(bundle.Header, actual, proof.Provenance); err != nil {
+			return err
 		}
 		return nil
 	}

@@ -62,6 +62,7 @@ func New(ds []Deployment) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
+	bs = append(bs, nativeLaunchpadBundle())
 	r := &Registry{abis: map[string]abi.ABI{}, revisions: map[string]abi.ABI{}}
 	for _, b := range bs {
 		a, e := abi.JSON(bytes.NewReader(b.ABI))

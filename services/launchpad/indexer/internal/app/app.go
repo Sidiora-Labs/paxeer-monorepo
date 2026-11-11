@@ -7,6 +7,7 @@ package app
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -14,6 +15,7 @@ import (
 	"fmt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -26,6 +28,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"regexp"
@@ -138,7 +141,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	defer func() {
 		if !secretOwned {
-			pool.Close()
+			shareddb.ClosePool(pool)
 		}
 	}()
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
@@ -217,6 +220,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
 	var selectionAuthority *source.SelectionAuthority
+	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
+
 	defer func() {
 		if !secretOwned {
 			workers.Close()
@@ -238,6 +243,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		var d deliveryRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
+			return nil, err
+		}
+		if err = d.validateStatus(); err != nil {
 			return nil, err
 		}
 		if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || d.DeploymentID == "" {
@@ -309,6 +317,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		durable, e := delivery.NewStoreWithEpochGuard(pool, d.Schema, d.Policy, guard.Assert)
 		if e != nil {
 			return nil, e
+		}
+		status.Mode = httpapi.StatusCanonical
+		status.Delivery = durable
+		status.CanonicalStreamID = d.CanonicalStreamID
+		status.MaxDeliveryLag = time.Duration(d.MaxDeliveryLagMS) * time.Millisecond
+		if policy := d.DeadLetters; policy != nil {
+			status.DeadLetters = httpapi.AuditedDeadLetters{DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
 		}
 		partitions, e := delivery.NewPartitionStore(pool, d.Schema)
 		if e != nil {
@@ -607,12 +622,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
-	httpapi.RegisterStatus(router, httpapi.StatusDeps{
-		Store:     st,
-		ChainID:   int32(cfg.ChainID),
-		Publisher: pub,
-		StartTime: time.Now(),
-	})
+	status.Store, status.ChainID, status.Publisher, status.StartTime = st, int32(cfg.ChainID), pub, time.Now()
+	httpapi.RegisterStatus(router, status)
 
 	if selectionAuthority != nil {
 		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
@@ -676,7 +687,7 @@ func (a *App) Close() {
 	}
 	_ = a.sources.Close()
 	a.chain.Close()
-	a.pool.Close()
+	shareddb.ClosePool(a.pool)
 	if err := a.redis.Close(); err != nil && a.logger != nil {
 		a.logger.Warn("redis close", slog.String("err", err.Error()))
 	}
@@ -851,18 +862,46 @@ type receiptRuntimeDocument struct {
 	PrivateFixture receipt.PrivateFixtureRPCOptions `json:"privateFixture"`
 }
 type deliveryRuntimeDocument struct {
-	Schema                     string            `json:"schema"`
-	Owner                      string            `json:"owner"`
-	Epoch                      int64             `json:"epoch"`
-	Region                     string            `json:"region"`
-	Stream                     string            `json:"stream"`
-	CanonicalStreamID          string            `json:"canonicalStreamId"`
-	DeploymentID               string            `json:"deploymentId"`
-	ProjectionVersion          string            `json:"projectionVersion"`
-	InventoryProjectionVersion string            `json:"inventoryProjectionVersion"`
-	Generation                 string            `json:"generation"`
-	Policy                     delivery.Policy   `json:"policy"`
-	Subjects                   map[string]string `json:"subjects"`
+	MaxDeliveryLagMS           int64                 `json:"maxDeliveryLagMs"`
+	DeadLetters                *DeadLetterParameters `json:"deadLetters,omitempty"`
+	Schema                     string                `json:"schema"`
+	Owner                      string                `json:"owner"`
+	Epoch                      int64                 `json:"epoch"`
+	Region                     string                `json:"region"`
+	Stream                     string                `json:"stream"`
+	CanonicalStreamID          string                `json:"canonicalStreamId"`
+	DeploymentID               string                `json:"deploymentId"`
+	ProjectionVersion          string                `json:"projectionVersion"`
+	InventoryProjectionVersion string                `json:"inventoryProjectionVersion"`
+	Generation                 string                `json:"generation"`
+	Policy                     delivery.Policy       `json:"policy"`
+	Subjects                   map[string]string     `json:"subjects"`
+}
+
+func (d deliveryRuntimeDocument) validateStatus() error {
+	if d.MaxDeliveryLagMS <= 0 || d.MaxDeliveryLagMS > math.MaxInt64/int64(time.Millisecond) {
+		return errors.New("indexer: explicit positive bounded delivery lag budget required")
+	}
+	if d.DeadLetters != nil {
+		return d.DeadLetters.validate()
+	}
+	return nil
+}
+
+func (p DeadLetterParameters) verifier() auth.ServiceAssertionVerifier {
+	return auth.ServiceAssertionVerifier{Transport: auth.AssertionTransport{AssertionHeader: p.AssertionHeader, SignatureHeader: p.SignatureHeader}, Issuer: p.Issuer, Audience: p.Audience, PeerCertSHA256: p.PeerCertSHA256, Key: append(ed25519.PublicKey(nil), p.PublicKey...)}
+}
+
+var statusSchema = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
+var statusToken = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+var statusDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var statusHeader = regexp.MustCompile(`^[!#$%&'*+.^_` + "`" + `|~0-9A-Za-z-]{1,128}$`)
+
+func (p DeadLetterParameters) validate() error {
+	if !statusSchema.MatchString(p.SecuritySchema) || !statusToken.MatchString(p.Audience) || !statusToken.MatchString(p.Issuer) || !statusToken.MatchString(p.PolicyVersion) || !statusDigest.MatchString(p.PeerCertSHA256) || len(p.PublicKey) != ed25519.PublicKeySize || !statusHeader.MatchString(p.AssertionHeader) || !statusHeader.MatchString(p.SignatureHeader) || strings.EqualFold(p.AssertionHeader, p.SignatureHeader) || strings.EqualFold(p.AssertionHeader, "X-Request-ID") || strings.EqualFold(p.SignatureHeader, "X-Request-ID") {
+		return errors.New("indexer: incomplete or invalid dead-letter policy")
+	}
+	return nil
 }
 
 var inventoryToken = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)

@@ -1,0 +1,22 @@
+[repair.22_39_392]
+source_revision = "8572fe3258f99d1d2e1b815e52933f9b6b16a83c"
+method = "cargo fetch --manifest-path <directory>/Cargo.toml for each listed lockfile"
+lock_01 = "cmd/layerxctl/Cargo.lock; added packages: none"
+lock_02 = "services/agent/fuzz/Cargo.lock; added packages: none"
+lock_03 = "services/agent/qualification/pay2/Cargo.lock; added packages: none"
+lock_04 = "services/agent/tests/boundary/Cargo.lock; added packages: none"
+lock_05 = "services/agent/tests/isolation/Cargo.lock; added packages: none"
+lock_06 = "services/agent/tests/parity/Cargo.lock; added packages: none"
+lock_07 = "services/agent/tests/qualify/Cargo.lock; added packages: none"
+lock_08 = "services/agent/tools/audit-verify/Cargo.lock; added packages: none"
+lock_09 = "services/agent/tools/policy-harness/Cargo.lock; added packages: none"
+lock_10 = "services/human/Cargo.lock; added packages: none"
+lock_11 = "services/human/crates/layerx-intents/fuzz/Cargo.lock; added packages: none"
+lock_12 = "services/interop/Cargo.lock; added packages: none"
+lock_13 = "services/platform/Cargo.lock; added packages: none"
+lock_14 = "services/platform/examples/samples/verify-receipt-rust/Cargo.lock; added packages: none"
+lock_15 = "services/platform/hosted/node/tests/probe/Cargo.lock; added packages: none"
+lock_16 = "tools/platform/Cargo.lock; added packages: none"
+searched_lockfiles = 216
+client_lockfiles = 17
+outside_scope_missing_dependency = []

@@ -228,14 +228,14 @@ def baseline_runner():
 def test_launchpad_baseline_names_only_reviewed_existing_tests():
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert len(entries) == 146
+    assert len(entries) == 113
     assert {entry["package"] for entry in entries} == {
         runner.SHARED + suffix for suffix in (
             "auth", "chain", "db/production", "delivery", "delivery/natsdriver", "storage"
         )
     } | {runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"} | {
         runner.API + "internal/" + name for name in ("app", "broker", "cache", "rest", "store")
-    } | runner.INDEXER_PACKAGES | {
+    } | {
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app',
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card',
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads',
@@ -472,6 +472,7 @@ def test_launchpad_runner_preserves_real_package_coverage(tmp_path):
 
 def test_launchpad_go_job_provides_indexer_services():
     job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
+    assert job["env"]["GOFLAGS"] == "-timeout=15m"
     fixture_dsn = (
         "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/"
         "kindle_fixture?sslmode=disable"
@@ -494,12 +495,45 @@ def test_launchpad_go_job_provides_indexer_services():
     ]
     (test,) = [step for step in steps if step["name"] == "Test Go module"]
     assert steps.index(database) < steps.index(test)
+    (fixtures,) = [step for step in steps
+                   if step["name"] == "Record indexer fixture prerequisites"]
+    assert steps.index(fixtures) < steps.index(test)
+    for artifact in (
+        "internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz",
+        "internal/receipt/testdata/repair53-producer.json",
+        "../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json",
+        "../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json",
+    ):
+        assert f"test -s {artifact}" in fixtures["run"]
+
+
+def assert_indexer_runs_without_baseline(entries):
+    runner = baseline_runner()
+    assert not any(entry["package"].startswith(runner.INDEXER) for entry in entries)
+    for package in runner.INDEXER_PACKAGES:
+        assert runner.skip_pattern(entries, package) == ""
+    job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
+    assert job["strategy"]["matrix"]["module"].count("services/launchpad/indexer") == 1
+    assert "exclude" not in job["strategy"]["matrix"]
+    assert "continue-on-error" not in job
+    (run,) = [step for step in job["steps"] if step["name"] == "Test Go module"]
+    assert run["run"] == f'python3 "$GITHUB_WORKSPACE/{RUNNER}" --module .'
+    assert "if" not in run
+    assert "continue-on-error" not in run
 
 
 def test_launchpad_baseline_records_only_approved_indexer_failures():
     runner = baseline_runner()
-    entries = [entry for entry in runner.load_baseline()
-               if entry["package"].startswith(runner.INDEXER)]
+    assert_indexer_runs_without_baseline(runner.load_baseline())
+    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    entries = list(record["repair"].values())
+    assert len(entries) == 33
+    for entry in entries:
+        assert entry["producer"].strip()
+        directory = ROOT / "services/launchpad/indexer" / entry["package"].removeprefix(runner.INDEXER)
+        assert any(re.search(r"^func " + entry["test"] + r"\(t \*testing.T\)",
+                             source.read_text(), re.M)
+                   for source in directory.glob("*_test.go")), entry["test"]
     expected = {
         "app": {
             "TestRenderedProductionDocumentsBoot",
@@ -554,7 +588,6 @@ def test_launchpad_baseline_records_only_approved_indexer_failures():
     assert len(receipt_entries) == 11
     assert all("receipt qualification rejected" in entry["reason"] for entry in receipt_entries)
     for entry in entries:
-        assert entry["retiring_task"] == "22.39.162"
         assert not any(name in entry["reason"] for name in (
             "INDEXER_TEST_POSTGRES_URL", "INDEXER_TEST_REDIS_URL",
             "L06_POSTGRES_DSN", "L06_COMMIT_CRASH_DSN"
@@ -572,12 +605,10 @@ def test_launchpad_baseline_records_only_approved_indexer_failures():
 @pytest.mark.parametrize("owner", ["22.39.117", "22.39.154"])
 def test_launchpad_baseline_rejects_wrong_indexer_retiring_owner(tmp_path, owner):
     runner = baseline_runner()
-    entry = next(entry for entry in runner.load_baseline()
-                 if entry["package"].startswith(runner.INDEXER))
-    path = tmp_path / "wrong-indexer-owner.json"
-    path.write_text(json.dumps([entry | {"retiring_task": owner}]))
-    with pytest.raises(ValueError, match="retiring task"):
-        runner.load_baseline(path)
+    entries = runner.load_baseline()
+    assert not any(entry["package"].startswith(runner.INDEXER)
+                   and entry["retiring_task"] == owner for entry in entries)
+    assert_indexer_runs_without_baseline(entries)
 
 
 def test_launchpad_indexer_module_declares_test_dependencies():
@@ -756,7 +787,9 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
 
 def test_launchpad_baseline_records_indexer_refusal_classes():
     runner = baseline_runner()
-    entries = {entry["test"]: entry for entry in runner.load_baseline()}
+    assert_indexer_runs_without_baseline(runner.load_baseline())
+    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    entries = {entry["test"]: entry for entry in record["repair"].values()}
     assert "foreign key constraint" in entries[
         "TestCanonicalProcessorConcurrentFencingPostgres"]["reason"]
     assert "cannot disallow connections for the current database" in entries[

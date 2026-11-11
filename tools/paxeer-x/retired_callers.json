@@ -113,9 +113,7 @@
         "hosted/paxeer/src",
         "paxeer-relay"
       ],
-      "deleted_trees": [
-        "services/platform/hosted/paxeer"
-      ],
+      "deleted_trees": [],
       "replacement": "no relay is needed because the sequencer is the chain; the relay process and its configuration are removed"
     },
     "da": {
@@ -224,10 +222,7 @@
         "lxp_test_golden_replay",
         "history.lxl"
       ],
-      "deleted_trees": [
-        "tests/replay/lxp_test_golden_replay.c",
-        "tests/replay/golden/history.lxl"
-      ],
+      "deleted_trees": [],
       "replacement": "the replay golden and its targets are removed with the batch seal and replica; host determinism of the kept C modules is covered by the host determinism test"
     },
     "custody-credit": {
@@ -687,6 +682,18 @@
     {
       "path": "modules/README.md",
       "reason": "The retired-settlement compatibility section explicitly documents retained historical types and the native bank and committed-block replacements."
+    },
+    {
+      "path": "GOTCHA.kvx",
+      "reason": "history records quote retired names by design"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "reason": "history records quote retired names by design"
+    },
+    {
+      "path": "CODEMAP.md",
+      "reason": "history records quote retired names by design"
     }
   ],
   "allowed_references": [
@@ -742,6 +749,13 @@
       "citation": "Decision 3125 retains the live local HTTP error status extractor used by explorer transfer pagination, which does not call the retired mirror checkpoint status method."
     },
     {
+      "path": "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json",
+      "symbols": [
+        "recordDeposit"
+      ],
+      "citation": "Decisions 3125 and 3202 retain this history snapshot of the frozen reviewed launchpad Treasury ABI for authorized accounting of prior fee transfers, independent of the retired exchange intent store."
+    },
+    {
       "path": "sdk/launchpad/protocol/catalog/reviewed.json",
       "symbols": [
         "recordDeposit"
@@ -761,6 +775,21 @@
         "'EndpointClient: hostedUrl required for hosted px_ reads'"
       ],
       "citation": "Decision 3173 retains the hosted px_ diagnostic pinned by tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract; the hosted client is used only for registration and funding."
+    },
+    {
+      "path": "services/platform/hosted/paxeer/fork-rehearsal.sh",
+      "symbols": [
+        "layerxCustody",
+        "layerxAnchor"
+      ],
+      "citation": "Decision 3203 retains the retired precompile names in the refusal probes of the native fork rehearsal within the Paxeer compatibility root."
+    },
+    {
+      "path": "services/platform/hosted/paxeer/src/comet.rs",
+      "symbols": [
+        "layerxcustody"
+      ],
+      "citation": "Decision 3203 retains the retired custody store name in the refusal case that rejects custody queries within the Paxeer compatibility root."
     },
     {
       "path": "services/wallet/demo/README.md",
@@ -1367,9 +1396,10 @@
         "use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};",
         "    SnapshotBinding, StateCapture, FINALIZED_RANK,",
         "        if !(FINALIZED_RANK..=SETTLEMENT_RANK).contains(&request.required_rank) {",
-        "        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;"
+        "        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;",
+        "    let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?;"
       ],
-      "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements."
+      "citation": "The envelope-signing (11029) and availability-commit (11028) removals retain EIP-1559 sign_disclosed_call and the AI market committed-block rank from programs/crates/layerx-programs-ai-market/src/queries.rs; these exact lines use the replacements. Decision 3202 also retains the exact EIP-1559 signing line added by task 22.38.15."
     },
     {
       "path": "precompiles/layerxexchange/errors.go",
@@ -1550,10 +1580,12 @@
       "path": "tests/replay",
       "symbols": [
         "fee_governance",
+        "history.lxl",
         "lxp_grant",
+        "lxp_test_golden_replay",
         "receipt_authority"
       ],
-      "citation": "Decision 3125 retains the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry the retired names fee_governance, lxp_grant and receipt_authority as prefixes."
+      "citation": "Decisions 3125 and 3202 and task 22.39.277 retain the live golden replay source and history.lxl fixture, plus the live kernel identifiers lxp_programs_fee_governance_stage, lxp_grant_encode, lxp_grant_id_compute and lxp_verified_receipt_authority_facts, which carry retired names as prefixes."
     },
     {
       "path": "services/agent/crates/layerx-client/src/ai_market.rs",

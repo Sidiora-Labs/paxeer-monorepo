@@ -11,9 +11,9 @@ use layerx_types::rung::Rung;
 
 #[test]
 fn rung_metric_labels_are_exactly_the_three_rungs() {
-    let tenant = TenantId::new("rung-metrics").expect("tenant");
-    let mut metrics = Metrics::new(1).expect("metrics");
-    metrics.register_tenant(tenant.clone()).expect("register");
+    let tenant = lint_success(TenantId::new("rung-metrics"), "tenant");
+    let mut metrics = lint_success(Metrics::new(1), "metrics");
+    lint_success(metrics.register_tenant(tenant.clone()), "register");
     let expected = [
         (Rung::Submitted, MetricLabel::Submitted),
         (Rung::Receipted, MetricLabel::Receipted),
@@ -56,14 +56,91 @@ fn rung_metric_labels_are_exactly_the_three_rungs() {
 
 #[test]
 fn degraded_state_labels_name_node_conditions() {
-    let tenant = TenantId::new("degraded-metrics").expect("tenant");
+    let tenant = lint_success(TenantId::new("degraded-metrics"), "tenant");
     let reference = Reference {
         head_sequence: 20,
         checkpoint: [4; 32],
     };
     let mut controller = Controller::default();
     assert_eq!(controller.status().mode, Mode::Unreachable);
-    let cases = [
+    let cases = degraded_state_cases(reference);
+    let mut degraded_labels = BTreeSet::new();
+    for (observation, mode, label, name) in cases {
+        let status = enter(&mut controller, observation);
+        assert_eq!(status.mode, mode);
+        match observation {
+            Observation::Ready { maximum_rung, .. }
+            | Observation::Halted { maximum_rung, .. }
+            | Observation::Emergency { maximum_rung, .. }
+            | Observation::DataUnavailable { maximum_rung, .. } => {
+                assert_eq!(status.maximum_rung, maximum_rung);
+            }
+            Observation::Unreachable => assert!(status.reference.is_none()),
+        }
+        assert_eq!(status.readiness.preparation, mode == Mode::Healthy);
+        assert_eq!(status.readiness.live_stream, mode == Mode::Healthy);
+        let mut metrics = lint_success(Metrics::new(1), "metrics");
+        lint_success(metrics.register_tenant(tenant.clone()), "register");
+        lint_success(
+            controller.record_metric(&mut metrics, &tenant),
+            "degraded metric",
+        );
+        let snapshot = metrics.snapshot(&tenant);
+        assert_eq!(snapshot.len(), 1);
+        let (key, point) = &snapshot[0];
+        assert_eq!(key.kind, MetricKind::DegradedState);
+        assert_eq!(key.label, label);
+        assert_eq!(key.label.name(), name);
+        assert_eq!(key.label.to_string(), name);
+        assert_eq!(point.samples, 1);
+        assert_eq!(point.total, 1);
+        if mode != Mode::Healthy {
+            degraded_labels.insert(key.label.name());
+        }
+    }
+    assert_eq!(
+        degraded_labels,
+        BTreeSet::from([
+            "node_behind",
+            "node_unavailable",
+            "chain_halted",
+            "block_unavailable",
+        ])
+    );
+    let mut metrics = lint_success(Metrics::new(1), "metrics");
+    lint_success(metrics.register_tenant(tenant.clone()), "register");
+    for label in MetricLabel::ALL {
+        assert_eq!(
+            metrics.observe(&tenant, MetricKind::DegradedState, label, 1),
+            if label == MetricLabel::BoundaryReady || degraded_labels.contains(label.name()) {
+                Ok(())
+            } else {
+                Err(MetricsError::InvalidLabel)
+            }
+        );
+    }
+    let mut tenant_metrics = BoundedMetrics::default();
+    let error = normalize_error(
+        &InternalError::boundary("private node diagnostic"),
+        &tenant,
+        Surface::RustSdk,
+        &mut tenant_metrics,
+    );
+    assert_eq!(error.class, ErrorClass::Boundary);
+    assert_eq!(error.status, 503);
+    assert!(error.retryable);
+    assert_eq!(tenant_metrics.counters().len(), 1);
+    let (key, count) = lint_present(tenant_metrics.counters().first_key_value(), "node failure");
+    assert_eq!(key.label, TenantMetricLabel::BoundaryFailure);
+    assert_eq!(key.label.name(), "node_failure");
+    assert_eq!(key.label.to_string(), "node_failure");
+    assert_eq!(*count, 1);
+}
+
+fn degraded_state_cases(
+    reference: Reference,
+) -> [(Observation, Mode, MetricLabel, &'static str); 6] {
+    [
         (
             Observation::Unreachable,
             Mode::Unreachable,
@@ -115,78 +192,21 @@ fn degraded_state_labels_name_node_conditions() {
             MetricLabel::BlockUnavailable,
             "block_unavailable",
         ),
-    ];
-    let mut degraded_labels = BTreeSet::new();
-    for (observation, mode, label, name) in cases {
-        let status = enter(&mut controller, observation);
-        assert_eq!(status.mode, mode);
-        match observation {
-            Observation::Ready { maximum_rung, .. }
-            | Observation::Halted { maximum_rung, .. }
-            | Observation::Emergency { maximum_rung, .. }
-            | Observation::DataUnavailable { maximum_rung, .. } => {
-                assert_eq!(status.maximum_rung, maximum_rung);
-            }
-            Observation::Unreachable => assert!(status.reference.is_none()),
-        }
-        assert_eq!(status.readiness.preparation, mode == Mode::Healthy);
-        assert_eq!(status.readiness.live_stream, mode == Mode::Healthy);
-        let mut metrics = Metrics::new(1).expect("metrics");
-        metrics.register_tenant(tenant.clone()).expect("register");
-        controller
-            .record_metric(&mut metrics, &tenant)
-            .expect("degraded metric");
-        let snapshot = metrics.snapshot(&tenant);
-        assert_eq!(snapshot.len(), 1);
-        let (key, point) = &snapshot[0];
-        assert_eq!(key.kind, MetricKind::DegradedState);
-        assert_eq!(key.label, label);
-        assert_eq!(key.label.name(), name);
-        assert_eq!(key.label.to_string(), name);
-        assert_eq!(point.samples, 1);
-        assert_eq!(point.total, 1);
-        if mode != Mode::Healthy {
-            degraded_labels.insert(key.label.name());
-        }
+    ]
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
     }
-    assert_eq!(
-        degraded_labels,
-        BTreeSet::from([
-            "node_behind",
-            "node_unavailable",
-            "chain_halted",
-            "block_unavailable",
-        ])
-    );
-    let mut metrics = Metrics::new(1).expect("metrics");
-    metrics.register_tenant(tenant.clone()).expect("register");
-    for label in MetricLabel::ALL {
-        assert_eq!(
-            metrics.observe(&tenant, MetricKind::DegradedState, label, 1),
-            if label == MetricLabel::BoundaryReady || degraded_labels.contains(label.name()) {
-                Ok(())
-            } else {
-                Err(MetricsError::InvalidLabel)
-            }
-        );
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
-    let mut tenant_metrics = BoundedMetrics::default();
-    let error = normalize_error(
-        &InternalError::boundary("private node diagnostic"),
-        &tenant,
-        Surface::RustSdk,
-        &mut tenant_metrics,
-    );
-    assert_eq!(error.class, ErrorClass::Boundary);
-    assert_eq!(error.status, 503);
-    assert!(error.retryable);
-    assert_eq!(tenant_metrics.counters().len(), 1);
-    let (key, count) = tenant_metrics
-        .counters()
-        .first_key_value()
-        .expect("node failure");
-    assert_eq!(key.label, TenantMetricLabel::BoundaryFailure);
-    assert_eq!(key.label.name(), "node_failure");
-    assert_eq!(key.label.to_string(), "node_failure");
-    assert_eq!(*count, 1);
 }

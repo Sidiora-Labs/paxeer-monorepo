@@ -1,5 +1,4 @@
-import { decodeV2Contract } from '../../../../../sdk/launchpad/packages/sdk/src/transport.ts';
-import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
+import { decodeV2Contract, decodeContract } from '@kindle/sdk';
 export type Snapshot<T> = {
   value: T;
   storedAt: number;
@@ -60,11 +59,17 @@ export class SnapshotCache {
   private entries = new Map<string, Snapshot<unknown>>();
   private persistence: Promise<void> = Promise.resolve();
   persistenceError: string | undefined;
+  readonly publicCap: number;
+  readonly privateCap: number;
+  readonly storage?: PublicSnapshotStorage;
   constructor(
-    readonly publicCap = 100 * 1024 * 1024,
-    readonly privateCap = 20 * 1024 * 1024,
-    readonly storage?: PublicSnapshotStorage,
+    publicCap = 100 * 1024 * 1024,
+    privateCap = 20 * 1024 * 1024,
+    storage?: PublicSnapshotStorage,
   ) {
+    this.publicCap = publicCap;
+    this.privateCap = privateCap;
+    this.storage = storage;
     if (
       !Number.isSafeInteger(publicCap) ||
       publicCap <= 0 ||

@@ -38,17 +38,22 @@ import (
 const chainsBlockChainID = "hyperpax_125-1"
 
 type chainsBlockHarness struct {
-	a        *app.App
-	exec     sequencer.Executor
-	source   *sequencer.ConsensusSource
-	contract abi.ABI
-	sender   utils.TestAcct
-	open     func() (*app.App, func())
-	close    func()
-	at       time.Time
+	a         *app.App
+	exec      sequencer.Executor
+	source    *sequencer.ConsensusSource
+	contract  abi.ABI
+	sender    utils.TestAcct
+	open      func() (*app.App, func())
+	close     func()
+	at        time.Time
+	wantCodes map[int]uint32
 }
 
 func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
+	return newChainsBlockHarnessWithSetup(t, nil)
+}
+
+func newChainsBlockHarnessWithSetup(t *testing.T, setup func(*testing.T, *chainsBlockHarness, *app.App, sdk.Context)) *chainsBlockHarness {
 	t.Helper()
 	home, directory := t.TempDir(), t.TempDir()
 	h := &chainsBlockHarness{sender: utils.NewSigner(), at: time.Unix(1_800_000_000, 0).UTC()}
@@ -85,6 +90,10 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 	evmGenesis := evmtypes.DefaultGenesis()
 	evmGenesis.Params.MinimumFeePerGas = sdk.NewDec(10)
 	evmGenesis.Params.MaximumFeePerGas = sdk.NewDec(1000)
+	if setup != nil {
+		evmGenesis.Params.MinimumFeePerGas = sdk.NewDec(67_000_000)
+		evmGenesis.Params.MaximumFeePerGas = sdk.NewDec(500_000_000_000)
+	}
 	evmGenesis.Params.TargetGasUsedPerBlock = seqCtxTransferGas
 	evmGenesis.Params.MaxDynamicBaseFeeUpwardAdjustment = sdk.MustNewDecFromStr("0.5")
 	evmGenesis.Params.MaxDynamicBaseFeeDownwardAdjustment = sdk.MustNewDecFromStr("0.5")
@@ -100,6 +109,9 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 	params := *app.DefaultConsensusParams
 	block := *params.Block
 	block.MaxGas, block.MaxGasWanted = 1_000_000, 1_000_000
+	if setup != nil {
+		block.MaxGas, block.MaxGasWanted = 10_000_000, 10_000_000
+	}
 	params.Block = &block
 	_, err = h.a.InitChain(context.Background(), &abci.RequestInitChain{
 		Time: h.at, ChainId: chainsBlockChainID, InitialHeight: 1,
@@ -116,6 +128,9 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 	funds := sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewIntWithDecimal(1000, 18)))
 	require.NoError(t, h.a.BankKeeper.MintCoins(ctx, minttypes.ModuleName, funds))
 	require.NoError(t, h.a.BankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, h.sender.AccountAddress, funds))
+	if setup != nil {
+		setup(t, h, h.a, ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)))
+	}
 	h.a.SetDeliverStateToCommit()
 	_, err = h.a.Commit(context.Background())
 	require.NoError(t, err)
@@ -140,12 +155,16 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 }
 
 func (h *chainsBlockHarness) transaction(t *testing.T, chainID int64, nonce, gas uint64, to common.Address, value *big.Int, data []byte) ([]byte, common.Hash) {
+	return h.signedTransaction(t, h.sender, chainID, nonce, gas, to, value, data)
+}
+
+func (h *chainsBlockHarness) signedTransaction(t *testing.T, signer utils.TestAcct, chainID int64, nonce, gas uint64, to common.Address, value *big.Int, data []byte) ([]byte, common.Hash) {
 	t.Helper()
 	id := big.NewInt(chainID)
 	tx, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		ChainID: id, Nonce: nonce, GasTipCap: big.NewInt(seqCtxGasPrice), GasFeeCap: big.NewInt(seqCtxGasPrice),
 		Gas: gas, To: &to, Value: value, Data: data,
-	}), ethtypes.LatestSignerForChainID(id), h.sender.EvmPrivateKey)
+	}), ethtypes.LatestSignerForChainID(id), signer.EvmPrivateKey)
 	require.NoError(t, err)
 	require.Equal(t, id, tx.ChainId())
 	txData, err := ethtx.NewTxDataFromTx(tx)
@@ -207,11 +226,16 @@ func (h *chainsBlockHarness) commit(t *testing.T, height int64) {
 	require.NoError(t, err)
 	require.Len(t, response.TxResults, len(sealed.Txs))
 	for i, result := range response.TxResults {
-		require.Zero(t, result.Code, result.Log)
+		if code, ok := h.wantCodes[i]; ok {
+			require.Equal(t, code, result.Code, result.Log)
+		} else {
+			require.Zero(t, result.Code, result.Log)
+		}
 		if i > 0 {
 			require.Same(t, sealed.Results[i], result)
 		}
 	}
+	h.wantCodes = nil
 	_, err = h.a.Commit(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, height, h.a.LastBlockHeight())

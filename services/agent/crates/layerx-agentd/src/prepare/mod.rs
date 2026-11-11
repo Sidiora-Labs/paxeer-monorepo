@@ -88,6 +88,9 @@ pub mod evm {
         }
 
         /// Encodes head offsets relative to the ABI argument block, excluding the selector.
+        ///
+        /// # Errors
+        /// Returns `PrepareError::InvalidDefaults` if ABI head or tail sizing overflows.
         pub fn encode(&self) -> Result<Vec<u8>, PrepareError> {
             let head_length = self
                 .arguments
@@ -173,6 +176,8 @@ pub mod evm {
     }
 
     impl ProductionEvmPreparationBoundary {
+        /// # Errors
+        /// Returns the sequencer endpoint error for invalid URLs or TLS trust roots.
         pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
             let endpoint = SequencerEndpoint::new(url, trust_anchors)?;
             let roots: Vec<_> = trust_anchors
@@ -198,6 +203,9 @@ pub mod evm {
             })
         }
 
+        /// # Errors
+        /// Returns transport, TLS or RPC failures, `Unavailable` for a missing head,
+        /// and `Malformed` when the header fields or verified block hash disagree.
         pub fn preparation_state(
             &self,
             from: &[u8; 20],
@@ -207,7 +215,7 @@ pub mod evm {
                 .post(&self.url)
                 .send_json(json!({"jsonrpc": "2.0", "id": 1,
                     "method": "eth_getBlockByNumber", "params": ["latest", false]}))
-                .map_err(map_transport)?;
+                .map_err(|value| map_transport(&value))?;
             let status = response.status().as_u16();
             match status {
                 200 => {}
@@ -273,7 +281,7 @@ pub mod evm {
         }
     }
 
-    fn map_transport(error: ureq::Error) -> SequencerError {
+    fn map_transport(error: &ureq::Error) -> SequencerError {
         match error {
             ureq::Error::Timeout(_)
             | ureq::Error::Io(_)
@@ -307,6 +315,13 @@ pub mod evm {
         u128::from_str_radix(digits, 16).map_err(|_| SequencerError::Malformed)
     }
 
+    /// # Errors
+    /// Returns sequencer read or gas-estimation failures, invalid fee or payload limits,
+    /// a stale nonce, or a disclosure error when the resulting call cannot be bound.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public preparation API that accepts an owned request."
+    )]
     pub fn prepare_activity(
         boundary: &ProductionEvmPreparationBoundary,
         defaults: PreparationDefaults,
@@ -329,6 +344,14 @@ pub mod evm {
     }
 
     /// Deterministic construction from an observed state and its pending gas estimate.
+    ///
+    /// # Errors
+    /// Returns invalid defaults, a stale nonce, an exceeded payload limit, or a
+    /// disclosure error when the constructed call cannot be bound.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn prepare_bound(
         state: EvmPreparationState,
         defaults: PreparationDefaults,
@@ -368,6 +391,8 @@ pub mod evm {
         SigningHashMismatch,
     }
 
+    /// # Errors
+    /// Returns a binding error when the retained call, disclosure or hashes disagree.
     pub fn verify_call_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
         super::disclose::verify_binding(prepared)
     }

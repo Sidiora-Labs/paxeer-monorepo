@@ -1,5 +1,175 @@
 include!("support/f11_rooms.rs");
 
+impl Harness {
+    fn further_deal_request(&self, deal: Digest32) -> RecordDealRequest {
+        let mut request = self.deal_request(digest(60), digest(61), deal);
+        request.layers[0] = Some(LayerSplit {
+            bid_id: digest(72),
+            first_layer: 0,
+            end_layer: 12,
+        });
+        request.layers[1] = Some(LayerSplit {
+            bid_id: digest(73),
+            first_layer: 12,
+            end_layer: 20,
+        });
+        request
+    }
+}
+
+#[test]
+fn a_matched_ask_accepts_a_further_deal_of_the_room_host() {
+    use layerx_programs_ai_market::queries::{self, DealView};
+
+    let mut h = Harness::ready(123);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    let earlier = h.book().deal(first.deal_id).unwrap().unwrap();
+    let ask = h.book().ask(first.ask_id).unwrap().unwrap();
+    assert_eq!(ask.state, AskState::Matched);
+    h.bid(digest(60), digest(72), PEER_A);
+    h.bid(digest(60), digest(73), PEER_B);
+    let further = h.further_deal_request(digest(63));
+    assert_ne!(further.layers, first.layers);
+    let sequence = h.sequence(HOST);
+    let encoded = h.deal(&further);
+    assert_eq!(h.sequence(HOST), sequence + 1);
+    let persisted = h.current.clone();
+    let mut restarted = Harness {
+        current: persisted.clone(),
+        height: h.height,
+        request: h.request,
+    };
+    assert_eq!(restarted.book().counts(), [1, 1, 4, 2]);
+    assert_eq!(restarted.book().ask(first.ask_id).unwrap().unwrap(), ask);
+    assert_eq!(
+        restarted.book().deal(first.deal_id).unwrap().unwrap(),
+        earlier
+    );
+    for request in [&first, &further] {
+        let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
+        let n =
+            queries::answer_deal_view(&restarted.current, request.deal_id.as_bytes(), &mut bytes)
+                .unwrap();
+        let view = DealView::decode(&bytes[..n]).unwrap();
+        assert_eq!(
+            view.deal,
+            restarted.book().deal(request.deal_id).unwrap().unwrap()
+        );
+        assert_eq!(view.deal.ask_id, first.ask_id);
+        assert_eq!(view.deal.room_id, request.room_id);
+        assert_eq!(view.deal.deal_id, request.deal_id);
+        assert_eq!(view.deal.layers, request.layers);
+        assert_eq!(view.deal.roster_digest, request.roster_digest);
+        assert_eq!(
+            view.deal.agreed_price_per_thousand_tokens,
+            request.agreed_price_per_thousand_tokens
+        );
+        assert_eq!(view.deal.state, DealState::Open);
+        assert_eq!(view.settled_tokens, 0);
+        assert_eq!(view.settled_amount_owed, 0);
+    }
+    let (routed, result, _) = restarted.execute(HOST, &encoded);
+    assert!(matches!(routed, Routed::Unchanged { .. }));
+    assert_eq!(
+        codec::decode_result(&result).unwrap().status,
+        ResultStatus::AlreadyApplied
+    );
+    assert_eq!(restarted.current, persisted);
+}
+
+#[test]
+fn a_further_deal_passes_the_checks_of_a_first_deal() {
+    let mut h = Harness::ready(123);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    h.ask(digest(60), digest(64), 124);
+    h.bid(digest(60), digest(72), PEER_A);
+    h.bid(digest(60), digest(73), PEER_B);
+    h.bid(digest(60), digest(74), PEER_B);
+    let stale_roster = h.roster();
+    let mut admission = h.admission();
+    roster::open_epoch(&mut admission, 2, |_| false).unwrap();
+    h.install_admission(&admission);
+    h.height = ORIGIN + 258;
+    assert_ne!(h.roster(), stale_roster);
+    let sequence = h.sequence(HOST);
+    let before = h.current.clone();
+    for case in 0..4 {
+        let mut request = h.further_deal_request(digest(63));
+        let error = match case {
+            0 => {
+                request.roster_digest = stale_roster;
+                F11_ROSTER_DIGEST_MISMATCH
+            }
+            1 => {
+                request.agreed_price_per_thousand_tokens = 21;
+                CONFLICT
+            }
+            2 => {
+                request.layers[0].as_mut().unwrap().bid_id = digest(74);
+                CONFLICT
+            }
+            3 => {
+                request.deal_id = first.deal_id;
+                CONFLICT
+            }
+            _ => unreachable!(),
+        };
+        for ask_id in [digest(64), first.ask_id] {
+            request.ask_id = ask_id;
+            h.refuse(
+                dispatch::RecordDeal,
+                HOST,
+                &payload(1297, |out| request.encode(out)),
+                Presence::Present(request.roster_digest),
+                error,
+            );
+            assert_eq!(h.sequence(HOST), sequence);
+            assert_eq!(h.current, before);
+        }
+    }
+    assert_eq!(h.book().counts(), [1, 2, 5, 1]);
+    assert_eq!(
+        h.book().ask(first.ask_id).unwrap().unwrap().state,
+        AskState::Matched
+    );
+    assert_eq!(
+        h.book().ask(digest(64)).unwrap().unwrap().state,
+        AskState::Open
+    );
+    assert!(h.book().deal(digest(63)).unwrap().is_none());
+    h.deal(&h.further_deal_request(digest(63)));
+    assert_eq!(h.book().counts(), [1, 2, 5, 2]);
+}
+
+#[test]
+fn a_further_deal_is_refused_from_another_account() {
+    let mut h = Harness::ready(123);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    h.bid(digest(60), digest(72), PEER_A);
+    h.bid(digest(60), digest(73), PEER_B);
+    let further = h.further_deal_request(digest(63));
+    let sequence = h.sequence(PEER_A);
+    h.refuse(
+        dispatch::RecordDeal,
+        PEER_A,
+        &payload(1297, |out| further.encode(out)),
+        Presence::Present(further.roster_digest),
+        UNAUTHORIZED,
+    );
+    assert_eq!(h.sequence(PEER_A), sequence);
+    assert_eq!(h.book().counts(), [1, 1, 4, 1]);
+    assert_eq!(
+        h.book().ask(first.ask_id).unwrap().unwrap().state,
+        AskState::Matched
+    );
+    assert!(h.book().deal(further.deal_id).unwrap().is_none());
+    h.deal(&further);
+    assert_eq!(h.book().counts(), [1, 1, 4, 2]);
+}
+
 #[test]
 fn open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding() {
     let mut h = Harness::ready(123);
@@ -620,4 +790,124 @@ fn f11_room_profile_survives_room_view_restart() -> CodecResult<()> {
     book_bytes[4..6].copy_from_slice(&1u16.to_be_bytes());
     assert!(matches!(RoomBook::decode(&book_bytes), Err(BAD_VERSION)));
     Ok(())
+}
+
+#[test]
+fn a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask() {
+    use layerx_programs_ai_market::{
+        placement::PlacementBook,
+        queries::{self, DealView, RoomView},
+    };
+
+    for further_id in [59, 63] {
+        let mut h = Harness::ready(123);
+        let first = h.deal_request(digest(60), digest(61), digest(62));
+        h.deal(&first);
+        let earlier = h.book().deal(first.deal_id).unwrap().unwrap();
+        let ask = h.book().ask(first.ask_id).unwrap().unwrap();
+        let mut further = h.deal_request(first.room_id, first.ask_id, digest(further_id));
+        further.layers[0].as_mut().unwrap().end_layer = 12;
+        further.layers[1].as_mut().unwrap().first_layer = 12;
+        assert_ne!(first.layers, further.layers);
+        let sequence = h.sequence(HOST);
+        let encoded = h.deal(&further);
+        assert_eq!(h.sequence(HOST), sequence + 1);
+        let persisted = h.current.clone();
+        let mut restarted = Harness {
+            current: persisted.clone(),
+            height: h.height,
+            request: h.request,
+        };
+        assert_eq!(restarted.book().counts(), [1, 1, 2, 2]);
+        assert_eq!(restarted.book().ask(first.ask_id).unwrap().unwrap(), ask);
+        assert_eq!(
+            restarted.book().deal(first.deal_id).unwrap().unwrap(),
+            earlier
+        );
+        assert_eq!(
+            PlacementBook::decode(restarted.state().room_market().unwrap().1, digest(50))
+                .unwrap()
+                .counts(),
+            [0, 0]
+        );
+        for request in [&first, &further] {
+            let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
+            let n = queries::answer_deal_view(
+                &restarted.current,
+                request.deal_id.as_bytes(),
+                &mut bytes,
+            )
+            .unwrap();
+            let view = DealView::decode(&bytes[..n]).unwrap();
+            assert_eq!(
+                view.deal,
+                restarted.book().deal(request.deal_id).unwrap().unwrap()
+            );
+            assert_eq!(view.deal.ask_id, request.ask_id);
+            assert_eq!(view.deal.room_id, request.room_id);
+            assert_eq!(view.deal.deal_id, request.deal_id);
+            assert_eq!(view.deal.layers, request.layers);
+            assert_eq!(view.deal.roster_digest, request.roster_digest);
+            assert_eq!(
+                view.deal.agreed_price_per_thousand_tokens,
+                request.agreed_price_per_thousand_tokens
+            );
+            assert_eq!(view.deal.state, DealState::Open);
+            assert_eq!(view.settled_tokens, 0);
+            assert_eq!(view.settled_amount_owed, 0);
+        }
+        let mut bytes = vec![0; queries::ROOM_VIEW_BYTES];
+        let n = queries::answer_room_view(&restarted.current, first.room_id.as_bytes(), &mut bytes)
+            .unwrap();
+        let room = RoomView::decode(&bytes[..n]).unwrap();
+        assert!(room.open_asks.iter().all(Option::is_none));
+        assert!(room.open_bids.iter().all(Option::is_none));
+        let (routed, result, event) = restarted.execute(HOST, &encoded);
+        assert!(matches!(routed, Routed::Unchanged { .. }));
+        assert_eq!(
+            codec::decode_result(&result).unwrap().status,
+            ResultStatus::AlreadyApplied
+        );
+        assert!(event.is_empty());
+        assert_eq!(restarted.current, persisted);
+        assert_eq!(restarted.sequence(HOST), sequence + 1);
+    }
+}
+
+#[test]
+fn a_deal_of_another_ask_that_names_a_bid_of_a_deal_is_refused() {
+    let mut h = Harness::ready(123);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    // A third deal must also agree with every existing use of the shared bid.
+    let mut same_ask = h.deal_request(first.room_id, first.ask_id, digest(59));
+    same_ask.layers[0].as_mut().unwrap().end_layer = 12;
+    same_ask.layers[1].as_mut().unwrap().first_layer = 12;
+    h.deal(&same_ask);
+    h.ask(first.room_id, digest(64), 124);
+    let before = h.current.clone();
+    let sequence = h.sequence(HOST);
+    for bid in [70, 71] {
+        let mut other = h.deal_request(first.room_id, digest(64), digest(63));
+        other.layers = [None; MAX_DEAL_PEERS];
+        other.layers[0] = Some(LayerSplit {
+            bid_id: digest(bid),
+            first_layer: 0,
+            end_layer: 8,
+        });
+        h.refuse(
+            dispatch::RecordDeal,
+            HOST,
+            &payload(1297, |out| other.encode(out)),
+            Presence::Present(other.roster_digest),
+            CONFLICT,
+        );
+        assert_eq!(h.current, before);
+        assert_eq!(h.sequence(HOST), sequence);
+        assert!(h.book().deal(other.deal_id).unwrap().is_none());
+        assert_eq!(
+            h.book().ask(other.ask_id).unwrap().unwrap().state,
+            AskState::Open
+        );
+    }
 }

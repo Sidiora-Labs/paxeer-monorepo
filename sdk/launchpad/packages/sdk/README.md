@@ -37,6 +37,21 @@ Only GET operations marked as idempotent reads retry network interruption or eli
 
 [src/served-routes.ts](src/served-routes.ts) records route availability: unrouted operations fail before a request, and development-only operations fail in production. Operations requiring a dedicated streaming transport also refuse ordinary calls. `CapabilityUnavailableError` has code `capability_unavailable` and defaults to status 501; the transport also uses it for HTTP 501 or an undocumented 404. `HttpError` retains status, stable code and a validated error envelope's request ID in `envelope.requestId`. Server message/details are sanitized. Redirects and non-JSON success bodies produce `UNEXPECTED_REDIRECT` and `NON_JSON_RESPONSE`; exhausted network interruption produces `StreamTransportError('NETWORK_INTERRUPTED')`.
 
+## Launched chain reads
+
+`Chains` reads the launched chain registry and revenue through the same `SdkClient`. Each response is validated before it is returned. Chain numbers and amounts are decimal strings. The pool detail type includes `pool.homeChain`, with `"0"` for a root network market.
+
+```ts
+import { Chains, SdkClient } from '@kindle/sdk';
+
+const chains = new Chains(new SdkClient(transportConfig));
+const page = await chains.list({ limit: 20 });
+const detail = await chains.get(page.data.items[0].chain);
+const revenue = await chains.revenue(detail.data.chain.chain, { holder: walletAddress, limit: 20 });
+```
+
+Use `nextCursor` from a page as the next call's `cursor` to continue the list or revenue history.
+
 ## Snapshots, streams and amounts
 
 `SnapshotStreamV2` installs a complete snapshot with watermarks before applying buffered replay events at an acknowledged checkpoint. `installSnapshot` and `applyEvent` must commit synchronously; returning a Promise is rejected. Failed store effects do not advance client positions. Sequences and monetary values remain decimal strings on the wire; sequence comparisons and amount formatting use `BigInt`. [Amount helpers](src/amounts.ts) keep `Pax18` and `Usdl6` separate, require explicit display rounding and optionally carry generated price provenance.

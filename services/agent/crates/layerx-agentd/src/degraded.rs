@@ -239,6 +239,9 @@ impl Controller {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the daemon is degraded or inference availability does not permit a new
+    /// deal.
     pub fn guard_new_inference_deal<T>(
         &self,
         operation: impl FnOnce() -> T,
@@ -246,6 +249,10 @@ impl Controller {
         self.guard_preparation(operation)
     }
 
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn serve_open_inference_deal<T>(&self, operation: impl FnOnce() -> T) -> T {
         operation()
     }

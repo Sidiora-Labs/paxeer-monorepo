@@ -1,4 +1,4 @@
-//! TLS exchange and input-bound cases run under the library's outbound_tls::tests filter.
+//! TLS exchange and input-bound cases run under the library's `outbound_tls::tests` filter.
 
 use layerx_agentd::human::HumanOperationError;
 use layerx_agentd::human_runtime::RemoteHumanAuthority;

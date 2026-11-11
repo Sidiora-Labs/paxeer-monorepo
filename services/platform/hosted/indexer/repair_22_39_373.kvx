@@ -1,0 +1,386 @@
+[repair.22.39.373]
+requirement = "22998.1"
+base_revision = "cb8c8ad4b426fe7f5a755d786919d135210c905b"
+inventory_revision = "e35304feb8bbbdde332bc02ea80e2e3bec88d075"
+implementation = "Documentation, must_use attributes and behavior-preserving local lint repairs; no public names or signatures changed, no tests changed."
+qualification = "The exact verified candidate revision, command, exit and private log are recorded by hf-done in /out/run/gates.jsonl and the final evidence row; no candidate edits follow the final hf-build or hf-done."
+
+[inventory.before]
+command = "cargo clippy --locked --keep-going --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --lib --bins --message-format=json -- -D warnings"
+exit = 101
+log = "/out/logs/indexer-lint-before.jsonl"
+total = 117
+targets = "117 library errors; executables blocked by the library. Dependency warnings are excluded from package counts."
+clippy_assigning_clones = 1
+clippy_case_sensitive_file_extension_comparisons = 2
+clippy_cast_possible_truncation = 1
+clippy_cast_possible_wrap = 1
+clippy_doc_markdown = 44
+clippy_manual_is_multiple_of = 2
+clippy_manual_let_else = 1
+clippy_missing_errors_doc = 39
+clippy_missing_panics_doc = 1
+clippy_must_use_candidate = 6
+clippy_needless_borrow = 5
+clippy_needless_pass_by_value = 2
+clippy_needless_question_mark = 1
+clippy_redundant_closure_for_method_calls = 1
+clippy_single_match_else = 2
+clippy_too_many_lines = 7
+clippy_type_complexity = 1
+
+[inventory.before.file_1]
+path = "services/platform/hosted/indexer/src/abi.rs"
+total = 1
+clippy_doc_markdown = 1
+
+[inventory.before.file_2]
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+total = 7
+clippy_missing_errors_doc = 3
+clippy_needless_borrow = 3
+clippy_single_match_else = 1
+
+[inventory.before.file_3]
+path = "services/platform/hosted/indexer/src/ai_market_membership.rs"
+total = 1
+clippy_cast_possible_truncation = 1
+
+[inventory.before.file_4]
+path = "services/platform/hosted/indexer/src/ai_runtime.rs"
+total = 10
+clippy_doc_markdown = 3
+clippy_missing_errors_doc = 7
+
+[inventory.before.file_5]
+path = "services/platform/hosted/indexer/src/ai_views.rs"
+total = 3
+clippy_missing_errors_doc = 3
+
+[inventory.before.file_6]
+path = "services/platform/hosted/indexer/src/api.rs"
+total = 4
+clippy_manual_let_else = 1
+clippy_needless_pass_by_value = 1
+clippy_too_many_lines = 2
+
+[inventory.before.file_7]
+path = "services/platform/hosted/indexer/src/backfill.rs"
+total = 1
+clippy_needless_borrow = 1
+
+[inventory.before.file_8]
+path = "services/platform/hosted/indexer/src/chains.rs"
+total = 5
+clippy_missing_errors_doc = 2
+clippy_missing_panics_doc = 1
+clippy_must_use_candidate = 2
+
+[inventory.before.file_9]
+path = "services/platform/hosted/indexer/src/codec.rs"
+total = 2
+clippy_manual_is_multiple_of = 2
+
+[inventory.before.file_10]
+path = "services/platform/hosted/indexer/src/lib.rs"
+total = 3
+clippy_doc_markdown = 3
+
+[inventory.before.file_11]
+path = "services/platform/hosted/indexer/src/names.rs"
+total = 7
+clippy_missing_errors_doc = 3
+clippy_must_use_candidate = 4
+
+[inventory.before.file_12]
+path = "services/platform/hosted/indexer/src/paxeer.rs"
+total = 13
+clippy_assigning_clones = 1
+clippy_doc_markdown = 6
+clippy_missing_errors_doc = 3
+clippy_too_many_lines = 2
+clippy_type_complexity = 1
+
+[inventory.before.file_13]
+path = "services/platform/hosted/indexer/src/paxscan.rs"
+total = 4
+clippy_doc_markdown = 1
+clippy_missing_errors_doc = 2
+clippy_too_many_lines = 1
+
+[inventory.before.file_14]
+path = "services/platform/hosted/indexer/src/store.rs"
+total = 54
+clippy_case_sensitive_file_extension_comparisons = 2
+clippy_cast_possible_wrap = 1
+clippy_doc_markdown = 30
+clippy_missing_errors_doc = 16
+clippy_needless_borrow = 1
+clippy_needless_question_mark = 1
+clippy_single_match_else = 1
+clippy_too_many_lines = 2
+
+[inventory.before.file_15]
+path = "services/platform/hosted/indexer/src/transport.rs"
+total = 2
+clippy_needless_pass_by_value = 1
+clippy_redundant_closure_for_method_calls = 1
+
+[allowance.1]
+file = "api.rs"
+item = "fn names_route"
+lint = "clippy::too_many_lines"
+reason = "Keep the ordered names route dispatch together without changing route precedence."
+
+[allowance.2]
+file = "api.rs"
+item = "pub fn route_with"
+lint = "clippy::too_many_lines"
+reason = "Keep the existing ordered public route dispatch and refusal precedence together."
+
+[allowance.3]
+file = "paxeer.rs"
+item = "fn decode_log"
+lint = "clippy::too_many_lines"
+reason = "Keep the existing event-family decoding order and transfer projection together."
+
+[allowance.4]
+file = "paxeer.rs"
+item = "pub fn decode_cosmos_tx"
+lint = "clippy::too_many_lines"
+reason = "Keep one transaction decoding pass together with its existing event and transfer ordering."
+
+[allowance.5]
+file = "paxscan.rs"
+item = "pub fn range"
+lint = "clippy::too_many_lines"
+reason = "Read all six table families in the same read-only repeatable-read transaction."
+
+[allowance.6]
+file = "store.rs"
+item = "fn write_unit"
+lint = "clippy::too_many_lines"
+reason = "Keep every row family and cursor update in one atomic unit write path."
+
+[allowance.7]
+file = "store.rs"
+item = "pub fn rollback"
+lint = "clippy::too_many_lines"
+reason = "Keep the finality checks and every projection deletion in one atomic rollback path."
+
+[allowance.8]
+file = "paxeer.rs"
+item = "pub fn block_with_receipts"
+lint = "clippy::type_complexity"
+reason = "Preserve the public return type pairing a full block with its transaction-hash-indexed receipts."
+
+[allowance.9]
+file = "store.rs"
+item = "pub fn name"
+lint = "clippy::case_sensitive_file_extension_comparisons"
+reason = "The suffix is a name-service domain, not a file extension; the name is already ASCII lowercase."
+
+[allowance.10]
+file = "store.rs"
+item = "pub fn name_for_address"
+lint = "clippy::case_sensitive_file_extension_comparisons"
+reason = "The suffix is a name-service domain, not a file extension; the reverse name is already ASCII lowercase."
+
+[allowance.11]
+file = "transport.rs"
+item = "fn source_io"
+lint = "clippy::needless_pass_by_value"
+reason = "Own the I/O error to match Result::map_err callbacks without changing the error adapter signature."
+
+[implementation.notes]
+ordinal = "Registry event ordinals use an i64 counter; the prior enumerate cast cannot wrap for a Vec of nonzero-sized EventRow values, whose allocated bytes are bounded by isize::MAX."
+proof_fields = "Leaf operation fields 1 through 4 map to literal array indexes 0 through 3, preserving protobuf decoding without a narrowing cast."
+
+[inventory.after]
+command = "cargo clippy --locked --keep-going --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --lib --bins --message-format=json -- -D warnings"
+exit = 0
+log = "/out/logs/indexer-lint-clean.jsonl"
+total = 0
+library = 0
+layerx_indexer_binary = 0
+layerx_ai_source_binary = 0
+clippy_assigning_clones = 0
+clippy_case_sensitive_file_extension_comparisons = 0
+clippy_cast_possible_truncation = 0
+clippy_cast_possible_wrap = 0
+clippy_doc_markdown = 0
+clippy_manual_is_multiple_of = 0
+clippy_manual_let_else = 0
+clippy_missing_errors_doc = 0
+clippy_missing_panics_doc = 0
+clippy_must_use_candidate = 0
+clippy_needless_borrow = 0
+clippy_needless_pass_by_value = 0
+clippy_needless_question_mark = 0
+clippy_redundant_closure_for_method_calls = 0
+clippy_single_match_else = 0
+clippy_too_many_lines = 0
+clippy_type_complexity = 0
+
+[inventory.test_targets]
+command = "cargo clippy --locked --keep-going --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --tests --message-format=json -- -D warnings"
+exit = 101
+log = "/out/logs/indexer-test-lint.jsonl"
+total = 903
+scope = "Inventory only; test targets were not repaired. Counts exclude dependency-package warnings and count compiler messages, not rendered summary lines."
+
+[inventory.test_targets.target_1]
+kind = "bin"
+name = "layerx-ai-source"
+reports = 0
+
+[inventory.test_targets.target_2]
+kind = "bin"
+name = "layerx-indexer"
+reports = 0
+
+[inventory.test_targets.target_3]
+kind = "lib"
+name = "layerx_indexer"
+reports = 7
+
+[inventory.test_targets.target_4]
+kind = "test"
+name = "abi_image_layout"
+reports = 0
+
+[inventory.test_targets.target_5]
+kind = "test"
+name = "ai_health_privacy"
+reports = 0
+
+[inventory.test_targets.target_6]
+kind = "test"
+name = "ai_reputation_finality"
+reports = 118
+
+[inventory.test_targets.target_7]
+kind = "test"
+name = "ai_snapshot_minimal"
+reports = 116
+
+[inventory.test_targets.target_8]
+kind = "test"
+name = "ai_source"
+reports = 0
+
+[inventory.test_targets.target_9]
+kind = "test"
+name = "backfill"
+reports = 146
+
+[inventory.test_targets.target_10]
+kind = "test"
+name = "chains_api"
+reports = 4
+
+[inventory.test_targets.target_11]
+kind = "test"
+name = "chains_ingest"
+reports = 5
+
+[inventory.test_targets.target_12]
+kind = "test"
+name = "chains_scope"
+reports = 2
+
+[inventory.test_targets.target_13]
+kind = "test"
+name = "env_example"
+reports = 1
+
+[inventory.test_targets.target_14]
+kind = "test"
+name = "finality_evidence_v2"
+reports = 147
+
+[inventory.test_targets.target_15]
+kind = "test"
+name = "history_position"
+reports = 63
+
+[inventory.test_targets.target_16]
+kind = "test"
+name = "ingest"
+reports = 1
+
+[inventory.test_targets.target_17]
+kind = "test"
+name = "names_api"
+reports = 2
+
+[inventory.test_targets.target_18]
+kind = "test"
+name = "names_ingest"
+reports = 5
+
+[inventory.test_targets.target_19]
+kind = "test"
+name = "repair_22_31_350"
+reports = 89
+
+[inventory.test_targets.target_20]
+kind = "test"
+name = "repair_22_33_1444"
+reports = 68
+
+[inventory.test_targets.target_21]
+kind = "test"
+name = "repair_22_33_1445"
+reports = 13
+
+[inventory.test_targets.target_22]
+kind = "test"
+name = "repair_22_33_1446"
+reports = 109
+
+[inventory.test_targets.target_23]
+kind = "test"
+name = "retired_client_modules"
+reports = 4
+
+[inventory.test_targets.target_24]
+kind = "test"
+name = "rollback_projection"
+reports = 3
+
+[inventory.test_lints]
+clippy_bool_to_int_with_if = 2
+clippy_cast_possible_truncation = 18
+clippy_cast_possible_wrap = 14
+clippy_cast_sign_loss = 30
+clippy_doc_markdown = 49
+clippy_elidable_lifetime_names = 6
+clippy_expect_used = 555
+clippy_format_collect = 1
+clippy_format_in_format_args = 2
+clippy_map_unwrap_or = 1
+clippy_match_wildcard_for_single_variants = 1
+clippy_needless_pass_by_value = 1
+clippy_semicolon_if_nothing_returned = 2
+clippy_similar_names = 1
+clippy_single_match_else = 1
+clippy_too_many_lines = 38
+clippy_type_complexity = 1
+clippy_unnecessary_wraps = 5
+clippy_unreadable_literal = 15
+clippy_unwrap_used = 54
+dead_code = 106
+
+[finding.test_lint]
+task = "22.39.373"
+file = "services/platform/hosted/indexer/tests and src unit-test modules"
+symbol = "test targets (inventory only)"
+observed = "At source revision e35304feb8bbbdde332bc02ea80e2e3bec88d075 with the in-scope lint repair applied, cargo clippy --locked --keep-going --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-deps --tests --message-format=json -- -D warnings exited 101; private evidence /out/logs/indexer-test-lint.jsonl records 903 test-target reports."
+assumption = "Existing test-target lint is outside this library-and-executables repair and is recorded without changes or reruns."
+severity = "note"
+
+[gotcha.task_scope]
+symptom = "A clean library does not imply clean integration or unit-test targets; the test sweep reports existing test-only lints."
+cause = "The declared verification lints only the library and executables, then executes two integration targets without linting them."
+do = "Keep the test-target inventory separate from production target counts and qualify only through the declared bounded gates."

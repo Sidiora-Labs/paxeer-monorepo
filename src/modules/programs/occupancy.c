@@ -316,6 +316,8 @@ lxp_result lxp_programs_occupancy_bind_call(
     if (lxp_u128_sub(admission->signed_fee_limit, execution_ceiling,
                      &bridge->authorized_responsibility_ceiling) != LXP_OK)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
+    /* The remainder is the only responsibility that an occupancy position
+     * opened by this call may debit. */
     (void)memcpy(bridge->authorized_root_program, root_program, 32U);
     (void)memcpy(bridge->authorized_payer, principal, 32U);
     (void)memcpy(bridge->authorized_activity_binding,
@@ -791,6 +793,19 @@ lxp_result layerx_programs_occupancy_output_apply(uint64_t token)
         return LXP_ERR_NON_CANONICAL;
     status = lxp_programs_occupancy_validate_output(bridge);
     if (status != LXP_OK) return status;
+    if (bridge->call_added_responsibility) {
+        lx_programs_transfer_runtime *runtime =
+            (lx_programs_transfer_runtime *)lxp_ctx_module_runtime(bridge->ctx);
+        lx_account *payer;
+        if (runtime == NULL || runtime->accounts == NULL)
+            return LXP_ERR_MODULE_DISABLED;
+        status = lxp_kernel_program_payment_account(
+            runtime->accounts, bridge->authorized_payer,
+            bridge->resolved_asset_id, bridge->ctx->protocol_version, &payer);
+        if (status != LXP_OK) return status;
+        if (payer == NULL)
+            return LXP_ERR_UNAUTHORIZED_DEBIT;
+    }
     for (index = 0U; index < bridge->payer_count; ++index) {
         status = lxp_u128_add(paid_total, bridge->payers[index].paid,
                               &paid_total);

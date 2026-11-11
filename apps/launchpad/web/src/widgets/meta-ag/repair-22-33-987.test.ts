@@ -8,6 +8,7 @@ import {
   InvalidParamsRpcError,
   UserRejectedRequestError,
   decodeFunctionData,
+  encodeFunctionData,
 } from 'viem';
 import type { AdvancedAction } from './action-recovery';
 import {
@@ -26,6 +27,7 @@ import {
   adapterId,
   adapter,
   routeAbi,
+  router,
   blockHash,
 } from './repair-22-33-987.fixtures';
 
@@ -81,6 +83,37 @@ async function customReview(provider: AdvancedProvider) {
     BigInt(Math.floor(Date.now() / 1000)) + 300n,
   );
 }
+
+async function advanced_transcript_estimates_only_recorded_actions() {
+  const { peer, provider } = await setup();
+  await provider.placeOrder(await orderReview(provider));
+  await provider.executeRoute(
+    await routeReview(provider),
+    700000n,
+    BigInt(Math.floor(Date.now() / 1000)) + 300n,
+  );
+  await provider.executeCustomRoute(await customReview(provider));
+  expect(peer.writes).toHaveLength(3);
+  for (const [hash, tx] of peer.transactions) {
+    const estimate = await peer.publicClient.request({
+      method: 'eth_estimateGas',
+      params: [{ from: tx.from, to: tx.to, data: tx.data }],
+    });
+    expect(estimate).toBe(peer.receipts.get(hash)!.gasUsed);
+  }
+  const unrecordedCall = encodeFunctionData({ abi: routeAbi, functionName: 'getAdapters' });
+  for (const call of [
+    { from: owner, to: router, data: unrecordedCall },
+    { ...peer.writes[1], to: token },
+    { from: owner, to: router, data: '0xdeadbeef' as const },
+  ]) {
+    await expect(peer.publicClient.request({ method: 'eth_estimateGas', params: [call] })).rejects.toThrow();
+    await expect(peer.publicClient.request({ method: 'eth_sendTransaction', params: [call] })).rejects.toThrow();
+  }
+  expect(peer.writes).toHaveLength(3);
+  expect(peer.control.sendRequests).toBe(3);
+}
+test(advanced_transcript_estimates_only_recorded_actions);
 
 async function advanced_broadcast_recovery_placement() {
   const { peer, provider, reopen } = await setup();
