@@ -13,12 +13,31 @@ mod inference_signal {
         include!("inference_market/deals.rs");
         pub mod laps {
             include!("inference_market/laps.rs");
+            pub mod recovery {
+                include!("inference_market/recovery.rs");
+            }
         }
         pub mod serve {
             include!("inference_market/serve.rs");
+            pub mod recovery {
+                include!("inference_market/recovery_serve.rs");
+            }
         }
         pub mod queue {
             include!("inference_market/queue.rs");
+            pub mod recovery {
+                use super::super::laps::recovery::RecoveryRecord;
+                use super::{QueuedRoutes, ServeError};
+
+                impl QueuedRoutes {
+                    pub fn resume_recovery(
+                        &self,
+                        record: &RecoveryRecord,
+                    ) -> Result<(), ServeError> {
+                        self.routes.resume_recovery(record)
+                    }
+                }
+            }
         }
     }
 }
@@ -2126,6 +2145,7 @@ struct InferenceSupervision {
     signal: Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
     deals: InferenceDealRuntime,
     completion: HttpPool,
+    recovery: Arc<Mutex<inference_signal::deals::laps::recovery::RecoveryEngine>>,
     reader: LayerxdProgramBalanceReader,
     agent: ureq::Agent,
     next_check: Instant,
@@ -2280,6 +2300,22 @@ impl InferenceLapRuntime {
     }
 }
 struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
+fn lap_market_call_terms(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    program: [u8; 32],
+    actor: [u8; 32],
+) -> Result<layerx_client::ai_market::MarketCallTerms, layerx_client::ai_market::AiClientError> {
+    layerx_client::ai_market::market_call_terms(operation, program, actor)
+}
+
+fn deal_market_call_terms(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    program: [u8; 32],
+    actor: [u8; 32],
+) -> Result<layerx_client::ai_market::MarketCallTerms, layerx_client::ai_market::AiClientError> {
+    layerx_client::ai_market::market_call_terms(operation, program, actor)
+}
+
 impl InferenceLapTransport<'_> {
     fn deliver(
         &self,
@@ -2336,6 +2372,8 @@ impl InferenceLapTransport<'_> {
         nonce: u64,
         expiry: u64,
         request: [u8; 32],
+        capabilities: &'a [u8],
+        access_declaration: &'a [u8],
     ) -> layerx_client::ai_market::NativeTerms<'a> {
         let terms = &self.0.terms;
         layerx_client::ai_market::NativeTerms {
@@ -2347,8 +2385,8 @@ impl InferenceLapTransport<'_> {
             not_before: 0,
             not_after: expiry,
             fee_limit: terms.fee_limit,
-            capabilities: &[],
-            access_declaration: &[],
+            capabilities,
+            access_declaration,
             response_capacity: 16_384,
             resources: layerx_types::program_call::Resources(terms.resources),
             gas_limit: terms.gas_limit,
@@ -2437,10 +2475,19 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 .endpoint
                 .pending_nonce(&signer.evm_address())
                 .map_err(|_| LapError::Invalid("lap nonce unavailable"))?;
+            let call_terms =
+                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?;
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,
-                    &self.terms(signer, nonce, expiry, request),
+                    &self.terms(
+                        signer,
+                        nonce,
+                        expiry,
+                        request,
+                        &call_terms.capabilities,
+                        &call_terms.access_declaration,
+                    ),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2475,7 +2522,7 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::inference_market::sign_stream_meter(
                     &calldata,
-                    &self.terms(signer, nonce, expiry, request),
+                    &self.terms(signer, nonce, expiry, request, &[], &[]),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2562,6 +2609,7 @@ fn inference_lap_request<'a>(
     if !matches!(
         route,
         "POST /internal/inference/laps HTTP/1.1"
+            | "POST /internal/inference/peer-loss HTTP/1.1"
             | "POST /internal/inference/canaries/prepare HTTP/1.1"
             | "POST /internal/inference/canaries/answers HTTP/1.1"
     ) {
@@ -2605,9 +2653,10 @@ fn inference_serve_lap_output(
     listener: &Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
     host: &layerx_client::ai_market::inference_market::HostMeterKey,
     bearer: &str,
-    canaries: &Arc<Mutex<Option<InferenceCanaryRuntime>>>,
-    canary_answer_timeout_ms: u64,
+    canaries: (&Arc<Mutex<Option<InferenceCanaryRuntime>>>, u64),
+    recovery: &Arc<Mutex<inference_signal::deals::laps::recovery::RecoveryEngine>>,
 ) -> Result<(), String> {
+    let (canaries, canary_answer_timeout_ms) = canaries;
     let mut head = Vec::new();
     while !head.ends_with(b"\r\n\r\n") {
         if head.len() == 16_384 {
@@ -2643,6 +2692,20 @@ fn inference_serve_lap_output(
         stream
             .read_exact(&mut body)
             .map_err(|_| "lap body unavailable")?;
+        if route == "POST /internal/inference/peer-loss HTTP/1.1" {
+            let loss = serde_json::from_slice(&body).map_err(|_| "invalid peer loss")?;
+            let listener = listener.lock().map_err(|_| "lap listener unavailable")?;
+            recovery
+                .lock()
+                .map_err(|_| "recovery unavailable")?
+                .notify_loss(
+                    &listener,
+                    loss,
+                    now_ms().map_err(|_| "recovery clock unavailable")?,
+                )
+                .map_err(|_| "peer loss refused")?;
+            return Ok(b"{\"recovering\":true}".to_vec());
+        }
         let canaries = canaries.lock().map_err(|_| "canary engine unavailable")?;
         if route == "POST /internal/inference/canaries/prepare HTTP/1.1" {
             let request: inference_canary::CanaryLapRequest =
@@ -2672,6 +2735,12 @@ fn inference_serve_lap_output(
         let input: inference_signal::deals::laps::LapInput =
             serde_json::from_slice(&body).map_err(|_| "invalid lap output")?;
         drop(canaries);
+        {
+            let recovery = recovery.lock().map_err(|_| "recovery unavailable")?;
+            if recovery.paused().is_some() || recovery.superseded(&input.deal_id) {
+                return Err("room is recovering");
+            }
+        }
         let frame = inference_signal::deals::laps::issue_lap_output(
             listener,
             input,
@@ -2883,6 +2952,12 @@ impl InferenceDealRuntime {
             .endpoint
             .pending_nonce(&from)
             .map_err(|error| format!("inference deal nonce: {error:?}"))?;
+        let (deal_envelope, _) =
+            layerx_client::ai_market::inference_market::decode_operation_envelope(&envelope)
+                .map_err(|error| format!("inference deal envelope: {error:?}"))?;
+        let call_terms =
+            deal_market_call_terms(deal_envelope.operation, self.program.bytes(), actor)
+                .map_err(|error| format!("inference deal call terms: {error:?}"))?;
         let mut record = inference_wait(layerx_client::ai_market::sign_market_envelope(
             &envelope,
             &layerx_client::ai_market::NativeTerms {
@@ -2894,8 +2969,8 @@ impl InferenceDealRuntime {
                 not_before: 0,
                 not_after: expiry,
                 fee_limit: self.terms.fee_limit,
-                capabilities: &[],
-                access_declaration: &[],
+                capabilities: &call_terms.capabilities,
+                access_declaration: &call_terms.access_declaration,
                 response_capacity: 16_384,
                 resources: layerx_types::program_call::Resources(self.terms.resources),
                 gas_limit: self.terms.gas_limit,
@@ -3082,7 +3157,9 @@ fn inference_completion_listener(
     offer: &inference_signal::RoomOffer,
     deals: &InferenceDealRuntime,
     signal: &Arc<Mutex<inference_signal::deals::laps::LapSignalListener>>,
+    recovery: &Arc<Mutex<inference_signal::deals::laps::recovery::RecoveryEngine>>,
 ) -> Result<HttpPool, String> {
+    let completion_recovery = Arc::clone(recovery);
     let completion_signal = Arc::clone(signal);
     let completion_host = Arc::clone(&deals.laps.host);
     let completion_canaries = Arc::clone(&deals.laps.canaries);
@@ -3102,6 +3179,26 @@ fn inference_completion_listener(
                 return;
             };
             if connection.is_completion() {
+                let Ok(recovery) = completion_recovery.lock() else {
+                    return;
+                };
+                match recovery.refuse_paused_completion(&mut connection) {
+                    Ok(false) => {}
+                    Ok(true) | Err(_) => return,
+                }
+                for record in recovery.records().iter().filter(|record| {
+                    record
+                        .replacement
+                        .as_ref()
+                        .is_some_and(|frame| !recovery.superseded(&frame.deal_id))
+                }) {
+                    if let Err(error) = completion_routes.resume_recovery(record) {
+                        let _ =
+                            inference_signal::deals::serve::write_error(&mut connection, &error);
+                        return;
+                    }
+                }
+                drop(recovery);
                 let request = match completion_routes.read_request(&mut connection) {
                     Ok(Some(request)) => request,
                     Ok(None) => return,
@@ -3120,8 +3217,8 @@ fn inference_completion_listener(
                     &completion_signal,
                     &completion_host,
                     &completion_bearer,
-                    &completion_canaries,
-                    canary_answer_timeout_ms,
+                    (&completion_canaries, canary_answer_timeout_ms),
+                    &completion_recovery,
                 );
             }
         },
@@ -3189,12 +3286,28 @@ fn inference_boot(
         Arc::clone(&deals.laps.canaries),
     )?;
     let signal = Arc::new(Mutex::new(signal));
-    let completion = inference_completion_listener(config, &market, &offer, &deals, &signal)?;
+    let recovery = Arc::new(Mutex::new(
+        inference_signal::deals::laps::recovery::RecoveryEngine::open(
+            &deals.terms.journal.join("recovery.json"),
+            inference_signal::deals::DealConfig {
+                room_id: offer.room_id,
+                model_digest: offer.model_digest,
+                runtime_digest: offer.runtime_digest,
+                program: config.probe_program.bytes(),
+                layer_count: deals.terms.layer_count,
+                layer_memory_mib: deals.terms.layer_memory_mib,
+            },
+        )
+        .map_err(|error| error.to_string())?,
+    ));
+    let completion =
+        inference_completion_listener(config, &market, &offer, &deals, &signal, &recovery)?;
     Ok(InferenceSupervision {
         market,
         signal,
         deals,
         completion,
+        recovery,
         reader,
         agent,
         next_check: Instant::now(),
@@ -3354,12 +3467,18 @@ fn supervise_services(
                         .map_err(|_| "inference signal unavailable")?;
                     signal
                         .tick(
-                            snapshot,
+                            snapshot.clone(),
                             now_ms()?,
                             &inference.deals.terms.journal,
                             &inference.deals.laps.host,
                             inference.deals.laps.batch_size,
                         )
+                        .map_err(|error| error.to_string())?;
+                    inference
+                        .recovery
+                        .lock()
+                        .map_err(|_| "inference recovery unavailable")?
+                        .tick(&mut signal, &snapshot, now_ms()?)
                         .map_err(|error| error.to_string())?;
                     let mut sessions = signal
                         .laps
@@ -3477,6 +3596,32 @@ fn main() {
     ) {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn lap_and_deal_terms_carry_market_call_terms() {
+    use layerx_client::ai_market::{market_call_terms, market_program::dispatch::Operation};
+
+    let program = [1; 32];
+    let actor = [2; 32];
+    for (operation, built) in [
+        (
+            Operation::SettleLaps,
+            lap_market_call_terms(Operation::SettleLaps, program, actor),
+        ),
+        (
+            Operation::RecordDeal,
+            deal_market_call_terms(Operation::RecordDeal, program, actor),
+        ),
+    ] {
+        let terms = built.unwrap_or_else(|error| panic!("daemon terms: {error:?}"));
+        let expected = market_call_terms(operation, program, actor)
+            .unwrap_or_else(|error| panic!("client terms: {error:?}"));
+        assert!(!terms.capabilities.is_empty());
+        assert!(!terms.access_declaration.is_empty());
+        assert_eq!(terms, expected);
     }
 }
 

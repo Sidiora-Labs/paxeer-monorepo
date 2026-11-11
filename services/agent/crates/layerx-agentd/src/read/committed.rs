@@ -1078,6 +1078,32 @@ pub(crate) mod tests {
     use crate::read::BlockId;
     use serde_json::{json, Value};
     use std::io::{Read as _, Write as _};
+
+    trait FixtureResult<T> {
+        fn require(self, context: &str) -> T;
+    }
+
+    impl<T, E: std::fmt::Debug> FixtureResult<T> for Result<T, E> {
+        fn require(self, context: &str) -> T {
+            match self {
+                Ok(value) => value,
+                Err(error) => panic!("{context}: {error:?}"),
+            }
+        }
+    }
+
+    trait FixtureOption<T> {
+        fn require_some(self, context: &str) -> T;
+    }
+
+    impl<T> FixtureOption<T> for Option<T> {
+        fn require_some(self, context: &str) -> T {
+            match self {
+                Some(value) => value,
+                None => panic!("{context}"),
+            }
+        }
+    }
     fn rpc_block(checkpoint: &ServedCheckpoint) -> Value {
         let hex = |bytes: &[u8]| format!("0x{}", layerx_programs::hex::encode(bytes));
         json!({"number": format!("{:#x}", checkpoint.height), "hash": hex(&checkpoint.block_hash),
@@ -1089,48 +1115,47 @@ pub(crate) mod tests {
     pub(crate) fn endpoint(
         answers: Vec<(&'static str, Value)>,
     ) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC fixture");
-        let address = listener.local_addr().expect("fixture address");
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").require("bind RPC fixture");
+        let address = listener.local_addr().require("fixture address");
         let worker = std::thread::spawn(move || {
             for (method, answer) in answers {
-                let (mut stream, _) = listener.accept().expect("RPC request");
+                let (mut stream, _) = listener.accept().require("RPC request");
                 stream
                     .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .expect("read deadline");
+                    .require("read deadline");
                 let mut bytes = Vec::new();
                 let (offset, length) = loop {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("request header");
+                    stream.read_exact(&mut byte).require("request header");
                     bytes.push(byte[0]);
                     if bytes.ends_with(b"\r\n\r\n") {
-                        let headers = String::from_utf8(bytes.clone()).expect("HTTP headers");
+                        let headers = String::from_utf8(bytes.clone()).require("HTTP headers");
                         let length = headers
                             .lines()
                             .find_map(|line| {
                                 let (name, value) = line.split_once(':')?;
                                 name.eq_ignore_ascii_case("content-length")
-                                    .then(|| value.trim().parse::<usize>().expect("length"))
+                                    .then(|| value.trim().parse::<usize>().require("length"))
                             })
-                            .expect("request length");
+                            .require_some("request length");
                         break (bytes.len(), length);
                     }
                 };
                 bytes.resize(offset + length, 0);
                 stream
                     .read_exact(&mut bytes[offset..])
-                    .expect("request body");
-                let request: Value = serde_json::from_slice(&bytes[offset..]).expect("JSON RPC");
+                    .require("request body");
+                let request: Value = serde_json::from_slice(&bytes[offset..]).require("JSON RPC");
                 assert_eq!(request["method"], method);
                 match method {
-                    "eth_blockNumber" => assert_eq!(request["params"], json!([])),
+                    "eth_blockNumber" | "eth_chainId" => assert_eq!(request["params"], json!([])),
                     "px_getCommit" | "px_getValidators" => {
-                        assert_eq!(request["params"], json!(["8"]))
+                        assert_eq!(request["params"], json!(["8"]));
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(request["params"][0], "0x8");
                         assert!(request["params"][1].is_boolean());
                     }
-                    "eth_chainId" => assert_eq!(request["params"], json!([])),
                     "eth_call" => assert_eq!(request["params"][1], "0x8"),
                     "eth_getProof" => assert_eq!(request["params"][2], "0x8"),
                     _ => panic!("unexpected RPC method {method}"),
@@ -1150,11 +1175,11 @@ pub(crate) mod tests {
                 } else {
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": answer}).to_string()
                 };
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("RPC reply");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).require("RPC reply");
             }
         });
         (
-            SequencerEndpoint::new(&format!("http://{address}"), &[]).expect("RPC endpoint"),
+            SequencerEndpoint::new(&format!("http://{address}"), &[]).require("RPC endpoint"),
             worker,
         )
     }
@@ -1209,7 +1234,7 @@ pub(crate) mod tests {
         );
         json!({"header": {
             "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
-            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "time": timestamp, "last_block_id": id(h.last_block_id.require_some("parent")),
             "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
             "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
             "consensus_hash": hex(&[5;32]), "app_hash": hex(&h.app_hash),
@@ -1264,43 +1289,52 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn capabilities_and_budget_are_bound_to_one_acquired_checkpoint() {
+    fn capabilities_and_budget_are_bound_to_one_acquired_checkpoint() -> Result<(), String> {
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         stable_call(&mut answers, &checkpoint, &[7; 32]);
         stable_call(&mut answers, &checkpoint, &[9; 32]);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("committed checkpoint");
-        let caps = reads.capabilities([1; 20], &[1; 4]).expect("capabilities");
+        let reads = CommittedReads::open(&endpoint, 8)
+            .map_err(|error| format!("committed checkpoint: {error:?}"))?;
+        let caps = reads
+            .capabilities([1; 20], &[1; 4])
+            .map_err(|error| format!("capabilities: {error:?}"))?;
         assert_eq!(caps.level(), VerificationLevel::COMMITTED);
         assert_eq!(caps.level().wire_rank(), 6);
         assert_eq!(caps.canonical_bytes(), &[7; 32]);
         assert_eq!(caps.state_root(), checkpoint.app_hash);
         assert_eq!(caps.freshness().observed_head_sequence, 8);
         assert_eq!(caps.checkpoint().block_hash, checkpoint.block_hash);
-        let budget = reads.budget_state([2; 20], &[2; 4]).expect("budget");
+        let budget = reads
+            .budget_state([2; 20], &[2; 4])
+            .map_err(|error| format!("budget: {error:?}"))?;
         assert_eq!(budget.canonical_bytes(), &[9; 32]);
         assert_eq!(budget.checkpoint(), caps.checkpoint());
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
 
     #[test]
-    fn changed_second_call_is_refused() {
+    fn changed_second_call_is_refused() -> Result<(), String> {
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         answers.extend([("eth_call", json!("0x01")), ("eth_call", json!("0x02"))]);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let error = reads
             .capabilities([1; 20], &[1; 4])
-            .expect_err("changed call");
+            .err()
+            .ok_or("changed call")?;
         assert_eq!(error, CommittedReadError::CommittedChanged);
         assert_eq!(error.code(), "read.committed_changed");
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
 
     #[test]
-    fn changed_block_or_app_hash_is_refused() {
+    fn changed_block_or_app_hash_is_refused() -> Result<(), String> {
         for changed_root in [false, true] {
             let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
             let mut answers = open_answers(&checkpoint);
@@ -1314,29 +1348,33 @@ pub(crate) mod tests {
                 ("eth_getBlockByNumber", block),
             ]);
             let (endpoint, worker) = endpoint(answers);
-            let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+            let reads = CommittedReads::open(&endpoint, 8)
+                .map_err(|error| format!("checkpoint: {error:?}"))?;
             assert_eq!(
                 reads.budget_state([1; 20], &[1; 4]),
                 Err(CommittedReadError::CommittedChanged)
             );
-            worker.join().expect("RPC server");
+            assert!(worker.join().is_ok(), "RPC server");
         }
+        Ok(())
     }
 
     #[test]
-    fn program_owner_uses_the_held_checkpoint_and_rejects_changed_settlement_read() {
+    fn program_owner_uses_the_held_checkpoint_and_rejects_changed_settlement_read(
+    ) -> Result<(), String> {
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         stable_call(&mut answers, &checkpoint, &[4; 32]);
         answers.extend([("eth_call", json!("0x01")), ("eth_call", json!("0x02"))]);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let owner = crate::protocol_evidence::verified_program_owner(
             &endpoint,
             reads.checkpoint(),
             &[3; 32],
         )
-        .expect("owner");
+        .map_err(|error| format!("owner: {error:?}"))?;
         assert_eq!(owner, [4; 32]);
         let mut calldata =
             layerx_crypto::evm_transaction::transaction_hash(b"getValueAccount(bytes32,bytes32)")
@@ -1352,7 +1390,8 @@ pub(crate) mod tests {
             ),
             Err(crate::human::HumanOperationError::Refused)
         ));
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
     pub(crate) fn budget_result() -> Vec<u8> {
         budget_result_with_spend(25)
@@ -1373,55 +1412,66 @@ pub(crate) mod tests {
         ] {
             result[index * 32 + 24..(index + 1) * 32].copy_from_slice(&amount.to_be_bytes());
         }
-        for index in 1..=4 {
-            result[index * 32..(index + 1) * 32].fill(index as u8);
+        for index in 1_u8..=4 {
+            let offset = usize::from(index);
+            result[offset * 32..(offset + 1) * 32].fill(index);
         }
         result
     }
 
     #[test]
-    fn human_budget_read_and_recovery_evidence_use_committed_calls() {
+    fn human_budget_read_and_recovery_evidence_use_committed_calls() -> Result<(), String> {
         crate::human_runtime::committed_budget_reads_restore_the_human_balance_and_refuse_changes();
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         stable_call(&mut answers, &checkpoint, &budget_result());
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let mut pay = [0; 20];
         pay[18..].copy_from_slice(&[0x10, 0x1b]);
         let mut data =
             layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
         data.extend([9; 32]);
-        let call = reads.budget_state(pay, &data).expect("budget call");
+        let call = reads
+            .budget_state(pay, &data)
+            .map_err(|error| format!("budget call: {error:?}"))?;
         let raw = crate::protocol_evidence::RawStateEvidence::budget_witness(call.clone(), [9; 32])
-            .expect("budget evidence");
+            .map_err(|error| format!("budget evidence: {error:?}"))?;
         let authority =
             crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(3, 125, [1; 32])
-                .expect("authority");
-        let verified = authority.verify_state(&raw).expect("committed evidence");
+                .map_err(|error| format!("authority: {error:?}"))?;
+        let verified = authority
+            .verify_state(&raw)
+            .map_err(|error| format!("committed evidence: {error:?}"))?;
         let record = crate::budget::ProtocolBudgetRecord::decode(verified.canonical_state())
-            .expect("canonical record");
+            .map_err(|error| format!("canonical record: {error:?}"))?;
         assert_eq!(record.budget_id, [9; 32]);
         assert_eq!(record.spent_this_period, 25);
         assert_eq!(verified.observed_head_sequence(), 8);
         assert!(crate::protocol_evidence::RawStateEvidence::budget_witness(call, [8; 32]).is_err());
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
 
     fn budget_recovery_fixture(
         record: &[u8],
-    ) -> (
-        std::path::PathBuf,
-        crate::store::Store,
-        crate::store::TenantId,
-        CommittedCall,
-    ) {
+    ) -> Result<
+        (
+            std::path::PathBuf,
+            crate::store::Store,
+            crate::store::TenantId,
+            CommittedCall,
+        ),
+        String,
+    > {
         use std::os::unix::fs::DirBuilderExt;
 
         let mut nonce = [0; 16];
-        getrandom::fill(&mut nonce).expect("temporary directory nonce");
+        getrandom::fill(&mut nonce)
+            .map_err(|error| format!("temporary directory nonce: {error:?}"))?;
         let root = std::fs::canonicalize(std::env::temp_dir())
-            .expect("canonical temporary directory")
+            .map_err(|error| format!("canonical temporary directory: {error:?}"))?
             .join(format!(
                 "layerx-committed-budget-recovery-{}-{}",
                 std::process::id(),
@@ -1430,24 +1480,29 @@ pub(crate) mod tests {
         std::fs::DirBuilder::new()
             .mode(0o700)
             .create(&root)
-            .expect("fresh private temporary directory");
-        let store = crate::store::Store::open(&root).expect("recovery store");
-        let tenant = crate::store::TenantId::new("committed-budget-recovery").expect("tenant");
+            .map_err(|error| format!("fresh private temporary directory: {error:?}"))?;
+        let store = crate::store::Store::open(&root)
+            .map_err(|error| format!("recovery store: {error:?}"))?;
+        let tenant = crate::store::TenantId::new("committed-budget-recovery")
+            .map_err(|error| format!("tenant: {error:?}"))?;
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         stable_call(&mut answers, &checkpoint, record);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let mut pay = [0; 20];
         pay[18..].copy_from_slice(&[0x10, 0x1b]);
         let mut data =
             layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
         data.extend([9; 32]);
-        let call = reads.budget_state(pay, &data).expect("budget call");
+        let call = reads
+            .budget_state(pay, &data)
+            .map_err(|error| format!("budget call: {error:?}"))?;
         assert_eq!(call.checkpoint(), &checkpoint);
         assert_eq!(call.canonical_bytes(), call.repeated());
-        worker.join().expect("RPC server");
-        (root, store, tenant, call)
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok((root, store, tenant, call))
     }
 
     fn recover_tenant_budget(
@@ -1458,7 +1513,7 @@ pub(crate) mod tests {
     {
         let protocol_budget = crate::budget::ProtocolBudgetState {
             evidence: crate::protocol_evidence::RawStateEvidence::budget_witness(call, [9; 32])
-                .expect("budget evidence"),
+                .require("budget evidence"),
         };
         crate::human_runtime::recover_tenant_budget(
             store,
@@ -1469,7 +1524,7 @@ pub(crate) mod tests {
                 verifier: crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
                     3, 125, [1; 32],
                 )
-                .expect("authority"),
+                .require("authority"),
                 receipts_with_evidence: &[],
                 receipts_without_evidence: &[],
                 ceiling_maximum: 1_000,
@@ -1479,12 +1534,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn tenant_budget_recovery_reconciles_over_committed_budget_state() {
-        let (root, mut store, tenant, call) = budget_recovery_fixture(&budget_result_with_spend(0));
+    fn tenant_budget_recovery_reconciles_over_committed_budget_state() -> Result<(), String> {
+        let (root, mut store, tenant, call) =
+            budget_recovery_fixture(&budget_result_with_spend(0))?;
         drop(store);
-        store = crate::store::Store::open(&root).expect("reopen recovery store");
+        store = crate::store::Store::open(&root)
+            .map_err(|error| format!("reopen recovery store: {error:?}"))?;
         let recovery = recover_tenant_budget(&mut store, &tenant, call)
-            .unwrap_or_else(|error| panic!("recover committed budget: {error:?}"));
+            .map_err(|error| format!("recover committed budget: {error:?}"))?;
         let accounting = recovery.recovered.budget_accounting;
         assert_eq!(accounting.protocol_consumed, Some(0));
         assert_eq!(accounting.receipt_consumed, 0);
@@ -1496,20 +1553,22 @@ pub(crate) mod tests {
                 .recovered
                 .ceiling
                 .snapshot()
-                .expect("ceiling snapshot")
+                .map_err(|error| format!("ceiling snapshot: {error:?}"))?
                 .reconciled
         );
         assert!(recovery.recovered.require_write_ready().is_ok());
         assert!(recovery.admission.is_ok());
         drop(recovery);
         drop(store);
-        std::fs::remove_dir_all(root).expect("remove recovery store");
+        std::fs::remove_dir_all(root)
+            .map_err(|error| format!("remove recovery store: {error:?}"))?;
 
-        let (root, mut store, tenant, call) = budget_recovery_fixture(&budget_result());
+        let (root, mut store, tenant, call) = budget_recovery_fixture(&budget_result())?;
         drop(store);
-        store = crate::store::Store::open(&root).expect("reopen recovery store");
+        store = crate::store::Store::open(&root)
+            .map_err(|error| format!("reopen recovery store: {error:?}"))?;
         let recovery = recover_tenant_budget(&mut store, &tenant, call)
-            .unwrap_or_else(|error| panic!("recover committed budget: {error:?}"));
+            .map_err(|error| format!("recover committed budget: {error:?}"))?;
         let accounting = recovery.recovered.budget_accounting;
         assert_eq!(accounting.protocol_consumed, Some(25));
         assert_eq!(accounting.receipt_consumed, 0);
@@ -1520,20 +1579,23 @@ pub(crate) mod tests {
         assert!(recovery.admission.is_err());
         drop(recovery);
         drop(store);
-        std::fs::remove_dir_all(root).expect("remove recovery store");
+        std::fs::remove_dir_all(root)
+            .map_err(|error| format!("remove recovery store: {error:?}"))?;
+        Ok(())
     }
 
     #[test]
-    fn tenant_budget_recovery_refuses_committed_evidence_whose_state_changed() {
-        let (root, mut store, tenant, mut call) = budget_recovery_fixture(&budget_result());
+    fn tenant_budget_recovery_refuses_committed_evidence_whose_state_changed() -> Result<(), String>
+    {
+        let (root, mut store, tenant, mut call) = budget_recovery_fixture(&budget_result())?;
         let original =
             crate::protocol_evidence::RawStateEvidence::budget_witness(call.clone(), [9; 32])
-                .expect("original budget evidence");
+                .map_err(|error| format!("original budget evidence: {error:?}"))?;
         call.canonical_bytes[8 * 32 + 31] ^= 1;
         assert_ne!(call.canonical_bytes(), call.repeated());
         let changed =
             crate::protocol_evidence::RawStateEvidence::budget_witness(call.clone(), [9; 32])
-                .expect("changed budget evidence remains decodable");
+                .map_err(|error| format!("changed budget evidence remains decodable: {error:?}"))?;
         assert_ne!(changed.canonical_state(), original.canonical_state());
         assert!(matches!(
             recover_tenant_budget(&mut store, &tenant, call),
@@ -1547,7 +1609,8 @@ pub(crate) mod tests {
             .list_object_ids(&tenant, crate::store::ObjectKind::Capability)
             .is_empty());
         drop(store);
-        let reopened = crate::store::Store::open(&root).expect("reopen refused recovery store");
+        let reopened = crate::store::Store::open(&root)
+            .map_err(|error| format!("reopen refused recovery store: {error:?}"))?;
         assert!(reopened
             .list_object_ids(&tenant, crate::store::ObjectKind::Budget)
             .is_empty());
@@ -1555,11 +1618,13 @@ pub(crate) mod tests {
             .list_object_ids(&tenant, crate::store::ObjectKind::Capability)
             .is_empty());
         drop(reopened);
-        std::fs::remove_dir_all(root).expect("remove recovery store");
+        std::fs::remove_dir_all(root)
+            .map_err(|error| format!("remove recovery store: {error:?}"))?;
+        Ok(())
     }
 
     #[test]
-    fn deployment_absence_and_fee_are_read_at_the_same_checkpoint() {
+    fn deployment_absence_and_fee_are_read_at_the_same_checkpoint() -> Result<(), String> {
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let mut answers = open_answers(&checkpoint);
         let absence = json!({"_error": {"code": 3, "message": "LXP_NOT_FOUND: getProgram: -7"}});
@@ -1588,36 +1653,106 @@ pub(crate) mod tests {
         .concat();
         stable_call(&mut answers, &checkpoint, &fees);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let records = crate::budget::execution_state::read_program_records(
             &endpoint,
             reads.checkpoint(),
             [3; 32],
             &[],
         )
-        .expect("absence");
+        .map_err(|error| format!("absence: {error:?}"))?;
         assert!(records.program.is_none());
         assert!(records.interface.is_none());
         assert_eq!(records.fee_schedule.fee_asset, [7; 32]);
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
+    }
+
+    fn append_inventory_grant_calls(
+        answers: &mut Vec<(&'static str, Value)>,
+        checkpoint: &ServedCheckpoint,
+        owner: [u8; 32],
+        asset: [u8; 32],
+    ) -> Result<(), String> {
+        use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
+        let integer = |value: u64| {
+            let mut word = [0; 32];
+            word[24..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        let canonical = AuthorityGrant {
+            grantor: owner,
+            grantee: owner,
+            kind: GrantKind::DelegatedCapability,
+            delegate_key: ed25519_dalek::SigningKey::from_bytes(&[6; 32])
+                .verifying_key()
+                .to_bytes(),
+            scope: GrantScope {
+                module_mask: 2,
+                ordinal_min: 5,
+                ordinal_max: 5,
+                asset,
+                maximum_per_activity: 10,
+                maximum_total: 100,
+                period_length: 1000,
+                maximum_per_period: 50,
+                period_start: 1,
+                purpose: [8; 32],
+            },
+            not_before: 1,
+            not_after: 2_000_000_000_000,
+            revocation_sequence: 1,
+            fee_budget: None,
+        }
+        .encode()
+        .map_err(|error| format!("authority producer grant: {error:?}"))?;
+        let mut grant = [
+            integer(96),
+            integer(0),
+            integer(0),
+            integer(canonical.len() as u64),
+        ]
+        .concat();
+        grant.extend(&canonical);
+        grant.resize(grant.len().div_ceil(32) * 32, 0);
+        stable_call(answers, checkpoint, &grant);
+        let scope = [
+            integer(2),
+            integer(5),
+            integer(5),
+            asset,
+            integer(10),
+            integer(100),
+            integer(0),
+            integer(1000),
+            integer(50),
+            integer(0),
+            integer(1),
+            [8; 32],
+        ]
+        .concat();
+        stable_call(answers, checkpoint, &scope);
+        Ok(())
     }
 
     #[test]
-    fn program_sources_select_the_chain_bound_principal_inventory() {
-        use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
-
+    fn program_sources_select_the_chain_bound_principal_inventory() -> Result<(), String> {
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
         let public = [4; 32];
-        let did = Did::new(format!("did:layerx:{}", hex::encode(&public)).as_bytes()).expect("DID");
-        let owner = layerx_wire::hash::did_id_for_protocol(&did, 3).expect("owner");
+        let did = Did::new(format!("did:layerx:{}", hex::encode(&public)).as_bytes())
+            .map_err(|error| format!("DID: {error:?}"))?;
+        let owner = layerx_wire::hash::did_id_for_protocol(&did, 3)
+            .map_err(|error| format!("owner: {error:?}"))?;
         let asset = [7; 32];
         let account = layerx_types::account::AccountId::for_asset(
-            std::str::from_utf8(did.as_bytes()).expect("text"),
+            std::str::from_utf8(did.as_bytes()).map_err(|error| format!("text: {error:?}"))?,
             asset,
             asset,
         )
-        .expect("account");
-        let account_id = layerx_wire::hash::account_id_for_protocol(&account, 3).expect("ID");
+        .map_err(|error| format!("account: {error:?}"))?;
+        let account_id = layerx_wire::hash::account_id_for_protocol(&account, 3)
+            .map_err(|error| format!("ID: {error:?}"))?;
         let integer = |value: u64| {
             let mut word = [0; 32];
             word[24..].copy_from_slice(&value.to_be_bytes());
@@ -1648,68 +1783,22 @@ pub(crate) mod tests {
         stable_call(&mut answers, &checkpoint, &budget);
         stable_call(&mut answers, &checkpoint, &integer(75));
         stable_call(&mut answers, &checkpoint, &integer(75));
-        let canonical = AuthorityGrant {
-            grantor: owner,
-            grantee: owner,
-            kind: GrantKind::DelegatedCapability,
-            delegate_key: ed25519_dalek::SigningKey::from_bytes(&[6; 32])
-                .verifying_key()
-                .to_bytes(),
-            scope: GrantScope {
-                module_mask: 2,
-                ordinal_min: 5,
-                ordinal_max: 5,
-                asset,
-                maximum_per_activity: 10,
-                maximum_total: 100,
-                period_length: 1000,
-                maximum_per_period: 50,
-                period_start: 1,
-                purpose: [8; 32],
-            },
-            not_before: 1,
-            not_after: 2_000_000_000_000,
-            revocation_sequence: 1,
-            fee_budget: None,
-        }
-        .encode()
-        .expect("authority producer grant");
-        let mut grant = [
-            integer(96),
-            integer(0),
-            integer(0),
-            integer(canonical.len() as u64),
-        ]
-        .concat();
-        grant.extend(&canonical);
-        grant.resize(grant.len().div_ceil(32) * 32, 0);
-        stable_call(&mut answers, &checkpoint, &grant);
-        let scope = [
-            integer(2),
-            integer(5),
-            integer(5),
-            asset,
-            integer(10),
-            integer(100),
-            integer(0),
-            integer(1000),
-            integer(50),
-            integer(0),
-            integer(1),
-            [8; 32],
-        ]
-        .concat();
-        stable_call(&mut answers, &checkpoint, &scope);
+        append_inventory_grant_calls(&mut answers, &checkpoint, owner, asset)?;
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
-        let mut caps = reads.inventory(&did, &[asset], asset).expect("inventory");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
+        let mut caps = reads
+            .inventory(&did, &[asset], asset)
+            .map_err(|error| format!("inventory: {error:?}"))?;
         assert_eq!(caps.level(), VerificationLevel::COMMITTED);
         assert_eq!(caps.level().wire_rank(), 6);
         reads
             .inventory_records(&mut caps, &[[9; 32]], &[[6; 32]])
-            .expect("selected budget and grant");
+            .map_err(|error| format!("selected budget and grant: {error:?}"))?;
         assert_eq!(caps.budgets()[0].spent_this_period, 25);
-        let funding = caps.budget_funding(&[9; 32]).expect("funded budget");
+        let funding = caps
+            .budget_funding(&[9; 32])
+            .map_err(|error| format!("funded budget: {error:?}"))?;
         assert_eq!(funding.allowance(), 75);
         assert_eq!(funding.funded_balance(), 75);
         assert_eq!(funding.remaining(), 75);
@@ -1720,22 +1809,28 @@ pub(crate) mod tests {
         assert_eq!(caps.all_accounts()[&account_id].balance(), 50);
         assert_eq!(caps.all_accounts()[&account_id].next_sequence, 6);
         assert_eq!(caps.state_root(), checkpoint.app_hash);
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
 
     #[test]
-    fn storage_verifies_the_generated_chain_witness_under_the_checkpoint_app_hash() {
+    fn storage_verifies_the_generated_chain_witness_under_the_checkpoint_app_hash(
+    ) -> Result<(), String> {
         use ed25519_dalek::{Signer as _, SigningKey};
         let vector: Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
         )))
-        .expect("generated vector");
+        .map_err(|error| format!("generated vector: {error:?}"))?;
         let entry = &vector["entries"][0];
-        let decode =
-            |key: &str| hex::decode(entry[key].as_str().expect("hex vector")).expect("hex");
+        let decode = |key: &str| -> Result<Vec<u8>, String> {
+            let value = entry[key].as_str().ok_or("hex vector")?;
+            hex::decode(value).map_err(|error| format!("hex: {error:?}"))
+        };
         let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
-        checkpoint.header.app_hash = decode("app_hash").try_into().expect("root");
+        checkpoint.header.app_hash = decode("app_hash")?
+            .try_into()
+            .map_err(|error| format!("root: {error:?}"))?;
         checkpoint.app_hash = checkpoint.header.app_hash;
         checkpoint.block_hash = checkpoint.header.block_hash();
         checkpoint.commit.block_id.hash = checkpoint.block_hash;
@@ -1744,10 +1839,11 @@ pub(crate) mod tests {
                 &checkpoint.header.chain_id,
                 checkpoint.commit.votes[index].timestamp,
             );
-            checkpoint.commit.votes[index].signature =
-                SigningKey::from_bytes(&[index as u8 + 1; 32])
-                    .sign(&message)
-                    .to_bytes();
+            let seed =
+                u8::try_from(index + 1).map_err(|error| format!("validator index: {error:?}"))?;
+            checkpoint.commit.votes[index].signature = SigningKey::from_bytes(&[seed; 32])
+                .sign(&message)
+                .to_bytes();
         }
         let mut answers = open_answers(&checkpoint);
         answers.extend([
@@ -1756,14 +1852,19 @@ pub(crate) mod tests {
             ("eth_getBlockByNumber", rpc_block(&checkpoint)),
         ]);
         let (endpoint, worker) = endpoint(answers);
-        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let reads =
+            CommittedReads::open(&endpoint, 8).map_err(|error| format!("checkpoint: {error:?}"))?;
         let witness = reads
             .storage(
-                decode("address").try_into().expect("address"),
-                decode("slot").try_into().expect("slot"),
+                decode("address")?
+                    .try_into()
+                    .map_err(|error| format!("address: {error:?}"))?,
+                decode("slot")?
+                    .try_into()
+                    .map_err(|error| format!("slot: {error:?}"))?,
             )
-            .expect("verified storage");
-        assert_eq!(witness.value.as_slice(), decode("value"));
+            .map_err(|error| format!("verified storage: {error:?}"))?;
+        assert_eq!(witness.value.as_slice(), decode("value")?);
         let mut tampered = witness;
         tampered.value[31] ^= 1;
         assert!(layerx_client::storage_witness::verify_storage_witness(
@@ -1771,30 +1872,16 @@ pub(crate) mod tests {
             checkpoint.app_hash
         )
         .is_err());
-        worker.join().expect("RPC server");
+        assert!(worker.join().is_ok(), "RPC server");
+        Ok(())
     }
 
-    #[test]
-    fn program_views_decode_one_program_and_one_account_and_refuse_changed_settlement() {
-        use crate::budget::execution_state::read_program_records_with_account_proofs;
-        let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
-        let program = [3; 32];
-        let asset = [7; 32];
-        let seed = [1, 2, 3];
-        let account = layerx_programs_runtime::derive_program_account(
-            layerx_programs::ProgramId::new(program).expect("program"),
-            &seed,
-        )
-        .expect("derived account")
-        .bytes();
-        let proof =
-            super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
-        assert_eq!(
-            proof.header().header().resulting_state_root(),
-            checkpoint.app_hash
-        );
-        assert!(!proof.account().frozen);
-        let proofs = BTreeMap::from([(account, proof)]);
+    fn program_view_requests(
+        program: [u8; 32],
+        asset: [u8; 32],
+        seed: [u8; 3],
+        account: [u8; 32],
+    ) -> Vec<(&'static [u8], Vec<u8>, Vec<u8>)> {
         let integer = |value: u64| {
             let mut word = [0; 32];
             word[24..].copy_from_slice(&value.to_be_bytes());
@@ -1857,6 +1944,33 @@ pub(crate) mod tests {
                 value,
             ),
         ];
+        requests
+    }
+
+    #[test]
+    fn program_views_decode_one_program_and_one_account_and_refuse_changed_settlement(
+    ) -> Result<(), String> {
+        use crate::budget::execution_state::read_program_records_with_account_proofs;
+        let mut checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        let program = [3; 32];
+        let asset = [7; 32];
+        let seed = [1, 2, 3];
+        let account = layerx_programs_runtime::derive_program_account(
+            layerx_programs::ProgramId::new(program)
+                .map_err(|error| format!("program: {error:?}"))?,
+            &seed,
+        )
+        .map_err(|error| format!("derived account: {error:?}"))?
+        .bytes();
+        let proof =
+            super::program_account_fixture::committed_account(&mut checkpoint, account, asset, 50);
+        assert_eq!(
+            proof.header().header().resulting_state_root(),
+            checkpoint.app_hash
+        );
+        assert!(!proof.account().frozen);
+        let proofs = BTreeMap::from([(account, proof)]);
+        let requests = program_view_requests(program, asset, seed, account);
         for changed in [false, true] {
             let mut answers = open_answers(&checkpoint);
             stable_call(&mut answers, &checkpoint, &requests[0].2);
@@ -1881,7 +1995,8 @@ pub(crate) mod tests {
                 }
             }
             let (endpoint, worker) = endpoint(answers);
-            let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+            let reads = CommittedReads::open(&endpoint, 8)
+                .map_err(|error| format!("checkpoint: {error:?}"))?;
             let result = read_program_records_with_account_proofs(
                 &endpoint,
                 reads.checkpoint(),
@@ -1895,26 +2010,27 @@ pub(crate) mod tests {
                     Err(crate::budget::program_settlement::ProgramSettlementError::SourceSnapshot)
                 ));
             } else {
-                let result = result.expect("program views");
+                let result = result.map_err(|error| format!("program views: {error:?}"))?;
                 result.assert_committed_lifecycle(program, account, asset);
                 assert_eq!(result.owner, [4; 32]);
                 assert_eq!(
-                    result.program.as_ref().expect("registered").code_hash,
+                    result.program.as_ref().ok_or("registered")?.code_hash,
                     [5; 32]
                 );
                 assert_eq!(
-                    result.wind_down.as_ref().expect("wind down").account_count,
+                    result.wind_down.as_ref().ok_or("wind down")?.account_count,
                     1
                 );
                 assert_eq!(result.fee_schedule.fee_asset, asset);
-                let binding = result.accounts.get(&account).expect("one account");
+                let binding = result.accounts.get(&account).ok_or("one account")?;
                 assert_eq!(binding.seed, seed);
                 assert_eq!(binding.asset, asset);
                 assert_eq!(binding.registered_sequence, 2);
                 assert_eq!(binding.balance, 50);
                 assert!(!binding.frozen);
             }
-            worker.join().expect("RPC server");
+            assert!(worker.join().is_ok(), "RPC server");
         }
+        Ok(())
     }
 }

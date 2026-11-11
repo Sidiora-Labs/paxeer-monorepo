@@ -2,8 +2,6 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
 use layerx_agent_api::read::VerifiedRead;
 use layerx_agent_api::verify::Rung;
-#[cfg(test)]
-use layerx_types::payload::ModuleRegistry;
 
 use layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES;
 use layerx_client::sequencer::{SequencerEndpoint, StorageWitness};
@@ -20,43 +18,6 @@ use super::checkpoint_impl::{
     serve_checkpoint, CheckpointReadError, ProofBundleKind, ProofBundleRequest, ServedCheckpoint,
     ServedProofBundle,
 };
-
-#[cfg(test)]
-pub(crate) struct ProofBundleScope<'a> {
-    pub account: [u8; 32],
-    pub asset: [u8; 32],
-    pub retained_activity: &'a [u8],
-    pub served_receipt: &'a [u8],
-    pub correlation: u64,
-}
-
-#[cfg(test)]
-pub(crate) fn acquire(
-    node: &mut SequencerEndpoint,
-    _registry: &ModuleRegistry,
-    target: ProofBundleTarget,
-    requested: Rung,
-    scope: ProofBundleScope<'_>,
-) -> Result<VerifiedRead<ProofBundle>, ApiError> {
-    if scope.account == [0; 32]
-        || scope.asset == [0; 32]
-        || matches!(target, ProofBundleTarget::AccountState { account_id, .. } if account_id != scope.account)
-    {
-        return Err(read_refusal(
-            scope.correlation,
-            ErrorClass::PolicyRefusal,
-            "read.target_mismatch",
-        ));
-    }
-    acquire_native_receipt(
-        node,
-        target,
-        requested,
-        scope.retained_activity,
-        scope.served_receipt,
-        scope.correlation,
-    )
-}
 
 fn read_refusal(correlation: u64, class: ErrorClass, reason: &'static str) -> ApiError {
     ApiError {
@@ -466,24 +427,6 @@ fn u64_word(value: u64) -> [u8; 32] {
     word
 }
 
-#[cfg(test)]
-fn rlp_index(value: u64) -> Vec<u8> {
-    if value == 0 {
-        return vec![0x80];
-    }
-    if value < 128 {
-        return vec![value.to_le_bytes()[0]];
-    }
-    let bytes = value.to_be_bytes();
-    let bytes = &bytes[bytes.iter().position(|byte| *byte != 0).unwrap_or(7)..];
-    let mut encoded = vec![
-        0x80 + u8::try_from(bytes.len())
-            .unwrap_or_else(|_| unreachable!("a u64 has at most eight bytes")),
-    ];
-    encoded.extend_from_slice(bytes);
-    encoded
-}
-
 fn word(bytes: &[u8]) -> Result<[u8; 32], CheckpointReadError> {
     if bytes.len() > 32 || bytes.first() == Some(&0) {
         return Err(CheckpointReadError::InvalidProof);
@@ -564,102 +507,6 @@ fn list_items(bytes: &[u8]) -> Result<Vec<RlpItem<'_>>, CheckpointReadError> {
         items.push(take_item(&mut remaining)?);
     }
     Ok(items)
-}
-
-#[cfg(test)]
-fn nibbles(bytes: &[u8]) -> Vec<u8> {
-    bytes
-        .iter()
-        .flat_map(|byte| [byte >> 4, byte & 15])
-        .collect()
-}
-
-#[cfg(test)]
-fn trie_value(
-    root: [u8; 32],
-    key: &[u8],
-    proof: &[Vec<u8>],
-) -> Result<Option<Vec<u8>>, CheckpointReadError> {
-    let path = nibbles(key);
-    if proof.len() > path.len() + 1
-        || proof
-            .iter()
-            .any(|node| node.is_empty() || node.len() > MAX_PROOF_BUNDLE_BYTES)
-    {
-        return Err(CheckpointReadError::InvalidProof);
-    }
-    let mut offset = 0;
-    let mut used = 0;
-    let mut reference = root.to_vec();
-    let mut hashed = true;
-    for _ in 0..=path.len() {
-        let node = if hashed {
-            let node = proof.get(used).ok_or(CheckpointReadError::InvalidProof)?;
-            if keccak256(node).as_slice() != reference || used > 0 && node.len() < 32 {
-                return Err(CheckpointReadError::RootMismatch);
-            }
-            used += 1;
-            node.as_slice()
-        } else {
-            reference.as_slice()
-        };
-        let fields = list_items(node)?;
-        let child = match fields.len() {
-            17 => {
-                if offset == path.len() {
-                    let value = fields[16].bytes()?;
-                    if used != proof.len() {
-                        return Err(CheckpointReadError::InvalidProof);
-                    }
-                    return Ok((!value.is_empty()).then(|| value.to_vec()));
-                }
-                let child = fields[usize::from(path[offset])];
-                offset += 1;
-                child
-            }
-            2 => {
-                let compact = fields[0].bytes()?;
-                let (&first, _) = compact
-                    .split_first()
-                    .ok_or(CheckpointReadError::InvalidProof)?;
-                if first >> 4 > 3 || first & 0x10 == 0 && first & 15 != 0 {
-                    return Err(CheckpointReadError::InvalidProof);
-                }
-                let expanded = nibbles(compact);
-                let segment = &expanded[if first & 0x10 == 0 { 2 } else { 1 }..];
-                let leaf = first & 0x20 != 0;
-                if !leaf && segment.is_empty() {
-                    return Err(CheckpointReadError::InvalidProof);
-                }
-                if !path[offset..].starts_with(segment) {
-                    return Err(CheckpointReadError::InvalidProof);
-                }
-                offset += segment.len();
-                if leaf {
-                    if used != proof.len() || offset != path.len() {
-                        return Err(CheckpointReadError::InvalidProof);
-                    }
-                    return Ok(Some(fields[1].bytes()?.to_vec()));
-                }
-                fields[1]
-            }
-            _ => return Err(CheckpointReadError::InvalidProof),
-        };
-        if child.list {
-            if child.raw.len() >= 32 {
-                return Err(CheckpointReadError::InvalidProof);
-            }
-            reference = child.raw.to_vec();
-            hashed = false;
-        } else {
-            if child.payload.len() != 32 {
-                return Err(CheckpointReadError::InvalidProof);
-            }
-            reference = child.payload.to_vec();
-            hashed = true;
-        }
-    }
-    Err(CheckpointReadError::InvalidProof)
 }
 
 /// Native acquisition uses the node's Comet result producer and, for account
