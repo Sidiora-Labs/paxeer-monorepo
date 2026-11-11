@@ -14,7 +14,8 @@ const RESULTING_STATE_ROOT: [u8; 32] = [3; 32];
 
 fn signed_receipt(signer: &SigningKey) -> Vec<u8> {
     let encode = |signature| {
-        let mut canonical = receipt(signature).expect("canonical receipt vector");
+        let mut canonical = receipt(signature)
+            .unwrap_or_else(|error| panic!("canonical receipt vector: {error:?}"));
         let sequence_at = 2 + 2 + 2 + 4 + 32;
         assert_eq!(
             &canonical[sequence_at..sequence_at + 8],
@@ -36,7 +37,8 @@ fn signed_receipt(signer: &SigningKey) -> Vec<u8> {
         canonical
     };
     let unsigned = encode(None);
-    let digest = receipt_signing_digest(&unsigned).expect("canonical receipt signing digest");
+    let digest = receipt_signing_digest(&unsigned)
+        .unwrap_or_else(|error| panic!("canonical receipt signing digest: {error:?}"));
     encode(Some(signer.sign(&digest).to_bytes()))
 }
 
@@ -56,23 +58,27 @@ fn raw_receipt_evidence_verifies_under_pinned_key() {
     let signer = SigningKey::from_bytes(&[0x84; 32]);
     let raw = evidence(&signer);
     let verifier = evidence_verifier(&signer);
-    let verified = verifier
+    let receipt = verifier
         .verify_receipt(&raw)
-        .expect("receipt evidence signed by the pinned key");
+        .unwrap_or_else(|error| panic!("receipt evidence signed by the pinned key: {error:?}"));
 
-    assert_eq!(verified.canonical_receipt(), raw.canonical_receipt());
-    assert_eq!(verified.global_sequence(), SEQUENCE);
-    assert_eq!(verified.activity_id(), [1; 32]);
-    assert_eq!(verified.result_code(), 0);
-    assert_eq!(verified.amount(), 25);
-    assert_eq!(verified.level(), VerificationLevel::BATCH_INCLUDED);
+    assert_eq!(receipt.canonical_receipt(), raw.canonical_receipt());
+    assert_eq!(receipt.global_sequence(), SEQUENCE);
+    assert_eq!(receipt.activity_id(), [1; 32]);
+    assert_eq!(receipt.result_code(), 0);
+    assert_eq!(receipt.amount(), 25);
+    assert_eq!(receipt.level(), VerificationLevel::BATCH_INCLUDED);
 
-    let header = decode_batch_header(raw.canonical_header()).expect("canonical batch header");
+    let header = decode_batch_header(raw.canonical_header())
+        .unwrap_or_else(|error| panic!("canonical batch header: {error:?}"));
     assert_eq!(header.sequencer_id(), signer.verifying_key().to_bytes());
     assert_eq!(header.previous_state_root(), PREVIOUS_STATE_ROOT);
     assert_eq!(header.resulting_state_root(), RESULTING_STATE_ROOT);
-    let decoded = decode_receipt(raw.canonical_receipt()).expect("canonical receipt");
-    let protocol = decoded.protocol().expect("protocol receipt");
+    let decoded = decode_receipt(raw.canonical_receipt())
+        .unwrap_or_else(|error| panic!("canonical receipt: {error:?}"));
+    let protocol = decoded
+        .protocol()
+        .unwrap_or_else(|| panic!("protocol receipt"));
     assert_eq!(protocol.previous_state_root(), header.previous_state_root());
     assert_eq!(
         protocol.resulting_state_root(),
@@ -97,7 +103,7 @@ fn raw_receipt_evidence_rejects_foreign_key() {
     let pinned_raw = evidence(&signer);
     let digest =
         layerx_intents::vectors::batch_header_signing_digest(pinned_raw.canonical_header())
-            .expect("canonical header digest");
+            .unwrap_or_else(|error| panic!("canonical header digest: {error:?}"));
     let foreign_signature = RawReceiptEvidence::new(
         pinned_raw.canonical_receipt().to_vec(),
         pinned_raw.proof().clone(),
