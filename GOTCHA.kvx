@@ -21160,3 +21160,8 @@ fix = "Decisions 3342 and 3343."
 title = "The members of the platform tools are linted in two tasks and a shared test file is repaired where it lives"
 symptom = "The lint of the manifest tools/platform/Cargo.toml covers three members. A test target of the member cli includes source files of the member by path, so an item that the target does not use is reported there as never used. The file sdk/platform/pipeline.kvx records a digest of the generator sources, so a change to those sources changes the digest."
 fix = "Decisions 3344 to 3346 and task 22.39.425."
+
+[gotcha.4268]
+title = "The option --no-deps also leaves out a dependency that the manifest names by path outside the workspace"
+symptom = "A member of the platform workspace can depend by path on a package of another workspace. Clippy with the package option reports on that package as well. With the option --no-deps the report covers the named members only."
+fix = "Decision 3347."
