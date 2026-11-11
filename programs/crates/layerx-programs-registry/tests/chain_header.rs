@@ -1,6 +1,7 @@
 use layerx_programs::chain_proof::{proto, ChainProofError};
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/header.rs"]
 mod header;
 
@@ -69,7 +70,10 @@ fn encoded_fields(header: &ChainHeader) -> [Vec<u8>; 14] {
     .concat();
     let time = [
         scalar_field(1, u64::from_le_bytes(header.time.seconds.to_le_bytes())),
-        scalar_field(2, header.time.nanos as u64),
+        scalar_field(
+            2,
+            u64::from_le_bytes(i64::from(header.time.nanos).to_le_bytes()),
+        ),
     ]
     .concat();
     let part_set = [
@@ -85,7 +89,7 @@ fn encoded_fields(header: &ChainHeader) -> [Vec<u8>; 14] {
     [
         version,
         bytes_field(1, header.chain_id.as_bytes()),
-        scalar_field(1, header.height as u64),
+        scalar_field(1, u64::from_le_bytes((header.height).to_le_bytes())),
         time,
         block_id,
         bytes_field(1, &header.last_commit_hash),
@@ -105,7 +109,7 @@ fn wire_fields(header: &ChainHeader) -> [Vec<u8>; 14] {
     [
         bytes_field(1, &fields[0]),
         bytes_field(2, header.chain_id.as_bytes()),
-        scalar_field(3, header.height as u64),
+        scalar_field(3, u64::from_le_bytes((header.height).to_le_bytes())),
         bytes_field(4, &fields[3]),
         bytes_field(5, &fields[4]),
         bytes_field(6, &header.last_commit_hash),
@@ -220,6 +224,86 @@ fn chain_header_hash_matches_field_merkle() -> Result<(), ChainProofError> {
     Ok(())
 }
 
+fn verify_missing_duplicate_and_truncated_fields(
+    header: &ChainHeader,
+) -> Result<(), ChainProofError> {
+    for index in 0..14 {
+        let mut fields = wire_fields(header);
+        fields[index].clear();
+        if [0, 1, 2, 3, 4, 7, 13].contains(&index) {
+            assert_eq!(
+                ChainHeader::decode(&fields.concat()),
+                Err(ChainProofError::NonCanonical)
+            );
+        } else {
+            let decoded = ChainHeader::decode(&fields.concat())?;
+            assert_eq!(
+                wire_fields(&decoded)[index],
+                bytes_field(
+                    u8::try_from(index).unwrap_or_else(|error| panic!("{error:?}")) + 1,
+                    &[]
+                )
+            );
+        }
+        let mut fields = wire_fields(header);
+        let duplicate = fields[index].clone();
+        fields[index].extend(duplicate);
+        assert_eq!(
+            ChainHeader::decode(&fields.concat()),
+            Err(ChainProofError::NonCanonical)
+        );
+    }
+    for index in [0, 3, 4] {
+        let mut fields = wire_fields(header);
+        let tag = ((u8::try_from(index).unwrap_or_else(|error| panic!("{error:?}")) + 1) << 3) | 2;
+        fields[index] = vec![tag, 2, 0x08, 0x80];
+        assert_eq!(
+            ChainHeader::decode(&fields.concat()),
+            Err(ChainProofError::Truncated)
+        );
+    }
+    Ok(())
+}
+
+fn verify_header_value_bounds(header: &ChainHeader) {
+    for (seconds, nanos) in [
+        (-62_135_596_801, 0),
+        (253_402_300_800, 0),
+        (0, -1),
+        (0, 1_000_000_000),
+    ] {
+        let mut invalid = header.clone();
+        invalid.time = HeaderTime { seconds, nanos };
+        assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+        assert_eq!(
+            ChainHeader::decode(&wire_fields(&invalid).concat()),
+            Err(ChainProofError::NonCanonical)
+        );
+    }
+    for part_set in [false, true] {
+        let mut invalid = header.clone();
+        if part_set {
+            invalid.last_block_id.part_set_hash.pop();
+        } else {
+            invalid.last_block_id.hash.pop();
+        }
+        assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+        assert_eq!(
+            ChainHeader::decode(&wire_fields(&invalid).concat()),
+            Err(ChainProofError::NonCanonical)
+        );
+    }
+    let mut invalid = header.clone();
+    invalid.chain_id.clear();
+    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+    invalid = header.clone();
+    invalid.height = 0;
+    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+    invalid = header.clone();
+    invalid.validators_hash.pop();
+    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+}
+
 #[test]
 fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
     let header = consensus_header();
@@ -268,38 +352,8 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
             vec![0; length]
         );
     }
-    for index in 0..14 {
-        let mut fields = wire_fields(&header);
-        fields[index].clear();
-        if [0, 1, 2, 3, 4, 7, 13].contains(&index) {
-            assert_eq!(
-                ChainHeader::decode(&fields.concat()),
-                Err(ChainProofError::NonCanonical)
-            );
-        } else {
-            let decoded = ChainHeader::decode(&fields.concat())?;
-            assert_eq!(
-                wire_fields(&decoded)[index],
-                bytes_field(index as u8 + 1, &[])
-            );
-        }
-        let mut fields = wire_fields(&header);
-        let duplicate = fields[index].clone();
-        fields[index].extend(duplicate);
-        assert_eq!(
-            ChainHeader::decode(&fields.concat()),
-            Err(ChainProofError::NonCanonical)
-        );
-    }
-    for index in [0, 3, 4] {
-        let mut fields = wire_fields(&header);
-        let tag = ((index as u8 + 1) << 3) | 2;
-        fields[index] = vec![tag, 2, 0x08, 0x80];
-        assert_eq!(
-            ChainHeader::decode(&fields.concat()),
-            Err(ChainProofError::Truncated)
-        );
-    }
+    verify_missing_duplicate_and_truncated_fields(&header)?;
+
     let mut unknown = wire_fields(&header).concat();
     unknown.extend([0x78, 1]);
     assert_eq!(
@@ -330,45 +384,11 @@ fn chain_header_refuses_malformed_fields() -> Result<(), ChainProofError> {
         ChainHeader::decode(&reordered.concat()),
         Err(ChainProofError::NonCanonical)
     );
-    for (seconds, nanos) in [
-        (-62_135_596_801, 0),
-        (253_402_300_800, 0),
-        (0, -1),
-        (0, 1_000_000_000),
-    ] {
-        let mut invalid = header.clone();
-        invalid.time = HeaderTime { seconds, nanos };
-        assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
-        assert_eq!(
-            ChainHeader::decode(&wire_fields(&invalid).concat()),
-            Err(ChainProofError::NonCanonical)
-        );
-    }
-    for part_set in [false, true] {
-        let mut invalid = header.clone();
-        if part_set {
-            invalid.last_block_id.part_set_hash.pop();
-        } else {
-            invalid.last_block_id.hash.pop();
-        }
-        assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
-        assert_eq!(
-            ChainHeader::decode(&wire_fields(&invalid).concat()),
-            Err(ChainProofError::NonCanonical)
-        );
-    }
-    let mut invalid = header.clone();
-    invalid.chain_id.clear();
-    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
-    invalid = header.clone();
-    invalid.height = 0;
-    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
-    invalid = header.clone();
-    invalid.validators_hash.pop();
-    assert_eq!(invalid.hash(), Err(ChainProofError::NonCanonical));
+    verify_header_value_bounds(&header);
     Ok(())
 }
 
+#[allow(dead_code)]
 #[path = "support/repair_22_33_221.rs"]
 mod repair_22_33_221;
 

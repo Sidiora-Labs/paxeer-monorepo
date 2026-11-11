@@ -9,6 +9,10 @@ use super::{
 
 pub type StateHeight = i64;
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_state(
     next: &VerifiedChainHead,
     store_name: &str,
@@ -23,6 +27,10 @@ pub fn verify_state(
     Ok(height)
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_absent(
     next: &VerifiedChainHead,
     store_name: &str,
