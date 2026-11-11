@@ -21170,3 +21170,8 @@ fix = "Decision 3347."
 title = "The split tool numbers its parts with two digits unless a suffix length is given"
 symptom = "With the numeric suffix option and no suffix length, split writes the parts of a file with the suffixes 00, 01, 02 and 03 when asked for four parts. A recipe that reads a part by the number of its group passes the suffix length that matches the group names."
 fix = "Decision 3348 and task 22.39.431."
+
+[gotcha.4270]
+title = "A database role belongs to the whole Postgres server and outlives the database of a test"
+symptom = "A role that a statement of a test creates stays on the server when the private database of the test is dropped. A second run of the same test on that server finds the role present."
+fix = "Decision 3351."
