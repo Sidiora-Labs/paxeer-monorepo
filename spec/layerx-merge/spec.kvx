@@ -196161,7 +196161,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.424]
 title = "Bring the manifests of the platform tools and of the SDK generators through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196284,7 +196284,7 @@ do_4 = "do_4 Decision 3342, gotcha 4265. The verification now lints the member w
 
 [task.22.39.420]
 title = "Bring the two ramp members of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196315,7 +196315,7 @@ do_4 = "do_4 Decision 3347, gotchas 4265 and 4268. The verification now lints th
 
 [task.22.39.419]
 title = "Bring the PaxAI participant member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
