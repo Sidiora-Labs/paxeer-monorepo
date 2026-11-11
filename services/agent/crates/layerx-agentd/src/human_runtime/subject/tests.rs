@@ -108,6 +108,10 @@ fn durable_subject_bindings_preserve_service_identity_and_refuse_remap_after_res
     assert!(restore_peers(&store, &configured).is_err());
 }
 
+#[allow(
+    deprecated,
+    reason = "the legacy sponsored activity fixture proves retained compatibility"
+)]
 fn signed_submission() -> crate::sign::VerifiedSubmission {
     let bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),

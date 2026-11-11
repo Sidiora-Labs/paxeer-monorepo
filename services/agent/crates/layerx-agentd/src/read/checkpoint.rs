@@ -894,7 +894,10 @@ mod tests {
                     .to_bytes(),
             });
         }
-        serve_checkpoint(height, "125", &header, &commit, &validators).expect("signed block commit")
+        let Ok(checkpoint) = serve_checkpoint(height, "125", &header, &commit, &validators) else {
+            panic!("signed block commit");
+        };
+        checkpoint
     }
 
     fn rpc_block(checkpoint: &ServedCheckpoint) -> Value {
@@ -908,42 +911,57 @@ mod tests {
     fn endpoint(
         answers: Vec<(&'static str, Value)>,
     ) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC fixture");
-        let address = listener.local_addr().expect("fixture address");
+        let Ok(listener) = std::net::TcpListener::bind("127.0.0.1:0") else {
+            panic!("bind RPC fixture");
+        };
+        let Ok(address) = listener.local_addr() else {
+            panic!("fixture address");
+        };
         let worker = std::thread::spawn(move || {
             for (method, answer) in answers {
-                let (mut stream, _) = listener.accept().expect("RPC request");
-                stream
-                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .expect("read deadline");
+                let Ok((mut stream, _)) = listener.accept() else {
+                    panic!("RPC request");
+                };
+                assert!(
+                    stream
+                        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                        .is_ok(),
+                    "read deadline"
+                );
                 let mut bytes = Vec::new();
                 let (offset, length) = loop {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("request header");
+                    assert!(stream.read_exact(&mut byte).is_ok(), "request header");
                     bytes.push(byte[0]);
                     if bytes.ends_with(b"\r\n\r\n") {
-                        let headers = String::from_utf8(bytes.clone()).expect("HTTP headers");
-                        let length = headers
-                            .lines()
-                            .find_map(|line| {
-                                let (name, value) = line.split_once(':')?;
-                                name.eq_ignore_ascii_case("content-length")
-                                    .then(|| value.trim().parse::<usize>().expect("length"))
-                            })
-                            .expect("request length");
+                        let Ok(headers) = String::from_utf8(bytes.clone()) else {
+                            panic!("HTTP headers");
+                        };
+                        let Some(value) = headers.lines().find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("content-length").then_some(value)
+                        }) else {
+                            panic!("request length");
+                        };
+                        let Ok(length) = value.trim().parse::<usize>() else {
+                            panic!("length");
+                        };
                         break (bytes.len(), length);
                     }
                 };
                 bytes.resize(offset + length, 0);
-                stream
-                    .read_exact(&mut bytes[offset..])
-                    .expect("request body");
-                let request: Value = serde_json::from_slice(&bytes[offset..]).expect("JSON RPC");
+                assert!(
+                    stream.read_exact(&mut bytes[offset..]).is_ok(),
+                    "request body"
+                );
+                let Ok(request): Result<Value, _> = serde_json::from_slice(&bytes[offset..]) else {
+                    panic!("JSON RPC");
+                };
                 assert_eq!(request["method"], method);
                 match method {
                     "eth_blockNumber" => assert_eq!(request["params"], json!([])),
                     "px_getCommit" | "px_getValidators" => {
-                        assert_eq!(request["params"], json!(["8"]))
+                        assert_eq!(request["params"], json!(["8"]));
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(request["params"][0], "0x8");
@@ -953,13 +971,13 @@ mod tests {
                 }
                 let body =
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": answer}).to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("RPC reply");
+                assert!(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).is_ok(), "RPC reply");
             }
         });
-        (
-            SequencerEndpoint::new(&format!("http://{address}"), &[]).expect("RPC endpoint"),
-            worker,
-        )
+        let Ok(endpoint) = SequencerEndpoint::new(&format!("http://{address}"), &[]) else {
+            panic!("RPC endpoint");
+        };
+        (endpoint, worker)
     }
 
     fn base64(bytes: &[u8]) -> String {
@@ -1010,9 +1028,12 @@ mod tests {
             json!({"block_id_flag": 1, "validator_address": "", "signature": null,
             "timestamp": "0001-01-01T00:00:00Z"}),
         );
+        let Some(parent) = h.last_block_id else {
+            panic!("parent");
+        };
         json!({"header": {
             "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
-            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "time": timestamp, "last_block_id": id(parent),
             "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
             "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
             "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
@@ -1073,20 +1094,25 @@ mod tests {
         answers.extend(acquisition_answers(&signed, rpc_block(&signed)));
         answers.extend(acquisition_answers(&signed, rpc_block(&signed)));
         let (endpoint, worker) = endpoint(answers);
-        let height = endpoint.block_number().expect("committed height");
-        let head = ServedCheckpoint::acquire_at_committed_block(&endpoint, height, None, "125")
-            .expect("committed head");
-        let by_id = ServedCheckpoint::acquire_at_committed_block(
+        let Ok(height) = endpoint.block_number() else {
+            panic!("committed height");
+        };
+        let Ok(head) = ServedCheckpoint::acquire_at_committed_block(&endpoint, height, None, "125")
+        else {
+            panic!("committed head");
+        };
+        let Ok(by_id) = ServedCheckpoint::acquire_at_committed_block(
             &endpoint,
             height,
             Some(head.block_hash),
             "125",
-        )
-        .expect("checkpoint identifier");
+        ) else {
+            panic!("checkpoint identifier");
+        };
         assert_eq!(head, signed);
         assert_eq!(by_id, signed);
         assert_eq!(head.observed_block_hash(), signed.header.block_hash());
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]
@@ -1096,7 +1122,7 @@ mod tests {
             ServedCheckpoint::acquire_at_committed_block(&endpoint, 8, None, "125",),
             Err(CheckpointReadError::TargetMismatch)
         );
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]
@@ -1132,7 +1158,7 @@ mod tests {
                 .is_err(),
                 "{changed}"
             );
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
     }
 
@@ -1144,16 +1170,17 @@ mod tests {
             let index = if changed == "hash" { 0 } else { 3 };
             answers[index].1[changed] = json!(format!("0x{}", "aa".repeat(32)));
             let (endpoint, worker) = endpoint(answers);
-            let error = ServedCheckpoint::acquire_at_committed_block(
+            let Err(error) = ServedCheckpoint::acquire_at_committed_block(
                 &endpoint,
                 8,
                 Some(signed.block_hash),
                 "125",
-            )
-            .expect_err("block and signed checkpoint must agree");
+            ) else {
+                panic!("block and signed checkpoint must agree");
+            };
             assert_eq!(error, CheckpointReadError::CheckpointBlockMismatch);
             assert_eq!(error.reason(), "read.checkpoint_block_mismatch");
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
     }
 
@@ -1170,19 +1197,19 @@ mod tests {
             }
             let (endpoint, worker) = endpoint(vec![("eth_getBlockByNumber", block)]);
             assert_eq!(endpoint.state_root(8), Err(SequencerError::Malformed));
-            worker.join().expect("RPC fixture");
+            assert!(worker.join().is_ok(), "RPC fixture");
         }
         let (endpoint, worker) = endpoint(vec![(
             "px_getCommit",
             json!({"height": "9", "signedHeader": rpc_commit(&signed)}),
         )]);
         assert_eq!(endpoint.commit_material(8), Err(SequencerError::Malformed));
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
         let mut validators = rpc_validators(&signed);
         validators["total"] = json!("4");
         let (endpoint, worker) = self::endpoint(vec![("px_getValidators", validators)]);
         assert_eq!(endpoint.validator_set(8), Err(SequencerError::Malformed));
-        worker.join().expect("RPC fixture");
+        assert!(worker.join().is_ok(), "RPC fixture");
     }
 
     #[test]

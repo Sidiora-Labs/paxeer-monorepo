@@ -18,14 +18,18 @@ import (
 type Keeper struct {
 	storeKey sdk.StoreKey
 
-	bankKeeper   types.BankKeeper
-	tokenFactory types.TokenFactory
-	evmKeeper    types.EVMKeeper
+	bankKeeper    types.BankKeeper
+	tokenFactory  types.TokenFactory
+	evmKeeper     types.EVMKeeper
+	chainRegistry types.ChainRegistry
 
 	authority string
 
 	generation2 RoleAddresses
 }
+
+// SetChainRegistry connects the chain registry used by combined launches.
+func (k *Keeper) SetChainRegistry(registry types.ChainRegistry) { k.chainRegistry = registry }
 
 // RoleAddresses are the role contract addresses of one Launch-x generation.
 type RoleAddresses struct {

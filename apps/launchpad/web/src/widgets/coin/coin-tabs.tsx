@@ -35,7 +35,7 @@ function CalloutsTab({ pool }: { pool: string }) {
   </section>;
 }
 
-export default function CoinTabs({ poolAddress, live, price = null }: { poolAddress: string; live: MarketLive; price?: number | null }) {
+export default function CoinTabs({ poolAddress, live, price = null, ariaLabel = 'Coin details' }: { poolAddress: string; live: MarketLive; price?: number | null; ariaLabel?: 'Coin details' | 'Market activity' }) {
   const [tab, setTab] = useState<CoinTab>('holders');
   const snapshot = usePoolSnapshot(poolAddress);
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function CoinTabs({ poolAddress, live, price = null }: { poolAddr
     { id: 'about' as const, label: 'About' },
     { id: 'callouts' as const, label: 'Callouts' },
   ];
-  return <section aria-label="Coin details" className="flex flex-col gap-4 rounded-md bg-surface-1 p-3 sm:p-4">
+  return <section aria-label={ariaLabel} className="flex flex-col gap-4 rounded-md bg-surface-1 p-3 sm:p-4">
     <TabStrip tabs={tabs} active={tab} onChange={select} label="Coin details" manual idPrefix={idPrefix} />
     <div role="tabpanel" id={`${idPrefix}-panel-${tab}`} aria-labelledby={`${idPrefix}-tab-${tab}`} tabIndex={0} className="min-w-0 outline-none focus-visible:outline-2 focus-visible:outline-focus">
       {tab === 'holders' ? <HoldersTable poolAddress={poolAddress} price={price} /> : null}

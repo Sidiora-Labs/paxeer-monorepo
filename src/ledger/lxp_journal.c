@@ -255,6 +255,7 @@ lxp_result lxp_apply_transfer_set(lxp_transfer_leg *legs, size_t leg_count,
             return status;
         }
     }
+    /* Occupancy responsibility leaves the payer account sequence unchanged. */
     if (context->debit_authority_kind !=
             LXP_AUTH_OCCUPANCY_RESPONSIBILITY) {
         status = lxp_sequence_terminal_check(context, &compact[0]);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Audit and generate immutable Programs ABI vectors from canonical source."""
-import argparse, ast, hashlib, json, pathlib, re, sys
+import argparse, ast, hashlib, json, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "programs/crates/layerx-programs-runtime/src"
@@ -11,6 +11,7 @@ SDK_ABI = ROOT / "programs/sdk/rust/src/abi.rs"
 SDK_POLICY = ROOT / "programs/sdk/rust/src/abi_policy.rs"
 OUTPUT = ROOT / "programs/tests/vectors"
 FROZEN = ROOT / "programs/abi-frozen.sha256"
+RESPONSE_FIXTURE_WRITER = ROOT / "sdk/platform/conformance/fixtures/sync_emulator_response_fixture.py"
 
 def rust_string(source, name):
     match = re.search(rf'^pub const {name}: &str = (".*");$', source, re.MULTILINE)
@@ -171,6 +172,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+    if subprocess.run([sys.executable, str(RESPONSE_FIXTURE_WRITER), "--check"], check=False).returncode:
+        return 1
     try: manifests = audit_surface(MANIFEST.read_text())
     except (ValueError, OSError) as error:
         print(f"ABI surface drift: {error}", file=sys.stderr); return 1

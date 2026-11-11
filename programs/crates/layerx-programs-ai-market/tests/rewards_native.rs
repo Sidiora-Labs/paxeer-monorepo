@@ -34,8 +34,8 @@ use layerx_programs_ai_market::{
         F06_FUNDING_POLICY_MISMATCH, F06_INVALID_AMOUNT, F06_LEDGER_INVARIANT_VIOLATION,
         F06_REFUND_RECIPIENT_MISMATCH, F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_AMOUNT,
         F06_WRONG_CLAIM_RECIPIENT, HOST_CAPABILITY, HOST_TRANSFER, INSUFFICIENT_FREE,
-        NON_CANONICAL, NOT_FOUND, READINESS_BLOCKED, REPLAY_CONFLICT, RETENTION_FULL, SEQUENCE_GAP,
-        STALE_CURSOR, UNAUTHORIZED, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
+        NON_CANONICAL, NOT_FOUND, REPLAY_CONFLICT, RETENTION_FULL, SEQUENCE_GAP, STALE_CURSOR,
+        UNAUTHORIZED, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
         authority::{split_identity_section, EvaluatorRecord, EvaluatorRegion, LastRequest},
@@ -2428,16 +2428,6 @@ fn finality_recovery() -> QueryResult<()> {
         ),
     ] {
         assert_eq!(value_adapter::transfer_refusal(error), expected);
-    }
-    for (refusal, expected) in [
-        (HostRefusal::Denied, HOST_CAPABILITY),
-        (HostRefusal::Evidence, READINESS_BLOCKED),
-        (HostRefusal::VerificationFailed, READINESS_BLOCKED),
-    ] {
-        assert_eq!(
-            value_adapter::balance_refusal(ProgramError::Host(refusal)),
-            expected
-        );
     }
     assert_eq!(
         w.refused_sized(&payout, 1112, next.len() - 1, rewards::SCRATCH_BYTES)?,

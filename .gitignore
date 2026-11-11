@@ -47,7 +47,7 @@
 !/core/
 /crash-*
 !programs/vendor/**
-node_modules/
+node_modules
 /target/
 # Runtime state and logs
 /.logs/

@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The host binary and enrolment route use signalling items that this target does not call (decision 3292)"
+)]
 #[path = "../src/inference_market/signal.rs"]
 mod signal;
 

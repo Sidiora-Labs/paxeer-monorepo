@@ -1,3 +1,17 @@
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
+#[allow(
+    dead_code,
+    reason = "copied node-root support reports dead_code for gateway_reads and unified_history"
+)]
 #[path = "../../layerx-client/tests/support/node_root_22_34_5.rs"]
 mod support;
 
@@ -82,7 +96,7 @@ fn node_identity_and_required_configuration_remain_fail_closed() {
     assert_eq!(node.count(), 1);
     let environment = BTreeMap::from([("LAYERX_NODE_ENDPOINT".to_owned(), String::new())]);
     assert_eq!(
-        config::load(&file.0, &environment).expect_err("blank node override"),
+        require_err(config::load(&file.0, &environment), "blank node override"),
         config::ConfigError {
             setting: "node_endpoint".to_owned(),
             reason: config::RejectionReason::Empty,
@@ -90,7 +104,7 @@ fn node_identity_and_required_configuration_remain_fail_closed() {
     );
     let environment = BTreeMap::from([("LAYERX_PX_ENDPOINT".to_owned(), node.url.clone())]);
     assert_eq!(
-        config::load(&file.0, &environment).expect_err("new environment key"),
+        require_err(config::load(&file.0, &environment), "new environment key"),
         config::ConfigError {
             setting: "LAYERX_PX_ENDPOINT".to_owned(),
             reason: config::RejectionReason::Unknown,
@@ -107,7 +121,7 @@ fn committed_reader_restarts_and_resumes_signed_checkpoint_and_storage_from_node
     let node = support::storage_server();
     let file = ConfigFile::new(&node.url);
     let storage = support::producer()["storage"].clone();
-    let height = storage["height"].as_u64().expect("height");
+    let height = require_some(storage["height"].as_u64(), "height");
     let hash = support::hex_bytes::<32>(&storage["hash"]);
     let address = support::hex_bytes::<20>(&storage["address"]);
     let slot = support::hex_bytes::<32>(&storage["slots"][0]);
@@ -159,7 +173,7 @@ fn committed_reader_restarts_and_resumes_signed_checkpoint_and_storage_from_node
     assert_eq!(
         requests
             .iter()
-            .map(|r| r["method"].as_str().expect("method"))
+            .map(|r| require_some(r["method"].as_str(), "method"))
             .collect::<Vec<_>>(),
         [
             "eth_chainId",
@@ -199,7 +213,7 @@ fn resumed_reader_propagates_node_unavailability_without_reusing_stale_material(
     let file = ConfigFile::new(&node.url);
     let endpoint = must(file.load(None).connect_node(&[]));
     let storage = support::producer()["storage"].clone();
-    let height = storage["height"].as_u64().expect("height");
+    let height = require_some(storage["height"].as_u64(), "height");
     let saved = must(ServedCheckpoint::acquire_at_committed_block(
         &endpoint,
         height,
@@ -208,15 +222,17 @@ fn resumed_reader_propagates_node_unavailability_without_reusing_stale_material(
     ));
     let block = storage["block"].clone();
     let recording = support::recording();
-    let refusal = recording["exchanges"]
-        .as_array()
-        .expect("exchanges")
-        .iter()
-        .find(|entry| entry["request"]["method"] == "px_getCommit")
-        .expect("recorded refusal")["response"]
+    let refusal = require_some(
+        recording["exchanges"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "exchanges"))
+            .iter()
+            .find(|entry| entry["request"]["method"] == "px_getCommit"),
+        "recorded refusal",
+    )["response"]
         .clone();
     let failing_node = Server::start("/", move |request| {
-        match request["method"].as_str().expect("method") {
+        match require_some(request["method"].as_str(), "method") {
             "eth_getBlockByNumber" => Some(json!({"result": block})),
             "px_getCommit" => Some(refusal.clone()),
             method => panic!("read continued after unavailable commit: {method}"),

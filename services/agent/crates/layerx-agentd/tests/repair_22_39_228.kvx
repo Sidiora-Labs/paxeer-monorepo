@@ -1,0 +1,721 @@
+[meta]
+task = "22.39.228"
+status = "implemented; counted qualification by reference"
+baseline_revision = "96827b7c720780e46ce3b77d0094df61997ea1c0"
+continued_revision = "3864ee686cb0a0df7a1904f8898d0a36a22d43a3"
+previous_attempt = "Decision 3256 assigned the two library missing_errors_doc findings to prerequisite 22.39.364; decisions 3267 and 3268 assigned repair_22_31_549 and limits/exactly_once to prerequisites 22.39.368 and 22.39.229."
+
+[inventory]
+diagnostics = 3817
+targets = 73
+command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+source = "Attempt 2 inventory; counts include repeated inclusions and inherited compiler errors."
+prior_remaining = 181
+
+[qualification]
+final_count = 0
+policy = "Decisions 3287 and 3290 require compilation and all-test-target lint checks before the counted qualification; final evidence is supplied by reference with this revision."
+
+[repairs]
+literals = "Added digit separators without changing values."
+conversions = "Used checked conversions or bounded expressions with explicit failure; preserved protocol widths."
+panics = "Replaced unwrap and expect with explicit panics on the same missing or invalid values."
+syntax = "Removed redundant parentheses, borrows, conversions and continues; retained comparison operands."
+names = "Replaced ambiguous and used underscore bindings with distinct local names."
+documentation = "Added Errors and Panics sections, must-use messages and Markdown code spans where reported."
+compatibility = "Retained deprecated compatibility items only under item allowances that explain their coverage."
+support = "Removed copied conditional implementation branches while retaining the exercised arithmetic."
+functions = "Divided long functions within their source files, preserving assertion execution order and captured owners."
+unused = "Searched including targets before removing unused items; moved consumer-specific authority and native retention helpers to their consumers."
+modules = "Standalone entry points and combined targets share suites; each target loads each support or test file once."
+outside_support = "Including module allowances name dead_code, clippy::too_many_lines and clippy::manual_let_else for copied registry support, and dead_code for the two copied node-root helpers, per decision 3268."
+conflicts = "Kept current-side repairs in signing, unknown and w7_core_time; integrated unknown_receipt_lookup extraction with its current slice interface."
+assertions = "Every existing test and exercised assertion is retained; no tests are skipped, ignored or weakened."
+
+[gotcha.continuation]
+observed = "The seeded extraction overlapped newer function divisions and panic handling, leaving conflict markers and stale owned context fields."
+repair = "Resolved each marker with the current implementation and retained only the still-needed function extraction with borrowed slice ownership."
+
+[inventory_file.1]
+file = "programs/crates/layerx-programs-registry/tests/support/chain.rs"
+lints = ["clippy::manual_let_else=1", "clippy::too_many_lines=1"]
+
+[inventory_file.2]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"
+lints = ["clippy::bool_to_int_with_if=1", "clippy::cast_possible_truncation=2", "clippy::cast_possible_wrap=4", "clippy::cast_sign_loss=1", "clippy::doc_markdown=2", "clippy::if_same_then_else=1", "clippy::too_many_lines=1", "clippy::unwrap_used=38"]
+
+[inventory_file.3]
+file = "services/agent/crates/layerx-agentd/tests/approval.rs"
+lints = ["clippy::duplicate_mod=1", "dead_code=1"]
+
+[inventory_file.4]
+file = "services/agent/crates/layerx-agentd/tests/approval_ordering/preparation.rs"
+lints = ["clippy::expect_used=14"]
+
+[inventory_file.5]
+file = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[inventory_file.6]
+file = "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[inventory_file.7]
+file = "services/agent/crates/layerx-agentd/tests/identity.rs"
+lints = ["clippy::expect_used=12"]
+
+[inventory_file.8]
+file = "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs"
+lints = ["clippy::too_many_lines=3", "clippy::unwrap_used=119"]
+
+[inventory_file.9]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+lints = ["clippy::expect_used=5", "dead_code=1"]
+
+[inventory_file.10]
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+lints = ["clippy::expect_used=13", "clippy::needless_pass_by_value=1", "clippy::semicolon_if_nothing_returned=1", "clippy::too_many_lines=4", "clippy::unreadable_literal=1", "dead_code=2"]
+
+[inventory_file.11]
+file = "services/agent/crates/layerx-agentd/tests/operator_route.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::expect_used=29", "clippy::too_many_lines=1"]
+
+[inventory_file.12]
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"
+lints = ["clippy::duplicate_mod=1", "clippy::expect_used=16", "clippy::similar_names=1", "dead_code=1"]
+
+[inventory_file.13]
+file = "services/agent/crates/layerx-agentd/tests/policy_version.rs"
+lints = ["clippy::expect_used=10", "clippy::too_many_lines=1"]
+
+[inventory_file.14]
+file = "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"
+lints = ["clippy::doc_markdown=2", "clippy::expect_used=5", "clippy::too_many_lines=1"]
+
+[inventory_file.15]
+file = "services/agent/crates/layerx-agentd/tests/protocol2_restart.rs"
+lints = ["clippy::expect_used=38", "clippy::too_many_lines=1"]
+
+[inventory_file.16]
+file = "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs"
+lints = ["clippy::expect_used=8", "deprecated=1"]
+
+[inventory_file.17]
+file = "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs"
+lints = ["clippy::similar_names=1", "clippy::too_many_lines=1", "clippy::unreadable_literal=1", "clippy::unwrap_used=61"]
+
+[inventory_file.18]
+file = "services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs"
+lints = ["clippy::expect_used=1", "clippy::too_many_lines=1", "clippy::unwrap_used=1"]
+
+[inventory_file.19]
+file = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+lints = ["clippy::too_many_lines=1", "clippy::unwrap_used=11"]
+
+[inventory_file.20]
+file = "services/agent/crates/layerx-agentd/tests/receipts.rs"
+lints = ["clippy::needless_pass_by_value=1", "clippy::unwrap_used=1"]
+
+[inventory_file.21]
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs"
+lints = ["clippy::expect_used=14"]
+
+[inventory_file.22]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_215.rs"
+lints = ["clippy::bool_to_int_with_if=1", "clippy::cast_possible_truncation=2", "clippy::unwrap_used=51"]
+
+[inventory_file.23]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+lints = ["clippy::cast_possible_truncation=4", "clippy::clone_on_copy=1", "clippy::expect_used=285", "clippy::needless_borrows_for_generic_args=4", "clippy::too_many_lines=5", "clippy::unwrap_used=102", "dead_code=3", "unused_variables=5"]
+
+[inventory_file.24]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"
+lints = ["clippy::cast_possible_truncation=5", "clippy::cast_possible_wrap=2", "clippy::cast_sign_loss=2", "clippy::expect_used=6", "clippy::items_after_statements=5", "clippy::too_many_lines=2", "clippy::unwrap_used=153"]
+
+[inventory_file.25]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs"
+lints = ["clippy::bool_to_int_with_if=1", "clippy::cast_lossless=2", "clippy::cast_possible_truncation=5", "clippy::cast_possible_wrap=5", "clippy::cast_sign_loss=1", "clippy::doc_markdown=1", "clippy::items_after_statements=5", "clippy::manual_range_patterns=1", "clippy::needless_borrow=1", "clippy::needless_pass_by_value=3", "clippy::too_many_lines=3", "clippy::unreadable_literal=2", "clippy::unwrap_used=40", "dead_code=1", "unused_variables=1"]
+
+[inventory_file.26]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_220.rs"
+lints = ["clippy::range_plus_one=1", "clippy::semicolon_if_nothing_returned=5", "clippy::too_many_lines=2", "clippy::unwrap_used=116"]
+
+[inventory_file.27]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_225.rs"
+lints = ["clippy::similar_names=1", "clippy::too_many_lines=2", "clippy::unwrap_used=195"]
+
+[inventory_file.28]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_364.rs"
+lints = ["clippy::doc_markdown=1", "clippy::similar_names=1", "clippy::too_many_lines=3", "clippy::unwrap_used=2"]
+
+[inventory_file.29]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_366.rs"
+lints = ["clippy::expect_used=1", "clippy::unwrap_used=84", "deprecated=18"]
+
+[inventory_file.30]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_367.rs"
+lints = ["clippy::too_many_lines=1", "unused_mut=1"]
+
+[inventory_file.31]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_368.rs"
+lints = ["clippy::expect_used=8", "clippy::too_many_lines=1"]
+
+[inventory_file.32]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+lints = ["clippy::expect_used=12", "clippy::unwrap_used=5"]
+
+[inventory_file.33]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+lints = ["clippy::unwrap_used=12"]
+
+[inventory_file.34]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"
+lints = ["clippy::expect_used=2", "clippy::too_many_lines=1", "clippy::unwrap_used=7"]
+
+[inventory_file.35]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+lints = ["clippy::cast_possible_wrap=2", "clippy::expect_used=20", "clippy::redundant_field_names=2", "clippy::similar_names=1", "clippy::too_many_lines=2"]
+
+[inventory_file.36]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"
+lints = ["clippy::expect_used=8", "clippy::too_many_lines=1"]
+
+[inventory_file.37]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"
+lints = ["E0308=4", "E0609=8"]
+
+[inventory_file.38]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs"
+lints = ["clippy::expect_used=11", "clippy::similar_names=2", "clippy::too_many_lines=2"]
+
+[inventory_file.39]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs"
+lints = ["clippy::expect_used=10", "clippy::needless_pass_by_value=1", "clippy::similar_names=1", "clippy::too_many_lines=4", "clippy::useless_conversion=1", "deprecated=1"]
+
+[inventory_file.40]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_561.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::drop_non_drop=2", "clippy::too_many_lines=1", "clippy::unwrap_used=9"]
+
+[inventory_file.41]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::expect_used=19", "clippy::too_many_lines=3", "clippy::unwrap_used=25", "clippy::used_underscore_binding=1", "dead_code=1"]
+
+[inventory_file.42]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs"
+lints = ["clippy::cast_possible_truncation=3", "clippy::expect_used=43"]
+
+[inventory_file.43]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_568.rs"
+lints = ["clippy::expect_used=89"]
+
+[inventory_file.44]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::expect_used=19", "clippy::too_many_lines=2", "clippy::unwrap_used=26", "clippy::used_underscore_binding=1", "dead_code=1"]
+
+[inventory_file.45]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs"
+lints = ["clippy::cast_possible_truncation=3", "clippy::expect_used=19", "clippy::too_many_lines=2", "clippy::unwrap_used=38", "clippy::used_underscore_binding=1", "unused_imports=2"]
+
+[inventory_file.46]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_575.rs"
+lints = ["clippy::cast_possible_wrap=1", "clippy::expect_used=101", "clippy::unwrap_used=1"]
+
+[inventory_file.47]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"
+lints = ["clippy::cast_possible_truncation=5", "clippy::cast_possible_wrap=1", "clippy::expect_used=5", "clippy::needless_borrow=1", "clippy::needless_pass_by_value=2", "clippy::unreadable_literal=2", "clippy::unwrap_used=16"]
+
+[inventory_file.48]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_13.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::too_many_lines=1", "clippy::unwrap_used=134"]
+
+[inventory_file.49]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"
+lints = ["clippy::cast_possible_truncation=2", "clippy::needless_pass_by_value=1", "clippy::too_many_lines=2", "clippy::trivially_copy_pass_by_ref=1", "clippy::unwrap_used=156", "clippy::used_underscore_binding=1"]
+
+[inventory_file.50]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1507.rs"
+lints = ["clippy::expect_used=16", "clippy::too_many_lines=1"]
+
+[inventory_file.51]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1508.rs"
+lints = ["clippy::doc_markdown=1", "clippy::explicit_auto_deref=2", "clippy::manual_let_else=1", "clippy::too_many_lines=1"]
+
+[inventory_file.52]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1512.rs"
+lints = ["clippy::cast_possible_truncation=1", "clippy::doc_markdown=1", "clippy::manual_assert=1"]
+
+[inventory_file.53]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"
+lints = ["clippy::doc_markdown=1", "clippy::semicolon_if_nothing_returned=2", "clippy::too_many_lines=1", "clippy::unwrap_used=19"]
+
+[inventory_file.54]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1514.rs"
+lints = ["clippy::doc_markdown=1", "clippy::expect_used=13"]
+
+[inventory_file.55]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1517.rs"
+lints = ["clippy::expect_used=4", "clippy::too_many_lines=1"]
+
+[inventory_file.56]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1518.rs"
+lints = ["clippy::doc_markdown=2"]
+
+[inventory_file.57]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs"
+lints = ["clippy::cast_possible_truncation=2", "clippy::cloned_ref_to_slice_refs=3", "clippy::doc_markdown=14", "clippy::expect_used=49", "clippy::items_after_statements=1", "clippy::too_many_lines=3", "clippy::unnecessary_to_owned=1", "clippy::unwrap_used=178", "unused_imports=4", "unused_variables=2"]
+
+[inventory_file.58]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1521.rs"
+lints = ["clippy::cast_possible_truncation=3", "clippy::doc_markdown=6", "clippy::expect_used=8", "clippy::large_types_passed_by_value=1", "clippy::too_many_lines=1", "clippy::unwrap_used=26"]
+
+[inventory_file.59]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs"
+lints = ["clippy::cast_lossless=3", "clippy::cast_possible_truncation=8", "clippy::cast_possible_wrap=1", "clippy::doc_markdown=11", "clippy::expect_used=3", "clippy::inefficient_to_string=1", "clippy::items_after_statements=4", "clippy::needless_borrows_for_generic_args=10", "clippy::needless_pass_by_value=2", "clippy::redundant_closure_for_method_calls=1", "clippy::too_many_lines=4", "clippy::unreadable_literal=2", "clippy::unwrap_used=26", "dead_code=1", "unused_imports=1"]
+
+[inventory_file.60]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1526.rs"
+lints = ["clippy::doc_markdown=10", "clippy::too_many_lines=3"]
+
+[inventory_file.61]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1527.rs"
+lints = ["clippy::match_wildcard_for_single_variants=1", "clippy::too_many_lines=1", "clippy::unwrap_used=36"]
+
+[inventory_file.62]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1528.rs"
+lints = ["clippy::items_after_statements=1", "clippy::similar_names=1", "clippy::unwrap_used=1"]
+
+[inventory_file.63]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1529.rs"
+lints = ["clippy::doc_markdown=1"]
+
+[inventory_file.64]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1530.rs"
+lints = ["clippy::doc_markdown=12"]
+
+[inventory_file.65]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1531.rs"
+lints = ["clippy::doc_markdown=1"]
+
+[inventory_file.66]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1532.rs"
+lints = ["clippy::doc_markdown=6", "clippy::unwrap_used=3"]
+
+[inventory_file.67]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+lints = ["clippy::doc_markdown=22", "clippy::too_many_lines=1", "clippy::unwrap_used=44"]
+
+[inventory_file.68]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+lints = ["clippy::default_trait_access=1", "clippy::doc_markdown=9", "clippy::expect_used=125", "clippy::items_after_statements=9", "clippy::no_effect_underscore_binding=1", "clippy::too_many_lines=2", "clippy::type_complexity=3"]
+
+[inventory_file.69]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+lints = ["clippy::doc_markdown=27", "clippy::duplicate_mod=1"]
+
+[inventory_file.70]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+lints = ["clippy::doc_markdown=1", "clippy::expect_used=4"]
+
+[inventory_file.71]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1538.rs"
+lints = ["clippy::doc_markdown=21"]
+
+[inventory_file.72]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+lints = ["clippy::expect_used=36"]
+
+[inventory_file.73]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs"
+lints = ["clippy::doc_markdown=1", "clippy::too_many_lines=2", "clippy::unwrap_used=88"]
+
+[inventory_file.74]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+lints = ["clippy::cast_possible_wrap=1", "clippy::items_after_statements=1", "clippy::too_many_lines=1", "clippy::unwrap_used=133", "dead_code=1"]
+
+[inventory_file.75]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_34_5.rs"
+lints = ["clippy::expect_used=7"]
+
+[inventory_file.76]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_39_318.rs"
+lints = ["clippy::cast_possible_wrap=2", "clippy::elidable_lifetime_names=1", "clippy::expect_used=51", "clippy::too_many_lines=1"]
+
+[inventory_file.77]
+file = "services/agent/crates/layerx-agentd/tests/rotation_refused.rs"
+lints = ["clippy::manual_let_else=1"]
+
+[inventory_file.78]
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+lints = ["clippy::expect_used=6", "clippy::too_many_lines=1", "clippy::unwrap_used=6"]
+
+[inventory_file.79]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+lints = ["clippy::duplicate_mod=1", "clippy::unwrap_used=10"]
+
+[inventory_file.80]
+file = "services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs"
+lints = ["clippy::bool_to_int_with_if=2", "clippy::cast_possible_truncation=3", "clippy::expect_used=9", "clippy::needless_borrow=1", "clippy::too_many_lines=2", "clippy::unwrap_used=103", "dead_code=3"]
+
+[inventory_file.81]
+file = "services/agent/crates/layerx-agentd/tests/support/committed_authority_documents.rs"
+lints = ["clippy::expect_used=2", "clippy::format_collect=1"]
+
+[inventory_file.82]
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs"
+lints = ["clippy::duplicate_mod=4"]
+
+[inventory_file.83]
+file = "services/agent/crates/layerx-agentd/tests/unknown.rs"
+lints = ["clippy::unwrap_used=11"]
+
+[inventory_file.84]
+file = "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs"
+lints = ["clippy::needless_pass_by_value=2", "clippy::too_many_lines=1", "clippy::unwrap_used=5"]
+
+[inventory_file.85]
+file = "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"
+lints = ["clippy::too_many_lines=1", "clippy::unwrap_used=2"]
+
+[inventory_file.86]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+lints = ["dead_code=2"]
+
+[inventory_file.87]
+file = "services/agent/tests/limits/exactly_once.rs"
+lints = ["clippy::expect_used=22", "clippy::too_many_lines=3"]
+
+[inventory_file.88]
+file = "services/agent/tests/repair_22_33_1571.rs"
+lints = ["clippy::doc_markdown=6"]
+
+[inventory_file.89]
+file = "services/agent/tests/repair_22_33_1573.rs"
+lints = ["clippy::assigning_clones=8", "clippy::expect_used=11", "clippy::semicolon_if_nothing_returned=1"]
+
+[prior_remaining_file.1]
+file = "programs/crates/layerx-programs-registry/tests/support/chain.rs"
+lints = ["clippy::manual_let_else=1", "clippy::too_many_lines=1"]
+
+[prior_remaining_file.2]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"
+lints = ["clippy::bool_to_int_with_if=1", "clippy::cast_possible_truncation=2", "clippy::cast_possible_wrap=4", "clippy::cast_sign_loss=1", "clippy::doc_markdown=2", "clippy::if_same_then_else=1", "clippy::too_many_lines=1", "clippy::unwrap_used=45"]
+
+[prior_remaining_file.3]
+file = "services/agent/crates/layerx-agentd/tests/approval.rs"
+lints = ["clippy::duplicate_mod=1", "dead_code=1"]
+
+[prior_remaining_file.4]
+file = "services/agent/crates/layerx-agentd/tests/budget_schema.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[prior_remaining_file.5]
+file = "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[prior_remaining_file.6]
+file = "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs"
+lints = ["unused_imports=1"]
+
+[prior_remaining_file.7]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+lints = ["dead_code=1"]
+
+[prior_remaining_file.8]
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+lints = ["clippy::needless_borrows_for_generic_args=1", "clippy::needless_pass_by_value=1", "dead_code=2"]
+
+[prior_remaining_file.9]
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[prior_remaining_file.10]
+file = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+lints = ["clippy::too_many_lines=1"]
+
+[prior_remaining_file.11]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+lints = ["clippy::ptr_arg=1", "clippy::too_many_lines=1", "dead_code=1"]
+
+[prior_remaining_file.12]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"
+lints = ["clippy::ptr_arg=1", "clippy::too_many_lines=1", "unused_imports=1"]
+
+[prior_remaining_file.13]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs"
+lints = ["clippy::needless_continue=1", "clippy::needless_pass_by_value=1", "dead_code=1"]
+
+[prior_remaining_file.14]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_220.rs"
+lints = ["clippy::too_many_lines=1"]
+
+[prior_remaining_file.15]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_364.rs"
+lints = ["clippy::ptr_arg=1"]
+
+[prior_remaining_file.16]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs"
+lints = ["clippy::too_many_lines=1"]
+
+[prior_remaining_file.17]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"
+lints = ["E0308=4", "E0609=8"]
+
+[prior_remaining_file.18]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs"
+lints = ["clippy::too_many_lines=1", "clippy::useless_conversion=1"]
+
+[prior_remaining_file.19]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs"
+lints = ["clippy::too_many_lines=2"]
+
+[prior_remaining_file.20]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs"
+lints = ["clippy::too_many_lines=2"]
+
+[prior_remaining_file.21]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs"
+lints = ["clippy::too_many_lines=1"]
+
+[prior_remaining_file.22]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"
+lints = ["clippy::needless_pass_by_value=2"]
+
+[prior_remaining_file.23]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1506.rs"
+lints = ["clippy::trivially_copy_pass_by_ref=1"]
+
+[prior_remaining_file.24]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs"
+lints = ["dead_code=1"]
+
+[prior_remaining_file.25]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+lints = ["clippy::needless_pass_by_value=2"]
+
+[prior_remaining_file.26]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+lints = ["unused_imports=3"]
+
+[prior_remaining_file.27]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[prior_remaining_file.28]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs"
+lints = ["clippy::too_many_lines=1"]
+
+[prior_remaining_file.29]
+file = "services/agent/crates/layerx-agentd/tests/signing.rs"
+lints = ["clippy::duplicate_mod=1"]
+
+[prior_remaining_file.30]
+file = "services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs"
+lints = ["dead_code=9"]
+
+[prior_remaining_file.31]
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs"
+lints = ["clippy::duplicate_mod=4"]
+
+[prior_remaining_file.32]
+file = "services/agent/crates/layerx-client/tests/support/node_root_22_34_5.rs"
+lints = ["dead_code=2"]
+
+[prior_remaining_file.33]
+file = "services/agent/tests/limits/exactly_once.rs"
+lints = ["clippy::expect_used=23", "clippy::too_many_lines=3"]
+
+[prior_remaining_file.34]
+file = "services/agent/tests/repair_22_33_1571.rs"
+lints = ["clippy::doc_markdown=6"]
+
+[prior_remaining_file.35]
+file = "services/agent/tests/repair_22_33_1573.rs"
+lints = ["clippy::assigning_clones=8", "clippy::expect_used=11", "clippy::semicolon_if_nothing_returned=1"]
+
+[gotcha.format]
+observed = "Removing a genuinely unused helper left its unattached doc comment, which rustfmt rejected before any build."
+repair = "Removed the orphaned comment together with the unused helper."
+
+[repair_cycle.1]
+source_revision = "32f79a66d752e0d88032eb7581653a03e6b26ad5"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+exit = 101
+repair = "Shared authority_peer between both discovered consumers, removed only its unused retained Arc field, supplied the extracted receipt hash from the unchanged metadata, and completed function divisions and unused capture cleanup."
+
+[repair_cycle.2]
+source_revision = "9c99c7644f7de196bfcfff9a0de6a3d0a9ac7c91"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+exit = 101
+repair = "Restored the receipt encoder to shared capture support, returned the parsed export document, restored the mutable identity source used by the native-owner refusal target, and derived the request authority from that same source."
+
+[continuation.4]
+base_revision = "1ea516104b8ddbb51ceea32b597f87323f590ff4"
+main_revision = "240af39e26492b72cc14bc1806f60773722c07a4"
+merge = "Integrated the newly landed 22.39.227 test files from main within scope, retaining shared suite loading to avoid duplicate modules."
+repair = "ReplayApprovalBytes carries canonical bytes and their held digest into replay_approval_prepared without adding an argument or allowance; every assertion is retained."
+
+[continuation_inventory]
+diagnostics = 13
+remaining = 0
+repairs = "Borrowed transaction slices; retained receipt capture only in its consumer; used an array; terminated unit statements; removed redundant references; merged identical match arms; loaded live_route only in native_reads_daemon."
+
+[continuation_inventory.file1]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs"
+lints = ["clippy::needless_pass_by_value=1"]
+
+[continuation_inventory.file2]
+file = "services/agent/crates/layerx-agentd/tests/support/budget_native_capture.rs"
+lints = ["dead_code=1"]
+
+[continuation_inventory.file3]
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs"
+lints = ["clippy::useless_vec=1"]
+
+[continuation_inventory.file4]
+file = "services/agent/tests/repair_22_33_1573.rs"
+lints = ["clippy::semicolon_if_nothing_returned=3"]
+
+[continuation_inventory.file5]
+file = "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs"
+lints = ["clippy::needless_borrow=5"]
+
+[continuation_inventory.file6]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"
+lints = ["clippy::match_same_arms=1"]
+
+[continuation_inventory.file7]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+lints = ["dead_code=1"]
+
+[gotcha.main_suite_integration]
+observed = "Main's suite bodies use local support paths and fixture paths relative to the test entry point, and its authority_peer duplicates the prior extracted helper."
+repair = "Qualified support references from the crate root, adjusted the relative fixture path for suites, and retained main's authority_peer with its consumers while removing only the duplicate helper."
+
+[gotcha.consumer_specific_capture]
+observed = "The shared native producer's receipt is used only by repair_22_31_217, and live_route is used only by native_reads_daemon."
+repair = "Returned both native producer outputs, retained the required fields in each consumer, and included live_route only in its consuming target; all assertions and operations remain."
+
+[prequalification]
+check_command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+check_exit = 0
+lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+lint_exit = 0
+all_targets_command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets"
+all_targets_exit = 0
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+build_exit = 0
+
+[continuation_repair.1]
+revision = "7985f1578b04ac558315b40b41a66c0b6e8ebad7"
+command = "cargo check --locked --manifest-path services/platform/Cargo.toml --all-targets -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks"
+exit = 101
+file = "services/agent/crates/layerx-agentd/tests/support/committed_authority_documents.rs"
+observed = "E0433 at line 25: the shared corpus-path helper named the hex crate, which the authority producer target does not depend on."
+repair = "Used layerx_platform_authority::hex::encode, already available in both including targets; retained identical lowercase hexadecimal digest bytes and every test assertion."
+
+[gotcha.shared_encoder]
+observed = "The shared corpus-path helper compiles in the agent target but must also compile when included by the authority producer, which has no hex crate dependency."
+repair = "Named the existing authority library encoder explicitly; changed no manifest or producer file."
+
+[continuation.5]
+base_revision = "7eeb5ae0336d8ca43d6483c9cd602fb7f0140693"
+source_revision = "50e50b1c3690be228113b9638bd8db16bc584ab1"
+main_form = "Decision 3290: restored the seven files from main, then replaced all six stale suite bodies with fresh extractions from main; kept the existing suite path attributes and standalone include paths aligned."
+files = ["identity.rs", "native_routes_rpc.rs", "operator_route.rs", "outbox_recover.rs", "policy_version.rs", "protocol2_restart.rs", "protocol_evidence.rs"]
+suites = "identity, operator_route, outbox_recover, policy_version, protocol2_restart and protocol_evidence all use the same extraction approach, with shared support loaded once per target and relative fixture paths adjusted to the new location."
+native_routes = "Restored native_routes_rpc from main; compilation reported dead_code for live_route only in repair_22_33_1537 at line 239. After searching every inclusion, moved the unchanged helper from main to support/native_routes_live.rs, included only by its native_reads_daemon consumer."
+verification = "The final verification covers every daemon test target; the build covers the library and every target named r."
+evidence = "The final response supplies exact matching counted build and verification revision, command, exit and private evidence reference; no current qualification is claimed until both succeed."
+
+
+[continuation_5_inventory.file1]
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs"
+target = "repair_22_33_1537"
+line = 239
+lints = ["dead_code=1"]
+repair = "Moved the unchanged consumer-specific helper from main into its consuming target, without an allowance or removed operation."
+
+[continuation_5_prequalification]
+check_command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets"
+check_runs = 1
+check_exit = 0
+r_targets_check_command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+r_targets_check_runs = 1
+r_targets_check_exit = 0
+lint_command = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls *.rs | sed 's/.rs$//; s/^/--test /') -- -D warnings"
+lint_runs = 1
+lint_exit = 101
+remaining_lints = "Not measured: Cargo rejects target selection before any test target is linted."
+tests_preserved = "All 352 original test functions in the changed test files are retained, including the six fresh suite extractions."
+
+[finding.target_selection]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/Cargo.toml"
+symbol = "native-reads-http"
+observed = "On base 7eeb5ae0336d8ca43d6483c9cd602fb7f0140693 with the continued implementation, the declared all-target lint command exits 101 before compilation: no test target named proof_native_reads in layerx-agentd; the manifest registers tests/proof_native_reads.rs as native-reads-http; exact counted revision, command, exit and private evidence are referenced by the final response."
+assumption = "Correcting target selection requires changing the declared verification command or the existing manifest mapping, both outside this task's editable scope."
+severity = "blocker"
+target = "proof_native_reads"
+line = 44
+lint = "Cargo target selection; no lint emitted"
+
+[continuation_5_build]
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+prequalification_runs = 1
+prequalification_exit = 0
+counted_evidence = "The matching counted build and verification outcomes are referenced by the final response; no verification success or zero lint count is claimed."
+
+[continuation.6]
+base_revision = "079876b623d787ed5acd721126307e96244d00a8"
+source_revision = "7c3b4384ab517a5256674763f8ce91803575335b"
+merge = "The previous implementation is applied to current main without conflicts; the prior repairs and all six fresh suite extractions are retained."
+target_selection = "Decision 3294 corrected the verification command on main to select native-reads-http; the prior target-selection finding is resolved without changing the manifest or test."
+command = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls *.rs | sed 's/.rs$//; s/^proof_native_reads$/native-reads-http/; s/^/--test /') -- -D warnings"
+prequalification_runs = 1
+prequalification_exit = 101
+remaining_diagnostics = 1
+remaining_r_target_diagnostics = 0
+tests_preserved = "All 356 original test functions in the changed daemon test files remain present in their original files or included suites; no test or assertion is removed, skipped or weakened."
+evidence = "The final response references the matching counted build and verification outcomes with exact revision, command, exit and private evidence location; no successful verification is claimed."
+
+[continuation_6_inventory.file1]
+file = "services/agent/crates/layerx-agentd/tests/inference_signal.rs"
+target = "inference_signal"
+line = 1
+symbol = "SignalAuthority::with_enrolment"
+lints = ["dead_code=1"]
+repair = "Decision 3292: added one dead_code allowance with a reason to the private signal module item, matching inference_enrol_route; the host and enrolment route retain the method and the source implementation is unchanged."
+remaining = 0
+
+[continuation_6_compile]
+command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets"
+runs = 1
+exit = 0
+coverage = "Daemon library, every test target including those named r, and host targets compile; the previously recorded inference_signal dead_code remains a warning in this compiler check."
+
+[continuation_6_build]
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+prequalification_runs = 1
+prequalification_exit = 0
+counted_evidence = "The final response supplies the counted gate references at the final candidate; the counted verification result determines qualification."
+
+[continuation.7]
+base_revision = "88db70aa0187e8e12fb636fee7a28bc5b59bad89"
+source_revision = "71d096a4b3edf06c3ea988659dd12dcf29fc34dc"
+merge = "The continued implementation is applied to current main without conflicts; every prior source repair and suite extraction is retained."
+repair = "Decision 3292: the private signal module item in inference_signal.rs carries one dead_code allowance with a reason, matching inference_enrol_route.rs; no source implementation or test assertion changes."
+remaining_diagnostics = 0
+evidence = "The final response references the counted build and verification at their matching candidate revision, with exact command, exit and private evidence location; those references determine the counted qualification outcome."
+
+[continuation_7_prequalification]
+lint_command = "test -s services/agent/crates/layerx-agentd/tests/repair_22_39_228.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps $(cd services/agent/crates/layerx-agentd/tests && ls *.rs | sed 's/.rs$//; s/^proof_native_reads$/native-reads-http/; s/^/--test /') -- -D warnings"
+lint_runs = 1
+lint_exit = 0
+lint_targets = 210
+check_command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host --all-targets"
+check_runs = 1
+check_exit = 0
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib $(cd services/agent/crates/layerx-agentd/tests && ls r*.rs | sed 's/.rs$//; s/^/--test /')"
+build_runs = 1
+build_exit = 0
+build_test_targets = 73

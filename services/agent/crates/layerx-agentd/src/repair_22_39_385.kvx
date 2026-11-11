@@ -1,0 +1,589 @@
+[meta]
+task = "22.39.385"
+baseline_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+baseline_lint_exit = 101
+baseline_lint_log = "/tmp/baseline-lint-22-39-385.log"
+baseline_owned_messages = 71
+baseline_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+baseline_test_log = "/tmp/baseline-test-22-39-385.log"
+baseline_test_exit = 101
+baseline_passed = 334
+baseline_failed = 3
+baseline_ignored = 0
+owned_lint_final_log = "/tmp/repair-lint-22-39-385-3.log"
+owned_lint_final_count = 0
+post_test_log = "/tmp/repair-test-22-39-385.log"
+post_test_exit = 101
+post_passed = 334
+post_failed = 3
+post_ignored = 0
+post_red_cases_match_baseline = true
+baseline_red_cases = ["agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer", "ops::program::simulation_tls_checks_the_actual_server_identity", "outbound_tls::private_ca_checks_the_actual_server_identity"]
+
+[message.1]
+file = "approval/mod.rs"
+line = 1658
+column = 37
+lint = "unused_imports"
+observed = "unused import: `LimitRefusal`"
+repair = "Removed the unused LimitRefusal import in the reject-without-store cases."
+
+[message.2]
+file = "policy/approval.rs"
+line = 2117
+column = 34
+lint = "unused_imports"
+observed = "unused imports: `Authority` and `TimestampBound`"
+repair = "Removed the unused Authority and TimestampBound imports."
+
+[message.3]
+file = "policy/approval.rs"
+line = 2118
+column = 34
+lint = "unused_imports"
+observed = "unused import: `IdempotencyKey`"
+repair = "Removed the unused IdempotencyKey import."
+
+[message.4]
+file = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+line = 9
+column = 27
+lint = "unused_imports"
+observed = "unused imports: `NodeDeploymentFixture` and `node_deployment_fixture`"
+repair = "Kept the registry integration re-export with an item-scoped unused-import allowance; registry test targets import node_deployment_fixture from it."
+
+[message.5]
+file = "approval/native_effect.rs"
+line = 140
+column = 8
+lint = "dead_code"
+observed = "method `actual` is never used"
+repair = "Removed the uncalled test-only actual accessor after searching all including targets."
+
+[message.6]
+file = "approval/native_effect.rs"
+line = 477
+column = 19
+lint = "dead_code"
+observed = "method `principal` is never used"
+repair = "Removed the uncalled test-only principal accessor after searching all including targets."
+
+[message.7]
+file = "approval/native_program.rs"
+line = 342
+column = 19
+lint = "dead_code"
+observed = "associated function `read` is never used"
+repair = "Removed the uncalled test-only read helper after searching all including targets."
+
+[message.8]
+file = "approval/native_program.rs"
+line = 1385
+column = 19
+lint = "dead_code"
+observed = "methods `counts`, `observed_batch`, and `observed_head_sequence` are never used"
+repair = "Removed the three uncalled test-only accessors after searching all including targets."
+
+[message.9]
+file = "approval/program_requirement.rs"
+line = 148
+column = 19
+lint = "dead_code"
+observed = "associated function `evaluate` is never used"
+repair = "Removed the uncalled test-only evaluate method after searching all including targets."
+
+[message.10]
+file = "approval/mod.rs"
+line = 1669
+column = 9
+lint = "dead_code"
+observed = "field `store` is never read"
+repair = "Removed the unread Shared.store field in reject-without-store cases; the expiry retains the shared store."
+
+[message.11]
+file = "policy/approval.rs"
+line = 791
+column = 19
+lint = "dead_code"
+observed = "struct `StagedApproval` is never constructed"
+repair = "Removed the never-constructed test-only StagedApproval type."
+
+[message.12]
+file = "policy/approval.rs"
+line = 797
+column = 19
+lint = "dead_code"
+observed = "methods `companion` and `publish` are never used"
+repair = "Removed its uncalled companion and publish methods with the unused type."
+
+[message.13]
+file = "policy/approval.rs"
+line = 2161
+column = 8
+lint = "dead_code"
+observed = "function `sign` is never used"
+repair = "Removed the uncalled test-only sign helper."
+
+[message.14]
+file = "policy/approval.rs"
+line = 2175
+column = 8
+lint = "dead_code"
+observed = "function `send_payload` is never used"
+repair = "Removed the uncalled test-only send_payload helper."
+
+[message.15]
+file = "policy/eval.rs"
+line = 1112
+column = 19
+lint = "dead_code"
+observed = "method `program_requirement_context` is never used"
+repair = "Removed the uncalled test-only context serializer after searching all including targets."
+
+[message.16]
+file = "read/proof_bundle.rs"
+line = 25
+column = 19
+lint = "dead_code"
+observed = "struct `ProofBundleScope` is never constructed"
+repair = "Removed the unused test-only ProofBundleScope type."
+
+[message.17]
+file = "read/proof_bundle.rs"
+line = 34
+column = 15
+lint = "dead_code"
+observed = "function `acquire` is never used"
+repair = "Removed the unused test-only acquire wrapper that consumed ProofBundleScope."
+
+[message.18]
+file = "read/proof_bundle.rs"
+line = 470
+column = 4
+lint = "dead_code"
+observed = "function `rlp_index` is never used"
+repair = "Removed the uncalled test-only RLP index helper."
+
+[message.19]
+file = "read/proof_bundle.rs"
+line = 570
+column = 4
+lint = "dead_code"
+observed = "function `nibbles` is never used"
+repair = "Removed the uncalled test-only nibbles helper."
+
+[message.20]
+file = "read/proof_bundle.rs"
+line = 578
+column = 4
+lint = "dead_code"
+observed = "function `trie_value` is never used"
+repair = "Removed the uncalled test-only trie proof helper."
+
+[message.21]
+file = "approval/expiry.rs"
+line = 467
+column = 1
+lint = "clippy::items_after_test_module"
+observed = "items after a test module"
+repair = "Moved the test module below all production items."
+
+[message.22]
+file = "approval/native_program.rs"
+line = 1388
+column = 10
+lint = "clippy::used_underscore_binding"
+observed = "used underscore-prefixed binding"
+repair = "Removed the uncalled test-only counts accessor that read the underscore field."
+
+[message.23]
+file = "approval/native_program.rs"
+line = 1392
+column = 9
+lint = "clippy::used_underscore_binding"
+observed = "used underscore-prefixed binding"
+repair = "Removed the uncalled test-only observed_batch accessor that read the underscore field."
+
+[message.24]
+file = "approval/mod.rs"
+line = 69
+column = 19
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the terminal-key Result explicitly and preserved the failure assertion."
+
+[message.25]
+file = "approval/mod.rs"
+line = 75
+column = 18
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Matched the retained terminal Option explicitly and preserved the nonempty assertion."
+
+[message.26]
+file = "approval/mod.rs"
+line = 145
+column = 9
+lint = "clippy::format_collect"
+observed = "use of `format!` to build up a string from an iterator"
+repair = "Used canonical hex encoding for the byte array instead of collecting formatted fragments."
+
+[message.27]
+file = "approval/mod.rs"
+line = 642
+column = 21
+lint = "clippy::format_collect"
+observed = "use of `format!` to build up a string from an iterator"
+repair = "Used canonical hex encoding for the byte array instead of collecting formatted fragments."
+
+[message.28]
+file = "approval/mod.rs"
+line = 974
+column = 21
+lint = "clippy::format_collect"
+observed = "use of `format!` to build up a string from an iterator"
+repair = "Used canonical hex encoding for the byte array instead of collecting formatted fragments."
+
+[message.29]
+file = "approval/mod.rs"
+line = 1312
+column = 21
+lint = "clippy::format_collect"
+observed = "use of `format!` to build up a string from an iterator"
+repair = "Used canonical hex encoding for the byte array instead of collecting formatted fragments."
+
+[message.30]
+file = "approval/mod.rs"
+line = 1724
+column = 21
+lint = "clippy::format_collect"
+observed = "use of `format!` to build up a string from an iterator"
+repair = "Used canonical hex encoding for the byte array instead of collecting formatted fragments."
+
+[message.31]
+file = "policy/approval.rs"
+line = 2108
+column = 1
+lint = "clippy::items_after_test_module"
+observed = "items after a test module"
+repair = "Moved the released replay test module below all production items."
+
+[message.32]
+file = "policy/approval.rs"
+line = 2372
+column = 5
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (132/100)"
+repair = "Split the reopening and recovery assertions into assert_recovered_rejection without dropping any assertion."
+
+[message.33]
+file = "policy/eval.rs"
+line = 880
+column = 1
+lint = "clippy::items_after_test_module"
+observed = "items after a test module"
+repair = "Moved the test module below all production items."
+
+[message.34]
+file = "policy/eval.rs"
+line = 1112
+column = 5
+lint = "clippy::too_many_arguments"
+observed = "this function has too many arguments (8/7)"
+repair = "Removed the uncalled test-only context serializer with its eight-argument signature."
+
+[message.35]
+file = "policy/eval.rs"
+line = 1112
+column = 5
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (121/100)"
+repair = "Removed the uncalled test-only context serializer with its overlong body."
+
+[message.36]
+file = "policy/native_program.rs"
+line = 848
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the configured JSON or policy Result explicitly and preserved the assertion on failure."
+
+[message.37]
+file = "policy/native_program.rs"
+line = 854
+column = 22
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the configured JSON or policy Result explicitly and preserved the assertion on failure."
+
+[message.38]
+file = "policy/native_program.rs"
+line = 882
+column = 22
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the configured JSON or policy Result explicitly and preserved the assertion on failure."
+
+[message.39]
+file = "policy/version.rs"
+line = 807
+column = 24
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the policy source Result explicitly and preserved the assertion on failure."
+
+[message.40]
+file = "policy/version.rs"
+line = 849
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Matched the policy source Result explicitly and preserved the assertion on failure."
+
+[message.41]
+file = "read/checkpoint.rs"
+line = 897
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.42]
+file = "read/checkpoint.rs"
+line = 911
+column = 24
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.43]
+file = "read/checkpoint.rs"
+line = 912
+column = 23
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.44]
+file = "read/checkpoint.rs"
+line = 915
+column = 39
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.45]
+file = "read/checkpoint.rs"
+line = 916
+column = 17
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.46]
+file = "read/checkpoint.rs"
+line = 922
+column = 21
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.47]
+file = "read/checkpoint.rs"
+line = 925
+column = 39
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.48]
+file = "read/checkpoint.rs"
+line = 926
+column = 38
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.49]
+file = "read/checkpoint.rs"
+line = 931
+column = 46
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.50]
+file = "read/checkpoint.rs"
+line = 938
+column = 17
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.51]
+file = "read/checkpoint.rs"
+line = 941
+column = 38
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.52]
+file = "read/checkpoint.rs"
+line = 946
+column = 25
+lint = "clippy::semicolon_if_nothing_returned"
+observed = "consider adding a `;` to the last statement for consistent formatting: help: add a `;` here: `assert_eq!(request[\"params\"], json!([\"8\"]));`"
+repair = "Added the semicolon after the RPC parameter assertion."
+
+[message.53]
+file = "read/checkpoint.rs"
+line = 956
+column = 17
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.54]
+file = "read/checkpoint.rs"
+line = 960
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.55]
+file = "read/checkpoint.rs"
+line = 1015
+column = 52
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.56]
+file = "read/checkpoint.rs"
+line = 1076
+column = 22
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.57]
+file = "read/checkpoint.rs"
+line = 1077
+column = 20
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.58]
+file = "read/checkpoint.rs"
+line = 1079
+column = 21
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.59]
+file = "read/checkpoint.rs"
+line = 1089
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.60]
+file = "read/checkpoint.rs"
+line = 1099
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.61]
+file = "read/checkpoint.rs"
+line = 1135
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.62]
+file = "read/checkpoint.rs"
+line = 1147
+column = 25
+lint = "clippy::expect_used"
+observed = "used `expect_err()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.63]
+file = "read/checkpoint.rs"
+line = 1156
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.64]
+file = "read/checkpoint.rs"
+line = 1173
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.65]
+file = "read/checkpoint.rs"
+line = 1180
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.66]
+file = "read/checkpoint.rs"
+line = 1185
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect or expect_err with an explicit Result or Option match, or an equivalent success assertion, retaining the failure condition."
+
+[message.67]
+file = "programs/crates/layerx-programs-registry/tests/support/chain.rs"
+line = 33
+column = 5
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (115/100)"
+repair = "Extracted multistore_with_proof from ChainFixture::new_in_store."
+
+[message.68]
+file = "programs/crates/layerx-programs-registry/tests/support/chain.rs"
+line = 167
+column = 9
+lint = "clippy::manual_let_else"
+observed = "this could be rewritten as `let...else`"
+repair = "Used let-else for the absent-key branch while retaining the mismatch refusal."
+
+[message.69]
+file = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+line = 205
+column = 1
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (124/100)"
+repair = "Extracted resign_chain from fixture_with_interface."
+
+[message.70]
+file = "programs/crates/layerx-programs-registry/tests/support/mod.rs"
+line = 385
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Matched the checked header-height Option explicitly."
+
+[message.71]
+file = "read/proof_bundle.rs"
+line = 39
+column = 12
+lint = "clippy::needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Removed the unused test-only acquire wrapper that consumed its scope by value."

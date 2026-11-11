@@ -1,10 +1,6 @@
 //! Program custody reads from layerxprograms at a committed block height.
 
-#[cfg(test)]
-use super::program_node::ProgramReadError;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
-#[cfg(test)]
-use layerx_programs::VerifiedProgramBalanceRead;
 use layerx_programs::{ProgramId, ProgramLifecycle};
 
 pub use super::program_node::read_committed_program_balances as program_balances_from_protocol;
@@ -77,37 +73,4 @@ pub struct ProgramBalanceRead<F = ProgramBalanceFreshness> {
     pub lifecycle: ProgramLifecycle,
     pub accounts: Vec<ProgramValueBalance>,
     pub freshness: F,
-}
-
-#[cfg(test)]
-pub(super) fn program_balances(
-    read: &VerifiedProgramBalanceRead,
-    staleness_limit: u64,
-) -> Result<ProgramBalanceRead, ProgramReadError> {
-    let valid_through = read
-        .freshness()
-        .observed_at
-        .checked_add(staleness_limit)
-        .ok_or(ProgramReadError::NonCanonicalView)?;
-    Ok(ProgramBalanceRead {
-        program: read.program().bytes(),
-        lifecycle: read.lifecycle(),
-        accounts: read
-            .value_accounts()
-            .iter()
-            .map(|account| ProgramValueBalance {
-                account: account.account_id,
-                asset: account.asset_id,
-                amount: account.balance,
-                frozen: Some(account.frozen),
-            })
-            .collect(),
-        freshness: ProgramBalanceFreshness {
-            observed_sequence: read.freshness().observed_sequence,
-            observed_at: read.freshness().observed_at,
-            receipt_digest: read.receipt_digest(),
-            state_root: read.state_root(),
-            valid_through,
-        },
-    })
 }

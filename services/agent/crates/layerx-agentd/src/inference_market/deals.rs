@@ -634,7 +634,6 @@ impl DealEngine {
         };
         Ok(negotiation.ready() && Self::record_matches(snapshot, &negotiation.frame)?)
     }
-    #[cfg(test)]
     pub fn excluded(&self, peer: &[u8; 32]) -> bool {
         self.session.excluded.contains(peer)
     }

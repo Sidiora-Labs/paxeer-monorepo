@@ -31,6 +31,7 @@ One line per normative contract file of this version; the label is how the contr
 | File | Feature | Tasks |
 | --- | --- | --- |
 | [virtual-chains.md](virtual-chains.md) | 20 | 31 |
+| [chain-launchpad.md](chain-launchpad.md) | 22 | 18 |
 
 ## Retired contract files
 

@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::proof::ProofBundleTarget;
 use layerx_agent_api::read::{HistoryCursor, HistorySelector};
@@ -38,7 +46,7 @@ fn assert_no_sequences(value: &Value) {
 
 #[test]
 fn read_balance_operation_returns_height_freshness() {
-    let amount = Amount::from_u128(12345678901234567890);
+    let amount = Amount::from_u128(12_345_678_901_234_567_890);
     let value = balance_operation_value([1; 32], [2; 32], amount, &amount.to_be_bytes(), 150, 151);
     assert_eq!(value["value"]["amount"], "12345678901234567890");
     assert_eq!(
@@ -76,59 +84,69 @@ fn receipt_bytes(tx: [u8; 32], sender: [u8; 20], signature: Option<[u8; 64]>) ->
     let mut to = [0; 32];
     to[12..].fill(7);
     let mut summary = Encoder::new(256);
-    summary.u64(21000).unwrap();
-    summary.u64(42000).unwrap();
-    summary.u64(1).unwrap();
-    summary.u32(1).unwrap();
-    summary.fixed(&[0; 20]).unwrap();
-    summary.fixed(&[0; 20]).unwrap();
-    summary.fixed(&hash(b"")).unwrap();
-    summary.u32(2).unwrap();
-    summary.u32(1).unwrap();
-    summary.u8(4).unwrap();
-    summary.fixed(b"upax").unwrap();
+    require_ok(summary.u64(21000), "required test value");
+    require_ok(summary.u64(42000), "required test value");
+    require_ok(summary.u64(1), "required test value");
+    require_ok(summary.u32(1), "required test value");
+    require_ok(summary.fixed(&[0; 20]), "required test value");
+    require_ok(summary.fixed(&[0; 20]), "required test value");
+    require_ok(summary.fixed(&hash(b"")), "required test value");
+    require_ok(summary.u32(2), "required test value");
+    require_ok(summary.u32(1), "required test value");
+    require_ok(summary.u8(4), "required test value");
+    require_ok(summary.fixed(b"upax"), "required test value");
     let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
-    encoder
-        .structure_header_version(0x5201, PROTOCOL_VERSION)
-        .unwrap();
-    encoder.u16(PROTOCOL_VERSION).unwrap();
-    encoder.bytes(&tx, 32).unwrap();
-    encoder.u64(7).unwrap();
-    encoder.bytes(&previous, 32).unwrap();
-    encoder.bytes(&hash(&sequence), 32).unwrap();
-    encoder.bytes(&hash(&[0xab, 0xcd]), 32).unwrap();
-    encoder.i32(0).unwrap();
-    encoder.sequence_length(1, 512).unwrap();
-    encoder.u16(12).unwrap();
-    encoder.u16(0).unwrap();
-    encoder.u16(0).unwrap();
-    encoder.u8(1).unwrap();
-    encoder.u8(0).unwrap();
-    encoder.bytes(&[0; 32], 32).unwrap();
-    encoder.bytes(&summary.finish(), 256).unwrap();
-    encoder.u128(21000).unwrap();
-    encoder.bytes(&height, 32).unwrap();
-    encoder.u16(12).unwrap();
-    encoder.u32(1).unwrap();
-    encoder.u32(0).unwrap();
-    encoder.u8(2).unwrap();
+    require_ok(
+        encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
+        "required test value",
+    );
+    require_ok(encoder.u16(PROTOCOL_VERSION), "required test value");
+    require_ok(encoder.bytes(&tx, 32), "required test value");
+    require_ok(encoder.u64(7), "required test value");
+    require_ok(encoder.bytes(&previous, 32), "required test value");
+    require_ok(encoder.bytes(&hash(&sequence), 32), "required test value");
+    require_ok(
+        encoder.bytes(&hash(&[0xab, 0xcd]), 32),
+        "required test value",
+    );
+    require_ok(encoder.i32(0), "required test value");
+    require_ok(encoder.sequence_length(1, 512), "required test value");
+    require_ok(encoder.u16(12), "required test value");
+    require_ok(encoder.u16(0), "required test value");
+    require_ok(encoder.u16(0), "required test value");
+    require_ok(encoder.u8(1), "required test value");
+    require_ok(encoder.u8(0), "required test value");
+    require_ok(encoder.bytes(&[0; 32], 32), "required test value");
+    require_ok(encoder.bytes(&summary.finish(), 256), "required test value");
+    require_ok(encoder.u128(21000), "required test value");
+    require_ok(encoder.bytes(&height, 32), "required test value");
+    require_ok(encoder.u16(12), "required test value");
+    require_ok(encoder.u32(1), "required test value");
+    require_ok(encoder.u32(0), "required test value");
+    require_ok(encoder.u8(2), "required test value");
     let payment_denom = "upax";
-    encoder.bytes(&hash(payment_denom.as_bytes()), 32).unwrap();
-    encoder.u128(1).unwrap();
-    encoder.bytes(&from, 32).unwrap();
-    encoder.u128(21002).unwrap();
-    encoder.u128(1).unwrap();
-    encoder.u64(41).unwrap();
-    encoder.bytes(&to, 32).unwrap();
-    encoder.u128(0).unwrap();
-    encoder.u128(1).unwrap();
-    encoder.bytes(&[0; 32], 32).unwrap();
-    encoder.bytes(&[0; 32], 32).unwrap();
-    encoder.bytes(&[1; 32], 32).unwrap();
-    encoder.u64(1000).unwrap();
-    encoder.u8(u8::from(signature.is_some())).unwrap();
+    require_ok(
+        encoder.bytes(&hash(payment_denom.as_bytes()), 32),
+        "required test value",
+    );
+    require_ok(encoder.u128(1), "required test value");
+    require_ok(encoder.bytes(&from, 32), "required test value");
+    require_ok(encoder.u128(21002), "required test value");
+    require_ok(encoder.u128(1), "required test value");
+    require_ok(encoder.u64(41), "required test value");
+    require_ok(encoder.bytes(&to, 32), "required test value");
+    require_ok(encoder.u128(0), "required test value");
+    require_ok(encoder.u128(1), "required test value");
+    require_ok(encoder.bytes(&[0; 32], 32), "required test value");
+    require_ok(encoder.bytes(&[0; 32], 32), "required test value");
+    require_ok(encoder.bytes(&[1; 32], 32), "required test value");
+    require_ok(encoder.u64(1000), "required test value");
+    require_ok(
+        encoder.u8(u8::from(signature.is_some())),
+        "required test value",
+    );
     if let Some(signature) = signature {
-        encoder.bytes(&signature, 64).unwrap();
+        require_ok(encoder.bytes(&signature, 64), "required test value");
     }
     encoder.finish()
 }
@@ -144,32 +162,46 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
         to: [7; 20],
         data: vec![],
     };
-    let raw = call.sign(&[5; 32]).unwrap();
-    let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw).unwrap();
-    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).unwrap();
+    let raw = require_ok(call.sign(&[5; 32]), "required test value");
+    let (_, signature) = require_ok(
+        layerx_crypto::evm_transaction::decode_signed(&raw),
+        "required test value",
+    );
+    let sender = require_ok(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+        "required test value",
+    );
     let tx = transaction_hash(&raw);
     let signer = SigningKey::from_bytes(&[8; 32]);
-    let digest = receipt_digest(&receipt_bytes(tx, sender, None)).unwrap();
-    let signed = receipt_bytes(tx, sender, Some(signer.sign(&digest).to_bytes()));
+    let digest = require_ok(
+        receipt_digest(&receipt_bytes(tx, sender, None)),
+        "required test value",
+    );
+    let receipt_encoding = receipt_bytes(tx, sender, Some(signer.sign(&digest).to_bytes()));
     let keys = [ReceiptKeyEntry {
         key_id: [1; 32],
         public_key: signer.verifying_key().to_bytes(),
         first_height: 100,
         last_height: 199,
     }];
-    let response = receipt_proof_operation(
-        ProofBundleTarget::Receipt(tx),
-        Rung::Receipted,
-        &raw,
-        &signed,
-        &keys,
-        125,
-        150,
-        [9; 32],
-    )
-    .unwrap();
+    let response = require_ok(
+        receipt_proof_operation(
+            ProofBundleTarget::Receipt(tx),
+            Rung::Receipted,
+            &raw,
+            &receipt_encoding,
+            &keys,
+            125,
+            150,
+            [9; 32],
+        ),
+        "required test value",
+    );
     assert_eq!(response.achieved_rung, Rung::Receipted);
-    let value = proof_bundle_operation_value(&response).unwrap();
+    let value = require_ok(
+        proof_bundle_operation_value(&response),
+        "required test value",
+    );
     assert_eq!(value["value"]["format"], "layerx-receipt-proof-v2");
     assert_eq!(value["value"]["verificationLevel"], "receipted");
     assert_eq!(value["achieved_verification_level"], "receipted");
@@ -179,25 +211,78 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
     );
     assert_eq!(
         value["value"]["signedReceipt"],
-        format!("0x{}", hex::encode(&signed))
+        format!("0x{}", hex::encode(&receipt_encoding))
     );
     assert_eq!(
         value["value"]["receiptDigest"],
         format!("0x{}", hex::encode(digest))
     );
-    let decoded = layerx_wire::receipt::decode(&signed).unwrap();
-    let unsigned = layerx_wire::receipt::encode_unsigned(&decoded).unwrap();
+    let decoded = require_ok(
+        layerx_wire::receipt::decode(&receipt_encoding),
+        "required test value",
+    );
+    let unsigned = require_ok(
+        layerx_wire::receipt::encode_unsigned(&decoded),
+        "required test value",
+    );
     assert_eq!(unsigned, receipt_bytes(tx, sender, None));
+    finish_read_proof_bundle_operation_returns_receipt_proof_v2_1_read_ops_rpc(
+        FinishReadProofBundleOperationReturnsReceiptProofV21ReadOpsRpcContext {
+            raw,
+            tx,
+            receipt_encoding,
+            keys,
+            response,
+            value,
+            decoded,
+            unsigned,
+        },
+    );
+}
+
+struct FinishReadProofBundleOperationReturnsReceiptProofV21ReadOpsRpcContext {
+    raw: Vec<u8>,
+    tx: [u8; 32],
+    receipt_encoding: Vec<u8>,
+    keys: [ReceiptKeyEntry; 1],
+    response: layerx_agent_api::read::VerifiedRead<layerx_agent_api::proof::ProofBundle>,
+    value: Value,
+    decoded: layerx_wire::receipt::Receipt,
+    unsigned: Vec<u8>,
+}
+
+fn finish_read_proof_bundle_operation_returns_receipt_proof_v2_1_read_ops_rpc(
+    context: FinishReadProofBundleOperationReturnsReceiptProofV21ReadOpsRpcContext,
+) {
+    let FinishReadProofBundleOperationReturnsReceiptProofV21ReadOpsRpcContext {
+        raw,
+        tx,
+        receipt_encoding,
+        keys,
+        response,
+        value,
+        decoded,
+        unsigned,
+    } = context;
+
     assert_eq!(
         response.value.receipt_digest,
-        receipt_digest(&unsigned).unwrap()
+        require_ok(receipt_digest(&unsigned), "required test value")
     );
-    layerx_crypto::ed25519::verify_digest(
-        &keys[0].public_key,
-        &decoded.protocol().unwrap().sequencer_signature().unwrap(),
-        &response.value.receipt_digest,
-    )
-    .unwrap();
+    require_ok(
+        layerx_crypto::ed25519::verify_digest(
+            &keys[0].public_key,
+            &require_some(
+                decoded
+                    .protocol()
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .sequencer_signature(),
+                "required test value",
+            ),
+            &response.value.receipt_digest,
+        ),
+        "required test value",
+    );
     assert_eq!(value["freshness"]["chain_head"], "150");
     assert_eq!(
         value["freshness"]["relative_to"],
@@ -206,7 +291,7 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
     assert_eq!(value["freshness"]["value_height"], "151");
     assert!(value["value"].get("commit").is_none());
     assert_no_sequences(&value);
-    let mut corrupt = signed.clone();
+    let mut corrupt = receipt_encoding.clone();
     let last = corrupt.len() - 1;
     corrupt[last] ^= 1;
     assert!(receipt_proof_operation(
@@ -224,7 +309,7 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
         ProofBundleTarget::Receipt([3; 32]),
         Rung::Receipted,
         &raw,
-        &signed,
+        &receipt_encoding,
         &keys,
         125,
         150,
@@ -235,7 +320,7 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
         ProofBundleTarget::Receipt(tx),
         Rung::Committed,
         &raw,
-        &signed,
+        &receipt_encoding,
         &keys,
         125,
         150,
@@ -246,7 +331,7 @@ fn read_proof_bundle_operation_returns_receipt_proof_v2() {
         ProofBundleTarget::Receipt(tx),
         Rung::Receipted,
         &raw,
-        &signed,
+        &receipt_encoding,
         &keys,
         126,
         150,
@@ -271,7 +356,10 @@ fn read_history_operation_returns_block_position_cursor() {
         {"height":"141","txIndex":"2","logIndex":"0","kind":"Receipt","canonical":"abcd","proof":null},
         {"height":"141","txIndex":"2","logIndex":"1","kind":"Event","canonical":"1234","proof":"aa"}],
         "cursor":["141","2","1"]});
-    let value = history_operation_value(&selector, &result, 155).unwrap();
+    let value = require_ok(
+        history_operation_value(&selector, &result, 155),
+        "required test value",
+    );
     assert_eq!(value["value"]["items"], result["items"]);
     assert_eq!(value["value"]["next_cursor"], json!(["141", "2", "1"]));
     assert_eq!(value["value"]["cursor"], value["value"]["next_cursor"]);
@@ -290,7 +378,7 @@ fn read_history_operation_returns_block_position_cursor() {
         assert!(history_operation_value(&selector, &malformed, 155).is_err());
     }
     let mut unordered = result.clone();
-    unordered["items"].as_array_mut().unwrap().reverse();
+    require_some(unordered["items"].as_array_mut(), "required test value").reverse();
     assert!(history_operation_value(&selector, &unordered, 155).is_err());
     let mut limited = selector.clone();
     limited.page_limit = 1;

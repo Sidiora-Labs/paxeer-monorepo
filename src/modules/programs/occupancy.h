@@ -71,6 +71,7 @@ typedef struct lxp_programs_occupancy_bridge {
     bool finalizing;
     bool uninitialized;
     bool call_authorized;
+    bool call_added_responsibility;
 } lxp_programs_occupancy_bridge;
 
 lxp_result lxp_programs_occupancy_bridge_init(
