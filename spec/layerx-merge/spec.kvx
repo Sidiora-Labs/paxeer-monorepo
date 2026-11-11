@@ -186180,7 +186180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.396]
 title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.19"]
