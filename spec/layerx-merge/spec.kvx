@@ -13192,6 +13192,12 @@ value = "A test target that includes a source file of its member or a shared tes
 basis = "Gotcha 4267, decision 3340."
 affects = ["22.39.424", "22.39.425"]
 
+[decision.3347]
+title = "The member lint task of the ramps verifies with the option --no-deps"
+value = "Decision 3342 holds for task 22.39.420. Its verification runs clippy with the two package options, all targets, the option --no-deps and warnings denied."
+basis = "Gotchas 4265 and 4268, decisions 3341 and 3342."
+affects = ["22.39.420"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -196293,7 +196299,7 @@ touches = ["services/platform/ramps"]
 tests = []
 planned_paths = ["services/platform/ramps/repair_22_39_420.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets"
-verify_cmd = "test -s services/platform/ramps/repair_22_39_420.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets -- -D warnings"
+verify_cmd = "test -s services/platform/ramps/repair_22_39_420.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets --no-deps -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -196305,6 +196311,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3347, gotchas 4265 and 4268. The verification now lints the two members with the option --no-deps, so a finding in a package they depend on is outside this task and is not changed here."
 
 [task.22.39.419]
 title = "Bring the PaxAI participant member of the platform through the workspace lint"
