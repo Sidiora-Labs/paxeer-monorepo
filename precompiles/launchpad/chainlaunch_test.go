@@ -80,6 +80,11 @@ func TestChainLaunchEmitsChainLaunchedAndTheMarketEvents(t *testing.T) {
 	require.Equal(t, common.BigToHash(new(big.Int).SetUint64(uint64(chain))), logs[0].Topics[1])
 	require.Equal(t, common.BytesToHash(pool.Bytes()), logs[0].Topics[2])
 	require.Equal(t, common.BytesToHash(token.Bytes()), logs[0].Topics[3])
+	fields, err := roleABI(t, directRole).Events["ChainLaunched"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	require.NoError(t, err)
+	require.Equal(t, out[4], fields[0])
+	require.Equal(t, out[2], fields[1])
+	require.Equal(t, h.caller, fields[2])
 	require.Len(t, h.logs(before, precompile, "MarketCreated(bytes32,address,address,address,address,uint256,uint256)"), 1)
 	require.Len(t, h.logs(before, factory, "MarketCreated(address,address,address,uint256,address)"), 1)
 }

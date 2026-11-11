@@ -5,6 +5,7 @@ release kit. No standalone daemon, replica, or public router is started here.
 """
 
 import hashlib
+import base64
 import http.client
 import json
 import os
@@ -12,6 +13,7 @@ from pathlib import Path
 import re
 import signal
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -52,21 +54,27 @@ def write_json(path, document):
 class RootRpc:
     def __init__(self, endpoint):
         self.url = urlsplit(endpoint)
+        self.path = self.url.path or '/'
         require(self.url.scheme == 'http' and self.url.hostname == '127.0.0.1'
-                and self.url.port is not None and self.url.path in ('', '/')
+                and self.url.port is not None
+                and (self.path == '/' or re.fullmatch(r'/chain/[1-9][0-9]*', self.path))
                 and not self.url.username and not self.url.password
                 and not self.url.query and not self.url.fragment,
-                'owned loopback root RPC origin required')
-        self.endpoint = endpoint.rstrip('/') + '/'
+                'owned loopback chain RPC origin required')
+        self.endpoint = endpoint.rstrip('/') + ('/' if self.path == '/' else '')
         self.identifier = 0
 
-    def request(self, method, params):
+    def for_chain(self, registry_number):
+        require(type(registry_number) is int and registry_number > 0, 'chain registry number')
+        return RootRpc(f'http://127.0.0.1:{self.url.port}/chain/{registry_number}')
+
+    def exchange(self, method, params):
         self.identifier += 1
         body = json.dumps({'jsonrpc': '2.0', 'id': self.identifier,
                            'method': method, 'params': params}, separators=(',', ':')).encode()
         connection = http.client.HTTPConnection(self.url.hostname, self.url.port, timeout=10)
         try:
-            connection.request('POST', '/', body, {'Content-Type': 'application/json'})
+            connection.request('POST', self.path, body, {'Content-Type': 'application/json'})
             response = connection.getresponse()
             raw = response.read(1_048_577)
             require(response.status == 200 and response.getheader('Content-Type', '').split(';')[0] == 'application/json'
@@ -75,10 +83,14 @@ class RootRpc:
             require(isinstance(value, dict) and value.get('jsonrpc') == '2.0'
                     and type(value.get('id')) is int and value['id'] == self.identifier
                     and ('result' in value) != ('error' in value), 'RPC envelope')
-            require('error' not in value, 'RPC error: ' + str(value.get('error')))
-            return value['result']
+            return value
         finally:
             connection.close()
+
+    def request(self, method, params):
+        value = self.exchange(method, params)
+        require('error' not in value, 'RPC error: ' + str(value.get('error')))
+        return value['result']
 
 
 class RuntimeFixture:
@@ -119,15 +131,21 @@ class RuntimeFixture:
         require(result.returncode == 0, 'native bootstrap failed; inspect bootstrap.log')
         write_json(self.directory / 'runtime.json', self.manifest)
 
-    def start(self):
+    def start(self, sequencer=True):
         require(self.process is None or self.process.poll() is not None, 'paxd already running')
         self.home = self.directory / 'chain'
         argv = [self.binary, 'start', '--home', str(self.home),
                 '--rpc.laddr', 'tcp://127.0.0.1:' + str(self.consensus_port),
-                '--evm.http_enabled', 'true', '--evm.http_address', '127.0.0.1',
-                '--evm.http_port', str(self.rpc.url.port), '--sequencer.enable', 'true',
+                '--sequencer.enable=' + ('true' if sequencer else 'false'),
                 '--sequencer.wal-dir', str(self.home / 'sequencer-wal'),
                 '--sequencer.receipt-key-file', self.config['bootstrap']['receipt_key_file']]
+        if 'empty_block_interval' in self.config:
+            argv.extend(('--consensus.create-empty-blocks-interval', self.config['empty_block_interval']))
+        if 'sequencer_queue' in self.config:
+            per_sender, total, lease = self.config['sequencer_queue']
+            argv.extend(('--sequencer.nonce-queue-max-per-sender', str(per_sender),
+                         '--sequencer.nonce-queue-max-total', str(total),
+                         '--sequencer.lease-duration', lease))
         with (self.directory / 'paxd.log').open('ab') as log:
             self.process = subprocess.Popen(argv, env=self.env, stdout=log, stderr=log, start_new_session=True)
 
@@ -142,12 +160,26 @@ class RuntimeFixture:
             except (OSError, ValueError, RuntimeError, http.client.HTTPException) as error:
                 last = error
             time.sleep(.1)
-        raise RuntimeError('merged runtime readiness timed out') from last
+        raise RuntimeError('merged runtime readiness timed out: ' + str(last)) from last
 
     def readiness(self):
         chain_id = int(self.config['bootstrap']['evm_chain_id'])
         self.wait(lambda: self.rpc.request('eth_chainId', []) == hex(chain_id))
         self.wait(lambda: int(self.rpc.request('eth_blockNumber', []), 16) > 0)
+
+    def committed_readiness(self):
+        def committed():
+            connection = http.client.HTTPConnection('127.0.0.1', self.consensus_port, timeout=10)
+            try:
+                connection.request('GET', '/status')
+                response = connection.getresponse()
+                require(response.status == 200, 'consensus status response')
+                status = json.loads(response.read(1_048_577))
+                return int(status['sync_info']['latest_block_height']) > 0
+            finally:
+                connection.close()
+
+        self.wait(committed)
 
     def submit(self, transaction):
         require(isinstance(transaction, str) and re.fullmatch('0x([0-9a-f]{2})+', transaction),
@@ -184,6 +216,101 @@ class RuntimeFixture:
             except subprocess.TimeoutExpired:
                 os.killpg(self.process.pid, signal.SIGKILL)
                 self.process.wait()
+
+
+def prepare_launch_runtime(directory, binary, revision, funded_accounts, funding_secret, quote_token):
+    """Prepare a private single-validator genesis with current module defaults."""
+    directory = Path(directory)
+    directory.mkdir(mode=0o700)
+    template = directory / 'template'
+    template.mkdir(mode=0o700)
+    inputs = directory / 'native-inputs'
+    inputs.mkdir(mode=0o700)
+    chain_id = 'hyperpax_125-1'
+
+    def command(label, *argv):
+        with (directory / (label + '.log')).open('xb') as log:
+            result = subprocess.run([str(binary), *argv, '--home', str(template)],
+                                    stdout=log, stderr=subprocess.STDOUT, timeout=120)
+        require(result.returncode == 0, label + ' command')
+        return (directory / (label + '.log')).read_text()
+
+    command('init', 'init', 'chain-launch', '--chain-id', chain_id, '--mode', 'validator')
+    command('validator-key', 'keys', 'add', 'validator', '--keyring-backend', 'test', '--output', 'json')
+    command('validator-fund', 'add-genesis-account', 'validator',
+            '100000000000000000000uhpx', '--keyring-backend', 'test')
+    command('validator-gentx', 'gentx', 'validator', '7000000000000000uhpx',
+            '--chain-id', chain_id, '--keyring-backend', 'test')
+    command('validator-collect', 'collect-gentxs')
+    receipt = directory / 'receipt.key'
+    generated = json.loads(command('receipt-key', 'sequencer', 'gen-receipt-key', '--output', str(receipt)))
+    command('receipt-pin', 'add-genesis-receipt-key', '--public-key', generated['public_key'],
+            '--first-height', '1', '--last-height', str(2**64 - 1))
+    validator = json.loads((template / 'config/priv_validator_key.json').read_text())
+    leader = base64.b64decode(validator['pub_key']['value'], validate=True).hex()
+    command('leader-pin', 'add-genesis-sequencer-leader', '--pubkey', leader)
+    for address in funded_accounts:
+        account = subprocess.run([str(binary), 'debug', 'addr', address[2:], '--home', str(template)],
+                                 capture_output=True, text=True, timeout=30)
+        require(account.returncode == 0, 'funded account conversion')
+        found = re.findall(r'^Bech32 Acc: (pax1[0-9a-z]+)$', account.stdout, re.M)
+        require(len(found) == 1, 'funded account address')
+        command('fund-' + address[2:10].lower(), 'add-genesis-account', found[0], '1000000000uhpx')
+    genesis = json.loads((template / 'config/genesis.json').read_text())
+    genesis['validators'] = [{'address': validator['address'], 'pub_key': validator['pub_key'],
+                              'power': '7000000000', 'name': 'chain-launch'}]
+    genesis['app_state']['sequencer']['activation_height'] = 2
+    genesis['app_state']['launchpad']['params']['quote_token'] = quote_token
+    (template / 'config/genesis.json').write_text(json.dumps(genesis, separators=(',', ':')) + '\n')
+    command('validate', 'validate-genesis')
+    ports = reserve_ports(3)
+    rpc_port, consensus_port, grpc_port = (sock.getsockname()[1] for sock in ports)
+    for sock in ports:
+        sock.close()
+    app_config = (template / 'config/app.toml').read_text()
+    for name, value in (('http_enabled', 'true'), ('http_address', '"127.0.0.1"'),
+                        ('http_port', str(rpc_port))):
+        app_config, count = re.subn(r'(?m)^' + name + r' = .*$', name + ' = ' + value, app_config)
+        require(count == 1, 'EVM HTTP configuration ' + name)
+    lines = app_config.splitlines(keepends=True)
+    section = ''
+    grpc_fields = set()
+    for index, line in enumerate(lines):
+        if line.startswith('['):
+            section = line.strip()
+        if section == '[grpc]':
+            for name, value in (('enable', 'true'), ('address', f'"127.0.0.1:{grpc_port}"')):
+                if line.startswith(name + ' = '):
+                    lines[index] = name + ' = ' + value + '\n'
+                    grpc_fields.add(name)
+    require(grpc_fields == {'enable', 'address'}, 'local gRPC configuration')
+    app_config = ''.join(lines)
+    files = {'genesis.json': json.dumps(genesis, separators=(',', ':')).encode() + b'\n',
+             'config.toml': (template / 'config/config.toml').read_bytes(),
+             'app.toml': app_config.encode(),
+             'priv_validator_key.json': (template / 'config/priv_validator_key.json').read_bytes(),
+             'rpc-ca.der': ssl.PEM_cert_to_DER_cert((ROOT / 'services/platform/hosted/node/tests/fixtures/repair_22_31_355/tls-certificate.pem.txt').read_text())}
+    for name, content in files.items():
+        target = inputs / name
+        target.write_bytes(content)
+        target.chmod(0o600)
+    funding_key = directory / 'funding.key'
+    funding_key.write_text(f'{funding_secret:064x}\n')
+    funding_key.chmod(0o600)
+    config = {'paxd': {'path': str(binary), 'source_revision': revision,
+                       'sha256': hashlib.sha256(Path(binary).read_bytes()).hexdigest()},
+              'chain_rpc_url': f'http://127.0.0.1:{rpc_port}/',
+              'consensus_rpc_url': f'http://127.0.0.1:{consensus_port}/',
+              'empty_block_interval': '1s',
+              'sequencer_queue': (16, 64, '3s'),
+              'bootstrap': {'native_inputs': str(inputs), 'chain_id': chain_id,
+                            'network_id': 402, 'evm_chain_id': 125,
+                            'asset': hashlib.sha256(b'chain-launch-journey').hexdigest(),
+                            'gateway_endpoint': 'https://localhost:9443',
+                            'receipt_key_file': str(receipt),
+                            'treasury_signer_socket': str(directory / 'treasury.sock'),
+                            'funding_sender_key_file': str(funding_key)}}
+    return RuntimeFixture(directory / 'runtime', config, revision)
 
 
 class RpcProofFaultRelay:
