@@ -7,7 +7,7 @@ ILaunchpad constant LAUNCHPAD_CONTRACT = ILaunchpad(LAUNCHPAD_PRECOMPILE_ADDRESS
 
 /// Direct calls to 0x1017: the functions of Router, SidioraFactory, Quoter,
 /// PoolRegistry, FeesRouter, FeeAccumulator and ProtocolConfig, the first
-/// role in that order serving a shared signature, and the twelve
+/// role in that order serving a shared signature, and the sixteen
 /// EventEmitter launchpad events emitted at 0x1017.
 interface ILaunchpad {
     error Overflow();
@@ -158,7 +158,7 @@ interface ILaunchpad {
     function retireLaunchedChain(uint32 chain) external;
     function launchedChain(uint32 chain) external view returns (uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber);
     function launchedChainOfPool(address pool) external view returns (uint32 chain);
-    function homeChainOf(address pool) external view returns (uint32 chain);
+    function homeChainOf(address pool) external view returns (uint64 chainId);
     function chainRevenueEpoch(uint32 chain, uint64 epoch) external view returns (uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt);
     function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) external view returns (uint256 amount);
     function factory() external view returns (address);
