@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 include!("native_send_preview_evm.rs");
 
 use layerx_agent_api::identity::{ContractError, NativeSendPurposeV2, SignedNativeSendPurposeV2};
@@ -41,7 +49,7 @@ fn owner_preview_over_unix(
     request.extend_from_slice(&prepare.fee_limit.to_be_bytes());
     bytes(&mut request, &prepare.payload);
     request.extend_from_slice(&prepare.payload_hash);
-    request.extend_from_slice(&prepare.capability_id.expect("capability"));
+    request.extend_from_slice(&require_some(prepare.capability_id, "capability"));
     request.extend_from_slice(&fixture.account.layerx_public_key());
     request.extend_from_slice(&prepare.not_after_height.to_be_bytes());
     request.extend_from_slice(&[11; 32]);
@@ -204,53 +212,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     let _guard = must(FIXTURE_LOCK.lock());
     let mut fixture = Fixture::new();
     let (human, consent) = fixture.request();
-    let response = owner_preview_over_unix(&mut fixture, &human, &consent);
-    assert_eq!(&response[..9], b"LXHAGT01\x00");
-    let mut input = &response[9..];
-    assert_eq!(&input[..2], &1_u16.to_be_bytes());
-    input = &input[2..];
-    let canonical = read_bytes(&mut input).to_vec();
-    let signing_hash: [u8; 32] = read_bytes(&mut input).try_into().expect("signing hash32");
-    let purpose = must(NativeSendPurposeV2::from_canonical_bytes(read_bytes(
-        &mut input,
-    )));
-    assert_eq!(purpose.chain_id, 125);
-    assert_eq!(purpose.transaction_type, 2);
-    assert_eq!(purpose.evm_sender, fixture.account.evm_address());
-    assert_eq!(
-        purpose.consent_public_key,
-        fixture.account.layerx_public_key()
-    );
-    assert_eq!(
-        purpose.owner_did.as_str(),
-        fixture.peer.subject.as_ref().expect("owner").owner
-    );
-    assert_eq!(
-        purpose.canonical_digest,
-        <[u8; 32]>::from(Sha256::digest(&canonical))
-    );
-    assert_eq!(purpose.preparation_id, purpose.canonical_digest);
-    assert_eq!(purpose.commitment, [11; 32]);
-    assert_eq!(input.len(), 56);
-    let head = u64::from_be_bytes(input[..8].try_into().expect("head"));
-    let now = u64::from_be_bytes(input[8..16].try_into().expect("timestamp"));
-    assert_eq!(head, HEAD);
-    assert_eq!(&input[16..48], &purpose.consent_public_key);
-    let call = must(layerx_crypto::evm_transaction::decode_unsigned(&canonical));
-    let disclosure = must(prepare::disclose::bind(
-        &call,
-        fixture.account.evm_address(),
-    ));
-    let transaction = SigningPreparation {
-        transaction: must(prepare::disclose::restore_call(
-            &canonical,
-            fixture.account.evm_address(),
-            head,
-            disclosure.digest,
-            signing_hash,
-        )),
-        actor_address: fixture.account.evm_address(),
-    };
+    let (purpose, head, now, transaction) = preview_signing(&mut fixture, &human, &consent);
     let authorization = retained_authorization(&fixture, &human);
     let signing = ed25519_dalek::SigningKey::from_bytes(fixture.account.layerx_seed());
     let signed = signed_consent(purpose.clone(), &signing);
@@ -285,64 +247,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     ));
     let replay_key;
     {
-        let mut store = must(retained.lock());
-        let registry = must(sessions.read());
-        let grant = SignedNativeLocalGrantV1 {
-            capability: must(NativeTimedCapabilityV1::decode(&consent.capability)),
-            session: must(NativeSessionScopeV1::decode(&consent.session_scope)),
-            expires_at_ms: consent.expires_at_ms,
-            owner_public_key: consent.owner_public_key,
-            signature: consent.signature,
-        };
-        let staged = must(stage_native_send_local_grant(
-            &store, &registry, &owner, grant, head, now,
-        ));
-        for (key, bytes) in must(staged.updates(&store)) {
-            must(store.put_local(key, bytes));
-        }
-        let token = must(registry.authenticate(&fixture.credential));
-        let session = must(session::admit_native(
-            &store,
-            &registry,
-            &token,
-            token.tenant(),
-            token.agent(),
-            purpose.activity,
-            head,
-        ));
-        let verified = must(verify_native_owner_send_purpose(
-            &store,
-            &registry,
-            &session,
-            &owner,
-            &transaction.transaction,
-            &transaction,
-            &preparation_id,
-            &signed,
-            head,
-            now,
-        ));
-        assert_eq!(
-            verified.binding().canonical_digest(),
-            purpose.canonical_digest
-        );
-        let fee = must(layerx_agentd::budget::native_fee_policy(
-            &fixture.endpoint,
-            head,
-        ));
-        let constraints = must(
-            layerx_agentd::capability::binding::inspect_native_send_capability(
-                &store,
-                &verified,
-                &transaction.transaction,
-                &transaction,
-                now,
-                &fee,
-                head,
-            ),
-        );
-        assert_eq!(constraints.binding(), verified.binding());
-        let (key, bytes) = must(verified.replay_update(&store));
+        let (mut store, registry, session, key, bytes) = verify_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_1_repair_22_31_545(VerifyNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context { fixture: &fixture, consent, purpose: &purpose, head, now, transaction: &transaction, signed: &signed, owner: &owner, retained: &retained, sessions: &sessions, preparation_id });
         assert_eq!(
             must(SignedNativeSendPurposeV2::from_canonical_bytes(&bytes)),
             signed
@@ -367,93 +272,133 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
             Some(signed.clone())
         );
 
-        for changed in [
-            NativeSendPurposeV2 {
-                consent_public_key: ed25519_dalek::SigningKey::from_bytes(&[42; 32])
-                    .verifying_key()
-                    .to_bytes(),
-                ..purpose.clone()
-            },
-            NativeSendPurposeV2 {
-                evm_sender: [42; 20],
-                ..purpose.clone()
-            },
-            NativeSendPurposeV2 {
-                owner_did: must(layerx_agent_api::identity::AgentDid::new(format!(
-                    "did:layerx:{}",
-                    "42".repeat(32)
-                ))),
-                ..purpose.clone()
-            },
-        ] {
-            let key = if changed.consent_public_key == purpose.consent_public_key {
-                signing.clone()
-            } else {
-                ed25519_dalek::SigningKey::from_bytes(&[42; 32])
-            };
-            let changed = signed_consent(changed, &key);
-            assert!(matches!(
-                verify_native_owner_send_purpose(
-                    &store,
-                    &registry,
-                    &session,
-                    &owner,
-                    &transaction.transaction,
-                    &transaction,
-                    &preparation_id,
-                    &changed,
-                    head,
-                    now
-                ),
-                Err(BindingError::NativeSend(ContractError::Mismatch(
-                    "native_send.current_owner"
-                )))
-            ));
-        }
-        let mut invalid = signed.clone();
-        invalid.signature[0] ^= 1;
-        assert!(matches!(
-            verify_native_owner_send_purpose(
-                &store,
-                &registry,
-                &session,
-                &owner,
-                &transaction.transaction,
-                &transaction,
-                &preparation_id,
-                &invalid,
-                head,
-                now
-            ),
-            Err(BindingError::Unbound)
-        ));
-        let mut changed_call = transaction.clone();
-        changed_call.transaction.call.nonce += 1;
-        let changed_disclosure = must(prepare::disclose::bind(
-            &changed_call.transaction.call,
-            changed_call.actor_address,
-        ));
-        changed_call.transaction.disclosure = changed_disclosure.disclosure;
-        changed_call.transaction.disclosure_digest = changed_disclosure.digest;
-        changed_call.transaction.signing_hash = changed_call.transaction.call.signing_hash();
-        assert!(matches!(
-            verify_native_owner_send_purpose(
-                &store,
-                &registry,
-                &session,
-                &owner,
-                &changed_call.transaction,
-                &changed_call,
-                &preparation_id,
-                &signed,
-                head,
-                now
-            ),
-            Err(BindingError::NativeSend(ContractError::Mismatch(
-                "native_send.prepared_transaction"
-            )))
-        ));
+        let checks = NativeSendBindingChecks {
+            purpose: &purpose,
+            signing: &signing,
+            signed: &signed,
+            owner: &owner,
+            transaction: &transaction,
+            preparation_id,
+            head,
+            now,
+        };
+        assert_native_send_owner_binding(&store, &registry, &session, &checks);
+        assert_native_send_transaction_binding(&store, &registry, &session, &checks);
     }
+    continue_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_2_repair_22_31_545(ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks2Repair2231545Context { fixture, purpose, head, now, authorization, signing, signed, control, owner, retained, sessions, preparation_id, authorization_key, replay_key });
+}
+
+struct VerifyNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context<
+    'a,
+> {
+    fixture: &'a Fixture,
+    consent: layerx_agent_api::identity::NativeLocalGrantConsentV1,
+    purpose: &'a NativeSendPurposeV2,
+    head: u64,
+    now: u64,
+    transaction: &'a SigningPreparation,
+    signed: &'a SignedNativeSendPurposeV2,
+    owner: &'a layerx_agentd::human_runtime::VerifiedNativeSendOwnerV2,
+    retained: &'a Arc<Mutex<Store>>,
+    sessions: &'a Arc<std::sync::RwLock<SessionRegistry>>,
+    preparation_id: [u8; 32],
+}
+
+fn verify_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_1_repair_22_31_545(
+    context: VerifyNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context<'_>,
+) -> (
+    std::sync::MutexGuard<'_, Store>,
+    std::sync::RwLockReadGuard<'_, SessionRegistry>,
+    session::NativeSessionAuthorizationV1,
+    TenantKey,
+    Vec<u8>,
+) {
+    let VerifyNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context { fixture, consent, purpose, head, now, transaction, signed, owner, retained, sessions, preparation_id } = context;
+
+    let mut store = must(retained.lock());
+    let registry = must(sessions.read());
+    let grant = SignedNativeLocalGrantV1 {
+        capability: must(NativeTimedCapabilityV1::decode(&consent.capability)),
+        session: must(NativeSessionScopeV1::decode(&consent.session_scope)),
+        expires_at_ms: consent.expires_at_ms,
+        owner_public_key: consent.owner_public_key,
+        signature: consent.signature,
+    };
+    let staged = must(stage_native_send_local_grant(
+        &store, &registry, owner, grant, head, now,
+    ));
+    for (key, bytes) in must(staged.updates(&store)) {
+        must(store.put_local(key, bytes));
+    }
+    let token = must(registry.authenticate(&fixture.credential));
+    let session = must(session::admit_native(
+        &store,
+        &registry,
+        &token,
+        token.tenant(),
+        token.agent(),
+        purpose.activity,
+        head,
+    ));
+    let verified = must(verify_native_owner_send_purpose(
+        &store,
+        &registry,
+        &session,
+        owner,
+        &transaction.transaction,
+        transaction,
+        &preparation_id,
+        signed,
+        head,
+        now,
+    ));
+    assert_eq!(
+        verified.binding().canonical_digest(),
+        purpose.canonical_digest
+    );
+    let fee = must(layerx_agentd::budget::native_fee_policy(
+        &fixture.endpoint,
+        head,
+    ));
+    let constraints = must(
+        layerx_agentd::capability::binding::inspect_native_send_capability(
+            &store,
+            &verified,
+            &transaction.transaction,
+            transaction,
+            now,
+            &fee,
+            head,
+        ),
+    );
+    assert_eq!(constraints.binding(), verified.binding());
+    let (key, bytes) = must(verified.replay_update(&store));
+    (store, registry, session, key, bytes)
+}
+
+struct ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks2Repair2231545Context
+{
+    fixture: Fixture,
+    purpose: NativeSendPurposeV2,
+    head: u64,
+    now: u64,
+    authorization: evm::Prepared,
+    signing: ed25519_dalek::SigningKey,
+    signed: SignedNativeSendPurposeV2,
+    control: layerx_agentd::session_control::SessionControl,
+    owner: layerx_agentd::human_runtime::VerifiedNativeSendOwnerV2,
+    retained: Arc<Mutex<Store>>,
+    sessions: Arc<std::sync::RwLock<SessionRegistry>>,
+    preparation_id: [u8; 32],
+    authorization_key: TenantKey,
+    replay_key: TenantKey,
+}
+
+fn continue_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_2_repair_22_31_545(
+    context: ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks2Repair2231545Context,
+) {
+    let ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks2Repair2231545Context { fixture, purpose, head, now, authorization, signing, signed, control, owner, retained, sessions, preparation_id, authorization_key, replay_key } = context;
+
     drop(owner);
     drop(sessions);
     drop(control);
@@ -482,7 +427,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
         (control, owner)
     };
     let mut registry = SessionRegistry::default();
-    let mut store = must(retained.lock());
+    let store = must(retained.lock());
     must(registry.restore_tenant(&store, fixture.credential.tenant()));
     let token = must(registry.authenticate(&fixture.credential));
     let session = must(session::admit_native(
@@ -494,12 +439,43 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
         purpose.activity,
         head,
     ));
-    let restored = must(restore_native_signed_send_purpose(
-        &store,
-        fixture.credential.tenant(),
-        &preparation_id,
-    ))
-    .expect("persisted V2 consent");
+    let restored = require_some(
+        must(restore_native_signed_send_purpose(
+            &store,
+            fixture.credential.tenant(),
+            &preparation_id,
+        )),
+        "persisted V2 consent",
+    );
+    continue_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_1_repair_22_31_545(ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context { fixture, purpose, head, now, authorization, signing, signed, preparation_id, authorization_key, replay_key, control, owner, registry, store, session, restored });
+}
+
+struct ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context<
+    'a,
+> {
+    fixture: Fixture,
+    purpose: NativeSendPurposeV2,
+    head: u64,
+    now: u64,
+    authorization: evm::Prepared,
+    signing: ed25519_dalek::SigningKey,
+    signed: SignedNativeSendPurposeV2,
+    preparation_id: [u8; 32],
+    authorization_key: TenantKey,
+    replay_key: TenantKey,
+    control: layerx_agentd::session_control::SessionControl,
+    owner: layerx_agentd::human_runtime::VerifiedNativeSendOwnerV2,
+    registry: SessionRegistry,
+    store: std::sync::MutexGuard<'a, Store>,
+    session: session::NativeSessionAuthorizationV1,
+    restored: SignedNativeSendPurposeV2,
+}
+
+fn continue_native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_checks_1_repair_22_31_545(
+    context: ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context<'_>,
+) {
+    let ContinueNativeSendV2UnixConsentBindingPersistsAndReopensWithCurrentOwnerChecks1Repair2231545Context { fixture, purpose, head, now, authorization, signing, signed, preparation_id, authorization_key, replay_key, control, owner, registry, mut store, session, restored } = context;
+
     assert_eq!(restored, signed);
     let transaction = must(SigningPreparation::restore(
         &store,
@@ -507,10 +483,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
         preparation_id,
     ));
     let call = must(layerx_crypto::evm_transaction::decode_unsigned(
-        store
-            .get(&authorization_key)
-            .expect("retained authorization")
-            .bytes(),
+        require_some(store.get(&authorization_key), "retained authorization").bytes(),
     ));
     let disclosure = must(layerx_crypto::disclosure::call::bind_call(
         &call,
@@ -541,7 +514,7 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     ));
     assert_eq!(must(verified.replay_update(&store)).0, replay_key);
     assert_eq!(
-        store.get(&replay_key).expect("V2 record").bytes(),
+        require_some(store.get(&replay_key), "V2 record").bytes(),
         must(restored.canonical_bytes())
     );
     must(store.update_local_batch(vec![(
@@ -558,4 +531,172 @@ fn native_send_v2_unix_consent_binding_persists_and_reopens_with_current_owner_c
     ));
     drop(store);
     drop(control);
+}
+
+fn preview_signing(
+    fixture: &mut Fixture,
+    human: &HumanPrepare,
+    consent: &layerx_agent_api::identity::NativeLocalGrantConsentV1,
+) -> (NativeSendPurposeV2, u64, u64, SigningPreparation) {
+    let response = owner_preview_over_unix(fixture, human, consent);
+    assert_eq!(&response[..9], b"LXHAGT01\x00");
+    let mut input = &response[9..];
+    assert_eq!(&input[..2], &1_u16.to_be_bytes());
+    input = &input[2..];
+    let canonical = read_bytes(&mut input).to_vec();
+    let signing_hash: [u8; 32] = require_ok(read_bytes(&mut input).try_into(), "signing hash32");
+    let purpose = must(NativeSendPurposeV2::from_canonical_bytes(read_bytes(
+        &mut input,
+    )));
+    assert_eq!(purpose.chain_id, 125);
+    assert_eq!(purpose.transaction_type, 2);
+    assert_eq!(purpose.evm_sender, fixture.account.evm_address());
+    assert_eq!(
+        purpose.consent_public_key,
+        fixture.account.layerx_public_key()
+    );
+    assert_eq!(
+        purpose.owner_did.as_str(),
+        require_some(fixture.peer.subject.as_ref(), "owner").owner
+    );
+    assert_eq!(
+        purpose.canonical_digest,
+        <[u8; 32]>::from(Sha256::digest(&canonical))
+    );
+    assert_eq!(purpose.preparation_id, purpose.canonical_digest);
+    assert_eq!(purpose.commitment, [11; 32]);
+    assert_eq!(input.len(), 56);
+    let head = u64::from_be_bytes(require_ok(input[..8].try_into(), "head"));
+    let now = u64::from_be_bytes(require_ok(input[8..16].try_into(), "timestamp"));
+    assert_eq!(head, HEAD);
+    assert_eq!(&input[16..48], &purpose.consent_public_key);
+    let call = must(layerx_crypto::evm_transaction::decode_unsigned(&canonical));
+    let disclosure = must(prepare::disclose::bind(
+        &call,
+        fixture.account.evm_address(),
+    ));
+    let transaction = SigningPreparation {
+        transaction: must(prepare::disclose::restore_call(
+            &canonical,
+            fixture.account.evm_address(),
+            head,
+            disclosure.digest,
+            signing_hash,
+        )),
+        actor_address: fixture.account.evm_address(),
+    };
+    (purpose, head, now, transaction)
+}
+
+struct NativeSendBindingChecks<'a> {
+    purpose: &'a NativeSendPurposeV2,
+    signing: &'a ed25519_dalek::SigningKey,
+    signed: &'a SignedNativeSendPurposeV2,
+    owner: &'a layerx_agentd::human_runtime::VerifiedNativeSendOwnerV2,
+    transaction: &'a SigningPreparation,
+    preparation_id: [u8; 32],
+    head: u64,
+    now: u64,
+}
+
+fn assert_native_send_owner_binding(
+    store: &Store,
+    registry: &SessionRegistry,
+    session: &session::NativeSessionAuthorizationV1,
+    checks: &NativeSendBindingChecks<'_>,
+) {
+    for changed in [
+        NativeSendPurposeV2 {
+            consent_public_key: ed25519_dalek::SigningKey::from_bytes(&[42; 32])
+                .verifying_key()
+                .to_bytes(),
+            ..(*checks.purpose).clone()
+        },
+        NativeSendPurposeV2 {
+            evm_sender: [42; 20],
+            ..(*checks.purpose).clone()
+        },
+        NativeSendPurposeV2 {
+            owner_did: must(layerx_agent_api::identity::AgentDid::new(format!(
+                "did:layerx:{}",
+                "42".repeat(32)
+            ))),
+            ..(*checks.purpose).clone()
+        },
+    ] {
+        let key = if changed.consent_public_key == checks.purpose.consent_public_key {
+            (*checks.signing).clone()
+        } else {
+            ed25519_dalek::SigningKey::from_bytes(&[42; 32])
+        };
+        let changed = signed_consent(changed, &key);
+        assert!(matches!(
+            verify_native_owner_send_purpose(
+                store,
+                registry,
+                session,
+                checks.owner,
+                &checks.transaction.transaction,
+                checks.transaction,
+                &checks.preparation_id,
+                &changed,
+                checks.head,
+                checks.now
+            ),
+            Err(BindingError::NativeSend(ContractError::Mismatch(
+                "native_send.current_owner"
+            )))
+        ));
+    }
+}
+
+fn assert_native_send_transaction_binding(
+    store: &Store,
+    registry: &SessionRegistry,
+    session: &session::NativeSessionAuthorizationV1,
+    checks: &NativeSendBindingChecks<'_>,
+) {
+    let mut invalid = (*checks.signed).clone();
+    invalid.signature[0] ^= 1;
+    assert!(matches!(
+        verify_native_owner_send_purpose(
+            store,
+            registry,
+            session,
+            checks.owner,
+            &checks.transaction.transaction,
+            checks.transaction,
+            &checks.preparation_id,
+            &invalid,
+            checks.head,
+            checks.now
+        ),
+        Err(BindingError::Unbound)
+    ));
+    let mut changed_call = (*checks.transaction).clone();
+    changed_call.transaction.call.nonce += 1;
+    let changed_disclosure = must(prepare::disclose::bind(
+        &changed_call.transaction.call,
+        changed_call.actor_address,
+    ));
+    changed_call.transaction.disclosure = changed_disclosure.disclosure;
+    changed_call.transaction.disclosure_digest = changed_disclosure.digest;
+    changed_call.transaction.signing_hash = changed_call.transaction.call.signing_hash();
+    assert!(matches!(
+        verify_native_owner_send_purpose(
+            store,
+            registry,
+            session,
+            checks.owner,
+            &changed_call.transaction,
+            &changed_call,
+            &checks.preparation_id,
+            checks.signed,
+            checks.head,
+            checks.now
+        ),
+        Err(BindingError::NativeSend(ContractError::Mismatch(
+            "native_send.prepared_transaction"
+        )))
+    ));
 }

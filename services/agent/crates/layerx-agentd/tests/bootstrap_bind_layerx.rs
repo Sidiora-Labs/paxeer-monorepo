@@ -475,6 +475,12 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
 }
 
 struct OwnerFixture {
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    peer: HumanPeer,
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    labels: Arc<Mutex<ServedLabels>>,
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    credential: layerx_agentd::session::SessionCredential,
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     retained: Arc<Mutex<Store>>,
     document: Value,
@@ -568,6 +574,9 @@ impl OwnerFixture {
             "agent_register": {"tenant":tenant.as_str(), "agent_did":account.did(), "authority_ref":hex::encode(public_key), "client":"sdk", "policy_version":"v1", "owner_address":hex::encode(from), "binding_consent":hex::encode(binding.signature()), "fee_limit":"1000000000000"},
             "session_open": {"context":context, "grant_id":hex::encode(issued.grant_id), "registration_payload":hex::encode(issued.registration_payload), "expiry_sequence":"1000", "purpose":hex::encode(random::<32>()), "fee_limit":"1000000000000"}});
         Self {
+            peer,
+            labels,
+            credential,
             owner,
             retained,
             document,

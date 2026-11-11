@@ -1,0 +1,117 @@
+[meta]
+task = "22.39.375"
+acceptance = "22998.1"
+base_revision = "909fbee34173bd0809c9d2b2e026ed7d08534072"
+verified_revision_source = "/out/run/gates.jsonl: the final passing verify row and its matching build revision"
+private_evidence = "/out/run/gates.jsonl and the numbered build/verify logs named there"
+
+[implementation]
+file = "programs/crates/layerx-programs-ai-market/src/placement.rs:117"
+symbol = "PlacementBook::decode"
+change = "Keep a one-based deal index in the existing byte-sized consumed-bid scratch array; compare the ask_id in the indexed fixed-width deal row before accepting another use, and continue excluding every consumed bid from the placement book."
+invariants = "Cross-ask reuse remains CONFLICT; repeated bids inside one deal remain NON_CANONICAL through DealRecord::peer_count. Every wire form, stored layout, version, capacity, authority, roster, price, bond, layer and replay check is preserved."
+record_deal_review = "src/rooms.rs:916-986 apply_record_deal at this base has no separate earlier-deal bid-use check; it checks the room, host, ask, funding, roster, price, each bid, each admitted worker, capacity, distinct peers and minimum bond. The placement wrapper at src/placement.rs:435 validates the complete staged book after the operation, retaining the same rule for accepted and reloaded state. No rooms.rs change is required."
+
+[cases]
+same_ask = "tests/f11_rooms_and_deals.rs::a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask: real RecordDeal by the host reuses both bids with a new partition, before and after the first deal in sorted storage; reloads committed bytes, decodes placement, reads both entire DealViews and the RoomView, preserves the first deal and ask, and checks retained replay and sequence."
+other_ask = "tests/f11_rooms_and_deals.rs::a_deal_of_another_ask_that_names_a_bid_of_a_deal_is_refused: after two deals share their ask, either bid used by a different ask returns CONFLICT with identical state and host sequence and no new deal or matched ask."
+bond = "tests/f11_bonds.rs::the_bond_of_a_bid_named_by_two_deals_is_refunded_once: runs both settlement orders; with neither or only one deal settled, RefundBond and CloseRoom return F11_BOND_LOCKED; completes the first payout before checking the missing second settlement, settles the other deal, slashes both missed countersignatures once against the single 100-unit bond, checks both deals' payouts before close, refuses refund while open and one block before the closed-room window, pays the remaining 80 once, preserves reward liabilities/credits, checks the native payout plan, retained replay and a refused second refund."
+placement = "tests/f11_placement_book.rs::shared_bids_remain_consumed_after_every_deal_of_the_same_ask: three deals of one ask retain identical placement results and exclude the two shared bids; the duplicate-bid encoder remains NON_CANONICAL."
+retained_case = "tests/f11_placement_book.rs:810 record_deal_removes_its_ask_and_every_consumed_bid_and_rejects_bid_reuse covers another ask; its assertions and implementation are unchanged."
+existing_case_changes = "None: no existing in-scope case pinned a refusal solely for a shared bid of the same ask; all original cases and assertions remain."
+fixtures = "tests/fixtures/f11_rooms_and_deals.rs and tests/fixtures/f11_bonds.rs record the new journeys for the real guest observer; tests/repair_22_33_260.rs and tests/fixtures/f11_producers.rs share the same receipt producer parameterized by deal_id, retaining the original signed-receipt construction and ReceiptBatch::from_receipts."
+
+[read.bonds]
+file = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
+lines = "398-506, 507-604, 750-788"
+result = "SlashBond binds its evidence and slashed-lap bitmap to the named deal but loads and caps the one bid bond's accumulated slashed amount. RefundBond checks the refunded flag, room close and challenge windows, then walks every challenge and every deal involving the owner; it never stops after the first involved deal. CloseRoom requires a settlement and completed payout for every deal, checks its challenges and marks every deal settled. The two-deal bond case exercises these unchanged paths; no implementation change is required."
+
+[read.laps]
+file = "programs/crates/layerx-programs-ai-market/src/laps.rs"
+lines = "285-365, 385-485"
+result = "Settlement ordering, lookup and replacement use batch.deal_id. SettleLaps reads the named deal and its room, roster, peer count and previous batch independently. Shared bids create no cross-deal settlement collision; no change required."
+
+[read.rewards]
+file = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
+lines = "1390-1419, 2160-2168, 3662-3795, 4242-4257"
+result = "Payout cursor uniqueness and lookup use deal_id, allocations use the named deal's layers and corresponding bid owners, challenge filtering uses the named deal, and payout completion checks that deal's latest settlement. Worker/epoch credits accumulate across independent deals; no change required."
+
+[read.canary]
+file = "programs/crates/layerx-programs-ai-market/src/canary.rs"
+lines = "53-122, 410-427, 570-625, 797-810"
+result = "Task commitments include deal_id; uniqueness is per deal, epoch, lap and peer, and resolution verifies the named deal and lap. The same peer in two deals retains independent challenges; no change required."
+
+[read.queries]
+file = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+lines = "270-338, 341-359, 420-426"
+result = "RoomView marks consumed bids idempotently while walking every deal and never refuses a second occurrence; DealView and ReceiptBatchView select by deal_id. New reloaded-state cases assert RoomView and DealView results; no change required."
+
+[read.external_client]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+lines = "497-499, 595-648"
+result = "RecordDeal uses the canonical request encoder; book queries use the program's placement decoder and recorded-deal verification compares a specifically named deal and its layers. No one-deal-per-bid map or guest size/digest pin; outside scope, unchanged."
+
+[read.external_deals]
+file = "services/agent/crates/layerx-agentd/src/inference_market/deals.rs"
+lines = "100-118, 632, 803-840, 871-879"
+result = "Bid uniqueness is checked within a plan; initial negotiation candidates come from the open placement book and prices resolve within that plan. Live negotiations are found by deal_id. Shared bids remain unavailable to another ask as before; no cross-deal uniqueness check found. Outside scope, unchanged."
+
+[read.external_laps]
+file = "services/agent/crates/layerx-agentd/src/inference_market/laps.rs"
+lines = "315-349"
+result = "Authority validation loads the bid of each split in the named deal, and recovery binds the persisted lap session to its deal; no bid-to-single-deal map. Outside scope, unchanged."
+
+[read.external_canary]
+file = "services/agent/crates/layerx-agentd/src/inference_market/canary.rs"
+lines = "336-355"
+result = "Sampling selects a layer from the recorded deal and resolves that bid's worker; no cross-deal uniqueness assumption. Outside scope, unchanged."
+
+[read.external_typescript]
+file = "services/agent/sdk/typescript/src/inference_market.ts"
+lines = "259-277, 542-578"
+result = "The uniqueness set is local to the layers of one deal and its decoder; repeated use in another deal is not tracked. Outside scope, unchanged."
+
+[read.external_python]
+file = "services/agent/sdk/python/layerx_sdk/px.py"
+lines = "488-508, 1232-1260"
+result = "Deal and receipt reads bind to deal_id; the duplicate-bid set is local to one decoded deal. Outside scope, unchanged."
+
+[search]
+roots = "services/agent; sdk; tests; programs/crates/layerx-programs-ai-market/tests"
+patterns = "Previous deployment/probe SHA-256 digests; 520452; 524184; ai-market-opt-z; ai-market-aggregation-baseline; bid_id; bidId; bid_ids; consumed_bids; bid/deal associations"
+result = "No deployment guest digest or exact-size pin found in services/agent, sdk or root tests; protocol payload bounds in SDK lifecycle code are generic limits and remain unchanged. The local test guest loader reads digest/size from metadata and verifies the current source digest; historical repair records describe earlier artifacts and are retained. No additional one-deal-per-bid reader found in SDKs or root tests."
+local_loader = "programs/crates/layerx-programs-ai-market/tests/support/guest.rs:46-83,123-171: metadata-driven artifact/source digest, exact metadata size and unchanged deployment bound; outside scope, unchanged."
+local_bound = "programs/crates/layerx-programs-ai-market/tests/settlement_capacity.rs:267: wasm length <= 524184; outside scope, unchanged."
+probe = "The carried aggregation baseline names source 045fe0170095e8bc846c110de322cd0d2f44143f069f693182867c0fc626203b, already different from the carried deployment source 71c6100e7b673656351bc4caf19cc264a5eda962b902de1a244b39a04800002a; regenerate both declared artifacts from the final formatted source."
+
+[gotcha.instructions]
+observed = "do_4's request to run verification commands outside counted gates conflicts with the explicit Order step 4 instruction never to run verify_cmd by hand first."
+resolution = "Follow the explicit gate order: fixture generation, hf-build, then hf-done; no manual verification run, no spec edits, no commit or push."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+policy = "Only a passing hf-done row at the same revision as the last passing hf-build establishes completion; exact revision, command, exit and private log location are the final rows in /out/run/gates.jsonl. No edits follow a passing hf-done."
+
+[guest]
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh"
+exit = 0
+log = "/out/logs/guest-regeneration.log"
+wasm_bytes = 520519
+limit_bytes = 524184
+headroom_bytes = 3665
+source_sha256 = "8523941f64ff7dcabc24ed7f50fa5d722c7d7f98e005aff0a26f62385665a1e9"
+sha256 = "c9fbb86a912d3631416e7d1a17a5ae7389727dbf9872565ef656f944cb7becbe"
+
+[aggregation_probe]
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh --aggregation-probe"
+exit = 0
+log = "/out/logs/aggregation-guest-regeneration.log"
+wasm_bytes = 130679
+limit_bytes = 524184
+headroom_bytes = 393505
+source_sha256 = "8523941f64ff7dcabc24ed7f50fa5d722c7d7f98e005aff0a26f62385665a1e9"
+sha256 = "eb1474461fb5d4948964077f3aeccad25cb20affa678afe013a87868f5c193e6"
+
+[generated_probe_result]
+result = "The probe regeneration reproduced the identical 130679-byte hex fixture and eb1474461fb5d4948964077f3aeccad25cb20affa678afe013a87868f5c193e6 artifact digest; only its stale source_sha256 metadata changes. The placement path is unreachable in the isolated aggregation probe. Retain the exact regenerated output without artificial byte changes. No assertion or bound changes."

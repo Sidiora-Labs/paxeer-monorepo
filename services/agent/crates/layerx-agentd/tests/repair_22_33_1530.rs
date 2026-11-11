@@ -1,19 +1,19 @@
 //! Task 22.33.1530, audit 22.30.94 repair record (requirement 22998.1).
 //!
-//! readiness_empty_key_fixture -> readiness_node_rpc::daemon_is_not_ready_without_receipt_keys,
-//! empty_receipt_keys_invalidate_an_already_ready_gate and
-//! receipt_key_validation_still_refuses_invalid_nonempty_lists. Committed gateway-shaped
-//! JSON-RPC fixtures cross real HTTP, NodeRpc, the receipt-key decoder and Gate;
+//! `readiness_empty_key_fixture` -> `readiness_node_rpc::daemon_is_not_ready_without_receipt_keys`,
+//! `empty_receipt_keys_invalidate_an_already_ready_gate` and
+//! `receipt_key_validation_still_refuses_invalid_nonempty_lists`. Committed gateway-shaped
+//! JSON-RPC fixtures cross real HTTP, `NodeRpc`, the receipt-key decoder and Gate;
 //! both writes and evidence remain closed on the actual typed Malformed refusal.
-//! legacy_owner_signature_test -> w7_owner_binding::a_foreign_key_signature_over_the_owner_preimage_is_refused,
-//! the_bound_owner_key_still_verifies, a_claimed_foreign_sender_cannot_replace_the_bound_owner,
-//! and owner_submission_transports_exact_bytes_hash_and_recovered_sender below.
+//! `legacy_owner_signature_test` -> `w7_owner_binding::a_foreign_key_signature_over_the_owner_preimage_is_refused`,
+//! `the_bound_owner_key_still_verifies`, `a_claimed_foreign_sender_cannot_replace_the_bound_owner`,
+//! and `owner_submission_transports_exact_bytes_hash_and_recovered_sender` below.
 //! The native debit producer, ledger payment ABI, daemon preparation, secp256k1
-//! codec, verified submission and NodeRpc transport are production implementations.
+//! codec, verified submission and `NodeRpc` transport are production implementations.
 //!
 //! Wiring request: domain 9 owns services/agent/crates/layerx-agentd/tests/handshake_gate.rs;
 //! migrate its bare arrays/hex heights to {keys: [...]} with numeric heights and
-//! assert GateError::NodeRpc(NodeRpcError::Sequencer(SequencerError::Malformed))
+//! assert `GateError::NodeRpc(NodeRpcError::Sequencer(SequencerError::Malformed))`
 //! for empty lists while retaining all closed-write/evidence assertions.
 //!
 //! Baseline aa5e0820b3652890f3812a220f4b91f4f8a45387: no earlier gate ledger or

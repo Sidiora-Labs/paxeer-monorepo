@@ -68,6 +68,10 @@ pub struct VerifiedProgramApprovalBudgetRow {
 
 impl VerifiedProgramApprovalBudgetRow {
     #[cfg(test)]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the shared test constructor preserves its call sites outside this task's scope"
+    )]
     pub(crate) fn for_test(
         approval_id: [u8; 32],
         held_digest: [u8; 32],

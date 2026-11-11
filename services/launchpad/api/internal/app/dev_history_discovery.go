@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -13,8 +14,10 @@ import (
 // store (indexer, candles, metadata, users and narrative_discovery tables in
 // the shared database). Production mounts the same paths from the accounting
 // read model, the stats search proxy and registerDiscovery instead.
-func registerDevelopmentHistorySearchDiscovery(r chi.Router, deps developmentReadDeps) {
-	rest.RegisterDevelopmentHistorySearchDiscovery(r, deps.store, deps.admission)
+func registerDevelopmentHistorySearchDiscovery(r chi.Router, deps developmentReadDeps) error {
+	if err := rest.RegisterDevelopmentHistorySearchDiscovery(context.Background(), r, rest.DevelopmentHistoryOptions{Store: deps.store, Admission: deps.admission, ChainRPCURL: deps.cfg.NetworkRPCURL}); err != nil {
+		return err
+	}
 	// The web profile reads per-author callout history from
 	// GET /v2/discovery/callouts?author=<wallet>. The development router only
 	// mounts POST on that path, so chi answered 405 with an empty body. No
@@ -27,4 +30,5 @@ func registerDevelopmentHistorySearchDiscovery(r chi.Router, deps developmentRea
 		calloutHistory = deps.admission.Middleware(rest.AdmissionAggregate)(calloutHistory)
 	}
 	r.Method(http.MethodGet, "/v2/discovery/callouts", rest.ResponseMetadata(calloutHistory))
+	return nil
 }

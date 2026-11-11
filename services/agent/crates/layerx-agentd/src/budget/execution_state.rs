@@ -161,11 +161,15 @@ impl CommittedExecutionState {
 }
 
 #[cfg(test)]
+type TestProgramRecordRead<'a> =
+    dyn FnMut(&[u8], u64) -> Result<Option<Vec<u8>>, ProgramSettlementError> + 'a;
+
+#[cfg(test)]
 fn collect_program_records(
     program: [u8; 32],
     accounts: &[[u8; 32]],
     height: u64,
-    read: &mut dyn FnMut(&[u8], u64) -> Result<Option<Vec<u8>>, ProgramSettlementError>,
+    read: &mut TestProgramRecordRead<'_>,
 ) -> Result<BTreeMap<Vec<u8>, Vec<u8>>, ProgramSettlementError> {
     let mut program_records = BTreeMap::new();
     let mut read_record = |key: Vec<u8>| -> Result<Option<Vec<u8>>, ProgramSettlementError> {
@@ -857,7 +861,7 @@ mod tests {
                 binding_value.clone(),
             ),
         ]);
-        let expected_keys = vec![
+        let expected_keys = [
             program_key.clone(),
             key(b"program-owner\0", &program.bytes()),
             key(b"wind-down\0s", &program.bytes()),

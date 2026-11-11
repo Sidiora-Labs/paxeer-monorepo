@@ -175,8 +175,7 @@ impl Fixture {
             dispatch::CREATE,
             &payload,
             fixture.header.owner_principal,
-            1,
-            0,
+            (1, 0),
             &fixture.owner,
             false,
         );
@@ -220,8 +219,7 @@ impl Fixture {
             dispatch::OpenRoom,
             &payload,
             fixture.header.owner_principal,
-            fixture.next_sequence(fixture.header.owner_principal),
-            20,
+            (fixture.next_sequence(fixture.header.owner_principal), 20),
             &fixture.owner,
             false,
         );
@@ -283,7 +281,14 @@ impl Fixture {
         } else {
             self.next_sequence(actor)
         };
-        let record = self.sign(operation, payload, actor, sequence, sequence, signer, false);
+        let record = self.sign(
+            operation,
+            payload,
+            actor,
+            (sequence, sequence),
+            signer,
+            false,
+        );
         self.apply_signed(&record, height);
     }
 
@@ -330,8 +335,7 @@ impl Fixture {
             dispatch::ApproveAdmission,
             &payload,
             self.header.owner_principal,
-            sequence,
-            sequence,
+            (sequence, sequence),
             &owner_signer,
             false,
         );
@@ -342,9 +346,84 @@ impl Fixture {
         digest
     }
 
+    fn admit_bootstrap_evaluators(&mut self, owner: &LocalSigner) {
+        for nonce in [2_u8, 3, 4] {
+            let signer =
+                LocalSigner::from_derived_account(&must(derive_from_seed(&[nonce; 32], 0)));
+            let actor = principal(signer.evm_address().unwrap_or_else(|| panic!("evaluator")));
+            let key = SigningKey::from_bytes(&[nonce; 32]);
+            let public = PublicKey32(key.verifying_key().to_bytes());
+            let rubric = must(PolicySection::decode(must(
+                must(state::decode_shared_state(&self.state)).section(Section::PolicyLifecycle),
+            )))
+            .current
+            .commitments
+            .rubric;
+            let grant = must(market::evaluators::model::EvaluatorGrant::nominate(
+                self.header.market_id,
+                actor,
+                [nonce; 32],
+                market::evaluators::model::GrantTerms {
+                    rubric,
+                    grant_version: must(Version::new(1)),
+                    key_version: must(Version::new(1)),
+                    signing_key: public,
+                    effective_epoch: 0,
+                    expiry_epoch_exclusive: 32,
+                },
+            ));
+            let mut payload = actor.bytes().to_vec();
+            payload.extend_from_slice(&[nonce; 32]);
+            payload.extend_from_slice(rubric.as_bytes());
+            payload.extend_from_slice(&public.0);
+            for value in [1_u64, 1, 0, 32] {
+                payload.extend_from_slice(&value.to_be_bytes());
+            }
+            self.call(dispatch::ScheduleEvaluator, &payload, owner, 151);
+            let mut bytes = [0; 256];
+            let length = must(market::evaluators::codec::encode_grant(&grant, &mut bytes));
+            let identity = must(codec::domain_hash(
+                "PAXAI/evaluator-grant/v1",
+                &bytes[..length],
+            ));
+            let approval = self.approve(
+                Participant::Evaluator(grant.evaluator),
+                actor,
+                public,
+                nonce,
+                identity,
+            );
+            let mut request = [1; 32];
+            request[..2].copy_from_slice(&dispatch::AdmitEvaluator.selector().to_be_bytes());
+            request[2..10].copy_from_slice(&self.next_sequence(actor).to_be_bytes());
+            let consent = EvaluatorConsent {
+                chain: self.header.deployment_chain_domain,
+                program: self.header.program_id,
+                market: self.header.market_id,
+                evaluator: grant.evaluator,
+                owner: actor,
+                signing_key: public,
+                enrollment_nonce: [nonce; 32],
+                rubric,
+                approval_digest: approval,
+                request: must(RequestId::new(request)),
+                grant_version: 1,
+                key_version: 1,
+                effective_epoch: 0,
+                config_version: 1,
+                expiry_height: 192,
+            };
+            let mut body = [0; 362];
+            must(consent.encode(&mut body));
+            let mut payload = body.to_vec();
+            payload.extend_from_slice(&key.sign(must(consent.digest()).as_bytes()).to_bytes());
+            self.call(dispatch::AdmitEvaluator, &payload, &signer, 151);
+        }
+    }
+
     fn bootstrap_roster(&mut self) {
         let mut bootstrap = Self::new(1);
-        bootstrap.state = self.state.clone();
+        bootstrap.state.clone_from(&self.state);
         bootstrap.header = self.header;
         bootstrap.peer = LocalSigner::from_derived_account(&must(derive_from_seed(&[13; 32], 0)));
         bootstrap.peer_principal = principal(
@@ -407,79 +486,7 @@ impl Fixture {
         let peer = LocalSigner::from_derived_account(&must(derive_from_seed(&[13; 32], 0)));
         bootstrap.call(dispatch::AdmitWorker, &payload, &peer, 151);
         let owner = LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)));
-        for nonce in [2_u8, 3, 4] {
-            let signer =
-                LocalSigner::from_derived_account(&must(derive_from_seed(&[nonce; 32], 0)));
-            let actor = principal(signer.evm_address().unwrap_or_else(|| panic!("evaluator")));
-            let key = SigningKey::from_bytes(&[nonce; 32]);
-            let public = PublicKey32(key.verifying_key().to_bytes());
-            let rubric = must(PolicySection::decode(must(
-                must(state::decode_shared_state(&bootstrap.state))
-                    .section(Section::PolicyLifecycle),
-            )))
-            .current
-            .commitments
-            .rubric;
-            let grant = must(market::evaluators::model::EvaluatorGrant::nominate(
-                bootstrap.header.market_id,
-                actor,
-                [nonce; 32],
-                market::evaluators::model::GrantTerms {
-                    rubric,
-                    grant_version: must(Version::new(1)),
-                    key_version: must(Version::new(1)),
-                    signing_key: public,
-                    effective_epoch: 0,
-                    expiry_epoch_exclusive: 32,
-                },
-            ));
-            let mut payload = actor.bytes().to_vec();
-            payload.extend_from_slice(&[nonce; 32]);
-            payload.extend_from_slice(rubric.as_bytes());
-            payload.extend_from_slice(&public.0);
-            for value in [1_u64, 1, 0, 32] {
-                payload.extend_from_slice(&value.to_be_bytes());
-            }
-            bootstrap.call(dispatch::ScheduleEvaluator, &payload, &owner, 151);
-            let mut bytes = [0; 256];
-            let length = must(market::evaluators::codec::encode_grant(&grant, &mut bytes));
-            let identity = must(codec::domain_hash(
-                "PAXAI/evaluator-grant/v1",
-                &bytes[..length],
-            ));
-            let approval = bootstrap.approve(
-                Participant::Evaluator(grant.evaluator),
-                actor,
-                public,
-                nonce,
-                identity,
-            );
-            let mut request = [1; 32];
-            request[..2].copy_from_slice(&dispatch::AdmitEvaluator.selector().to_be_bytes());
-            request[2..10].copy_from_slice(&bootstrap.next_sequence(actor).to_be_bytes());
-            let consent = EvaluatorConsent {
-                chain: bootstrap.header.deployment_chain_domain,
-                program: bootstrap.header.program_id,
-                market: bootstrap.header.market_id,
-                evaluator: grant.evaluator,
-                owner: actor,
-                signing_key: public,
-                enrollment_nonce: [nonce; 32],
-                rubric,
-                approval_digest: approval,
-                request: must(RequestId::new(request)),
-                grant_version: 1,
-                key_version: 1,
-                effective_epoch: 0,
-                config_version: 1,
-                expiry_height: 192,
-            };
-            let mut body = [0; 362];
-            must(consent.encode(&mut body));
-            let mut payload = body.to_vec();
-            payload.extend_from_slice(&key.sign(must(consent.digest()).as_bytes()).to_bytes());
-            bootstrap.call(dispatch::AdmitEvaluator, &payload, &signer, 151);
-        }
+        bootstrap.admit_bootstrap_evaluators(&owner);
         let mut funding = 1000_u128.to_be_bytes().to_vec();
         funding.extend_from_slice(bootstrap.header.refund_recipient_account.as_bytes());
         funding.extend_from_slice(&1_u64.to_be_bytes());
@@ -575,8 +582,7 @@ impl Fixture {
         operation: Operation,
         payload: &[u8],
         actor: PrincipalId,
-        sequence: u64,
-        nonce: u64,
+        (sequence, nonce): (u64, u64),
         signer: &LocalSigner,
         delegate: bool,
     ) -> OperationRecord {
@@ -711,8 +717,7 @@ impl Fixture {
                 dispatch::EnrollWorker,
                 &proposal,
                 self.header.owner_principal,
-                owner_sequence,
-                owner_sequence - 1,
+                (owner_sequence, owner_sequence - 1),
                 &self.owner,
                 false,
             ),
@@ -720,8 +725,7 @@ impl Fixture {
                 dispatch::AcceptEnrollment,
                 &acceptance,
                 self.peer_principal,
-                1,
-                0,
+                (1, 0),
                 &self.peer,
                 false,
             ),
@@ -729,8 +733,7 @@ impl Fixture {
                 dispatch::PublishMetadata,
                 &publication,
                 self.peer_principal,
-                2,
-                1,
+                (2, 1),
                 &self.peer,
                 true,
             ),
@@ -844,93 +847,15 @@ fn resume_node(
         for _ in 0..requests {
             let (rpc, mut stream) = request(must(listener.accept()).0);
             let result = match rpc["method"].as_str().unwrap_or("") {
-                "eth_sendRawTransaction" => {
-                    let raw = must(hex::decode(
-                        rpc["params"][0]
-                            .as_str()
-                            .unwrap_or("")
-                            .trim_start_matches("0x"),
-                    ));
-                    let (call, signature) = must(decode_signed(&raw));
-                    let from = must(recover_sender(&call, &signature));
-                    let (native, _) = must(decode_program_call(&call.data));
-                    assert_eq!(native.program_id.bytes(), header.program_id.bytes());
-                    let env = must(codec::decode_envelope(&native.calldata)).envelope;
-                    operations.push((env.operation.metadata().name.to_owned(), from));
-                    let height = if routed {
-                        match env.operation {
-                            dispatch::EnrollWorker => 154,
-                            dispatch::AcceptEnrollment => 155,
-                            dispatch::PublishMetadata => 154 + workers::METADATA_COOLDOWN,
-                            dispatch::LockBond => 155 + workers::METADATA_COOLDOWN,
-                            dispatch::PostBid => 156 + workers::METADATA_COOLDOWN,
-                            _ => 156,
-                        }
-                    } else {
-                        match env.operation {
-                            dispatch::EnrollWorker => 140,
-                            dispatch::AcceptEnrollment => 141,
-                            _ => 150,
-                        }
-                    };
-                    let mut next = vec![0; market::MAX_STATE_BYTES];
-                    let mut event = vec![0; market::MAX_EVENT_BYTES];
-                    let mut scratch = vec![0; workers::CONTROL_SCRATCH_BYTES];
-                    let applied = if routed {
-                        apply_program(&header, Some(&current), &raw, height).map(|state| {
-                            let state_len = state.len();
-                            next[..state_len].copy_from_slice(&state);
-                            workers::Applied::Applied {
-                                state_len,
-                                event_len: 0,
-                            }
-                        })
-                    } else {
-                        workers::apply(
-                            &current,
-                            &workers::CallContext {
-                                market: &header,
-                                invoking_principal: principal(from),
-                                height,
-                            },
-                            &native.calldata,
-                            &mut next,
-                            &mut event,
-                            &mut scratch,
-                        )
-                    };
-                    match applied {
-                        Ok(workers::Applied::Applied { state_len, .. }) => {
-                            next.truncate(state_len);
-                            current = next;
-                            if env.operation == dispatch::PublishMetadata {
-                                let mut r = codec::Reader::new(env.payload);
-                                must(r.take(96));
-                                manifests.push(must(r.bytes(workers::MAX_MANIFEST_BYTES)).to_vec());
-                                must(r.finish());
-                            }
-                            let hash = transaction_hash(&raw);
-                            receipts.insert(
-                                support::rpc_hex(&hash),
-                                support::sequencer_receipt(&raw, true).0,
-                            );
-                            Ok(json!(support::rpc_hex(&hash)))
-                        }
-                        Ok(workers::Applied::AlreadyApplied(_)) => panic!("unexpected replay"),
-                        Err(error) => {
-                            let result = must(codec::ApplicationResult::failure(
-                                error,
-                                Presence::Absent,
-                                0,
-                            ));
-                            let mut bytes = vec![0; market::MAX_RESULT_BYTES];
-                            let len = must(codec::encode_result(&result, &mut bytes));
-                            Err(
-                                json!({"code": 3, "message": "program refused", "data": support::rpc_hex(&bytes[..len])}),
-                            )
-                        }
-                    }
-                }
+                "eth_sendRawTransaction" => apply_enrolment_transaction(
+                    &rpc,
+                    &header,
+                    routed,
+                    &mut current,
+                    &mut operations,
+                    &mut manifests,
+                    &mut receipts,
+                ),
                 "pax_sequencerReceipt" => Ok(receipts
                     .get(rpc["params"][0].as_str().unwrap_or(""))
                     .cloned()
@@ -1030,14 +955,7 @@ fn manifest_fields_reach_chain_through_signed_peer_relay() {
     let repeated = must(relay.enrol_identity(&mut restored));
     assert_eq!(repeated.activity_id(), acceptance.activity_id());
     let result = must(server.join());
-    assert_eq!(
-        result
-            .operations
-            .iter()
-            .map(|entry| entry.0.as_str())
-            .collect::<Vec<_>>(),
-        ["EnrollWorker", "AcceptEnrollment", "PublishMetadata"]
-    );
+    assert_identity_enrolment_operations(&result);
     assert_ne!(result.operations[0].1, result.operations[1].1);
     assert_eq!(Some(result.operations[1].1), fixture.peer.evm_address());
     assert_eq!(result.manifests, vec![fixture.manifest.clone()]);
@@ -1114,8 +1032,8 @@ fn bond_lock_precedes_bid_at_the_configured_quote() {
     let mut restored = fixture.plan();
     let summary = must(workers::decode_manifest(&manifest.manifest));
     let (endpoint, server, key) = node(&fixture, 9);
-    let root = Directory::new();
-    let journal = must(OperationJournal::open(&root.0));
+    let directory = Directory::new();
+    let journal = must(OperationJournal::open(&directory.0));
     let relay = EnrolmentRelay {
         endpoint: &endpoint,
         journal: &journal,
@@ -1159,8 +1077,7 @@ fn bond_lock_precedes_bid_at_the_configured_quote() {
             dispatch::LockBond,
             &bond,
             fixture.peer_principal,
-            3,
-            2,
+            (3, 2),
             &fixture.peer,
             false,
         ),
@@ -1168,42 +1085,14 @@ fn bond_lock_precedes_bid_at_the_configured_quote() {
             dispatch::PostBid,
             &payload,
             fixture.peer_principal,
-            4,
-            3,
+            (4, 3),
             &fixture.peer,
             false,
         ),
     };
-    let accepted = must(state::decode_shared_state(&fixture.state));
-    let admission = must(market::admission::AdmissionTable::decode(
-        must(market::reputation_transition::split_joint(must(
-            accepted.section(Section::ReputationAdmission),
-        )))
-        .1,
-    ));
-    let epoch = admission
-        .current_epoch()
-        .unwrap_or_else(|| panic!("accepted admission epoch"));
-    let roster = must(market::roster::roster_digest(&admission, epoch));
-    for record in [&quote.lock_bond, &quote.post_bid] {
-        let envelope = must(layerx_client::ai_market::market_envelope(record));
-        let envelope = must(codec::decode_envelope(&envelope)).envelope;
-        must(envelope.check_domain(
-            must(ChainDomain::new(market::merged_chain_domain(125))),
-            fixture.header.program_id,
-            must(codec::derive_market(
-                fixture.header.deployment_chain_domain,
-                fixture.header.program_id,
-            )),
-        ));
-        assert_eq!(envelope.epoch, epoch);
-        assert_eq!(
-            envelope.roster,
-            Presence::Present(must(RosterDigest::new(roster.bytes())))
-        );
-    }
+    assert_quote_roster(&fixture, &quote);
     let (endpoint, server, key) = resume_node(&fixture, 12, enrolled.receipts);
-    let journal = must(OperationJournal::open(&root.0));
+    let journal = must(OperationJournal::open(&directory.0));
     let relay = EnrolmentRelay {
         endpoint: &endpoint,
         journal: &journal,
@@ -1222,23 +1111,7 @@ fn bond_lock_precedes_bid_at_the_configured_quote() {
     let mut operations = enrolled.operations;
     operations.append(&mut result.operations);
     result.operations = operations;
-    assert_eq!(
-        result
-            .operations
-            .iter()
-            .map(|entry| entry.0.as_str())
-            .collect::<Vec<_>>(),
-        [
-            "EnrollWorker",
-            "AcceptEnrollment",
-            "PublishMetadata",
-            "LockBond",
-            "PostBid"
-        ]
-    );
-    assert!(result.operations[1..]
-        .iter()
-        .all(|entry| Some(entry.1) == fixture.peer.evm_address()));
+    assert_quote_operations(&fixture, &result);
     let locked = must(market::bonds::bond_from_state(&result.bytes, bid))
         .unwrap_or_else(|| panic!("chain bond lock"));
     assert_eq!(locked.amount, 100);
@@ -1281,14 +1154,14 @@ fn refused_bond_names_operation_and_registered_domain_error() {
         dispatch::LockBond,
         &bond,
         fixture.peer_principal,
-        3,
-        2,
+        (3, 2),
         &fixture.peer,
         false,
     );
-    let error = relay
-        .submit_and_accept(&mut lock)
-        .expect_err("foreign-domain bond must refuse");
+    let error = lint_error(
+        relay.submit_and_accept(&mut lock),
+        "foreign-domain bond must refuse",
+    );
     let EnrolError::Client(AiClientError::ProgramRefused {
         operation,
         code,
@@ -1308,4 +1181,170 @@ fn refused_bond_names_operation_and_registered_domain_error() {
         result.operations.last().map(|entry| entry.0.as_str()),
         Some("LockBond")
     );
+}
+
+#[track_caller]
+fn lint_error<T: std::fmt::Debug, E>(result: Result<T, E>, context: &str) -> E {
+    match result {
+        Err(error) => error,
+        Ok(value) => panic!("{context}: unexpected success {value:?}"),
+    }
+}
+
+fn apply_enrolment_transaction(
+    rpc: &Value,
+    header: &MarketHeader,
+    routed: bool,
+    current: &mut Vec<u8>,
+    operations: &mut Vec<(String, [u8; 20])>,
+    manifests: &mut Vec<Vec<u8>>,
+    receipts: &mut BTreeMap<String, Value>,
+) -> Result<Value, Value> {
+    let raw = must(hex::decode(
+        rpc["params"][0]
+            .as_str()
+            .unwrap_or("")
+            .trim_start_matches("0x"),
+    ));
+    let (call, signature) = must(decode_signed(&raw));
+    let from = must(recover_sender(&call, &signature));
+    let (native, _) = must(decode_program_call(&call.data));
+    assert_eq!(native.program_id.bytes(), header.program_id.bytes());
+    let env = must(codec::decode_envelope(&native.calldata)).envelope;
+    operations.push((env.operation.metadata().name.to_owned(), from));
+    let height = if routed {
+        match env.operation {
+            dispatch::EnrollWorker => 154,
+            dispatch::AcceptEnrollment => 155,
+            dispatch::PublishMetadata => 154 + workers::METADATA_COOLDOWN,
+            dispatch::LockBond => 155 + workers::METADATA_COOLDOWN,
+            dispatch::PostBid => 156 + workers::METADATA_COOLDOWN,
+            _ => 156,
+        }
+    } else {
+        match env.operation {
+            dispatch::EnrollWorker => 140,
+            dispatch::AcceptEnrollment => 141,
+            _ => 150,
+        }
+    };
+    let mut next = vec![0; market::MAX_STATE_BYTES];
+    let mut event = vec![0; market::MAX_EVENT_BYTES];
+    let mut scratch = vec![0; workers::CONTROL_SCRATCH_BYTES];
+    let applied = if routed {
+        apply_program(header, Some(current), &raw, height).map(|state| {
+            let state_len = state.len();
+            next[..state_len].copy_from_slice(&state);
+            workers::Applied::Applied {
+                state_len,
+                event_len: 0,
+            }
+        })
+    } else {
+        workers::apply(
+            current,
+            &workers::CallContext {
+                market: header,
+                invoking_principal: principal(from),
+                height,
+            },
+            &native.calldata,
+            &mut next,
+            &mut event,
+            &mut scratch,
+        )
+    };
+    match applied {
+        Ok(workers::Applied::Applied { state_len, .. }) => {
+            next.truncate(state_len);
+            *current = next;
+            if env.operation == dispatch::PublishMetadata {
+                let mut r = codec::Reader::new(env.payload);
+                must(r.take(96));
+                manifests.push(must(r.bytes(workers::MAX_MANIFEST_BYTES)).to_vec());
+                must(r.finish());
+            }
+            let hash = transaction_hash(&raw);
+            receipts.insert(
+                support::rpc_hex(&hash),
+                support::sequencer_receipt(&raw, true).0,
+            );
+            Ok(json!(support::rpc_hex(&hash)))
+        }
+        Ok(workers::Applied::AlreadyApplied(_)) => panic!("unexpected replay"),
+        Err(error) => {
+            let result = must(codec::ApplicationResult::failure(
+                error,
+                Presence::Absent,
+                0,
+            ));
+            let mut bytes = vec![0; market::MAX_RESULT_BYTES];
+            let len = must(codec::encode_result(&result, &mut bytes));
+            Err(
+                json!({"code": 3, "message": "program refused", "data": support::rpc_hex(&bytes[..len])}),
+            )
+        }
+    }
+}
+
+fn assert_quote_roster(fixture: &Fixture, quote: &PriceQuote) {
+    let accepted = must(state::decode_shared_state(&fixture.state));
+    let admission = must(market::admission::AdmissionTable::decode(
+        must(market::reputation_transition::split_joint(must(
+            accepted.section(Section::ReputationAdmission),
+        )))
+        .1,
+    ));
+    let epoch = admission
+        .current_epoch()
+        .unwrap_or_else(|| panic!("accepted admission epoch"));
+    let roster = must(market::roster::roster_digest(&admission, epoch));
+    for record in [&quote.lock_bond, &quote.post_bid] {
+        let envelope = must(layerx_client::ai_market::market_envelope(record));
+        let envelope = must(codec::decode_envelope(&envelope)).envelope;
+        must(envelope.check_domain(
+            must(ChainDomain::new(market::merged_chain_domain(125))),
+            fixture.header.program_id,
+            must(codec::derive_market(
+                fixture.header.deployment_chain_domain,
+                fixture.header.program_id,
+            )),
+        ));
+        assert_eq!(envelope.epoch, epoch);
+        assert_eq!(
+            envelope.roster,
+            Presence::Present(must(RosterDigest::new(roster.bytes())))
+        );
+    }
+}
+
+fn assert_identity_enrolment_operations(result: &NodeState) {
+    assert_eq!(
+        result
+            .operations
+            .iter()
+            .map(|entry| entry.0.as_str())
+            .collect::<Vec<_>>(),
+        ["EnrollWorker", "AcceptEnrollment", "PublishMetadata"]
+    );
+}
+
+fn assert_quote_operations(fixture: &Fixture, result: &NodeState) {
+    assert_eq!(
+        result
+            .operations
+            .iter()
+            .map(|entry| entry.0.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "EnrollWorker",
+            "AcceptEnrollment",
+            "PublishMetadata",
+            "LockBond",
+            "PostBid"
+        ]
+    );
+    assert!(result.operations[1..]
+        .iter()
+        .all(|entry| Some(entry.1) == fixture.peer.evm_address()));
 }

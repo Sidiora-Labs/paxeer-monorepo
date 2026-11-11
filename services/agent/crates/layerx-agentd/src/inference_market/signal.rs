@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use layerx_agentd::boot::InferenceBootGate;
 use layerx_agentd::degraded::{Mode, Reference};
+use layerx_agentd::finality::inference_enrol::{EnrolError, EnrolmentService, MAX_ENROLMENT_BYTES};
 use layerx_client::ai_market::market_program::workers;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -216,6 +217,7 @@ pub struct SignalAuthority {
     chain: Arc<dyn SignalChain>,
     chain_id: u64,
     program_id: [u8; 32],
+    enrolment: Option<Arc<Mutex<EnrolmentService>>>,
 }
 
 struct RpcSignalChain {
@@ -266,7 +268,13 @@ impl SignalAuthority {
             chain,
             chain_id,
             program_id,
+            enrolment: None,
         }
+    }
+
+    pub fn with_enrolment(mut self, service: EnrolmentService) -> Self {
+        self.enrolment = Some(Arc::new(Mutex::new(service)));
+        self
     }
 
     fn reference(&self) -> Result<Reference, SignalError> {
@@ -775,6 +783,10 @@ fn upgrade(stream: &mut TcpStream, authority: &SignalAuthority) -> Result<bool, 
         write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}", body.len()).map_err(|_| SignalError::Backpressure)?;
         return Ok(false);
     }
+    if request.starts_with("POST /enrol_peer HTTP/1.1\r\n") {
+        serve_enrolment(stream, request, authority)?;
+        return Ok(false);
+    }
     let mut lines = request.split("\r\n");
     if lines.next() != Some("GET / HTTP/1.1") {
         return Err(SignalError::InvalidFrame);
@@ -814,6 +826,110 @@ fn upgrade(stream: &mut TcpStream, authority: &SignalAuthority) -> Result<bool, 
     let accept = websocket_accept(key);
     write!(stream, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n").map_err(|_| SignalError::Backpressure)?;
     Ok(true)
+}
+
+fn enrolment_response(
+    stream: &mut TcpStream,
+    status: u16,
+    body: &Value,
+) -> Result<(), SignalError> {
+    let body = body.to_string();
+    write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}", body.len())
+        .map_err(|_| SignalError::Backpressure)
+}
+
+fn enrolment_refusal(stream: &mut TcpStream, status: u16, reason: &str) -> Result<(), SignalError> {
+    enrolment_response(stream, status, &json!({"error": reason}))
+}
+
+fn serve_enrolment(
+    stream: &mut TcpStream,
+    request: &str,
+    authority: &SignalAuthority,
+) -> Result<(), SignalError> {
+    let mut fields = BTreeMap::new();
+    for line in request
+        .split("\r\n")
+        .skip(1)
+        .take_while(|line| !line.is_empty())
+    {
+        let Some((name, value)) = line.split_once(':') else {
+            return enrolment_refusal(stream, 400, "malformed_request");
+        };
+        if fields
+            .insert(name.to_ascii_lowercase(), value.trim())
+            .is_some()
+        {
+            return enrolment_refusal(stream, 400, "malformed_request");
+        }
+    }
+    if fields.contains_key("transfer-encoding") {
+        return enrolment_refusal(stream, 400, "malformed_request");
+    }
+    let Some(length) = fields.get("content-length") else {
+        return enrolment_refusal(stream, 411, "length_required");
+    };
+    if length.is_empty() || !length.bytes().all(|byte| byte.is_ascii_digit()) {
+        return enrolment_refusal(stream, 400, "malformed_request");
+    }
+    // Compare decimal lengths before allocating or waiting for any body bytes.
+    let length = length.trim_start_matches('0');
+    let bound = MAX_ENROLMENT_BYTES.to_string();
+    if length.len() > bound.len() || (length.len() == bound.len() && length > bound.as_str()) {
+        return enrolment_refusal(stream, 413, "body_too_large");
+    }
+    let length = if length.is_empty() {
+        0
+    } else {
+        length
+            .parse::<usize>()
+            .map_err(|_| SignalError::InvalidFrame)?
+    };
+    if fields.get("content-type").is_none_or(|value| {
+        !value
+            .split(';')
+            .next()
+            .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
+    }) {
+        return enrolment_refusal(stream, 415, "json_required");
+    }
+    let Some(service) = &authority.enrolment else {
+        return enrolment_refusal(stream, 503, "enrolment_not_configured");
+    };
+    let mut body = vec![0; length];
+    if stream.read_exact(&mut body).is_err() {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    }
+    let Ok(document) = serde_json::from_slice::<Value>(&body) else {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    };
+    if !document.is_object() {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    }
+    let Ok(reference) = authority.reference() else {
+        return enrolment_refusal(stream, 503, "chain_unavailable");
+    };
+    let Ok(service) = service.lock() else {
+        return enrolment_refusal(stream, 503, "enrolment_unavailable");
+    };
+    match service.enrol(&document, reference.head_sequence) {
+        Ok(outcome) => enrolment_response(stream, 200, &outcome),
+        Err(EnrolError::Document(reason)) => enrolment_refusal(stream, 422, reason),
+        Err(
+            EnrolError::Binding(_)
+            | EnrolError::Client(layerx_client::ai_market::AiClientError::NotNativeProgramCall),
+        ) => enrolment_refusal(stream, 422, "invalid_enrolment"),
+        Err(EnrolError::Client(layerx_client::ai_market::AiClientError::ProgramRefused {
+            operation,
+            name,
+            code,
+        })) => enrolment_response(
+            stream,
+            409,
+            &json!({"error": "program_refused", "operation": operation, "name": name, "code": code}),
+        ),
+        Err(_) => enrolment_refusal(stream, 502, "relay_failed"),
+    }
 }
 
 fn websocket_accept(key: &str) -> String {

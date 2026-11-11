@@ -119,18 +119,27 @@ impl<'a> PlacementBook<'a> {
         let ask_rows = book.table(1);
         let bid_rows = book.table(2);
         let deals = book.table(3);
-        let mut consumed = [false; rooms::BID_CAPACITY];
-        for bytes in deals.guest_chunks_exact(rooms::DEAL_RECORD_BYTES) {
+        // Zero means unconsumed; otherwise retain a one-based deal index so that
+        // every later use must name the same ask without changing stored records.
+        let mut consumed = [0u8; rooms::BID_CAPACITY];
+        for (deal_index, bytes) in deals
+            .guest_chunks_exact(rooms::DEAL_RECORD_BYTES)
+            .enumerate()
+        {
             let deal = rooms::DealRecord::decode(bytes)?;
             for split in deal.layers.iter().flatten() {
                 let index = bid_rows
                     .guest_chunks_exact(rooms::BID_RECORD_BYTES)
                     .position(|row| row.guest_index(32..64) == split.bid_id.as_bytes())
                     .ok_or(NON_CANONICAL)?;
-                if *consumed.guest_index(index) {
-                    return Err(CONFLICT);
+                let previous = usize::from(*consumed.guest_index(index));
+                if previous != 0 {
+                    let ask_at = (previous - 1) * rooms::DEAL_RECORD_BYTES + 64;
+                    if deals.guest_index(ask_at..ask_at + 32) != deal.ask_id.as_bytes() {
+                        return Err(CONFLICT);
+                    }
                 }
-                *consumed.guest_index_mut(index) = true;
+                *consumed.guest_index_mut(index) = (deal_index + 1) as u8;
             }
         }
         let mut value = Self {
@@ -167,7 +176,7 @@ impl<'a> PlacementBook<'a> {
         {
             let bid = rooms::BidRecord::decode(row)?;
             let room = book.room(bid.room_id)?.ok_or(NON_CANONICAL)?;
-            if !*consumed.guest_index(index)
+            if *consumed.guest_index(index) == 0
                 && room.state == RoomState::Open
                 && room.model_digest == model_digest
             {

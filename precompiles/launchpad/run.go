@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -39,6 +40,9 @@ func loadDirectRoles() map[string]string {
 				owners[method.Sig] = role
 			}
 		}
+	}
+	for _, method := range chainLaunchABI.Methods {
+		owners[method.Sig] = chainLaunchRole
 	}
 	return owners
 }
@@ -79,6 +83,7 @@ type call struct {
 	method   *abi.Method
 	args     []interface{}
 	readOnly bool
+	value    *big.Int
 	// market is the market of a pool surface; role surfaces and direct calls
 	// carry none.
 	market *types.Market
@@ -163,6 +168,9 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 		return nil, 0, errors.New("cannot get context from EVM")
 	}
 	ctx := sdb.Ctx().WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
+	if id, ok := chainstypes.DomainOfChainID(evm.ChainConfig().ChainID); ok {
+		ctx = chainstypes.WithDomain(ctx, id)
+	}
 	c, err := p.executor.resolve(ctx, caller, input)
 	if err != nil {
 		if gasErr := budget.take(Gas(uint64(len(input)), 0)); gasErr != nil {
@@ -287,6 +295,9 @@ func (p PrecompileExecutor) resolveDirect(selector []byte) (string, *abi.Method,
 		return "", nil, fmt.Errorf("launchpad: %s at %s is declared by no direct role", merged.Sig, p.address.Hex())
 	}
 	roleABI := roleABIs[role]
+	if role == chainLaunchRole {
+		roleABI = chainLaunchABI
+	}
 	method, err := roleABI.MethodById(selector)
 	if err != nil {
 		return "", nil, fmt.Errorf("launchpad: %s at %s is not in the %s ABI", merged.Sig, p.address.Hex(), role)
@@ -312,15 +323,16 @@ func decodeWhole(method *abi.Method, data []byte) ([]interface{}, error) {
 	return args, nil
 }
 
-// callKindRefusal refuses a delegatecall, any attached value and a state
-// change under staticcall, in that order, so a value call to the payable
-// upgradeToAndCall reverts on the value check as every other function does.
+// callKindRefusal refuses a delegatecall, value on functions other than chain
+// launch, and a state change under staticcall, in that order.
 func callKindRefusal(ctx sdk.Context, method *abi.Method, value *big.Int, readOnly bool) error {
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
 		return errors.New("cannot delegatecall launchpad")
 	}
-	if err := pcommon.ValidateNonPayable(value); err != nil {
-		return err
+	if method.RawName != "launchChain" && method.RawName != "launchChainWithPermit" {
+		if err := pcommon.ValidateNonPayable(value); err != nil {
+			return err
+		}
 	}
 	if readOnly && !method.IsConstant() {
 		return errors.New("cannot call a launchpad state change from staticcall")
@@ -339,6 +351,7 @@ func (p PrecompileExecutor) serve(c *call, value *big.Int) (ret []byte, err erro
 	if err := callKindRefusal(c.ctx, c.method, value, c.readOnly); err != nil {
 		return nil, err
 	}
+	c.value = value
 	handler, ok := roleHandlers[c.role]
 	if !ok {
 		return nil, fmt.Errorf("launchpad: the %s role serves no handler for %s", c.role, c.method.Sig)
