@@ -1,12 +1,35 @@
 import { createPublicClient, http, type Address, type Hash } from 'viem';
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
 import type { TransactionRequest } from '../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
+import { validHomeChainId } from './chain-launch.ts';
+
+export type TradeRequest = Omit<TransactionRequest, 'chainId'> & {
+  chainId: string;
+};
+export function decodeTradeRequest(value: unknown): TradeRequest {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    !('chainId' in value) ||
+    typeof value.chainId !== 'string' ||
+    !/^[1-9][0-9]*$/.test(value.chainId)
+  )
+    throw new Error('Invalid trade chain');
+  if (!validHomeChainId(BigInt(value.chainId)))
+    throw new Error('Invalid trade chain');
+  const root = decodeContract('TransactionRequest', {
+    ...value,
+    chainId: '125',
+  });
+  return Object.freeze({ ...root, chainId: value.chainId });
+}
 
 export type TradeIdentity = Readonly<{
   version: 1;
   quoteId: string;
   nonce: number;
-  request: Readonly<TransactionRequest>;
+  request: Readonly<TradeRequest>;
 }>;
 export function decodeTradeIdentity(value: unknown): TradeIdentity {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -27,7 +50,7 @@ export function decodeTradeIdentity(value: unknown): TradeIdentity {
     quoteId: p.quoteId,
     nonce: p.nonce,
     request: Object.freeze({
-      ...decodeContract('TransactionRequest', p.request),
+      ...decodeTradeRequest(p.request),
     }),
   });
 }
@@ -43,13 +66,13 @@ function chainClient(url: string, signal: AbortSignal) {
 }
 export async function prepareTradeIdentity(
   rpcURL: string,
-  request: TransactionRequest,
+  request: TradeRequest,
   quoteId: string,
   signal: AbortSignal,
 ): Promise<TradeIdentity> {
-  const tx = decodeContract('TransactionRequest', request);
+  const tx = decodeTradeRequest(request);
   const client = chainClient(rpcURL, signal);
-  if ((await client.getChainId()) !== 125)
+  if ((await client.getChainId()) !== Number(tx.chainId))
     throw new Error('Wrong trade recovery chain');
   const nonce = await client.getTransactionCount({
     address: tx.from as Address,
@@ -72,13 +95,13 @@ export async function verifyTradeRecovery(
     client = chainClient(rpcURL, signal);
   const same = (a: string | null, b: string) =>
     a?.toLowerCase() === b.toLowerCase();
-  if ((await client.getChainId()) !== 125)
+  if ((await client.getChainId()) !== Number(tx.chainId))
     throw new Error('Wrong trade recovery chain');
   const transaction = await client.getTransaction({ hash });
   signal.throwIfAborted();
   if (
     !same(transaction.hash, hash) ||
-    transaction.chainId !== 125 ||
+    transaction.chainId !== Number(tx.chainId) ||
     !same(transaction.from, tx.from) ||
     !same(transaction.to, tx.to) ||
     transaction.nonce !== saved.nonce ||
