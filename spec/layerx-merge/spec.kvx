@@ -186053,7 +186053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.19]
 title = "Bring the generated readers of the launchpad ABI to the chain launch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -355590,7 +355590,7 @@ do_3 = "do_3 Decision 3321: the test file also asserts that services/wallet/atte
 
 [task.22.40.12]
 title = "Document the chain launch for users and integrators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
