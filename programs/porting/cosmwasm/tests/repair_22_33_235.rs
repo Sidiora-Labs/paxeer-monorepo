@@ -1,25 +1,4 @@
-//! Task 22.33.235 repair record (audit 22.30.128).
-//!
-//! json-surrogate-pairs: json_surrogate_pairs_transcode_export_and_reopen and
-//! json_surrogate_pairs_refuse_invalid_and_enforce_bounds.
-//! cosmwasm-partial-import: cosmwasm_partial_import_final_cell_is_atomic_across_reopen.
-//! orderbook-execution-proof: orderbook_two_traders_settle_and_reopen,
-//! orderbook_refusals_preserve_all_settlement_cells and orderbook_bounds_and_corrupt_state_refuse.
-//! cosmwasm-storage-shared-doc: storage_shared_docs_global_item_and_map_use_scoped_hosts.
-//! Wiring requests: none; all four proposals are implemented within scope.
-//! Baseline: no test target existed on the starting tree. No baseline gate was
-//! run: the explicit implementation-first, hf-build/hf-done-only order overrides
-//! step 8's contradictory request for an unchanged-tree verify. Gate revision,
-//! command, exit and private log are recorded by the runner's gate ledger.
-//! Gotcha: scoped storage imports require ABI v2 validation/execution, not the
-//! donation reference's ABI-v1 qualification route. The native production
-//! Storage codec is persisted to a local file, the old component is dropped,
-//! and a fresh Storage and module are opened for recovery assertions.
-//! Build repair: the ABI-v1 AuthorizedExecutionRecord exposes `execution` as
-//! a field; ABI-v2 V2AuthorizedExecutionRecord uses an accessor method.
-//! Verify repair: scoped reads return value length plus one for presence, zero
-//! for absence; guest buffer capacity remains exactly the canonical value width.
-
+//! Integration coverage for JSON migration, order book settlement, and shared storage.
 use layerx_programs_runtime::{
     AuthorizationContext, AuthorizedExecutionRequest, Capability, CapabilitySet,
     CompositionContext, Executor, Lifecycle, PrincipalId, ProgramId, Storage, StorageNamespace,
@@ -117,10 +96,10 @@ fn text_schema() -> RecordSchema {
 fn json_surrogate_pairs_transcode_export_and_reopen() {
     let schema = text_schema();
     for (escaped, text) in [
-        (r#"\ud83d\ude80"#, "🚀"),
-        (r#"\uD800\uDC00"#, "\u{10000}"),
-        (r#"\udbff\udfff"#, "\u{10ffff}"),
-        (r#"A\ud83D\ude80\u00e9"#, "A🚀é"),
+        (r"\ud83d\ude80", "🚀"),
+        (r"\uD800\uDC00", "\u{10000}"),
+        (r"\udbff\udfff", "\u{10ffff}"),
+        (r"A\ud83D\ude80\u00e9", "A🚀é"),
     ] {
         let values = vec![FieldValue::Text(text.to_owned()), FieldValue::U64(7)];
         let exported = ok(schema.encode_json(&values));
@@ -146,16 +125,16 @@ fn json_surrogate_pairs_transcode_export_and_reopen() {
 fn json_surrogate_pairs_refuse_invalid_and_enforce_bounds() {
     let schema = text_schema();
     for invalid in [
-        r#"\ud800"#,
-        r#"\udfff"#,
-        r#"\udc00\ud800"#,
-        r#"\ud800\ud800"#,
-        r#"\ud800\u0041"#,
-        r#"\ud800x\udc00"#,
-        r#"\ud800\uDC0"#,
-        r#"\ud800\uZZZZ"#,
-        r#"\ud800\n"#,
-        r#"\ud800\ uDC00"#,
+        r"\ud800",
+        r"\udfff",
+        r"\udc00\ud800",
+        r"\ud800\ud800",
+        r"\ud800\u0041",
+        r"\ud800x\udc00",
+        r"\ud800\uDC0",
+        r"\ud800\uZZZZ",
+        r"\ud800\n",
+        r"\ud800\ uDC00",
     ] {
         let document = format!(r#"{{"owner":"{invalid}","count":7}}"#);
         assert_eq!(
@@ -168,7 +147,7 @@ fn json_surrogate_pairs_refuse_invalid_and_enforce_bounds() {
     let values = vec![FieldValue::Text(at_bound.clone()), FieldValue::U64(7)];
     let escaped = format!(
         r#"{{"owner":"{}","count":7}}"#,
-        r#"\ud83d\ude80"#.repeat(MAX_TEXT_BYTES / 4)
+        r"\ud83d\ude80".repeat(MAX_TEXT_BYTES / 4)
     );
     assert_eq!(ok(schema.transcode(&escaped)), ok(schema.encode(&values)));
     assert_eq!(
@@ -179,7 +158,7 @@ fn json_surrogate_pairs_refuse_invalid_and_enforce_bounds() {
         format!(r#"{{"owner":"{at_bound}a","count":7}}"#),
         format!(
             r#"{{"owner":"{}a","count":7}}"#,
-            r#"\ud83d\ude80"#.repeat(MAX_TEXT_BYTES / 4)
+            r"\ud83d\ude80".repeat(MAX_TEXT_BYTES / 4)
         ),
         format!(r#"{{"owner":"{}","count":7}}"#, " ".repeat(MAX_JSON_BYTES)),
     ] {
@@ -234,7 +213,7 @@ fn cosmwasm_partial_import_final_cell_is_atomic_across_reopen() {
             1 => plan[1].0.principal = [0; 32],
             2 => {
                 plan[1].0.layerx_key =
-                    vec![1; layerx_programs_runtime::storage::MAX_STORAGE_KEY_BYTES + 1]
+                    vec![1; layerx_programs_runtime::storage::MAX_STORAGE_KEY_BYTES + 1];
             }
             3 => plan[1].0.layerx_key.clear(),
             _ => unreachable!(),
@@ -306,8 +285,7 @@ fn book_module(book: &BoundedOrderBook) -> ValidatedModule {
 fn invoke(
     module: &ValidatedModule,
     storage: &mut Storage,
-    owner: ProgramId,
-    trader: PrincipalId,
+    principals: (ProgramId, PrincipalId),
     entrypoint: &str,
     calldata: &[u8],
     capabilities: CapabilitySet,
@@ -317,8 +295,8 @@ fn invoke(
         storage,
         AuthorizedExecutionRequest {
             module,
-            program: owner,
-            authorization: AuthorizationContext::new(trader, capabilities),
+            program: principals.0,
+            authorization: AuthorizationContext::new(principals.1, capabilities),
             receipts: &AbsentReceipts,
             entrypoint,
             calldata,
@@ -379,8 +357,7 @@ fn query(
     let record = invoke(
         module,
         storage,
-        owner,
-        trader,
+        (owner, trader),
         READ_ORDER,
         &[],
         ok(CapabilitySet::new([Capability::SharedStorageRead])),
@@ -407,8 +384,7 @@ fn orderbook_two_traders_settle_and_reopen() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        terms.maker,
+        (owner, terms.maker),
         PLACE_ORDER,
         &ok(book.quantity_message(10)),
         ok(BoundedOrderBook::capabilities()),
@@ -419,8 +395,7 @@ fn orderbook_two_traders_settle_and_reopen() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        terms.taker,
+        (owner, terms.taker),
         MATCH_ORDER,
         &ok(book.quantity_message(3)),
         ok(BoundedOrderBook::capabilities()),
@@ -451,8 +426,7 @@ fn orderbook_two_traders_settle_and_reopen() {
     let record = invoke(
         &fresh_module,
         &mut reopened,
-        owner,
-        terms.taker,
+        (owner, terms.taker),
         MATCH_ORDER,
         &ok(book.quantity_message(7)),
         ok(BoundedOrderBook::capabilities()),
@@ -484,34 +458,11 @@ fn assert_refused(record: &V2AuthorizedExecutionRecord) {
     assert!(record.response().is_none());
 }
 
-#[test]
-fn orderbook_refusals_preserve_all_settlement_cells() {
-    let terms = terms(100);
-    let book = ok(BoundedOrderBook::new(terms));
-    let owner = program(21);
-    let module = book_module(&book);
-    let mut storage = Storage::new();
-    ok(book.initialize(&mut storage, owner));
-    // Reinitialization refuses without erasing allocations or registrations.
-    let initialized = storage.clone();
-    assert_eq!(
-        book.initialize(&mut storage, owner),
-        Err(PortRefusal::OutOfRange)
-    );
-    assert_eq!(storage, initialized);
-    let record = invoke(
-        &module,
-        &mut storage,
-        owner,
-        terms.maker,
-        PLACE_ORDER,
-        &ok(book.quantity_message(10)),
-        ok(BoundedOrderBook::capabilities()),
-        33,
-    );
-    response(&record);
-    let before = storage.clone();
-    for (trader, entrypoint, data, grants, capacity) in [
+fn refusal_cases(
+    book: &BoundedOrderBook,
+    terms: OrderBookTerms,
+) -> [(PrincipalId, &'static str, Vec<u8>, CapabilitySet, usize); 9] {
+    [
         (
             terms.maker,
             MATCH_ORDER,
@@ -586,12 +537,40 @@ fn orderbook_refusals_preserve_all_settlement_cells() {
             ])),
             33,
         ),
-    ] {
+    ]
+}
+
+#[test]
+fn orderbook_refusals_preserve_all_settlement_cells() {
+    let terms = terms(100);
+    let book = ok(BoundedOrderBook::new(terms));
+    let owner = program(21);
+    let module = book_module(&book);
+    let mut storage = Storage::new();
+    ok(book.initialize(&mut storage, owner));
+    // Reinitialization refuses without erasing allocations or registrations.
+    let initialized = storage.clone();
+    assert_eq!(
+        book.initialize(&mut storage, owner),
+        Err(PortRefusal::OutOfRange)
+    );
+    assert_eq!(storage, initialized);
+    let record = invoke(
+        &module,
+        &mut storage,
+        (owner, terms.maker),
+        PLACE_ORDER,
+        &ok(book.quantity_message(10)),
+        ok(BoundedOrderBook::capabilities()),
+        33,
+    );
+    response(&record);
+    let before = storage.clone();
+    for (trader, entrypoint, data, grants, capacity) in refusal_cases(&book, terms) {
         let record = invoke(
             &module,
             &mut storage,
-            owner,
-            trader,
+            (owner, trader),
             entrypoint,
             &data,
             grants,
@@ -606,8 +585,7 @@ fn orderbook_refusals_preserve_all_settlement_cells() {
     let record = invoke(
         &module,
         &mut reopened,
-        owner,
-        terms.taker,
+        (owner, terms.taker),
         MATCH_ORDER,
         &ok(book.quantity_message(2)),
         ok(BoundedOrderBook::capabilities()),
@@ -630,10 +608,8 @@ fn orderbook_refusals_preserve_all_settlement_cells() {
     assert_eq!(storage, before);
 }
 
-#[test]
-fn orderbook_bounds_and_corrupt_state_refuse() {
-    let initial = terms(20);
-    for invalid in [
+fn invalid_orderbook_terms(initial: OrderBookTerms) -> [OrderBookTerms; 6] {
+    [
         OrderBookTerms {
             maker: initial.taker,
             ..initial
@@ -658,7 +634,13 @@ fn orderbook_bounds_and_corrupt_state_refuse() {
             quote_lots: u64::MAX,
             ..initial
         },
-    ] {
+    ]
+}
+
+#[test]
+fn orderbook_bounds_and_corrupt_state_refuse() {
+    let initial = terms(20);
+    for invalid in invalid_orderbook_terms(initial) {
         assert_eq!(BoundedOrderBook::new(invalid), Err(PortRefusal::OutOfRange));
     }
     let book = ok(BoundedOrderBook::new(initial));
@@ -671,8 +653,7 @@ fn orderbook_bounds_and_corrupt_state_refuse() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        initial.maker,
+        (owner, initial.maker),
         PLACE_ORDER,
         &ok(book.quantity_message(10)),
         ok(BoundedOrderBook::capabilities()),
@@ -683,8 +664,7 @@ fn orderbook_bounds_and_corrupt_state_refuse() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        initial.taker,
+        (owner, initial.taker),
         MATCH_ORDER,
         &ok(book.quantity_message(3)),
         ok(BoundedOrderBook::capabilities()),
@@ -717,8 +697,7 @@ fn orderbook_bounds_and_corrupt_state_refuse() {
         let record = invoke(
             &module,
             &mut corrupted,
-            owner,
-            initial.taker,
+            (owner, initial.taker),
             MATCH_ORDER,
             &ok(book.quantity_message(1)),
             ok(BoundedOrderBook::capabilities()),
@@ -740,8 +719,7 @@ fn orderbook_bounds_and_corrupt_state_refuse() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        initial.taker,
+        (owner, initial.taker),
         MATCH_ORDER,
         &ok(book.quantity_message(1)),
         ok(BoundedOrderBook::capabilities()),
@@ -784,8 +762,7 @@ fn storage_shared_docs_global_item_and_map_use_scoped_hosts() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        terms.maker,
+        (owner, terms.maker),
         PLACE_ORDER,
         &ok(book.quantity_message(5)),
         ok(BoundedOrderBook::capabilities()),
@@ -824,8 +801,7 @@ fn storage_shared_docs_global_item_and_map_use_scoped_hosts() {
     let record = invoke(
         &module,
         &mut storage,
-        owner,
-        terms.taker,
+        (owner, terms.taker),
         READ_ORDER,
         &[],
         ok(CapabilitySet::new([Capability::StorageRead])),
