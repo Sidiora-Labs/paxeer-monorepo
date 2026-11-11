@@ -82,7 +82,7 @@ func (b *CanonicalLegacyBridge) RunOnce(ctx context.Context) (int, error) {
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	var locked bool
 	if err = tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))", canonicalLegacyLock).Scan(&locked); err != nil || !locked {
@@ -156,10 +156,10 @@ func LegacySwapFromCanonical(fill accounting.FillV1, emitter string, topics []st
 	word := func(i int) *big.Int { return new(big.Int).SetBytes(data[i*32 : (i+1)*32]) }
 	isBuy := word(0)
 	output := fill.USDLAmountRaw
-	if fill.Side == "buy" {
+	if fill.Side == valueBuy {
 		output = fill.TokenAmountRaw
 	}
-	if isBuy.Cmp(big.NewInt(1)) > 0 || (isBuy.Sign() == 1) != (fill.Side == "buy") || word(1).String() != fill.PaidInputRaw || word(2).String() != output || word(3).String() != fill.FeeRaw || word(6).String() != fill.Position.Height || word(5).String() != fill.BlockTimestampSeconds {
+	if isBuy.Cmp(big.NewInt(1)) > 0 || (isBuy.Sign() == 1) != (fill.Side == valueBuy) || word(1).String() != fill.PaidInputRaw || word(2).String() != output || word(3).String() != fill.FeeRaw || word(6).String() != fill.Position.Height || word(5).String() != fill.BlockTimestampSeconds {
 		return ev, ErrLegacyBridgeIntegrity
 	}
 	logIndex, err := strconv.Atoi(fill.Position.LogIndex)
@@ -170,7 +170,7 @@ func LegacySwapFromCanonical(fill accounting.FillV1, emitter string, topics []st
 	if err != nil {
 		return ev, ErrLegacyBridgeIntegrity
 	}
-	return SwapEvent{PoolAddress: fill.PoolAddress, Sender: "0x" + strings.ToLower(topics[2][26:]), IsBuy: fill.Side == "buy", AmountIn: word(1).String(), AmountOut: word(2).String(), Price: word(4).String(), Fee: word(3).String(), BlockTimestamp: timestamp, TxHash: fill.Position.TransactionHash, LogIndex: logIndex}, nil
+	return SwapEvent{PoolAddress: fill.PoolAddress, Sender: "0x" + strings.ToLower(topics[2][26:]), IsBuy: fill.Side == valueBuy, AmountIn: word(1).String(), AmountOut: word(2).String(), Price: word(4).String(), Fee: word(3).String(), BlockTimestamp: timestamp, TxHash: fill.Position.TransactionHash, LogIndex: logIndex}, nil
 }
 
 func (b *CanonicalLegacyBridge) swaps(ctx context.Context, tx pgx.Tx, typed int64) (int, error) {
@@ -237,7 +237,7 @@ func (b *CanonicalLegacyBridge) projectFill(ctx context.Context, ev SwapEvent) e
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	inserted, err := b.Swap.ProjectTx(ctx, tx, ev)
 	if err != nil {
