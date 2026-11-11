@@ -13144,6 +13144,12 @@ value = "The rule of a test program under tests/programs in the Makefile names t
 basis = "Decisions 3052 and 3334."
 affects = ["22.39.411", "22.39.406"]
 
+[decision.3339]
+title = "A task that makes a workspace lint recipe pass owns the source of each member it changes"
+value = "The recipe platform-lint runs over every member of the three platform manifests. Task 22.39.403 owns the source of the members internal, identity and paxeer under services/platform/hosted. It changes code and documentation, adds no allow attribute and changes no lint level, and keeps every public name and every answer. A member outside its list is named in its closing report and is not changed there."
+basis = "Gotcha 4263, decisions 3052 and 3326."
+affects = ["22.39.403"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -195992,7 +195998,7 @@ do_1 = "do_1 The recipe platform-lint of services/platform/Makefile.inc runs cli
 do_2 = "do_2 Run the recipe again until it exits 0 and treat each further finding under services/platform/hosted/internal/src the same way: change the code, not the lint. A finding in a file outside that directory is named in the closing report with its file and lint and is not changed here. The tests of the crate pass unchanged."
 do_3 = "do_3 Record in services/platform/hosted/internal/repair_22_39_403.kvx as product facts: each function that changed and the steps it now has. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/internal/src"]
+touches = ["services/platform/hosted/internal/src", "services/platform/hosted/identity/src", "services/platform/hosted/paxeer/src"]
 tests = []
 planned_paths = ["services/platform/hosted/internal/repair_22_39_403.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --workspace --all-targets"
@@ -196004,10 +196010,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 240
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3339, gotcha 4263. The task now also owns services/platform/hosted/identity/src and services/platform/hosted/paxeer/src. Run the first clippy command of the recipe by hand with the option --keep-going so that every member is linted in one run. Treat each finding in the three owned directories as in do_1: change the code, add the documentation a lint asks for where it states a fact about the function, add no allow attribute, and keep every public name and every answer. The tests of the three members pass unchanged. Name each member outside the three in the closing report with its lints and their counts, and do not change it."
 
 [task.22.39.398]
 title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
