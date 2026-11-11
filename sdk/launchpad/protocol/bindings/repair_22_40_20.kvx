@@ -1,0 +1,7 @@
+[binding.chain_launch]
+source = "precompiles/launchpad/abi.json"
+catalog_family = "NativeLaunchpad"
+recordings = ["native-execution.json", "native-node-rpc.json"]
+
+[source_changes]
+paths = ["modules/launchpad/keeper/keeper.go", "modules/launchpad/types/errors.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/errors.go", "precompiles/launchpad/events.go", "precompiles/launchpad/run.go"]
