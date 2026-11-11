@@ -102,6 +102,21 @@ func TestChainLaunchRevertLeavesNoState(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestChainLaunchDuplicateNameKeepsTheFirstMarket(t *testing.T) {
+	h, value := chainHarness(t)
+	first := launchThroughABI(t, h, value, "reserved-chain")
+	count := h.keeper.GetMarketCount(h.ctx())
+	next := testkeeper.EVMTestApp.LayerXChainsKeeper.NextID(h.ctx())
+	params := testkeeper.EVMTestApp.LayerXChainsKeeper.GetParams(h.ctx())
+	input := pack(t, directRole, "launchChain", "Another Token", "NEXT", uint8(types.FeeStrategyClaim),
+		common.Address{}, "reserved-chain", params.MinGasAllowance, params.MinByteAllowance, uint16(100))
+	_, _, err := h.evm.Call(h.caller, precompile, input, callGas, uint256.MustFromBig(value))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.Equal(t, count, h.keeper.GetMarketCount(h.ctx()))
+	require.Equal(t, next, testkeeper.EVMTestApp.LayerXChainsKeeper.NextID(h.ctx()))
+	require.Equal(t, first[0], h.view(precompile, directRole, "launchedChain", first[3].(uint32))[3])
+}
+
 func TestChainLaunchStaticCallIsRefused(t *testing.T) {
 	h, value := chainHarness(t)
 	params := testkeeper.EVMTestApp.LayerXChainsKeeper.GetParams(h.ctx())

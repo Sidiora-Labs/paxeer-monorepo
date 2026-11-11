@@ -226916,7 +226916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.13]
 title = "Serve launched chains and their revenue from the launchpad API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.9"]

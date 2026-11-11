@@ -150,7 +150,19 @@ func (s *repairM948Replay) Close() error {
 		if err != nil {
 			return err
 		}
-		for _, path := range []string{"precompiles/launchpad/events.go", "precompiles/launchpad/router.go", "precompiles/launchpad/fees.go", "precompiles/launchpad/nft.go", "precompiles/launchpad/run.go", "modules/launchpad/keeper/keeper.go", "node/testdata/v6120-halt-export.json"} {
+		for _, path := range []string{
+			"modules/launchpad/keeper/keeper.go", "modules/launchpad/keeper/roles.go", "modules/launchpad/types/errors.go",
+			"modules/launchpad/keeper/chainlaunch.go", "modules/launchpad/keeper/chainlaunch_store.go",
+			"modules/launchpad/keeper/chainrevenue.go", "modules/launchpad/types/chainlaunch.go",
+			"node/testdata/v6120-halt-export.json", "precompiles/launchpad/abi.go", "precompiles/launchpad/abi.json",
+			"precompiles/launchpad/abi/ChainLaunch.json", "precompiles/launchpad/abi/FeeAccumulator.json", "precompiles/launchpad/abi/FeesRouter.json",
+			"precompiles/launchpad/abi/PoolRegistry.json", "precompiles/launchpad/abi/ProtocolConfig.json",
+			"precompiles/launchpad/abi/Quoter.json", "precompiles/launchpad/abi/Router.json",
+			"precompiles/launchpad/abi/SidioraFactory.json", "precompiles/launchpad/abi/SidioraNFT.json",
+			"precompiles/launchpad/chainlaunch.go", "precompiles/launchpad/errors.go", "precompiles/launchpad/events.go", "precompiles/launchpad/fees.go",
+			"precompiles/launchpad/nft.go", "precompiles/launchpad/router.go", "precompiles/launchpad/run.go",
+			"precompiles/launchpad/views.go",
+		} {
 			raw, err := os.ReadFile(filepath.Join(root, path))
 			if err != nil {
 				return err
