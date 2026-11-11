@@ -196438,7 +196438,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.415]
 title = "Bring the core member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
