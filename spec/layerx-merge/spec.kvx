@@ -197168,7 +197168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.421]
 title = "Bring the registry member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197384,7 +197384,7 @@ do_4 = "do_4 Decision 3344, gotcha 4265. The verification now lints the member w
 
 [task.22.39.414]
 title = "Bring the authority member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
