@@ -13150,6 +13150,12 @@ value = "The recipe platform-lint runs over every member of the three platform m
 basis = "Gotcha 4263, decisions 3052 and 3326."
 affects = ["22.39.403"]
 
+[decision.3340]
+title = "Each member of the platform workspace passes the workspace lint on its own"
+value = "The lint table of services/platform/Cargo.toml applies to every member. A member passes clippy with all targets and with warnings denied when it is selected alone, without an allow attribute and without a change of the table or of a manifest. A repair of a member keeps its public names, its public signatures and every answer, so the members are repaired independently of each other. Tasks 22.39.412 to 22.39.423 each own the members of one directory, task 22.39.424 owns the manifests of the platform tools and of the SDK generators, and task 22.39.403 owns the members internal, identity and paxeer and runs the whole recipe after them."
+basis = "Gotcha 4264, decisions 3052, 3326 and 3339."
+affects = ["22.39.403", "22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42810,6 +42816,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.424]
+title = "Bring the manifests of the platform tools and of the SDK generators through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["tools/platform", "sdk/platform/generators"]
+tests = []
+verification_contract = "test -s tools/platform/repair_22_39_424.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml --workspace --all-targets -- -D warnings && cargo clippy --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340. After the workspace of services/platform/Cargo.toml the recipe platform-lint lints the workspace of tools/platform/Cargo.toml and the workspace of sdk/platform/generators/Cargo.toml with all targets and with warnings denied. Run the two clippy commands of the verification by hand with the option --keep-going and list each finding by member, lint and file."
+symbols = []
+
+[capability.22.39.423]
+title = "Bring the three tool members of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/tools"]
+tests = []
+verification_contract = "test -s services/platform/tools/repair_22_39_423.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-kvx -p layerx-platform-workspace-gate -p layerx-platform-benchmark --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the three tool members under services/platform/tools by lint and by file."
+symbols = []
+
+[capability.22.39.422]
+title = "Bring the testnet member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/testnet"]
+tests = []
+verification_contract = "test -s services/platform/hosted/testnet/repair_22_39_422.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-testnet --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the testnet member under services/platform/hosted/testnet by lint and by file."
+symbols = []
+
+[capability.22.39.421]
+title = "Bring the registry member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/registry"]
+tests = []
+verification_contract = "test -s services/platform/hosted/registry/repair_22_39_421.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the registry member under services/platform/hosted/registry by lint and by file."
+symbols = []
+
+[capability.22.39.420]
+title = "Bring the two ramp members of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/ramps"]
+tests = []
+verification_contract = "test -s services/platform/ramps/repair_22_39_420.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the two ramp members under services/platform/ramps by lint and by file."
+symbols = []
+
+[capability.22.39.419]
+title = "Bring the PaxAI participant member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/paxai-worker"]
+tests = []
+verification_contract = "test -s services/platform/hosted/repair_22_39_419.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p 'layerx-paxai-*' --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the PaxAI participant member whose package name starts with layerx-paxai by lint and by file."
+symbols = []
+
+[capability.22.39.418]
+title = "Bring the indexer member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/indexer"]
+tests = []
+verification_contract = "test -s services/platform/hosted/indexer/repair_22_39_418.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the indexer member under services/platform/hosted/indexer by lint and by file."
+symbols = []
+
+[capability.22.39.417]
+title = "Bring the gateway member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway"]
+tests = []
+verification_contract = "test -s services/platform/hosted/gateway/repair_22_39_417.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the gateway member under services/platform/hosted/gateway by lint and by file."
+symbols = []
+
+[capability.22.39.416]
+title = "Bring the oracle feeder member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/feeder"]
+tests = []
+verification_contract = "test -s services/platform/hosted/feeder/repair_22_39_416.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the oracle feeder member under services/platform/hosted/feeder by lint and by file."
+symbols = []
+
+[capability.22.39.415]
+title = "Bring the core member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/core"]
+tests = []
+verification_contract = "test -s services/platform/hosted/core/repair_22_39_415.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the core member under services/platform/hosted/core by lint and by file."
+symbols = []
+
+[capability.22.39.414]
+title = "Bring the authority member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority"]
+tests = []
+verification_contract = "test -s services/platform/hosted/authority/repair_22_39_414.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the authority member under services/platform/hosted/authority by lint and by file."
+symbols = []
+
+[capability.22.39.413]
+title = "Bring the AI evaluator member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/ai-evaluator"]
+tests = []
+verification_contract = "test -s services/platform/hosted/ai-evaluator/repair_22_39_413.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the AI evaluator member under services/platform/hosted/ai-evaluator by lint and by file."
+symbols = []
+
+[capability.22.39.412]
+title = "Bring the agent boundary member of the platform through the workspace lint"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/agent-boundary"]
+tests = []
+verification_contract = "test -s services/platform/hosted/agent-boundary/repair_22_39_412.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the agent boundary member under services/platform/hosted/agent-boundary by lint and by file."
+symbols = []
 
 [capability.22.39.411]
 title = "Rebuild the test programs of the kernel when a header they include changes"
@@ -186360,7 +186483,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.401]
 title = "Bring the generated files of the agent TypeScript SDK into line with their generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195955,6 +196078,396 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.424]
+title = "Bring the manifests of the platform tools and of the SDK generators through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.424"]
+interfaces = []
+do_1 = "do_1 Decision 3340. After the workspace of services/platform/Cargo.toml the recipe platform-lint lints the workspace of tools/platform/Cargo.toml and the workspace of sdk/platform/generators/Cargo.toml with all targets and with warnings denied. Run the two clippy commands of the verification by hand with the option --keep-going and list each finding by member, lint and file."
+do_2 = "do_2 Repair each finding in the code as decision 3340 states: no allow attribute, no change of a lint level or of a manifest, every public name, public signature and answer kept. The generated SDK files and the lock file sdk/platform/pipeline.kvx stay as the generator writes them; where a repair changes the output of a generator, write the files and the lock with the recipe platform-sdk-generate (decision 3337). Run the tests of each changed member by hand."
+do_3 = "do_3 Record in tools/platform/repair_22_39_424.kvx as product facts: each member, each lint and the files changed for it, or that a manifest held no finding. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/platform", "sdk/platform/generators"]
+tests = []
+planned_paths = ["tools/platform/repair_22_39_424.kvx"]
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml --workspace --all-targets && cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets"
+verify_cmd = "test -s tools/platform/repair_22_39_424.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml --workspace --all-targets -- -D warnings && cargo clippy --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.423]
+title = "Bring the three tool members of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.423"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the three tool members under services/platform/tools by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/tools/repair_22_39_423.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/tools"]
+tests = []
+planned_paths = ["services/platform/tools/repair_22_39_423.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-kvx -p layerx-platform-workspace-gate -p layerx-platform-benchmark --all-targets"
+verify_cmd = "test -s services/platform/tools/repair_22_39_423.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-kvx -p layerx-platform-workspace-gate -p layerx-platform-benchmark --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.422]
+title = "Bring the testnet member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.422"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the testnet member under services/platform/hosted/testnet by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/testnet/repair_22_39_422.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/testnet"]
+tests = []
+planned_paths = ["services/platform/hosted/testnet/repair_22_39_422.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-testnet --all-targets"
+verify_cmd = "test -s services/platform/hosted/testnet/repair_22_39_422.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-testnet --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.421]
+title = "Bring the registry member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.421"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the registry member under services/platform/hosted/registry by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/registry/repair_22_39_421.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/registry"]
+tests = []
+planned_paths = ["services/platform/hosted/registry/repair_22_39_421.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --all-targets"
+verify_cmd = "test -s services/platform/hosted/registry/repair_22_39_421.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.420]
+title = "Bring the two ramp members of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.420"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the two ramp members under services/platform/ramps by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/ramps/repair_22_39_420.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/ramps"]
+tests = []
+planned_paths = ["services/platform/ramps/repair_22_39_420.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets"
+verify_cmd = "test -s services/platform/ramps/repair_22_39_420.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit -p layerx-reference-ramp --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.419]
+title = "Bring the PaxAI participant member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.419"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the PaxAI participant member whose package name starts with layerx-paxai by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/repair_22_39_419.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/paxai-worker"]
+tests = []
+planned_paths = ["services/platform/hosted/repair_22_39_419.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p 'layerx-paxai-*' --all-targets"
+verify_cmd = "test -s services/platform/hosted/repair_22_39_419.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p 'layerx-paxai-*' --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.418]
+title = "Bring the indexer member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.418"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the indexer member under services/platform/hosted/indexer by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/indexer/repair_22_39_418.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/indexer"]
+tests = []
+planned_paths = ["services/platform/hosted/indexer/repair_22_39_418.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --all-targets"
+verify_cmd = "test -s services/platform/hosted/indexer/repair_22_39_418.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.417]
+title = "Bring the gateway member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.417"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the gateway member under services/platform/hosted/gateway by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/gateway/repair_22_39_417.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/gateway"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/repair_22_39_417.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
+verify_cmd = "test -s services/platform/hosted/gateway/repair_22_39_417.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.416]
+title = "Bring the oracle feeder member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.416"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the oracle feeder member under services/platform/hosted/feeder by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/feeder/repair_22_39_416.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/feeder"]
+tests = []
+planned_paths = ["services/platform/hosted/feeder/repair_22_39_416.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets"
+verify_cmd = "test -s services/platform/hosted/feeder/repair_22_39_416.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-oracle-feeder --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.415]
+title = "Bring the core member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.415"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the core member under services/platform/hosted/core by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/core/repair_22_39_415.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/core"]
+tests = []
+planned_paths = ["services/platform/hosted/core/repair_22_39_415.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets"
+verify_cmd = "test -s services/platform/hosted/core/repair_22_39_415.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.414]
+title = "Bring the authority member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.414"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the authority member under services/platform/hosted/authority by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/authority/repair_22_39_414.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/authority"]
+tests = []
+planned_paths = ["services/platform/hosted/authority/repair_22_39_414.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --all-targets"
+verify_cmd = "test -s services/platform/hosted/authority/repair_22_39_414.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.413]
+title = "Bring the AI evaluator member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.413"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the AI evaluator member under services/platform/hosted/ai-evaluator by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/ai-evaluator/repair_22_39_413.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/ai-evaluator"]
+tests = []
+planned_paths = ["services/platform/hosted/ai-evaluator/repair_22_39_413.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets"
+verify_cmd = "test -s services/platform/hosted/ai-evaluator/repair_22_39_413.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.412]
+title = "Bring the agent boundary member of the platform through the workspace lint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.412"]
+interfaces = []
+do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every member of services/platform/Cargo.toml with all targets and with warnings denied, under the lint table of that manifest. Run the clippy command of the verification by hand with the option --keep-going and list each finding of the agent boundary member under services/platform/hosted/agent-boundary by lint and by file."
+do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
+do_3 = "do_3 Record in services/platform/hosted/agent-boundary/repair_22_39_412.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/agent-boundary"]
+tests = []
+planned_paths = ["services/platform/hosted/agent-boundary/repair_22_39_412.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --all-targets"
+verify_cmd = "test -s services/platform/hosted/agent-boundary/repair_22_39_412.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-agent-boundary --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.404]
 title = "Pass the lint of the interop crates with warnings denied"
 status = "pending"
@@ -195990,7 +196503,7 @@ title = "Pass the lint of the platform crates with warnings denied"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424"]
 reqs = ["22998.1"]
 capabilities = ["22.39.403"]
 interfaces = []
@@ -195998,7 +196511,7 @@ do_1 = "do_1 The recipe platform-lint of services/platform/Makefile.inc runs cli
 do_2 = "do_2 Run the recipe again until it exits 0 and treat each further finding under services/platform/hosted/internal/src the same way: change the code, not the lint. A finding in a file outside that directory is named in the closing report with its file and lint and is not changed here. The tests of the crate pass unchanged."
 do_3 = "do_3 Record in services/platform/hosted/internal/repair_22_39_403.kvx as product facts: each function that changed and the steps it now has. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/internal/src", "services/platform/hosted/identity/src", "services/platform/hosted/paxeer/src"]
+touches = ["services/platform/hosted/internal", "services/platform/hosted/identity", "services/platform/hosted/paxeer"]
 tests = []
 planned_paths = ["services/platform/hosted/internal/repair_22_39_403.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --workspace --all-targets"
@@ -196015,6 +196528,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3339, gotcha 4263. The task now also owns services/platform/hosted/identity/src and services/platform/hosted/paxeer/src. Run the first clippy command of the recipe by hand with the option --keep-going so that every member is linted in one run. Treat each finding in the three owned directories as in do_1: change the code, add the documentation a lint asks for where it states a fact about the function, add no allow attribute, and keep every public name and every answer. The tests of the three members pass unchanged. Name each member outside the three in the closing report with its lints and their counts, and do not change it."
+do_5 = "do_5 Decision 3340, gotcha 4264. The task now owns the whole directories of the members internal, identity and paxeer under services/platform/hosted, their tests included, and requires tasks 22.39.412 to 22.39.424, which bring the other members and the two other manifests through the same lint. After them run the whole recipe platform-lint. A step after the clippy steps that stops is named in the closing report with its file and its message."
 
 [task.22.39.398]
 title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
@@ -287071,7 +287585,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.407]
 title = "Read built guest modules from the Cargo output directory in the program recipes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -310630,7 +311144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.406]
 title = "Register the migration owner of the lifecycle cases once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
