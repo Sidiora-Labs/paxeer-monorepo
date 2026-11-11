@@ -44,7 +44,9 @@ fn no_retired_layerx_client_module_paths() {
             Err(error) if error.kind() == ErrorKind::NotFound => continue,
             Err(error) => panic!("cannot read {}: {error}", path.display()),
         };
-        let path = path.strip_prefix(root).expect("path is inside the crate");
+        let path = path
+            .strip_prefix(root)
+            .unwrap_or_else(|error| panic!("path is inside the crate: {error}"));
         let source: String = source.split_whitespace().collect();
         for module in retired_modules {
             let retired_path = format!("layerx_client::{module}");

@@ -9,25 +9,25 @@
 // Wiring: services/platform/hosted/testnet/tests (platform/domain8) owns live-node
 // capture qualification; this gate uses canonical in-memory peer stores and TLS.
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 
 include!("support/committed_human_fixture.rs");
 
 fn assert_no_retired_calls(node: &Node) {
-    let calls = node.state.lock().unwrap().calls.clone();
+    let calls = node.state.lock().must().calls.clone();
     assert!(!calls.is_empty());
     assert!(calls.iter().any(|r| r["method"] == "px_getCommit"));
     assert!(calls.iter().any(|r| r["method"] == "abci_query"));
-    assert!(!calls
-        .iter()
-        .any(|r| r["method"] == "eth_call"
-            && r["params"][0]["to"].as_str().unwrap().ends_with("1014")));
+    assert!(!calls.iter().any(
+        |r| r["method"] == "eth_call" && r["params"][0]["to"].as_str().must().ends_with("1014")
+    ));
     for signature in [b"latestFinalized()".as_slice(), b"checkpoint(uint64)"] {
         let selector =
             hex::encode(&layerx_crypto::evm_transaction::transaction_hash(signature)[..4]);
         assert!(!calls.iter().any(|r| r["method"] == "eth_call"
             && r["params"][0]["data"]
                 .as_str()
-                .unwrap()
+                .must()
                 .starts_with(&format!("0x{selector}"))));
     }
 }
@@ -58,7 +58,7 @@ pub(crate) fn produced_export_corpus() -> ProducedCorpus {
         &response,
         fs::Permissions::from_mode(0o600),
     ));
-    let corpus = document!({"cases":[{"response":response,"rpc_exchanges":node.state.lock().unwrap().exchanges,
+    let corpus = document!({"cases":[{"response":response,"rpc_exchanges":node.state.lock().must().exchanges,
         "budget_id":hex::encode(&fixture.id),"owner_account":hex::encode(&fixture.owner),"owner_did":fixture.did,
         "asset_id":hex::encode(&fixture.asset),"committed_height":export["finality"]["height"],
         "state_height":export["finality"]["state_height"],"block_hash":export["finality"]["block_hash"],"app_hash":export["finality"]["app_hash"]}]});
@@ -93,8 +93,9 @@ fn verify_native_export_proof(
     state_height: u64,
     root: [u8; 32],
 ) -> Result<Vec<u8>, ()> {
+    let expected_height = state_height.to_string();
     if proof["code"] != 0
-        || proof["height"] != state_height.to_string()
+        || proof["height"].as_str() != Some(expected_height.as_str())
         || committed::base64(proof["key"].as_str().ok_or(())?)? != key
     {
         return Err(());
@@ -117,6 +118,161 @@ fn verify_native_export_proof(
         root,
     )?;
     Ok(value)
+}
+
+fn verify_join_binding(
+    document: &Value,
+    finality: &Value,
+    record: &committed_budget_record::Record,
+    state_height: u64,
+    app_hash: [u8; 32],
+) -> Result<(String, Vec<u8>), ()> {
+    let proofs = &document["proofs"];
+    let state = &document["budget_state"];
+    let join = &proofs["account_join"];
+    if join.as_object().ok_or(())?.len() != 6 || &join["finality"] != finality {
+        return Err(());
+    }
+    let row = &join["account"];
+    if row["bound"] != true
+        || row["frozen"] != false
+        || export_bytes(&row["layerx_account"])? != record.owner
+        || export_bytes(&row["asset_id"])? != record.asset
+    {
+        return Err(());
+    }
+    let owner_key = [vec![6], record.owner.to_vec()].concat();
+    let owner_value = verify_native_export_proof(
+        &join["native_account_proof"],
+        &owner_key,
+        state_height,
+        app_hash,
+    )?;
+    let sequence = verify_native_export_proof(
+        &join["receipt_sequence_proof"],
+        &[2],
+        state_height,
+        app_hash,
+    )?;
+    let sequence = u64::from_be_bytes(sequence.try_into().map_err(|_| ())?);
+    if sequence == 0 || state["observed_head_sequence"] != sequence {
+        return Err(());
+    }
+    let binding = &join["binding_call"];
+    let data = export_bytes(&binding["data"])?;
+    let result = export_bytes(&binding["result"])?;
+    if binding.as_object().ok_or(())?.len() != 4
+        || binding["height"] != state_height
+        || export_bytes(&binding["to"])?
+            != hex::decode("0000000000000000000000000000000000001004").map_err(|_| ())?
+        || data.len() != 36
+        || data[..4]
+            != layerx_crypto::evm_transaction::transaction_hash(b"getEvmAddrByLayerX(bytes32)")[..4]
+        || result.len() != 32
+        || result[..12] != [0; 12]
+        || result[12..] == [0; 20]
+        || row["evm_address"] != format!("0x{}", hex::encode(&result[12..]))
+    {
+        return Err(());
+    }
+    let did = format!("did:layerx:{}", hex::encode(&data[4..]));
+    let identity = layerx_wire::hash::did_id_for_protocol(
+        &layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| ())?,
+        3,
+    )
+    .map_err(|_| ())?;
+    if export_bytes(&document["identity_key"])? != identity {
+        return Err(());
+    }
+    Ok((did, owner_value))
+}
+
+fn verify_join_balances(
+    join: &Value,
+    record: &committed_budget_record::Record,
+    state_height: u64,
+    app_hash: [u8; 32],
+    owner_value: &[u8],
+    did: &str,
+) -> Result<(), ()> {
+    let balances = join["balances"].as_array().ok_or(())?;
+    let mut ids = vec![record.owner, record.account];
+    if let Some(source) = record.source {
+        ids.push(source);
+    }
+    if balances.len() != ids.len() {
+        return Err(());
+    }
+    for (balance, id) in balances.iter().zip(ids) {
+        if export_bytes(&balance["account_id"])? != id
+            || export_bytes(&balance["asset_id"])? != record.asset
+        {
+            return Err(());
+        }
+        let value = verify_native_export_proof(
+            &balance["proof"],
+            &[vec![6], id.to_vec()].concat(),
+            state_height,
+            app_hash,
+        )?;
+        if id == record.owner && value != owner_value {
+            return Err(());
+        }
+        let mut reader = layerx_wire::decode::Decoder::new(&value, 2048);
+        if reader.bytes(32).map_err(|_| ())? != id {
+            return Err(());
+        }
+        let name = std::str::from_utf8(reader.bytes(512).map_err(|_| ())?).map_err(|_| ())?;
+        if id == record.owner && name != format!("agent:{did}:main") {
+            return Err(());
+        }
+        let kind = reader.u8().map_err(|_| ())?;
+        if kind == 0 {
+            return Err(());
+        }
+        if balance["amount"] != reader.u128().map_err(|_| ())?.to_string()
+            || reader.bytes(32).map_err(|_| ())? != record.asset
+        {
+            return Err(());
+        }
+        reader.u8().map_err(|_| ())?;
+        reader.u64().map_err(|_| ())?;
+        reader.u64().map_err(|_| ())?;
+        reader.u8().map_err(|_| ())?;
+        if reader.u8().map_err(|_| ())? != 0 {
+            return Err(());
+        }
+        if reader.bytes(32).map_err(|_| ())?.len() != 32 {
+            return Err(());
+        }
+        reader.u8().map_err(|_| ())?;
+        reader.finish().map_err(|_| ())?;
+    }
+    Ok(())
+}
+
+fn verify_export_digest(
+    state: &Value,
+    proofs: &Value,
+    budget: &[u8],
+    remaining: &[u8],
+    block_hash: [u8; 32],
+) -> Result<(), ()> {
+    let mut evidence = Sha256::new();
+    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
+    evidence.update(block_hash);
+    let join = serde_json::to_vec(&proofs["account_join"]).map_err(|_| ())?;
+    for material in [budget, remaining, &join] {
+        evidence.update(u64::try_from(material.len()).map_err(|_| ())?.to_be_bytes());
+        evidence.update(material);
+    }
+    let digest: [u8; 32] = evidence.finalize().into();
+    if export_bytes(&state["evidence_digest"])? != digest
+        || export_bytes(&state["receipt_digest"])? != Sha256::digest(budget).as_slice()
+    {
+        return Err(());
+    }
+    Ok(())
 }
 
 fn verify_committed_export(document: &Value, expected_finality: &Value) -> Result<(), ()> {
@@ -203,140 +359,23 @@ fn verify_committed_export(document: &Value, expected_finality: &Value) -> Resul
             return Err(());
         }
     }
+    let (did, owner_value) =
+        verify_join_binding(document, finality, &record, state_height, app_hash)?;
     let join = &proofs["account_join"];
-    if join.as_object().ok_or(())?.len() != 6 || &join["finality"] != finality {
-        return Err(());
-    }
-    let row = &join["account"];
-    if row["bound"] != true
-        || row["frozen"] != false
-        || export_bytes(&row["layerx_account"])? != record.owner
-        || export_bytes(&row["asset_id"])? != record.asset
-    {
-        return Err(());
-    }
-    let owner_key = [vec![6], record.owner.to_vec()].concat();
-    let owner_value = verify_native_export_proof(
-        &join["native_account_proof"],
-        &owner_key,
-        state_height,
-        app_hash,
-    )?;
-    let sequence = verify_native_export_proof(
-        &join["receipt_sequence_proof"],
-        &[2],
-        state_height,
-        app_hash,
-    )?;
-    let sequence = u64::from_be_bytes(sequence.try_into().map_err(|_| ())?);
-    if sequence == 0 || state["observed_head_sequence"] != sequence {
-        return Err(());
-    }
-    let binding = &join["binding_call"];
-    let data = export_bytes(&binding["data"])?;
-    let result = export_bytes(&binding["result"])?;
-    if binding.as_object().ok_or(())?.len() != 4
-        || binding["height"] != state_height
-        || export_bytes(&binding["to"])?
-            != hex::decode("0000000000000000000000000000000000001004").map_err(|_| ())?
-        || data.len() != 36
-        || data[..4]
-            != layerx_crypto::evm_transaction::transaction_hash(b"getEvmAddrByLayerX(bytes32)")[..4]
-        || result.len() != 32
-        || result[..12] != [0; 12]
-        || result[12..] == [0; 20]
-        || row["evm_address"] != format!("0x{}", hex::encode(&result[12..]))
-    {
-        return Err(());
-    }
-    let did = format!("did:layerx:{}", hex::encode(&data[4..]));
-    let identity = layerx_wire::hash::did_id_for_protocol(
-        &layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| ())?,
-        3,
-    )
-    .map_err(|_| ())?;
-    if export_bytes(&document["identity_key"])? != identity {
-        return Err(());
-    }
-    let balances = join["balances"].as_array().ok_or(())?;
-    let mut ids = vec![record.owner, record.account];
-    if let Some(source) = record.source {
-        ids.push(source);
-    }
-    if balances.len() != ids.len() {
-        return Err(());
-    }
-    for (balance, id) in balances.iter().zip(ids) {
-        if export_bytes(&balance["account_id"])? != id
-            || export_bytes(&balance["asset_id"])? != record.asset
-        {
-            return Err(());
-        }
-        let value = verify_native_export_proof(
-            &balance["proof"],
-            &[vec![6], id.to_vec()].concat(),
-            state_height,
-            app_hash,
-        )?;
-        if id == record.owner && value != owner_value {
-            return Err(());
-        }
-        let mut reader = layerx_wire::decode::Decoder::new(&value, 2048);
-        if reader.bytes(32).map_err(|_| ())? != id {
-            return Err(());
-        }
-        let name = std::str::from_utf8(reader.bytes(512).map_err(|_| ())?).map_err(|_| ())?;
-        if id == record.owner && name != format!("agent:{did}:main") {
-            return Err(());
-        }
-        let kind = reader.u8().map_err(|_| ())?;
-        if kind == 0 {
-            return Err(());
-        }
-        if balance["amount"] != reader.u128().map_err(|_| ())?.to_string()
-            || reader.bytes(32).map_err(|_| ())? != record.asset
-        {
-            return Err(());
-        }
-        reader.u8().map_err(|_| ())?;
-        reader.u64().map_err(|_| ())?;
-        reader.u64().map_err(|_| ())?;
-        reader.u8().map_err(|_| ())?;
-        if reader.u8().map_err(|_| ())? != 0 {
-            return Err(());
-        }
-        if reader.bytes(32).map_err(|_| ())?.len() != 32 {
-            return Err(());
-        }
-        reader.u8().map_err(|_| ())?;
-        reader.finish().map_err(|_| ())?;
-    }
-    let mut evidence = Sha256::new();
-    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
-    evidence.update(block_hash);
-    let join = serde_json::to_vec(&proofs["account_join"]).map_err(|_| ())?;
-    for material in [&budget, &remaining, &join] {
-        evidence.update(u64::try_from(material.len()).map_err(|_| ())?.to_be_bytes());
-        evidence.update(material);
-    }
-    let digest: [u8; 32] = evidence.finalize().into();
-    if export_bytes(&state["evidence_digest"])? != digest
-        || export_bytes(&state["receipt_digest"])? != Sha256::digest(&budget).as_slice()
-    {
-        return Err(());
-    }
+    verify_join_balances(join, &record, state_height, app_hash, &owner_value, &did)?;
+    verify_export_digest(state, proofs, &budget, &remaining, block_hash)?;
     Ok(())
 }
 
 pub(crate) fn assert_export_corpus(fixture: &Value) {
-    let cases = fixture["cases"].as_array().expect("real export cases");
+    let cases = fixture["cases"].as_array().must_with("real export cases");
     assert!(!cases.is_empty());
     for case in cases {
         let document: Value = serde_json::from_slice(&protected_export(
-            Path::new(case["response"].as_str().expect("response path")),
+            Path::new(case["response"].as_str().must_with("response path")),
             1_048_576,
         ))
-        .expect("real export JSON");
+        .must_with("real export JSON");
         let finality = serde_json::json!({
             "height":case["committed_height"], "block_hash":case["block_hash"], "app_hash":case["app_hash"], "state_height":case["state_height"]
         });
@@ -348,8 +387,8 @@ pub(crate) fn assert_export_corpus(fixture: &Value) {
         assert_eq!(document["finality"]["app_hash"], case["app_hash"]);
         for name in ["budget_call", "remaining_call"] {
             let mut corrupt = document.clone();
-            let mut raw = export_bytes(&corrupt["proofs"][name]["result"]).expect("call bytes");
-            *raw.last_mut().expect("nonempty call") ^= 1;
+            let mut raw = export_bytes(&corrupt["proofs"][name]["result"]).must_with("call bytes");
+            *raw.last_mut().must_with("nonempty call") ^= 1;
             corrupt["proofs"][name]["result"] = serde_json::json!(hex::encode(&raw));
             assert!(
                 verify_committed_export(&corrupt, &finality).is_err(),
@@ -388,11 +427,11 @@ pub(crate) fn assert_export_corpus(fixture: &Value) {
             // must reject this independently of the export checksum.
             let mut digest = Sha256::new();
             digest.update(b"layerx-human/rpc-budget-evidence/v2\0");
-            digest.update(export_bytes(&corrupt["finality"]["block_hash"]).unwrap());
+            digest.update(export_bytes(&corrupt["finality"]["block_hash"]).must());
             for material in [
-                export_bytes(&corrupt["proofs"]["budget_call"]["result"]).unwrap(),
-                export_bytes(&corrupt["proofs"]["remaining_call"]["result"]).unwrap(),
-                serde_json::to_vec(&corrupt["proofs"]["account_join"]).unwrap(),
+                export_bytes(&corrupt["proofs"]["budget_call"]["result"]).must(),
+                export_bytes(&corrupt["proofs"]["remaining_call"]["result"]).must(),
+                serde_json::to_vec(&corrupt["proofs"]["account_join"]).must(),
             ] {
                 digest.update((material.len() as u64).to_be_bytes());
                 digest.update(material);
@@ -442,9 +481,9 @@ pub(crate) fn human_tls_retired_anchor() {
                 "{}&did={}&authority={}&action_key={}&capability_id={}",
                 human_path("capability-scope"),
                 fixture.did,
-                scope["authority"].as_str().unwrap(),
-                scope["action_key"].as_str().unwrap(),
-                scope["capability_id"].as_str().unwrap()
+                scope["authority"].as_str().must(),
+                scope["action_key"].as_str().must(),
+                scope["capability_id"].as_str().must()
             ));
         } else {
             paths.push(format!(
@@ -467,7 +506,7 @@ pub(crate) fn human_tls_retired_anchor() {
             if path.contains("/identity?") {
                 assert_eq!(answer["head_sequence"], fixture.sequence);
                 assert_eq!(
-                    answer["authorities"].as_array().unwrap().len(),
+                    answer["authorities"].as_array().must().len(),
                     if capability { 2 } else { 1 }
                 );
             } else {
@@ -549,17 +588,19 @@ pub(crate) fn human_budget_corpus_optional() {
         &replay_corpus.path,
         65_536,
     )));
-    let cases = corpus["cases"].as_array().expect("required replay cases");
+    let cases = corpus["cases"]
+        .as_array()
+        .must_with("required replay cases");
     assert!(!cases.is_empty());
     for case in cases {
         let exchanges = case["rpc_exchanges"]
             .as_array()
-            .expect("required captured RPC exchanges")
+            .must_with("required captured RPC exchanges")
             .clone();
         assert!(!exchanges.is_empty());
         let replay = Node::with_transcript(fixture.clone(), Some(exchanges));
         let expected: Value = fixture_must(serde_json::from_slice(&protected_export(
-            Path::new(case["response"].as_str().unwrap()),
+            Path::new(case["response"].as_str().must()),
             1_048_576,
         )));
         let replay_directory = Directory::new();
