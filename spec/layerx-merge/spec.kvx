@@ -196346,7 +196346,7 @@ do_4 = "do_4 Decision 3342, gotcha 4265. The verification now lints the member w
 
 [task.22.39.418]
 title = "Bring the indexer member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
