@@ -198451,7 +198451,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 
 [task.22.39.211]
 title = "Bring the agent workspace lint target to green under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385", "22.39.393"]
@@ -355443,7 +355443,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.1]
 title = "Write the contract of the chain launchpad and its planned interface rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

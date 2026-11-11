@@ -169,6 +169,18 @@ func (k Keeper) checkCapacity(ctx sdk.Context, p types.Params, added uint64) err
 	return err
 }
 func (k Keeper) Create(ctx sdk.Context, operator common.Address, name string, gasAllowance, byteAllowance uint64, feeShareBps uint16, value sdk.Int, initialBaseFee sdk.Dec) (types.Domain, error) {
+	return k.create(ctx, nil, operator, name, gasAllowance, byteAllowance, feeShareBps, value, initialBaseFee)
+}
+
+// CreateWithPayer creates a domain whose operator and bond payer are different accounts.
+func (k Keeper) CreateWithPayer(ctx sdk.Context, payer sdk.AccAddress, operator common.Address, name string, gasAllowance, byteAllowance uint64, feeShareBps uint16, value sdk.Int, initialBaseFee sdk.Dec) (types.Domain, error) {
+	if len(payer) == 0 {
+		return types.Domain{}, fmt.Errorf("layerxchains: missing bond payer")
+	}
+	return k.create(ctx, payer, operator, name, gasAllowance, byteAllowance, feeShareBps, value, initialBaseFee)
+}
+
+func (k Keeper) create(ctx sdk.Context, payer sdk.AccAddress, operator common.Address, name string, gasAllowance, byteAllowance uint64, feeShareBps uint16, value sdk.Int, initialBaseFee sdk.Dec) (types.Domain, error) {
 	if err := types.ValidateName(name); err != nil {
 		return types.Domain{}, err
 	}
@@ -195,11 +207,14 @@ func (k Keeper) Create(ctx sdk.Context, operator common.Address, name string, ga
 	d := types.Domain{Id: id, Name: name, Operator: operator, Status: types.StatusActive, GasAllowance: gasAllowance, ByteAllowance: byteAllowance, FeeShareBps: feeShareBps, Bond: value.Sub(p.CreationFee), TargetGasPerBlock: gasAllowance / 2, CreatedHeight: ctx.BlockHeight()}
 	cache, write := ctx.CacheContext()
 	denom := k.baseDenom(cache)
-	account, err := k.resolveAddress(cache, operator)
-	if err != nil {
-		return types.Domain{}, err
+	if payer == nil {
+		var err error
+		payer, err = k.resolveAddress(cache, operator)
+		if err != nil {
+			return types.Domain{}, err
+		}
 	}
-	if err := k.bank.SendCoinsFromAccountToModule(cache, account, types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, value))); err != nil {
+	if err := k.bank.SendCoinsFromAccountToModule(cache, payer, types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, value))); err != nil {
 		return types.Domain{}, err
 	}
 	if p.CreationFee.IsPositive() {
