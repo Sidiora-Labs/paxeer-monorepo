@@ -163901,7 +163901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.10]
 title = "Launch a chain and its token in one flow of the launchpad web application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -196973,7 +196973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.439]
 title = "Bring the member layerx-intents of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
