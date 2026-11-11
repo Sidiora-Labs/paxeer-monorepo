@@ -2642,11 +2642,12 @@ developer-dashboard-install:
 		ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules
 
 developer-dashboard-build:
-	npm --prefix apps/web run build --workspace @layerx/ui
-	npm --prefix services/platform/hosted/dashboard/web run build
+	npm --prefix apps/web run build:ui
+	DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build
 
 developer-dashboard-static-test:
 	npm --prefix services/platform/hosted/dashboard/web run test:static
+	rm -rf apps/web/packages/layerx-ui/dist
 
 specgen-build:
 	go build -o /dev/null ./tools/specgen
