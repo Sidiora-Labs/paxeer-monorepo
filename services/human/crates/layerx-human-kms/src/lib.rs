@@ -4,6 +4,7 @@ pub use attestor::call;
 mod config;
 mod evm;
 mod evm_types;
+pub use evm_types::SendPlanAuthorization;
 pub mod export;
 mod send;
 mod server;
