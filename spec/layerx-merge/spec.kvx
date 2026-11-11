@@ -309961,7 +309961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.394]
 title = "Check the occupancy debit of a program call at the call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.395"]
