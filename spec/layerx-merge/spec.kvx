@@ -196716,7 +196716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.443]
 title = "Bring the member layerx-programs-interpreter of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -341348,7 +341348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.433]
 title = "Let the governance suite of the root Forge project read the artifact it deploys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
