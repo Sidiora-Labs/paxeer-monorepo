@@ -309930,7 +309930,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.395]
 title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
