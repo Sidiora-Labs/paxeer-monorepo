@@ -1,14 +1,4 @@
-//! Task 22.31.350 repair record (audit 22.30.82).
-//! tenant-backfill: tenant_history_survives_cutover_and_reopen.
-//! backfill-content-authentication: unauthenticated_database_cannot_publish_changed_bodies.
-//! snapshot-membership: snapshot_requires_exact_native_membership.
-//! reputation-membership: reputation_refuses_changed_f07_across_reopen.
-//! Prior attempt: tenant_history_survives_cutover_and_reopen and
-//! unauthenticated_database_cannot_publish_changed_bodies failed on empty event history;
-//! snapshot_requires_exact_native_membership and reputation_refuses_changed_f07_across_reopen passed.
-//! No additional baseline gate: the explicit qualification order permits gates only after implementation.
-//! Wiring request: modules/lxphost (node domain) must supply the native namespace head proof,
-//! multistore proof and manifest in ProgramStateProof JSON for indexer finality promotion.
+//! Tenant history, native membership, and reputation projection cases.
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -370,7 +360,8 @@ fn authority() -> FinalityAuthority {
 
 fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: u64::try_from(header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -407,7 +398,12 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            u64::try_from(timestamp.seconds)
+                .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -431,7 +427,7 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
 fn header(height: u64, root: Digest32) -> Header {
     Header {
         chain_id: CHAIN_ID.to_owned(),
-        height: height as i64,
+        height: i64::try_from(height).unwrap_or_else(|_| panic!("i64 fixture value out of range")),
         app_hash: root.bytes().to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -487,10 +483,16 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     }
     let mut manifest = vec![0, 1];
     manifest.extend(1u32.to_be_bytes());
-    manifest.extend((cell.len() as u16).to_be_bytes());
+    manifest.extend(
+        (u16::try_from(cell.len()).unwrap_or_else(|_| panic!("u16 fixture value out of range")))
+            .to_be_bytes(),
+    );
     manifest.extend(cell);
     manifest.extend(Sha256::digest(state));
-    manifest.extend((state.len() as u32).to_be_bytes());
+    manifest.extend(
+        (u32::try_from(state.len()).unwrap_or_else(|_| panic!("u32 fixture value out of range")))
+            .to_be_bytes(),
+    );
     let mut head = vec![0, 1];
     head.extend(1u32.to_be_bytes());
     head.extend(Sha256::digest(&manifest));
@@ -501,7 +503,7 @@ fn native_membership(state: &[u8], program: [u8; 32], cell: &[u8]) -> (Vec<u8>, 
     let (outer, app_hash) = leaf(b"lxphost", &store_root, &[0]);
     let mut multistore = Vec::new();
     encode_length_delimited(1, &outer, &mut multistore);
-    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).expect("fixture JSON"), app_hash)
+    (serde_json::to_vec(&json!({"membership": {"proof": proof, "multistore": multistore}, "manifest": manifest})).unwrap_or_else(|error| panic!("{}: {error:?}", "fixture JSON")), app_hash)
 }
 
 fn certify_state(state: &[u8], program: [u8; 32], cell: &[u8]) -> Checked<Material> {
@@ -532,7 +534,7 @@ fn capture_state(
                 .app_hash
                 .as_slice()
                 .try_into()
-                .expect("root"),
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "root")),
         )?,
         observed_sequence: 1000,
         execution_height: 1000,
@@ -558,7 +560,8 @@ impl Scratch {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create scratch directory");
+        fs::create_dir(&path)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "create scratch directory"));
         Self(path)
     }
     fn db(&self) -> PathBuf {
@@ -567,14 +570,15 @@ impl Scratch {
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove scratch directory");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "remove scratch directory"));
     }
 }
 
-fn snapshot_observation<'a>(
-    state: &'a [u8],
+fn snapshot_observation(
+    state: &[u8],
     facts: layerx_programs_ai_market::queries::CaptureFacts,
-) -> Checked<SnapshotObservation<'a>> {
+) -> Checked<SnapshotObservation<'_>> {
     Ok(SnapshotObservation {
         state,
         facts,
@@ -582,6 +586,57 @@ fn snapshot_observation<'a>(
         source_activity: digest(90)?,
         observed_at_ms: 4000,
     })
+}
+
+fn assert_valid_membership(
+    state: &[u8],
+    material: &Material,
+    facts: layerx_programs_ai_market::queries::CaptureFacts,
+    viewer: &Viewer,
+) -> Checked {
+    let dir = Scratch::new("valid-membership-and-signed-read");
+    let store = ProjectionStore::open(&dir.db())?;
+    let initial = store.observe(&snapshot_observation(state, facts)?)?;
+    assert_eq!(initial.rank, 0);
+    assert_eq!(initial.read, ReadVerification::SequencerSigned);
+    let finalized = store.promote(
+        &initial.snapshot_id,
+        &material.evidence(),
+        &authority(),
+        PUBLICATION_TIME_MS,
+    )?;
+    assert_eq!(finalized.snapshot_id, initial.snapshot_id);
+    assert_eq!(finalized.rank, FINALIZED_RANK);
+    assert_eq!(finalized.projection, ProjectionState::FinalizedPublishable);
+    assert!(!finalized
+        .binding
+        .as_ref()
+        .unwrap_or_else(|| panic!("finalized binding"))
+        .is_empty());
+    assert_eq!(finalized.publication_time_ms, Some(PUBLICATION_TIME_MS));
+    let view = store.market_view(viewer, &market()?, None, Some(1000))?;
+    assert_eq!(view.snapshot_id, finalized.snapshot_id);
+    view.binding.require_finalized()?;
+    let stream = store
+        .stream(&market()?)?
+        .unwrap_or_else(|| panic!("finalized stream"));
+    assert_eq!(stream.finalized_snapshot, Some(finalized.snapshot_id));
+    assert_eq!(
+        stream.finalized_sequence,
+        Some(facts.proof.observed_sequence)
+    );
+    let events = store.pending_events(&market()?, 10)?;
+    assert!(!events.is_empty());
+    drop(store);
+    let reopened = ProjectionStore::open(&dir.db())?;
+    assert_eq!(reopened.snapshot(&finalized.snapshot_id)?, Some(finalized));
+    assert_eq!(reopened.stream(&market()?)?, Some(stream));
+    assert_eq!(reopened.pending_events(&market()?, 10)?, events);
+    assert_eq!(
+        reopened.market_view(viewer, &market()?, None, Some(1000))?,
+        view
+    );
+    Ok(())
 }
 
 #[test]
@@ -629,7 +684,7 @@ fn ai_market_rejects_altered_membership_and_unsigned_reads_across_restart() -> C
         let assert_unpublished = |store: &ProjectionStore| -> Checked {
             let snapshot = store
                 .snapshot(&initial.snapshot_id)?
-                .expect("saved capture");
+                .unwrap_or_else(|| panic!("saved capture"));
             assert_eq!(snapshot, initial);
             assert_eq!(snapshot.rank, 0);
             assert_eq!(snapshot.binding, None);
@@ -643,7 +698,9 @@ fn ai_market_rejects_altered_membership_and_unsigned_reads_across_restart() -> C
                         ProjectionState::EvidenceVerifiedUnfinalized,
                 }
             );
-            let stream = store.stream(&market()?)?.expect("observed stream");
+            let stream = store
+                .stream(&market()?)?
+                .unwrap_or_else(|| panic!("observed stream"));
             assert_eq!(stream.finalized_snapshot, None);
             assert_eq!(stream.finalized_sequence, None);
             assert!(store.pending_events(&market()?, 10)?.is_empty());
@@ -661,54 +718,15 @@ fn ai_market_rejects_altered_membership_and_unsigned_reads_across_restart() -> C
         assert_unpublished(&reopened)?;
     }
 
-    let dir = Scratch::new("valid-membership-and-signed-read");
-    let store = ProjectionStore::open(&dir.db())?;
-    let initial = store.observe(&snapshot_observation(&state, facts)?)?;
-    assert_eq!(initial.rank, 0);
-    assert_eq!(initial.read, ReadVerification::SequencerSigned);
-    let finalized = store.promote(
-        &initial.snapshot_id,
-        &material.evidence(),
-        &authority(),
-        PUBLICATION_TIME_MS,
-    )?;
-    assert_eq!(finalized.snapshot_id, initial.snapshot_id);
-    assert_eq!(finalized.rank, FINALIZED_RANK);
-    assert_eq!(finalized.projection, ProjectionState::FinalizedPublishable);
-    assert!(!finalized
-        .binding
-        .as_ref()
-        .expect("finalized binding")
-        .is_empty());
-    assert_eq!(finalized.publication_time_ms, Some(PUBLICATION_TIME_MS));
-    let view = store.market_view(&viewer, &market()?, None, Some(1000))?;
-    assert_eq!(view.snapshot_id, finalized.snapshot_id);
-    view.binding.require_finalized()?;
-    let stream = store.stream(&market()?)?.expect("finalized stream");
-    assert_eq!(stream.finalized_snapshot, Some(finalized.snapshot_id));
-    assert_eq!(
-        stream.finalized_sequence,
-        Some(facts.proof.observed_sequence)
-    );
-    let events = store.pending_events(&market()?, 10)?;
-    assert!(!events.is_empty());
-    drop(store);
-    let reopened = ProjectionStore::open(&dir.db())?;
-    assert_eq!(reopened.snapshot(&finalized.snapshot_id)?, Some(finalized));
-    assert_eq!(reopened.stream(&market()?)?, Some(stream));
-    assert_eq!(reopened.pending_events(&market()?, 10)?, events);
-    assert_eq!(
-        reopened.market_view(&viewer, &market()?, None, Some(1000))?,
-        view
-    );
+    assert_valid_membership(&state, &material, facts, &viewer)?;
     Ok(())
 }
 
-#[path = "../../../../../programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"]
+#[path = "support/consumer_fixture.rs"]
 mod consumer_fixture;
 
 fn transcript_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_indexer::codec::hex(bytes)
 }
 
 fn transcript_has_current_sources(recorded: &Value) -> bool {
@@ -739,6 +757,224 @@ fn transcript_binding(
     Ok(transcript_hex(&bytes[..n]))
 }
 
+fn transcript_success(
+    state: &[u8],
+    valid: &consumer_fixture::Material,
+    authority: &FinalityAuthority,
+    viewer: &Viewer,
+    dir: &Scratch,
+    sequence: u64,
+) -> Checked<Value> {
+    let evidence = |material: &consumer_fixture::Material| Material {
+        header: material.header.clone(),
+        commit: material.commit.clone(),
+        proof: material.proof.clone(),
+    };
+    let (captured, facts) = consumer_fixture::capture(state, valid, sequence);
+    let material = evidence(valid);
+    let authenticated = verify_program_state(
+        &material.evidence(),
+        authority,
+        facts.proof.chain,
+        facts.proof.program,
+        &captured,
+    )?;
+    let store = ProjectionStore::open(&dir.db())?;
+    let initial = store.observe(&SnapshotObservation {
+        state: &captured,
+        facts,
+        read: ReadVerification::SequencerSigned,
+        source_activity: digest(
+            u8::try_from(sequence).unwrap_or_else(|_| panic!("sequence out of range")),
+        )?,
+        observed_at_ms: sequence * 100,
+    })?;
+    assert_eq!(initial.rank, 0);
+    let finalized = store.promote(
+        &initial.snapshot_id,
+        &material.evidence(),
+        authority,
+        sequence * 100 + 1,
+    )?;
+    assert_eq!(finalized.snapshot_id, initial.snapshot_id);
+    assert_eq!(finalized.rank, FINALIZED_RANK);
+    let before = store.market_view(
+        viewer,
+        &finalized.market,
+        Some(&finalized.snapshot_id),
+        Some(consumer_fixture::HEIGHT),
+    )?;
+    let pending = store.pending_events(&finalized.market, 10)?;
+    assert_eq!(
+        pending.len(),
+        usize::try_from(sequence - 76).unwrap_or_else(|_| panic!("event count out of range"))
+    );
+    let event = pending.last().unwrap_or_else(|| panic!("finalized event"));
+    assert_eq!(event.snapshot_id, finalized.snapshot_id);
+    assert_eq!(Some(&event.binding), finalized.binding.as_ref());
+    assert_eq!(event.rank, FINALIZED_RANK);
+    assert!(!event.published);
+    let cursor = store.stream(&finalized.market)?;
+    drop(store);
+    let database_sha256 = transcript_hex(&Sha256::digest(fs::read(dir.db())?));
+    let reopened = ProjectionStore::open(&dir.db())?;
+    let recovered = reopened
+        .snapshot(&finalized.snapshot_id)?
+        .unwrap_or_else(|| panic!("recovered capture"));
+    assert_eq!(recovered, finalized);
+    assert_eq!(reopened.stream(&finalized.market)?, cursor);
+    assert_eq!(reopened.pending_events(&finalized.market, 10)?, pending);
+    let recovered_view = reopened.market_view(
+        viewer,
+        &finalized.market,
+        Some(&finalized.snapshot_id),
+        Some(consumer_fixture::HEIGHT),
+    )?;
+    assert_eq!(recovered_view, before);
+    recovered_view.binding.verify_capture(&captured, &facts)?;
+    assert_eq!(recovered.state_digest, facts.digest);
+    Ok(json!({
+        "authenticated_chain": transcript_hex(authenticated.chain().as_bytes()),
+        "authenticated_program": transcript_hex(authenticated.program().as_bytes()),
+        "before_binding": transcript_binding(&before.binding)?,
+        "block_hash": transcript_hex(facts.proof.block_hash.as_bytes()),
+        "chunks": facts.chunks,
+        "database_sha256": database_sha256,
+        "event_binding": transcript_hex(&event.binding),
+        "event_snapshot_id": transcript_hex(event.snapshot_id.as_bytes()),
+        "freshness": format!("{:?}", before.freshness),
+        "native_root": transcript_hex(facts.proof.native_state_root.as_bytes()),
+        "observed_rank": initial.rank,
+        "pending_count": pending.len(),
+        "projection": format!("{:?}", finalized.projection),
+        "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
+        "rank": finalized.rank,
+        "record_binding": finalized.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+        "record_equal_after_reopen": recovered == finalized,
+        "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+        "recovered_projection": format!("{:?}", recovered_view.projection),
+        "recovered_snapshot_id": transcript_hex(recovered_view.snapshot_id.as_bytes()),
+        "recovered_source_activity": transcript_hex(recovered_view.source_activity.as_bytes()),
+        "sequence": sequence,
+        "snapshot_id": transcript_hex(finalized.snapshot_id.as_bytes()),
+        "source_activity": transcript_hex(before.source_activity.as_bytes()),
+        "state_digest": transcript_hex(facts.digest.as_bytes()),
+        "state_sha256": transcript_hex(&Sha256::digest(&captured)),
+        "total_bytes": facts.total_bytes,
+    }))
+}
+
+fn transcript_refusal(
+    state: &[u8],
+    valid: &consumer_fixture::Material,
+    authority: &FinalityAuthority,
+    viewer: &Viewer,
+    captured: &[u8],
+    facts: layerx_programs_ai_market::queries::CaptureFacts,
+    case: u8,
+) -> Checked<Value> {
+    let evidence = |material: &consumer_fixture::Material| Material {
+        header: material.header.clone(),
+        commit: material.commit.clone(),
+        proof: material.proof.clone(),
+    };
+    let mut material = evidence(valid);
+    let mut offered = facts;
+    let mut read = ReadVerification::SequencerSigned;
+    match case {
+        0 => {
+            material.commit.signatures[0]
+                .signature
+                .as_mut()
+                .unwrap_or_else(|| panic!("signature"))[0] ^= 1;
+        }
+        1 => material = evidence(&consumer_fixture::Material::new(state, [99; 32])),
+        2 => material.proof.push(0),
+        3 => offered.proof.block_hash = digest(99)?,
+        4 => read = ReadVerification::Unverified,
+        _ => unreachable!(),
+    }
+    let dir = Scratch::new("consumer-transcript-refusal");
+    let store = ProjectionStore::open(&dir.db())?;
+    let initial = store.observe(&SnapshotObservation {
+        state: captured,
+        facts: offered,
+        read,
+        source_activity: digest(77)?,
+        observed_at_ms: 7700,
+    })?;
+    let error = store
+        .promote(&initial.snapshot_id, &material.evidence(), authority, 2000)
+        .err()
+        .unwrap_or_else(|| panic!("unauthenticated promotion must fail"));
+    assert_eq!(
+        error,
+        if case >= 3 {
+            ViewError::BindingMismatch
+        } else {
+            ViewError::FinalityUnavailable
+        }
+    );
+    assert_eq!(store.snapshot(&initial.snapshot_id)?, Some(initial.clone()));
+    let cursor = store
+        .stream(&initial.market)?
+        .unwrap_or_else(|| panic!("observed stream"));
+    assert_eq!(cursor.finalized_snapshot, None);
+    assert_eq!(cursor.finalized_sequence, None);
+    assert!(store.pending_events(&initial.market, 10)?.is_empty());
+    drop(store);
+    let reopened = ProjectionStore::open(&dir.db())?;
+    let recovered = reopened
+        .snapshot(&initial.snapshot_id)?
+        .unwrap_or_else(|| panic!("recovered refusal"));
+    assert_eq!(recovered, initial);
+    assert_eq!(recovered.rank, 0);
+    assert_eq!(recovered.binding, None);
+    assert_eq!(recovered.checkpoint, None);
+    assert_eq!(recovered.publication_time_ms, None);
+    assert!(!recovered.projection.finalized());
+    assert_eq!(reopened.stream(&initial.market)?, Some(cursor));
+    let pending = reopened.pending_events(&initial.market, 10)?;
+    assert!(pending.is_empty());
+    let view_error = reopened
+        .market_view(
+            viewer,
+            &initial.market,
+            Some(&initial.snapshot_id),
+            Some(consumer_fixture::HEIGHT),
+        )
+        .err()
+        .unwrap_or_else(|| panic!("refused capture cannot be published"));
+    assert_eq!(view_error, ViewError::FinalityUnavailable);
+    assert_eq!(
+        reopened.market_view(
+            viewer,
+            &initial.market,
+            None,
+            Some(consumer_fixture::HEIGHT)
+        ),
+        Err(ViewError::FinalityUnavailable)
+    );
+    Ok(json!({
+        "block_hash": transcript_hex(&material.header.hash()),
+        "case": case,
+        "error": format!("{error:?}"),
+        "native_root": transcript_hex(&material.header.app_hash),
+        "pending_count": pending.len(),
+        "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
+        "read_block_hash": transcript_hex(offered.proof.block_hash.as_bytes()),
+        "read_verification": read as u8,
+        "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+        "recovered_projection_finalized": recovered.projection.finalized(),
+        "recovered_rank": recovered.rank,
+        "recovered_snapshot_id": transcript_hex(recovered.snapshot_id.as_bytes()),
+        "recovered_state_digest": transcript_hex(recovered.state_digest.as_bytes()),
+        "signature": transcript_hex(&material.commit.signatures[0].signature.unwrap_or_else(|| panic!("signature"))),
+        "snapshot_id": transcript_hex(initial.snapshot_id.as_bytes()),
+        "view_error": format!("{view_error:?}"),
+    }))
+}
+
 fn live_consumer_transcript() -> Checked<Value> {
     let state = consumer_fixture::producer_state();
     let valid = consumer_fixture::Material::new(&state, consumer_fixture::PROGRAM);
@@ -747,197 +983,20 @@ fn live_consumer_transcript() -> Checked<Value> {
         validators: consumer_fixture::authority(),
     };
     let viewer = Viewer::for_principal("ai-market-transcript-reader")?;
-    let evidence = |material: &consumer_fixture::Material| Material {
-        header: material.header.clone(),
-        commit: material.commit.clone(),
-        proof: material.proof.clone(),
-    };
     let dir = Scratch::new("consumer-transcript-successes");
     let mut successes = Vec::new();
     for sequence in [77u64, 78] {
-        let (captured, facts) = consumer_fixture::capture(&state, &valid, sequence);
-        let material = evidence(&valid);
-        let authenticated = verify_program_state(
-            &material.evidence(),
-            &authority,
-            facts.proof.chain,
-            facts.proof.program,
-            &captured,
-        )?;
-        let store = ProjectionStore::open(&dir.db())?;
-        let initial = store.observe(&SnapshotObservation {
-            state: &captured,
-            facts,
-            read: ReadVerification::SequencerSigned,
-            source_activity: digest(sequence as u8)?,
-            observed_at_ms: sequence * 100,
-        })?;
-        assert_eq!(initial.rank, 0);
-        let finalized = store.promote(
-            &initial.snapshot_id,
-            &material.evidence(),
-            &authority,
-            sequence * 100 + 1,
-        )?;
-        assert_eq!(finalized.snapshot_id, initial.snapshot_id);
-        assert_eq!(finalized.rank, FINALIZED_RANK);
-        let before = store.market_view(
-            &viewer,
-            &finalized.market,
-            Some(&finalized.snapshot_id),
-            Some(consumer_fixture::HEIGHT),
-        )?;
-        let pending = store.pending_events(&finalized.market, 10)?;
-        assert_eq!(pending.len(), (sequence - 76) as usize);
-        let event = pending.last().expect("finalized event");
-        assert_eq!(event.snapshot_id, finalized.snapshot_id);
-        assert_eq!(Some(&event.binding), finalized.binding.as_ref());
-        assert_eq!(event.rank, FINALIZED_RANK);
-        assert!(!event.published);
-        let cursor = store.stream(&finalized.market)?;
-        drop(store);
-        let database_sha256 = transcript_hex(&Sha256::digest(fs::read(dir.db())?));
-        let reopened = ProjectionStore::open(&dir.db())?;
-        let recovered = reopened
-            .snapshot(&finalized.snapshot_id)?
-            .expect("recovered capture");
-        assert_eq!(recovered, finalized);
-        assert_eq!(reopened.stream(&finalized.market)?, cursor);
-        assert_eq!(reopened.pending_events(&finalized.market, 10)?, pending);
-        let recovered_view = reopened.market_view(
-            &viewer,
-            &finalized.market,
-            Some(&finalized.snapshot_id),
-            Some(consumer_fixture::HEIGHT),
-        )?;
-        assert_eq!(recovered_view, before);
-        recovered_view.binding.verify_capture(&captured, &facts)?;
-        assert_eq!(recovered.state_digest, facts.digest);
-        successes.push(json!({
-            "authenticated_chain": transcript_hex(authenticated.chain().as_bytes()),
-            "authenticated_program": transcript_hex(authenticated.program().as_bytes()),
-            "before_binding": transcript_binding(&before.binding)?,
-            "block_hash": transcript_hex(facts.proof.block_hash.as_bytes()),
-            "chunks": facts.chunks,
-            "database_sha256": database_sha256,
-            "event_binding": transcript_hex(&event.binding),
-            "event_snapshot_id": transcript_hex(event.snapshot_id.as_bytes()),
-            "freshness": format!("{:?}", before.freshness),
-            "native_root": transcript_hex(facts.proof.native_state_root.as_bytes()),
-            "observed_rank": initial.rank,
-            "pending_count": pending.len(),
-            "projection": format!("{:?}", finalized.projection),
-            "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
-            "rank": finalized.rank,
-            "record_binding": finalized.binding.as_ref().map(|bytes| transcript_hex(bytes)),
-            "record_equal_after_reopen": recovered == finalized,
-            "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
-            "recovered_projection": format!("{:?}", recovered_view.projection),
-            "recovered_snapshot_id": transcript_hex(recovered_view.snapshot_id.as_bytes()),
-            "recovered_source_activity": transcript_hex(recovered_view.source_activity.as_bytes()),
-            "sequence": sequence,
-            "snapshot_id": transcript_hex(finalized.snapshot_id.as_bytes()),
-            "source_activity": transcript_hex(before.source_activity.as_bytes()),
-            "state_digest": transcript_hex(facts.digest.as_bytes()),
-            "state_sha256": transcript_hex(&Sha256::digest(&captured)),
-            "total_bytes": facts.total_bytes,
-        }));
+        successes.push(transcript_success(
+            &state, &valid, &authority, &viewer, &dir, sequence,
+        )?);
     }
 
     let (captured, facts) = consumer_fixture::capture(&state, &valid, 77);
     let mut refusals = Vec::new();
     for case in 0..5 {
-        let mut material = evidence(&valid);
-        let mut offered = facts;
-        let mut read = ReadVerification::SequencerSigned;
-        match case {
-            0 => {
-                material.commit.signatures[0]
-                    .signature
-                    .as_mut()
-                    .expect("signature")[0] ^= 1
-            }
-            1 => material = evidence(&consumer_fixture::Material::new(&state, [99; 32])),
-            2 => material.proof.push(0),
-            3 => offered.proof.block_hash = digest(99)?,
-            4 => read = ReadVerification::Unverified,
-            _ => unreachable!(),
-        }
-        let dir = Scratch::new("consumer-transcript-refusal");
-        let store = ProjectionStore::open(&dir.db())?;
-        let initial = store.observe(&SnapshotObservation {
-            state: &captured,
-            facts: offered,
-            read,
-            source_activity: digest(77)?,
-            observed_at_ms: 7700,
-        })?;
-        let error = store
-            .promote(&initial.snapshot_id, &material.evidence(), &authority, 2000)
-            .expect_err("unauthenticated promotion must fail");
-        assert_eq!(
-            error,
-            if case >= 3 {
-                ViewError::BindingMismatch
-            } else {
-                ViewError::FinalityUnavailable
-            }
-        );
-        assert_eq!(store.snapshot(&initial.snapshot_id)?, Some(initial.clone()));
-        let cursor = store.stream(&initial.market)?.expect("observed stream");
-        assert_eq!(cursor.finalized_snapshot, None);
-        assert_eq!(cursor.finalized_sequence, None);
-        assert!(store.pending_events(&initial.market, 10)?.is_empty());
-        drop(store);
-        let reopened = ProjectionStore::open(&dir.db())?;
-        let recovered = reopened
-            .snapshot(&initial.snapshot_id)?
-            .expect("recovered refusal");
-        assert_eq!(recovered, initial);
-        assert_eq!(recovered.rank, 0);
-        assert_eq!(recovered.binding, None);
-        assert_eq!(recovered.checkpoint, None);
-        assert_eq!(recovered.publication_time_ms, None);
-        assert!(!recovered.projection.finalized());
-        assert_eq!(reopened.stream(&initial.market)?, Some(cursor));
-        let pending = reopened.pending_events(&initial.market, 10)?;
-        assert!(pending.is_empty());
-        let view_error = reopened
-            .market_view(
-                &viewer,
-                &initial.market,
-                Some(&initial.snapshot_id),
-                Some(consumer_fixture::HEIGHT),
-            )
-            .expect_err("refused capture cannot be published");
-        assert_eq!(view_error, ViewError::FinalityUnavailable);
-        assert_eq!(
-            reopened.market_view(
-                &viewer,
-                &initial.market,
-                None,
-                Some(consumer_fixture::HEIGHT)
-            ),
-            Err(ViewError::FinalityUnavailable)
-        );
-        refusals.push(json!({
-            "block_hash": transcript_hex(&material.header.hash()),
-            "case": case,
-            "error": format!("{error:?}"),
-            "native_root": transcript_hex(&material.header.app_hash),
-            "pending_count": pending.len(),
-            "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
-            "read_block_hash": transcript_hex(offered.proof.block_hash.as_bytes()),
-            "read_verification": read as u8,
-            "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
-            "recovered_projection_finalized": recovered.projection.finalized(),
-            "recovered_rank": recovered.rank,
-            "recovered_snapshot_id": transcript_hex(recovered.snapshot_id.as_bytes()),
-            "recovered_state_digest": transcript_hex(recovered.state_digest.as_bytes()),
-            "signature": transcript_hex(&material.commit.signatures[0].signature.expect("signature")),
-            "snapshot_id": transcript_hex(initial.snapshot_id.as_bytes()),
-            "view_error": format!("{view_error:?}"),
-        }));
+        refusals.push(transcript_refusal(
+            &state, &valid, &authority, &viewer, &captured, facts, case,
+        )?);
     }
     Ok(json!({
         "consumer": "services/platform/hosted/indexer/src/ai_market.rs::ProjectionStore",
@@ -956,7 +1015,11 @@ fn ai_market_transcript_tracks_current_sources() -> Checked {
     assert!(transcript_has_current_sources(&recorded));
     for field in ["consumer_source_sha256", "membership_source_sha256"] {
         let mut changed = recorded.clone();
-        let mut digest = unhex(recorded[field].as_str().expect("source digest"))?;
+        let mut digest = unhex(
+            recorded[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("source digest")),
+        )?;
         assert_eq!(digest.len(), 32);
         digest[0] ^= 1;
         changed[field] = json!(transcript_hex(&digest));
@@ -975,6 +1038,123 @@ fn ai_market_transcript_tracks_current_sources() -> Checked {
     );
     consumer_fixture::ai_real_consumer_recovers_fresh_guest_captures();
     consumer_fixture::ai_real_consumer_refuses_unauthenticated_evidence_across_restart();
+    Ok(())
+}
+
+fn assert_changed_state_membership_rejected(material: &Material) -> Checked {
+    let (section, _) = frame(vec![observed(worker(1)?, 1, 999)?], &[completion(1, 999)?])?;
+    let changed = state_with(&section)?;
+    let store = ProjectionStore::open_in_memory()?;
+    let (_, _, facts) = capture_state(&changed, material)?;
+    let offered = store.observe(&snapshot_observation(&changed, facts)?)?;
+    assert_eq!(
+        store.promote(
+            &offered.snapshot_id,
+            &material.evidence(),
+            &authority(),
+            PUBLICATION_TIME_MS
+        ),
+        Err(ViewError::FinalityUnavailable)
+    );
+    assert_eq!(
+        store
+            .snapshot(&offered.snapshot_id)?
+            .unwrap_or_else(|| panic!("provisional snapshot"))
+            .rank,
+        0
+    );
+    Ok(())
+}
+
+fn assert_invalid_memberships(state: &[u8], material: &Material) -> Checked {
+    let mut malformed = certify_state(state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    malformed.proof = b"nonempty but not a membership proof".to_vec();
+    let unrelated_program =
+        certify_state(state, [77; 32], layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    let unrelated_cell = certify_state(state, PROGRAM, b"other/state")?;
+    // This transcript was emitted by the real keeper's IAVL/multistore producer.
+    // It has valid membership under its committed root, for an unrelated program.
+    let transcript: Value = serde_json::from_str(include_str!(
+        "../../../../../programs/tests/vectors/ics23-market-namespaces-app-hash.json"
+    ))?;
+    let namespace = &transcript["entries"][0]["namespace"];
+    let recorded = |field: &str| {
+        layerx_indexer::codec::unhex(
+            namespace[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("recorded hex")),
+        )
+    };
+    let recorded_header = header(
+        1000,
+        Digest32::new(
+            recorded("app_hash")?
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded root")),
+        )?,
+    );
+    let unrelated_recorded = Material {
+        commit: signed(
+            &recorded_header,
+            &[(1, false), (2, false), (3, false), (4, false)],
+        ),
+        header: recorded_header,
+        proof: serde_json::to_vec(
+            &json!({"membership": {"proof": recorded("proof")?, "multistore": recorded("multistore_proof")?}, "manifest": recorded("manifest")?}),
+        )?,
+    };
+    let mut bad_manifest =
+        certify_state(state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    let mut document: Value = serde_json::from_slice(&bad_manifest.proof)?;
+    document["manifest"][10] = json!(255);
+    bad_manifest.proof = serde_json::to_vec(&document)?;
+    for evidence in [
+        &malformed,
+        &unrelated_program,
+        &unrelated_cell,
+        &unrelated_recorded,
+        &bad_manifest,
+    ] {
+        let store = ProjectionStore::open_in_memory()?;
+        let (_, _, facts) = capture_state(state, evidence)?;
+        let observed = store.observe(&snapshot_observation(state, facts)?)?;
+        assert_eq!(
+            store.promote(
+                &observed.snapshot_id,
+                &evidence.evidence(),
+                &authority(),
+                PUBLICATION_TIME_MS
+            ),
+            Err(ViewError::FinalityUnavailable)
+        );
+        assert_eq!(
+            store
+                .snapshot(&observed.snapshot_id)?
+                .unwrap_or_else(|| panic!("observed snapshot"))
+                .rank,
+            0
+        );
+    }
+    let mut other_authority = authority();
+    other_authority.chain_id = "another-consensus-chain".into();
+    assert!(verify_program_state(
+        &material.evidence(),
+        &other_authority,
+        chain()?,
+        program()?,
+        state
+    )
+    .is_err());
+    assert!(verify_program_state(
+        &material.evidence(),
+        &authority(),
+        ChainDomain::new([78; 32])?,
+        program()?,
+        state
+    )
+    .is_err());
+
+    assert_changed_state_membership_rejected(material)?;
     Ok(())
 }
 
@@ -1015,110 +1195,7 @@ fn snapshot_requires_exact_native_membership() -> Checked {
     assert_eq!(reopened.snapshot(&id)?, Some(finalized));
     drop(reopened);
 
-    let mut malformed =
-        certify_state(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
-    malformed.proof = b"nonempty but not a membership proof".to_vec();
-    let unrelated_program = certify_state(
-        &state,
-        [77; 32],
-        layerx_programs_ai_market::SHARED_STATE_KEY,
-    )?;
-    let unrelated_cell = certify_state(&state, PROGRAM, b"other/state")?;
-    // This transcript was emitted by the real keeper's IAVL/multistore producer.
-    // It has valid membership under its committed root, for an unrelated program.
-    let transcript: Value = serde_json::from_str(include_str!(
-        "../../../../../programs/tests/vectors/ics23-market-namespaces-app-hash.json"
-    ))?;
-    let namespace = &transcript["entries"][0]["namespace"];
-    let recorded = |field: &str| {
-        layerx_indexer::codec::unhex(namespace[field].as_str().expect("recorded hex"))
-    };
-    let recorded_header = header(
-        1000,
-        Digest32::new(recorded("app_hash")?.try_into().expect("recorded root"))?,
-    );
-    let unrelated_recorded = Material {
-        commit: signed(
-            &recorded_header,
-            &[(1, false), (2, false), (3, false), (4, false)],
-        ),
-        header: recorded_header,
-        proof: serde_json::to_vec(
-            &json!({"membership": {"proof": recorded("proof")?, "multistore": recorded("multistore_proof")?}, "manifest": recorded("manifest")?}),
-        )?,
-    };
-    let mut bad_manifest =
-        certify_state(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
-    let mut document: Value = serde_json::from_slice(&bad_manifest.proof)?;
-    document["manifest"][10] = json!(255);
-    bad_manifest.proof = serde_json::to_vec(&document)?;
-    for evidence in [
-        &malformed,
-        &unrelated_program,
-        &unrelated_cell,
-        &unrelated_recorded,
-        &bad_manifest,
-    ] {
-        let store = ProjectionStore::open_in_memory()?;
-        let (_, _, facts) = capture_state(&state, evidence)?;
-        let observed = store.observe(&snapshot_observation(&state, facts)?)?;
-        assert_eq!(
-            store.promote(
-                &observed.snapshot_id,
-                &evidence.evidence(),
-                &authority(),
-                PUBLICATION_TIME_MS
-            ),
-            Err(ViewError::FinalityUnavailable)
-        );
-        assert_eq!(
-            store
-                .snapshot(&observed.snapshot_id)?
-                .expect("observed snapshot")
-                .rank,
-            0
-        );
-    }
-    let mut other_authority = authority();
-    other_authority.chain_id = "another-consensus-chain".into();
-    assert!(verify_program_state(
-        &material.evidence(),
-        &other_authority,
-        chain()?,
-        program()?,
-        &state
-    )
-    .is_err());
-    assert!(verify_program_state(
-        &material.evidence(),
-        &authority(),
-        ChainDomain::new([78; 32])?,
-        program()?,
-        &state
-    )
-    .is_err());
-
-    let (section, _) = frame(vec![observed(worker(1)?, 1, 999)?], &[completion(1, 999)?])?;
-    let changed = state_with(&section)?;
-    let store = ProjectionStore::open_in_memory()?;
-    let (_, _, facts) = capture_state(&changed, &material)?;
-    let offered = store.observe(&snapshot_observation(&changed, facts)?)?;
-    assert_eq!(
-        store.promote(
-            &offered.snapshot_id,
-            &material.evidence(),
-            &authority(),
-            PUBLICATION_TIME_MS
-        ),
-        Err(ViewError::FinalityUnavailable)
-    );
-    assert_eq!(
-        store
-            .snapshot(&offered.snapshot_id)?
-            .expect("provisional snapshot")
-            .rank,
-        0
-    );
+    assert_invalid_memberships(&state, &material)?;
     Ok(())
 }
 
@@ -1268,7 +1345,7 @@ fn within(range: &BlockscoutRange, from: u64, to: u64, absent: &[u64]) -> Blocks
 // recorded address, topics and data; only the containing transaction differs.
 fn registry_log() -> Value {
     let fixture: Value = serde_json::from_str(include_str!("fixtures/chains_blocks.json"))
-        .expect("recorded registry emission");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded registry emission"));
     fixture["scope"]["receipts"]
         ["0x00000000000000000000000000000000000000000000000000000000000007d1"]["logs"][0]
         .clone()
@@ -1276,10 +1353,10 @@ fn registry_log() -> Value {
 
 fn recorded_chain() -> Value {
     let mut chain: Value = serde_json::from_str(include_str!("../fixtures/paxeer_blocks.json"))
-        .expect("recorded node chain");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded node chain"));
     let transaction = chain["canonical"]["blocks"]["2"]["transactions"][2]["hash"]
         .as_str()
-        .expect("registry transaction")
+        .unwrap_or_else(|| panic!("registry transaction"))
         .to_owned();
     let log = &mut chain["receipts"][transaction]["logs"][0];
     let recorded = registry_log();
@@ -1291,9 +1368,12 @@ fn recorded_chain() -> Value {
 fn database_rows() -> BlockscoutRange {
     let mut rows: BlockscoutRange =
         serde_json::from_str(include_str!("fixtures/backfill_blockscout.json"))
-            .expect("recorded database rows");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded database rows"));
     let recorded = registry_log();
-    let bytes = |value: &Value| unhex(value.as_str().expect("recorded bytes")).expect("hex");
+    let bytes = |value: &Value| {
+        unhex(value.as_str().unwrap_or_else(|| panic!("recorded bytes")))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "hex"))
+    };
     let log = &mut rows.logs[1];
     log.address_hash = bytes(&recorded["address"]);
     log.first_topic = Some(bytes(&recorded["topics"][0]));
@@ -1313,8 +1393,11 @@ struct Node {
 }
 impl Node {
     fn new(tenant: bool, missing_receipts: bool) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind node fixture");
-        let address = listener.local_addr().expect("node fixture address");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "bind node fixture"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture address"));
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let full_blocks = Arc::new(AtomicU64::new(0));
@@ -1325,10 +1408,13 @@ impl Node {
         if tenant {
             for block in chain["canonical"]["blocks"]
                 .as_object_mut()
-                .expect("blocks")
+                .unwrap_or_else(|| panic!("blocks"))
                 .values_mut()
             {
-                for tx in block["transactions"].as_array_mut().expect("transactions") {
+                for tx in block["transactions"]
+                    .as_array_mut()
+                    .unwrap_or_else(|| panic!("transactions"))
+                {
                     tx["chainId"] = json!(format!("0x{:x}", 125_000_001u64));
                 }
             }
@@ -1338,22 +1424,31 @@ impl Node {
                 if stopped.load(Ordering::Acquire) {
                     break;
                 }
-                let mut stream = incoming.expect("node fixture connection");
+                let mut stream = incoming
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture connection"));
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("read timeout");
-                let body = read_request(&mut stream).expect("JSON-RPC HTTP request");
-                let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "read timeout"));
+                let body =
+                    read_request(&mut stream).unwrap_or_else(|| panic!("JSON-RPC HTTP request"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
                 let params = &request["params"];
-                let result = match request["method"].as_str().expect("method") {
+                let result = match request["method"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("method"))
+                {
                     "eth_chainId" => chain["chain_id"].clone(),
                     "eth_blockNumber" => chain["canonical"]["head"].clone(),
                     "eth_getBlockByNumber" => {
                         let height = u64::from_str_radix(
-                            params[0].as_str().expect("height").trim_start_matches("0x"),
+                            params[0]
+                                .as_str()
+                                .unwrap_or_else(|| panic!("height"))
+                                .trim_start_matches("0x"),
                             16,
                         )
-                        .expect("quantity");
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "quantity"));
                         let mut block = chain["canonical"]["blocks"][height.to_string()].clone();
                         if params[1] == true {
                             full_count.fetch_add(1, Ordering::Relaxed);
@@ -1369,14 +1464,15 @@ impl Node {
                         if missing_receipts {
                             Value::Null
                         } else {
-                            chain["receipts"][params[0].as_str().expect("hash")].clone()
+                            chain["receipts"][params[0].as_str().unwrap_or_else(|| panic!("hash"))]
+                                .clone()
                         }
                     }
                     other => panic!("unexpected node method {other}"),
                 };
                 let response =
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
-                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).expect("node response");
+                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",response.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "node response"));
             }
         });
         Self {
@@ -1420,9 +1516,9 @@ impl Drop for Node {
         let _ = TcpStream::connect(self.url.trim_start_matches("http://"));
         self.thread
             .take()
-            .expect("fixture thread")
+            .unwrap_or_else(|| panic!("fixture thread"))
             .join()
-            .expect("node fixture joined");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "node fixture joined"));
     }
 }
 
@@ -1437,7 +1533,7 @@ fn register_tenant(store: &Store) -> Checked {
         chain_id: 125_000_001,
         created_height: 0,
         bond: "100000000000000000000".into(),
-        gas_allowance: 500000,
+        gas_allowance: 500_000,
         byte_allowance: 65536,
         fee_share_bps: 100,
     })?;
@@ -1472,9 +1568,19 @@ fn tenant_history_survives_cutover_and_reopen() -> Checked {
     assert_eq!(expected.1[0]["name"], "ChainStatusChanged");
     assert_eq!(expected.1[0]["decoded"]["args"]["id"], "1");
     assert_eq!(expected.1[0]["decoded"]["args"]["status"], "2");
-    assert_eq!(live.chain(1)?.expect("registered tenant").status, "paused");
+    assert_eq!(
+        live.chain(1)?
+            .unwrap_or_else(|| panic!("registered tenant"))
+            .status,
+        "paused"
+    );
     assert_eq!(expected.2["tx_count"], 5);
-    assert!(expected.2["gas_used"].as_u64().expect("gas") > 0);
+    assert!(
+        expected.2["gas_used"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("gas"))
+            > 0
+    );
     assert!(live.transfers("paxeer")?.is_empty());
 
     let mut rows = database_rows();
@@ -1485,7 +1591,10 @@ fn tenant_history_survives_cutover_and_reopen() -> Checked {
     let through_codec = Store::open_in_memory()?;
     register_tenant(&through_codec)?;
     for rpc in converted.values() {
-        for tx in rpc.block["transactions"].as_array().expect("transactions") {
+        for tx in rpc.block["transactions"]
+            .as_array()
+            .unwrap_or_else(|| panic!("transactions"))
+        {
             assert_eq!(tx["chainId"], format!("0x{:x}", 125_000_001u64));
         }
         let unit = node.decode(&rpc.block, &rpc.receipts, &[], &|_| Ok(false))?;
@@ -1500,7 +1609,13 @@ fn tenant_history_survives_cutover_and_reopen() -> Checked {
         Backfill::new(&node, 2, 2).run(&store, |from, to| Ok(within(&rows, from, to, &[])))?,
         2
     );
-    assert_eq!(store.cursor("paxeer")?.expect("cutover cursor").position, 2);
+    assert_eq!(
+        store
+            .cursor("paxeer")?
+            .unwrap_or_else(|| panic!("cutover cursor"))
+            .position,
+        2
+    );
     assert_eq!(store.chain_summary(1)?["tx_count"], 4);
     let at_cutover = tenant_history(&store)?;
     drop(store);
@@ -1509,7 +1624,7 @@ fn tenant_history_survives_cutover_and_reopen() -> Checked {
     assert_eq!(
         reopened
             .cursor("paxeer")?
-            .expect("recovered cutover")
+            .unwrap_or_else(|| panic!("recovered cutover"))
             .position,
         2
     );
@@ -1576,7 +1691,10 @@ fn unauthenticated_database_cannot_publish_changed_bodies() -> Checked {
     assert_eq!(tenant_history(&imported)?, expected);
     assert_eq!(imported.chain(1)?, live.chain(1)?);
     assert_eq!(
-        imported.chain(1)?.expect("authenticated tenant").status,
+        imported
+            .chain(1)?
+            .unwrap_or_else(|| panic!("authenticated tenant"))
+            .status,
         "paused"
     );
     assert!(imported.transfers("pax:999")?.is_empty());
