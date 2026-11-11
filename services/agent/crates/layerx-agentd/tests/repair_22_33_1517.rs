@@ -1,3 +1,7 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
 use layerx_agentd::store::TenantId;
 use layerx_agentd::tenant::{
     normalize_error, BoundedMetricKey, BoundedMetrics, ErrorClass, InternalError, MetricKind,
@@ -6,7 +10,7 @@ use layerx_agentd::tenant::{
 
 #[test]
 fn error_trace_growth_is_bounded_under_sustained_equivalent_errors() {
-    let tenant = TenantId::new("caller").expect("valid tenant");
+    let tenant = require_ok(TenantId::new("caller"), "valid tenant");
     let errors = [
         InternalError::missing(b"missing-secret-object".to_vec()),
         InternalError::not_authorized("foreign-secret-tenant", b"existing-secret-object".to_vec()),
@@ -72,7 +76,7 @@ fn error_trace_growth_is_bounded_under_sustained_equivalent_errors() {
                 dropped + BoundedMetrics::TRACE_CAPACITY as u64
             );
             assert_eq!(metrics.traces(), retained);
-            let scrape = metrics.scrape_errors(&tenant).expect("shared error scrape");
+            let scrape = require_ok(metrics.scrape_errors(&tenant), "shared error scrape");
             assert_eq!(scrape.len(), 1);
             let (key, point) = &scrape[0];
             assert_eq!(key.tenant, tenant);
@@ -110,8 +114,8 @@ fn error_trace_growth_is_bounded_under_sustained_equivalent_errors() {
 
 #[test]
 fn overflow_counts_the_producing_tenant_surface_and_error_class() {
-    let first = TenantId::new("first").expect("valid tenant");
-    let second = TenantId::new("second").expect("valid tenant");
+    let first = require_ok(TenantId::new("first"), "valid tenant");
+    let second = require_ok(TenantId::new("second"), "valid tenant");
     let mut metrics = BoundedMetrics::default();
     for _ in 0..BoundedMetrics::TRACE_CAPACITY {
         normalize_error(
@@ -169,9 +173,29 @@ fn overflow_counts_the_producing_tenant_surface_and_error_class() {
             false,
         ),
     ];
-    for tenant in [&first, &second] {
+    finish_overflow_counts_the_producing_tenant_surface_and_error_class_1_repair_22_33_1517(
+        &first, &second, metrics, &retained, &cases,
+    );
+}
+
+fn finish_overflow_counts_the_producing_tenant_surface_and_error_class_1_repair_22_33_1517(
+    first: &TenantId,
+    second: &TenantId,
+    mut metrics: BoundedMetrics,
+    retained: &Vec<layerx_agentd::tenant::SanitizedTrace>,
+    cases: &[(
+        InternalError,
+        ErrorClass,
+        MetricLabel,
+        u16,
+        &'static str,
+        &'static str,
+        bool,
+    ); 5],
+) {
+    for tenant in [first, second] {
         for surface in Surface::ALL {
-            for (error, class, label, status, code, message, retryable) in &cases {
+            for (error, class, label, status, code, message, retryable) in cases {
                 for _ in 0..3 {
                     assert_eq!(
                         normalize_error(error, tenant, surface, &mut metrics),
@@ -195,7 +219,7 @@ fn overflow_counts_the_producing_tenant_surface_and_error_class() {
                     kind: MetricKind::ErrorClass,
                     ..key
                 };
-                let initial = if tenant == &first
+                let initial = if tenant == first
                     && surface == Surface::Contract
                     && *class == ErrorClass::AccessDenied
                 {

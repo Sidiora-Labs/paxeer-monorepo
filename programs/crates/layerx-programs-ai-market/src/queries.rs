@@ -26,7 +26,7 @@ use crate::{
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
 
-pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES / MAX_CHUNK_BYTES;
+pub const FULL_CAPTURE_CHUNKS: usize = MAX_STATE_BYTES.div_ceil(MAX_CHUNK_BYTES);
 /// Compatibility discriminator retained by the snapshot wire format and its consumers.
 /// Finality comes from a verified block commit and the corresponding state proof;
 /// this byte alone authenticates neither.
@@ -500,6 +500,148 @@ pub fn read_header(
     })
 }
 
+/// Storage reads project only the committed header and opening bindings. The
+/// state digest binds every opaque section; no section is materialized here.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn stored_header(
+    state_bytes: &[u8],
+    chain: ChainDomain,
+    program: ProgramId,
+) -> CodecResult<ReadHeader> {
+    let frame = codec::decode_state(state_bytes)?;
+    let policy = frame.sections[Section::PolicyLifecycle.index()];
+    if policy.is_empty() {
+        return Err(NOT_FOUND);
+    }
+    let header_len = match policy.get(226) {
+        Some(0) => crate::registry::MARKET_HEADER_ABSENT_BYTES,
+        Some(1) => crate::registry::MARKET_HEADER_PRESENT_BYTES,
+        _ => return Err(NON_CANONICAL),
+    };
+    let header =
+        crate::registry::MarketHeader::decode(policy.get(..header_len).ok_or(NON_CANONICAL)?)?;
+    if header.state_revision != frame.revision {
+        return Err(NON_CANONICAL);
+    }
+    if header.deployment_chain_domain != chain {
+        return Err(WRONG_DOMAIN);
+    }
+    if header.program_id != program {
+        return Err(WRONG_PROGRAM);
+    }
+    let table = crate::reputation_transition::framed_admission_table(
+        frame.sections[Section::ReputationAdmission.index()],
+    )?;
+    let epoch = if table.is_empty() {
+        None
+    } else {
+        if table.len() > crate::admission::TABLE_MAX_BYTES {
+            return Err(CAPACITY);
+        }
+        let mut r = Reader::new(table);
+        if r.u16()? != SCHEMA_VERSION {
+            return Err(BAD_VERSION);
+        }
+        let epoch = if r.boolean()? { Some(r.u64()?) } else { None };
+        if r.u8()? > crate::admission::POLICY_V1.successful_enrollments_per_epoch
+            || usize::from(r.u8()?) > crate::admission::MAX_MEMBERS
+        {
+            return Err(NON_CANONICAL);
+        }
+        epoch
+    };
+    if stored_snapshot_epoch(frame.sections[Section::IdentityRoster.index()])? != epoch {
+        return Err(WRONG_ROSTER);
+    }
+    let settlement = frame.sections[Section::SettlementClaims.index()];
+    let roster = match epoch {
+        Some(epoch) => {
+            Presence::Present(crate::rewards::committed_row(settlement, epoch)?.row.roster)
+        }
+        None => {
+            if !settlement.is_empty() {
+                let ledger = crate::rewards::decode_ledger(
+                    settlement
+                        .get(..crate::rewards::LEDGER_BYTES)
+                        .ok_or(NON_CANONICAL)?,
+                )?;
+                if ledger.retained_epochs != 0 {
+                    return Err(WRONG_ROSTER);
+                }
+            }
+            Presence::Absent
+        }
+    };
+    Ok(ReadHeader {
+        revision: frame.revision,
+        digest: codec::state_digest(state_bytes)?,
+        total_bytes: u32::try_from(state_bytes.len()).map_err(|_| ARITHMETIC)?,
+        chain,
+        program,
+        market: header.market_id,
+        epoch: if crate::epoch::opening_pending(&PolicySection::decode(policy)?) {
+            Presence::Absent
+        } else {
+            epoch.map_or(Presence::Absent, Presence::Present)
+        },
+        config: Version::new(header.active_config_version)?,
+        roster: if crate::epoch::opening_pending(&PolicySection::decode(policy)?) {
+            Presence::Absent
+        } else {
+            roster
+        },
+    })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn stored_snapshot_epoch(identity: &[u8]) -> CodecResult<Option<u64>> {
+    use crate::evaluators::authority::{FROZEN_BYTES, RECORD_BYTES};
+    let (_, region) = split_identity_section(identity)?;
+    if region.is_empty() {
+        return Ok(None);
+    }
+    let mut r = Reader::new(region);
+    let records = usize::from(r.u8()?);
+    if records > crate::MAX_EVALUATORS {
+        return Err(CAPACITY);
+    }
+    r.take(records * RECORD_BYTES)?;
+    let format = r.u8()?;
+    let epoch = match format {
+        0 if records != 0 => None,
+        2 => {
+            let epoch = r.u64()?;
+            let evaluators = usize::from(r.u8()?);
+            if evaluators == 0 || evaluators > crate::MAX_EVALUATORS {
+                return Err(WRONG_ROSTER);
+            }
+            r.take(evaluators * FROZEN_BYTES)?;
+            let workers = usize::from(r.u8()?);
+            if workers == 0 || workers > crate::MAX_WORKERS {
+                return Err(WRONG_ROSTER);
+            }
+            r.take(workers * codec::WORKER_ROSTER_BYTES)?;
+            Some(epoch)
+        }
+        1 => return Err(WRONG_ROSTER),
+        _ => return Err(NON_CANONICAL),
+    };
+    r.finish()?;
+    Ok(epoch)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn stored_chunk(
+    state_bytes: &[u8],
+    payload: &[u8],
+    header: &ReadHeader,
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    dispatch::READ_STATE_CHUNK.validate_payload_length(payload.len())?;
+    let request = codec::decode_chunk_request(payload)?;
+    encode_state_chunk(state_bytes, &request, header.revision, header.digest, out)
+}
+
 /// Digest of the market's current policy in the captured state.
 ///
 /// # Errors
@@ -521,8 +663,19 @@ pub fn read_state_chunk(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
     let request = codec::decode_chunk_request(payload)?;
     let shared = state::decode_shared_state(state_bytes)?;
     let digest = codec::state_digest(state_bytes)?;
+    encode_state_chunk(state_bytes, &request, shared.revision, digest, out)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn encode_state_chunk(
+    state_bytes: &[u8],
+    request: &codec::ChunkRequest,
+    revision: u64,
+    digest: StateDigest,
+    out: &mut [u8],
+) -> CodecResult<usize> {
     if request.revision != 0
-        && (request.revision != shared.revision || request.digest != Presence::Present(digest))
+        && (request.revision != revision || request.digest != Presence::Present(digest))
     {
         return Err(CONFLICT);
     }
@@ -534,13 +687,13 @@ pub fn read_state_chunk(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
         .ok_or(NON_CANONICAL)?;
     let end = offset + usize::from(request.requested).min(remaining);
     let response = ChunkResponse {
-        revision: shared.revision,
+        revision,
         digest,
         total_bytes: u32::try_from(state_bytes.len()).map_err(|_| ARITHMETIC)?,
         offset: request.offset,
         bytes: state_bytes.get(offset..end).ok_or(NON_CANONICAL)?,
     };
-    codec::check_chunk_response(&request, &response)?;
+    codec::check_chunk_response(request, &response)?;
     codec::encode_chunk_response(&response, out)
 }
 

@@ -290,7 +290,7 @@ impl ListenerDeclaration {
     pub fn new(
         socket: PathBuf,
         owner_uid: u32,
-        owner_gid: u32,
+        group_id: u32,
         mode: u32,
         admitted_uids: Vec<u32>,
     ) -> Result<Self, EnrolmentError> {
@@ -346,7 +346,7 @@ impl ListenerDeclaration {
         Ok(Self {
             socket,
             owner_uid,
-            owner_gid,
+            owner_gid: group_id,
             mode,
             admitted_uids,
         })
@@ -963,6 +963,9 @@ impl BindingPublisher {
         listener.check_directory()
     }
 
+    /// # Errors
+    /// Returns an error if the enrolment path, session, identity or observed publication does not
+    /// satisfy the binding contract.
     pub fn validate_existing(
         &self,
         sessions: &SessionRegistry,
@@ -1044,7 +1047,7 @@ impl BindingPublisher {
                     }
                 }
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                    missing.push((path, expected))
+                    missing.push((path, expected));
                 }
                 Err(error) => return Err(error.into()),
             }
@@ -1252,6 +1255,9 @@ fn open_and_publish(
     )
 }
 
+/// # Errors
+/// Returns an error if the enrolment path, session, identity or observed publication does not
+/// satisfy the binding contract.
 pub fn enrol_observed(
     store: &mut Store,
     sessions: &mut SessionRegistry,

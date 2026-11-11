@@ -107,32 +107,35 @@ func repair478RawGuest(t *testing.T, revision string) repair478Guest {
 name = "layerx-programs-ai-market"
 version = "0.1.0"
 edition = "2021"
-[lib]
-crate-type = ["cdylib"]
 [workspace]
 [dependencies]
 layerx-program-sdk = { path = %q }
 sha2 = { version = "=0.10.9", default-features = false }
-[profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = true
 `, sdkPath)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "Cargo.toml"), []byte(manifest), 0644))
 	buildScript, err := os.ReadFile(filepath.Join(root, "programs/crates/layerx-programs-ai-market/build.rs"))
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "build.rs"), buildScript, 0644))
-	// These isolated workspaces do not inherit programs/.cargo/config.toml.
-	// Preserve its Wasm flags: the metering decoder requires the compact
-	// table indices produced by disabling reference types and compressing
-	// linker relocations, for both the historical and candidate sources.
+	// Resolve the same vendored dependencies as the production workspace.
+	// Cargo configuration is discovered from the isolated workspace's cwd.
+	config := fmt.Sprintf(`[source.crates-io]
+replace-with = "vendored-sources"
+[source.vendored-sources]
+directory = %q
+[net]
+offline = true
+`, filepath.Join(root, "programs", "vendor"))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".cargo"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".cargo", "config.toml"), []byte(config), 0644))
+	recipe := filepath.Join(root, "programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh")
+	repair478Command(t, root, nil, "bash", recipe, "check")
+	// Isolated workspaces need their own lock, then compile with the same
+	// locked recipe as the production target and both committed fixtures.
+	repair478Command(t, dir, nil, "cargo", "generate-lockfile", "--offline")
 	repair478Command(t, dir, []string{
 		"CARGO_TARGET_DIR=" + target,
 		"PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6",
-		"CARGO_ENCODED_RUSTFLAGS=-C\x1ftarget-feature=-reference-types\x1f-C\x1flink-arg=--compress-relocations",
-	}, "cargo", "build", "--release", "--target", "wasm32-unknown-unknown")
+	}, "bash", recipe, "compile", dir)
 	modulePath := filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm")
 	raw, err := os.ReadFile(modulePath)
 	require.NoError(t, err)
@@ -145,12 +148,13 @@ strip = true
 
 func repair478PackageGuest(t *testing.T, guest repair478Guest) repair478Guest {
 	t.Helper()
-	wasmOpt, err := exec.LookPath("wasm-opt")
-	require.NoError(t, err, "paxai-host-boundary: wasm-opt is required")
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	recipe := filepath.Join(root, "programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh")
 	dir := filepath.Dir(guest.modulePath)
 	rawPath := guest.modulePath
 	optimizedPath := filepath.Join(dir, "ai_market.packaged.wasm")
-	repair478Command(t, dir, nil, wasmOpt, "-Oz", "--strip-debug", "--strip-producers", rawPath, "-o", optimizedPath)
+	repair478Command(t, dir, nil, "bash", recipe, "package", rawPath, optimizedPath)
 	guest.packaged, err = os.ReadFile(optimizedPath)
 	require.NoError(t, err)
 	require.LessOrEqual(t, len(guest.packaged), 524184)
@@ -256,6 +260,32 @@ func repair478Run(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool)
 }
 
 func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool, observationDir string) lxphost.Receipt {
+	return repair478RunWithProbe(t, wasm, cpuAllowance, evidence, observationDir, nil)
+}
+
+type repair478ProbeFixture struct {
+	Host         *lxphost.Host
+	Context      sdk.Context
+	DID          []byte
+	PublicKey    [32]byte
+	Authority    lxphost.KernelAuthority
+	Asset        [32]byte
+	Fixture      map[string][]byte
+	Registration []byte
+	Created      lxphost.Receipt
+	Execute      func(uint32, []byte) lxphost.Receipt
+	ExecuteAt    func(sdk.Context, uint32, []byte) lxphost.Receipt
+}
+
+func FinalizeProgramsOccupancy(t *testing.T, host *lxphost.Host, ctx sdk.Context, next uint64) []byte {
+	t.Helper()
+	finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, next), codec.StateCommitmentProtocolVersion)
+	require.NoError(t, err, "finalize occupancy for block %d", ctx.BlockHeight())
+	require.NotEmpty(t, finalized)
+	return finalized
+}
+
+func repair478RunWithProbe(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool, observationDir string, probe func(repair478ProbeFixture)) lxphost.Receipt {
 	t.Helper()
 	b := newSeqVecBuilder(t)
 	a := app.Setup(t, false, false, false)
@@ -326,15 +356,15 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 	require.NoError(t, err)
 	require.Equal(t, int64(1000000000), mainAccount.Balance.Int64())
 
-	execute := func(activityType uint32, payload []byte) lxphost.Receipt {
-		sequence, err := host.ReadIdentitySequence(ctx, did)
+	executeAt := func(callCtx sdk.Context, activityType uint32, payload []byte) lxphost.Receipt {
+		sequence, err := host.ReadIdentitySequence(callCtx, did)
 		require.NoError(t, err)
-		last, err := host.ReadLastSequence(ctx, did)
+		last, err := host.ReadLastSequence(callCtx, did)
 		require.NoError(t, err)
 		var feeLimit [16]byte
 		binary.BigEndian.PutUint64(feeLimit[8:], 100000000)
-		timestamp := uint64(ctx.BlockTime().UnixMilli())
-		receipt, err := host.Execute(lxphost.WithSequence(ctx, last+1), lxphost.Activity{
+		timestamp := uint64(callCtx.BlockTime().UnixMilli())
+		receipt, err := host.Execute(lxphost.WithSequence(callCtx, last+1), lxphost.Activity{
 			ProtocolVersion: codec.StateCommitmentProtocolVersion, Type: activityType,
 			ActorDID: did, AuthorityKey: publicKey, AccountSequence: sequence,
 			NotBefore: timestamp, NotAfter: timestamp,
@@ -347,6 +377,9 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 		}
 		require.Zero(t, receipt.ResultCode, "activity=%08x candidate=%t", activityType, evidence)
 		return receipt
+	}
+	execute := func(activityType uint32, payload []byte) lxphost.Receipt {
+		return executeAt(ctx, activityType, payload)
 	}
 	occupancyRegistration := append([]byte{0, 1}, occupancyAsset[:]...)
 	occupancyRegistration = append(occupancyRegistration, occupancySalt...)
@@ -405,9 +438,7 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 	for ctx.BlockHeight() < seqVecFirstHeight+2 {
 		last, err := host.ReadLastSequence(ctx, did)
 		require.NoError(t, err)
-		finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, last+1), codec.StateCommitmentProtocolVersion)
-		require.NoError(t, err, "finalize empty block %d", ctx.BlockHeight())
-		require.NotEmpty(t, finalized)
+		FinalizeProgramsOccupancy(t, host, ctx, last+1)
 		ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
 		ctx = ctx.WithBlockTime(time.UnixMilli(seqVecTimeBase + ctx.BlockHeight()*seqVecBlockMs))
 	}
@@ -453,13 +484,19 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 		return nil
 	}
 	require.Equal(t, fixture["current"], readState())
+	if probe != nil {
+		probe(repair478ProbeFixture{
+			Host: host, Context: ctx, DID: did, PublicKey: publicKey,
+			Authority: authority, Asset: asset, Fixture: fixture,
+			Registration: registration, Created: created, Execute: execute, ExecuteAt: executeAt,
+		})
+		return created
+	}
 	sequence, err := host.ReadIdentitySequence(ctx, did)
 	require.NoError(t, err)
 	last, err := host.ReadLastSequence(ctx, did)
 	require.NoError(t, err)
-	finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, last+1), codec.StateCommitmentProtocolVersion)
-	require.NoError(t, err, "finalize occupancy for block %d", ctx.BlockHeight())
-	require.NotEmpty(t, finalized)
+	FinalizeProgramsOccupancy(t, host, ctx, last+1)
 	last, err = host.ReadLastSequence(ctx, did)
 	require.NoError(t, err)
 	nextIdentity, err := host.ReadIdentitySequence(ctx, did)

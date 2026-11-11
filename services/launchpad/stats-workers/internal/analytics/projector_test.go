@@ -29,6 +29,12 @@ import (
 )
 
 func TestPhase2CanonicalPublicationIdempotencyAndExpiry(t *testing.T) {
+	for _, name := range []string{"L15_CANONICAL_PUBLICATION_FILE"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	a := phase2Authority(t)
 	path := os.Getenv("L15_CANONICAL_PUBLICATION_FILE")
 	if path == "" {
@@ -188,6 +194,12 @@ func TestPhase3WorkerCrashHelper(t *testing.T) {
 	phase3CrashPoint(marker)
 }
 func TestPhase3RealWorkerSIGKILLAndBrokerRedelivery(t *testing.T) {
+	for _, name := range []string{"L15_CANONICAL_PUBLICATION_FILE"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	broker := os.Getenv("L15_NATS_URL")
 	endpoint, err := url.Parse(broker)
 	if err != nil || endpoint.Scheme != "nats" || endpoint.User != nil || net.ParseIP(endpoint.Hostname()) == nil || !net.ParseIP(endpoint.Hostname()).IsLoopback() {
@@ -424,6 +436,12 @@ func TestPhase3RealWorkerSIGKILLAndBrokerRedelivery(t *testing.T) {
 }
 
 func TestPhase3CanonicalHostileInputsHaveNoDatabaseEffect(t *testing.T) {
+	for _, name := range []string{"L15_CANONICAL_PUBLICATION_FILE"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	a := phase2Authority(t)
 	ctx := context.Background()
 	raw, err := os.ReadFile(os.Getenv("L15_CANONICAL_PUBLICATION_FILE"))

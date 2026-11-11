@@ -4,11 +4,10 @@ use std::time::Duration;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_programs::chain_evidence::commitment_trust_step;
+#[cfg(test)]
+use layerx_programs::chain_proof::decode::decode_commitment_proof;
 use layerx_programs::chain_proof::{
-    decode::{decode_commitment_proof, CommitmentProof},
-    header::ChainHeader,
-    merkle::SimpleProof,
-    validators::ValidatorSet,
+    decode::CommitmentProof, header::ChainHeader, merkle::SimpleProof, validators::ValidatorSet,
     ChainProofVerifier, Commit, VerifiedChainHead as VerifiedHeader,
 };
 use layerx_programs::state_record::{
@@ -19,7 +18,8 @@ use layerx_programs::{
     ProgramLifecycle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
     VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
-use serde_json::{json, Value};
+#[cfg(test)]
+use serde_json::Value;
 
 use super::program_balances_impl::{
     CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance,
@@ -176,6 +176,7 @@ impl LayerxdProgramBalanceReader {
         verifier: ProtocolDeploymentVerifier,
         registry: Registry,
     ) -> Result<Self, ProgramReadError> {
+        // Retain the independent authority's configured identity validation.
         let ProgramAuthority {
             endpoint: authority_endpoint,
             authorization: authority_authorization,
@@ -216,6 +217,9 @@ impl LayerxdProgramBalanceReader {
     }
 
     /// Connects directly to the merged node under protected chain trust.
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn connect_native(
         endpoint: &str,
         authorization: String,
@@ -257,12 +261,16 @@ impl LayerxdProgramBalanceReader {
         })
     }
 
+    #[must_use]
     pub fn with_consensus_source(mut self, source: super::NativeResultSource) -> Self {
         self.consensus = Some(source);
         self
     }
 
     /// Configures the Programs deployment's authenticated state-record key.
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn with_program_state_key(
         mut self,
         program: ProgramId,
@@ -291,6 +299,9 @@ impl LayerxdProgramBalanceReader {
         self.read_protocol_state_selected(program, now, false)
     }
 
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn read_protocol_state_profile2(
         &mut self,
         program: ProgramId,
@@ -384,6 +395,9 @@ impl LayerxdProgramBalanceReader {
         }
     }
 
+    /// # Errors
+    /// Returns an error if the program view is noncanonical or its state or balance proof cannot
+    /// be acquired or verified.
     pub fn read_verified_balances(
         &mut self,
         program: ProgramId,
@@ -477,6 +491,9 @@ impl LayerxdProgramBalanceReader {
     }
 
     /// Verifies retained coordinates at an explicit native block height.
+    /// # Errors
+    /// Returns an error if the chain head or deployment evidence does not match its verified view
+    /// or trust anchor.
     pub fn read_chain_head_at(
         &self,
         height: u64,
@@ -527,6 +544,9 @@ impl LayerxdProgramBalanceReader {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the chain head or deployment evidence does not match its verified view
+    /// or trust anchor.
     pub fn verify_journal_admission(
         &self,
         proof: &DeploymentProof,
@@ -782,7 +802,7 @@ fn historical_trust_chain(
 
 fn program_artifact_hex(text: &str) -> Result<Vec<u8>, ProgramArtifactsError> {
     if text.len() > 2_097_152
-        || text.len() % 2 != 0
+        || !text.len().is_multiple_of(2)
         || !text
             .bytes()
             .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
@@ -823,6 +843,7 @@ impl ProgramBalanceReadRoute {
     }
 }
 
+#[cfg(test)]
 fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadError> {
     let value = &value["chain_evidence"];
     let commitment = decode_commitment_proof(&chain_hex(field(value, "commitment_hex")?)?)
@@ -864,6 +885,7 @@ fn chain_head_evidence(value: &Value) -> Result<ChainHeadEvidence, ProgramReadEr
     })
 }
 
+#[cfg(test)]
 fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     if !text.len().is_multiple_of(2)
         || !text
@@ -875,12 +897,14 @@ fn chain_hex(text: &str) -> Result<Vec<u8>, ProgramReadError> {
     hex::decode(text).map_err(|_| ProgramReadError::NonCanonicalView)
 }
 
+#[cfg(test)]
 fn field<'a>(value: &'a Value, name: &str) -> Result<&'a str, ProgramReadError> {
     value[name]
         .as_str()
         .ok_or(ProgramReadError::NonCanonicalView)
 }
 
+#[cfg(test)]
 fn digest(bytes: &[u8]) -> [u8; 32] {
     use sha2::{Digest as _, Sha256};
     Sha256::digest(bytes).into()
@@ -901,426 +925,6 @@ fn secure_endpoint(endpoint: &str) -> bool {
             })
 }
 
-#[cfg(test)]
-#[path = "program_node_tests.rs"]
-mod tests;
-
-#[cfg(test)]
-#[allow(dead_code)]
-#[path = "../../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
-mod historical_deployment_support;
-
-#[cfg(test)]
-mod historical_deployment_tests {
-    use super::*;
-    use ed25519_dalek::{Signer, SigningKey};
-    use historical_deployment_support::{verifier_for_fixture, NOW, WASM_V1};
-    use layerx_programs::chain_proof::{
-        merkle::hash_from_byte_slices,
-        results::TxResult,
-        validators::TrustedValidator,
-        vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
-    };
-    use layerx_programs::{
-        chain_evidence::{deployment::ChainDeploymentProof, programs_state_key},
-        DeploymentExecutionProof, ProgramInterface,
-    };
-
-    const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
-    const ROTATED: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
-    const DAY_SECONDS: i64 = 86_400;
-
-    fn sign_fixture(chain: &mut historical_deployment_support::chain::ChainFixture) {
-        chain.commit.height = chain.header.height;
-        chain.commit.block_id.hash = chain.header.hash().expect("canonical header").to_vec();
-        let timestamp = Timestamp {
-            seconds: chain.header.time.seconds,
-            nanos: chain.header.time.nanos,
-        };
-        let bytes = vote_sign_bytes(
-            &chain.header.chain_id,
-            chain.commit.height,
-            chain.commit.round,
-            Some(&chain.commit.block_id),
-            timestamp,
-        )
-        .expect("canonical precommit");
-        for signature in &mut chain.commit.signatures {
-            let key = SEEDS
-                .iter()
-                .map(SigningKey::from_bytes)
-                .find(|key| {
-                    TrustedValidator::new(key.verifying_key().to_bytes(), 1)
-                        .address
-                        .as_slice()
-                        == signature.validator_address
-                })
-                .expect("validator signing key");
-            signature.timestamp = timestamp;
-            signature.signature = key.sign(&bytes).to_bytes().to_vec();
-        }
-    }
-
-    fn historical_deployment_fixture() -> historical_deployment_support::ProtocolFixture {
-        let transcript = include_str!(
-            "../../../../../../programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
-        );
-        assert_eq!(
-            hex::encode(&digest(transcript.as_bytes())),
-            "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
-        );
-        let producer = transcript
-            .lines()
-            .map(|line| {
-                let (key, value) = line.split_once('=').expect("producer recording row");
-                (key, hex::decode(value).expect("producer recording bytes"))
-            })
-            .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(producer["wasm.1"], WASM_V1);
-        let interface =
-            ProgramInterface::decode(&producer["interface.1"]).expect("producer interface");
-        let mut fixture = historical_deployment_support::deploy_fixture_with_interface(
-            WASM_V1,
-            layerx_programs::UpgradePolicy::Authority(historical_deployment_support::AUTHORITY),
-            100,
-            NOW,
-            &interface,
-        );
-        let program_key = fixture.proof.state.commitment.key.clone();
-        let interface_key = programs_state_key(&layerx_programs::interface_state_key(
-            fixture.proof.state.state.program,
-        ));
-        let transaction_root = hash_from_byte_slices(&[&digest(&producer["deploy"])]);
-        let account = &producer["host.account"];
-        let mut previous = historical_deployment_support::chain::ChainFixture::new(
-            &fixture.chain.verifier.chain_id,
-            &SEEDS,
-            vec![(account[..33].to_vec(), account[33..].to_vec())],
-        )
-        .expect("producer predecessor state");
-        previous.header.height = 100;
-        previous.header.time.seconds = (NOW / 1_000) as i64 - 1;
-        previous.header.time.nanos = 0;
-        previous.header.data_hash = transaction_root.to_vec();
-        sign_fixture(&mut previous);
-        let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
-        assert_eq!(result_root.as_slice(), producer["success.root"]);
-        fixture.chain.header.last_block_id.hash = previous.commit.block_id.hash.clone();
-        fixture.chain.header.last_block_id.part_set_total =
-            previous.commit.block_id.part_set_header.total;
-        fixture.chain.header.last_block_id.part_set_hash =
-            previous.commit.block_id.part_set_header.hash.clone();
-        fixture.chain.header.last_results_hash = result_root.to_vec();
-        fixture.chain.header.data_hash = transaction_root.to_vec();
-        sign_fixture(&mut fixture.chain);
-        fixture.proof.state.commitment = decode_commitment_proof(
-            &fixture
-                .chain
-                .encode_key(&program_key)
-                .expect("program commitment"),
-        )
-        .expect("decode program commitment");
-        fixture.proof.deployment = ChainDeploymentProof::from_state_proofs(
-            fixture.proof.state.state.clone(),
-            WASM_V1.to_vec(),
-            &decode_commitment_proof(
-                &fixture
-                    .chain
-                    .encode_key(&interface_key)
-                    .expect("interface commitment"),
-            )
-            .expect("decode interface commitment"),
-        )
-        .expect("authenticated deployment interface");
-        fixture.proof.state.transaction_proof = SimpleProof {
-            total: 1,
-            index: 0,
-            leaf_hash: transaction_root,
-            aunts: Vec::new(),
-        };
-        fixture
-            .proof
-            .bind_execution(&DeploymentExecutionProof {
-                transaction: producer["deploy"].clone(),
-                previous: decode_commitment_proof(
-                    &previous
-                        .encode_key(&program_key)
-                        .expect("predecessor commitment"),
-                )
-                .expect("decode predecessor commitment"),
-                result: TxResult {
-                    code: 0,
-                    data: producer["success"].clone(),
-                    gas_wanted: 0,
-                    gas_used: 0,
-                },
-                result_proof: SimpleProof {
-                    total: 1,
-                    index: 0,
-                    leaf_hash: result_root,
-                    aunts: Vec::new(),
-                },
-                interface_ops: fixture
-                    .chain
-                    .prove(&interface_key)
-                    .expect("interface proof"),
-                migration: None,
-                migration_ops: Vec::new(),
-                migration_previous_ops: Vec::new(),
-            })
-            .expect("bind producer execution");
-        fixture
-    }
-
-    #[test]
-    fn historical_checkpoint_preserves_signed_header_commit_and_validators() {
-        let checkpoint = super::super::ServedCheckpoint::test_fixture(100, 1_700_000_000, 0);
-        let step = checkpoint_trust_step(checkpoint.clone()).expect("historical checkpoint step");
-        let trust = ChainProofVerifier {
-            chain_id: step.0.chain_id.clone(),
-            validators: step.2.clone(),
-        };
-        let head = trust
-            .verify_head(&step.0, &step.1)
-            .expect("real precommit quorum");
-        assert_eq!(head.header_hash(), checkpoint.block_hash);
-        assert_eq!(head.height(), 100);
-        assert_eq!(head.time_ms(), 1_700_000_000_000);
-        assert_eq!(head.app_hash(), checkpoint.app_hash);
-        assert_eq!(step.2.hash(), checkpoint.header.validators_hash);
-        let mut missing_hash = checkpoint;
-        missing_hash.header.data_hash = None;
-        assert_eq!(
-            checkpoint_trust_step(missing_hash).err(),
-            Some(ChainHeadError::Evidence(ProtocolEvidenceError::Encoding))
-        );
-    }
-
-    fn validators(seeds: &[[u8; 32]]) -> ValidatorSet {
-        let mut validators = seeds
-            .iter()
-            .map(|seed| {
-                TrustedValidator::new(SigningKey::from_bytes(seed).verifying_key().to_bytes(), 1)
-            })
-            .collect::<Vec<_>>();
-        validators.sort_by_key(|validator| validator.address);
-        ValidatorSet::new(validators).expect("real validator set")
-    }
-
-    fn next_step(
-        previous: &TrustStep,
-        seeds: &[[u8; 32]],
-        seconds: i64,
-        next: &ValidatorSet,
-    ) -> TrustStep {
-        let set = validators(seeds);
-        let mut header = previous.0.clone();
-        header.height += 1;
-        header.time.seconds += seconds;
-        header.last_block_id.hash = previous.1.block_id.hash.clone();
-        header.last_block_id.part_set_total = previous.1.block_id.part_set_header.total;
-        header.last_block_id.part_set_hash = previous.1.block_id.part_set_header.hash.clone();
-        header.validators_hash = set.hash().to_vec();
-        header.next_validators_hash = next.hash().to_vec();
-        header.proposer_address = set.validators()[0].address.to_vec();
-        let mut commit = previous.1.clone();
-        commit.height = header.height;
-        commit.block_id.hash = header.hash().expect("canonical header").to_vec();
-        let timestamp = Timestamp {
-            seconds: header.time.seconds,
-            nanos: header.time.nanos,
-        };
-        let bytes = vote_sign_bytes(
-            &header.chain_id,
-            commit.height,
-            commit.round,
-            Some(&commit.block_id),
-            timestamp,
-        )
-        .expect("canonical precommit");
-        commit.signatures = set
-            .validators()
-            .iter()
-            .map(|validator| {
-                let key = seeds
-                    .iter()
-                    .map(SigningKey::from_bytes)
-                    .find(|key| key.verifying_key().to_bytes() == validator.public_key)
-                    .expect("validator signing key");
-                CommitSig {
-                    flag: BlockIdFlag::Commit,
-                    validator_address: validator.address.to_vec(),
-                    timestamp,
-                    signature: key.sign(&bytes).to_bytes().to_vec(),
-                }
-            })
-            .collect();
-        (header, commit, set)
-    }
-
-    fn bridge(verifier: &ProtocolDeploymentVerifier, steps: &[TrustStep]) -> HistoricalTrustChain {
-        historical_trust_chain(
-            verifier.chain_trust().expect("pinned chain trust"),
-            steps[0].clone(),
-            steps.last().expect("current head").clone(),
-            steps[1..steps.len() - 1].iter().cloned().map(Ok),
-        )
-        .unwrap_or_else(|error| panic!("historical trust bridge: {error:?}"))
-    }
-
-    #[test]
-    fn historical_deployment_bridges_a_twenty_day_old_admission() {
-        let fixture = historical_deployment_fixture();
-        let verifier = verifier_for_fixture(&fixture, 5_000);
-        let original = verifier
-            .verify_deployment(&fixture.proof, NOW)
-            .expect("admission");
-        let admission =
-            commitment_trust_step(&fixture.proof.state.commitment).expect("admission step");
-        let mut steps = vec![admission];
-        for _ in 0..20 {
-            steps.push(next_step(
-                steps.last().unwrap(),
-                &SEEDS,
-                DAY_SECONDS,
-                &validators(&SEEDS),
-            ));
-        }
-        let chain = bridge(&verifier, &steps);
-        assert_eq!(
-            chain
-                .steps
-                .iter()
-                .map(|step| step.0.height)
-                .collect::<Vec<_>>(),
-            vec![101, 115, 121]
-        );
-        let now = NOW + 20 * DAY_SECONDS as u64 * 1_000;
-        assert_eq!(
-            verifier.verify_historical_deployment(
-                &fixture.proof,
-                &chain.head,
-                &[steps[0].clone(), steps[20].clone()],
-                now
-            ),
-            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-        );
-        assert_eq!(
-            verifier
-                .verify_historical_deployment(&fixture.proof, &chain.head, &chain.steps, now)
-                .expect("twenty-day historical deployment"),
-            original
-        );
-        assert_eq!(
-            verifier.verify_historical_deployment(
-                &fixture.proof,
-                &chain.head,
-                &chain.steps,
-                now + 5_001
-            ),
-            Err(ProtocolEvidenceError::Stale)
-        );
-    }
-
-    #[test]
-    fn historical_deployment_bridges_a_full_non_adjacent_validator_rotation() {
-        let fixture = historical_deployment_fixture();
-        let verifier = verifier_for_fixture(&fixture, 5_000);
-        let original = verifier
-            .verify_deployment(&fixture.proof, NOW)
-            .expect("admission");
-        let mut steps =
-            vec![commitment_trust_step(&fixture.proof.state.commitment).expect("admission step")];
-        let rotated = validators(&ROTATED);
-        assert!(rotated
-            .validators()
-            .iter()
-            .all(|validator| !steps[0].2.validators().contains(validator)));
-        for offset in 1..=20 {
-            let seeds = if offset <= 10 { &SEEDS } else { &ROTATED };
-            let next = if offset < 10 {
-                validators(&SEEDS)
-            } else {
-                rotated.clone()
-            };
-            steps.push(next_step(steps.last().unwrap(), seeds, 1, &next));
-        }
-        let chain = bridge(&verifier, &steps);
-        assert_eq!(
-            chain
-                .steps
-                .iter()
-                .map(|step| step.0.height)
-                .collect::<Vec<_>>(),
-            vec![101, 111, 112, 121]
-        );
-        let now = NOW + 20_000;
-        assert_eq!(
-            verifier.verify_historical_deployment(
-                &fixture.proof,
-                &chain.head,
-                &[steps[0].clone(), steps[20].clone()],
-                now
-            ),
-            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-        );
-        assert_eq!(
-            verifier
-                .verify_historical_deployment(&fixture.proof, &chain.head, &chain.steps, now)
-                .expect("deployment across a full rotation"),
-            original
-        );
-        let current_verifier = ProtocolDeploymentVerifier::from_chain_trust(
-            &chain.verifier.chain_id,
-            chain.verifier.validators.validators().to_vec(),
-            5_000,
-        )
-        .expect("trust reached by the bridge");
-        let mut current = fixture.chain;
-        current.header = steps[20].0.clone();
-        current.commit = steps[20].1.clone();
-        current.verifier = chain.verifier;
-        let commitment = decode_commitment_proof(&current.encode().expect("current commitment"))
-            .expect("decode current commitment");
-        assert_eq!(
-            current_verifier
-                .verify_current_chain_head(
-                    ProgramHeadKind::Ordinary,
-                    &commitment,
-                    &DeploymentExecutionProof::decode(&fixture.proof.state.transaction)
-                        .expect("deployment execution")
-                        .transaction,
-                    &fixture.proof.state.transaction_proof,
-                    now
-                )
-                .expect("current head under advanced trust")
-                .freshness()
-                .observed_sequence,
-            steps[20].0.height as u64
-        );
-        let mut forged = steps.clone();
-        forged[10].1.signatures[0].signature[0] ^= 1;
-        assert!(historical_trust_chain(
-            verifier.chain_trust().unwrap(),
-            forged[0].clone(),
-            forged[20].clone(),
-            forged[1..20].iter().cloned().map(Ok)
-        )
-        .is_err());
-        assert!(historical_trust_chain(
-            verifier.chain_trust().unwrap(),
-            steps[0].clone(),
-            steps[20].clone(),
-            steps[1..20]
-                .iter()
-                .filter(|step| step.0.height != 111)
-                .cloned()
-                .map(Ok)
-        )
-        .is_err());
-    }
-}
-
 /// Reads Programs ABI views at one committed block; never uses pending state.
 ///
 /// # Errors
@@ -1332,108 +936,45 @@ pub fn read_committed_program_balances(
     accounts: &[[u8; 32]],
     height: u64,
 ) -> Result<ProgramBalanceRead<CommittedProgramBalanceFreshness>, SequencerError> {
-    let malformed = SequencerError::Malformed;
-    if height == 0
-        || program.bytes() == [0; 32]
-        || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS
-        || accounts.iter().any(|account| *account == [0; 32])
-        || accounts
-            .iter()
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
-            != accounts.len()
-    {
-        return Err(malformed);
-    }
+    crate::reject_if(
+        height == 0
+            || program.bytes() == [0; 32]
+            || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS
+            || accounts.contains(&[0; 32])
+            || accounts
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != accounts.len(),
+        || SequencerError::Malformed,
+    )?;
     let block = endpoint
         .block_by_number(height)?
         .ok_or(SequencerError::Malformed)?;
-    if block.hash == [0; 32] {
-        return Err(malformed);
-    }
+    crate::reject_if(block.hash == [0; 32], || SequencerError::Malformed)?;
     let wind_down = programs_call(endpoint, height, "getWindDown(bytes32)", &[program.bytes()])?;
-    if wind_down.len() != 192 {
-        return Err(malformed);
-    }
+    crate::reject_if(wind_down.len() != 192, || SequencerError::Malformed)?;
     let lifecycle = match abi_integer(&wind_down[..32], 1)? {
         1 => ProgramLifecycle::Active,
         2 => ProgramLifecycle::Deprecated,
         3 => ProgramLifecycle::Tombstoned,
-        _ => return Err(malformed),
+        _ => return Err(SequencerError::Malformed),
     };
     abi_integer(&wind_down[64..96], 8)?;
     abi_integer(&wind_down[96..128], 8)?;
     let count = abi_integer(&wind_down[128..160], 2)?;
     let live_count = abi_integer(&wind_down[160..192], 2)?;
-    if live_count > count {
-        return Err(malformed);
-    }
+    crate::reject_if(live_count > count, || SequencerError::Malformed)?;
     let mut values = Vec::with_capacity(accounts.len());
     for account in accounts {
-        let identity = programs_call(
-            endpoint,
-            height,
-            "getProgramAccountById(bytes32)",
-            &[*account],
-        )?;
-        // (bytes32 programId, bytes32 assetId, bytes seed), with one canonical tail.
-        if identity.len() < 128
-            || identity.len() % 32 != 0
-            || identity[..32] != program.bytes()
-            || abi_integer(&identity[64..96], 8)? != 96
-        {
-            return Err(malformed);
-        }
-        let seed_len = usize::try_from(abi_integer(&identity[96..128], 8)?)
-            .map_err(|_| SequencerError::Malformed)?;
-        if seed_len > layerx_programs_runtime::MAX_PROGRAM_ACCOUNT_SEED_BYTES
-            || identity.len() != 128 + seed_len.div_ceil(32) * 32
-            || identity[128 + seed_len..].iter().any(|byte| *byte != 0)
-        {
-            return Err(malformed);
-        }
-        let derived = layerx_programs_runtime::derive_program_account(
-            program,
-            &identity[128..128 + seed_len],
-        )
-        .map_err(|_| SequencerError::Malformed)?;
-        if !derived.matches(account) {
-            return Err(malformed);
-        }
-        let asset = identity[32..64]
-            .try_into()
-            .map_err(|_| SequencerError::Malformed)?;
-        let result = programs_call(
-            endpoint,
-            height,
-            "getValueAccount(bytes32,bytes32)",
-            &[program.bytes(), *account],
-        )?;
-        if result.len() != 64 {
-            return Err(malformed);
-        }
-        let amount = abi_integer(&result[..32], 16)?;
-        let exists = match abi_integer(&result[32..], 1)? {
-            0 => false,
-            1 => true,
-            _ => return Err(malformed),
-        };
-        if !exists && amount != 0 {
-            return Err(malformed);
-        }
-        values.push(ProgramValueBalance {
-            account: *account,
-            asset,
-            amount,
-            frozen: None,
-        });
+        values.push(read_committed_program_balance(
+            endpoint, program, account, height,
+        )?);
     }
     let confirmed = endpoint
         .block_by_number(height)?
         .ok_or(SequencerError::Malformed)?;
-    if confirmed != block {
-        return Err(malformed);
-    }
+    crate::reject_if(confirmed != block, || SequencerError::Malformed)?;
     Ok(ProgramBalanceRead {
         program: program.bytes(),
         lifecycle,
@@ -1443,6 +984,62 @@ pub fn read_committed_program_balances(
             block_hash: block.hash,
             timestamp: block.timestamp,
         },
+    })
+}
+fn read_committed_program_balance(
+    endpoint: &SequencerEndpoint,
+    program: ProgramId,
+    account: &[u8; 32],
+    height: u64,
+) -> Result<ProgramValueBalance, SequencerError> {
+    let identity = programs_call(
+        endpoint,
+        height,
+        "getProgramAccountById(bytes32)",
+        &[*account],
+    )?;
+    // (bytes32 programId, bytes32 assetId, bytes seed), with one canonical tail.
+    crate::reject_if(
+        identity.len() < 128
+            || identity.len() % 32 != 0
+            || identity[..32] != program.bytes()
+            || abi_integer(&identity[64..96], 8)? != 96,
+        || SequencerError::Malformed,
+    )?;
+    let seed_len = usize::try_from(abi_integer(&identity[96..128], 8)?)
+        .map_err(|_| SequencerError::Malformed)?;
+    crate::reject_if(
+        seed_len > layerx_programs_runtime::MAX_PROGRAM_ACCOUNT_SEED_BYTES
+            || identity.len() != 128 + seed_len.div_ceil(32) * 32
+            || identity[128 + seed_len..].iter().any(|byte| *byte != 0),
+        || SequencerError::Malformed,
+    )?;
+    let derived =
+        layerx_programs_runtime::derive_program_account(program, &identity[128..128 + seed_len])
+            .map_err(|_| SequencerError::Malformed)?;
+    crate::reject_if(!derived.matches(account), || SequencerError::Malformed)?;
+    let asset = identity[32..64]
+        .try_into()
+        .map_err(|_| SequencerError::Malformed)?;
+    let result = programs_call(
+        endpoint,
+        height,
+        "getValueAccount(bytes32,bytes32)",
+        &[program.bytes(), *account],
+    )?;
+    crate::reject_if(result.len() != 64, || SequencerError::Malformed)?;
+    let amount = abi_integer(&result[..32], 16)?;
+    let exists = match abi_integer(&result[32..], 1)? {
+        0 => false,
+        1 => true,
+        _ => return Err(SequencerError::Malformed),
+    };
+    crate::reject_if(!exists && amount != 0, || SequencerError::Malformed)?;
+    Ok(ProgramValueBalance {
+        account: *account,
+        asset,
+        amount,
+        frozen: None,
     })
 }
 
@@ -1471,3 +1068,472 @@ fn abi_integer(word: &[u8], width: usize) -> Result<u128, SequencerError> {
         .map_err(|_| SequencerError::Malformed)?;
     Ok(u128::from_be_bytes(bytes))
 }
+
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
+mod historical_deployment_support;
+
+#[cfg(test)]
+mod historical_deployment_tests {
+    use super::*;
+    use ed25519_dalek::{Signer, SigningKey};
+    use historical_deployment_support::{verifier_for_fixture, NOW, WASM_V1};
+    use layerx_programs::chain_proof::{
+        merkle::hash_from_byte_slices,
+        results::TxResult,
+        validators::TrustedValidator,
+        vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
+    };
+    use layerx_programs::{
+        chain_evidence::{deployment::ChainDeploymentProof, programs_state_key},
+        DeploymentExecutionProof, ProgramInterface,
+    };
+
+    const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
+    const ROTATED: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
+    const DAY_SECONDS: i64 = 86_400;
+
+    fn sign_fixture(
+        chain: &mut historical_deployment_support::chain::ChainFixture,
+    ) -> Result<(), String> {
+        chain.commit.height = chain.header.height;
+        chain.commit.block_id.hash = chain
+            .header
+            .hash()
+            .map_err(|error| format!("canonical header: {error:?}"))?
+            .to_vec();
+        let timestamp = Timestamp {
+            seconds: chain.header.time.seconds,
+            nanos: chain.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &chain.header.chain_id,
+            chain.commit.height,
+            chain.commit.round,
+            Some(&chain.commit.block_id),
+            timestamp,
+        )
+        .map_err(|error| format!("canonical precommit: {error:?}"))?;
+        for signature in &mut chain.commit.signatures {
+            let key = SEEDS
+                .iter()
+                .map(SigningKey::from_bytes)
+                .find(|key| {
+                    TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                        .address
+                        .as_slice()
+                        == signature.validator_address
+                })
+                .ok_or("validator signing key")?;
+            signature.timestamp = timestamp;
+            signature.signature = key.sign(&bytes).to_bytes().to_vec();
+        }
+        Ok(())
+    }
+
+    fn producer_recording() -> Result<std::collections::BTreeMap<&'static str, Vec<u8>>, String> {
+        let transcript = include_str!(
+            "../../../../../../programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+        );
+        assert_eq!(
+            hex::encode(&digest(transcript.as_bytes())),
+            "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
+        );
+        let producer = transcript
+            .lines()
+            .map(|line| {
+                let (key, value) = line.split_once('=').ok_or("producer recording row")?;
+                let bytes = hex::decode(value)
+                    .map_err(|error| format!("producer recording bytes: {error:?}"))?;
+                Ok((key, bytes))
+            })
+            .collect::<Result<std::collections::BTreeMap<_, _>, String>>()?;
+        Ok(producer)
+    }
+
+    fn historical_deployment_fixture(
+    ) -> Result<historical_deployment_support::ProtocolFixture, String> {
+        let producer = producer_recording()?;
+        assert_eq!(producer["wasm.1"], WASM_V1);
+        let interface = ProgramInterface::decode(&producer["interface.1"])
+            .map_err(|error| format!("producer interface: {error:?}"))?;
+        let mut fixture = historical_deployment_support::deploy_fixture_with_interface(
+            WASM_V1,
+            layerx_programs::UpgradePolicy::Authority(historical_deployment_support::AUTHORITY),
+            100,
+            NOW,
+            &interface,
+        );
+        let program_key = fixture.proof.state.commitment.key.clone();
+        let interface_key = programs_state_key(&layerx_programs::interface_state_key(
+            fixture.proof.state.state.program,
+        ));
+        let transaction_root = hash_from_byte_slices(&[&digest(&producer["deploy"])]);
+        let account = &producer["host.account"];
+        let mut previous = historical_deployment_support::chain::ChainFixture::new(
+            &fixture.chain.verifier.chain_id,
+            &SEEDS,
+            vec![(account[..33].to_vec(), account[33..].to_vec())],
+        )
+        .map_err(|error| format!("producer predecessor state: {error:?}"))?;
+        previous.header.height = 100;
+        previous.header.time.seconds =
+            i64::try_from(NOW / 1_000).map_err(|error| format!("producer time: {error:?}"))? - 1;
+        previous.header.time.nanos = 0;
+        previous.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut previous)?;
+        let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+        assert_eq!(result_root.as_slice(), producer["success.root"]);
+        fixture.chain.header.last_block_id.hash = previous.commit.block_id.hash.clone();
+        fixture.chain.header.last_block_id.part_set_total =
+            previous.commit.block_id.part_set_header.total;
+        fixture.chain.header.last_block_id.part_set_hash =
+            previous.commit.block_id.part_set_header.hash.clone();
+        fixture.chain.header.last_results_hash = result_root.to_vec();
+        fixture.chain.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut fixture.chain)?;
+        fixture.proof.state.commitment = decode_commitment_proof(
+            &fixture
+                .chain
+                .encode_key(&program_key)
+                .map_err(|error| format!("program commitment: {error:?}"))?,
+        )
+        .map_err(|error| format!("decode program commitment: {error:?}"))?;
+        fixture.proof.deployment = ChainDeploymentProof::from_state_proofs(
+            fixture.proof.state.state.clone(),
+            WASM_V1.to_vec(),
+            &decode_commitment_proof(
+                &fixture
+                    .chain
+                    .encode_key(&interface_key)
+                    .map_err(|error| format!("interface commitment: {error:?}"))?,
+            )
+            .map_err(|error| format!("decode interface commitment: {error:?}"))?,
+        )
+        .map_err(|error| format!("authenticated deployment interface: {error:?}"))?;
+        fixture.proof.state.transaction_proof = SimpleProof {
+            total: 1,
+            index: 0,
+            leaf_hash: transaction_root,
+            aunts: Vec::new(),
+        };
+        fixture
+            .proof
+            .bind_execution(&DeploymentExecutionProof {
+                transaction: producer["deploy"].clone(),
+                previous: decode_commitment_proof(
+                    &previous
+                        .encode_key(&program_key)
+                        .map_err(|error| format!("predecessor commitment: {error:?}"))?,
+                )
+                .map_err(|error| format!("decode predecessor commitment: {error:?}"))?,
+                result: TxResult {
+                    code: 0,
+                    data: producer["success"].clone(),
+                    gas_wanted: 0,
+                    gas_used: 0,
+                },
+                result_proof: SimpleProof {
+                    total: 1,
+                    index: 0,
+                    leaf_hash: result_root,
+                    aunts: Vec::new(),
+                },
+                interface_ops: fixture
+                    .chain
+                    .prove(&interface_key)
+                    .map_err(|error| format!("interface proof: {error:?}"))?,
+                migration: None,
+                migration_ops: Vec::new(),
+                migration_previous_ops: Vec::new(),
+            })
+            .map_err(|error| format!("bind producer execution: {error:?}"))?;
+        Ok(fixture)
+    }
+
+    #[test]
+    fn historical_checkpoint_preserves_signed_header_commit_and_validators() -> Result<(), String> {
+        let checkpoint = super::super::ServedCheckpoint::test_fixture(100, 1_700_000_000, 0);
+        let step = checkpoint_trust_step(checkpoint.clone())
+            .map_err(|error| format!("historical checkpoint step: {error:?}"))?;
+        let trust = ChainProofVerifier {
+            chain_id: step.0.chain_id.clone(),
+            validators: step.2.clone(),
+        };
+        let head = trust
+            .verify_head(&step.0, &step.1)
+            .map_err(|error| format!("real precommit quorum: {error:?}"))?;
+        assert_eq!(head.header_hash(), checkpoint.block_hash);
+        assert_eq!(head.height(), 100);
+        assert_eq!(head.time_ms(), 1_700_000_000_000);
+        assert_eq!(head.app_hash(), checkpoint.app_hash);
+        assert_eq!(step.2.hash(), checkpoint.header.validators_hash);
+        let mut missing_hash = checkpoint;
+        missing_hash.header.data_hash = None;
+        assert_eq!(
+            checkpoint_trust_step(missing_hash).err(),
+            Some(ChainHeadError::Evidence(ProtocolEvidenceError::Encoding))
+        );
+        Ok(())
+    }
+
+    fn validators(seeds: &[[u8; 32]]) -> Result<ValidatorSet, String> {
+        let mut validators = seeds
+            .iter()
+            .map(|seed| {
+                TrustedValidator::new(SigningKey::from_bytes(seed).verifying_key().to_bytes(), 1)
+            })
+            .collect::<Vec<_>>();
+        validators.sort_by_key(|validator| validator.address);
+        ValidatorSet::new(validators).map_err(|error| format!("real validator set: {error:?}"))
+    }
+
+    fn next_step(
+        previous: &TrustStep,
+        seeds: &[[u8; 32]],
+        seconds: i64,
+        next: &ValidatorSet,
+    ) -> Result<TrustStep, String> {
+        let set = validators(seeds)?;
+        let mut header = previous.0.clone();
+        header.height += 1;
+        header.time.seconds += seconds;
+        header.last_block_id.hash = previous.1.block_id.hash.clone();
+        header.last_block_id.part_set_total = previous.1.block_id.part_set_header.total;
+        header.last_block_id.part_set_hash = previous.1.block_id.part_set_header.hash.clone();
+        header.validators_hash = set.hash().to_vec();
+        header.next_validators_hash = next.hash().to_vec();
+        header.proposer_address = set.validators()[0].address.to_vec();
+        let mut commit = previous.1.clone();
+        commit.height = header.height;
+        commit.block_id.hash = header
+            .hash()
+            .map_err(|error| format!("canonical header: {error:?}"))?
+            .to_vec();
+        let timestamp = Timestamp {
+            seconds: header.time.seconds,
+            nanos: header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &header.chain_id,
+            commit.height,
+            commit.round,
+            Some(&commit.block_id),
+            timestamp,
+        )
+        .map_err(|error| format!("canonical precommit: {error:?}"))?;
+        commit.signatures = set
+            .validators()
+            .iter()
+            .map(|validator| {
+                let key = seeds
+                    .iter()
+                    .map(SigningKey::from_bytes)
+                    .find(|key| key.verifying_key().to_bytes() == validator.public_key)
+                    .ok_or("validator signing key")?;
+                Ok(CommitSig {
+                    flag: BlockIdFlag::Commit,
+                    validator_address: validator.address.to_vec(),
+                    timestamp,
+                    signature: key.sign(&bytes).to_bytes().to_vec(),
+                })
+            })
+            .collect::<Result<Vec<_>, &'static str>>()?;
+        Ok((header, commit, set))
+    }
+
+    fn bridge(
+        verifier: &ProtocolDeploymentVerifier,
+        steps: &[TrustStep],
+    ) -> Result<HistoricalTrustChain, String> {
+        historical_trust_chain(
+            verifier.chain_trust().ok_or("pinned chain trust")?,
+            steps[0].clone(),
+            steps.last().ok_or("current head")?.clone(),
+            steps[1..steps.len() - 1].iter().cloned().map(Ok),
+        )
+        .map_err(|error| format!("historical trust bridge: {error:?}"))
+    }
+
+    #[test]
+    fn historical_deployment_bridges_a_twenty_day_old_admission() -> Result<(), String> {
+        let fixture = historical_deployment_fixture()?;
+        let verifier = verifier_for_fixture(&fixture, 5_000);
+        let original = verifier
+            .verify_deployment(&fixture.proof, NOW)
+            .map_err(|error| format!("admission: {error:?}"))?;
+        let admission = commitment_trust_step(&fixture.proof.state.commitment)
+            .map_err(|error| format!("admission step: {error:?}"))?;
+        let mut steps = vec![admission];
+        for _ in 0..20 {
+            steps.push(next_step(
+                steps.last().ok_or("required historical trust step")?,
+                &SEEDS,
+                DAY_SECONDS,
+                &validators(&SEEDS)?,
+            )?);
+        }
+        let chain = bridge(&verifier, &steps)?;
+        assert_eq!(
+            chain
+                .steps
+                .iter()
+                .map(|step| step.0.height)
+                .collect::<Vec<_>>(),
+            vec![101, 115, 121]
+        );
+        let now = NOW + 20 * DAY_SECONDS as u64 * 1_000;
+        assert_eq!(
+            verifier.verify_historical_deployment(
+                &fixture.proof,
+                &chain.head,
+                &[steps[0].clone(), steps[20].clone()],
+                now
+            ),
+            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+        );
+        assert_eq!(
+            verifier
+                .verify_historical_deployment(&fixture.proof, &chain.head, &chain.steps, now)
+                .map_err(|error| format!("twenty-day historical deployment: {error:?}"))?,
+            original
+        );
+        assert_eq!(
+            verifier.verify_historical_deployment(
+                &fixture.proof,
+                &chain.head,
+                &chain.steps,
+                now + 5_001
+            ),
+            Err(ProtocolEvidenceError::Stale)
+        );
+        Ok(())
+    }
+
+    fn assert_rotation_refusals(
+        verifier: &ProtocolDeploymentVerifier,
+        steps: &[TrustStep],
+    ) -> Result<(), String> {
+        let mut forged = steps.to_vec();
+        forged[10].1.signatures[0].signature[0] ^= 1;
+        assert!(historical_trust_chain(
+            verifier
+                .chain_trust()
+                .ok_or("required historical trust step")?,
+            forged[0].clone(),
+            forged[20].clone(),
+            forged[1..20].iter().cloned().map(Ok)
+        )
+        .is_err());
+        assert!(historical_trust_chain(
+            verifier
+                .chain_trust()
+                .ok_or("required historical trust step")?,
+            steps[0].clone(),
+            steps[20].clone(),
+            steps[1..20]
+                .iter()
+                .filter(|step| step.0.height != 111)
+                .cloned()
+                .map(Ok)
+        )
+        .is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn historical_deployment_bridges_a_full_non_adjacent_validator_rotation() -> Result<(), String>
+    {
+        let fixture = historical_deployment_fixture()?;
+        let verifier = verifier_for_fixture(&fixture, 5_000);
+        let original = verifier
+            .verify_deployment(&fixture.proof, NOW)
+            .map_err(|error| format!("admission: {error:?}"))?;
+        let mut steps = vec![commitment_trust_step(&fixture.proof.state.commitment)
+            .map_err(|error| format!("admission step: {error:?}"))?];
+        let rotated = validators(&ROTATED)?;
+        assert!(rotated
+            .validators()
+            .iter()
+            .all(|validator| !steps[0].2.validators().contains(validator)));
+        for offset in 1..=20 {
+            let seeds = if offset <= 10 { &SEEDS } else { &ROTATED };
+            let next = if offset < 10 {
+                validators(&SEEDS)?
+            } else {
+                rotated.clone()
+            };
+            steps.push(next_step(
+                steps.last().ok_or("required historical trust step")?,
+                seeds,
+                1,
+                &next,
+            )?);
+        }
+        let chain = bridge(&verifier, &steps)?;
+        assert_eq!(
+            chain
+                .steps
+                .iter()
+                .map(|step| step.0.height)
+                .collect::<Vec<_>>(),
+            vec![101, 111, 112, 121]
+        );
+        let now = NOW + 20_000;
+        assert_eq!(
+            verifier.verify_historical_deployment(
+                &fixture.proof,
+                &chain.head,
+                &[steps[0].clone(), steps[20].clone()],
+                now
+            ),
+            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+        );
+        assert_eq!(
+            verifier
+                .verify_historical_deployment(&fixture.proof, &chain.head, &chain.steps, now)
+                .map_err(|error| format!("deployment across a full rotation: {error:?}"))?,
+            original
+        );
+        let current_verifier = ProtocolDeploymentVerifier::from_chain_trust(
+            &chain.verifier.chain_id,
+            chain.verifier.validators.validators().to_vec(),
+            5_000,
+        )
+        .map_err(|error| format!("trust reached by the bridge: {error:?}"))?;
+        let mut current = fixture.chain;
+        current.header = steps[20].0.clone();
+        current.commit = steps[20].1.clone();
+        current.verifier = chain.verifier;
+        let commitment = decode_commitment_proof(
+            &current
+                .encode()
+                .map_err(|error| format!("current commitment: {error:?}"))?,
+        )
+        .map_err(|error| format!("decode current commitment: {error:?}"))?;
+        assert_eq!(
+            current_verifier
+                .verify_current_chain_head(
+                    ProgramHeadKind::Ordinary,
+                    &commitment,
+                    &DeploymentExecutionProof::decode(&fixture.proof.state.transaction)
+                        .map_err(|error| format!("deployment execution: {error:?}"))?
+                        .transaction,
+                    &fixture.proof.state.transaction_proof,
+                    now
+                )
+                .map_err(|error| format!("current head under advanced trust: {error:?}"))?
+                .freshness()
+                .observed_sequence,
+            u64::try_from(steps[20].0.height)
+                .map_err(|error| format!("verified height: {error:?}"))?
+        );
+        assert_rotation_refusals(&verifier, &steps)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[path = "program_node_tests.rs"]
+mod tests;

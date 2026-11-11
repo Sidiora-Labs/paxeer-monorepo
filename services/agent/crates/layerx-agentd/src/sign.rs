@@ -191,6 +191,10 @@ pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage,
 /// Refuses an absent, expired, or revoked session key, an activity type outside its permitted set,
 /// and an authority other than the issued one. Also returns the disclosure, signing, encoding, and
 /// wire failures raised while producing the signed bytes.
+#[allow(
+    clippy::unused_async,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub async fn self_sign(
     provisioned: Option<&ProvisionedSessionKey>,
     prepared: &SigningPreparation,
@@ -299,6 +303,9 @@ pub fn verify_before_submit(
 
 impl SigningPreparation {
     /// Retains the exact unsigned transaction, actor, and disclosure for crash recovery.
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn retain(
         &self,
         store: &mut crate::store::Store,
@@ -328,6 +335,9 @@ impl SigningPreparation {
             .map_err(|_| SigningError::PreparedBytesChanged)
     }
 
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn restore(
         store: &crate::store::Store,
         tenant: crate::store::TenantId,

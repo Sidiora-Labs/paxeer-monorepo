@@ -610,7 +610,9 @@ func (app *BaseApp) ApplySnapshotChunk(context context.Context, req *abci.Reques
 func (app *BaseApp) handleQueryGRPC(handler GRPCQueryHandler, req abci.RequestQuery) abci.ResponseQuery {
 	ctx, err := app.CreateQueryContext(req.Height, req.Prove)
 	if err != nil {
-		return sdkerrors.QueryResultWithDebug(err, app.trace)
+		res := sdkerrors.QueryResultWithDebug(err, app.trace)
+		res.Height = req.Height
+		return res
 	}
 
 	res, err := handler(ctx, req)

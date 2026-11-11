@@ -1,5 +1,4 @@
-#[path = "../src/payer.rs"]
-mod payer;
+use layerx_agentd_host::payer;
 
 use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
 use layerx_agent_api::prepare::{
@@ -56,7 +55,16 @@ fn checked<T, E: std::fmt::Debug>(result: std::result::Result<T, E>) -> Result<T
     result.map_err(|error| format!("{error:?}").into())
 }
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes
+        .iter()
+        .flat_map(|byte| {
+            let digits = b"0123456789abcdef";
+            [
+                char::from(digits[usize::from(byte >> 4)]),
+                char::from(digits[usize::from(byte & 0xf)]),
+            ]
+        })
+        .collect()
 }
 fn prefixed(bytes: &[u8]) -> String {
     format!("0x{}", hex(bytes))
@@ -67,7 +75,18 @@ fn unhex(text: &str) -> Vec<u8> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex"), 16).expect("hex byte")
+            let Ok(expected_value) = u8::from_str_radix(
+                {
+                    let Ok(expected_value) = std::str::from_utf8(pair) else {
+                        panic!("hex")
+                    };
+                    expected_value
+                },
+                16,
+            ) else {
+                panic!("hex byte")
+            };
+            expected_value
         })
         .collect()
 }
@@ -91,13 +110,21 @@ impl Drop for Directory {
     }
 }
 fn evm_key() -> k256::ecdsa::SigningKey {
-    k256::ecdsa::SigningKey::from_bytes((&[9; 32]).into()).expect("test key")
+    {
+        let Ok(expected_value) = k256::ecdsa::SigningKey::from_bytes((&[9; 32]).into()) else {
+            panic!("test key")
+        };
+        expected_value
+    }
 }
 fn sender() -> [u8; 20] {
     let point = evm_key().verifying_key().to_encoded_point(false);
-    Keccak256::digest(&point.as_bytes()[1..])[12..]
-        .try_into()
-        .expect("address")
+    {
+        let Ok(expected_value) = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into() else {
+            panic!("address")
+        };
+        expected_value
+    }
 }
 
 fn wire<T>(result: std::result::Result<T, layerx_wire::WireError>) -> Result<T> {
@@ -108,6 +135,7 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 
+#[must_use]
 pub fn published_keys() -> Vec<ReceiptKeyEntry> {
     vec![ReceiptKeyEntry {
         key_id: KEY_ID,
@@ -215,6 +243,15 @@ fn encode_execution(execution: &ExecutedReceipt, signature: Option<[u8; 64]>) ->
     Ok(encoder.finish())
 }
 
+/// Signs an execution receipt for a ledger call.
+///
+/// # Errors
+///
+/// Returns an error if calldata conversion, receipt encoding or signing fails.
+///
+/// # Panics
+///
+/// Panics if calldata does not contain the selector and the selected call words.
 pub fn signed_execution(
     sender: [u8; 20],
     tx_hash: [u8; 32],
@@ -222,32 +259,30 @@ pub fn signed_execution(
     data: &[u8],
     seed: [u8; 32],
 ) -> Result<ExecutedReceipt> {
-    let word = |offset: usize| -> [u8; 32] {
-        data[offset..offset + 32].try_into().expect("calldata word")
-    };
+    let word = |offset: usize| -> Result<[u8; 32]> { Ok(data[offset..offset + 32].try_into()?) };
     let (topics, log_data) = match &data[..4] {
         [0x78, 0xea, 0x11, 0xdb] => (
             vec![
                 transaction_hash(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
-                word(164),
-                word(4),
-                word(36),
+                word(164)?,
+                word(4)?,
+                word(36)?,
             ],
-            [word(68), word(100)].concat(),
+            [word(68)?, word(100)?].concat(),
         ),
         [0x2e, 0x89, 0x49, 0x0f] => (
             vec![
                 transaction_hash(
                     b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
                 ),
-                word(4),
+                word(4)?,
                 PAYER,
-                word(36),
+                word(36)?,
             ],
-            [ASSET, word(68), word(100), word(196)].concat(),
+            [ASSET, word(68)?, word(100)?, word(196)?].concat(),
         ),
         [0xd0, 0xd5, 0x34, 0x80] => (
-            vec![transaction_hash(b"PayerGrantIssued(bytes32)"), word(68)],
+            vec![transaction_hash(b"PayerGrantIssued(bytes32)"), word(68)?],
             vec![],
         ),
         _ => return Err("unexpected ledger call".into()),
@@ -269,8 +304,8 @@ pub fn signed_execution(
             data: log_data,
             log_index: 0,
         }],
-        gas_used: 0x10000,
-        cumulative_gas_used: 0x10000,
+        gas_used: 0x0001_0000,
+        cumulative_gas_used: 0x0001_0000,
         effective_gas_price: 1_000_000_000,
         fee_denom: "upax".to_owned(),
         payment_denom: "upax".to_owned(),
@@ -332,36 +367,7 @@ impl Attestors {
             let stop = Arc::clone(&stop);
             let signed = Arc::clone(&signed);
             threads.push(thread::spawn(move || {
-                let mut sequence = 0_u64;
-                while !stop.load(Ordering::Acquire) {
-                    let tcp = match listener.accept() {
-                        Ok((tcp,_)) => tcp,
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(Duration::from_millis(1)); continue;
-                        }
-                        Err(error) => panic!("attestor accept: {error}"),
-                    };
-                    tcp.set_read_timeout(Some(Duration::from_secs(5))).expect("read timeout");
-                    tcp.set_write_timeout(Some(Duration::from_secs(5))).expect("write timeout");
-                    let mut stream = rustls::StreamOwned::new(rustls::ServerConnection::new(Arc::clone(&tls)).expect("TLS"),tcp);
-                    let (header,body) = http_request(&mut stream);
-                    assert!(header.starts_with("POST /v1/sign HTTP/1.1"));
-                    assert!(header.to_ascii_lowercase().contains("authorization: bearer held-web-owner"));
-                    let request: Value = serde_json::from_slice(&body).expect("attestor request");
-                    assert_eq!(request["kind"],"evm_tx");
-                    assert_eq!(request["key_id"],"evm-owner");
-                    assert_eq!(request["signers"],json!(["node-1","node-2","node-3"]));
-                    let wire = unhex(request["transaction"].as_str().expect("transaction"));
-                    let call = unsigned_attestor_call(&wire);
-                    let digest = call.signing_hash();
-                    let (signature,recovery) = evm_key().sign_prehash_recoverable(&digest).expect("signature");
-                    let mut bytes = signature.to_bytes().to_vec(); bytes.push(recovery.to_byte());
-                    sequence += 1;
-                    signed.fetch_add(1,Ordering::AcqRel);
-                    let answer = json!({"node_id":id,"key_id":"evm-owner","kind":"evm_tx","signed_bytes":hex(&digest),
-                        "signature":hex(&bytes),"recovery_id":recovery.to_byte(),"audit_sequence":sequence});
-                    http_response(&mut stream,&answer);
-                }
+                serve_attestor(id, &listener, &tls, &stop, &signed);
             }));
         }
         Ok(Self {
@@ -394,7 +400,9 @@ impl Drop for Attestors {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         for thread in self.threads.drain(..) {
-            thread.join().expect("attestor thread");
+            let Ok(()) = thread.join() else {
+                panic!("attestor thread")
+            };
         }
     }
 }
@@ -406,44 +414,74 @@ fn unsigned_attestor_call(wire: &[u8]) -> layerx_crypto::evm_transaction::Eip155
     assert!(payload.ends_with(&[0x80; 3]));
     let payload = &payload[..payload.len() - 3];
     let length = payload.len().to_be_bytes();
-    let start = length
-        .iter()
-        .position(|byte| *byte != 0)
-        .expect("RLP length");
+    let start = {
+        let Some(expected_value) = length.iter().position(|byte| *byte != 0) else {
+            panic!("RLP length")
+        };
+        expected_value
+    };
     let mut unsigned = vec![
         2,
-        0xf7 + u8::try_from(length.len() - start).expect("RLP width"),
+        0xf7 + {
+            let Ok(expected_value) = u8::try_from(length.len() - start) else {
+                panic!("RLP width")
+            };
+            expected_value
+        },
     ];
     unsigned.extend_from_slice(&length[start..]);
     unsigned.extend_from_slice(payload);
-    decode_unsigned(&unsigned).expect("actual attestor transaction fields")
+    {
+        let Ok(expected_value) = decode_unsigned(&unsigned) else {
+            panic!("actual attestor transaction fields")
+        };
+        expected_value
+    }
 }
 fn http_request(stream: &mut (impl Read + Write)) -> (String, Vec<u8>) {
     let mut header = Vec::new();
     while !header.ends_with(b"\r\n\r\n") {
         let mut byte = [0];
-        stream.read_exact(&mut byte).expect("HTTP header");
+        let Ok(()) = stream.read_exact(&mut byte) else {
+            panic!("HTTP header")
+        };
         header.extend(byte);
-        assert!(header.len() < 65536);
+        assert!(header.len() < 65_536);
     }
-    let header = String::from_utf8(header).expect("HTTP text");
-    let length = header
-        .lines()
-        .find_map(|line| {
+    let header = {
+        let Ok(expected_value) = String::from_utf8(header) else {
+            panic!("HTTP text")
+        };
+        expected_value
+    };
+    let length = {
+        let Some(expected_value) = header.lines().find_map(|line| {
             line.to_ascii_lowercase()
                 .strip_prefix("content-length:")
-                .map(|value| value.trim().parse::<usize>().expect("content length"))
-        })
-        .expect("body length");
+                .map(|value| {
+                    let Ok(expected_value) = value.trim().parse::<usize>() else {
+                        panic!("content length")
+                    };
+                    expected_value
+                })
+        }) else {
+            panic!("body length")
+        };
+        expected_value
+    };
     assert!(length < 1_048_576);
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).expect("HTTP body");
+    let Ok(()) = stream.read_exact(&mut body) else {
+        panic!("HTTP body")
+    };
     (header, body)
 }
 fn http_response(stream: &mut impl Write, answer: &Value) {
     let answer = answer.to_string();
-    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()).expect("HTTP response");
-    stream.flush().expect("HTTP flush");
+    let Ok(()) = write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()) else { panic!("HTTP response") };
+    let Ok(()) = stream.flush() else {
+        panic!("HTTP flush")
+    };
 }
 
 #[derive(Default)]
@@ -479,90 +517,30 @@ impl Node {
                         }
                         Err(error) => panic!("node accept: {error}"),
                     };
-                    tcp.set_read_timeout(Some(Duration::from_secs(5)))
-                        .expect("node timeout");
-                    let (_, body) = http_request(&mut tcp);
-                    let request: Value = serde_json::from_slice(&body).expect("RPC request");
-                    let method = request["method"].as_str().expect("method");
-                    let mut state = state.lock().expect("node state");
-                    state.methods.push(method.to_owned());
-                    let result = match method {
-                        "eth_call" => {
-                            let mut owner = [0; 32];
-                            owner[12..].copy_from_slice(&sender());
-                            let data = [&[0x3f, 0x05, 0x0c, 0xbc][..], &owner, &ASSET].concat();
-                            assert_eq!(
-                                request["params"],
-                                json!([{
-                                    "to": prefixed(&PrecompileTarget::Ledger.address()),
-                                    "data": prefixed(&data),
-                                }, "pending"])
-                            );
-                            json!(prefixed(&PAYER))
-                        }
-                        "eth_getBlockByNumber" => {
-                            assert!(
-                                request["params"] == json!(["latest", false])
-                                    || request["params"] == json!(["0x64", true])
-                            );
-                            json!({"number":"0x64","hash":prefixed(&[0x11;32]),"parentHash":prefixed(&[0x12;32]),
-                                "timestamp":"0x123","transactionsRoot":prefixed(&[0x13;32]),"receiptsRoot":prefixed(&[0x14;32]),
-                                "transactions":[],"baseFeePerGas":if state.changed {"0x77359400"}else{"0x1dcd6500"}})
-                        }
-                        "eth_chainId" => json!("0x7d"),
-                        "eth_getTransactionCount" => {
-                            assert_eq!(request["params"], json!([prefixed(&sender()), "pending"]));
-                            json!(if state.changed { "0x63" } else { "0x7" })
-                        }
-                        "eth_estimateGas" => {
-                            assert_eq!(request["params"][0]["from"], prefixed(&sender()));
-                            assert_eq!(
-                                request["params"][0]["to"],
-                                prefixed(&PrecompileTarget::Ledger.address())
-                            );
-                            assert_eq!(
-                                request["params"][0]["data"],
-                                prefixed(&draw_call().encode().expect("call"))
-                            );
-                            assert_eq!(request["params"][1], "pending");
-                            json!("0x186a0")
-                        }
-                        "eth_sendRawTransaction" => {
-                            let raw =
-                                unhex(request["params"][0].as_str().expect("raw transaction"));
-                            let (call, signature) = decode_signed(&raw).expect("signed fields");
-                            assert_eq!(
-                                recover_sender(&call, &signature).expect("recover sender"),
-                                sender()
-                            );
-                            assert_eq!(call.data, draw_call().encode().expect("call"));
-                            let hash = if state.wrong_hash {
-                                [0xee; 32]
-                            } else {
-                                transaction_hash(&raw)
-                            };
-                            state.raw.push(raw);
-                            json!(prefixed(&hash))
-                        }
-                        "pax_sequencerReceipt" => {
-                            let raw = state.raw.last().expect("submitted transaction");
-                            let (call, _) = decode_signed(raw).expect("signed fields");
-                            let hash = transaction_hash(raw);
-                            assert_eq!(request["params"], json!([prefixed(&hash)]));
-                            let execution =
-                                signed_execution(sender(), hash, call.nonce, &call.data, [7; 32])
-                                    .expect("signed receipt");
-                            json!({"rung":"receipted","txHash":prefixed(&hash),"nonce":format!("{:#x}",call.nonce),
-                                "seq":"0x2a","height":"0x64","index":"0x0","timestamp":"0x123","status":"0x1",
-                                "returnData":"0x","logs":execution.logs.iter().map(|log|json!({"address":prefixed(&log.address),
-                                    "topics":log.topics.iter().map(|topic|prefixed(topic)).collect::<Vec<_>>(),"data":prefixed(&log.data),"logIndex":"0x0"})).collect::<Vec<_>>(),
-                                "gasUsed":"0x10000","cumulativeGasUsed":"0x10000","effectiveGasPrice":"0x3b9aca00",
-                                "feeDenom":"upax","paymentDenom":"upax","feeAmount":"0x1","sponsor":prefixed(&[0;20]),
-                                "from":prefixed(&sender()),"to":prefixed(&call.to),"contractAddress":prefixed(&[0;20]),"vmError":"",
-                                "keyId":prefixed(&execution.key_id),"receipt":prefixed(&execution.receipt),"signingKey":prefixed(&execution.signing_key)})
-                        }
-                        _ => panic!("unexpected RPC method: {method}"),
+                    let Ok(()) = tcp.set_read_timeout(Some(Duration::from_secs(5))) else {
+                        panic!("node timeout")
                     };
+                    let (_, body) = http_request(&mut tcp);
+                    let request: Value = {
+                        let Ok(expected_value) = serde_json::from_slice(&body) else {
+                            panic!("RPC request")
+                        };
+                        expected_value
+                    };
+                    let method = {
+                        let Some(expected_value) = request["method"].as_str() else {
+                            panic!("method")
+                        };
+                        expected_value
+                    };
+                    let mut state = {
+                        let Ok(expected_value) = state.lock() else {
+                            panic!("node state")
+                        };
+                        expected_value
+                    };
+                    state.methods.push(method.to_owned());
+                    let result = node_result(&request, &mut state);
                     http_response(
                         &mut tcp,
                         &json!({"jsonrpc":"2.0","id":request["id"],"result":result}),
@@ -582,7 +560,9 @@ impl Drop for Node {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(thread) = self.thread.take() {
-            thread.join().expect("node thread");
+            let Ok(()) = thread.join() else {
+                panic!("node thread")
+            };
         }
     }
 }
@@ -615,36 +595,72 @@ fn payer(signer: Arc<AttestorSigner>, endpoint: &str) -> Result<payer::Productio
     ))
 }
 fn limiter() -> Arc<BudgetLimiter> {
-    Arc::new(
-        checked(BudgetLimiter::new(vec![LimitConfig {
+    Arc::new({
+        let Ok(expected_value) = checked(BudgetLimiter::new(vec![LimitConfig {
             id: LimitId([1; 16]),
             name: "web".into(),
             scope: LimitScope::Tenant([2; 32]),
             ceiling: 1_000_000,
             consumed: 0,
-        }]))
-        .expect("limiter"),
-    )
+        }])) else {
+            panic!("limiter")
+        };
+        expected_value
+    })
 }
 fn held_prepared(transaction: &evm::Prepared) -> Prepared {
     let bytes = transaction.call.encode_unsigned();
     let digest = Sha256::digest(&bytes).into();
     Prepared {
-        preparation_ref: PreparationRef::new("held-web").expect("reference"),
-        unsigned_canonical_bytes: CanonicalBytes::new(bytes).expect("canonical bytes"),
-        signing_preimage: SigningPreimage::new(transaction.signing_hash.to_vec())
-            .expect("preimage"),
+        preparation_ref: {
+            let Ok(expected_value) = PreparationRef::new("held-web") else {
+                panic!("reference")
+            };
+            expected_value
+        },
+        unsigned_canonical_bytes: {
+            let Ok(expected_value) = CanonicalBytes::new(bytes) else {
+                panic!("canonical bytes")
+            };
+            expected_value
+        },
+        signing_preimage: {
+            let Ok(expected_value) = SigningPreimage::new(transaction.signing_hash.to_vec()) else {
+                panic!("preimage")
+            };
+            expected_value
+        },
         disclosure: Disclosure {
             canonical_digest: digest,
             activity_type: ActivityType(8),
-            actor: AgentDid::new(hex(&transaction.from)).expect("actor"),
-            authority: AuthorityRef::new("x402:held").expect("authority"),
+            actor: {
+                let Ok(expected_value) = AgentDid::new(hex(&transaction.from)) else {
+                    panic!("actor")
+                };
+                expected_value
+            },
+            authority: {
+                let Ok(expected_value) = AuthorityRef::new("x402:held") else {
+                    panic!("authority")
+                };
+                expected_value
+            },
             counterparties: ExplicitSet::deny_all(),
             amounts: ExplicitSet::deny_all(),
-            asset: Asset::new(hex(&ASSET)).expect("asset"),
+            asset: {
+                let Ok(expected_value) = Asset::new(hex(&ASSET)) else {
+                    panic!("asset")
+                };
+                expected_value
+            },
             fee_limit: Amount(100_000_000_000_000),
             expiry: TimestampSeconds(1_900_000_000),
-            idempotency_key: IdempotencyRef::new(hex(&[0x52; 32])).expect("key"),
+            idempotency_key: {
+                let Ok(expected_value) = IdempotencyRef::new(hex(&[0x52; 32])) else {
+                    panic!("key")
+                };
+                expected_value
+            },
         },
         expiry: TimestampSeconds(1_900_000_000),
     }
@@ -738,7 +754,7 @@ fn approval_resources_share_the_store_and_recover_a_recorded_decision() -> Resul
             .recover(&tenant, id, 110, 101, &resources.limiter),
     )?;
     assert_eq!(recovered, before_restart);
-    assert!(node.state.lock().expect("state").raw.is_empty());
+    assert!(checked(node.state.lock())?.raw.is_empty());
     assert_eq!(attestors.signed.load(Ordering::Acquire), 0);
     Ok(())
 }
@@ -780,7 +796,7 @@ fn prepare_transaction_binds_the_signer_chain_and_input_call() -> Result {
     );
     checked(evm::verify_call_binding(&prepared))?;
     assert_eq!(attestors.signed.load(Ordering::Acquire), 0);
-    assert!(node.state.lock().expect("state").raw.is_empty());
+    assert!(checked(node.state.lock())?.raw.is_empty());
     Ok(())
 }
 
@@ -800,20 +816,17 @@ fn submit_transaction_signs_only_the_prepared_bytes_and_rejects_a_changed_hash()
     let mut payer = payer_fn_after_restart(&attestors, &node.endpoint, store, limiter())?;
     let mut corrupt = prepared.clone();
     corrupt.signing_preimage = checked(SigningPreimage::new(vec![0; 32]))?;
-    let requests_before = node.state.lock().expect("state").methods.len();
+    let requests_before = checked(node.state.lock())?.methods.len();
     assert_eq!(
         payer.submit_transaction(&corrupt),
         Err(WebPayerError::Refused)
     );
-    assert_eq!(
-        node.state.lock().expect("state").methods.len(),
-        requests_before
-    );
+    assert_eq!(checked(node.state.lock())?.methods.len(), requests_before);
     assert_eq!(attestors.signed.load(Ordering::Acquire), 0);
-    node.state.lock().expect("state").changed = true;
+    checked(node.state.lock())?.changed = true;
     let payment = checked(payer.submit_transaction(&prepared))?;
     {
-        let state = node.state.lock().expect("state");
+        let state = checked(node.state.lock())?;
         assert_eq!(state.raw.len(), 1);
         let raw = &state.raw[0];
         let (decoded, signature) = decode_signed(raw)?;
@@ -837,12 +850,12 @@ fn submit_transaction_signs_only_the_prepared_bytes_and_rejects_a_changed_hash()
         );
     }
     assert_eq!(attestors.signed.load(Ordering::Acquire), 3);
-    node.state.lock().expect("state").wrong_hash = true;
+    checked(node.state.lock())?.wrong_hash = true;
     assert_eq!(
         payer.submit_transaction(&prepared),
         Err(WebPayerError::Refused)
     );
-    let state = node.state.lock().expect("state");
+    let state = checked(node.state.lock())?;
     assert_eq!(state.raw.len(), 2);
     assert_eq!(
         state.methods.last().map(String::as_str),
@@ -866,7 +879,7 @@ fn payer_without_resources_keeps_the_unavailable_trait_defaults() -> Result {
     let transaction = checked(with_resources.prepare_transaction(&draw_call()))?;
     let mut payer = payer(attestors.signer()?, &node.endpoint)?.into_web_payer();
     assert!(payer.approval_resources().is_none());
-    let requests_before = node.state.lock().expect("state").methods.len();
+    let requests_before = checked(node.state.lock())?.methods.len();
     assert_eq!(
         payer.prepare_transaction(&draw_call()),
         Err(WebPayerError::Unavailable)
@@ -875,10 +888,7 @@ fn payer_without_resources_keeps_the_unavailable_trait_defaults() -> Result {
         payer.submit_transaction(&held_prepared(&transaction)),
         Err(WebPayerError::Unavailable)
     );
-    assert_eq!(
-        node.state.lock().expect("state").methods.len(),
-        requests_before
-    );
+    assert_eq!(checked(node.state.lock())?.methods.len(), requests_before);
     assert_eq!(attestors.signed.load(Ordering::Acquire), 0);
     Ok(())
 }
@@ -914,13 +924,209 @@ fn boundary_view_returns_node_bytes_and_refuses_when_owner_check_refuses() -> Re
         arguments: vec![AbiArgument::Word(owner), AbiArgument::Word(ASSET)],
     };
     assert_eq!(checked(payer.view(&call))?, PAYER.to_vec());
-    assert_eq!(node.state.lock().expect("state").methods, ["eth_call"]);
+    assert_eq!(checked(node.state.lock())?.methods, ["eth_call"]);
 
     allowed.store(false, Ordering::Release);
     assert_eq!(payer.view(&call), Err(WebPayerError::Refused));
-    let state = node.state.lock().expect("state");
+    let state = checked(node.state.lock())?;
     assert_eq!(state.methods, ["eth_call"]);
     assert!(state.raw.is_empty());
     assert_eq!(attestors.signed.load(Ordering::Acquire), 0);
     Ok(())
+}
+
+fn node_receipt(request: &Value, state: &NodeState) -> Value {
+    let raw = {
+        let Some(expected_value) = state.raw.last() else {
+            panic!("submitted transaction")
+        };
+        expected_value
+    };
+    let (call, _) = {
+        let Ok(expected_value) = decode_signed(raw) else {
+            panic!("signed fields")
+        };
+        expected_value
+    };
+    let hash = transaction_hash(raw);
+    assert_eq!(request["params"], json!([prefixed(&hash)]));
+    let execution = {
+        let Ok(expected_value) = signed_execution(sender(), hash, call.nonce, &call.data, [7; 32])
+        else {
+            panic!("signed receipt")
+        };
+        expected_value
+    };
+    json!({"rung":"receipted","txHash":prefixed(&hash),"nonce":format!("{:#x}",call.nonce),
+                                "seq":"0x2a","height":"0x64","index":"0x0","timestamp":"0x123","status":"0x1",
+                                "returnData":"0x","logs":execution.logs.iter().map(|log|json!({"address":prefixed(&log.address),
+                                    "topics":log.topics.iter().map(|topic|prefixed(topic)).collect::<Vec<_>>(),"data":prefixed(&log.data),"logIndex":"0x0"})).collect::<Vec<_>>(),
+                                "gasUsed":"0x10000","cumulativeGasUsed":"0x10000","effectiveGasPrice":"0x3b9aca00",
+                                "feeDenom":"upax","paymentDenom":"upax","feeAmount":"0x1","sponsor":prefixed(&[0;20]),
+                                "from":prefixed(&sender()),"to":prefixed(&call.to),"contractAddress":prefixed(&[0;20]),"vmError":"",
+                                "keyId":prefixed(&execution.key_id),"receipt":prefixed(&execution.receipt),"signingKey":prefixed(&execution.signing_key)})
+}
+
+fn node_result(request: &Value, state: &mut NodeState) -> Value {
+    let method = {
+        let Some(expected_value) = request["method"].as_str() else {
+            panic!("method")
+        };
+        expected_value
+    };
+    match method {
+        "eth_call" => {
+            let mut owner = [0; 32];
+            owner[12..].copy_from_slice(&sender());
+            let data = [&[0x3f, 0x05, 0x0c, 0xbc][..], &owner, &ASSET].concat();
+            assert_eq!(
+                request["params"],
+                json!([{
+                                    "to": prefixed(&PrecompileTarget::Ledger.address()),
+                                    "data": prefixed(&data),
+                                }, "pending"])
+            );
+            json!(prefixed(&PAYER))
+        }
+        "eth_getBlockByNumber" => {
+            assert!(
+                request["params"] == json!(["latest", false])
+                    || request["params"] == json!(["0x64", true])
+            );
+            json!({"number":"0x64","hash":prefixed(&[0x11;32]),"parentHash":prefixed(&[0x12;32]),
+                                "timestamp":"0x123","transactionsRoot":prefixed(&[0x13;32]),"receiptsRoot":prefixed(&[0x14;32]),
+                                "transactions":[],"baseFeePerGas":if state.changed {"0x77359400"}else{"0x1dcd6500"}})
+        }
+        "eth_chainId" => json!("0x7d"),
+        "eth_getTransactionCount" => {
+            assert_eq!(request["params"], json!([prefixed(&sender()), "pending"]));
+            json!(if state.changed { "0x63" } else { "0x7" })
+        }
+        "eth_estimateGas" => {
+            assert_eq!(request["params"][0]["from"], prefixed(&sender()));
+            assert_eq!(
+                request["params"][0]["to"],
+                prefixed(&PrecompileTarget::Ledger.address())
+            );
+            assert_eq!(
+                request["params"][0]["data"],
+                prefixed(&{
+                    let Ok(expected_value) = draw_call().encode() else {
+                        panic!("call")
+                    };
+                    expected_value
+                })
+            );
+            assert_eq!(request["params"][1], "pending");
+            json!("0x186a0")
+        }
+        "eth_sendRawTransaction" => {
+            let raw = unhex({
+                let Some(expected_value) = request["params"][0].as_str() else {
+                    panic!("raw transaction")
+                };
+                expected_value
+            });
+            let (call, signature) = {
+                let Ok(expected_value) = decode_signed(&raw) else {
+                    panic!("signed fields")
+                };
+                expected_value
+            };
+            assert_eq!(
+                {
+                    let Ok(expected_value) = recover_sender(&call, &signature) else {
+                        panic!("recover sender")
+                    };
+                    expected_value
+                },
+                sender()
+            );
+            assert_eq!(call.data, {
+                let Ok(expected_value) = draw_call().encode() else {
+                    panic!("call")
+                };
+                expected_value
+            });
+            let hash = if state.wrong_hash {
+                [0xee; 32]
+            } else {
+                transaction_hash(&raw)
+            };
+            state.raw.push(raw);
+            json!(prefixed(&hash))
+        }
+        "pax_sequencerReceipt" => node_receipt(request, state),
+        _ => panic!("unexpected RPC method: {method}"),
+    }
+}
+
+fn serve_attestor(
+    id: &str,
+    listener: &TcpListener,
+    tls: &Arc<rustls::ServerConfig>,
+    stop: &AtomicBool,
+    signed: &AtomicU64,
+) {
+    let mut sequence = 0_u64;
+    while !stop.load(Ordering::Acquire) {
+        let tcp = match listener.accept() {
+            Ok((tcp, _)) => tcp,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            }
+            Err(error) => panic!("attestor accept: {error}"),
+        };
+        let Ok(()) = tcp.set_read_timeout(Some(Duration::from_secs(5))) else {
+            panic!("read timeout")
+        };
+        let Ok(()) = tcp.set_write_timeout(Some(Duration::from_secs(5))) else {
+            panic!("write timeout")
+        };
+        let mut stream = rustls::StreamOwned::new(
+            {
+                let Ok(expected_value) = rustls::ServerConnection::new(Arc::clone(tls)) else {
+                    panic!("TLS")
+                };
+                expected_value
+            },
+            tcp,
+        );
+        let (header, body) = http_request(&mut stream);
+        assert!(header.starts_with("POST /v1/sign HTTP/1.1"));
+        assert!(header
+            .to_ascii_lowercase()
+            .contains("authorization: bearer held-web-owner"));
+        let request: Value = {
+            let Ok(expected_value) = serde_json::from_slice(&body) else {
+                panic!("attestor request")
+            };
+            expected_value
+        };
+        assert_eq!(request["kind"], "evm_tx");
+        assert_eq!(request["key_id"], "evm-owner");
+        assert_eq!(request["signers"], json!(["node-1", "node-2", "node-3"]));
+        let wire = unhex({
+            let Some(expected_value) = request["transaction"].as_str() else {
+                panic!("transaction")
+            };
+            expected_value
+        });
+        let call = unsigned_attestor_call(&wire);
+        let digest = call.signing_hash();
+        let (signature, recovery) = {
+            let Ok(expected_value) = evm_key().sign_prehash_recoverable(&digest) else {
+                panic!("signature")
+            };
+            expected_value
+        };
+        let mut bytes = signature.to_bytes().to_vec();
+        bytes.push(recovery.to_byte());
+        sequence += 1;
+        signed.fetch_add(1, Ordering::AcqRel);
+        let answer = json!({"node_id":id,"key_id":"evm-owner","kind":"evm_tx","signed_bytes":hex(&digest),
+                        "signature":hex(&bytes),"recovery_id":recovery.to_byte(),"audit_sequence":sequence});
+        http_response(&mut stream, &answer);
+    }
 }

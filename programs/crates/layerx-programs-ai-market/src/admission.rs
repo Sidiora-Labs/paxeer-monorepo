@@ -533,7 +533,20 @@ impl Default for AdmissionTable {
     }
 }
 impl AdmissionTable {
+    /// Epoch header of the committed admission section, without visiting members.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed_epoch(input: &[u8]) -> CodecResult<Option<u64>> {
+        if input.is_empty() {
+            return Ok(None);
+        }
+        let mut r = Reader::new(input);
+        if r.u16()? != crate::SCHEMA_VERSION {
+            return Err(BAD_VERSION);
+        }
+        Ok(if r.boolean()? { Some(r.u64()?) } else { None })
+    }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new() -> Self {
         Self {
             current_epoch: None,
@@ -564,7 +577,17 @@ impl AdmissionTable {
     }
     #[must_use]
     pub fn get(&self, participant: Participant) -> Option<AdmissionMeta> {
-        self.iter().find(|m| m.participant == participant).copied()
+        let entries = &self.entries[..self.count];
+        let index = entries.partition_point(|entry| {
+            entry
+                .as_ref()
+                .is_some_and(|entry| entry.participant < participant)
+        });
+        entries
+            .get(index)
+            .copied()
+            .flatten()
+            .filter(|entry| entry.participant == participant)
     }
     #[must_use]
     pub fn role_count(&self, role: Role) -> usize {
@@ -624,6 +647,20 @@ impl AdmissionTable {
         *self.entries.guest_index_mut(at) = Some(meta);
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn replace_at(&mut self, at: usize, meta: AdmissionMeta) -> CodecResult<()> {
+        meta.validate()?;
+        if self
+            .entries
+            .get(at)
+            .and_then(Option::as_ref)
+            .is_none_or(|old| old.participant != meta.participant)
+        {
+            return Err(NOT_FOUND);
+        }
+        *self.entries.guest_index_mut(at) = Some(meta);
+        Ok(())
+    }
     pub(crate) fn remove(&mut self, participant: Participant) -> CodecResult<AdmissionMeta> {
         let at = self.position(participant)?;
         let meta = self.entries.guest_index(at).ok_or(NOT_FOUND)?;
@@ -661,6 +698,48 @@ impl AdmissionTable {
     /// invalid bytes, and `F08_CAPACITY_EXCEEDED` above role capacity.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        Self::with_decoded(input, |value| Ok(*value))
+    }
+
+    pub(crate) fn with_decoded<T>(
+        input: &[u8],
+        read: impl FnOnce(&Self) -> CodecResult<T>,
+    ) -> CodecResult<T> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut scratch = None;
+            read(Self::decoded(input, &mut scratch)?)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        read(&Self::decode_uncached(input)?)
+    }
+
+    // Keep cache lookup, initialization and strict decoding in one body for
+    // every caller; only the typed consumer remains generic.
+    #[cfg(target_arch = "wasm32")]
+    #[inline(never)]
+    fn decoded<'s>(input: &[u8], scratch: &'s mut Option<Self>) -> CodecResult<&'s Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            static DECODED: crate::guest_cell::GuestOnce<(&'static [u8], AdmissionTable)> =
+                crate::guest_cell::GuestOnce::new();
+            if let Some((bytes, value)) = DECODED.get() {
+                if core::ptr::eq(*bytes, input) || crate::codec::equal_bytes(bytes, input) {
+                    return Ok(value);
+                }
+            } else if let Some(frozen) = crate::state::current_slice(input) {
+                let (_, value) = DECODED.get_or_try_init(
+                    || Ok((frozen, Self::decode_uncached(frozen)?)),
+                    NON_CANONICAL,
+                )?;
+                return Ok(value);
+            }
+        }
+        Ok(scratch.insert(Self::decode_uncached(input)?))
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(input: &[u8]) -> CodecResult<Self> {
         let mut table = Self::new();
         if input.is_empty() {
             return Ok(table);
@@ -681,13 +760,22 @@ impl AdmissionTable {
             return Err(NON_CANONICAL);
         }
         let mut previous: Option<Participant> = None;
+        let mut role_counts = [0usize; 2];
         for _ in 0..count {
             let meta = AdmissionMeta::read(&mut r)?;
             if previous.is_some_and(|p| p >= meta.participant) {
                 return Err(NON_CANONICAL);
             }
             previous = Some(meta.participant);
-            table.insert(meta)?;
+            // read validated the record; strict ordering proves identity uniqueness.
+            let role = meta.participant.role();
+            let used = &mut role_counts[role as usize - 1];
+            if *used >= role.capacity() {
+                return Err(F08_CAPACITY_EXCEEDED);
+            }
+            *used += 1;
+            table.entries[table.count] = Some(meta);
+            table.count += 1;
         }
         r.finish()?;
         Ok(table)

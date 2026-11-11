@@ -1418,9 +1418,11 @@ private func verifyAuthorizationRoot(_ encoded: Data, expected: Data) throws {
 }
 
 private func authorizationV2(_ encoded: Data) throws -> Bool {
-  let domain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  let boundV1 = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  let boundV2 = Data("LayerX/programs/402LXP/account-bound-set/v2\0".utf8)
   var original = encoded
-  if starts(encoded, domain) {
+  if starts(encoded, boundV1) || starts(encoded, boundV2) {
+    let domain = starts(encoded, boundV2) ? boundV2 : boundV1
     var cursor = try TerminalCursor(encoded, offset: domain.count)
     original = try cursor.sized32()
   }
@@ -1449,12 +1451,18 @@ private func principalPaymentAccount(_ principal: Data, asset: Data, name: Data)
 
 private func decodeAuthorizationRoot(_ input: Data) throws -> Data {
   var encoded = input
-  let boundDomain = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  let boundV1 = Data("LayerX/programs/402LXP/account-bound-set/v1\0".utf8)
+  let boundV2 = Data("LayerX/programs/402LXP/account-bound-set/v2\0".utf8)
+  let destinationBound = starts(encoded, boundV2)
+  var hasNamedDestination = false
   var names: TerminalCursor?
-  if starts(encoded, boundDomain) {
+  if starts(encoded, boundV1) || destinationBound {
+    let boundDomain = destinationBound ? boundV2 : boundV1
     var wrapper = try TerminalCursor(encoded, offset: boundDomain.count)
     encoded = try wrapper.sized32()
-    guard !starts(encoded, boundDomain) else { throw programVerification() }
+    guard !starts(encoded, boundV1), !starts(encoded, boundV2) else {
+      throw programVerification()
+    }
     names = wrapper
   }
   let v1 = Data("LayerX/programs/402LXP/transfer-set/v1\0".utf8)
@@ -1512,7 +1520,7 @@ private func decodeAuthorizationRoot(_ input: Data) throws -> Data {
       }
     }
     let asset = try cursor.take(32)
-    let destination = try cursor.take(32)
+    var destination = try cursor.take(32)
     let amount = try cursor.u128()
     let program = try cursor.take(32)
     try requireNonzero(asset)
@@ -1538,6 +1546,15 @@ private func decodeAuthorizationRoot(_ input: Data) throws -> Data {
       } else {
         source = try principalPaymentAccount(source, asset: asset, name: name)
       }
+      if destinationBound {
+        let destinationLength = try wrapper.u16()
+        let destinationName = try wrapper.take(Int(destinationLength))
+        if !destinationName.isEmpty {
+          destination = try principalPaymentAccount(
+            destination, asset: asset, name: destinationName)
+          hasNamedDestination = true
+        }
+      }
       names = wrapper
     }
     total = try checkedAdd(total, amount)
@@ -1548,6 +1565,7 @@ private func decodeAuthorizationRoot(_ input: Data) throws -> Data {
   }
   try cursor.finish()
   try names?.finish()
+  guard !destinationBound || hasNamedDestination else { throw programVerification() }
   _ = total
   return merkleRoot(kernelLegs)
 }

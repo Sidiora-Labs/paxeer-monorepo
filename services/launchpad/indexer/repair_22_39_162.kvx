@@ -1,0 +1,606 @@
+[meta]
+task = "22.39.162"
+status = "implemented_pending_qualification"
+base_revision = "1b4b14bd3e449bf17efde908668114ea8601fd23"
+receipt_policy = "Original signed receipts remain unchanged. Follow 39967d3c307abdb373d629b47f7ea80594056ed1: Treasury outside a trimmed catalog remains opaque; a catalog decoding Treasury still requires the exact approved source and pinned code epoch. Preserve that producer's Geth v1.17.3 balHash header-provenance encoding across the v1.17.4 RPC field rename, with every header value still hashed. Follow dbe6ef717a742835a2897a2eb5cd43126554d731: native pool surfaces require the approved precompile identity, while historical pools retain beacon_proxy discovery."
+
+[environment]
+job = ".github/workflows/launchpad-test.yml:launchpad-go-test env loaded verbatim; GOWORK=off; Go 1.27.3; PostgreSQL postgres:16; Redis redis:7; NATS v2.11.6; Foundry v1.8.1 (current job pin); chain ID 125; compiled repository contracts"
+services = "Private fixtures only; maintenance database kindle_fixture controls owned kd_2c5416329a7e470a0541ecb6_ databases; no external chain writes."
+
+[comparison.pgx-v5-10-0]
+revision = "564eae1972e8f0de2a2cfe4db230b52c29ca529b"
+command = "go test -mod=mod -modfile=/tmp/launchpad-pgx510.mod -count=1 -run ^(TestReplayCheckpointAtomicAndLiveCursorIndependent|TestReplayCancellationRollbackAndResumePostgres|TestReplayPausedOldLeaderCannotPauseReplacementPostgres|TestPrivateReplayAuthorizationPostgres|TestReplayQuotaAndUnavailableRangePostgres)$ -v ./internal/processor"
+exit = 1
+log = "/out/logs/replay-pgx510.log"
+observed = "All five replay cases refuse parameter 10 with SQLSTATE 42P08 on PostgreSQL 16; temporary modfile requires and replaces pgx with v5.10.0."
+
+[comparison.pgx-v5-11-0]
+revision = "564eae1972e8f0de2a2cfe4db230b52c29ca529b"
+command = "go test -mod=mod -modfile=/tmp/launchpad-pgx511.mod -count=1 -run ^(TestReplayCheckpointAtomicAndLiveCursorIndependent|TestReplayCancellationRollbackAndResumePostgres|TestReplayPausedOldLeaderCannotPauseReplacementPostgres|TestPrivateReplayAuthorizationPostgres|TestReplayQuotaAndUnavailableRangePostgres)$ -v ./internal/processor"
+exit = 1
+log = "/out/logs/replay-pgx511.log"
+observed = "All five cases refuse identically; retain v5.11.0 and type the shared bigint parameter in Store.AdmitReplay."
+
+[repair.1]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
+test = "TestRenderedProductionDocumentsBoot"
+reason = "render_test.go line 111: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+
+[repair.2]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
+test = "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds"
+reason = "repair_55_test.go line 384: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+
+[repair.3]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
+test = "TestRepair_55_ReceiptHintsRejectTampering"
+reason = "repair_55_test.go line 628: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/app/repair_55_test.go:repair55Serve -> internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/history.go:historicalEmitterEpochs; original chain-125 signed market receipts"
+
+[repair.4]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
+test = "TestRepairM_999_ReceiptQualifiedBackfill"
+reason = "repair_m999_test.go line 304: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/config/repair_m999_test.go producer packet -> internal/receipt/testdata/repair53-producer.json -> internal/receipt/history.go:historicalEmitterEpochs"
+
+[repair.5]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+test = "TestRepairM_995_NativeReceiptAttribution"
+reason = "repair_m995_test.go line 254: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/receipt/testdata/repair53-producer.json: actual MigrateV6120 keeper and Router.buy executions via precompiles/launchpad/pool.go"
+
+[repair.6]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
+test = "TestPaxeerReportedIdentityQualifiesRealMarket"
+reason = "paxeer_test.go line 112: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/runtimedocs/runtimedocs.go:TrimCatalog -> internal/receipt/history.go:historicalEmitterEpochs; immutable chain-125 replies from internal/internaltest/chainfixture"
+
+[repair.7]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
+test = "TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket"
+reason = "paxeer_test.go line 260: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/runtimedocs/runtimedocs.go:TrimCatalog -> internal/receipt/history.go:historicalEmitterEpochs; immutable chain-125 replies from internal/internaltest/chainfixture"
+
+[repair.8]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
+test = "TestPaxeerTamperedReceiptIsRejected"
+reason = "paxeer_test.go line 308: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/runtimedocs/runtimedocs.go:TrimCatalog -> internal/receipt/history.go:historicalEmitterEpochs; immutable chain-125 replies from internal/internaltest/chainfixture"
+
+[repair.9]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
+test = "TestPaxeerLiveQualifiedSourceCoversDiscoveredEmitters"
+reason = "paxeer_test.go line 330: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/runtimedocs/runtimedocs.go:TrimCatalog -> internal/receipt/history.go:historicalEmitterEpochs; immutable chain-125 replies from internal/internaltest/chainfixture"
+
+[repair.10]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestRepair_56_ExplorerDynamicDiscoveries"
+reason = "repair_56_test.go line 115: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+
+[repair.11]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestRepair_56_DiscoveryEpochBounds"
+reason = "repair_56_test.go line 191: recorded receipts fail with receipt qualification rejected under the current internal/receipt/qualified.go rule."
+producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+
+[repair.12]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestSourceCapacityCandidate"
+reason = "capacity_integration_test.go line 31: bound actual owned source capacity configuration required; the admitted configuration and SHA256 are external fixture inputs."
+producer = "internal/source/capacity.go:CapacityOptions requires operator approval and a mutation-approved workload; no repository generator can issue that authority. Missing KINDLE_SOURCE_CAPACITY_CONFIG or KINDLE_SOURCE_CAPACITY_CONFIG_SHA256 skips under do_2 only; supplied malformed inputs still fail every original assertion."
+
+[repair.13]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestHistoricalRealRangeExplorerSuffixAndParity"
+reason = "historical_integration_test.go line 107: the actual mined log range and explorer suffix/parity require bound real historical fixture state."
+producer = "internal/source/historical_integration_test.go:genuineHistoricalNode and historicalArtifact generate 10,001 genuine token logs and a 10,000-block range from compiled SidioraERC20.sol, then seed and compare real PostgreSQL explorer rows. contracts/launchpad/contracts/base/ERC20Base.sol:140 _transfer calls _checkpoint at line 84 for both balances; eth_estimateGas estimates that compiled producer in the pending block before signing the range."
+repair = "Replace the obsolete 80,000 gas limit with the actual producer estimate; assert the final signed transaction of each mined block succeeds and emits one log. Retain the original 10,000-log count, header budget, SQL suffix and parity assertions."
+
+[repair.14]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/httpapi"
+test = "TestRepairM_996_NoCompatibilityDeadLetterEscape"
+reason = "repair_m996_test.go line 534: publisher.New panics at publisher.go line 136 because the test constructs retired compatibility webhook delivery."
+producer = "internal/publisher/durable.go:DurableStager.Stage -> shared/delivery/store.go:Enqueue -> shared/delivery/webhook.go:WebhookBridge.StageTx and RunOnce; real PostgreSQL transaction and TLS rejection"
+
+[repair.15]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/chainreader"
+test = "TestActualNFTOwnerRemainsPinnedAfterTwoTransfers"
+reason = "historical_test.go line 312: the actual NFT fixture waits 180 seconds for a mined transaction after two transfers; bound real mined fixture state is required."
+producer = "internal/chainreader/historical_test.go:actualAdversarialChain, proxy, transact; compiled SidioraNFT.sol and two signed chain-125 transfers"
+
+[repair.16]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestCanonicalProcessorConcurrentFencingPostgres"
+reason = "canonical_test.go line 286: cannot truncate a table referenced in a foreign key constraint; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "launchpad/spec/production-system/integration/migrations/60000.sql:indexer_accounting_fills foreign key to indexer_raw_logs; truncate both with existing dependent outbox."
+
+[repair.17]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestCanonicalDatabaseOutageAcknowledgesNothingPostgres"
+reason = "canonical_test.go line 399: cannot disallow connections for the current database; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/canonicaltest/canonicaltest.go:New owns a database under kindle_fixture; control connection stays on maintenance database, preserves observer and fences all runtime connections."
+
+[repair.18]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestQualifiedProductionIngestionRealMarketPostgres"
+reason = "qualified_legacy_postgres_test.go line 109: receipt qualification rejected for the recorded real market; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
+
+[repair.19]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestRepair54Postgres_NativeReadModelProjection"
+reason = "repair_54_test.go line 232: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/httpapi/status.go:RegisterStatus requires explicit StatusCanonical, canonical stream, real delivery.Store health and lag budget; all typed SQL and rollback assertions retained."
+
+[repair.20]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestRepair_54_RecordedLiveQualification"
+reason = "repair_54_test.go line 309: receipt qualification rejected for recorded live ingestion; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
+
+[repair.21]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestRepair54Postgres_AmbiguousCommitLiveRecovery"
+reason = "repair_54_test.go line 529: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
+
+[repair.22]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestRepair_54_NativeReadModelProjection"
+reason = "repair_54_test.go line 1165: HTTP consumer answers status unavailable with mode in the unavailable components; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/httpapi/status.go:RegisterStatus requires explicit StatusCanonical, canonical stream, real delivery.Store health and lag budget; all typed SQL and rollback assertions retained."
+
+[repair.23]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestRepair_54_AmbiguousCommitLiveRecovery"
+reason = "repair_54_test.go line 1274: receipt qualification rejected for ambiguous commit recovery; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/history.go:historicalEmitterEpochs and internal/internaltest/chainfixture; original chain-125 market receipts"
+
+[repair.24]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestReplayCheckpointAtomicAndLiveCursorIndependent"
+reason = "replay_postgres_test.go line 63: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+
+[repair.25]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestReplayCancellationRollbackAndResumePostgres"
+reason = "replay_postgres_test.go line 205: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+
+[repair.26]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestReplayPausedOldLeaderCannotPauseReplacementPostgres"
+reason = "replay_postgres_test.go line 247: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+
+[repair.27]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestPrivateReplayAuthorizationPostgres"
+reason = "replay_postgres_test.go line 262: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+
+[repair.28]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+test = "TestReplayQuotaAndUnavailableRangePostgres"
+reason = "replay_postgres_test.go line 333: inconsistent types deduced for parameter $10 (SQLSTATE 42P08); reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/store/replay.go:Store.AdmitReplay -> launchpad/spec/production-system/integration/migrations/60001.sql bigint from_height/progress_height; explicit parameter 10 cast, independently reproduced on pgx v5.10.0 and v5.11.0."
+
+[repair.29]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
+test = "TestRepair_53_native_swap_qualification"
+reason = "repair_53_test.go line 451: receipt qualification rejected for the native swap producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+
+[repair.30]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
+test = "TestRepair_53_tenant_transaction_qualification"
+reason = "repair_53_test.go line 452: receipt qualification rejected for the tenant transaction producer; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+
+[repair.31]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
+test = "TestRepair_53_approved_history_rehydration"
+reason = "repair_53_test.go line 492: receipt qualification rejected for approved historical provenance; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/receipt/testdata/repair53-producer.json: MigrateV6120, Router.buy and tenant keeper; internal/receipt/identity.go:migratedRoleEpoch and historicalEmitterEpochs"
+
+[repair.32]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestRepair56Postgres_ExplorerDynamicDiscoveries"
+reason = "repair_56_postgres_test.go line 266: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+
+[repair.33]
+package = "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+test = "TestRepair56Postgres_DiscoveryEpochBounds"
+reason = "repair_56_postgres_test.go line 333: receipt qualification rejected during PostgreSQL-backed explorer qualification; reproduced on PostgreSQL 16 and 18 in gotcha 3646."
+producer = "internal/source/repair_56_postgres_test.go:repair56RPCSetup -> runtimedocs.ReceiptOptions -> receipt.historicalEmitterEpochs; original chain-125 RPC capture"
+
+[qualification]
+build = "hf-build; exact candidate revision, command, exit and private log in /out/run/gates.jsonl build row and /out/logs/build-1.log (repair suffix increments on rerun)"
+verify = "hf-done -> cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo; exact candidate revision, command, exit and private log in /out/run/gates.jsonl verify row and /out/logs/verify-1.log (repair suffix increments on rerun)"
+policy = "The gate ledger and final hf-done line own the qualification result; this record never declares a gate that has not run. No edits follow successful hf-done."
+
+[gotcha.1]
+observed = "Replay SQL mixes parameter 10 as a bigint column and untyped arithmetic, independent of the pgx version."
+repair = "Cast both appearances to bigint; preserve replay bounds and all assertions."
+
+[gotcha.2]
+observed = "Anvil impersonated eth_sendTransaction hashes need not match the hash reconstructed from the unsigned transaction payload."
+repair = "Generate the second NFT transfer with a genuine chain-125 signature and funded fixture key before waiting for its receipt."
+
+[gotcha.3]
+observed = "The sandbox initially provided PostgreSQL 18, Redis 8, Foundry 1.9.0 and a different Go toolchain."
+repair = "Use the exact job versions and env for the two requested replay measurements and both qualification gates."
+
+[finding.wiring-retirement]
+task = "22.39.162"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_baseline_records_only_approved_indexer_failures"
+observed = "At revision ba731cfe3d0c0d55a73f3cf86f3a49b327f13e42, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo exited 1 at /out/logs/verify-1.log: six wiring cases require retired baseline entries, so the chained Go test never ran."
+assumption = "The wiring test and runner allowlist must be explicitly admitted to scope before updating the inventory to require zero indexer exclusions while retaining the 33 repair, refusal-class and owner checks."
+severity = "blocker"
+
+[qualification.first-build]
+revision = "ba731cfe3d0c0d55a73f3cf86f3a49b327f13e42"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.first-verify]
+revision = "ba731cfe3d0c0d55a73f3cf86f3a49b327f13e42"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[gotcha.4]
+observed = "The wiring inventory still expects 261 entries even though the base has already retired two API entries, and four wiring checks require the 33 indexer exclusions this task removes."
+repair = "Prepared /out/logs/wiring-retirement.patch without changing the out-of-scope test; requested explicit scope and runner allowlist expansion."
+
+[gotcha.5]
+observed = "The bootstrap NATS binary was v2.12.2 during the two replay comparisons, whose five selected tests use PostgreSQL only."
+repair = "Installed the job-pinned v2.11.6 before either qualification gate; the replay SQL refusal is recorded unchanged for both driver versions without claiming those comparisons used the final NATS process."
+
+[continuation]
+base = "Supplied origin/main and task base both resolve to ae96a903290ccdc81bf77abafad705ca069d87a4; 22.39.168 is pending there, so no later main is available in the supplied checkout. Preserve its other owners and retire only indexer entries."
+wiring = "Keep all four indexer case names (including both owner parameters); assert zero indexer entries, empty per-package skip patterns, and an unconditional indexer matrix job through the real runner. Preserve the API case expectations and restore its two entries byte-for-byte from a41ce5ffb6 parent under the explicit continuation ruling; baseline count 228."
+evidence = "The original pgx comparison records above belong to attempt 2 and are not rerun. This attempt uses the task gate ledger referenced by [qualification]."
+
+environment_log = "/out/logs/launchpad162-environment.log records this attempt's exact job tools and service versions; /tmp/launchpad162-gate.py loads the workflow env verbatim for both gates. Historical range and NFT generators run inside their original tests from the compiled repository contracts; the job checks both artifacts before the module runner."
+
+[gotcha.6]
+observed = "cg files accepts -n, not --limit; its indexed view contains no Python formatter configuration for the wiring test."
+repair = "Use the documented CLI option and preserve the surrounding Python style; gofmt only the changed Go sources after implementation."
+
+[qualification.continuation-build-1]
+revision = "30cd60bbfd0d0bd5f806a2970851ce8a92dcb126"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.continuation-verify-1]
+revision = "30cd60bbfd0d0bd5f806a2970851ce8a92dcb126"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 42 wiring tests passed; the module exposed historical discovery-kind, persisted header-codec and checkpointed ERC20 fixture gas failures."
+
+[receipt-repair.discovery]
+producer = "internal/runtimedocs/runtimedocs.go:ReceiptOptions -> internal/receipt/rpc.go:StableMetadata; dbe6ef717a742835a2897a2eb5cd43126554d731 introduces native surface execution through the approved launchpad precompile."
+cases = [1, 2, 3, 6, 7, 8, 9, 10, 11, 18, 20, 21, 23, 32, 33]
+repair = "The manifest at activation 32226215 uses beacon pools; ReceiptOptions now emits beacon_proxy unless the manifest names the exact approved precompile identity. The generation at 37220320 retains surface discovery. No receipt or code identity is replaced or weakened."
+
+[receipt-repair.provenance]
+producer = "internal/receipt/qualified.go:Qualify and internal/receipt/rpc.go:SourceProvenance -> internal/receipt/identity.go:proveHistoricalMarket; landed producer 39967d3c307abdb373d629b47f7ea80594056ed1 uses Geth v1.17.3. internal/receipt/testdata/repair53-producer.json retains its immutable creation proof."
+cases = [4, 5, 29, 30, 31]
+repair = "Preserve the established header digest codec: Geth v1.17.4 renamed balHash to blockAccessListHash without changing the value. Map that single required field name back before hashing; keep every value and exact persisted-proof comparison. Missing or duplicate codec fields fail qualification."
+frozen_creation_header_sha256 = "1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae"
+regression = "TestRepair_53_approved_history_rehydration compares the actual qualified creation provenance with the immutable producer proof, then proves historical market recovery; the existing tampering cases retain all rejection assertions."
+
+[gotcha.7]
+observed = "Geth v1.17.4 changes the header JSON field balHash to blockAccessListHash, invalidating persisted provenance produced by v1.17.3 even when all header values match."
+repair = "Keep provenance on its established balHash encoding; keep live header equality checks on the exact current SDK encoding."
+
+[gotcha.8]
+observed = "A fixed 80,000 gas token transfer no longer covers the real producer's balance checkpoints, leaving the historical log generator with reverted transactions."
+repair = "Estimate the compiled transfer against Anvil's pending block and assert successful mined receipts before consuming the range. Foundry v1.7.1 eth_estimateGas defaults to pending state."
+
+[continuation-repair.header]
+test = "TestRepairM_1000_InventoryDurableFrames"
+producer = "internal/receipt/qualified.go:provenanceHeaderDigest -> internal/receipt/rpc.go:SourceProvenance; rpc-code-epoch-v1 from 39967d3c307abdb373d629b47f7ea80594056ed1, Geth v1.17.3 core/types/gen_header_json.go:Header.MarshalJSON"
+block = 33963716
+reported_block_hash = "0x81a18d822e327fbcbfe2be91b7f666bfa043016cb0e3f094c5bbabe91f9d192b"
+ethereum_header_hash = "0xe83bd786ee2456fe683b1cc6a7c4b9755783d09071d189ec20dc5a565c6f6292"
+matching_header_sha256 = "1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae"
+encoding = "Compact JSON in Geth v1.17.3 declared field order: parentHash,sha3Uncles,miner,stateRoot,transactionsRoot,receiptsRoot,logsBloom,difficulty,number,gasLimit,gasUsed,timestamp,extraData,mixHash,nonce,baseFeePerGas,withdrawalsRoot,blobGasUsed,excessBlobGas,parentBeaconBlockRoot,requestsHash,balHash,slotNumber,hash. Optional fields are explicit null; absent or null input blockAccessListHash becomes balHash:null. Hash is Header.Hash(), the Keccak of the Ethereum RLP header, rather than the reported chain-125 consensus hash. All nonnull field values remain bound."
+proof = "Independently derived from the recorded block response in internal/processor/testdata/repair_m1000_batches.json using ethers.encodeRlp/keccak256 and SHA256; matches the untouched provenance in pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json. Twenty-four candidate encodings compared in /out/logs/launchpad162-header-derivation.log; exact matching bytes in /out/logs/launchpad162-matching-header.json. Renaming balHash with the reported hash yields c4f14db4cecfd19d023d87a633375655dac6e6aa8f539c8e13d059bc7a9b0782; current field name with computed hash yields 472cabba2d256eff4f23f613e5b9e48164ff1e01edac2e55ec864abf73d4bb2c."
+repair = "Freeze the complete proven typed provenance codec independently of future RPC codec changes; retain exact historical-proof comparison. TestProvenanceHeaderDigestRecordedCreation reads the recorded header and original producer provenance, asserts the matching digest for absent and null access-list input, and proves nonnull access-list and slot values change it."
+
+[continuation-repair.historical-code]
+test = "TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket"
+producer = "internal/receipt/identity.go:proveHistoricalMarket -> historical emitter epoch validation -> eth_getCode at the recorded block hash; chainfixture.RecordEnv=INDEXER_RECORD_PAXEER_RPC"
+source = "https://api2.mainnet-beta.paxeer.network; public chain-125 archive; eth_chainId result 0x7d"
+address = "0x85fcd13735f4309833a503ee804ea32395851479"
+block_hash = "0xd955d693c649ee8e9a69be1e9d6d683ac05a6b846ecbb6f0d165ff1a698ceb68"
+code_bytes = 4230
+rpc_result_sha256 = "a6f8767743edb07b7bf2a9d9e9fca3cac039aeee6d43b3cead807a60439da5b4"
+repair = "Executed the named case with INDEXER_RECORD_PAXEER_RPC set to that archive via the existing chainfixture record mode. Added exactly one eth_getCode reply; all 266 pre-existing request keys and replies compare unchanged against the base fixture. The historical block-hash binding is unchanged."
+record_command = "python3 /out/run/launchpad162-env.py bash -c 'export INDEXER_RECORD_PAXEER_RPC=https://api2.mainnet-beta.paxeer.network; cd services/launchpad/indexer && go test -count=1 -v -run ^TestPaxeerRehydratedAuthorityQualifiesTradesOfEarlierMarket$ ./internal/runtimedocs'"
+record_exit = 0
+record_log = "/out/logs/launchpad162-fixture-record.log"
+
+[continuation-repair.measurement]
+test = "TestRepairM_1000_MeasurementRefusals"
+producer = "internal/processor/measurement.go:validateMeasurementSource validates the candidate files, topology digest/region, profile and resource bounds; internal/source/committed.go:NewCommittedSource returns sourceError(IdentityError,pool,nil) only when no primary endpoint passes admitIdentity's eth_chainId and pinned anchor checks. SourceError.Error composes the source pool: identity text."
+pinned_evidence = "repairM1000MeasurementSpec pins measurement.go content and three-zone topology using delivery.Hash; repairM1000ReceiptOptions and runtimedocs.CommittedOptions pin anchor 33963715 / 0x82477110c5fc791f6bef5a7d96636dc457e83daf59c8b802e264bada02f13395, present in repair_m1000_batches.json with chain ID 0x7d. The admitted SQL pool is the real go-pglite engine; its tracer binding and all twelve omitted-provider exact refusals are checked."
+observed = "The requested standalone verbose reproduction passes on this supplied base and job environment with all twelve provider-refusal subtests; no incorrect producer or pinned value was reproduced, so no assertion or identity check was changed. The declared full module verification remains authoritative."
+command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v -run ^TestRepairM_1000_MeasurementRefusals$ ./internal/processor'"
+exit = 0
+log = "/out/logs/launchpad162-measurement-refusals.log"
+
+[continuation.attempt-4]
+merge = "Resolved both repair_54_test.go conflict hunks in favor of the current side: its real durable projection producer, canonical status assertions, independent cursor/watermark and unsupported-query checks already integrate the seed intent; no assertion or newer change was removed."
+environment = "Verbatim job env loaded by /out/run/launchpad162-env.py; job Go 1.27.3, Foundry v1.7.1, postgres:16, redis:7 and NATS v2.11.6 recorded in /out/logs/launchpad162-environment.log. /out/run/launchpad162-fresh-db.sh recreates only the owned fixture PostgreSQL container and its four databases before every gate, per decision 2917."
+qualification = "Current final-candidate build and verification are recorded by reference to /out/run/gates.jsonl and the final hf-done evidence line; the ledger records the exact revision, command, exit and private log. No artifact edit follows successful verification."
+
+[gotcha.9]
+observed = "The PostgreSQL image temporarily accepts Unix-socket readiness probes before its entrypoint finishes creating the initial database. Fixture setup stopped before either task gate ran."
+repair = "Wait on the container TCP endpoint, which is exposed only after initdb and POSTGRES_DB creation finish; preserve a fresh PostgreSQL service before each gate."
+
+[qualification.attempt-4-build-1]
+revision = "85ae94c86eec85fb035b649ebd8d92c9cd06818a"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt-4-verify-1]
+revision = "85ae94c86eec85fb035b649ebd8d92c9cd06818a"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "42 wiring cases, the recorded header proof and all prior receipt/inventory/measurement/historical-authority cases passed; private replay fixture setup exceeded its 30-second context, the historical explorer fixture returned incomplete, and saturation primary identity admission failed."
+
+[continuation-repair.job-concurrency]
+tests = ["TestPrivateReplayAuthorizationPostgres", "TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain", "TestRepairM_1000_MeasurementRefusals"]
+producer = "internal/internaltest/containers.go documents serial package execution because the integration fixtures share service state; tests/ci/data/launchpad_go_tests.py:run_tests already invokes one package at a time. The direct declared go test ./... gate otherwise runs package processes concurrently, overlapping go-pglite, PostgreSQL migrations and real Anvil range generation on the job resources."
+repair = "Pin GOFLAGS=-p=1 in the job env and assert it in test_launchpad_go_job_provides_indexer_services. Both task gates load that exact job env. Preserve every test, provider refusal, source identity check, resource limit and timeout; serialize packages as the real job runner already does."
+
+[continuation-repair.explorer-fixture]
+test = "TestHistoricalRealRangeExplorerSuffixAndParity"
+producer = "internal/source/historical_integration_test.go:seedBlocks bulk-copies the real chain's 10000 blocks, 10001 transactions and logs for internal/source/explorer_committed.go:fetchLogs; that consumer enforces a 15-second read-only transaction over indexed Blockscout range, block-hash and log-position queries."
+repair = "Give the owned SQL fixture nonunique block-number/hash, transaction block-hash/position and log address/range/position indexes, then ANALYZE the three tables after each bulk load. Retain the full 10000-block parity workload, immutable source rows, equal-count corruption/duplicate tests, timestamp refusals and existing 15-second consumer bound."
+
+[gotcha.10]
+observed = "The direct module gate used Go's default parallel package execution even though the shared-service helper requires serial packages and the job's Python runner already executes them serially. The bulk-loaded historical explorer fixture also lacked indexes and planner statistics."
+repair = "Declare serial package scheduling in the job env, validate it in the wiring test, and index/analyze the owned explorer fixture without changing any test bound or assertion. Current repair gates remain recorded by reference to /out/run/gates.jsonl."
+
+
+[continuation-repair.replay-pool-lifetime]
+test = "TestPrivateReplayAuthorizationPostgres"
+producer = "internal/processor/replay_postgres_test.go:replayPostgres -> internal/store/canonicaltest.New; authorizedReplayFixture, PrivateOperations.Store and DatabaseOperationAuthorizer.Store all retain the one returned pgxpool.Pool for the whole case."
+repair = "Provision the isolated database and its migrated pool before starting the replay case context. Register context cancellation after pool ownership, so LIFO cleanup cancels case work before canonicaltest closes the pool and drops its database. Preserve the thirty-second context and every authorization, revocation, expiry and persisted-row assertion. Serial package execution and a freshly provisioned PostgreSQL 16 service keep other packages from consuming fixture setup time."
+
+[continuation-repair.saturation-identity]
+test = "TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain"
+producer = "internal/source/committed.go:admitIdentity compares eth_chainId=0x7d and the node-reported eth_getBlockByNumber(0x0,false).hash against CommittedOptions.GenesisHash; genuineHistoricalNode starts the actual chain-125 Anvil producer."
+repair = "Pin the validated genesis hash directly from the same node reply the admission consumes, rather than re-encoding that identity through an SDK header hash. Use it for every historical proxy source and the live source. Register proxy shutdown before source cleanup so a failure cancels and drains source requests before closing their transport. All sixteen saturated permits, forty-eight reserved live permits, the 500ms live bound and twenty-second shutdown bound remain asserted."
+
+[continuation-repair.explorer-completeness]
+test = "TestHistoricalRealRangeExplorerSuffixAndParity"
+producer = "internal/source/explorer_committed.go:fetchLogs requires indexed head >= the inclusive range, a contiguous canonical block sequence, contiguous transaction positions and complete epoch-filtered log rows within its existing fifteen-second read-only transaction."
+repair = "Retain the carried real-chain generator and nonunique explorer indexes/statistics; additionally require CopyFrom to report every generated block, transaction and log row. The fixture seeds 1..100 for the explorer/RPC suffix check and then 101..10000 for admission. The parity comparison and admission retain every original completeness and corruption assertion."
+
+[continuation-repair.make-flags]
+test = "test_launchpad_all_test_modes_use_package_baseline"
+producer = "services/launchpad/Makefile:test, race and cover pass GOFLAGS into tests/ci/data/launchpad_go_tests.py; the workflow now supplies -p=1."
+repair = "Assert the exact runner, flags, coverage manifest and absence of direct go test recipes for both explicitly empty GOFLAGS and the job's -p=1. Pass each value as a Make command-line assignment so the inherited environment cannot change the scenario."
+
+[continuation.attempt-5]
+base_revision = "eb14231acb56903efeabea4385e375d7726f7442"
+environment = "Load the launchpad-go-test env verbatim using /out/run/launchpad162-env.py; use Go 1.27.3, Foundry v1.7.1, PostgreSQL 16, Redis 7 and NATS 2.11.6. Reproduce fresh fixture databases and test roles before each gate using /out/run/launchpad162-fresh-db.sh."
+qualification = "Build and verification evidence is recorded by reference to the current /out/run/gates.jsonl and the final hf-done line, with exact candidate revision, command, exit and private log; earlier attempt evidence remains historical."
+
+
+[qualification.attempt-5-build-1]
+revision = "8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt-5-verify-1]
+revision = "8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 42 wiring cases and the entire processor package passed; no failure in any of the three attempt-5 continuation cases; native capture/current-manifest identity conflicts, the retired runtime hash in the runtime-options test and M997 source transport/capacity cases remain."
+
+[continuation-repair.current-surface-identity]
+test = "TestReceiptOptionsBindPrecompile"
+producer = "cf4c67eeb4e2c1bce239719fc2cd755568d03d39 (Issue 1625): sdk/launchpad/shared/config/deployment/current.json and attest_surface_test.go bind modules/launchpad/keeper/market.go:SurfaceRuntime to 0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993."
+repair = "Update the consumer test's exact expected surface runtime hash to the landed guarded keeper producer. Keep the exact per-epoch hash equality, native precompile, discovery, registry and catalog assertions."
+
+[finding.native-capture-current-manifest]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+symbol = "repair53InputsFromProducer"
+observed = "At revision 8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo exited 1 at /out/logs/verify-1.log: config M999, decode M995 and receipt Repair53 reject the capture's retired surface hashes; both capture and approved manifest are byte-for-byte unchanged from base eb14231acb56903efeabea4385e375d7726f7442."
+assumption = "The node-domain producer named by internal/receipt/repair_53.kvx:wiring.producer-transcript must issue an authentic current guarded-runtime capture before the strict current-manifest qualification can pass; recorded replies and manifest assertions remain unchanged."
+severity = "blocker"
+
+[finding.source-m997-transport]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/source/repair_m997_test.go"
+symbol = "TestRepairM_997_ArchiveCapacityBounds"
+observed = "At revision 8f7fdbed3f515fb63062ed6ca82206d8fd4ec3b8, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo exited 1 at /out/logs/verify-1.log: unchanged M997 archive capacity admits 21/24 and 33/96 requests, followed by identity timeouts in quarantine/recovery/incident cases and an RPC timeout in mixed-source selection."
+assumption = "The existing source transport/capacity failures are recorded without changing their bounds, fixtures or checks; the named saturation, explorer parity and replay continuation cases produced no failure."
+severity = "suspect"
+
+[gotcha.11]
+observed = "The job's inherited GOFLAGS=-p=1 changed the Make dry-run text that an existing wiring test expected to contain empty flags."
+repair = "Exercise both explicit empty and serial-package Make flag inputs, retaining every runner and coverage assertion."
+
+[gotcha.12]
+observed = "The new base carries the guarded current surface manifest from cf4c67eeb4 but retains the previous native/tenant producer capture and the old runtime-options test constant."
+repair = "Follow the landed producer for the exact runtime-options expectation, record the missing authentic refreshed capture as a blocker, and preserve all immutable replies and manifest-admission checks. Final bounded-gate evidence remains by reference to /out/run/gates.jsonl and the final hf-done line."
+
+
+[continuation.attempt-6]
+base_revision = "f738d3da03469c5e6080322b26260492a1879014"
+producer_revision = "dd3266dd91780417a402bd3af3d1bffe103c16fb"
+producer = "Task 22.39.242 re-recorded internal/receipt/testdata/repair53-producer.json Options.Manifest against deployment.Current(); its landed packet supersedes finding.native-capture-current-manifest. No recorded responses are rewritten by this continuation."
+source = "Decision 3090 / gotcha 3902: internal/source/historical_integration_test.go and internal/source/capacity_integration_test.go are byte-for-byte the supplied main/base files. This supersedes the earlier gas-estimation, explorer-index/completeness, capacity-skip and saturation-identity edits described above; the other attempt-5 repairs remain applied."
+environment = "The current launchpad-go-test env is loaded verbatim by /out/run/launchpad162-env.py, including GOFLAGS=-p=1; exact tools/services are recorded in /out/logs/launchpad162-environment.log. Go 1.27.3, Foundry 1.8.1, PostgreSQL 16.15, Redis 7.4.12 and NATS 2.11.6; repository contract artifacts already compiled by the sandbox setup. /out/run/launchpad162-fresh-db.sh recreates only the task-owned postgres:16 service and its four databases before each gate."
+source_diagnostic_command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v ./internal/source'"
+source_diagnostic_exit = 1
+source_diagnostic_log = "/out/logs/launchpad162-source-main.log"
+qualification = "The final build and verification refer to /out/run/gates.jsonl, whose rows and hf-done final line record exact revision, command, exit and private log. Source failures on the unchanged main files are recorded below rather than repaired, per do_9; no completion is claimed without the declared verification evidence."
+
+[finding.attempt-6-historical-range-main]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/source/historical_integration_test.go"
+symbol = "TestHistoricalRealRangeExplorerSuffixAndParity"
+observed = "At base revision f738d3da03469c5e6080322b26260492a1879014 with both source files restored exactly, python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v ./internal/source' exited 1 at /out/logs/launchpad162-source-main.log: top-level case, no subtest, line 247 reports 10000 real logs/100 headers: {BlocksFetched:101 EmptyRanges:1 RangeBisections:0 ReceiptFallbacks:1 CacheHits:102 HeaderFetches:101 ReadaheadHits:0 BloomSkipped:0} <nil>."
+assumption = "Decision 3090 requires retaining this main case and recording its failure instead of changing its generator, assertions or bounds."
+severity = "blocker"
+
+[finding.attempt-6-capacity-main]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/source/capacity_integration_test.go"
+symbol = "TestSourceCapacityCandidate"
+observed = "At base revision f738d3da03469c5e6080322b26260492a1879014 with both source files restored exactly, python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v ./internal/source' exited 1 at /out/logs/launchpad162-source-main.log: top-level case, no subtest, line 31 reports bound actual owned source capacity configuration required."
+assumption = "The exact job provides neither KINDLE_SOURCE_CAPACITY_CONFIG nor KINDLE_SOURCE_CAPACITY_CONFIG_SHA256; decision 3090 requires recording the missing external approval artifact without changing or skipping the case."
+severity = "blocker"
+
+[gotcha.13]
+observed = "The continuation sandbox initially supplied Go 1.25.8, Foundry 1.9.0, PostgreSQL 18 and NATS 2.12.2, with no Redis service; foundryup refuses installation while the bootstrap Anvil is running."
+repair = "Stop only the bootstrap authorization Anvil and fixture PostgreSQL, install the current workflow Foundry 1.8.1 and NATS 2.11.6, load Go 1.27.3 and the workflow env, and provision task-owned postgres:16 and redis:7 services. Restart the chain-125 authorization Anvil with the workflow flags. Keep helper scripts and raw evidence under /out rather than changing out-of-scope files."
+
+
+[continuation-repair.current-job-wiring]
+test = "test_launchpad_workflow_has_go_job"
+producer = "4b7dca0ea426856cfb3ef451a6106816a525f333 routes the launchpad workflow through the configured CI_LINUX_RUNNER with ubuntu-24.04 for forks and as the default; 4ebef88a75a53a1ba5de541fb37b50252f9af8ca pins Foundry v1.8.1 in .github/workflows/launchpad-test.yml."
+repair = "Update the exact runner-expression and exact Foundry version assertions to those landed workflow producers. Retain strict equality, fork isolation, runner fallback, the pinned action hash, disabled cache and all service, ordering and no-allowed-failure assertions."
+
+[qualification.attempt-6-build-1]
+revision = "6977cff1a217b9876b1d6e74a6d3ce317ec409f6"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt-6-verify-1]
+revision = "6977cff1a217b9876b1d6e74a6d3ce317ec409f6"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "41 wiring cases passed; test_launchpad_workflow_has_go_job retained ubuntu-latest while the current workflow routes to CI_LINUX_RUNNER or ubuntu-24.04. The chained Go module verification did not run."
+
+[gotcha.14]
+observed = "The carried wiring test still expected ubuntu-latest and Foundry v1.7.1 after the landed workflow adopted its routed runner and Foundry v1.8.1."
+repair = "Follow both exact current workflow declarations in the in-scope wiring test, then rebuild and verify the same repaired candidate under a fresh fixture database; the final result remains owned by /out/run/gates.jsonl and the final hf-done line."
+
+[continuation.attempt-7]
+base_revision = "1b4b14bd3e449bf17efde908668114ea8601fd23"
+producer_revision = "0910d66dc54ef25285f7760736826591130409b5"
+producer = "Task 22.39.328 is already merged into the supplied main base. Preserve its current reviewed catalogue, historical reviewed-a35ff7c6f532d2f9.json, recorded packet and the config/decode/receipt comparison helpers unchanged."
+environment = "Load launchpad-go-test env verbatim using /out/run/launchpad162-env.py; /out/logs/launchpad162-environment.log records Go 1.27.3, Foundry 1.8.1, PostgreSQL 16.15, Redis 7.4.12, NATS 2.11.6 and chain 125. Contracts were compiled by sandbox setup. /out/run/launchpad162-fresh-db.sh recreates only the task-owned PostgreSQL 16 service and job databases before every gate."
+qualification = "The declared full-module verification executes the sixteen digest-regression cases together with all four acceptance cases; no separate test campaign precedes it. Build and verification are recorded by reference to /out/run/gates.jsonl, /out/logs/build-1.log and /out/logs/verify-1.log (or their bounded repair successors). The final hf-done evidence line supplies the exact revision, command, exit and private log; no artifact edit follows a passing verification."
+
+[continuation-repair.catalogue-generation]
+producer = "0910d66dc54ef25285f7760736826591130409b5 introduces sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json and binds reviewed.json to deployment.Current().SourceManifestSHA256. internal/runtimedocs/runtimedocs.go:TrimCatalog requires exact catalogue/manifest digest equality."
+repair = "Bind renderInputs, repair55Options, realReceiptInputs, repair54ReceiptInputs, repair56RPCSetup and TestHistoricalEmitterEpochsCatalogAdmission to that landed historical catalogue, matching their Approved(32226215) manifest. repairM1000NativeFeeFlow explicitly loads the current catalogue when it replaces its manifest with deployment.Current(). Keep exact catalogue binding, source receipts and historical/current identity checks. The config/decode/receipt comparison helpers remain unchanged."
+tests = ["TestRenderedProductionDocumentsBoot", "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds", "TestRepair_55_ReceiptHintsRejectTampering", "TestQualifiedProductionIngestionRealMarketPostgres", "TestRepair_54_RecordedLiveQualification", "TestRepair54Postgres_AmbiguousCommitLiveRecovery", "TestRepair_54_AmbiguousCommitLiveRecovery", "TestAirdropNativeFeeFlowQualified", "TestRepairM_1000_NativeFeeFlow", "TestRepair_56_ExplorerDynamicDiscoveries", "TestRepair_56_DiscoveryEpochBounds", "TestRepair56Postgres_ExplorerDynamicDiscoveries", "TestRepair56Postgres_DiscoveryEpochBounds", "TestHistoricalEmitterEpochsCatalogAdmission"]
+
+[continuation-repair.capacity-admission]
+producer = "internal/source/capacity_integration_test.go:TestSourceCapacityCandidate consumes the external operator-approved CapacityOptions artifact, which the repository cannot generate; do_10 explicitly permits the absent-variable skip."
+repair = "Skip only when KINDLE_SOURCE_CAPACITY_CONFIG is empty, naming that exact variable. A supplied path retains every absolute-path, SHA256, regular-file, size, JSON, runtime, provider and capacity assertion, including failure when KINDLE_SOURCE_CAPACITY_CONFIG_SHA256 is absent or malformed. The wiring suite does not count environment-dependent skips."
+
+[continuation-repair.historical-range-producer]
+producer = "contracts/launchpad/contracts/base/ERC20Base.sol:_transfer checkpoints both accounts; internal/source/historical_integration_test.go generates the real 10000 transfer logs on Anvil. internal/source/committed.go:prefetchBlocks fetches each range height once; batchBlock reuses the prefetched blocks."
+repair = "Replace the retired 80000 transaction gas value with eth_estimateGas from the compiled producer and assert the final signed transfer receipt of each mined block succeeds with one log. Log each operand of the unchanged range assertion once: error, log count, before/after/delta header fetches and transaction origins. The previous 101 metric was cumulative after the earlier one-block receipt fallback; the 2..101 range still requires at most 100 additional header requests. No header budget or committed source identity is changed."
+explorer = "Seed the real explorer with nonunique indexes on block number/hash, transaction block-hash/position and log address/range/position. Assert every CopyFrom row count and ANALYZE after each seed. This supplies the indexed fixture read path consumed by explorer_committed.go:fetchLogs within its unchanged fifteen-second repeatable-read bound. Keep full 10000-block parity admission, corruption, duplication, timestamps and source identity assertions."
+
+[gotcha.15]
+observed = "The current reviewed catalogue now binds 6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b while historical fixtures at activation 32226215 require a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a."
+repair = "Select the separately landed historical catalogue at historical fixture producers and explicitly restore the current catalogue when a producer switches to the current manifest; preserve the strict consumer rule."
+
+[qualification.attempt-7-build-1]
+revision = "9f2fc6e31e03c1d660e99b47a322130897d5d791"
+command = "anvil --version > /dev/null && cd services/launchpad/indexer && go vet ./..."
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt-7-verify-1]
+revision = "9f2fc6e31e03c1d660e99b47a322130897d5d791"
+command = "cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 42 wiring cases and the complete app, chainreader, httpapi and processor packages pass. The historical range/parity and saturation source cases produce no failure. Five receipt cases reject re-recorded historical header provenance; the carried precompile constant conflicts with the installed runtime; unchanged M997 transport/capacity cases reproduce their recorded failures."
+
+[continuation-repair.historical-provenance-codecs]
+producer = "dd3266dd91780417a402bd3af3d1bffe103c16fb (22.39.242), retained by 0910d66dc54ef25285f7760736826591130409b5 (22.39.328), re-recorded the historical creation in internal/receipt/testdata/repair53-producer.json using Geth 1.17.4's blockAccessListHash JSON field. The original durable creation under pnl-tracker/internal/production/l16/testdata/indexer_real_market/creation.json uses Geth 1.17.3's balHash field."
+proof = "Both immutable producer records name block 33963716 and have identical deploymentId, abiRevision, emitterCodeEpoch, poolCodeEpoch and receiptSHA256. Only headerSHA256 differs: 1b7f1e594d0e4acb937e4e4d368eff29440fd385c27a49f0bb932c83bccbb6ae for 1.17.3 and 472cabba2d256eff4f23f613e5b9e48164ff1e01edac2e55ec864abf73d4bb2c for 1.17.4."
+repair = "Freeze both explicitly named header codecs in provenanceHeaderDigestForCodec. Keep new provenance issuance on the established original codec. verifyHistoricalProvenance recomputes both full-header digests, identifies the recorded producer encoding by exact digest, refuses an unknown digest, and compares every provenance field exactly. No recorded response, catalogue or comparison helper changes."
+tests = ["TestHistoricalProvenanceRecordedCodecs", "TestProvenanceHeaderDigestRecordedCreation", "TestRepairM_999_ReceiptQualifiedBackfill", "TestRepairM_995_NativeReceiptAttribution", "TestRepair_53_native_swap_qualification", "TestRepair_53_tenant_transaction_qualification", "TestRepair_53_approved_history_rehydration"]
+regression = "TestHistoricalProvenanceRecordedCodecs consumes each immutable producer proof through the real recorded RPC authority and Rehydrate path, reopens the authority and proves recovery, then refuses independent changes to deployment, ABI, emitter epoch, pool epoch, receipt digest and header digest for each codec. Existing header-value mutation checks and all original refusal assertions remain."
+
+[continuation-repair.installed-surface-runtime]
+producer = "8863f01e6be0db97c4ad2c53f2d9bb745eaea56c (22.39.295) restores sdk/launchpad/shared/config/deployment/current.json and attest_surface_test.go to installed runtime 0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f; guarded e67f4b12 is staged."
+repair = "Restore the exact TestReceiptOptionsBindPrecompile constant to the installed producer. The earlier attempt's e67f4b12 change is superseded by the landed deployment decision. Keep every per-epoch runtime equality and precompile, registry, discovery and catalogue assertion."
+
+[finding.attempt-7-recorded-source-transport]
+task = "22.39.162"
+file = "services/launchpad/indexer/internal/source/repair_m997_test.go"
+symbol = "TestRepairM_997_ArchiveCapacityBounds; TestRepairM_997_RecoveryRotationAndDeadline; TestRepairM_997_AuthorizedIncidentSelection; TestRepairM_997_MixedRPCSourceSelection"
+observed = "Revision 9f2fc6e31e03c1d660e99b47a322130897d5d791, cg spec done 22.39.162 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log reproduces finding.source-m997-transport: capacity subtests concurrency_0 and concurrency_96 admit 29/48 and 31/96 requests, concurrency_24 and recovery/incident report source pool: identity, and mixed rpc reports an eth_getLogs timeout."
+assumption = "These unchanged previously recorded transport/capacity failures are not investigated or repaired; the required final full-module gate necessarily includes their cases."
+severity = "suspect"
+
+[gotcha.16]
+observed = "The refreshed native producer packet carries a Geth 1.17.4 historical header digest while the original durable inventory retains 1.17.3, and the carried runtime expectation predates the installed-versus-staged identity decision."
+repair = "Verify historical receipts under the explicitly recorded header codec with every provenance field still exact, and follow 8863f01e6b for the installed surface hash. The final bounded repair build/verification remain referenced by /out/run/gates.jsonl and the final hf-done evidence line."
+
+[gotcha.17]
+observed = "A read-only producer comparison initially addressed the original creation's provenance key with Go field casing instead of its JSON casing."
+repair = "Read the lowercase provenance JSON key; confirm the immutable producer records differ only in headerSHA256 before implementing codec-aware verification."
+
+
+[continuation.attempt-8]
+base_revision = "1da5e223456fd00d43f3d35ec1c3a8fefe5cf326"
+source_revision = "e2f14a479b6246fba568a2f845509b0dc1cf2f3c"
+merge = "Preserve the current workflow env (including GOFLAGS=-timeout=15m and malware scanner variables), runner/fallback checks and parameterized Make checks. Preserve all 113 current non-indexer baseline entries byte-for-byte as JSON values; retire exactly the 33 indexer entries and retain every wiring case name. No ranking or other retired entry is restored from the seed."
+environment = "Verbatim launchpad-go-test env loaded by /out/run/launchpad162-env.py. /out/logs/launchpad162-environment.log records Go 1.27.3, Foundry 1.8.1, PostgreSQL 16.15, Redis 7.4.12, the NATS 2.11.6 three-node cluster and the chain-125 authorization node. /out/run/launchpad162-fresh-db.sh recreates the task-owned PostgreSQL 16 service and four job databases before each gate."
+qualification = "Final build and verification are recorded by reference to /out/run/gates.jsonl and the last hf-done JSON line, with exact candidate revision, command, exit and private log. These references identify this continuation's results; earlier qualification records remain historical. No artifact edit follows passing verification."
+
+[diagnostic.attempt-8-m997-alone]
+base_revision = "1da5e223456fd00d43f3d35ec1c3a8fefe5cf326"
+source_revision = "e2f14a479b6246fba568a2f845509b0dc1cf2f3c"
+command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -run TestRepairM_997_ ./internal/source/'"
+exit = 0
+log = "/out/logs/launchpad162-m997-alone.log"
+observed = "All M997 cases pass alone in 0.537s; source files are unchanged from the carried source_revision."
+
+[diagnostic.attempt-8-historical-m997]
+base_revision = "1da5e223456fd00d43f3d35ec1c3a8fefe5cf326"
+source_revision = "e2f14a479b6246fba568a2f845509b0dc1cf2f3c"
+command = "python3 /out/run/launchpad162-env.py bash -c 'cd services/launchpad/indexer && go test -count=1 -v -run \"TestHistorical|TestCommittedAdversarialRecoveryGenuineChain|TestRepairM_997_\" ./internal/source/'"
+exit = 1
+log = "/out/logs/launchpad162-historical-m997.log"
+observed = "Historical real-range/parity, adversarial recovery and saturation/shutdown pass; M997 then fails archive concurrency_24 and concurrency_96, quarantine/rejoin, rotation/deadline, incident selection and mixed RPC selection/rpc. Incident selection exposes a loopback TCP dial timeout. Source files are unchanged from source_revision; historical and M997 file blobs are b0462878f5848eb977a0a5136fbf5969c7995de2 and 8c7c9ec6343fbdcb52ca8687b4a480de326b1b84."
+
+[continuation-repair.historical-proxy-transport]
+producer = "internal/source/historical_integration_test.go:TestHistoricalRealRangeExplorerSuffixAndParity forwards CommittedSource.prefetchBlocks requests concurrently to genuineHistoricalNode through an HTTP proxy. The inherited http.DefaultTransport retains only two idle upstream connections per host, while the source admits twelve parallel header reads per primary."
+proof = "The two ordered diagnostics above reproduce decision 3205. After the combined run, nf_conntrack_count is 1690 against nf_conntrack_max=2048, and dmesg reports nf_conntrack: table full, dropping packet (/out/logs/launchpad162-connection-tracking.log). The retained kernel connection state explains loopback dial timeouts despite drained source counters. The large historical proxy churns upstream connections through the shared default transport; no source permit or Anvil process survives its cleanup."
+repair = "historicalHTTPClient owns a cloned transport for each historical proxy, with idle and active connection limits equal to the existing process permit capacity (64), and a fifteen-second client bound. Reuse upstream connections for the full parallel header workload and close each pool explicitly. Adversarial and saturation proxies also use owned pools. Register proxy cleanup before source cleanup so cancellation and draining precede proxy shutdown on every test exit. Keep all M997 cases, all original deadlines and capacity bounds, and the existing live/shutdown/drain assertions unchanged."
+
+[gotcha.18]
+observed = "The seed's GOFLAGS=-p=1 conflicts with the landed remaining-module workflow's GOFLAGS=-timeout=15m, while its baseline conflict would restore already-retired ranking entries."
+repair = "Keep the current side of all three conflicted files and integrate only the seed's indexer retirement, fixture-prerequisite and repair-record assertions; the baseline count becomes 113."
+
+[gotcha.19]
+observed = "The historical proxy's default two-idle-connection HTTP pool churns connections until the sandbox's 2048-entry connection-tracking table drops packets, making subsequent M997 loopback admissions time out."
+repair = "Give all historical proxies dedicated reusable pools sized to the existing process capacity and explicit cleanup; retain every identity, concurrency and deadline assertion."

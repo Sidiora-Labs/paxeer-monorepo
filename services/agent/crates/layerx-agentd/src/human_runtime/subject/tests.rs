@@ -202,7 +202,7 @@ fn exact_signed_queue_is_partitioned_before_transmission_and_restores_independen
                 .or_default()
                 .enqueue_with_origin(
                     &mut store,
-                    must(TenantId::new(peer.tenant.clone())),
+                    &must(TenantId::new(peer.tenant.clone())),
                     submission.idempotency_key(),
                     submission.clone(),
                     None,

@@ -1,0 +1,60 @@
+[repair.22.39.327]
+criterion = "22998.1"
+base_revision = "58b13adf38b27ead85e97d36ab93c545d1b59cae"
+verified_revision = "The exact candidate revision is recorded by hf-done in the private gate ledger /out/run/gates.jsonl and /out/logs/verify-2.log; this source record does not claim qualification."
+baseline = "Not run: the explicit gate order prohibits testing before the complete implementation and running the verification by hand before hf-done; no earlier build or verification ledger exists."
+build_command = "go build ./sdk/baseapp/... && go test -count=1 -run '^$' ./sdk/baseapp/"
+verify_command = "test -s sdk/baseapp/repair_22_39_327.kvx && go test -count=1 -timeout 30m ./sdk/baseapp/"
+
+[case.TestQuery]
+first_error = "Recorded by gotcha 4098 at f738d3da0346, deliver_tx_test.go:323: expected goodbye, received nil."
+cause = "The legacy rootmulti fixture refuses the versioned query after commit with ErrVersionedStateUnsupported."
+repair = "Use setupBaseAppWithVersionedState with real storev2 commitment and historical state storage through the existing fixture builder; assert publication by the historical writer before checking query results."
+assertions = "Preserve every check, delivery and commit assertion; commit a different second value and assert exact state for heights 1, 2 and latest."
+
+[case.TestGRPCQuery]
+first_error = "Recorded by gotcha 4098 at f738d3da0346, deliver_tx_test.go:353: code 18, failed to load state at height 1, legacy rootmulti versioned state is unsupported."
+cause = "The gRPC context requests committed state from the legacy rootmulti fixture."
+repair = "Use setupBaseAppWithVersionedState; preserve response code, protobuf decoding and greeting assertions."
+assertions = "After committing height 2, also route requests at explicit heights 1 and 2 and assert response heights, successful decoding and the exact greeting."
+
+[case.TestBaseAppCreateQueryContext]
+first_error = "Recorded by gotcha 4098 at f738d3da0346, abci_test.go:166, valid_height: failed to load state at height 2, legacy rootmulti versioned state is unsupported."
+cause = "The valid-height context uses a directly constructed application with the legacy rootmulti store."
+repair = "Use the package fixture with storev2 before mounting and loading stores; retain valid-proof, future-height and negative-height checks."
+assertions = "Write different real values in blocks 1 and 2; assert historical and latest context heights and values as well as the original valid-height context."
+
+[case.TestLoadVersionPruning]
+first_error = "Static inspection at the base revision: the first CacheMultiStoreWithVersion(1) necessarily returns ErrVersionedStateUnsupported from sdk/store/rootmulti/store.go. No baseline execution is claimed."
+cause = "This additional height-read case constructs legacy rootmulti both before its seven commits and on reload."
+repair = "Install storev2 before applying pruning options, retain all version-load assertions, close the original application and reopen the same persistent store directory with a fresh metadata DB."
+assertions = "Preserve initial empty commit, all seven requested version loads, latest height and commit version after reopening."
+
+[case.TestInitChainer]
+first_error = "At b76fa7e98aff7d5edb2f022f290ffef2f12d2ab8, cg spec done 22.39.327 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: deliver_tx_test.go:1276 expected goodbye, received nil."
+cause = "The genesis and reload case also makes a versioned store query using legacy rootmulti."
+repair = "Install the real versioned test store before mounting; assert historical writer publication, close and reopen the same directory and preserve every genesis, chain ID, hash, reload and query assertion."
+
+[qualification.first-pass]
+revision = "b76fa7e98aff7d5edb2f022f290ffef2f12d2ab8"
+command = "cg spec done 22.39.327 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestQuery at deliver_tx_test.go:346 expected second commit but received goodbye; TestBaseAppCreateQueryContext/valid_height and /latest_height at abci_test.go:175 expected two but received one; TestInitChainer at deliver_tx_test.go:1276 expected goodbye but received nil."
+repair = "The unbuffered Pebble historical writer still runs asynchronously, so assert the exact committed value is published within five seconds before all unchanged query assertions; migrate TestInitChainer to storev2."
+
+[finding.snapshot-cleanup]
+revision = "b76fa7e98aff7d5edb2f022f290ffef2f12d2ab8"
+command = "cg spec done 22.39.327 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Unchanged TestApplySnapshotChunk emitted Pebble background errors after its temporary state-store directory was removed; no snapshot test assertion was reported failed."
+assumption = "Snapshot resource cleanup is a separate pre-existing fixture issue and is not changed or investigated by this repair."
+
+[gotcha.gate-order-and-scope]
+observed = "The task steps request a baseline run, but the explicit order permits only post-implementation hf-build and hf-done; root workflow ledger edits are outside the user scope."
+action = "Retain case causes and repair evidence pointers in this in-scope record; use only the declared bounded gates and let the runner publish."
+
+[gotcha.fixture-edit-target]
+observed = "TestWithRouter and TestQuery contain identical fixture-construction statements, so a context-free replacement initially selected the earlier test."
+action = "Restore TestWithRouter unchanged and anchor the versioned fixture edit to TestQuery before formatting or qualification."

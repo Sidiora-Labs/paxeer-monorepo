@@ -32,6 +32,21 @@ pub const METADATA_COOLDOWN: u64 = 8;
 pub const WORKER_RECORD_BYTES: usize = 298;
 pub const WORKER_TABLE_MAX_BYTES: usize = 1 + MAX_WORKERS * WORKER_RECORD_BYTES;
 pub const RESERVED_UNAVAILABLE: u16 = 0x0208;
+
+// Role checks need the owners of committed worker records, not their metadata
+// and replay histories. Enrollment and updates validate each complete record.
+pub(crate) fn committed_has_owner(input: &[u8], owner: PrincipalId) -> CodecResult<bool> {
+    if input.is_empty() {
+        return Ok(false);
+    }
+    let count = usize::from(input[0]);
+    if count > MAX_WORKERS || input.len() != 1 + count * WORKER_RECORD_BYTES {
+        return Err(NON_CANONICAL);
+    }
+    Ok(input[1..]
+        .chunks_exact(WORKER_RECORD_BYTES)
+        .any(|record| &record[32..64] == owner.as_bytes()))
+}
 /// Minimum `control_scratch` length accepted by [`apply`]: one identity section payload
 /// (worker table followed by the F03 evaluator region) plus one control payload.
 pub const CONTROL_SCRATCH_BYTES: usize =
@@ -198,6 +213,185 @@ pub struct WorkerTable {
     records: [Option<WorkerCurrent>; MAX_WORKERS],
     count: usize,
 }
+
+/// Fields the epoch boundary consumes from the committed F02 table. Replay
+/// receipts and metadata revision journals are carried without decoding them.
+#[derive(Clone, Copy)]
+pub(crate) struct OpeningWorker {
+    pub owner: PrincipalId,
+    pub delegate: PublicKey32,
+    pub metadata: MetadataDigest,
+    pub generation: u64,
+    pub key_version: u64,
+    pub expiry: u64,
+    pub effective_epoch: u64,
+    pub state: WorkerState,
+    pub slot: u8,
+}
+pub(crate) struct OpeningWorkers<'a> {
+    bytes: &'a [u8],
+}
+impl<'a> OpeningWorkers<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn read(bytes: &'a [u8]) -> CodecResult<Self> {
+        if bytes.is_empty() {
+            return Ok(Self { bytes });
+        }
+        let count = usize::from(*bytes.guest_index(0));
+        if count > MAX_WORKERS {
+            return Err(CAPACITY);
+        }
+        if bytes.len() != 1 + count * WORKER_RECORD_BYTES {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            bytes: bytes.guest_index(1..),
+        })
+    }
+    pub(crate) fn ordered(&self) -> OpeningCursor<'_> {
+        OpeningCursor {
+            bytes: self.bytes,
+            at: core::cell::Cell::new(0),
+        }
+    }
+}
+pub(crate) struct OpeningCursor<'a> {
+    bytes: &'a [u8],
+    at: core::cell::Cell<usize>,
+}
+impl OpeningCursor<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn get(&self, worker: WorkerId) -> CodecResult<Option<OpeningWorker>> {
+        let count = self.bytes.len() / WORKER_RECORD_BYTES;
+        let mut at = self.at.get().min(count);
+        if at > 0
+            && self
+                .bytes
+                .guest_index((at - 1) * WORKER_RECORD_BYTES..(at - 1) * WORKER_RECORD_BYTES + 32)
+                >= worker.as_bytes().as_slice()
+        {
+            at = 0;
+        }
+        while at < count {
+            let bytes = self
+                .bytes
+                .guest_index(at * WORKER_RECORD_BYTES..(at + 1) * WORKER_RECORD_BYTES);
+            let id = bytes.guest_index(..32);
+            let order = id.cmp(worker.as_bytes().as_slice());
+            if order != core::cmp::Ordering::Less {
+                self.at.set(at);
+                if order == core::cmp::Ordering::Equal {
+                    return Ok(Some(Self::projection(self.bytes, at, bytes)?));
+                }
+                return Ok(None);
+            }
+            at += 1;
+        }
+        self.at.set(at);
+        Ok(None)
+    }
+    #[inline(always)]
+    fn projection(table: &[u8], at: usize, bytes: &[u8]) -> CodecResult<OpeningWorker> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::guest_cell::{Cached, GuestCell};
+            static PROJECTED: GuestCell<
+                Cached<(&'static [u8], [Option<OpeningWorker>; MAX_WORKERS])>,
+            > = GuestCell::new(Cached::Empty);
+            let mut cache = PROJECTED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if matches!(*cache, Cached::Empty) {
+                if let Some(frozen) = crate::state::current_slice(table) {
+                    *cache = Cached::Value((frozen, [None; MAX_WORKERS]));
+                }
+            }
+            let destination = match &mut *cache {
+                Cached::Value((input, records)) if core::ptr::eq(*input, table) => {
+                    Some(records.get_mut(at).ok_or(NON_CANONICAL)?)
+                }
+                _ => None,
+            };
+            if let Some(Some(record)) = destination {
+                return Ok(*record);
+            }
+            let parsed = Self::read_projection(bytes)?;
+            if let Some(destination) = destination {
+                *destination = Some(parsed);
+            }
+            return Ok(parsed);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = (table, at);
+            Self::read_projection(bytes)
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read_projection(bytes: &[u8]) -> CodecResult<OpeningWorker> {
+        let mut r = Reader::new(bytes);
+        // The lookup already holds the identity; validate its bytes without
+        // constructing a second owned copy in the opening projection.
+        r.checked_identity()?;
+        let owner = r.principal_id()?;
+        let delegate = PublicKey32(r.fixed()?);
+        let metadata = r.metadata_digest()?;
+        let generation = r.u64()?;
+        let key_version = r.u64()?;
+        r.take(16)?;
+        let expiry = r.u64()?;
+        r.take(8)?;
+        let effective_epoch = r.u64()?;
+        r.take(8 + 96)?;
+        let state = WorkerState::from_u8(r.u8()?)?;
+        let slot = r.u8()?;
+        if generation == 0 || key_version == 0 || usize::from(slot) >= MAX_WORKERS {
+            return Err(NON_CANONICAL);
+        }
+        Ok(OpeningWorker {
+            owner,
+            delegate,
+            metadata,
+            generation,
+            key_version,
+            expiry,
+            effective_epoch,
+            state,
+            slot,
+        })
+    }
+}
+/// Forward reader for joins against canonical worker identities. A descending
+/// request restarts, preserving the table lookup's behavior for other callers.
+pub(crate) struct WorkerCursor<'a> {
+    table: &'a WorkerTable,
+    at: core::cell::Cell<usize>,
+}
+impl WorkerCursor<'_> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn get(&self, worker: WorkerId) -> Option<&WorkerCurrent> {
+        let entries = self.table.records.guest_index(..self.table.count);
+        let mut at = self.at.get().min(entries.len());
+        if at > 0
+            && entries
+                .guest_index(at - 1)
+                .as_ref()
+                .is_some_and(|entry| entry.worker >= worker)
+        {
+            at = 0;
+        }
+        while at < entries.len() {
+            let entry = entries.guest_index(at).as_ref()?;
+            if entry.worker >= worker {
+                self.at.set(at);
+                return (entry.worker == worker).then_some(entry);
+            }
+            at += 1;
+        }
+        self.at.set(at);
+        None
+    }
+}
+
 impl Default for WorkerTable {
     fn default() -> Self {
         Self::new()
@@ -205,6 +399,7 @@ impl Default for WorkerTable {
 }
 impl WorkerTable {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new() -> Self {
         Self {
             records: [None; MAX_WORKERS],
@@ -219,13 +414,26 @@ impl WorkerTable {
     pub const fn is_empty(&self) -> bool {
         self.count == 0
     }
+    pub(crate) fn ordered(&self) -> WorkerCursor<'_> {
+        WorkerCursor {
+            table: self,
+            at: core::cell::Cell::new(0),
+        }
+    }
     pub fn iter(&self) -> impl Iterator<Item = &WorkerCurrent> {
         self.records.guest_index(..self.count).iter().flatten()
     }
     #[must_use]
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, worker: WorkerId) -> Option<WorkerCurrent> {
-        self.iter().find(|r| r.worker == worker).copied()
+        let entries = &self.records[..self.count];
+        let index = entries
+            .partition_point(|entry| entry.as_ref().is_some_and(|entry| entry.worker < worker));
+        entries
+            .get(index)
+            .copied()
+            .flatten()
+            .filter(|entry| entry.worker == worker)
     }
     fn position(&self, worker: WorkerId) -> CodecResult<usize> {
         self.records
@@ -322,6 +530,48 @@ impl WorkerTable {
     /// Returns `CAPACITY` when the input or record count exceeds the table bound; `NON_CANONICAL` when the input is short, has trailing bytes, holds an invalid or out-of-order record; `CONFLICT` when two records share a slot.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        Self::with_decoded(input, |value| Ok(*value))
+    }
+
+    pub(crate) fn with_decoded<T>(
+        input: &[u8],
+        read: impl FnOnce(&Self) -> CodecResult<T>,
+    ) -> CodecResult<T> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut scratch = None;
+            read(Self::decoded(input, &mut scratch)?)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        read(&Self::decode_uncached(input)?)
+    }
+
+    // Keep cache lookup, initialization and strict decoding in one body for
+    // every caller; only the typed consumer remains generic.
+    #[cfg(target_arch = "wasm32")]
+    #[inline(never)]
+    fn decoded<'s>(input: &[u8], scratch: &'s mut Option<Self>) -> CodecResult<&'s Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            static DECODED: crate::guest_cell::GuestOnce<(&'static [u8], WorkerTable)> =
+                crate::guest_cell::GuestOnce::new();
+            if let Some((bytes, value)) = DECODED.get() {
+                if core::ptr::eq(*bytes, input) || crate::codec::equal_bytes(bytes, input) {
+                    return Ok(value);
+                }
+            } else if let Some(frozen) = crate::state::current_slice(input) {
+                let (_, value) = DECODED.get_or_try_init(
+                    || Ok((frozen, Self::decode_uncached(frozen)?)),
+                    NON_CANONICAL,
+                )?;
+                return Ok(value);
+            }
+        }
+        Ok(scratch.insert(Self::decode_uncached(input)?))
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(input: &[u8]) -> CodecResult<Self> {
         let mut table = Self::new();
         if input.is_empty() {
             return Ok(table);
@@ -334,6 +584,7 @@ impl WorkerTable {
         if count > MAX_WORKERS {
             return Err(CAPACITY);
         }
+        let mut slots = 0u32;
         for _ in 0..count {
             let record = WorkerCurrent::read(&mut r)?;
             if table.count > 0
@@ -344,7 +595,13 @@ impl WorkerTable {
             {
                 return Err(NON_CANONICAL);
             }
-            table.insert(&record)?;
+            let bit = 1u32 << record.slot;
+            if slots & bit != 0 {
+                return Err(CONFLICT);
+            }
+            slots |= bit;
+            table.records[table.count] = Some(record);
+            table.count += 1;
         }
         r.finish()?;
         Ok(table)

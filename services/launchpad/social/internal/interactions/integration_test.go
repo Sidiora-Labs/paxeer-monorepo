@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/google/uuid"
@@ -55,11 +57,14 @@ func connected(t *testing.T) *connectedFixture {
 	if dsn == "" || !regexp.MustCompile(`^kd_[0-9a-f]{24}$`).MatchString(schema) || canonical == "" {
 		t.Fatal("real leased L37_PHASE2_DSN, L37_PHASE2_SCHEMA and admitted L37_PHASE2_CANONICAL_SCHEMA required")
 	}
+	database := coordinatortest.Bootstrap(t, dsn, "chat_runtime")
+	dsn = database.AdminDSN
 	admin, e := pgxpool.New(ctx, dsn)
 	if e != nil {
 		t.Fatal(e)
 	}
 	t.Cleanup(admin.Close)
+	internaltest.SeedCanonicalSource(t, admin)
 	if _, e = admin.Exec(ctx, "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()); e != nil {
 		t.Fatal(e)
 	}
@@ -92,6 +97,7 @@ func connected(t *testing.T) *connectedFixture {
 		}
 		ddl := regexp.MustCompile(`(?m)^SET LOCAL search_path[^\n]*\n`).ReplaceAllString(string(raw), "")
 		ddl = strings.ReplaceAll(ddl, "chat.", pgx.Identifier{schema}.Sanitize()+".")
+		ddl = strings.ReplaceAll(ddl, `"chat".`, pgx.Identifier{schema}.Sanitize()+".")
 		if _, err = db.Exec(ctx, ddl); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
@@ -629,12 +635,16 @@ func TestConnectedAdversarialRemovalReplayAndContent(t *testing.T) {
 		if v.Action != "comment" || v.Removed || v.Revision != 1 {
 			continue
 		}
+		// Isolate an equal-revision replay: the main generation already
+		// contains later removals, which correctly supersede this revision.
+		original := payload
 		v.Body = "same revision conflicting body"
 		wire, err := json.Marshal(v)
 		mustConnected(t, err)
 		tx, err := f.db.Begin(ctx)
 		mustConnected(t, err)
-		err = ProjectPublicEvent(ctx, tx, "adversarial", delivery.Envelope{EventType: "social.comment.changed", Payload: wire})
+		mustConnected(t, ProjectPublicEvent(ctx, tx, "adversarial_conflict", delivery.Envelope{EventType: "social.comment.changed", Payload: original}))
+		err = ProjectPublicEvent(ctx, tx, "adversarial_conflict", delivery.Envelope{EventType: "social.comment.changed", Payload: wire})
 		rollback(tx)
 		if !errors.Is(err, delivery.ErrIntegrity) {
 			t.Fatalf("conflicting replay identity: %v", err)
@@ -864,6 +874,12 @@ func phase4IndexPlan(v any) bool {
 }
 
 func TestPhase4InteractionsMeasurement(t *testing.T) {
+	for _, name := range []string{"L37_PHASE4_ALLOCATION_PATH", "L37_PHASE4_ALLOCATION_SHA256", "L37_PHASE4_ARTIFACT_DIR"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	allocationPath := os.Getenv("L37_PHASE4_ALLOCATION_PATH")
 	allocationHash := os.Getenv("L37_PHASE4_ALLOCATION_SHA256")
 	dir := os.Getenv("L37_PHASE4_ARTIFACT_DIR")

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
@@ -110,16 +111,27 @@ func TestLayerXBindWrongChainIDRefused(t *testing.T) {
 	otherChain := new(big.Int).Add(k.ChainID(ctx), big.NewInt(1))
 	_, err := k.BindLayerX(ctx, evmAddress, didPublicKey, signLayerXBind(t, private, otherChain, evmAddress, 0))
 	require.ErrorIs(t, err, types.ErrLayerXSignature)
-
-	// A signature for Paxeer mainnet is refused here and accepted there.
-	mainnet := ctx.WithChainID("hyperpax_125-1")
-	require.Equal(t, int64(125), k.ChainID(mainnet).Int64())
-	signature := signLayerXBind(t, private, k.ChainID(mainnet), evmAddress, 0)
-	_, err = k.BindLayerX(ctx, evmAddress, didPublicKey, signature)
-	require.ErrorIs(t, err, types.ErrLayerXSignature)
 	require.Equal(t, uint64(0), k.GetLayerXBindNonce(ctx, evmAddress))
-	_, err = k.BindLayerX(mainnet, evmAddress, didPublicKey, signature)
-	require.NoError(t, err)
+
+	// Both Cosmos chain names use the root EVM signing domain, 125.
+	mainnet := ctx.WithChainID("hyperpax_125-1")
+	require.Equal(t, int64(125), k.ChainID(ctx).Int64())
+	require.Equal(t, int64(125), k.ChainID(mainnet).Int64())
+	foreignSignature := signLayerXBind(t, private, big.NewInt(1329), evmAddress, 0)
+	signature := signLayerXBind(t, private, big.NewInt(125), evmAddress, 0)
+	for _, network := range []sdk.Context{ctx, mainnet} {
+		isolated := network.WithMultiStore(network.MultiStore().CacheMultiStore())
+		_, err = k.BindLayerX(isolated, evmAddress, didPublicKey, foreignSignature)
+		require.ErrorIs(t, err, types.ErrLayerXSignature, network.ChainID())
+		require.Equal(t, uint64(0), k.GetLayerXBindNonce(isolated, evmAddress))
+		nonce, err := k.BindLayerX(isolated, evmAddress, didPublicKey, signature)
+		require.NoError(t, err, network.ChainID())
+		require.Zero(t, nonce)
+		require.Equal(t, uint64(1), k.GetLayerXBindNonce(isolated, evmAddress))
+		foundKey, bound := k.GetLayerXDid(isolated, evmAddress)
+		require.True(t, bound)
+		require.Equal(t, didPublicKey, foundKey)
+	}
 }
 
 func TestLayerXBindWrongAddressRefused(t *testing.T) {
@@ -269,12 +281,33 @@ func TestLayerXBindRustSignerVectors(t *testing.T) {
 		if bind.ChainID == 125 {
 			ctx = ctx.WithChainID("hyperpax_125-1")
 		}
-		require.Equal(t, bind.ChainID, k.ChainID(ctx).Uint64(), bind.Name)
+		require.Equal(t, uint64(125), k.ChainID(ctx).Uint64(), bind.Name)
 		evmAddress := common.Address(bind.EVMAddress)
 
-		message, err := types.LayerXBindMessage(k.ChainID(ctx), evmAddress, bind.Nonce)
+		// Preserve the producer's signing domain when checking its message bytes,
+		// including historical domains the current network must refuse.
+		message, err := types.LayerXBindMessage(new(big.Int).SetUint64(bind.ChainID), evmAddress, bind.Nonce)
 		require.NoError(t, err)
 		require.Equal(t, bind.Message, message, "%s: message bytes differ from the Rust signer's", bind.Name)
+		// Valid is the Rust verifier's verdict over the recorded message, which
+		// can differ from the message the current root network verifies.
+		if bind.Valid {
+			require.NoError(t, verify.Ed25519(fixture.PublicKey, bind.Signature, message), bind.Name)
+		} else {
+			require.Error(t, verify.Ed25519(fixture.PublicKey, bind.Signature, message), bind.Name)
+		}
+		rootSignature := bind.Valid && bind.ChainID == k.ChainID(ctx).Uint64()
+		if bind.Name == "signed-for-another-chain" {
+			// The producer signs this negative 713714-domain case for 125 at
+			// nonce 0. It is invalid for its recorded message, but valid on root.
+			require.False(t, bind.Valid)
+			require.Equal(t, uint64(713714), bind.ChainID)
+			require.Zero(t, bind.Nonce)
+			rootMessage, err := types.LayerXBindMessage(big.NewInt(125), evmAddress, 0)
+			require.NoError(t, err)
+			require.NoError(t, verify.Ed25519(fixture.PublicKey, bind.Signature, rootMessage), bind.Name)
+			rootSignature = true
+		}
 
 		// Reach the vector's nonce with bind and unbind pairs of another DID.
 		otherKey, otherPrivate := newLayerXDidKey(t)
@@ -288,14 +321,21 @@ func TestLayerXBindRustSignerVectors(t *testing.T) {
 		require.Equal(t, bind.Nonce, k.GetLayerXBindNonce(ctx, evmAddress), bind.Name)
 
 		_, err = k.BindLayerX(ctx, evmAddress, fixture.PublicKey, bind.Signature)
-		if bind.Valid {
+		if rootSignature {
 			require.NoError(t, err, bind.Name)
 			foundAddress, bound := k.GetEVMAddressByLayerXDid(ctx, fixture.PublicKey)
 			require.True(t, bound)
 			require.Equal(t, evmAddress, foundAddress)
-			accepted++
+			if bind.Valid {
+				accepted++
+			}
 		} else {
 			require.ErrorIs(t, err, types.ErrLayerXSignature, bind.Name)
+			require.Equal(t, bind.Nonce, k.GetLayerXBindNonce(ctx, evmAddress), bind.Name)
+			_, bound := k.GetLayerXDid(ctx, evmAddress)
+			require.False(t, bound, bind.Name)
+			_, bound = k.GetEVMAddressByLayerXDid(ctx, fixture.PublicKey)
+			require.False(t, bound, bind.Name)
 		}
 	}
 	require.GreaterOrEqual(t, accepted, 1)

@@ -21,6 +21,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/consumer"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/httpapi"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/store"
 	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -269,9 +270,22 @@ func TestRepair_70_CrossWalletCatchupAndRestart(t *testing.T) {
 	if err := f.pool.QueryRow(context.Background(), `SELECT committed_at FROM stats.canonical_multihop_checkpoints`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	metrics, err := store.New(f.pool).PlatformMetrics(context.Background(), f.expected.BlockTimestamp+1)
+	ctx := context.Background()
+	repo, err := projectionstats.NewRepository(f.pool, "stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.exec(t, repo.MigrationSQL())
+	st := store.New(f.pool)
+	if err = st.SetAccountingProjection("repair70-cross-wallet-v1"); err != nil {
+		t.Fatal(err)
+	}
+	metrics, err := st.PlatformMetrics(ctx, f.expected.BlockTimestamp+1)
 	if err != nil || metrics.CrossTokenSwaps24h != 1 {
 		t.Fatal(metrics, err)
+	}
+	if metrics.TotalTransactions24h != 0 || len(metrics.TotalFees24h) != 0 {
+		t.Fatal("route projection must not invent canonical pool fills or fees", metrics)
 	}
 	f.restart(t)
 	f.runJob(t)

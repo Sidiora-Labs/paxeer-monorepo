@@ -84,14 +84,6 @@ export interface SequencerReceipt {
 
 export interface ProtocolReceipt extends SequencerReceipt {}
 
-export interface AuthorizedReceiptBatch {
-  readonly batchId: Uint8Array;
-  readonly asset: Uint8Array;
-  readonly previousStateRoot: Uint8Array;
-  readonly resultingStateRoot: Uint8Array;
-  readonly sequencerPublicKey: Uint8Array;
-}
-
 export interface SequencerAuthorization {
   readonly sequencerId: Uint8Array;
   readonly publicKey: Uint8Array;

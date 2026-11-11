@@ -1,0 +1,38 @@
+[meta]
+task = "22.39.345"
+criterion = "22998.1"
+decisions = ["3200", "3209"]
+mode = "BUILD"
+base_revision = "00af874880f4448f88311d4ece767c58b77d7f58"
+
+[source]
+runtime = "programs/crates/layerx-programs-runtime/src/transfer.rs"
+symbols = ["bind_account_names", "decode_account_bound", "principal_payment_account"]
+record = "programs/crates/layerx-programs-runtime/repair_22_39_340.kvx"
+finding = "Version 2 binds source and destination names in leg order and recomputes the kernel endpoints and root; identity resolution requires exactly one payment account for the asset. Sets without an identity destination retain version 1 bytes."
+
+[place.site]
+file = "docs/site/docs/programs/index.md"
+section = "Calls and receipt reads"
+change = "Beside the unchanged version 1 explanation, describe identity payment-account resolution, refusal without exactly one account, the NUL-terminated version 2 domain, original authorization length and bytes, both u16-length-prefixed names per leg, bound endpoints, unchanged grant checks and version 1 preservation."
+
+[place.wiki]
+file = "docs/wiki/Programs.md"
+section = "Calls and receipt reads"
+change = "Add the same version 2 and identity-destination contract beside the unchanged version 1 encoding and account-authorization fixture description."
+
+[place.evm]
+file = "programs/porting/evm/MIGRATION.md"
+section = "ERC-20, LXT-20 and native assets"
+change = "Add the version 2 and identity-destination contract beside the unchanged version 1 verifier statement, preserving the instruction to sign as an identity."
+
+[place.fixtures]
+file = "programs/README.md"
+section = "Fuzzing, tools, and tests"
+change = "List destination-authorization-vectors.json beside account-authorization-vectors.json and describe its accepted native identity/mixed-destination evidence and roots and its noncanonical/name-binding refusal vectors."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_source = "The gate runner records the exact immutable candidate revision, command, exit code and private evidence path in /out/run/gates.jsonl and prints the authoritative evidence line; this record is part of that candidate."
+policy = "Run only the declared build and verification on the same final candidate; no tests, assertions or version 1 statements are removed or weakened. The external runner owns completion bookkeeping, commits and publication."

@@ -38,7 +38,12 @@ pub const SCRATCH_BYTES: usize = 2 * BOOK_MAX_BYTES
     + Section::SettlementClaims.payload_cap()
     + Section::PolicyLifecycle.payload_cap()
     + Section::Control.payload_cap();
-const _: () = assert!(BOOK_MAX_BYTES + 13 <= Section::SettlementClaims.payload_cap());
+/// F06 (including its overlaid payout journal), F05 current/history and F11 framing/book.
+pub const SETTLEMENT_MAX_BYTES: usize = crate::rewards::REWARD_STATE_BYTES
+    + crate::aggregation_codec::F05_MAX_BYTES
+    + state::ROOM_MARKET_FRAMING_BYTES
+    + BOOK_MAX_BYTES;
+const _: () = assert!(SETTLEMENT_MAX_BYTES <= Section::SettlementClaims.payload_cap());
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -925,7 +930,7 @@ pub fn apply_record_deal(
     let ask = book.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
     if ask.room_id != room.room_id
         || ask.model_digest != room.model_digest
-        || ask.state != AskState::Open
+        || ask.state == AskState::Closed
     {
         return Err(CONFLICT);
     }

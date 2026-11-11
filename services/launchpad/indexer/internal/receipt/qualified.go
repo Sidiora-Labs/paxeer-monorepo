@@ -18,6 +18,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -77,6 +78,90 @@ func digest(v any) ([32]byte, error) {
 	}
 	return sha256.Sum256(raw), nil
 }
+
+// provenanceHeaderDigest preserves the header encoding used by the original
+// rpc-code-epoch-v1 producer, independently of the current RPC JSON codec.
+func provenanceHeaderDigest(header *types.Header) ([32]byte, error) {
+	return provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1173)
+}
+
+type provenanceHeaderCodec uint8
+
+const (
+	provenanceHeaderGeth1173 provenanceHeaderCodec = iota
+	provenanceHeaderGeth1174
+)
+
+func provenanceHeaderDigestForCodec(header *types.Header, codec provenanceHeaderCodec) ([32]byte, error) {
+	if header == nil || (codec != provenanceHeaderGeth1173 && codec != provenanceHeaderGeth1174) {
+		return [32]byte{}, ErrQualification
+	}
+	raw, err := json.Marshal(struct {
+		ParentHash          common.Hash      `json:"parentHash"`
+		UncleHash           common.Hash      `json:"sha3Uncles"`
+		Coinbase            common.Address   `json:"miner"`
+		Root                common.Hash      `json:"stateRoot"`
+		TxHash              common.Hash      `json:"transactionsRoot"`
+		ReceiptHash         common.Hash      `json:"receiptsRoot"`
+		Bloom               types.Bloom      `json:"logsBloom"`
+		Difficulty          *hexutil.Big     `json:"difficulty"`
+		Number              *hexutil.Big     `json:"number"`
+		GasLimit            hexutil.Uint64   `json:"gasLimit"`
+		GasUsed             hexutil.Uint64   `json:"gasUsed"`
+		Time                hexutil.Uint64   `json:"timestamp"`
+		Extra               hexutil.Bytes    `json:"extraData"`
+		MixDigest           common.Hash      `json:"mixHash"`
+		Nonce               types.BlockNonce `json:"nonce"`
+		BaseFee             *hexutil.Big     `json:"baseFeePerGas"`
+		WithdrawalsHash     *common.Hash     `json:"withdrawalsRoot"`
+		BlobGasUsed         *hexutil.Uint64  `json:"blobGasUsed"`
+		ExcessBlobGas       *hexutil.Uint64  `json:"excessBlobGas"`
+		ParentBeaconRoot    *common.Hash     `json:"parentBeaconBlockRoot"`
+		RequestsHash        *common.Hash     `json:"requestsHash"`
+		BlockAccessListHash *common.Hash     `json:"balHash"`
+		SlotNumber          *hexutil.Uint64  `json:"slotNumber"`
+		Hash                common.Hash      `json:"hash"`
+	}{header.ParentHash, header.UncleHash, header.Coinbase, header.Root,
+		header.TxHash, header.ReceiptHash, header.Bloom, (*hexutil.Big)(header.Difficulty),
+		(*hexutil.Big)(header.Number), hexutil.Uint64(header.GasLimit), hexutil.Uint64(header.GasUsed),
+		hexutil.Uint64(header.Time), hexutil.Bytes(header.Extra), header.MixDigest, header.Nonce,
+		(*hexutil.Big)(header.BaseFee), header.WithdrawalsHash, (*hexutil.Uint64)(header.BlobGasUsed),
+		(*hexutil.Uint64)(header.ExcessBlobGas), header.ParentBeaconRoot, header.RequestsHash,
+		header.BlockAccessListHash, (*hexutil.Uint64)(header.SlotNumber), header.Hash()})
+	if err != nil || len(raw) > maxBundleBytes {
+		return [32]byte{}, ErrQualification
+	}
+	if codec == provenanceHeaderGeth1174 {
+		raw = bytes.Replace(raw, []byte(`"balHash":`), []byte(`"blockAccessListHash":`), 1)
+	}
+	return sha256.Sum256(raw), nil
+}
+
+// The original durable creation and the packet re-recorded by dd3266dd91
+// use these two codecs. Verify the recorded digest against the complete header
+// in its producer's encoding before comparing every other provenance field.
+func verifyHistoricalProvenance(header *types.Header, actual, recorded accounting.Provenance) error {
+	legacy, err := provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1173)
+	if err != nil || actual.HeaderSHA256 != hex.EncodeToString(legacy[:]) {
+		return ErrQualification
+	}
+	current, err := provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1174)
+	if err != nil {
+		return err
+	}
+	switch recorded.HeaderSHA256 {
+	case hex.EncodeToString(legacy[:]):
+	case hex.EncodeToString(current[:]):
+		actual.HeaderSHA256 = hex.EncodeToString(current[:])
+	default:
+		return fmt.Errorf("%w: unknown historical header provenance encoding", ErrQualification)
+	}
+	if actual != recorded {
+		return fmt.Errorf("%w: historical provenance differs", ErrQualification)
+	}
+	return nil
+}
+
 func clone[T any](v T) (T, error) {
 	var out T
 	raw, err := json.Marshal(v)
@@ -246,7 +331,10 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		}
 	}
 	receiptDigest, _ := digest(owned.Receipt)
-	headerDigest, _ := digest(owned.Header)
+	headerDigest, err := provenanceHeaderDigest(owned.Header)
+	if err != nil {
+		return nil, err
+	}
 	for i, env := range decoded {
 		if env.Family == nil || !env.Family.EconomicFill {
 			continue
