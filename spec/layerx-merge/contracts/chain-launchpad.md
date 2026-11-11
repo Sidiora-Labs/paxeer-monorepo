@@ -17,7 +17,7 @@ function resumeLaunchedChain(uint32 chain) external;
 function retireLaunchedChain(uint32 chain) external;
 function launchedChain(uint32 chain) external view returns (uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber);
 function launchedChainOfPool(address pool) external view returns (uint32 chain);
-function homeChainOf(address pool) external view returns (uint32 chain);
+function homeChainOf(address pool) external view returns (uint64 chainId);
 function chainRevenueEpoch(uint32 chain, uint64 epoch) external view returns (uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt);
 function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) external view returns (uint256 amount);
 
@@ -40,7 +40,7 @@ error AlreadyClaimed();
 
 `launchChain` creates the market for the caller with the same charges, token, pool and fee right as `createMarket`; its permit variant uses the same permit tuple and authorization as `createMarketWithPermit`. The payable value covers the registry's current minimum bond plus creation fee, separately from market charges and EVM gas. The registry validates its chain name, allowances, fee share and remaining capacity. A single cached state transition creates the market, creates the registry record and writes the binding; any refusal reverts all parts. `ChainLaunched` is emitted with the market events. The launch record remains after retirement.
 
-The registry operator is the chain's revenue account and never changes. For nonzero registry number `chain`, the account is the 20-byte `authtypes.NewModuleAddress("launchpad/chain-revenue/" + decimal(chain))`, converted to an EVM address by its 20 bytes. The decimal form has no leading zero. This distinct module account has no signing key and is separate from the launchpad module custody account, treasury, pool and token. The registry pays its operator share of base fees into that account at block end. The fee right holder controls the launched chain through the launchpad: `pauseLaunchedChain`, `resumeLaunchedChain` and `retireLaunchedChain` require the current owner of the fee right and otherwise refuse with `NotFeeRightHolder`. The registry retains governance pause authority. On retirement, the returned bond alone goes to that holder in the same transition; waiting operator fees stay in the revenue account. Open epochs remain claimable.
+The registry operator is the chain's revenue account and never changes. For nonzero registry number `chain`, the account is the 20-byte `authtypes.NewModuleAddress("launchpad_chain_revenue_" + decimal(chain))`, converted to an EVM address by its 20 bytes. The decimal form has no leading zero. This distinct module account has no signing key and is separate from the launchpad module custody account, treasury, pool and token. The registry pays its operator share of base fees into that account at block end. The fee right holder controls the launched chain through the launchpad: `pauseLaunchedChain`, `resumeLaunchedChain` and `retireLaunchedChain` require the current owner of the fee right and otherwise refuse with `NotFeeRightHolder`. The registry retains governance pause authority. On retirement, the returned bond alone goes to that holder in the same transition; waiting operator fees stay in the revenue account. Open epochs remain claimable.
 
 ## storage
 
@@ -50,20 +50,20 @@ New launchpad store prefixes hold these records and indexes; genesis export and 
 | --- | --- | --- |
 | `LaunchedChain` | registry number (`uint32`) | registry number, chain ID (`uint64`), pool, token, fee right number (`uint256` at the ABI), creator, launch block (`uint64`) |
 | `LaunchedChainOfPool` | pool address | registry number (`uint32`) |
-| `HomeChainOfPool` | pool address | registry number (`uint32`), or zero for the root network |
-| `ChainRevenueLastEpoch` | registry number (`uint32`) | latest epoch number (`uint64`) and opening time (`uint64` seconds) |
-| `ChainRevenueEpoch` | registry number (`uint32`), epoch number (`uint64`) | epoch amount, snapshot block (`uint64`), eligible supply, claimed total, claimed eligible supply, opening time (`uint64` seconds); monetary and supply values fit `uint256` |
+| `HomeChainOfPool` | pool address | derived chain ID (`uint64`), or zero for the root network |
+| `ChainRevenueLastEpoch` | registry number (`uint32`) | latest epoch number (`uint64`) |
+| `ChainRevenueEpoch` | registry number (`uint32`), epoch number (`uint64`) | epoch amount, snapshot block (`uint64`), eligible supply, claimed total, opening time (`uint64` seconds); monetary and supply values fit `uint256` |
 | `ChainRevenueClaim` | registry number (`uint32`), epoch number (`uint64`), holder address | claimed marker |
 
 ## home-chain
 
-A market records the chain of the transaction that created it. A market launched with `launchChain` instead records the new chain. Zero denotes the root network. A market with nonzero home chain accepts `buy`, `sell`, pool swaps and each leg of `swapTokenForToken` only when the ante-handler chain in the transaction context equals its home chain; other writes refuse with `WrongChain`. Reads and quotes work on every chain. A root-home market keeps the existing trading behavior on every chain. To trade on registry chain `n`, sign with chain ID `125000000 + n` and submit through `/chain/n`.
+A market records the derived chain ID of the transaction that created it. A market launched with `launchChain` instead records the derived chain ID of the new chain. Zero denotes the root network. A market with nonzero home chain accepts `buy`, `sell`, pool swaps and each leg of `swapTokenForToken` only when the ante-handler chain in the transaction context equals its home chain; other writes refuse with `WrongChain`. Reads and quotes work on every chain. A root-home market keeps the existing trading behavior on every chain. To trade on registry chain `n`, sign with chain ID `125000000 + n` and submit through `/chain/n`.
 
 ## revenue
 
 Anyone may open the next epoch after at least 3600 seconds of block time since the previous epoch's opening. The first epoch has no prior interval. `EpochTooEarly` identifies a shorter interval. `NothingToDistribute` identifies a zero PAX balance in the revenue account or zero eligible token supply. Opening moves the entire PAX balance to launchpad epoch custody, transfers every other denomination in the revenue account to the launchpad treasury, and fixes `snapshotBlock = block.number - 1`. Eligible supply is `getPastTotalSupply(snapshotBlock) - getPastBalance(pool, snapshotBlock) - getPastBalance(burnAddress, snapshotBlock)`, using the token checkpoint reads of the airdrop epochs. The burn address is `0x000000000000000000000000000000000000dEaD`.
 
-For each holder other than the pool and burn address, a claim pays `floor(epochAmount * getPastBalance(holder, snapshotBlock) / eligibleSupply)` PAX once. A zero past balance has no claim. The record marks the holder, increases claimed eligible supply by that past balance and increases claimed total by the amount paid. When claimed eligible supply reaches eligible supply, the final eligible claimant receives the remaining epoch amount, including rounding residue. `AlreadyClaimed` refuses a repeated claim. The batch call applies the same rule to each listed epoch in order, atomically; any refusal reverts the batch. Trading charges in the quote asset continue to follow the market's fee strategy. Retirement does not close revenue epochs.
+For each holder other than the pool and burn address, a claim pays `floor(epochAmount * getPastBalance(holder, snapshotBlock) / eligibleSupply)` PAX once. A zero past balance has no claim. The record marks the holder and increases claimed total by the amount paid. The keeper derives claimed eligible supply from the marked holders’ past balances. When claimed eligible supply reaches eligible supply, the final eligible claimant receives the remaining epoch amount, including rounding residue. `AlreadyClaimed` refuses a repeated claim. The batch call applies the same rule to each listed epoch in order, atomically; any refusal reverts the batch. Trading charges in the quote asset continue to follow the market's fee strategy. Retirement does not close revenue epochs.
 
 For example, an epoch of 10 PAX with eligible balances 1, 1 and 1 has eligible supply 3. The first two holders each receive 3 PAX; the final holder receives the remaining 4 PAX. The three payments equal the epoch amount.
 

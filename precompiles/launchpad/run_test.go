@@ -116,7 +116,11 @@ func roleMethod(t *testing.T, role, name string) *abi.Method {
 }
 
 func declaredBy(role, sig string) bool {
-	for _, method := range roleABIs[role].Methods {
+	parsed := roleABIs[role]
+	if role == chainLaunchRole {
+		parsed = chainLaunchABI
+	}
+	for _, method := range parsed.Methods {
 		if method.Sig == sig {
 			return true
 		}
@@ -231,9 +235,9 @@ func TestDirectCallResolution(t *testing.T) {
 	executor := e.executor
 
 	direct := executor.abi
-	require.Len(t, direct.Methods, 113)
+	require.Len(t, direct.Methods, 126)
 	roleOrder := []string{"Router", "SidioraFactory", "Quoter", "PoolRegistry", "FeesRouter", "FeeAccumulator",
-		"ProtocolConfig"}
+		"ProtocolConfig", "ChainLaunch"}
 	for _, m := range direct.Methods {
 		role, method, err := executor.resolveDirect(m.ID)
 		require.NoError(t, err, m.Sig)
@@ -249,6 +253,9 @@ func TestDirectCallResolution(t *testing.T) {
 		require.Equal(t, roleOrder[served], role, m.Sig)
 	}
 	for sig, role := range map[string]string{
+		"launchChain(string,string,uint8,address,string,uint64,uint64,uint16)": "ChainLaunch",
+		"launchedChain(uint32)":                     "ChainLaunch",
+		"chainRevenueEpoch(uint32,uint64)":          "ChainLaunch",
 		"createMarket(string,string,uint8,address)": "Router",
 		"DEFAULT_ADMIN_ROLE()":                      "Router",
 		"upgradeToAndCall(address,bytes)":           "Router",
