@@ -995,6 +995,7 @@ func New(
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
+	app.LaunchpadKeeper.SetChainRegistry(app.LayerXChainsKeeper)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
 	// The module and served spot precompiles share this stateless keeper;
@@ -2112,6 +2113,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 }
 
 func (app *App) finalizeProgramsOccupancy(ctx sdk.Context) error {
+	// Calls admit new occupancy positions before this block-end transition.
 	app.programsOccupancyDuration = 0
 	key := app.GetKey(LayerXHostStoreKey)
 	if !lxphost.ProgramsSchedulesPresent(ctx, key) {

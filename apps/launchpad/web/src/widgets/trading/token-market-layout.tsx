@@ -167,12 +167,9 @@ export default function TokenMarketLayout({ poolAddress }: { poolAddress: string
           <PremiumErrorBoundary area="Description"><DescriptionCard poolAddress={poolAddress} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Creator rewards"><CreatorRewardsCard poolAddress={poolAddress} /></PremiumErrorBoundary>
         </aside>
-        <div className="min-w-0 lg:col-start-1 lg:row-start-2 xl:col-start-2" ref={element => {
-          const tabs = element?.querySelector('section[aria-label="Coin details"]');
-          tabs?.setAttribute('aria-label', 'Market activity');
-        }}>
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2 xl:col-start-2">
           {marketPool ? (
-            <PremiumErrorBoundary area="Coin tabs"><CoinTabs poolAddress={marketPool} live={live} price={price} /></PremiumErrorBoundary>
+            <PremiumErrorBoundary area="Coin tabs"><CoinTabs poolAddress={marketPool} live={live} price={price} ariaLabel={data ? 'Market activity' : 'Coin details'} /></PremiumErrorBoundary>
           ) : <Skeleton variant="block" height={240} label="coin details" />}
         </div>
       </div>

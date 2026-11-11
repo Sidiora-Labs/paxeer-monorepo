@@ -68,6 +68,18 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 		return nil, err
 	}
 	for _, pool := range known {
+		if _, hasState := reserves[pool]; !hasState {
+			return nil, errPoolStateUnavailable
+		}
+		if _, hasFee := fees[pool]; !hasFee {
+			return nil, errPoolStateUnavailable
+		}
+	}
+	homeChains, err := o.Store.PoolHomeChains(ctx, known)
+	if err != nil {
+		return nil, err
+	}
+	for _, pool := range known {
 		row := registry[pool]
 		state, hasState := reserves[pool]
 		fee, hasFee := fees[pool]
@@ -85,6 +97,7 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 		}
 		out[pool] = poolDocument{Pool: map[string]any{
 			"chainId":                        "125",
+			"homeChain":                      homeChains[pool],
 			"poolAddress":                    row.Pool,
 			"tokenAddress":                   row.Token,
 			"creator":                        row.Creator,

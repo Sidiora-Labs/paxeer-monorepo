@@ -107,6 +107,18 @@ async function optional<T>(operation: string, load: () => Promise<T>): Promise<{
   }
 }
 
+async function optionalMetadata(token: string, deps: ResolverDeps, signal?: AbortSignal) {
+  let response: V2ContractTypes['MetadataGetResponse'];
+  try {
+    response = await deps.operations.call('IF_METADATA_GET', { path: { tokenAddress: token } }, { signal });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return { value: null, unavailable: toUnsupported('IF_METADATA_GET', error) };
+  }
+  if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
+  return { value: response, unavailable: null };
+}
+
 /**
  * Full snapshot for the coin page from served v2 routes: identity and registry
  * facts (IF_POOL_DETAIL), stats (from the detail, else IF_STATS), metadata
@@ -125,11 +137,7 @@ export async function resolvePoolSnapshot(input: string, deps: ResolverDeps, sig
         if (marketAddress(response.data.stats.poolAddress) !== pool) throw new Error('Statistics identity disagreement');
         return response;
       }),
-    optional('IF_METADATA_GET', async () => {
-      const response = await deps.operations.call('IF_METADATA_GET', { path: { tokenAddress: token } }, { signal });
-      if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
-      return response;
-    }),
+    optionalMetadata(token, deps, signal),
   ]);
   const registry = detail?.data.pool as (V2ContractTypes['Pool'] & { createdAt?: string }) | undefined;
   return {
