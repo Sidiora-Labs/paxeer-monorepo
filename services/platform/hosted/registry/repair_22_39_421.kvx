@@ -1,0 +1,111 @@
+[registry_lints]
+member = "layerx-platform-registry"
+contract = "Registry responses, public signatures, and test assertions retain their behavior."
+
+[lint.dead_code]
+files = ["src/routes.rs", "tests/repair_22_33_1470.rs", "tests/support/producer_transport.rs"]
+change = "Registry tests exercise their retained ingress, peer, and transport operations."
+
+[lint.doc_markdown]
+files = ["src/program_state.rs", "tests/repair_22_33_1468.rs"]
+change = "The documented RPC method is marked as code."
+
+[lint.expect_used]
+files = ["src/deployment.rs", "tests/retired_client_modules.rs"]
+change = "Verified header hashing handles the impossible decode branch explicitly."
+
+[lint.format_collect]
+files = ["src/committed_head_route.rs"]
+change = "Replica identity uses the shared hexadecimal encoder."
+
+[lint.items_after_test_module]
+files = ["src/routes.rs"]
+change = "Head refresh is declared before route tests."
+
+[lint.manual_let_else]
+files = ["src/committed_head_route.rs"]
+change = "Unavailable committed heads follow the existing refusal branch."
+
+[lint.manual_range_patterns]
+files = ["src/routes.rs"]
+change = "Supported profile versions use inclusive ranges."
+
+[lint.missing_errors_doc]
+files = ["src/journal.rs", "src/node_state.rs", "src/routes.rs", "tests/support/journal/chain.rs", "tests/support/journal_chain_trust/chain.rs", "tests/support/producer_tls/chain.rs", "tests/support/repair_22_31_206_chain.rs", "tests/support/repair_22_33_1468_chain.rs", "tests/support/repair_22_33_1470_chain.rs"]
+change = "Public fallible operations document their refusal conditions."
+
+[lint.needless_pass_by_value]
+files = ["src/main.rs", "src/programs_chain.rs", "src/routes.rs", "src/verified.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1470.rs"]
+change = "Internal serializers and chain calls borrow values they read."
+
+[lint.semicolon_if_nothing_returned]
+files = ["src/journal.rs", "tests/programs_chain.rs"]
+change = "Statement branches end with semicolons where they return no value."
+
+[lint.similar_names]
+files = ["src/journal.rs"]
+change = "Deployment admission and its verifier have distinct names."
+
+[lint.single_match_else]
+files = ["src/node_state.rs"]
+change = "Historical and current head branches use a direct optional value check."
+
+[lint.too_many_arguments]
+files = ["src/routes.rs"]
+change = "Interface rendering reads the verified version, interface, and head directly."
+
+[lint.too_many_lines]
+files = ["src/main.rs", "src/routes.rs", "src/verified.rs", "tests/journal.rs", "tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Registry operations and integration cases use focused functions for scanning, persistence, transport, and verification."
+
+[lint.type_complexity]
+files = ["src/verified.rs"]
+change = "Verification record collections have a named type."
+
+[lint.assigning_clones]
+files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Chain fixture fields reuse their allocated storage when copying predecessor identifiers."
+
+[lint.cast_possible_truncation]
+files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Fixture versions and encoded lengths use checked integer conversions."
+
+[lint.cast_sign_loss]
+files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Fixture heights and timestamps use checked unsigned conversions."
+
+[lint.duplicate_mod]
+files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/producer_tls.rs", "tests/repair_22_31_206.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs", "tests/support"]
+change = "Each registry integration target owns its chain and transport fixture modules."
+
+[lint.items_after_statements]
+files = ["src/main.rs"]
+change = "The registry security context assertion uses a module constant."
+
+[lint.missing_panics_doc]
+files = ["tests/support/journal/mod.rs", "tests/support/journal_chain_trust/mod.rs", "tests/support/producer_tls/mod.rs"]
+change = "Fixture constructors document the conditions under which invalid evidence is rejected."
+
+[lint.must_use_candidate]
+files = ["tests/support/journal/mod.rs", "tests/support/journal_chain_trust/mod.rs", "tests/support/producer_tls/mod.rs"]
+change = "Fixture accessors and produced values are marked for use by their callers."
+
+[lint.needless_borrow]
+files = ["tests/journal.rs", "tests/journal_chain_trust.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Fixture helpers pass existing references directly."
+
+[lint.needless_borrows_for_generic_args]
+files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_33_1470.rs"]
+change = "File operations receive their existing path references directly."
+
+[lint.redundant_closure_for_method_calls]
+files = ["tests/repair_22_31_206.rs", "tests/repair_22_33_1470.rs"]
+change = "Verified deployment ordering uses the version method directly."
+
+[lint.too_many_arguments]
+files = ["tests/journal_chain_trust.rs"]
+change = "Trust-root assertions derive their journal paths from the trust-root path."
+
+[lint.unwrap_used]
+files = ["tests/journal_chain_trust.rs", "tests/program_state_eth_call.rs", "tests/programs_chain.rs", "tests/repair_22_31_206.rs", "tests/repair_22_31_358.rs", "tests/repair_22_33_1468.rs", "tests/repair_22_33_1470.rs"]
+change = "Integration assertions retain explicit panic branches for invalid fixture values."
