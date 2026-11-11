@@ -62,6 +62,28 @@ func TestParseRejectsDuplicateKeys(t *testing.T) {
 	}
 }
 
+func TestActiveFeatureSpecParses(t *testing.T) {
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wf, err := ParseFile(filepath.Join(repo, "spec", "workflow.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := wf.Str("meta", "active_feature")
+	if active == "" {
+		t.Fatal("workflow.kvx: [meta].active_feature is empty")
+	}
+	spec, err := ParseFile(filepath.Join(repo, "spec", active, "spec.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(spec.Sections()) == 0 {
+		t.Fatalf("active feature %q has no sections", active)
+	}
+}
+
 // TestRepositorySpecIsValidAndCurrent validates the real unified spec and
 // checks every generated pointer is current and names the active feature.
 func TestRepositorySpecIsValidAndCurrent(t *testing.T) {
