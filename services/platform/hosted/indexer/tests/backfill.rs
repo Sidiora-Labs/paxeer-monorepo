@@ -594,7 +594,7 @@ fn backfill_reads_the_live_paxscan_database() {
 }
 
 #[path = "support/repair_22_33_1446.rs"]
-mod repair_paths;
+pub mod repair_paths;
 
 #[test]
 fn tenant_backfill_preserves_chain_id_history_events_and_summary(

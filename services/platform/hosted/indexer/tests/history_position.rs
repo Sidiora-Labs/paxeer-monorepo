@@ -1,10 +1,13 @@
 use std::collections::{BTreeMap, HashSet};
+use std::path::PathBuf;
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use layerx_indexer::abi::{keccak, precompile_address, AbiRegistry, LoadedAbi};
 use layerx_indexer::api;
 use layerx_indexer::codec::hex;
 use layerx_indexer::paxeer::{self, AttributeEncoding, BlockInputs};
-use layerx_indexer::store::{Position, Store};
+use layerx_indexer::store::{Position, Store, Unit};
 use serde_json::{json, Value};
 
 const A: &str = "0x00000000000000000000000000000000000000a1";
@@ -36,7 +39,7 @@ fn id(tag: u64) -> String {
 }
 
 /// One log of transaction `tx_index` at `log_index` in its block.
-fn log(address: &str, log_index: u64, topics: Vec<String>, data: &str) -> Value {
+fn log(address: &str, log_index: u64, topics: &[String], data: &str) -> Value {
     json!({
         "address": address,
         "logIndex": format!("0x{log_index:x}"),
@@ -50,7 +53,7 @@ fn transfer_log(log_index: u64, from: &str, to: &str, amount: u64) -> Value {
     log(
         TOKEN,
         log_index,
-        vec![
+        &[
             topic("Transfer(address,address,uint256)"),
             padded(from),
             padded(to),
@@ -404,7 +407,7 @@ fn budget_created(log_index: u64, budget: u64) -> Value {
     log(
         PAY,
         log_index,
-        vec![topic("BudgetCreated(bytes32,bytes32,uint128)"), id(budget)],
+        &[topic("BudgetCreated(bytes32,bytes32,uint128)"), id(budget)],
         &format!("{}{}", word(0xa55e7), word(500)),
     )
 }
@@ -413,7 +416,7 @@ fn budget_ended(event: &str, log_index: u64, budget: u64) -> Value {
     log(
         PAY,
         log_index,
-        vec![
+        &[
             topic(&format!("{event}(bytes32,uint128,uint64)")),
             id(budget),
         ],
@@ -425,23 +428,21 @@ fn grant_body(log_index: u64, grant: u64, chunk: u64) -> Value {
     log(
         AUTH,
         log_index,
-        vec![topic("GrantBody(bytes32,uint8,uint8,bytes)"), id(grant)],
+        &[topic("GrantBody(bytes32,uint8,uint8,bytes)"), id(grant)],
         &format!(
-            "{}{}{}{}{}",
+            "{}{}{}{}{:0<64}",
             word(1),
             word(chunk),
             word(0x60),
             word(2),
-            format!("{:0<64}", "beef")
+            "beef"
         ),
     )
 }
 
-#[test]
-fn holder_records_carry_their_latest_state_by_holder() {
-    let store = store();
+fn commit_holder_fixture(store: &Store) {
     commit_block(
-        &store,
+        store,
         20,
         vec![
             Tx {
@@ -457,7 +458,7 @@ fn holder_records_carry_their_latest_state_by_holder() {
                 logs: vec![log(
                     LEDGER,
                     2,
-                    vec![topic("PayerGrantIssued(bytes32)"), id(3)],
+                    &[topic("PayerGrantIssued(bytes32)"), id(3)],
                     "",
                 )],
             },
@@ -476,7 +477,7 @@ fn holder_records_carry_their_latest_state_by_holder() {
         ],
     );
     commit_block(
-        &store,
+        store,
         21,
         vec![Tx {
             from: A,
@@ -486,7 +487,7 @@ fn holder_records_carry_their_latest_state_by_holder() {
         }],
     );
     commit_block(
-        &store,
+        store,
         22,
         vec![Tx {
             from: A,
@@ -495,14 +496,20 @@ fn holder_records_carry_their_latest_state_by_holder() {
             logs: vec![log(
                 AUTH,
                 0,
-                vec![topic("GrantRevoked(bytes32,bytes)"), id(4)],
-                &format!("{}{}{}", word(0x20), word(1), format!("{:0<64}", "01")),
+                &[topic("GrantRevoked(bytes32,bytes)"), id(4)],
+                &format!("{}{}{:0<64}", word(0x20), word(1), "01"),
             )],
         }],
     );
     store
         .record_source_head("paxeer", Some(30))
         .unwrap_or_else(|error| panic!("{error}"));
+}
+
+#[test]
+fn holder_records_carry_their_latest_state_by_holder() {
+    let store = store();
+    commit_holder_fixture(&store);
 
     let (status, budgets) = get(&store, &format!("/v1/holders/{A}?kind=budget"));
     assert_eq!(status, 200);
@@ -609,98 +616,165 @@ fn freshness_carries_the_indexed_and_chain_heights() {
     }
 }
 
+struct ProofScratch(PathBuf);
+impl Drop for ProofScratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn load_auth_proof() -> (ProofScratch, Value) {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"))
+        .as_nanos();
+    let scratch = ProofScratch(
+        std::env::temp_dir().join(format!("layerxauth-proof-{}-{nonce}", std::process::id())),
+    );
+    std::fs::create_dir(&scratch.0)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    let input = if let Some(path) = std::env::var_os("LAYERX_AUTH_PROOF_INPUT") {
+        PathBuf::from(path)
+    } else {
+        let path = scratch.0.join("evm-receipts.json");
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(4)
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
+        let output = Command::new("go")
+            .current_dir(root)
+            .args([
+                "test",
+                "-count=1",
+                "./precompiles/layerxauth/",
+                "-run",
+                "^TestProofLayerxauth0x101c$",
+            ])
+            .env("LAYERX_AUTH_PROOF_INPUT", &path)
+            .output()
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+        assert!(
+            output.status.success(),
+            "real EVM producer: {}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        path
+    };
+    let proof: Value = serde_json::from_slice(
+        &std::fs::read(input)
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    (scratch, proof)
+}
+
+fn decode_auth_block(
+    proof: &Value,
+    registry: &AbiRegistry,
+    holder: &str,
+    height: u64,
+    receipt_key: &str,
+    tx_key: &str,
+) -> Unit {
+    let tx_hash = proof[tx_key]
+        .as_str()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+        .to_owned();
+    let block_hash = hash(0xb10c_0000_0000 + height);
+    let block = json!({
+        "number": format!("0x{height:x}"), "hash": block_hash,
+        "parentHash": hash(0xb10c_0000_0000 + height - 1),
+        "transactions": [{"hash": tx_hash, "from": holder, "to": AUTH,
+            "value": "0x0", "transactionIndex": "0x0"}],
+    });
+    let mut receipt = proof[receipt_key].clone();
+    receipt["blockHash"] = json!(block_hash);
+    let receipts = BTreeMap::from([(tx_hash, receipt)]);
+    let is_pointer = |_: &str| Ok(false);
+    paxeer::decode_block(
+        &block,
+        &BlockInputs {
+            registry,
+            receipts: &receipts,
+            cosmos_txs: &[],
+            encoding: AttributeEncoding::Base64,
+            is_pointer: &is_pointer,
+        },
+    )
+    .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"))
+}
+
+fn assert_auth_grant_body(proof: &Value, registry: &AbiRegistry) {
+    let mut body = String::from("0x");
+    for log in proof["granted"]["logs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+    {
+        if log["topics"][0] == topic("GrantBody(bytes32,uint8,uint8,bytes)") {
+            let topics = log["topics"]
+                .as_array()
+                .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+                .iter()
+                .map(|value| {
+                    layerx_indexer::codec::unhex_fixed::<32>(
+                        value
+                            .as_str()
+                            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value")),
+                    )
+                    .unwrap_or_else(|error| {
+                        panic!("called Result::unwrap() on an Err value: {error:?}")
+                    })
+                })
+                .collect::<Vec<_>>();
+            let data = layerx_indexer::codec::unhex(
+                log["data"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("called Option::unwrap() on a None value")),
+            )
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+            let (_, event) = registry
+                .decode_log(precompile_address(0x101c), &topics, &data)
+                .unwrap_or_else(|error| {
+                    panic!("called Result::unwrap() on an Err value: {error:?}")
+                })
+                .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
+            body.push_str(
+                event
+                    .arg("body")
+                    .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+                    .as_str()
+                    .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+                    .trim_start_matches("0x"),
+            );
+        }
+    }
+    assert_eq!(body, proof["body"]);
+}
+
 /// Proves real App.DeliverTx receipts from 0x101C survive ABI decoding,
-/// holder projection, SQLite restart and replay before the holder API reads them.
+/// holder projection, `SQLite` restart and replay before the holder API reads them.
 /// The Go producer is also callable when this consumer test is run on its own.
 #[test]
 fn proof_layerxauth_0x101c_receipts() {
-    use layerx_indexer::abi::{precompile_address, LoadedAbi};
-    use std::path::PathBuf;
-    use std::process::Command;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct Scratch(PathBuf);
-    impl Drop for Scratch {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let scratch = Scratch(
-        std::env::temp_dir().join(format!("layerxauth-proof-{}-{nonce}", std::process::id())),
-    );
-    std::fs::create_dir(&scratch.0).unwrap();
-    let input = match std::env::var_os("LAYERX_AUTH_PROOF_INPUT") {
-        Some(path) => PathBuf::from(path),
-        None => {
-            let path = scratch.0.join("evm-receipts.json");
-            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .ancestors()
-                .nth(4)
-                .unwrap();
-            let output = Command::new("go")
-                .current_dir(root)
-                .args([
-                    "test",
-                    "-count=1",
-                    "./precompiles/layerxauth/",
-                    "-run",
-                    "^TestProofLayerxauth0x101c$",
-                ])
-                .env("LAYERX_AUTH_PROOF_INPUT", &path)
-                .output()
-                .unwrap();
-            assert!(
-                output.status.success(),
-                "real EVM producer: {}{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-            path
-        }
-    };
-    let proof: Value = serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
-    let holder = proof["holder"].as_str().unwrap().to_ascii_lowercase();
+    let (scratch, proof) = load_auth_proof();
+    let holder = proof["holder"]
+        .as_str()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+        .to_ascii_lowercase();
     let grant_id = proof["grantId"]
         .as_str()
-        .unwrap()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
         .trim_start_matches("0x")
         .to_owned();
     let mut registry = AbiRegistry::default();
     registry.insert(LoadedAbi {
         contract: "layerxauth".to_owned(),
         address: Some(precompile_address(0x101c)),
-        events: AbiRegistry::parse_events("layerxauth", &proof["abi"]).unwrap(),
+        events: AbiRegistry::parse_events("layerxauth", &proof["abi"])
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}")),
     });
-    let decode = |height: u64, receipt_key: &str, tx_key: &str| {
-        let tx_hash = proof[tx_key].as_str().unwrap().to_owned();
-        let block_hash = hash(0xb10c_0000_0000 + height);
-        let block = json!({
-            "number": format!("0x{height:x}"), "hash": block_hash,
-            "parentHash": hash(0xb10c_0000_0000 + height - 1),
-            "transactions": [{"hash": tx_hash, "from": holder, "to": AUTH,
-                "value": "0x0", "transactionIndex": "0x0"}],
-        });
-        let mut receipt = proof[receipt_key].clone();
-        receipt["blockHash"] = json!(block_hash);
-        let receipts = BTreeMap::from([(tx_hash, receipt)]);
-        let is_pointer = |_: &str| Ok(false);
-        paxeer::decode_block(
-            &block,
-            &BlockInputs {
-                registry: &registry,
-                receipts: &receipts,
-                cosmos_txs: &[],
-                encoding: AttributeEncoding::Base64,
-                is_pointer: &is_pointer,
-            },
-        )
-        .unwrap()
-    };
-    let opened = decode(11, "granted", "grantTx");
+    let opened = decode_auth_block(&proof, &registry, &holder, 11, "granted", "grantTx");
     assert_eq!(
         opened.holders.len(),
         1,
@@ -708,8 +782,11 @@ fn proof_layerxauth_0x101c_receipts() {
     );
     let target = format!("/v1/holders/{holder}?kind=grant");
     let path = scratch.0.join("index.sqlite");
-    let store = Store::open(&path).unwrap();
-    store.commit(&opened, 2).unwrap();
+    let store = Store::open(&path)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    store
+        .commit(&opened, 2)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     let (status, active) = get(&store, &target);
     assert_eq!(status, 200);
     let rows = items(&active);
@@ -721,35 +798,10 @@ fn proof_layerxauth_0x101c_receipts() {
     assert_eq!(rows[0]["opened"]["event"], "GrantBody");
     assert_eq!(rows[0]["opened"]["decoded"]["args"]["sub"], "5");
     assert_eq!(rows[0]["opened"]["decoded"]["args"]["chunk"], "0");
-    let mut body = String::from("0x");
-    for log in proof["granted"]["logs"].as_array().unwrap() {
-        if log["topics"][0] == topic("GrantBody(bytes32,uint8,uint8,bytes)") {
-            let topics = log["topics"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|value| {
-                    layerx_indexer::codec::unhex_fixed::<32>(value.as_str().unwrap()).unwrap()
-                })
-                .collect::<Vec<_>>();
-            let data = layerx_indexer::codec::unhex(log["data"].as_str().unwrap()).unwrap();
-            let (_, event) = registry
-                .decode_log(precompile_address(0x101c), &topics, &data)
-                .unwrap()
-                .unwrap();
-            body.push_str(
-                event
-                    .arg("body")
-                    .unwrap()
-                    .as_str()
-                    .unwrap()
-                    .trim_start_matches("0x"),
-            );
-        }
-    }
-    assert_eq!(body, proof["body"]);
+    assert_auth_grant_body(&proof, &registry);
     drop(store);
-    let store = Store::open(&path).unwrap();
+    let store = Store::open(&path)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     assert_eq!(get(&store, &target), (status, active.clone()));
     assert!(
         store.commit(&opened, 2).is_err(),
@@ -757,16 +809,20 @@ fn proof_layerxauth_0x101c_receipts() {
     );
     assert_eq!(get(&store, &target), (status, active));
 
-    let refused = decode(12, "refused", "refusedTx");
+    let refused = decode_auth_block(&proof, &registry, &holder, 12, "refused", "refusedTx");
     assert!(
         refused.holders.is_empty(),
         "a refused signer must produce no holder row"
     );
-    store.commit(&refused, 2).unwrap();
+    store
+        .commit(&refused, 2)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     assert_eq!(items(&get(&store, &target).1), rows);
-    let revoked = decode(13, "revoked", "revokeTx");
+    let revoked = decode_auth_block(&proof, &registry, &holder, 13, "revoked", "revokeTx");
     assert_eq!(revoked.holders.len(), 1);
-    store.commit(&revoked, 2).unwrap();
+    store
+        .commit(&revoked, 2)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     let (status, ended) = get(&store, &target);
     assert_eq!(status, 200);
     let records = items(&ended);
@@ -780,7 +836,8 @@ fn proof_layerxauth_0x101c_receipts() {
         proof["record"]
     );
     drop(store);
-    let store = Store::open(&path).unwrap();
+    let store = Store::open(&path)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     assert_eq!(get(&store, &target), (status, ended.clone()));
     assert!(
         store.commit(&revoked, 2).is_err(),
@@ -898,8 +955,9 @@ fn layerxledger_producer_abi_preserves_the_history_decoder_inventory() {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../precompiles/layerxledger/abi.json"
     )))
-    .unwrap();
-    let events = AbiRegistry::parse_events("layerxledger", &document).unwrap();
+    .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    let events = AbiRegistry::parse_events("layerxledger", &document)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     for (name, signature, indexed) in [
         ("PayerGrantIssued", "PayerGrantIssued(bytes32)", 1),
         (
@@ -918,7 +976,10 @@ fn layerxledger_producer_abi_preserves_the_history_decoder_inventory() {
             3,
         ),
     ] {
-        let event = events.iter().find(|event| event.name == name).unwrap();
+        let event = events
+            .iter()
+            .find(|event| event.name == name)
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
         assert_eq!(event.signature, signature);
         assert_eq!(event.topic, keccak(signature.as_bytes()));
         assert_eq!(
@@ -931,34 +992,60 @@ fn layerxledger_producer_abi_preserves_the_history_decoder_inventory() {
     for name in ["register", "openAccount", "issueGrant"] {
         let method = document
             .as_array()
-            .unwrap()
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
             .iter()
             .find(|entry| entry["type"] == "function" && entry["name"] == name)
-            .unwrap();
-        assert_eq!(method["outputs"].as_array().unwrap().len(), 1);
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
+        assert_eq!(
+            method["outputs"]
+                .as_array()
+                .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+                .len(),
+            1
+        );
         assert_eq!(method["outputs"][0]["type"], "bytes32");
     }
 }
 
-/// Consumes application-produced logs over stdin, then restarts the real store.
-#[test]
-fn proof_layerxledger_0x101a() {
-    let proof: Value = serde_json::from_reader(std::io::stdin().lock())
-        .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
-    let abi: Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../precompiles/layerxledger/abi.json"
-    )))
-    .unwrap();
-    let mut registry = AbiRegistry::default();
-    registry.insert(LoadedAbi {
-        contract: "layerxledger".to_owned(),
-        address: Some(precompile_address(0x101a)),
-        events: AbiRegistry::parse_events("layerxledger", &abi).unwrap(),
-    });
-    let owner = proof["owner"].as_str().unwrap().to_ascii_lowercase();
-    let target = format!("/v1/holders/{owner}?kind=grant");
-    let path = std::path::Path::new(proof["store"].as_str().unwrap());
+fn assert_payment_events(store: &Store, proof: &Value, target: &str) -> (u16, Value, Vec<Value>) {
+    let events = store
+        .events("paxeer")
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    assert_eq!(events.len(), 2);
+    let exact = events
+        .iter()
+        .find(|event| event["name"] == "PaymentExact")
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
+    assert_eq!(exact["decoded"]["args"]["amount"], "15");
+    assert_eq!(
+        exact["decoded"]["args"]["paymentReference"],
+        proof["reference"]
+    );
+    assert_eq!(exact["decoded"]["args"]["from"], proof["from"]);
+    assert_eq!(exact["decoded"]["args"]["to"], proof["to"]);
+    assert_eq!(exact["decoded"]["args"]["assetId"], proof["asset"]);
+    assert!(events.iter().any(|event| event["name"] == "Transfer"));
+    let (status, page) = get(store, target);
+    assert_eq!(status, 200);
+    let rows = items(&page);
+    // Retired issuance emitted no grant and cannot create an active holder.
+    assert!(proof["grantLogs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+        .is_empty());
+    assert!(rows.is_empty());
+    assert!(events
+        .iter()
+        .all(|event| event["name"] != "PayerGrantIssued"));
+    (status, page, events)
+}
+
+fn commit_ledger_units(
+    proof: &Value,
+    registry: &AbiRegistry,
+    owner: &str,
+    path: &std::path::Path,
+) -> Vec<Unit> {
     let mut units = Vec::new();
     for (offset, key) in ["paymentLogs", "grantLogs", "refusedLogs"]
         .iter()
@@ -966,7 +1053,10 @@ fn proof_layerxledger_0x101a() {
     {
         let height = 11 + offset as u64;
         let tx_hash = hash(height);
-        let mut logs = proof[*key].as_array().unwrap().clone();
+        let mut logs = proof[*key]
+            .as_array()
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+            .clone();
         for (index, log) in logs.iter_mut().enumerate() {
             log["logIndex"] = json!(format!("0x{index:x}"));
             log["transactionIndex"] = json!("0x0");
@@ -988,65 +1078,105 @@ fn proof_layerxledger_0x101a() {
         let unit = paxeer::decode_block(
             &block,
             &BlockInputs {
-                registry: &registry,
+                registry,
                 receipts: &receipts,
                 cosmos_txs: &[],
                 encoding: AttributeEncoding::Base64,
                 is_pointer: &is_pointer,
             },
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
         if *key != "paymentLogs" {
             assert!(unit.events.is_empty());
             assert!(unit.holders.is_empty());
         }
-        let store = Store::open(path).unwrap();
-        store.commit(&unit, 2).unwrap();
+        let store = Store::open(path)
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+        store
+            .commit(&unit, 2)
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
         units.push(unit);
         drop(store);
     }
-    let store = Store::open(path).unwrap();
-    let events = store.events("paxeer").unwrap();
-    assert_eq!(events.len(), 2);
-    let exact = events
-        .iter()
-        .find(|event| event["name"] == "PaymentExact")
-        .unwrap();
-    assert_eq!(exact["decoded"]["args"]["amount"], "15");
-    assert_eq!(
-        exact["decoded"]["args"]["paymentReference"],
-        proof["reference"]
+    units
+}
+
+/// Consumes application-produced logs over stdin, then restarts the real store.
+#[test]
+fn proof_layerxledger_0x101a() {
+    let proof: Value = serde_json::from_reader(std::io::stdin().lock()).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer"
+        )
+    });
+    let abi: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../precompiles/layerxledger/abi.json"
+    )))
+    .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    let mut registry = AbiRegistry::default();
+    registry.insert(LoadedAbi {
+        contract: "layerxledger".to_owned(),
+        address: Some(precompile_address(0x101a)),
+        events: AbiRegistry::parse_events("layerxledger", &abi)
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}")),
+    });
+    let owner = proof["owner"]
+        .as_str()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
+        .to_ascii_lowercase();
+    let target = format!("/v1/holders/{owner}?kind=grant");
+    let path = std::path::Path::new(
+        proof["store"]
+            .as_str()
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value")),
     );
-    assert_eq!(exact["decoded"]["args"]["from"], proof["from"]);
-    assert_eq!(exact["decoded"]["args"]["to"], proof["to"]);
-    assert_eq!(exact["decoded"]["args"]["assetId"], proof["asset"]);
-    assert!(events.iter().any(|event| event["name"] == "Transfer"));
-    let (status, page) = get(&store, &target);
-    assert_eq!(status, 200);
-    let rows = items(&page);
-    // Retired issuance emitted no grant and cannot create an active holder.
-    assert!(proof["grantLogs"].as_array().unwrap().is_empty());
-    assert!(rows.is_empty());
-    assert!(events
-        .iter()
-        .all(|event| event["name"] != "PayerGrantIssued"));
+    let units = commit_ledger_units(&proof, &registry, &owner, path);
+    let store = Store::open(path)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    let (status, page, events) = assert_payment_events(&store, &proof, &target);
     drop(store);
-    let store = Store::open(path).unwrap();
+    let store = Store::open(path)
+        .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
     assert_eq!(get(&store, &target), (status, page.clone()));
-    assert_eq!(store.events("paxeer").unwrap(), events);
+    assert_eq!(
+        store
+            .events("paxeer")
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}")),
+        events
+    );
     assert!(store.commit(&units[0], 2).is_err());
     assert_eq!(get(&store, &target), (status, page));
-    assert_eq!(store.events("paxeer").unwrap(), events);
+    assert_eq!(
+        store
+            .events("paxeer")
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}")),
+        events
+    );
     // Reject a truncated real payment body at the consumer's own ABI boundary.
     let payment = &proof["paymentLogs"][1];
     let topics = payment["topics"]
         .as_array()
-        .unwrap()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"))
         .iter()
-        .map(|topic| layerx_indexer::codec::unhex_fixed::<32>(topic.as_str().unwrap()).unwrap())
+        .map(|topic| {
+            layerx_indexer::codec::unhex_fixed::<32>(
+                topic
+                    .as_str()
+                    .unwrap_or_else(|| panic!("called Option::unwrap() on a None value")),
+            )
+            .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"))
+        })
         .collect::<Vec<_>>();
-    let mut data = layerx_indexer::codec::unhex(payment["data"].as_str().unwrap()).unwrap();
-    data.pop().unwrap();
+    let mut data = layerx_indexer::codec::unhex(
+        payment["data"]
+            .as_str()
+            .unwrap_or_else(|| panic!("called Option::unwrap() on a None value")),
+    )
+    .unwrap_or_else(|error| panic!("called Result::unwrap() on an Err value: {error:?}"));
+    data.pop()
+        .unwrap_or_else(|| panic!("called Option::unwrap() on a None value"));
     assert!(registry
         .decode_log(precompile_address(0x101a), &topics, &data)
         .is_err());
