@@ -196635,7 +196635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.451]
 title = "Bring the Solana porting members of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196665,7 +196665,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.450]
 title = "Bring the EVM porting members of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -288820,7 +288820,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.427]
 title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
