@@ -23,6 +23,8 @@ async function nativeRequestId() {
 }
 import type { MobileServices } from './service-client.ts';
 import { verifyRolePins, type RolePin } from './native-authority.ts';
+import { chainClient, homeRoute } from './chain-launch.ts';
+import type { TradeRequest } from './trade-recovery.ts';
 export const nativeRouterAbi = parseAbi([
   'function buy(address pool,uint256 usdlAmountIn,uint256 minTokensOut,uint256 deadline) returns(uint256)',
   'function sell(address pool,uint256 tokenAmountIn,uint256 minUsdlOut,uint256 deadline) returns(uint256)',
@@ -82,21 +84,23 @@ function nativeClient(services: MobileServices) {
 }
 async function verifyNativeAuthority(
   services: MobileServices,
-  client: ReturnType<typeof nativeClient>,
+  client: ReturnType<typeof chainClient>,
   signal: AbortSignal,
+  chainId = 125,
 ) {
   signal.throwIfAborted();
   if (services.config.manifestDigest !== authority.revision)
     throw new Error('Unadmitted native trading deployment');
   await services.manifest(signal);
-  if ((await client.getChainId()) !== 125) throw new Error('Wrong chain RPC');
+  if ((await client.getChainId()) !== chainId)
+    throw new Error('Wrong chain RPC');
   const block = await client.getBlockNumber();
   await verifyRolePins(client, authority.pins, block);
   signal.throwIfAborted();
   return block;
 }
 async function nativeInputAsset(
-  client: ReturnType<typeof nativeClient>,
+  client: ReturnType<typeof chainClient>,
   pool: Address,
   buy: boolean,
   block: bigint,
@@ -128,13 +132,12 @@ async function nativeInputAsset(
   return buy ? authority.usdl : token;
 }
 export function createNativeQuoteTransactionBuilder(services: MobileServices) {
-  const configuration = services.config,
-    client = nativeClient(services);
+  const configuration = services.config;
   return async (
     input: Quote,
     account: string,
     signal: AbortSignal,
-  ): Promise<TransactionRequest> => {
+  ): Promise<TradeRequest> => {
     const quote = decodeContract('Quote', input),
       sender = getAddress(account),
       pool = getAddress(quote.poolAddress);
@@ -149,7 +152,14 @@ export function createNativeQuoteTransactionBuilder(services: MobileServices) {
       BigInt(quote.minOutputRaw) > BigInt(quote.outputRaw)
     )
       throw new Error('Current healthy admitted quote required');
-    const block = await verifyNativeAuthority(services, client, signal),
+    const route = await homeRoute(services, pool, signal);
+    const client = chainClient(route);
+    const block = await verifyNativeAuthority(
+        services,
+        client,
+        signal,
+        route.chainId,
+      ),
       asset = await nativeInputAsset(client, pool, quote.side === 'buy', block);
     const [balance, allowance, decimals, quoted] = await Promise.all([
       client.readContract({
@@ -216,8 +226,8 @@ export function createNativeQuoteTransactionBuilder(services: MobileServices) {
     signal.throwIfAborted();
     if (Date.parse(quote.validUntil) <= Date.now())
       throw new Error('Quote expired during real Router simulation');
-    return decodeContract('TransactionRequest', {
-      chainId: '125',
+    return {
+      chainId: String(route.chainId),
       from: sender,
       to: authority.router,
       data,
@@ -225,7 +235,7 @@ export function createNativeQuoteTransactionBuilder(services: MobileServices) {
       gasLimitRaw: null,
       maxFeePerGasRaw: null,
       maxPriorityFeePerGasRaw: null,
-    });
+    };
   };
 }
 
