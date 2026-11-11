@@ -261,6 +261,13 @@ func NewRegistry(catalogJSON []byte, deployments []Deployment) (*Registry, error
 			}
 			r.coverage = append(r.coverage, Coverage{d.Role, d.ABIRevision, ev.Name, ev.Sig, state, authority(abiName, ev.Name), eventFamily(abiName, ev.Name)})
 		}
+		if d.Role == LaunchpadPrecompileRole {
+			for _, ev := range chainLaunchEvents {
+				events[ev.ID] = ev
+				r.known[ev.ID] = true
+				r.coverage = append(r.coverage, Coverage{d.Role, d.ABIRevision, ev.Name, ev.Sig, "required", "native", "chain"})
+			}
+		}
 		epoch := registryEpoch{d, events}
 		for _, old := range r.epochs[d.Address] {
 			// Distinct roles may share only the launchpad precompile address.
@@ -580,6 +587,9 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	return e, nil
 }
 func authority(role, name string) string {
+	if isChainLaunchEvent(name) {
+		return "native"
+	}
 	if role == "EventEmitter" {
 		switch name {
 		case "Swap", "PoolStateUpdated", "ConfigUpdated":
@@ -594,6 +604,8 @@ func authority(role, name string) string {
 }
 func family(name string) string {
 	switch name {
+	case "ChainLaunched", "ChainRevenueEpochOpened", "ChainRevenueClaimed", "LaunchedChainRetired":
+		return "chain"
 	case "Swap", "MarketCreated", "PoolRegistered", "TokenDeployed", "PoolStateUpdated", "RouterTrade", "Buy", "Sell", "MultihopSwap":
 		return "amm"
 	case "FeeRecorded", "FeeDistributed", "FeeStrategyChanged", "FeeFlow", "AirdropClaimed":

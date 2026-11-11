@@ -96,9 +96,8 @@ fn owner_rotation_is_refused_as_unsupported() {
             authority: &authority,
             registry: &registry,
         };
-        let refusal = match prepare(&store, &sessions, &tenant, "managed-agent", &request) {
-            Err(refusal) => refusal,
-            Ok(_) => panic!("owner rotation must be refused before any decode"),
+        let Err(refusal) = prepare(&store, &sessions, &tenant, "managed-agent", &request) else {
+            panic!("owner rotation must be refused before any decode")
         };
         assert_eq!(refusal, OwnerRotation::Unsupported);
         assert_eq!(refusal.reason(), "rotation_unsupported");

@@ -15,52 +15,32 @@ use layerx_types::rung::Rung;
 
 #[test]
 fn program_call_returns_tx_hash_and_rung() {
-    let call = NativeProgramCall {
-        program_id: ProgramId::new([0x31; 32]),
-        guest_abi: 1,
-        entrypoint: b"layerx_call",
-        calldata: &[1, 2, 3],
-        capabilities: &[0, 0],
-        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
-        response_capacity: 1024,
-        resources: Resources([1_000_000, 16_777_216, 100, 200, 4, 1024, 4096]),
-    };
-    let precompile = ProgramOperations::<SequencerEndpoint>::call_precompile(call, 987).unwrap();
-    assert_eq!(
-        precompile.target.address(),
-        PrecompileTarget::Programs.address()
-    );
-    let signature =
-        transaction_hash(b"call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)");
-    let data = precompile.encode().unwrap();
-    assert_eq!(data[..4], signature[..4]);
-    let transaction = Eip1559Call {
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 1_000_000,
-        to: precompile.target.address(),
-        data,
-    };
-    let raw = transaction.sign(&[0xa5; 32]).unwrap();
+    let transaction = program_transaction();
+    let raw = lint_success(transaction.sign(&[0xa5; 32]), "required test operation");
     let hash = transaction_hash(&raw);
     let root = std::env::temp_dir().join(format!("program-adapters-rungs-{}", std::process::id()));
-    let mut store = Store::open(&root).unwrap();
-    let tenant = TenantId::new("program-adapters").unwrap();
+    let mut store = lint_success(Store::open(&root), "required test operation");
+    let tenant = lint_success(TenantId::new("program-adapters"), "required test operation");
     let mut outbox = Outbox::default();
     assert_eq!(
-        outbox
-            .enqueue(&mut store, tenant.clone(), raw.clone())
-            .unwrap(),
+        lint_success(
+            outbox.enqueue(&mut store, tenant.clone(), raw.clone()),
+            "required test operation"
+        ),
         hash
     );
     assert!(accept_raw_write(&mut outbox, &mut store, hash, [9; 32]).is_err());
-    let status = accept_raw_write(&mut outbox, &mut store, hash, hash).unwrap();
+    let status = lint_success(
+        accept_raw_write(&mut outbox, &mut store, hash, hash),
+        "required test operation",
+    );
     assert_eq!(status.state, SubmissionState::Submitted);
     // A submitted answer has no executed receipt or paymentDenom yet.
-    let answer = || write_submission(&status, None).unwrap();
-    let (value, rung) = program_call_answer(RequestId(1), &raw, answer()).unwrap();
+    let answer = || lint_success(write_submission(&status, None), "required test operation");
+    let (value, rung) = lint_success(
+        program_call_answer(RequestId(1), &raw, answer()),
+        "required test operation",
+    );
     assert_eq!(value["tx_hash"], hex::encode(hash));
     assert_eq!(value["submission_ref"], hex::encode(hash));
     assert_eq!(value["state"], "Submitted");
@@ -68,39 +48,59 @@ fn program_call_returns_tx_hash_and_rung() {
     assert_eq!(rung, Rung::Submitted);
     let mut wrong = transaction.clone();
     wrong.to = PrecompileTarget::Ledger.address();
-    assert!(
-        program_call_answer(RequestId(2), &wrong.sign(&[0xa5; 32]).unwrap(), answer()).is_err()
-    );
+    assert!(program_call_answer(
+        RequestId(2),
+        &lint_success(wrong.sign(&[0xa5; 32]), "required test operation"),
+        answer()
+    )
+    .is_err());
     wrong.to = transaction.to;
     wrong.nonce += 1;
-    assert!(
-        program_call_answer(RequestId(3), &wrong.sign(&[0xa5; 32]).unwrap(), answer()).is_err()
-    );
+    assert!(program_call_answer(
+        RequestId(3),
+        &lint_success(wrong.sign(&[0xa5; 32]), "required test operation"),
+        answer()
+    )
+    .is_err());
     assert!(program_call_answer(RequestId(4), &raw[..raw.len() - 1], answer()).is_err());
     let mut restored = Outbox::default();
-    restored.restore(&store, tenant, hash).unwrap();
-    assert_eq!(restored.exact_signed_bytes(hash).unwrap(), raw);
-    let (tracked, tracked_rung) = program_call_answer(
-        RequestId(5),
-        &raw,
-        write_submission(restored.status(hash).unwrap(), None).unwrap(),
-    )
-    .unwrap();
+    lint_success(
+        restored.restore(&store, tenant, hash),
+        "required test operation",
+    );
+    assert_eq!(
+        lint_success(restored.exact_signed_bytes(hash), "required test operation"),
+        raw
+    );
+    let (tracked, tracked_rung) = lint_success(
+        program_call_answer(
+            RequestId(5),
+            &raw,
+            lint_success(
+                write_submission(
+                    lint_present(restored.status(hash), "required test operation"),
+                    None,
+                ),
+                "required test operation",
+            ),
+        ),
+        "required test operation",
+    );
     assert_eq!(tracked, value);
     assert_eq!(tracked_rung, rung);
     drop(store);
-    std::fs::remove_dir_all(root).unwrap();
+    lint_success(std::fs::remove_dir_all(root), "required test operation");
 }
 
 fn fields<'a>(schema: &'a str, name: &str) -> BTreeMap<&'a str, &'a str> {
     let heading = format!("[type.{name}]");
-    let section = schema
-        .split_once(&heading)
-        .unwrap()
-        .1
-        .split("\n[")
-        .next()
-        .unwrap();
+    let section = lint_present(
+        lint_present(schema.split_once(&heading), "required test operation")
+            .1
+            .split("\n[")
+            .next(),
+        "required test operation",
+    );
     section
         .lines()
         .filter_map(|line| line.split_once(" = "))
@@ -176,5 +176,55 @@ fn programs_schema_names_no_kernel_protocol() {
             fields(text, "NativeProgramWindDown")["variants"],
             "[\"route\",\"deprecate\",\"tombstone\",\"exit\"]"
         );
+    }
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+fn program_transaction() -> Eip1559Call {
+    let call = NativeProgramCall {
+        program_id: ProgramId::new([0x31; 32]),
+        guest_abi: 1,
+        entrypoint: b"layerx_call",
+        calldata: &[1, 2, 3],
+        capabilities: &[0, 0],
+        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+        response_capacity: 1024,
+        resources: Resources([1_000_000, 16_777_216, 100, 200, 4, 1024, 4096]),
+    };
+    let precompile = lint_success(
+        ProgramOperations::<SequencerEndpoint>::call_precompile(call, 987),
+        "required test operation",
+    );
+    assert_eq!(
+        precompile.target.address(),
+        PrecompileTarget::Programs.address()
+    );
+    let signature =
+        transaction_hash(b"call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)");
+    let data = lint_success(precompile.encode(), "required test operation");
+    assert_eq!(data[..4], signature[..4]);
+    Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 1_000_000,
+        to: precompile.target.address(),
+        data,
     }
 }

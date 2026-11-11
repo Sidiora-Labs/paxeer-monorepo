@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -21,8 +22,10 @@ import (
 	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	layerxexchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
+	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	layerxpaytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
@@ -476,6 +479,29 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 	return app.continueMergeUpgradePlan(ctx, plan, fromVM)
 }
 
+// mergeProgramsScheduleParameters fixes version 1: each of seven fee prices is
+// one unit; the occupancy target is 1000 byte batches, response denominator 8,
+// maximum change 1/8, and fee range 1..100. The nine metering coefficients are
+// the kernel's version 1 coefficients. The occupancy asset is the chain's base
+// coin denomination in the 32-byte sequencer receipt identity form; the signer
+// is derived from the governance module address into 32 bytes. Both
+// native genesis producers activate at batch 1, before the first sequenced
+// height following the merge.
+func mergeProgramsScheduleParameters() lxphost.ProgramsScheduleParameters {
+	return lxphost.ProgramsScheduleParameters{
+		FeePrices:            [7]uint64{1, 1, 1, 1, 1, 1, 1},
+		MeteringCoefficients: [9]uint64{1, 1, 1, 1, 1, 8, 8, 64, 8},
+		OccupancyAssetID:     sha256.Sum256([]byte(appparams.BaseCoinUnit)),
+		AuthorityKey:         sha256.Sum256([]byte(layerxgovtypes.GovernanceAuthority())),
+		TargetOccupancy:      1000,
+		ResponseDenominator:  8,
+		MaxChangeNumerator:   1,
+		MaxChangeDenominator: 8,
+		MinFee:               1,
+		MaxFee:               100,
+	}
+}
+
 func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	cached, write := ctx.CacheContext()
 	if plan.Name != MergeUpgrade || plan.Height != ctx.BlockHeight() {
@@ -499,6 +525,9 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	}
 	if !found {
 		app.UpgradeKeeper.ClearUpgradePlan(cached)
+	}
+	if _, err := lxphost.InstallProgramsSchedules(cached, app.keys[LayerXHostStoreKey], mergeProgramsScheduleParameters()); err != nil {
+		return versions, fmt.Errorf("upgrade %s: Programs schedules: %w", MergeUpgrade, err)
 	}
 	cached.KVStore(app.keys[LayerXHostStoreKey]).Set([]byte(hostedProgramsGuestABIKey), []byte{0, 5})
 	write()

@@ -55,7 +55,7 @@ def generate():
     def add(name, origin, abi, status):
         if not isinstance(abi, list):
             raise ValueError(f"{origin} must be an ABI array")
-        entries.extend(item for item in abi if item["type"] in ("function", "event"))
+        entries.extend(item for item in abi if item["type"] in ("function", "event", "error"))
         inventory.append({"name": name, "origin": origin, "status": status})
 
     for name, path in sources:

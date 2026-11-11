@@ -3,12 +3,10 @@ use layerx_programs_ai_market::{
     REWARDS_ACCOUNT_SEED, SHARED_STATE_KEY,
 };
 use layerx_programs_runtime::{
-    self as rt,
-    abi::{AbiError, ReceiptView},
-    ActivityBudgetBinding, AuthorizationContext, AuthorizedExecutionRequest,
+    self as rt, ActivityBudgetBinding, AuthorizationContext, AuthorizedExecutionRequest,
     BudgetedAuthorizedExecutionRequest, Capability, CapabilitySet, CompositionContext,
-    DeclaredBudget, Executor, FuelSchedule, ReceiptOracle, Storage, StorageNamespace,
-    V2ActivityOutcome, ValidatedModule, WasmEngine, ABI_V5_VERSION, CALL_ENTRY_EXPORT,
+    DeclaredBudget, Executor, FuelSchedule, Storage, StorageNamespace, V2ActivityOutcome,
+    ValidatedModule, WasmEngine, ABI_V5_VERSION, CALL_ENTRY_EXPORT,
 };
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
@@ -18,11 +16,30 @@ pub const DEPLOYMENT_LIMIT: usize = 524_288;
 pub const BUILD_OPT_LEVEL: &str = "z";
 pub const BUILD_POSTPROCESS: &str =
     "wasm-opt -Oz --flatten --rereloop -Oz --converge --merge-similar-functions -Oz --converge --strip-debug --strip-producers";
+fn assert_build_recipe() {
+    let recipe = include_str!("../fixtures/guest-recipe.sh");
+    assert!(recipe
+        .lines()
+        .any(|line| line == format!("PAXAI_GUEST_OPT_LEVEL={BUILD_OPT_LEVEL}")));
+    let passes = recipe
+        .split_once("PAXAI_GUEST_PASSES=(\n")
+        .unwrap()
+        .1
+        .split_once("\n)")
+        .unwrap()
+        .0
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert_eq!(BUILD_POSTPROCESS, format!("wasm-opt {passes}"));
+}
+
 pub const CPU_FUEL: u64 = DeclaredBudget::protocol_maximum().cpu_fuel();
 
 /// Isolated measurements of the original readers and byte-copy primitive.
 /// This artifact has a diagnostic entrypoint, not a deployment entrypoint.
 pub fn aggregation_baseline_module() -> Checked<Arc<ValidatedModule>> {
+    assert_build_recipe();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let hex = std::fs::read_to_string(root.join("ai-market-aggregation-baseline.hex"))?;
     let hex = hex.trim();
@@ -36,6 +53,16 @@ pub fn aggregation_baseline_module() -> Checked<Arc<ValidatedModule>> {
         .lines()
         .any(|line| line == "purpose = \"aggregation-pass-measurement\""));
     assert!(metadata.lines().any(|line| line == "opt_level = \"z\""));
+    let source = source_digest()?;
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("source_sha256 = \"{source}\"")));
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("wasm_bytes = {}", wasm.len())));
+    assert!(metadata
+        .lines()
+        .any(|line| line == format!("postprocess = \"{BUILD_POSTPROCESS}\"")));
     let hash = codec::sha256([wasm.as_slice()])
         .map_err(|e| format!("{e:?}"))?
         .iter()
@@ -89,6 +116,7 @@ fn source_digest() -> Checked<String> {
 }
 
 pub fn module() -> Checked<Arc<ValidatedModule>> {
+    assert_build_recipe();
     let hex = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/ai-market-opt-z.hex"),
     )
@@ -168,7 +196,7 @@ pub fn module() -> Checked<Arc<ValidatedModule>> {
 }
 
 /// Caller-owned in-memory account store, the peer of the production transfer host.
-/// Its sight facts and restart image are generated from the same committed balances.
+/// Its restart image is generated from the same committed balances.
 #[derive(Default)]
 pub struct Ledger {
     pub balances: BTreeMap<[u8; 32], u128>,
@@ -245,42 +273,6 @@ impl Ledger {
         self.balances = next;
         self.transfers += legs.len();
         Ok(())
-    }
-}
-struct Sight<'a> {
-    ledger: &'a Ledger,
-    asset: [u8; 32],
-}
-impl ReceiptOracle for Sight<'_> {
-    fn verified_receipt(&self, _: [u8; 32]) -> Result<ReceiptView, AbiError> {
-        Err(AbiError::ReceiptMismatch)
-    }
-    fn verified_balance(
-        &self,
-        account: [u8; 32],
-        asset: [u8; 32],
-        receipt: [u8; 32],
-    ) -> Result<rt::BalanceView, AbiError> {
-        if asset != self.asset
-            || receipt
-                != codec::sha256([self.ledger.image().as_slice()])
-                    .map_err(|_| AbiError::ReceiptMismatch)?
-        {
-            return Err(AbiError::ReceiptMismatch);
-        }
-        Ok(rt::BalanceView {
-            account,
-            asset,
-            balance: self
-                .ledger
-                .balances
-                .get(&account)
-                .copied()
-                .ok_or(AbiError::BalanceAbsent)?,
-            receipt_digest: receipt,
-            state_root: receipt,
-            observed_sequence: 1,
-        })
     }
 }
 
@@ -413,13 +405,6 @@ impl Guest {
             Capability::SharedStorageWrite,
             Capability::EmitEvent,
         ];
-        let receipt =
-            codec::sha256([self.ledger.image().as_slice()]).map_err(|e| format!("{e:?}"))?;
-        caps.push(Capability::BalanceView {
-            account: self.account,
-            asset: self.asset,
-            receipt_digest: receipt,
-        });
         if matches!(e.operation, dispatch::FUND | dispatch::LockBond) {
             let amount = if e.operation == dispatch::FUND {
                 rewards::FundRequest::decode(e.payload)
@@ -536,10 +521,7 @@ impl Guest {
                 u128::MAX,
             )
             .map_err(|e| format!("{e:?}"))?;
-        let sight = Sight {
-            ledger: &self.ledger,
-            asset: self.asset,
-        };
+        let no_receipts = rt::UnavailableReceiptOracle;
         let request = BudgetedAuthorizedExecutionRequest::new(
             AuthorizedExecutionRequest {
                 module: &self.module,
@@ -548,7 +530,7 @@ impl Guest {
                     actor,
                     CapabilitySet::new(caps).map_err(|e| format!("{e:?}"))?,
                 ),
-                receipts: &sight,
+                receipts: &no_receipts,
                 entrypoint: CALL_ENTRY_EXPORT,
                 calldata: envelope,
                 composition: CompositionContext::isolated(),

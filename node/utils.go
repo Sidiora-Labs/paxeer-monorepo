@@ -4,6 +4,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
 type OptimisticProcessingInfo struct {
@@ -11,6 +12,7 @@ type OptimisticProcessingInfo struct {
 	Hash       []byte
 	Aborted    bool
 	Completion chan struct{}
+	StateCtx   sdk.Context
 	// result fields
 	Events       []abci.Event
 	TxRes        []*abci.ExecTxResult

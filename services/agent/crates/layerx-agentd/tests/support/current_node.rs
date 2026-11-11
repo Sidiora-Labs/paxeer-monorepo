@@ -1,6 +1,4 @@
-use super::{
-    directory, must, rpc_hex, sequencer_receipt_with_details, serve, serve_node, signed_transaction,
-};
+use super::{directory, must, rpc_hex, serve, serve_node};
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::{Gate, Status};
 use layerx_agentd::budget::ProtocolBudgetState;
@@ -48,7 +46,10 @@ fn loaded_config(
 }
 
 pub fn authority(seed: u8, first: u64, last: u64) -> EvidenceAuthority {
-    let reply = keys(seed, first, last);
+    authority_from_keys(keys(seed, first, last))
+}
+
+fn authority_from_keys(reply: Value) -> EvidenceAuthority {
     let key = must(layerx_client::sequencer::decode_receipt_keys(&reply))[0];
     let (config, server) = serve_node(vec![
         ("eth_chainId", json!([]), Some(json!("0x7d"))),
@@ -95,22 +96,26 @@ pub fn startup_restart() {
             deadline: std::time::Duration::from_secs(2),
         }));
         let ready = gate.readiness_gate(&node);
-        if generation < 2 {
-            assert_eq!(must(ready).receipt_keys, vec![key]);
-            assert!(gate.evidence_authority().is_ok());
-            assert_eq!(gate.guard_write(|| ()), Ok(()));
-            gate.disconnected();
-        } else if generation == 2 {
-            assert_eq!(ready, Err(layerx_agentd::boot::GateError::NoReceiptKeys));
-        } else {
-            assert_eq!(
-                ready,
-                Err(layerx_agentd::boot::GateError::NodeRpc(
-                    layerx_agentd::node_rpc::NodeRpcError::Sequencer(
-                        layerx_client::sequencer::SequencerError::Malformed
-                    )
-                ))
-            );
+        match generation.cmp(&2) {
+            std::cmp::Ordering::Less => {
+                assert_eq!(must(ready).receipt_keys, vec![key]);
+                assert!(gate.evidence_authority().is_ok());
+                assert_eq!(gate.guard_write(|| ()), Ok(()));
+                gate.disconnected();
+            }
+            std::cmp::Ordering::Equal => {
+                assert_eq!(ready, Err(layerx_agentd::boot::GateError::NoReceiptKeys));
+            }
+            std::cmp::Ordering::Greater => {
+                assert_eq!(
+                    ready,
+                    Err(layerx_agentd::boot::GateError::NodeRpc(
+                        layerx_agentd::node_rpc::NodeRpcError::Sequencer(
+                            layerx_client::sequencer::SequencerError::Malformed
+                        )
+                    ))
+                );
+            }
         }
         assert_eq!(gate.status(), &Status::NotReady);
         assert!(gate.guard_write(|| ()).is_err());
@@ -120,13 +125,84 @@ pub fn startup_restart() {
     must(std::fs::remove_dir_all(root));
 }
 
-pub fn authenticated_receipt(id: u8) -> AuthenticatedReceipt {
-    let raw = signed_transaction(id);
-    let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
-    let (view, key) = sequencer_receipt_with_details(&raw, true, 8, 25, 100);
+pub struct RestartCapture {
+    pub document: Value,
+}
+
+impl RestartCapture {
+    pub fn bytes(&self, name: &str) -> Vec<u8> {
+        let encoded = assert_some(self.document[name].as_str(), "captured hex field");
+        let encoded = assert_some(encoded.strip_prefix("0x"), "captured RPC hex");
+        assert_eq!(encoded.len() % 2, 0);
+        (0..encoded.len())
+            .step_by(2)
+            .map(|index| must(u8::from_str_radix(&encoded[index..index + 2], 16)))
+            .collect()
+    }
+
+    pub fn amount(&self, name: &str) -> u128 {
+        must(assert_some(self.document[name].as_str(), "captured amount").parse())
+    }
+
+    pub fn budget_id(&self) -> [u8; 32] {
+        must(self.bytes("budget_id").try_into())
+    }
+
+    pub fn transaction_hash(&self) -> [u8; 32] {
+        layerx_crypto::evm_transaction::transaction_hash(&self.bytes("signed_transaction"))
+    }
+
+    pub fn sequence(&self) -> u64 {
+        let encoded = assert_some(
+            self.document["receipt_view"]["seq"].as_str(),
+            "captured sequence",
+        );
+        must(u64::from_str_radix(
+            assert_some(encoded.strip_prefix("0x"), "RPC quantity"),
+            16,
+        ))
+    }
+
+    pub fn authority(&self) -> EvidenceAuthority {
+        authority_from_keys(self.document["receipt_keys"].clone())
+    }
+}
+
+pub fn restart_capture() -> RestartCapture {
+    let bytes = must(std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/current-receipt-restart.json"),
+    ));
+    RestartCapture {
+        document: must(serde_json::from_slice(&bytes)),
+    }
+}
+
+pub fn authenticated_receipt(capture: &RestartCapture) -> AuthenticatedReceipt {
+    let raw = capture.bytes("signed_transaction");
+    let hash = capture.transaction_hash();
+    let (transaction, signature) = must(layerx_crypto::evm_transaction::decode_signed(&raw));
+    assert_eq!(
+        capture.amount("transaction_value"),
+        0,
+        "decode_signed preserves the producer's zero-value restriction"
+    );
+    let sender = must(layerx_crypto::evm_transaction::recover_sender(
+        &transaction,
+        &signature,
+    ));
+    assert_eq!(
+        assert_some(capture.document["receipt_view"]["from"].as_str(), "sender").to_lowercase(),
+        rpc_hex(&sender)
+    );
+    let reply = capture.document["receipt_keys"].clone();
+    let expected_keys = must(layerx_client::sequencer::decode_receipt_keys(&reply));
     let (endpoint, server) = serve(vec![
-        ("px_getReceiptKeys", json!([]), Some(keys(8, 100, 199))),
-        ("pax_sequencerReceipt", json!([rpc_hex(&hash)]), Some(view)),
+        ("px_getReceiptKeys", json!([]), Some(reply)),
+        (
+            "pax_sequencerReceipt",
+            json!([rpc_hex(&hash)]),
+            Some(capture.document["receipt_view"].clone()),
+        ),
         (
             "eth_getTransactionReceipt",
             json!([rpc_hex(&hash)]),
@@ -134,7 +210,7 @@ pub fn authenticated_receipt(id: u8) -> AuthenticatedReceipt {
         ),
     ]);
     let keys = must(endpoint.receipt_keys());
-    assert_eq!(keys, vec![key]);
+    assert_eq!(keys, expected_keys);
     let Lookup::Verified(receipt) = must(lookup_authenticated(
         &endpoint,
         hash,
@@ -144,16 +220,33 @@ pub fn authenticated_receipt(id: u8) -> AuthenticatedReceipt {
     )) else {
         panic!("authenticated receipt required");
     };
+    assert_eq!(receipt.activity_id(), hash);
+    assert_eq!(receipt.global_sequence(), capture.sequence());
     assert_eq!(
-        receipt
-            .receipt()
-            .protocol()
-            .expect("protocol receipt")
-            .amount(),
-        25
+        assert_some(receipt.receipt().protocol(), "protocol receipt").amount(),
+        capture.amount("receipt_amount")
+    );
+    assert_eq!(
+        capture.amount("receipt_amount"),
+        capture.amount("transaction_value")
     );
     must(server.join());
     receipt
+}
+
+pub fn committed_restart_budget(
+    capture: &RestartCapture,
+) -> (ProtocolBudgetState, ServedCheckpoint) {
+    let (protocol, checkpoint) = committed_budget_result(
+        capture.budget_id(),
+        &capture.bytes("budget_result"),
+        signed_checkpoint(150, 1_700_000_000, 123_000_000),
+    );
+    assert_eq!(
+        protocol.evidence.canonical_state(),
+        capture.bytes("budget_record")
+    );
+    (protocol, checkpoint)
 }
 
 pub fn committed_budget(
@@ -187,10 +280,11 @@ pub fn committed_budget_with_period(
         (
             12,
             u128::from(
-                period_start_ms
-                    .checked_add(period_length_ms)
-                    .expect("budget expiry fits milliseconds")
-                    .max(5_000),
+                assert_some(
+                    period_start_ms.checked_add(period_length_ms),
+                    "budget expiry fits milliseconds",
+                )
+                .max(5_000),
             ),
         ),
         (14, 1),
@@ -199,8 +293,17 @@ pub fn committed_budget_with_period(
         result[index * 32 + 16..(index + 1) * 32].copy_from_slice(&amount.to_be_bytes());
     }
     for index in 1..=4 {
-        result[index * 32..(index + 1) * 32].fill(index as u8);
+        result[index * 32..(index + 1) * 32]
+            .fill(assert_ok(u8::try_from(index), "fixture result index"));
     }
+    committed_budget_result(budget_id, &result, checkpoint)
+}
+
+fn committed_budget_result(
+    budget_id: [u8; 32],
+    result: &[u8],
+    checkpoint: ServedCheckpoint,
+) -> (ProtocolBudgetState, ServedCheckpoint) {
     let mut pay = [0; 20];
     pay[18..].copy_from_slice(&[0x10, 0x1b]);
     let mut calldata =
@@ -208,12 +311,12 @@ pub fn committed_budget_with_period(
     calldata.extend(budget_id);
     let params = json!([{"to": rpc_hex(&pay), "data": rpc_hex(&calldata)}, format!("{:#x}", checkpoint.height)]);
     let block = json!({"number":format!("{:#x}", checkpoint.height), "hash":rpc_hex(&checkpoint.block_hash),
-        "parentHash":rpc_hex(&checkpoint.header.last_block_id.expect("parent").hash),
+        "parentHash":rpc_hex(&assert_some(checkpoint.header.last_block_id, "parent").hash),
         "timestamp":format!("{:#x}", checkpoint.header.time.seconds), "transactionsRoot":rpc_hex(&[4;32]),
         "receiptsRoot":rpc_hex(&[7;32]), "stateRoot":rpc_hex(&checkpoint.app_hash), "transactions":[]});
     let (endpoint, server) = serve(vec![
-        ("eth_call", params.clone(), Some(json!(rpc_hex(&result)))),
-        ("eth_call", params, Some(json!(rpc_hex(&result)))),
+        ("eth_call", params.clone(), Some(json!(rpc_hex(result)))),
+        ("eth_call", params, Some(json!(rpc_hex(result)))),
         (
             "eth_getBlockByNumber",
             json!([format!("{:#x}", checkpoint.height), true]),
@@ -290,5 +393,24 @@ pub fn signed_checkpoint(height: u64, seconds: i64, nanos: u32) -> ServedCheckpo
                 .to_bytes(),
         });
     }
-    checkpoint(height, "125", &header, &commit, &validators).expect("signed block commit")
+    assert_ok(
+        checkpoint(height, "125", &header, &commit, &validators),
+        "signed block commit",
+    )
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
 }

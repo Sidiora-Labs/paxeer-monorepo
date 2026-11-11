@@ -9,15 +9,19 @@ baseline = "Not run: the explicit ordered instructions require complete implemen
 qualification = "The exact verified revision, command, exit and private evidence location are supplied by the runner's final hf-done record; declarations here do not claim qualification."
 
 [wiring.schema]
+resolved = "Task 22.39.314 embeds 00003_development_state.sql, mirroring engine.DevelopmentSchemaDDL; internal/migrate applies it before development ingestion. Legacy rows remain refused and quarantined."
 request = "services/launchpad/trading-charts/migrations (owner fm-launchpad, domain 4): apply engine.DevelopmentSchemaDDL before enabling development ingestion and source-reconstruct pre-existing candle projections lacking persisted development ordering/membership; the engine refuses such projections instead of resetting their economics."
 
 [wiring.source_order]
+resolved = "Task 22.39.314 carries explicit block, transaction and log indexes through Redis and webhook adapters. The development source bootstrap verifies committed indexer rows against receipts to produce positioned frames."
 request = "services/launchpad/trading-charts/internal/consumer/swap_consumer.go and internal/httpapi/webhook.go (owner fm-launchpad, domain 4): carry authenticated block height, transaction index and log index into SwapEvent.Position on both legacy transports; ingestion without a complete source position is refused."
 
 [wiring.relay]
+resolved = "Task 22.39.314 starts the development source bootstrap with the Redis consumer and drains pending committed chart outboxes on each polling pass, including after restart."
 request = "services/launchpad/trading-charts/internal/app/app.go (owner fm-launchpad, domain 4): schedule Builder.RelayCommitted for development pools after restart even without a new swap; every ingestion retry already drains committed outbox records without refolding the claimed source."
 
 [wiring.consumer]
+resolved = "Task 22.39.314 uses durable development candle state for the v2 projector; source revision acknowledgement, canonical history and stream delivery commit atomically in api_stream_dev. Legacy Redis candle notifications are not its authority."
 request = "services/launchpad/api/internal/broker/transform.go (owner fm-launchpad, domain 4): consume the stable development eventId and revision idempotently across ambiguous acknowledgements plus Redis data loss; publication is atomically revision-fenced in Redis, while acknowledged records and trader membership survive in SQL."
 
 [gotcha.source_metadata]

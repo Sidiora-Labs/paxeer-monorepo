@@ -7,26 +7,62 @@ use layerx_client::sequencer::{
 use crate::node_rpc::{NodeRpc, NodeRpcError};
 
 pub trait HumanNode: Send + Sync + Debug {
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn chain_id(&self) -> Result<u64, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn head(&self) -> Result<SequencerBlock, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn block(&self, height: u64) -> Result<Option<SequencerBlock>, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn receipt_keys(&self) -> Result<Vec<ReceiptKeyEntry>, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn bound_address(&self, public_key: &[u8; 32]) -> Result<Option<[u8; 20]>, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn pending_nonce(&self, address: &[u8; 20]) -> Result<u64, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn call_at(&self, height: u64, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
     ) -> Result<Vec<StorageWitness>, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn estimate_gas(&self, call: &CallRequest) -> Result<u64, NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], NodeRpcError>;
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn sequencer_receipt(
         &self,
         tx_hash: &[u8; 32],
     ) -> Result<Option<SequencerReceipt>, NodeRpcError>;
 
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn committed_block(&self, height: u64) -> Result<SequencerBlock, NodeRpcError> {
         let head = self.head()?;
         if height > head.number {
@@ -42,6 +78,9 @@ pub trait HumanNode: Send + Sync + Debug {
         Ok(block)
     }
 
+    /// # Errors
+    /// Returns an error if node configuration, transport or RPC fails, or required node evidence
+    /// is missing or malformed.
     fn receipt_key_at_head(&self) -> Result<ReceiptKeyEntry, NodeRpcError> {
         let head = self.head()?;
         let mut covering = self
@@ -102,6 +141,9 @@ impl HumanNode for NodeRpc {
 }
 
 /// Checks the direct node interface. Gateway network metadata is not node readiness.
+/// # Errors
+/// Returns an error if node acquisition fails or the committed checkpoint, target, result
+/// root or proof cannot be verified.
 pub fn verify_direct_node_readiness(
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
     expected_chain: u64,
@@ -170,12 +212,17 @@ impl<'a> HumanNodePreparationReader<'a> {
 }
 
 impl HumanNodePreparationReader<'_> {
+    /// # Errors
+    /// Returns an error if pending preparation state is refused or lacks verified node evidence.
     pub fn preparation_state(
         &mut self,
         actor: &Did,
     ) -> Result<HumanNodePreparationState, HumanStateError> {
         self.last_state = None;
-        let chain_id = self.node.chain_id().map_err(map_preparation_state_error)?;
+        let chain_id = self
+            .node
+            .chain_id()
+            .map_err(|value| map_preparation_state_error(&value))?;
         let network_id = u32::try_from(chain_id).map_err(|_| HumanStateError::Refused {
             class: 1,
             result: layerx_types::result::KnownResult::Overflow.into(),
@@ -200,7 +247,7 @@ impl HumanNodePreparationReader<'_> {
         let address = self
             .node
             .bound_address(&public_key)
-            .map_err(map_preparation_state_error)?
+            .map_err(|value| map_preparation_state_error(&value))?
             .ok_or(HumanStateError::Refused {
                 class: 1,
                 result: layerx_types::result::KnownResult::UnknownDid.into(),
@@ -208,8 +255,11 @@ impl HumanNodePreparationReader<'_> {
         let account_sequence = self
             .node
             .pending_nonce(&address)
-            .map_err(map_preparation_state_error)?;
-        let head = self.node.head().map_err(map_preparation_state_error)?;
+            .map_err(|value| map_preparation_state_error(&value))?;
+        let head = self
+            .node
+            .head()
+            .map_err(|value| map_preparation_state_error(&value))?;
         let state = HumanNodePreparationState {
             network_id,
             account_sequence,
@@ -225,7 +275,7 @@ impl HumanNodePreparationReader<'_> {
     }
 }
 
-fn map_preparation_state_error(error: crate::node_rpc::NodeRpcError) -> HumanStateError {
+fn map_preparation_state_error(error: &crate::node_rpc::NodeRpcError) -> HumanStateError {
     match error {
         crate::node_rpc::NodeRpcError::Unavailable
         | crate::node_rpc::NodeRpcError::Sequencer(

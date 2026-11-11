@@ -1,3 +1,4 @@
+import { copyEntry } from "../../../copy/runtime";
 import { Badge } from "../../kit/collection";
 
 import { GatewayRpcError, GatewayUnavailableError, surfaceCapability } from "../../api/gateway";
@@ -74,7 +75,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
   if (!capability.live) {
     return (
       <MarketFrame
-        title="Bridge"
+        title={copyEntry("bridge.copy.bridge").message}
         description="Move assets between Ethereum and Paxeer through the attested LayerXBridge precompile."
         account={account}
       >
@@ -120,13 +121,13 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
 
   return (
     <MarketFrame
-      title="Bridge"
+      title={copyEntry("bridge.copy.bridge").message}
       description="Move assets between Ethereum and Paxeer through the attested LayerXBridge precompile."
       account={account}
     >
       <SurfaceCapabilityGate surface="bridge" live detail={null} />
       {problem === undefined ? null : <MarketUnavailable detail={problem} />}
-      <ExplorerPanel title="Bridge status">
+      <ExplorerPanel title={copyEntry("bridge.copy.bridge_status").message}>
         <form method="get" action="/bridge" className="flex flex-wrap items-end gap-3">
           {account === undefined ? null : (
             <SettingsTextInput type="hidden" name="account" value={account} readOnly className="hidden" />
@@ -142,7 +143,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
             name="asset"
             defaultValue={asset ?? ""}
             spellCheck={false}
-            placeholder="0x…"
+            placeholder={copyEntry("bridge.copy.0x").message}
             className="flex-1"
           />
           <KitButton type="submit" className="h-11 rounded-full border border-border-strong bg-surface px-5 text-sm font-semibold">
@@ -176,7 +177,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
           )}
         </div>
         {cap === undefined ? (
-          <p className="text-sm text-muted-foreground">Enter an asset address to see its caps.</p>
+          <p className="text-sm text-muted-foreground">{copyEntry("bridge.copy.enter_an_asset_address_to_see_its_caps").message}</p>
         ) : (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-6">
@@ -194,7 +195,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
         )}
       </ExplorerPanel>
       <div className="grid gap-4 lg:grid-cols-2">
-        <ExplorerPanel title="Bridge in from Ethereum">
+        <ExplorerPanel title={copyEntry("bridge.copy.bridge_in_from_ethereum").message}>
           {chain?.registered !== true ? (
             <InlineNotice tone="warning">{closedReason ?? "This chain is not open for bridging."}</InlineNotice>
           ) : (
@@ -209,7 +210,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
               <li>
                 Wait {chain.finalityDepth.toString()} Ethereum blocks. Then {attestors?.threshold.toString() ?? "the threshold of"} attestors sign and relay it; the bridged denom is minted to you.
               </li>
-              <li>Track the deposit below with its Ethereum transaction hash and the BridgeDeposit log index.</li>
+              <li>{copyEntry("bridge.copy.track_the_deposit_below_with_its_ethereum_transactio").message}</li>
             </ol>
           )}
           {closedReason !== undefined && chain?.registered === true ? (
@@ -227,7 +228,7 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
             </div>
           )}
         </ExplorerPanel>
-        <ExplorerPanel title="Bridge out to Ethereum">
+        <ExplorerPanel title={copyEntry("bridge.copy.bridge_out_to_ethereum").message}>
           <BridgeOutForm
             account={account}
             chain={chainId.toString()}
@@ -238,10 +239,10 @@ export default async function BridgePage({ searchParams }: Readonly<{ searchPara
           />
         </ExplorerPanel>
       </div>
-      <ExplorerPanel title="Attestations and requests">
+      <ExplorerPanel title={copyEntry("bridge.copy.attestations_and_requests").message}>
         {account === undefined || activity.length === 0 ? (
           <StateEmpty
-            title="Nothing bridged yet"
+            title={copyEntry("bridge.copy.nothing_bridged_yet").message}
             description={`Bridge-ins credited to this wallet and bridge-outs paying it in the last ${PRECOMPILE_LOG_WINDOW.toString()} blocks appear here.`}
           />
         ) : (

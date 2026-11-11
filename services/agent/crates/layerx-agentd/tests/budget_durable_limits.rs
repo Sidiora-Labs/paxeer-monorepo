@@ -97,7 +97,7 @@ fn tenant() -> TenantId {
 }
 
 fn hex(value: &[u8; 32]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(value)
 }
 
 fn account(name: &str) -> [u8; 32] {
@@ -1071,6 +1071,12 @@ fn authority_response_carries_exact_authority_and_truthful_enforcement() {
     };
     assert_eq!(response.value.enforcement(), BudgetEnforcement::DaemonLimit);
 
+    assert_mutation_authorizations(api_tenant, agent, owner);
+}
+
+mod support;
+
+fn assert_mutation_authorizations(api_tenant: ApiTenantId, agent: AgentDid, owner: [u8; 32]) {
     let target = BudgetTarget {
         tenant: api_tenant,
         agent_did: agent,
@@ -1109,5 +1115,3 @@ fn authority_response_carries_exact_authority_and_truthful_enforcement() {
         Err(ContractError::Mismatch("budget_authorization"))
     );
 }
-
-mod support;

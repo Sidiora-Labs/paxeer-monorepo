@@ -6,7 +6,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 PRODUCERS = (
     "tools/qualification/paxeer-x/interop-archive-contract.py",
-    "tools/qualification/paxeer-x/fixtures/caps_fixture.py",
 )
 
 
@@ -38,6 +37,14 @@ class RetiredCallers6Test(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertIn("usage:", result.stdout)
+
+    def test_retired_runtime_gates_remain_absent(self):
+        for gate in (
+            "tools/qualification/paxeer-x/fixtures/caps_fixture.py",
+            "tools/qualification/paxeer-x/human-movement-kms-assembly.py",
+        ):
+            with self.subTest(gate=gate):
+                self.assertFalse((ROOT / gate).exists(), gate)
 
 
 if __name__ == "__main__":

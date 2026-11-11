@@ -362,7 +362,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if err != nil {
 			return nil, err
 		}
-		devReads = metadata.NewDevelopmentV2Reads(pool, receipts, time.Now)
+		if err = metadata.EnsureDevelopmentConnectedSchema(ctx, pool, metadata.DevelopmentConnectedSchema); err != nil {
+			return nil, err
+		}
+		canonicalStore, err := metadata.NewProductionStore(pool, metadata.DevelopmentConnectedSchema, nil)
+		if err != nil {
+			return nil, err
+		}
+		devReads = metadata.NewDevelopmentV2Reads(pool, receipts, time.Now, canonicalStore)
 		checks["media_rpc"] = devReads.CheckChain
 		if cfg.RPCURL != "" {
 			if err := devReads.CheckChain(ctx); err != nil {
@@ -419,7 +426,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			logger.Warn("development metadata uploads disabled: IDENTITY_SERVICE_URL and IDENTITY_SERVICE_TOKEN (>= 32 chars) are required")
 		}
 		scanner := sharedhttp.ScanOptions{Host: cfg.ClamAVHost, Port: cfg.ClamAVPort, Timeout: 5 * time.Second}
-		metadata.New(metadata.Deps{Queries: sqlcdb.New(pool), Redis: rdb, Store: devStore, PublicURL: cfg.PublicURL, MaxLogoSize: cfg.MaxLogoSizeBytes, MaxBanner: cfg.MaxBannerSizeBytes, Logger: logger, Identity: identity, Scan: func(c context.Context, data []byte) sharedhttp.ScanResult {
+		metadata.New(metadata.Deps{Queries: sqlcdb.New(pool), LegacyDB: pool, Redis: rdb, Store: devStore, PublicURL: cfg.PublicURL, MaxLogoSize: cfg.MaxLogoSizeBytes, MaxBanner: cfg.MaxBannerSizeBytes, Logger: logger, Identity: identity, Scan: func(c context.Context, data []byte) sharedhttp.ScanResult {
 			return sharedhttp.ScanBuffer(c, data, scanner)
 		}}).RegisterRoutes(gr)
 		// Creator token images + /v3 metadata publication: the production

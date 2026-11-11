@@ -358,6 +358,7 @@ pub unsafe extern "C" fn layerx_programs_schedule_plan(
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
+const UNAUTHORIZED_DEBIT: i32 = -207;
 const UNKNOWN_FIELD: i32 = -7;
 const MARKET_HALTED: i32 = -703;
 const LENGTH_LIMIT: i32 = -5;
@@ -1614,6 +1615,18 @@ impl ReceiptOracle for CReceiptOracle {
 }
 
 unsafe extern "C" {
+    fn layerx_programs_call_destination_name_byte(
+        token: u64,
+        t0: u64,
+        t1: u64,
+        t2: u64,
+        t3: u64,
+        a0: u64,
+        a1: u64,
+        a2: u64,
+        a3: u64,
+        offset: u32,
+    ) -> i32;
     fn layerx_programs_call_payment_name_byte(
         token: u64,
         a0: u64,
@@ -1626,7 +1639,33 @@ unsafe extern "C" {
 
 fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), i32> {
     let mut names = Vec::with_capacity(set.legs().len());
+    let mut destination_names = Vec::with_capacity(set.legs().len());
     for leg in set.legs() {
+        let destination = words(leg.to);
+        let asset = words(leg.asset);
+        let read_destination = |offset| unsafe {
+            layerx_programs_call_destination_name_byte(
+                token,
+                destination[0],
+                destination[1],
+                destination[2],
+                destination[3],
+                asset[0],
+                asset[1],
+                asset[2],
+                asset[3],
+                offset,
+            )
+        };
+        let length = read_destination(u32::MAX);
+        if length < 0 {
+            return Err(length);
+        }
+        let length = usize::try_from(length).map_err(|_| LENGTH_LIMIT)?;
+        if length > 512 {
+            return Err(NON_CANONICAL);
+        }
+        destination_names.push(scalar_bytes(length, read_destination)?);
         if matches!(leg.source, TransferSource::Program(_)) {
             names.push(Vec::new());
             continue;
@@ -1655,7 +1694,8 @@ fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), 
             },
         )?);
     }
-    set.bind_account_names(&names).map_err(|_| NON_CANONICAL)
+    set.bind_account_names(&names, &destination_names)
+        .map_err(|_| NON_CANONICAL)
 }
 
 fn submit_kernel_transfer_leg(
@@ -2290,7 +2330,7 @@ fn occupancy_responsibilities(
         })
         .ok_or(-500)?;
     if minimum_total > authority.fee_ceiling() {
-        return Err(NON_CANONICAL);
+        return Err(UNAUTHORIZED_DEBIT);
     }
     let share_count = u128::try_from(eligible.len()).map_err(|_| LENGTH_LIMIT)?;
     let surplus = authority
@@ -2323,7 +2363,7 @@ fn occupancy_responsibilities(
             .max(bytes);
         let responsibility = authority
             .authorize(namespace, maximum_bytes, charge_ceiling)
-            .map_err(|_| NON_CANONICAL)?;
+            .map_err(|_| UNAUTHORIZED_DEBIT)?;
         responsibilities.push(responsibility);
     }
     Ok(responsibilities)
@@ -2371,11 +2411,14 @@ fn settle_call_occupancy(
                 .ok_or(NON_CANONICAL)?,
         };
         if authorized_payer != authority.payer() {
-            continue;
+            return Err(UNAUTHORIZED_DEBIT);
         }
         match ledger.responsibility_limits(namespace) {
             Some((payer, _))
-                if payer != authority.payer() && !ledger.requires_migration(namespace) => {}
+                if payer != authority.payer() && !ledger.requires_migration(namespace) =>
+            {
+                return Err(UNAUTHORIZED_DEBIT);
+            }
             Some((_, maximum_bytes))
                 if final_bytes <= maximum_bytes && !ledger.requires_migration(namespace) => {}
             _ => eligible.push((namespace, final_bytes)),
@@ -3030,7 +3073,11 @@ pub extern "C" fn layerx_programs_call_begin(
                                 return terminal(TerminalPublication {
                                     token,
                                     kind: FAILURE,
-                                    result: PROGRAM_REFUSED,
+                                    result: if status == UNAUTHORIZED_DEBIT {
+                                        status
+                                    } else {
+                                        PROGRAM_REFUSED
+                                    },
                                     runtime: record.execution().runtime_version(),
                                     abi: abi_version,
                                     schedule: fee_schedule_version,

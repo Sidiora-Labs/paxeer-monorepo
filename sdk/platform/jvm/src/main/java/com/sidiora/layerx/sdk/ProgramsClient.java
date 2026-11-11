@@ -345,6 +345,10 @@ public final class ProgramsClient {
         "LayerX/programs/402LXP/transfer-set/v1\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] TRANSFER_SET_V2_DOMAIN =
         "LayerX/programs/402LXP/transfer-set/v2\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ACCOUNT_BOUND_V1_DOMAIN =
+        "LayerX/programs/402LXP/account-bound-set/v1\0".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] ACCOUNT_BOUND_V2_DOMAIN =
+        "LayerX/programs/402LXP/account-bound-set/v2\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] PROGRAM_AUTHORITY_DOMAIN =
         "LayerX/programs/402LXP/program-authority/v1\0".getBytes(StandardCharsets.UTF_8);
     private static final byte[] PROGRAM_FUNDING_DOMAIN =
@@ -1262,8 +1266,14 @@ public final class ProgramsClient {
     }
 
     private static boolean authorizationV2(byte[] encoded) {
-        byte[] domain = "LayerX/programs/402LXP/account-bound-set/v1\0".getBytes(StandardCharsets.UTF_8);
-        if (starts(encoded, domain)) encoded = new TerminalCursor(encoded, domain.length).sized32(MAX_CALLDATA_BYTES);
+        byte[] domain = starts(encoded, ACCOUNT_BOUND_V2_DOMAIN)
+            ? ACCOUNT_BOUND_V2_DOMAIN : ACCOUNT_BOUND_V1_DOMAIN;
+        if (starts(encoded, domain)) {
+            encoded = new TerminalCursor(encoded, domain.length).sized32(MAX_CALLDATA_BYTES);
+            if (starts(encoded, ACCOUNT_BOUND_V1_DOMAIN) || starts(encoded, ACCOUNT_BOUND_V2_DOMAIN)) {
+                throw new IllegalArgumentException();
+            }
+        }
         return starts(encoded, TRANSFER_SET_V2_DOMAIN);
     }
 
@@ -1283,12 +1293,15 @@ public final class ProgramsClient {
     static void verifyAuthorizationRoot(byte[] encoded, byte[] expected) {
         if (encoded == null || encoded.length == 0 || encoded.length > MAX_CALLDATA_BYTES
                 || expected == null || expected.length != 32) throw new IllegalArgumentException();
-        byte[] boundDomain = "LayerX/programs/402LXP/account-bound-set/v1\0".getBytes(StandardCharsets.UTF_8);
+        boolean boundV2 = starts(encoded, ACCOUNT_BOUND_V2_DOMAIN);
+        byte[] boundDomain = boundV2 ? ACCOUNT_BOUND_V2_DOMAIN : ACCOUNT_BOUND_V1_DOMAIN;
         TerminalCursor names = null;
         if (starts(encoded, boundDomain)) {
             names = new TerminalCursor(encoded, boundDomain.length);
             encoded = names.sized32(MAX_CALLDATA_BYTES);
-            if (starts(encoded, boundDomain)) throw new IllegalArgumentException();
+            if (starts(encoded, ACCOUNT_BOUND_V1_DOMAIN) || starts(encoded, ACCOUNT_BOUND_V2_DOMAIN)) {
+                throw new IllegalArgumentException();
+            }
         }
         boolean candidate = starts(encoded, TRANSFER_SET_V2_DOMAIN);
         byte[] domain = candidate ? TRANSFER_SET_V2_DOMAIN : TRANSFER_SET_V1_DOMAIN;
@@ -1319,6 +1332,7 @@ public final class ProgramsClient {
         }
         List<byte[]> kernelLegs = new ArrayList<>();
         BigInteger total = BigInteger.ZERO;
+        boolean destinationBound = false;
         for (int index = 0; index < legCount.intValue(); index++) {
             byte[] frame = decodeFrame(cursor);
             byte[] source = principal;
@@ -1362,6 +1376,13 @@ public final class ProgramsClient {
                 byte[] name = names.take(names.u16());
                 if (authority != null) { if (name.length != 0) throw new IllegalArgumentException(); }
                 else source = principalPaymentAccount(source, asset, name);
+                if (boundV2) {
+                    byte[] destinationName = names.take(names.u16());
+                    if (destinationName.length != 0) {
+                        destination = principalPaymentAccount(destination, asset, destinationName);
+                        destinationBound = true;
+                    }
+                }
             }
             total = checkedU128Add(total, amount);
             kernelLegs.add(concatenate(new byte[] {0}, source, destination, asset,
@@ -1369,6 +1390,7 @@ public final class ProgramsClient {
         }
         cursor.finish();
         if (names != null) names.finish();
+        if (boundV2 && !destinationBound) throw new IllegalArgumentException();
         if (!MessageDigest.isEqual(merkleRoot(kernelLegs), expected)) {
             throw new IllegalArgumentException();
         }

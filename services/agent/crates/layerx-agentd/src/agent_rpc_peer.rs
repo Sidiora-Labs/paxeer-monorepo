@@ -55,10 +55,7 @@ pub(crate) fn bind_registered_mcp_owner<'p, A: HumanAuthorityBoundary>(
     {
         return Err(HumanOperationError::Refused);
     }
-    let key = owner_public_key
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let key = layerx_programs::hex::encode(&owner_public_key);
     let owner_did = format!("did:layerx:{key}");
     if permit.principal().agent.as_bytes() != owner_did.as_bytes() {
         return Err(HumanOperationError::Refused);

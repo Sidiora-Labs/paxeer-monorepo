@@ -23,9 +23,22 @@ import (
 // baselines (pnl.inventory_l16_baselines_v1.projection_generation) and the
 // version stamps every accounting.inventory.v1 partition position.
 type DeliveryParameters struct {
+	MaxDeliveryLagMS                                            int64
+	DeadLetters                                                 *DeadLetterParameters
 	Owner, Region, Stream, CanonicalStreamID, ProjectionVersion string
 	InventoryGeneration, InventoryProjectionVersion             string
 	Epoch                                                       int64
+}
+
+type DeadLetterParameters struct {
+	SecuritySchema  string `json:"securitySchema"`
+	Audience        string `json:"audience"`
+	PolicyVersion   string `json:"policyVersion"`
+	Issuer          string `json:"issuer"`
+	PeerCertSHA256  string `json:"peerCertSHA256"`
+	PublicKey       []byte `json:"publicKey"`
+	AssertionHeader string `json:"assertionHeader"`
+	SignatureHeader string `json:"signatureHeader"`
 }
 
 // DefaultDeliveryParameters are the Railway production values. The inventory
@@ -59,6 +72,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 	}
 	receiptDoc := receiptRuntimeDocument{Realm: "production", Production: authority}
 	deliveryDoc := deliveryRuntimeDocument{
+		MaxDeliveryLagMS: p.MaxDeliveryLagMS, DeadLetters: p.DeadLetters,
 		Schema: "indexer", Owner: p.Owner, Epoch: p.Epoch, Region: p.Region, Stream: p.Stream,
 		CanonicalStreamID: p.CanonicalStreamID, DeploymentID: authority.Manifest.DeploymentVersion,
 		ProjectionVersion: p.ProjectionVersion, InventoryProjectionVersion: p.InventoryProjectionVersion, Generation: p.InventoryGeneration,
@@ -67,6 +81,9 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 			EventTypes: map[string]bool{publisher.CanonicalCreationEventType: true, accounting.MarketSubject: true, processor.ReplaySubjectV2: true},
 		},
 		Subjects: map[string]string{publisher.CanonicalCreationEventType: publisher.CanonicalCreationSubject, accounting.MarketSubject: accounting.MarketSubject},
+	}
+	if err = deliveryDoc.validateStatus(); err != nil {
+		return nil, err
 	}
 	if p.InventoryGeneration != "" {
 		deliveryDoc.Policy.Subjects[accounting.InventorySubject] = true

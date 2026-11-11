@@ -22,6 +22,20 @@ while IFS='|' read -r kind path classification; do
             test "$kind" = rust
             test -s "${path%/Cargo.toml}/Cargo.lock"
             ;;
+        covered-by-test:*)
+            test "$kind" = rust
+            covering=${classification#covered-by-test:}
+            case "$covering" in *_test.go) ;; *) exit 1 ;; esac
+            test -s "$covering"
+            ;;
+        covered-by-python-source:*)
+            test "$kind" = python
+            covering=${classification#covered-by-python-source:}
+            case "$covering" in *.py) ;; *) exit 1 ;; esac
+            test -s "$covering"
+            grep -q '^cryptography' "$path"
+            grep -q '^from cryptography\.' "$covering"
+            ;;
         revision-locked)
             test "$kind" = swift-lock
             grep -q '"revision"' "$path"

@@ -666,7 +666,41 @@ pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
             let actor = e.actor;
             let mut out = vec![0; MAX_ENVELOPE_BYTES];
             let len = encode_envelope(&e, &mut out)?;
-            apply(bytes, &out[..len], actor, at)?;
+            let mut cursor = 0;
+            let mut count = None;
+            loop {
+                if cursor != 0 {
+                    assert!(epoch::captured_roster(&decode_shared_state(bytes)?)?.is_none());
+                }
+                let reply = apply(bytes, &out[..len], actor, at)?;
+                let result = decode_result(&reply.result)?;
+                assert_eq!(result.status, ResultStatus::Ok);
+                assert_eq!(result.payload.len(), epoch::OPEN_SUFFIX_BYTES);
+                let mut progress = codec::Reader::new(&result.payload[100..]);
+                let next_cursor = progress.u16()?;
+                let participant_count = progress.u16()?;
+                assert!(next_cursor > cursor || (cursor == 0 && participant_count == 0));
+                assert!(next_cursor <= participant_count);
+                if let Some(count) = count {
+                    assert_eq!(participant_count, count);
+                }
+                count = Some(participant_count);
+                cursor = next_cursor;
+                let captured = epoch::captured_roster(&decode_shared_state(bytes)?)?;
+                if cursor == participant_count {
+                    let captured = captured.expect("the final opening call publishes the roster");
+                    assert_eq!(captured.binding.epoch, frozen.epoch);
+                    assert_eq!(captured.binding.config, frozen.config);
+                    assert_eq!(captured.binding.roster, frozen.roster);
+                    assert_eq!(captured.workers().len(), usize::from(frozen.workers));
+                    assert_eq!(captured.evaluators().len(), usize::from(frozen.evaluators));
+                    break;
+                }
+                assert!(
+                    captured.is_none(),
+                    "a partial opening cannot publish a roster"
+                );
+            }
             Ok(frozen)
         },
     )
@@ -758,13 +792,38 @@ pub fn settle(bytes: &mut Vec<u8>, at: u64) -> CodecResult<()> {
             let Presence::Present(input) = aggregation::progress(bytes)?.input else {
                 return Err(NOT_FOUND);
             };
-            call(
-                bytes,
-                dispatch::FinalizeAggregation,
-                keeper,
-                input.as_bytes(),
-                at,
-            )?;
+            let mut cursor = 0;
+            let count = aggregation::progress(bytes)?.worker_count;
+            loop {
+                let reply = call(
+                    bytes,
+                    dispatch::FinalizeAggregation,
+                    keeper,
+                    input.as_bytes(),
+                    at,
+                )?;
+                let result = decode_result(&reply.result)?;
+                assert_eq!(result.status, ResultStatus::Ok);
+                assert_eq!(result.payload.len(), aggregation::FINALIZE_RESPONSE_BYTES);
+                let mut progress = codec::Reader::new(&result.payload[64..]);
+                let worker_count = progress.u16()?;
+                let weight = progress.u64()?;
+                let next_cursor = progress.u16()?;
+                assert_eq!(worker_count, count);
+                assert!(next_cursor > cursor || (cursor == 0 && count == 0));
+                assert!(next_cursor <= count);
+                cursor = next_cursor;
+                let committed = aggregation::progress(bytes)?;
+                assert_eq!(committed.worker_count, count);
+                assert_eq!(committed.running_weight, weight);
+                assert_eq!(
+                    committed.phase == AggregationPhase::Terminal,
+                    cursor == count
+                );
+                if cursor == count {
+                    break;
+                }
+            }
             Ok(())
         },
     )
@@ -1216,4 +1275,34 @@ fn prove_admissions() -> CodecResult<()> {
     assert!(denied.event.is_empty());
     assert_eq!(bytes, before);
     Ok(())
+}
+
+pub fn lap_batch(
+    deal: Digest32,
+    first: u64,
+    count: usize,
+    countersigners: u32,
+) -> CodecResult<layerx_programs_ai_market::laps::ReceiptBatch> {
+    use layerx_programs_ai_market::laps::{LapReceipt, ReceiptBatch};
+
+    let ranges = [Digest32::new([80; 32])?, Digest32::new([81; 32])?];
+    let key = SigningKey::from_bytes(&[12; 32]);
+    let receipts = (0..count)
+        .map(|index| {
+            let mut receipt = LapReceipt {
+                deal_id: deal,
+                lap_index: first + index as u64,
+                prompt_tokens: 10,
+                generated_tokens: 90,
+                cumulative_tokens: (first + index as u64 + 1) * 100,
+                layer_range_digests: &ranges,
+                host_signature: Signature64([1; 64]),
+                peer_countersignatures: countersigners,
+            };
+            receipt.host_signature =
+                Signature64(key.sign(receipt.signing_digest()?.as_bytes()).to_bytes());
+            Ok(receipt)
+        })
+        .collect::<CodecResult<Vec<_>>>()?;
+    ReceiptBatch::from_receipts(&receipts)
 }
