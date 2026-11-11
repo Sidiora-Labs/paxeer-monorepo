@@ -1,10 +1,11 @@
 // Same-store service/chain regression for audit worker-live-path-test-gap.
-#[path = "../../src/main.rs"]
+#[path = "../../src/worker_core.rs"]
 mod worker;
 include!("native_workload.rs");
 
 use layerx_paxai_worker::auth::{CANCEL_PATH, QUERY_PATH, SUBMIT_PATH};
 use layerx_paxai_worker::discovery::{spki_sha256, EndpointClient, NetworkProfile};
+use layerx_paxai_worker::jobs::Lease;
 use layerx_paxai_worker::membership::{MembershipObserver, Subject};
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -27,9 +28,9 @@ impl Drop for Listener {
         self.stopped.store(true, Ordering::Release);
         self.thread
             .take()
-            .expect("listener thread")
+            .unwrap_or_else(|| panic!("listener thread"))
             .join()
-            .expect("listener stopped");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "listener stopped"));
     }
 }
 impl Listener {
@@ -40,7 +41,9 @@ impl Listener {
         endpoint: Endpoint,
         roots: Arc<RootCertStore>,
     ) -> Self {
-        socket.set_nonblocking(true).expect("nonblocking accept");
+        socket
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "nonblocking accept"));
         let service = Arc::new(service);
         let consumer = Arc::clone(&service);
         let stopped = Arc::new(AtomicBool::new(false));
@@ -57,42 +60,56 @@ impl Listener {
                 };
                 socket
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("read timeout");
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "read timeout"));
                 socket
                     .set_write_timeout(Some(Duration::from_secs(3)))
-                    .expect("write timeout");
-                let connection = ServerConnection::new(Arc::clone(&tls)).expect("TLS server");
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "write timeout"));
+                let connection = ServerConnection::new(Arc::clone(&tls))
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "TLS server"));
                 let mut stream = StreamOwned::new(connection, socket);
                 let mut reader = BufReader::new(&mut stream);
                 let mut first = String::new();
-                reader.read_line(&mut first).expect("request line");
+                reader
+                    .read_line(&mut first)
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "request line"));
                 let fields: Vec<_> = first.split_whitespace().collect();
                 assert_eq!(fields.len(), 3);
                 assert_eq!(fields[2], "HTTP/1.1");
                 let mut length = None;
                 loop {
                     let mut line = String::new();
-                    reader.read_line(&mut line).expect("header line");
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("{error:?}: {}", "header line"));
                     if line == "\r\n" {
                         break;
                     }
-                    let (name, value) = line.split_once(':').expect("header");
+                    let (name, value) = line.split_once(':').unwrap_or_else(|| panic!("header"));
                     if name.eq_ignore_ascii_case("content-length") {
                         assert!(length.is_none());
-                        length = Some(value.trim().parse::<usize>().expect("body size"));
+                        length = Some(
+                            value
+                                .trim()
+                                .parse::<usize>()
+                                .unwrap_or_else(|error| panic!("{error:?}: {}", "body size")),
+                        );
                     }
                 }
-                let mut body = vec![0; length.expect("content length")];
+                let mut body = vec![0; length.unwrap_or_else(|| panic!("content length"))];
                 reader
                     .read_exact(&mut body)
-                    .expect("binary service envelope");
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "binary service envelope"));
                 drop(reader);
                 // The production handler authenticates and decodes these exact TLS bytes,
                 // reads staged inputs, tracks the job and writes this service's JobStore.
                 let response = consumer.dispatch(fields[0], fields[1], &body);
-                write!(stream, "HTTP/1.1 {} OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.status, response.body.len()).expect("response header");
-                stream.write_all(&response.body).expect("binary response");
-                stream.flush().expect("response flush");
+                write!(stream, "HTTP/1.1 {} OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.status, response.content_type, response.body.len()).unwrap_or_else(|error| panic!("{error:?}: {}", "response header"));
+                stream
+                    .write_all(&response.body)
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "binary response"));
+                stream
+                    .flush()
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "response flush"));
                 stream.conn.send_close_notify();
                 let _ = stream.conn.complete_io(&mut stream.sock);
             }
@@ -116,7 +133,7 @@ impl Listener {
             .post(&self.endpoint, path, body, |_, _| {
                 Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)])
             })
-            .expect("signed job through pinned TLS")
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "signed job through pinned TLS"))
     }
 }
 
@@ -126,18 +143,25 @@ struct Certificates {
     endpoint: Endpoint,
 }
 fn certificates(socket: &TcpListener) -> Certificates {
-    let ca_key = rcgen::KeyPair::generate().expect("CA key");
-    let mut params = rcgen::CertificateParams::new(Vec::<String>::new()).expect("CA parameters");
+    let ca_key =
+        rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "CA key"));
+    let mut params = rcgen::CertificateParams::new(Vec::<String>::new())
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "CA parameters"));
     params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-    let ca = params.self_signed(&ca_key).expect("CA certificate");
+    let ca = params
+        .self_signed(&ca_key)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "CA certificate"));
     let issuer = rcgen::Issuer::from_params(&params, &ca_key);
-    let key = rcgen::KeyPair::generate().expect("server key");
+    let key =
+        rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "server key"));
     let leaf = rcgen::CertificateParams::new(vec!["localhost".into()])
-        .expect("server parameters")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "server parameters"))
         .signed_by(&key, &issuer)
-        .expect("server certificate");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "server certificate"));
     let mut roots = RootCertStore::empty();
-    roots.add(ca.der().clone()).expect("root trust");
+    roots
+        .add(ca.der().clone())
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "root trust"));
     let tls = ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(
@@ -146,16 +170,19 @@ fn certificates(socket: &TcpListener) -> Certificates {
                 key.serialize_der(),
             )),
         )
-        .expect("server TLS configuration");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "server TLS configuration"));
     Certificates {
         tls: Arc::new(tls),
         roots: Arc::new(roots),
         endpoint: endpoint(
             &format!(
                 "https://localhost:{}/paxai/v1",
-                socket.local_addr().expect("bound socket").port()
+                socket
+                    .local_addr()
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "bound socket"))
+                    .port()
             ),
-            spki_sha256(leaf.der()).expect("leaf pin"),
+            spki_sha256(leaf.der()).unwrap_or_else(|error| panic!("{error:?}: {}", "leaf pin")),
         ),
     }
 }
@@ -174,10 +201,10 @@ fn open_service(directory: &Scratch, fixture: &Admitting) -> Checked<worker::Ser
     .map_err(|_| Failure::Unexpected("membership store"))?;
     let input_dir = directory.0.join("inputs");
     fs::create_dir_all(&input_dir)?;
-    Ok(worker::Service {
+    let service = worker::Service {
         binding,
         key: delegate(),
-        metrics: Default::default(),
+        metrics: layerx_paxai_worker::metrics::Metrics::default(),
         jobs: JobService::new(
             JobStore::open(&directory.store())?,
             ProcessRunner::new(std::env::current_exe()?, Vec::new(), Duration::from_secs(3)),
@@ -190,7 +217,10 @@ fn open_service(directory: &Scratch, fixture: &Admitting) -> Checked<worker::Ser
         }),
         state_dir: directory.0.clone(),
         input_dir,
-    })
+    };
+    assert_eq!(service.key.verifying_key(), delegate().verifying_key());
+    assert_eq!(service.state_dir, directory.0);
+    Ok(service)
 }
 
 // Committed in-memory authority peer: chunk production and capture, finality binding,
@@ -227,22 +257,15 @@ fn observe(service: &worker::Service, market: &Market, height: u64) -> Checked {
         roster: Some(&market.roster),
         observed_ms: NOW,
     };
-    service.runtime.lock().expect("runtime").observe(
-        &evidence,
-        &market.signed,
-        vec![customer_at(height)?],
-    )?;
+    service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime"))
+        .observe(&evidence, &market.signed, vec![customer_at(height)?])?;
     Ok(())
 }
 fn stage(service: &worker::Service, order: &Order) -> Checked {
-    let name = order
-        .submit
-        .request
-        .input_commitment
-        .bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let name = hex_bytes(&order.submit.request.input_commitment.bytes());
     fs::write(
         service.input_dir.join(format!("{name}.manifest")),
         &order.manifest,
@@ -274,20 +297,27 @@ fn sponsored(
     let address = socket.local_addr()?;
     let emitted = pending.envelope.clone();
     let sender = std::thread::spawn(move || {
-        let mut stream = TcpStream::connect(address).expect("sponsored relay");
+        let mut stream = TcpStream::connect(address)
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "sponsored relay"));
         stream
-            .write_all(&(emitted.len() as u32).to_be_bytes())
-            .expect("envelope length");
+            .write_all(
+                &u32::try_from(emitted.len())
+                    .unwrap_or_else(|error| panic!("{error:?}: envelope length"))
+                    .to_be_bytes(),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "envelope length"));
         stream
             .write_all(&emitted)
-            .expect("signed envelope transport");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "signed envelope transport"));
     });
     let (mut stream, _) = socket.accept()?;
     let mut length = [0; 4];
     stream.read_exact(&mut length)?;
     let mut bytes = vec![0; u32::from_be_bytes(length) as usize];
     stream.read_exact(&mut bytes)?;
-    sender.join().expect("sender stopped");
+    sender
+        .join()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "sender stopped"));
     assert_eq!(bytes, pending.envelope);
     let decoded = codec::decode_envelope(&bytes)?;
     assert_eq!(decoded.envelope.operation, operation);
@@ -334,35 +364,14 @@ fn task(market: &Market, id: TaskId) -> Checked<TaskBinding> {
 }
 
 pub fn participant_tls_same_store_chain_commit_and_restart() {
-    same_store_chain().expect("same-store native chain proof");
+    same_store_chain()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "same-store native chain proof"));
 }
-fn same_store_chain() -> Checked {
-    let directory = Scratch::new("participant-chain")?;
-    let socket = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-    let restart_socket = socket.try_clone()?;
-    let pki = certificates(&socket);
-    let market = opened(vec![pki.endpoint.clone()]).expect("create and open native market");
-    let authority = authority_at(&market, HEIGHT)?;
-    let metadata = verified(&authority, &market.signed)?;
-    let submit = submit(&authority, &capability(0x31))?;
-    let mut fixture = Admitting {
-        market,
-        authority,
-        metadata,
-        submit,
-    };
-    let order = order(&fixture, 0x91, 1, 512)?;
-    admit_chain_task(&mut fixture, &order, 0x91).expect("admit chain completion task");
-    let service = open_service(&directory, &fixture)?;
-    observe(&service, &fixture.market, HEIGHT)?;
-    stage(&service, &order)?;
-    let server = Listener::start(
-        service,
-        socket,
-        Arc::clone(&pki.tls),
-        pki.endpoint.clone(),
-        Arc::clone(&pki.roots),
-    );
+fn accept_order(
+    server: &Listener,
+    fixture: &mut Admitting,
+    order: &Order,
+) -> Checked<(Vec<u8>, TaskId, Lease, u64)> {
     let ack = server.post(SUBMIT_PATH, &order.signed);
     let admission = decode_acknowledgment(&ack, public(&delegate()))?.0;
     assert_eq!(admission.task, order.submit.request.task);
@@ -412,7 +421,11 @@ fn same_store_chain() -> Checked {
     );
     observe(&server.service, &fixture.market, HEIGHT + 1)?;
     let lease = {
-        let runtime = server.service.runtime.lock().expect("runtime");
+        let runtime = server
+            .service
+            .runtime
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime"));
         worker::claim_admitted(
             &server.service,
             &runtime.membership,
@@ -421,7 +434,16 @@ fn same_store_chain() -> Checked {
             now + 1,
         )?
     };
-    let (output, output_manifest) = order.output(&fixture, 32)?;
+    Ok((ack, admission.task, lease, now))
+}
+
+fn completed_report(
+    order: &Order,
+    fixture: &Admitting,
+    lease: &Lease,
+    now: u64,
+) -> Checked<(Vec<u8>, Vec<u8>)> {
+    let (output, output_manifest) = order.output(fixture, 32)?;
     // The runner peer supplies a recorded completion through the real runner codec. No
     // model binary, environment variable or subprocess toolchain is part of this gate.
     let report = Report {
@@ -451,6 +473,40 @@ fn same_store_chain() -> Checked {
         }),
     }
     .encode()?;
+    Ok((output, report))
+}
+
+fn same_store_chain() -> Checked {
+    let directory = Scratch::new("participant-chain")?;
+    let socket = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+    let restart_socket = socket.try_clone()?;
+    let pki = certificates(&socket);
+    let market = opened(vec![pki.endpoint.clone()])
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "create and open native market"));
+    let authority = authority_at(&market, HEIGHT)?;
+    let metadata = verified(&authority, &market.signed)?;
+    let submit = submit(&authority, &capability(0x31))?;
+    let mut fixture = Admitting {
+        market,
+        authority,
+        metadata,
+        submit,
+    };
+    let order = order(&fixture, 0x91, 1, 512)?;
+    admit_chain_task(&mut fixture, &order, 0x91)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "admit chain completion task"));
+    let service = open_service(&directory, &fixture)?;
+    observe(&service, &fixture.market, HEIGHT)?;
+    stage(&service, &order)?;
+    let server = Listener::start(
+        service,
+        socket,
+        Arc::clone(&pki.tls),
+        pki.endpoint.clone(),
+        Arc::clone(&pki.roots),
+    );
+    let (ack, task_id, lease, now) = accept_order(&server, &mut fixture, &order)?;
+    let (output, report) = completed_report(&order, &fixture, &lease, now)?;
     assert_eq!(
         server.service.jobs.complete(lease, &report, now + 3)?,
         JobState::Ended(Outcome::Succeeded)
@@ -462,7 +518,7 @@ fn same_store_chain() -> Checked {
     let result = decode_result(&signed, public(&delegate()))?.0;
     assert_eq!(result.outcome, Outcome::Succeeded);
     assert_eq!(result.evidence, Some(evidence_digest(&report)?));
-    assert_eq!(result.task, admission.task);
+    assert_eq!(result.task, task_id);
     assert_eq!(
         (result.output_bytes, result.input_units, result.output_units),
         (32, 16, 8)
@@ -477,11 +533,11 @@ fn same_store_chain() -> Checked {
         &mut fixture.market,
         dispatch::COMMIT_TASK_RESULT,
         2,
-        admission.task,
+        task_id,
         digest,
         HEIGHT + 2,
     )?;
-    let committed = task(&fixture.market, admission.task)?;
+    let committed = task(&fixture.market, task_id)?;
     assert_eq!(
         (committed.status, committed.result),
         (TaskStatus::ResultCommitted, Some(digest))
@@ -517,14 +573,16 @@ fn same_store_chain() -> Checked {
 }
 
 pub fn participant_tls_cancel_survives_store_reopen() {
-    same_store_cancel().expect("same-store cancellation proof");
+    same_store_cancel()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "same-store cancellation proof"));
 }
 fn same_store_cancel() -> Checked {
     let directory = Scratch::new("participant-cancel")?;
     let socket = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
     let restart_socket = socket.try_clone()?;
     let pki = certificates(&socket);
-    let market = opened(vec![pki.endpoint.clone()]).expect("create and open native market");
+    let market = opened(vec![pki.endpoint.clone()])
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "create and open native market"));
     let authority = authority_at(&market, HEIGHT)?;
     let metadata = verified(&authority, &market.signed)?;
     let submit = submit(&authority, &capability(0x31))?;
@@ -535,7 +593,8 @@ fn same_store_cancel() -> Checked {
         submit,
     };
     let order = order(&fixture, 0x92, 1, 512)?;
-    admit_chain_task(&mut fixture, &order, 0x92).expect("admit chain cancellation task");
+    admit_chain_task(&mut fixture, &order, 0x92)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "admit chain cancellation task"));
     let service = open_service(&directory, &fixture)?;
     stage(&service, &order)?;
     observe(&service, &fixture.market, HEIGHT)?;

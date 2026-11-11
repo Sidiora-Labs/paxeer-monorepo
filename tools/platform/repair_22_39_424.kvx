@@ -1,0 +1,69 @@
+[meta]
+name = "Platform tool and SDK generator lint coverage"
+kind = "repair-record"
+
+[member.layerx-platform-emulator]
+manifest = "tools/platform/Cargo.toml"
+
+[member.layerx-platform-emulator.too_many_lines]
+files = ["tools/platform/emulator/src/main.rs"]
+
+[member.layerx-platform-emulator.needless_pass_by_value]
+files = ["tools/platform/emulator/src/main.rs"]
+
+[member.layerx-platform-emulator.needless_raw_string_hashes]
+files = ["tools/platform/emulator/tests/repair_22_31_200.rs"]
+
+[member.layerx-platform-emulator.doc_markdown]
+files = ["tools/platform/emulator/tests/repair_22_33_1435.rs"]
+
+[member.layerx-platform-emulator.format_collect]
+files = ["tools/platform/emulator/tests/repair_22_33_1435.rs"]
+
+[member.layerx-platform-release]
+manifest = "tools/platform/Cargo.toml"
+
+[member.layerx-platform-release.too_many_lines]
+files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/repair_22_33_1436.rs"]
+
+[member.layerx-platform-release.unwrap_used]
+files = ["tools/platform/release/src/fetch.rs", "tools/platform/release/tests/repair_22_33_1437.rs"]
+
+[member.layerx-platform-release.expect_used]
+files = ["services/platform/tests/support/tls_boundary.rs", "tools/platform/release/tests/repair_22_33_1436.rs", "tools/platform/release/tests/registries.rs", "tools/platform/release/tests/support/go_fixture.rs", "tools/platform/release/tests/support/manifest_fixture.rs"]
+
+[member.layerx-platform-release.dead_code]
+files = ["tools/platform/release/tests/support/go_fixture.rs", "tools/platform/release/tests/support/manifest_fixture.rs"]
+
+[member.layerx-platform-release.map_unwrap_or]
+files = ["tools/platform/release/tests/support/go_fixture.rs"]
+
+[member.layerx-platform-release.assigning_clones]
+files = ["tools/platform/release/tests/repair_22_33_1436.rs"]
+
+[member.layerx-platform-sdkgen]
+manifest = "sdk/platform/generators/Cargo.toml"
+
+[member.layerx-platform-sdkgen.needless_raw_string_hashes]
+files = ["sdk/platform/generators/src/main.rs"]
+
+[member.layerx-platform-sdkgen.too_many_lines]
+files = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs"]
+
+[member.layerx-platform-sdkgen.nonminimal_bool]
+files = ["sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs"]
+
+[member.layerx-platform-sdkgen.doc_markdown]
+files = ["sdk/platform/generators/tests/proof_generators.rs"]
+
+[member.layerx-platform-sdkgen.case_sensitive_file_extension_comparisons]
+files = ["sdk/platform/generators/tests/proof_generators.rs", "sdk/platform/generators/tests/receipt_contract.rs"]
+
+[member.layerx-platform-sdkgen.needless_borrow]
+files = ["sdk/platform/generators/tests/drift.rs"]
+
+[member.layerx-platform-sdkgen.needless_borrows_for_generic_args]
+files = ["sdk/platform/generators/tests/drift.rs"]
+
+[member.layerx-platform-sdkgen.format_push_string]
+files = ["sdk/platform/generators/tests/drift.rs"]
