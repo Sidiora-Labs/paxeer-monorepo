@@ -60,16 +60,16 @@ func PublicCampaign(p Policy) (CampaignView, error) {
 	if e != nil {
 		return CampaignView{}, e
 	}
-	if p.Mode != "disclosed_assistant" || !text(p.Disclosure, 256) {
+	if p.Mode != controlDisclosedAssistant || !text(p.Disclosure, 256) {
 		return CampaignView{}, Invalid
 	}
 	// Public enabled implies verified bounded delegation in the frozen schema.
 	// Recommendation-only opt-in MUST NOT masquerade as that capability.
 	state := "blocked"
 	switch p.State {
-	case "draft", "paused", "stopped", "revoked":
+	case controlDraft, "paused", controlStopped, controlRevoked:
 		state = p.State
-	case "enabled":
+	case controlEnabled:
 	default:
 		return CampaignView{}, Invalid
 	}
@@ -105,13 +105,13 @@ func PublicBounty(b Bounty, creatorWallet string, o *Obligation) (BountyView, er
 	}
 	state := ""
 	switch b.State {
-	case "draft", "cancelled", "expired":
+	case controlDraft, controlCancelled, controlExpired:
 		state = b.State
-	case "funded":
+	case controlFunded:
 		state = "funding"
-	case "active":
+	case controlActive:
 		state = "open"
-	case "submitted", "adjudicating", "awarded":
+	case controlSubmitted, controlAdjudicating, controlAwarded:
 		state = "reviewing"
 	default:
 		return BountyView{}, Invalid
@@ -122,8 +122,8 @@ func PublicBounty(b Bounty, creatorWallet string, o *Obligation) (BountyView, er
 			return BountyView{}, Conflict
 		}
 		settlement = o.State
-		if o.State == "settled" {
-			if o.SettlementReference == "" || b.State != "awarded" {
+		if o.State == controlSettled {
+			if o.SettlementReference == "" || b.State != controlAwarded {
 				return BountyView{}, Conflict
 			}
 			state = "paid"

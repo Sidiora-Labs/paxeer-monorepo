@@ -42,15 +42,15 @@ func (s *Store) claimWork(ctx context.Context, credential, kind, op string) ([]w
 			if body.Scope != item.Scope {
 				return Conflict
 			}
-			if kind == "incident" {
+			if kind == controlIncident {
 				var outbox map[string]string
 				if err := t.get("incident_outbox", item.Key, &outbox); err != nil {
 					return err
 				}
-				if body.State != "contained" || outbox["state"] == "completed" {
+				if body.State != controlContained || outbox[controlState] == controlCompleted {
 					return Conflict
 				}
-			} else if body.State != "pending" && body.State != "unknown" {
+			} else if body.State != controlPending && body.State != controlUnknown {
 				return Conflict
 			}
 			if current.Attempts < 5 {
@@ -75,7 +75,7 @@ func (s *Store) claimWork(ctx context.Context, credential, kind, op string) ([]w
 	return claimed, nil
 }
 func (s *Store) pendingWork(ctx context.Context, kind string) ([]workItem, error) {
-	if kind != "incident" && kind != "settlement" && kind != "job" {
+	if kind != controlIncident && kind != controlSettlement && kind != controlJob {
 		return nil, Invalid
 	}
 	if s.local != nil {
@@ -97,19 +97,19 @@ func (s *Store) pendingWork(ctx context.Context, kind string) ([]workItem, error
 			if err := json.Unmarshal(raw, &body); err != nil {
 				return nil, err
 			}
-			if kind == "incident" {
+			if kind == controlIncident {
 				var outbox map[string]string
 				if err := json.Unmarshal(l.objects["incident_outbox/"+k], &outbox); err != nil {
 					return nil, err
 				}
-				if body.State != "contained" || outbox["state"] == "completed" {
+				if body.State != controlContained || outbox[controlState] == controlCompleted {
 					continue
 				}
-			} else if kind == "job" {
+			} else if kind == controlJob {
 				if body.State != "queued" && body.State != "running" {
 					continue
 				}
-			} else if body.State != "pending" && body.State != "unknown" {
+			} else if body.State != controlPending && body.State != controlUnknown {
 				continue
 			}
 			var schedule workSchedule
@@ -136,10 +136,10 @@ func (s *Store) pendingWork(ctx context.Context, kind string) ([]workItem, error
 	}
 	predicate := `o.body->>'State' IN ('pending','unknown')`
 	join := ""
-	if kind == "job" {
+	if kind == controlJob {
 		predicate = `o.body->>'state' IN ('queued','running') AND o.body->>'kind'='replay'`
 	}
-	if kind == "incident" {
+	if kind == controlIncident {
 		predicate = `o.body->>'State'='contained' AND b.body->>'state'<>'completed'`
 		join = " JOIN " + s.schema + ".objects b ON b.kind='incident_outbox' AND b.id=o.id"
 	}
