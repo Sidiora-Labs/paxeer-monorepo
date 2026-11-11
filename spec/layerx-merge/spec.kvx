@@ -309121,7 +309121,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.388"]
