@@ -18,7 +18,7 @@ use serde::Deserialize;
 use zeroize::Zeroizing;
 
 const DEFAULT_CADENCE_MS: u64 = 1000;
-const DEFAULT_HEALTH_ADDR: &str = "[::]:8080";
+pub const DEFAULT_HEALTH_ADDR: &str = "[::]:8080";
 
 fn default_cadence_ms() -> u64 {
     DEFAULT_CADENCE_MS
@@ -158,6 +158,10 @@ impl Config {
     }
 
     /// Retrieves a quote only after checking the credential transport.
+    ///
+    /// # Errors
+    /// Returns a transport error for an invalid feed URL or request failure,
+    /// and a feed error when the quote is invalid or stale.
     pub fn fetch_ticker(
         &self,
         agent: &ureq::Agent,
@@ -198,6 +202,10 @@ impl Config {
     }
 
     /// Plaintext transport exists only in test builds and only for literal loopback IPs.
+    ///
+    /// # Errors
+    /// Returns a transport error for a non-loopback URL or request failure,
+    /// and a feed error when the quote is invalid or stale.
     #[cfg(test)]
     pub fn fetch_ticker_loopback(
         &self,
@@ -232,7 +240,11 @@ fn address(field: &str, text: &str) -> Result<[u8; 20], String> {
         .ok_or_else(|| format!("config field {field} must be a non-zero 20-byte hex address"))
 }
 
-fn env(name: &str) -> Result<String, String> {
+/// Reads a required process setting.
+///
+/// # Errors
+/// Returns an error if the setting is absent.
+pub fn env(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|_| format!("{name} is required"))
 }
 
@@ -245,7 +257,10 @@ pub fn now_ms() -> u64 {
 }
 
 /// Reads the feed key file: 32 raw bytes or 64 hex characters.
-fn load_secret(path: &Path) -> Result<Zeroizing<[u8; 32]>, String> {
+///
+/// # Errors
+/// Returns an error when the file cannot be read or the key is malformed.
+pub fn load_secret(path: &Path) -> Result<Zeroizing<[u8; 32]>, String> {
     let raw =
         Zeroizing::new(fs::read(path).map_err(|e| format!("feed key {}: {e}", path.display()))?);
     let bytes: Zeroizing<Vec<u8>> = if raw.len() == 32 {
@@ -263,7 +278,11 @@ fn load_secret(path: &Path) -> Result<Zeroizing<[u8; 32]>, String> {
     Ok(secret)
 }
 
-fn run(check_config: bool) -> Result<(), String> {
+/// Runs configuration validation or the price submission loop.
+///
+/// # Errors
+/// Returns an error when configuration, credentials, RPC access, or a round fails.
+pub fn run(check_config: bool) -> Result<(), String> {
     let config = Config::load(&PathBuf::from(env("PRICE_SIDECAR_CONFIG")?))?;
     if check_config {
         println!("price-sidecar: config ok");
@@ -299,7 +318,7 @@ fn run(check_config: bool) -> Result<(), String> {
     }
 }
 
-fn main() {
+pub fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let check_config = match args.as_slice() {
         [] => false,

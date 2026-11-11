@@ -1,6 +1,6 @@
 //! Task 22.33.1412: real sidecar, signed Cosmos codec, durable store and loopback peers.
 #[path = "../src/bin/price-sidecar/main.rs"]
-mod sidecar;
+pub mod sidecar;
 pub use sidecar::{health, now_ms, round, Config, MarketConfig};
 
 use std::io::{Read, Write};
@@ -67,7 +67,7 @@ impl Default for Transcript {
 }
 
 /// A committed protocol transcript served over real HTTP sockets. Broadcast
-/// replies and later lookups bind to the actual bytes produced by encode_tx.
+/// replies and later lookups bind to the actual bytes produced by `encode_tx`.
 /// Response shapes follow consensus/rpc/coretypes, internal/rpc/core/tx.go
 /// and abci/types/ExecTxResult (including its omitted zero success code).
 struct Peer {
@@ -80,21 +80,28 @@ struct Peer {
 fn read_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
     stream
         .set_read_timeout(Some(Duration::from_secs(3)))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let mut bytes = Vec::new();
     let mut buf = [0; 4096];
     loop {
-        let count = stream.read(&mut buf).unwrap();
+        let count = stream
+            .read(&mut buf)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_ne!(count, 0, "HTTP request truncated");
         bytes.extend_from_slice(&buf[..count]);
         if let Some(at) = bytes.windows(4).position(|b| b == b"\r\n\r\n") {
-            let header = String::from_utf8(bytes[..at].to_vec()).unwrap();
+            let header =
+                String::from_utf8(bytes[..at].to_vec()).unwrap_or_else(|error| panic!("{error:?}"));
             let size = header
                 .lines()
                 .find_map(|line| {
                     let (name, value) = line.split_once(':')?;
-                    name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse::<usize>().unwrap())
+                    name.eq_ignore_ascii_case("content-length").then(|| {
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("{error:?}"))
+                    })
                 })
                 .unwrap_or(0);
             if bytes.len() >= at + 4 + size {
@@ -106,9 +113,16 @@ fn read_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
 
 impl Peer {
     fn new() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}", listener.local_addr().unwrap());
-        listener.set_nonblocking(true).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+        let url = format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        );
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let state = Arc::new(Mutex::new(Transcript::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let shared = Arc::clone(&state);
@@ -118,7 +132,8 @@ impl Peer {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
                         let (header, body) = read_request(&mut stream);
-                        let mut transcript = shared.lock().unwrap();
+                        let mut transcript =
+                            shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
                         let (status, extra, body) = if header.starts_with("GET ") {
                             transcript.ticker_requests += 1;
                             let key = header
@@ -128,7 +143,7 @@ impl Peer {
                                     name.eq_ignore_ascii_case("x-api-key")
                                         .then(|| value.trim().to_owned())
                                 })
-                                .expect("authenticated quote request");
+                                .unwrap_or_else(|| panic!("authenticated quote request"));
                             transcript.api_keys.push(key);
                             assert!(header.starts_with("GET /api/markets/ticker/BTC "));
                             if let Some(location) = &transcript.redirect {
@@ -142,7 +157,8 @@ impl Peer {
                             }
                         } else {
                             assert!(header.starts_with("POST / "));
-                            let request: Value = serde_json::from_slice(&body).unwrap();
+                            let request: Value = serde_json::from_slice(&body)
+                                .unwrap_or_else(|error| panic!("{error:?}"));
                             assert_eq!(request["jsonrpc"], "2.0");
                             let result = transcript.answer(&request);
                             if transcript.lose_ack && request["method"] == "broadcast_tx_sync" {
@@ -152,7 +168,9 @@ impl Peer {
                             }
                         };
                         let response = format!("HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
-                        stream.write_all(response.as_bytes()).unwrap();
+                        stream
+                            .write_all(response.as_bytes())
+                            .unwrap_or_else(|error| panic!("{error:?}"));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(1));
@@ -170,7 +188,8 @@ impl Peer {
     }
 
     fn rpc(&self) -> round::Rpc {
-        round::Rpc::new(agent(), self.url.clone(), self.url.clone()).unwrap()
+        round::Rpc::new(agent(), self.url.clone(), self.url.clone())
+            .unwrap_or_else(|error| panic!("{error:?}"))
     }
 }
 
@@ -180,37 +199,49 @@ impl Drop for Peer {
         if let Some(handle) = self.handle.take() {
             let result = handle.join();
             if !thread::panicking() {
-                result.unwrap();
+                result.unwrap_or_else(|error| panic!("{error:?}"));
             }
         }
     }
 }
 
 impl Transcript {
+    fn account_response(&self, request: &Value) -> Value {
+        assert_eq!(request["params"]["path"], round::ACCOUNT_QUERY_PATH);
+        let mut account: Value =
+            serde_json::from_str(ACCOUNT).unwrap_or_else(|error| panic!("{error:?}"));
+        let mut bytes = STANDARD
+            .decode(
+                account["response"]["value"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("required protocol value is absent")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(bytes.pop(), Some(3));
+        bytes.push(self.account_sequence);
+        account["response"]["value"] = json!(STANDARD.encode(bytes));
+        let height = match self.fate {
+            Fate::Committed { height, .. } => height + 1,
+            _ => 830,
+        };
+        account["response"]["height"] = json!(height.to_string());
+        account
+    }
+
     fn answer(&mut self, request: &Value) -> Value {
-        let result = match request["method"].as_str().unwrap() {
-            "abci_query" => {
-                assert_eq!(request["params"]["path"], round::ACCOUNT_QUERY_PATH);
-                let mut account: Value = serde_json::from_str(ACCOUNT).unwrap();
-                let mut bytes = STANDARD
-                    .decode(account["response"]["value"].as_str().unwrap())
-                    .unwrap();
-                assert_eq!(bytes.pop(), Some(3));
-                bytes.push(self.account_sequence);
-                account["response"]["value"] = json!(STANDARD.encode(bytes));
-                let height = match self.fate {
-                    Fate::Committed { height, .. } => height + 1,
-                    _ => 830,
-                };
-                account["response"]["height"] = json!(height.to_string());
-                account
-            }
+        let result = match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("required protocol value is absent"))
+        {
+            "abci_query" => self.account_response(request),
             "eth_call" => {
                 assert_eq!(
                     request["params"][0]["to"],
                     format!("0x{}", hex_encode(&round::PRICEFEED))
                 );
-                let data = request["params"][0]["data"].as_str().unwrap();
+                let data = request["params"][0]["data"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("required protocol value is absent"));
                 if data.starts_with("0x007eb855") {
                     json!(format!("0x{}{}", "00".repeat(12), "22".repeat(20)))
                 } else {
@@ -229,8 +260,12 @@ impl Transcript {
             }
             "broadcast_tx_sync" => {
                 let tx = STANDARD
-                    .decode(request["params"]["tx"].as_str().unwrap())
-                    .unwrap();
+                    .decode(
+                        request["params"]["tx"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("required protocol value is absent")),
+                    )
+                    .unwrap_or_else(|error| panic!("{error:?}"));
                 assert!(!tx.is_empty());
                 let hash = hex_encode(&Sha256::digest(&tx));
                 self.txs.push(tx);
@@ -238,7 +273,10 @@ impl Transcript {
             }
             "tx" => {
                 self.tx_lookups += 1;
-                let tx = self.txs.last().expect("lookup follows real broadcast");
+                let tx = self
+                    .txs
+                    .last()
+                    .unwrap_or_else(|| panic!("lookup follows real broadcast"));
                 let hash = hex_encode(&Sha256::digest(tx));
                 assert_eq!(request["params"]["hash"], hash.to_uppercase());
                 if matches!(self.fate, Fate::LookupUnavailable) {
@@ -269,7 +307,7 @@ impl Transcript {
             "unconfirmed_txs" => {
                 assert_eq!(request["params"], json!({"page":1,"per_page":100}));
                 if matches!(self.fate, Fate::Pending) {
-                    json!({"total":"1","n_txs":"1","txs":[STANDARD.encode(self.txs.last().unwrap())]})
+                    json!({"total":"1","n_txs":"1","txs":[STANDARD.encode(self.txs.last().unwrap_or_else(|| panic!("required protocol value is absent")))]})
                 } else if matches!(self.fate, Fate::IncompleteMempool) {
                     json!({"total":"101","n_txs":"0","txs":null})
                 } else {
@@ -291,17 +329,20 @@ impl StateDir {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)
         ));
-        std::fs::create_dir(&path).unwrap();
+        std::fs::create_dir(&path).unwrap_or_else(|error| panic!("{error:?}"));
         Self(path)
     }
     fn progress(&self) -> Value {
-        serde_json::from_slice(&std::fs::read(self.0.join("price-sidecar-progress.json")).unwrap())
-            .unwrap()
+        serde_json::from_slice(
+            &std::fs::read(self.0.join("price-sidecar-progress.json"))
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
     }
 }
 impl Drop for StateDir {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
+        std::fs::remove_dir_all(&self.0).unwrap_or_else(|error| panic!("{error:?}"));
     }
 }
 
@@ -334,12 +375,13 @@ fn config(peer: &Peer) -> Config {
     }
 }
 fn start(config: &Config, peer: &Peer, dir: &StateDir) -> round::Sidecar {
-    round::start(config, &peer.rpc(), Zeroizing::new([1; 32]), &dir.0).unwrap()
+    round::start(config, &peer.rpc(), Zeroizing::new([1; 32]), &dir.0)
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn ticker(config: &Config) -> Ticker {
     config
         .fetch_ticker_loopback(&agent(), "BTC", "fixture-credential", || NOW)
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn submit(
     config: &Config,
@@ -354,23 +396,38 @@ fn submit(
             &[(&config.markets[0], Ok(quote))],
             &mut health::lock(metrics),
         )
-        .unwrap();
+        .unwrap_or_else(|| panic!("collected quote is absent"));
     let account = round::parse_account(
         &peer
             .rpc()
             .query_account(&feed_account(
-                &hex_decode(FEED).unwrap().try_into().unwrap(),
+                &hex_decode(FEED)
+                    .unwrap_or_else(|error| panic!("{error:?}"))
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("{error:?}")),
             ))
-            .unwrap(),
-        &feed_account(&hex_decode(FEED).unwrap().try_into().unwrap()),
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        &feed_account(
+            &hex_decode(FEED)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .try_into()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let submission = sidecar.next_submission(config, account, observations.clone());
     sidecar
         .submit(config, &peer.rpc(), &observations, metrics, &dir.0)
-        .unwrap();
-    let expected = encode_tx(&[1; 32], &submission).unwrap();
-    assert_eq!(peer.state.lock().unwrap().txs.last(), Some(&expected));
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let expected = encode_tx(&[1; 32], &submission).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .txs
+            .last(),
+        Some(&expected)
+    );
     assert_eq!(dir.progress()["pending"]["tx"], STANDARD.encode(expected));
     submission
 }
@@ -394,10 +451,22 @@ fn finding_031_deployed_https_and_isolated_loopback_transport() {
     assert!(config
         .fetch_ticker(&agent(), "BTC", "fixture-credential", || NOW)
         .is_err());
-    assert_eq!(peer.state.lock().unwrap().ticker_requests, 0);
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .ticker_requests,
+        0
+    );
     let quote = ticker(&config);
     assert_eq!(quote.index_price, "65000500000000000000000");
-    assert_eq!(peer.state.lock().unwrap().api_keys, ["fixture-credential"]);
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .api_keys,
+        ["fixture-credential"]
+    );
     for url in [
         "http://feed.example",
         "http://127.0.0.1",
@@ -432,8 +501,10 @@ fn finding_031_deployed_https_and_isolated_loopback_transport() {
 fn finding_031_authenticated_quote_redirect_is_not_followed() {
     let peer = Peer::new();
     let destination = Peer::new();
-    peer.state.lock().unwrap().redirect =
-        Some(format!("{}/api/markets/ticker/BTC", destination.url));
+    peer.state
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .redirect = Some(format!("{}/api/markets/ticker/BTC", destination.url));
     let config = config(&peer);
     // Even a caller's redirect-enabled agent cannot forward the credential.
     let redirecting_agent: ureq::Agent = ureq::Agent::config_builder()
@@ -443,8 +514,21 @@ fn finding_031_authenticated_quote_redirect_is_not_followed() {
     assert!(config
         .fetch_ticker_loopback(&redirecting_agent, "BTC", "fixture-credential", || NOW)
         .is_err());
-    assert_eq!(peer.state.lock().unwrap().ticker_requests, 1);
-    assert_eq!(destination.state.lock().unwrap().ticker_requests, 0);
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .ticker_requests,
+        1
+    );
+    assert_eq!(
+        destination
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .ticker_requests,
+        0
+    );
 }
 
 #[test]
@@ -466,7 +550,11 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
     assert_eq!(journal.next_account_sequence, 3);
     assert_eq!(journal.markets["BTC"].sequence, 0);
     assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
-    let requests = peer.state.lock().unwrap().ticker_requests;
+    let requests = peer
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .ticker_requests;
     round::run_round(
         &config,
         &agent(),
@@ -476,15 +564,31 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
         &metrics,
         &dir.0,
     )?;
-    assert_eq!(peer.state.lock().unwrap().ticker_requests, requests);
-    assert_eq!(peer.state.lock().unwrap().txs.len(), 1);
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .ticker_requests,
+        requests
+    );
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .txs
+            .len(),
+        1
+    );
     drop(sidecar);
     let mut sidecar = start(&config, &peer, &dir);
     let metrics = Mutex::new(health::Metrics::default());
     assert!(!sidecar.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
     assert_unconfirmed(&metrics);
     {
-        let mut state = peer.state.lock().unwrap();
+        let mut state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         state.fate = Fate::Committed {
             code: 0,
             height: 840,
@@ -498,11 +602,19 @@ fn finding_029_checktx_is_pending_and_restart_confirms_actual_height() -> TestRe
     assert_eq!(journal.markets["BTC"].sequence, 1);
     assert_eq!(
         journal.markets["BTC"].activity_id,
-        hex_encode(&Sha256::digest(&peer.state.lock().unwrap().txs[0]))
+        hex_encode(&Sha256::digest(
+            &peer
+                .state
+                .lock()
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .txs[0]
+        ))
     );
     assert_eq!(dir.progress()["confirmed_height"], 840);
     assert!(dir.progress()["pending"].is_null());
-    let confirmed_at = dir.progress()["confirmed_ms"].as_u64().unwrap();
+    let confirmed_at = dir.progress()["confirmed_ms"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("required protocol value is absent"));
     assert!(health::lock(&metrics).is_ready(confirmed_at, 1000));
     assert!(!health::lock(&metrics).is_ready(confirmed_at + 3001, 1000));
     assert!(health::lock(&metrics)
@@ -528,7 +640,10 @@ fn recovery_after_failure(fate: Fate, expected_account: u8, label: &str) -> Test
     submit(&config, &peer, &dir, &mut sidecar, &metrics);
     drop(sidecar);
     {
-        let mut state = peer.state.lock().unwrap();
+        let mut state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         state.fate = fate;
         state.account_sequence = expected_account;
     }
@@ -543,12 +658,18 @@ fn recovery_after_failure(fate: Fate, expected_account: u8, label: &str) -> Test
     assert!(health::lock(&metrics)
         .metrics_text(now_ms())
         .contains(&format!("result=\"{label}\"}} 1\n")));
-    peer.state.lock().unwrap().fate = Fate::Pending;
+    peer.state
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .fate = Fate::Pending;
     let retry = submit(&config, &peer, &dir, &mut sidecar, &metrics);
     assert_eq!(retry.sequence, u64::from(expected_account));
     assert_eq!(retry.observations[0].sequence, 1);
     {
-        let mut state = peer.state.lock().unwrap();
+        let mut state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         state.fate = Fate::Committed {
             code: 0,
             height: 845,
@@ -579,7 +700,7 @@ fn finding_029_eviction_recovers_without_spending_sequences() -> TestResult {
 }
 
 #[test]
-fn finding_029_unknown_fate_and_incomplete_mempool_preserve_durable_pending() -> TestResult {
+fn finding_029_unknown_fate_and_incomplete_mempool_preserve_durable_pending() {
     let peer = Peer::new();
     let config = config(&peer);
     let dir = StateDir::new();
@@ -594,7 +715,10 @@ fn finding_029_unknown_fate_and_incomplete_mempool_preserve_durable_pending() ->
         Fate::WrongTransaction,
         Fate::CommitDuringLookup,
     ] {
-        let mut state = peer.state.lock().unwrap();
+        let mut state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         state.fate = fate;
         state.tx_lookups = 0;
         drop(state);
@@ -603,29 +727,44 @@ fn finding_029_unknown_fate_and_incomplete_mempool_preserve_durable_pending() ->
             .is_err());
         assert_eq!(dir.progress(), pending);
         assert_unconfirmed(&metrics);
-        assert_eq!(peer.state.lock().unwrap().txs.len(), 1);
+        assert_eq!(
+            peer.state
+                .lock()
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .txs
+                .len(),
+            1
+        );
     }
-    Ok(())
 }
 
 #[test]
 fn finding_029_lost_acknowledgement_retries_identical_signed_bytes_and_recovers() -> TestResult {
     let peer = Peer::new();
-    peer.state.lock().unwrap().lose_ack = true;
+    peer.state
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .lose_ack = true;
     let config = config(&peer);
     let dir = StateDir::new();
     let metrics = Mutex::new(health::Metrics::default());
     let mut sidecar = start(&config, &peer, &dir);
     submit(&config, &peer, &dir, &mut sidecar, &metrics);
     {
-        let state = peer.state.lock().unwrap();
+        let state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(state.txs.len(), 2);
         assert_eq!(state.txs[0], state.txs[1]);
     }
     assert_unconfirmed(&metrics);
     drop(sidecar);
     {
-        let mut state = peer.state.lock().unwrap();
+        let mut state = peer
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         state.fate = Fate::Committed {
             code: 0,
             height: 840,
@@ -636,7 +775,14 @@ fn finding_029_lost_acknowledgement_retries_identical_signed_bytes_and_recovers(
     let mut reopened = start(&config, &peer, &dir);
     assert!(reopened.reconcile(&config, &peer.rpc(), &metrics, &dir.0)?);
     assert_eq!(dir.progress()["confirmed_height"], 840);
-    assert_eq!(peer.state.lock().unwrap().txs.len(), 2);
+    assert_eq!(
+        peer.state
+            .lock()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .txs
+            .len(),
+        2
+    );
     Ok(())
 }
 
