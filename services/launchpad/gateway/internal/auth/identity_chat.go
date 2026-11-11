@@ -5,11 +5,12 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
 	"strings"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 func chatBinding(binding sharedauth.StreamTicketBinding) bool {

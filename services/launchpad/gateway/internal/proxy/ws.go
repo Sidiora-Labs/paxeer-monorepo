@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/gorilla/websocket"
 
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
@@ -76,7 +78,7 @@ func NewWS(d WSDeps) (*WS, error) {
 				return true
 			}
 			u, e := url.Parse(v)
-			return e == nil && u.Host == r.Host && (u.Scheme == "http" || u.Scheme == "https")
+			return e == nil && u.Host == r.Host && (u.Scheme == "http" || u.Scheme == httpsScheme)
 		}
 	}
 	return &WS{
@@ -106,19 +108,21 @@ func (p *WS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upstream, resp, err := p.dialer.DialContext(dialCtx, p.target.String(), http.Header{actorHeader: {wallet}})
 	if err != nil {
 		if resp != nil {
-			resp.Body.Close()
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				cleanup.Report("close response body", closeErr)
+			}
 		}
 		p.logErr("dial social ws", err)
 		sharedhttp.WriteError(w, http.StatusBadGateway, "Bad Gateway", "social realtime upstream unavailable")
 		return
 	}
-	defer upstream.Close()
+	defer cleanup.Close(upstream)
 
 	client, err := p.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return // upgrader already wrote the error
 	}
-	defer client.Close()
+	defer cleanup.Close(client)
 
 	client.SetReadLimit(p.readLimit)
 	upstream.SetReadLimit(p.readLimit)
@@ -134,7 +138,8 @@ func (p *WS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go p.pump(upstream, client, errc, closeBoth) // client -> upstream
 	go p.pump(client, upstream, errc, closeBoth) // upstream -> client
 	select {
-	case <-errc:
+	case err := <-errc:
+		cleanup.Report("proxy stream", err)
 	case <-r.Context().Done():
 	}
 	closeBoth()

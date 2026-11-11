@@ -23,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -129,7 +131,7 @@ func (s *Identity) CaptureRuntimeMeasurement() (IdentityRuntimeMeasurement, erro
 		return IdentityRuntimeMeasurement{}, errors.New("identity measurement: process CPU unavailable")
 	}
 	stat := s.pool.Stat()
-	return IdentityRuntimeMeasurement{CapturedAt: time.Now().UTC(), ProcessID: os.Getpid(), ProcessCPUNS: int64(usage.Utime.Sec+usage.Stime.Sec)*int64(time.Second) + int64(usage.Utime.Usec+usage.Stime.Usec)*1000, EOAVerifications: s.measureEOACount.Load(), EOAVerificationWallNS: s.measureEOAWallNS.Load(), ContractVerifications: s.measureContractCount.Load(), AdmissionUsed: len(s.admission), AdmissionCapacity: cap(s.admission), AdmissionObservedHighWater: s.measureAdmissionHighWater.Load(), AdmissionRejected: s.measureAdmissionRejected.Load(), PoolAcquired: stat.AcquiredConns(), PoolMax: stat.MaxConns(), PoolAcquireCount: stat.AcquireCount(), PoolAcquireNS: int64(stat.AcquireDuration()), PoolEmptyAcquireCount: stat.EmptyAcquireCount(), PoolCanceledAcquireCount: stat.CanceledAcquireCount()}, nil
+	return IdentityRuntimeMeasurement{CapturedAt: time.Now().UTC(), ProcessID: os.Getpid(), ProcessCPUNS: (usage.Utime.Sec+usage.Stime.Sec)*int64(time.Second) + (usage.Utime.Usec+usage.Stime.Usec)*1000, EOAVerifications: s.measureEOACount.Load(), EOAVerificationWallNS: s.measureEOAWallNS.Load(), ContractVerifications: s.measureContractCount.Load(), AdmissionUsed: len(s.admission), AdmissionCapacity: cap(s.admission), AdmissionObservedHighWater: s.measureAdmissionHighWater.Load(), AdmissionRejected: s.measureAdmissionRejected.Load(), PoolAcquired: stat.AcquiredConns(), PoolMax: stat.MaxConns(), PoolAcquireCount: stat.AcquireCount(), PoolAcquireNS: int64(stat.AcquireDuration()), PoolEmptyAcquireCount: stat.EmptyAcquireCount(), PoolCanceledAcquireCount: stat.CanceledAcquireCount()}, nil
 }
 
 type IdentityMeasurementSummary struct {
@@ -206,7 +208,7 @@ func (r *IdentityMeasurementRecorder) append(sample IdentityRequestMeasurement) 
 	switch {
 	case sample.Status == sample.ExpectedStatus && sample.Failure == "":
 		r.summary.SuccessfulRequests++
-		if sample.Operation == "login" || sample.Operation == "refresh" {
+		if sample.Operation == loginOperation || sample.Operation == "refresh" {
 			r.summary.SuccessfulSignInRefresh++
 			r.phaseSuccessful[sample.Phase]++
 			if window := r.summary.PhaseWindows[sample.Phase]; window != nil {
@@ -256,7 +258,7 @@ func (r *IdentityMeasurementRecorder) request(ctx context.Context, c IdentityMea
 		req.Header.Set("Authorization", "Bearer "+access)
 	}
 	if refresh != "" {
-		req.AddCookie(&http.Cookie{Name: "__Host-kindle_refresh", Value: refresh})
+		req.AddCookie(&http.Cookie{Name: refreshCookieName, Value: refresh, Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
 		req.Header.Set("X-CSRF-Token", csrf)
 	}
 	start := time.Now().UTC()
@@ -271,7 +273,9 @@ func (r *IdentityMeasurementRecorder) request(ctx context.Context, c IdentityMea
 		headers = response.Header.Clone()
 		sample.CorrelationID = headers.Get("X-Request-Id")
 		body, callErr = io.ReadAll(io.LimitReader(response.Body, 65537))
-		response.Body.Close()
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
 		if len(body) > 65536 {
 			callErr = errors.New("bounded response exceeded")
 		}
@@ -300,7 +304,7 @@ func measurementProof(key *ecdsa.PrivateKey, challenge Challenge) (WalletProof, 
 		return WalletProof{}, errors.New("identity measurement: signing failed")
 	}
 	sig[64] += 27
-	return WalletProof{Kind: "eoa_eip191", Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), Signature: "0x" + hex.EncodeToString(sig)}, nil
+	return WalletProof{Kind: eoaEIP191Method, Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), Signature: "0x" + hex.EncodeToString(sig)}, nil
 }
 func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMeasurementClient, phase IdentityMeasurementPhase, due time.Time, timeout time.Duration) {
 	key, err := crypto.GenerateKey()
@@ -316,7 +320,7 @@ func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMea
 	var challenge Envelope[struct {
 		Challenge Challenge `json:"challenge"`
 	}]
-	if json.Unmarshal(raw, &challenge) != nil || challenge.Data.Challenge.Wallet != wallet || challenge.Data.Challenge.ChainID != "125" || challenge.Data.Challenge.Purpose != "login" || challenge.Data.Challenge.ExpiresAt.Sub(challenge.Data.Challenge.IssuedAt) != 300*time.Second {
+	if json.Unmarshal(raw, &challenge) != nil || challenge.Data.Challenge.Wallet != wallet || challenge.Data.Challenge.ChainID != "125" || challenge.Data.Challenge.Purpose != loginOperation || challenge.Data.Challenge.ExpiresAt.Sub(challenge.Data.Challenge.IssuedAt) != 300*time.Second {
 		r.recordFailure(phase, "challenge_wire_invalid")
 		return
 	}
@@ -330,7 +334,7 @@ func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMea
 		r.recordFailure(phase, "signer_unavailable")
 		return
 	}
-	raw, headers, err := r.request(ctx, c, phase, "login", "/v2/auth/sessions", "", "", "", LoginRequest{challenge.Data.Challenge.ChallengeID, proof, "identity measurement"}, 200, time.Now(), timeout)
+	raw, headers, err := r.request(ctx, c, phase, loginOperation, "/v2/auth/sessions", "", "", "", LoginRequest{challenge.Data.Challenge.ChallengeID, proof, "identity measurement"}, 200, time.Now(), timeout)
 	if err != nil {
 		return
 	}
@@ -349,7 +353,7 @@ func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMea
 	r.mu.Unlock()
 	refresh, csrf := "", headers.Get("X-CSRF-Token")
 	for _, cookie := range (&http.Response{Header: headers}).Cookies() {
-		if cookie.Name == "__Host-kindle_refresh" {
+		if cookie.Name == refreshCookieName {
 			if !cookie.Secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteLaxMode || cookie.Domain != "" || cookie.Path != "/" {
 				r.recordFailure(phase, "refresh_cookie_policy_invalid")
 				return
@@ -374,7 +378,7 @@ func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMea
 		}
 		nextRefresh := ""
 		for _, cookie := range (&http.Response{Header: nextHeaders}).Cookies() {
-			if cookie.Name == "__Host-kindle_refresh" {
+			if cookie.Name == refreshCookieName {
 				nextRefresh = cookie.Value
 			}
 		}
@@ -385,7 +389,9 @@ func (r *IdentityMeasurementRecorder) journey(ctx context.Context, c IdentityMea
 		}
 		refresh, csrf, access = nextRefresh, nextCSRF, rotated.Data.AccessToken
 	}
-	_, _, _ = r.request(ctx, c, phase, "logout", "/v2/auth/sessions:logout-all", access, "", "", RefreshRequest{}, 204, time.Now(), timeout)
+	if _, _, err := r.request(ctx, c, phase, "logout", "/v2/auth/sessions:logout-all", access, "", "", RefreshRequest{}, 204, time.Now(), timeout); err != nil {
+		r.recordFailure(phase, "logout_unavailable")
+	}
 }
 func (r *IdentityMeasurementRecorder) recordFailure(phase IdentityMeasurementPhase, reason string) {
 	r.mu.Lock()
@@ -424,7 +430,7 @@ func validateIdentityMeasurement(c IdentityMeasurementConfig) error {
 	for _, client := range c.Clients {
 		u, e := url.Parse(client.BaseURL)
 		o, oe := url.Parse(client.Origin)
-		if e != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost" || u.Hostname() == "::1"))) || oe != nil || o.Scheme != "https" || o.Host == "" || o.User != nil || o.Path != "" || o.RawQuery != "" || o.Fragment != "" || client.Client == nil || client.Client.CheckRedirect == nil {
+		if e != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != httpsScheme && (u.Scheme != "http" || (u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1"))) || oe != nil || o.Scheme != httpsScheme || o.Host == "" || o.User != nil || o.Path != "" || o.RawQuery != "" || o.Fragment != "" || client.Client == nil || client.Client.CheckRedirect == nil {
 			return errors.New("identity measurement: reviewed HTTP transport and HTTPS origin required")
 		}
 	}
@@ -445,7 +451,7 @@ func RunIdentityMeasurement(ctx context.Context, c IdentityMeasurementConfig) (I
 	if err != nil {
 		return IdentityMeasurementSummary{}, errors.New("identity measurement: immutable raw capture already exists or unavailable")
 	}
-	defer file.Close()
+	defer cleanup.Close(file)
 	r := &IdentityMeasurementRecorder{file: file, digest: sha256.New(), summary: IdentityMeasurementSummary{Binding: c.Binding, StartedAt: time.Now().UTC(), Phases: append([]IdentityMeasurementPhase(nil), c.Phases...), GeneratorQueueCapacity: c.QueueCapacity, RawFile: "requests.jsonl", Assertions: map[string]bool{}, Failures: []string{}, FinalSharedGate: "9.1", PhaseWindows: map[string]*IdentityPhaseWindow{}, PhaseElapsedNS: map[string]int64{}, PhaseActualSignInRefreshRPS: map[string]float64{}, SourceSHA256: sourceSHA, SourceFiles: sourceFiles, CPUAttribution: "Whole owning-process CPU delta per EOA verification; includes other process work and is not exclusive signature CPU."}, phaseSuccessful: map[string]int64{}, phaseRequests: map[string]int64{}, phaseFailures: map[string]int64{}, refreshesPerLogin: c.RefreshesPerLogin, maxAcknowledgements: c.MaxAcknowledgements}
 	if c.Runtime != nil || c.RuntimeArchive != nil {
 		if snapshot, e := c.captureRuntimeMeasurement(); e == nil {
@@ -657,11 +663,11 @@ func writeIdentityImmutableJSON(path string, v any) error {
 	if err != nil {
 		return errors.New("identity measurement: evidence encoding failed")
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // The output path is an exclusive private evidence file.
 	if err != nil {
 		return errors.New("identity measurement: immutable evidence unavailable")
 	}
-	defer f.Close()
+	defer cleanup.Close(f)
 	if _, err = f.Write(append(raw, '\n')); err == nil {
 		err = f.Sync()
 	}
@@ -714,7 +720,7 @@ func CaptureIdentityDurability(ctx context.Context, pool *pgxpool.Pool, schema s
 	if err != nil {
 		return out, errors.New("identity durability: snapshot unavailable")
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SET LOCAL TIME ZONE 'UTC'; SET LOCAL datestyle='ISO,YMD'`); err != nil {
 		return out, errors.New("identity durability: canonical database serialization unavailable")
 	}
@@ -745,13 +751,13 @@ func CaptureIdentityDurability(ctx context.Context, pool *pgxpool.Pool, schema s
 		table, id, predicate string
 		arg                  any
 	}{
-		{"identity_accounts", "account_id::text", "account_id=ANY($1::uuid[])", accounts},
+		{"identity_accounts", "account_id::text", accountIDsFilter, accounts},
 		{"identity_sessions", "session_id::text", "session_id=ANY($1::uuid[])", ids},
-		{"identity_wallet_links", "link_id::text", "account_id=ANY($1::uuid[])", accounts},
+		{"identity_wallet_links", "link_id::text", accountIDsFilter, accounts},
 		{"identity_challenges", "challenge_id::text", "challenge_id=ANY($1::uuid[])", challenges},
 		{"identity_refresh", "encode(refresh_hash,'hex')", "session_id=ANY($1::uuid[])", ids},
-		{"identity_outbox", "event_id::text", "account_id=ANY($1::uuid[])", accounts},
-		{"identity_revisions", "account_id::text", "account_id=ANY($1::uuid[])", accounts},
+		{"identity_outbox", "event_id::text", accountIDsFilter, accounts},
+		{"identity_revisions", "account_id::text", accountIDsFilter, accounts},
 	}
 	for _, q := range queries {
 		ledgerHash := sha256.New()
@@ -909,7 +915,7 @@ func WriteIdentityRecoveryEvidence(path string, before, after IdentityDurability
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 4*1024*1024 {
 		return errors.New("identity recovery: actual approved fault receipt unavailable")
 	}
-	receipt, err := os.ReadFile(faultReceiptPath)
+	receipt, err := os.ReadFile(faultReceiptPath) //nolint:gosec // The approved receipt is regular, size bounded, and digest verified.
 	if err != nil || measurementHash(receipt) != faultAuthoritySHA256 {
 		return errors.New("identity recovery: fault receipt digest mismatch")
 	}
@@ -986,7 +992,7 @@ func identityMeasurementSources(root string) (map[string]string, string, error) 
 		if len(sources) >= 1000 {
 			return errors.New("source bound exceeded")
 		}
-		raw, e := os.ReadFile(path)
+		raw, e := os.ReadFile(path) //nolint:gosec // WalkDir limits reads to regular Go sources in the selected tree.
 		if e != nil {
 			return e
 		}
@@ -1091,8 +1097,15 @@ func (s *Identity) MeasureRevocationPropagation(ctx context.Context, actor Ident
 	if err != nil {
 		return out, errors.New("identity revocation measurement: logout not acknowledged")
 	}
-	io.Copy(io.Discard, io.LimitReader(response.Body, 65537))
-	response.Body.Close()
+	if _, err := io.Copy(io.Discard, io.LimitReader(response.Body, 65537)); err != nil {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+		return out, errors.New("identity revocation measurement: logout response unavailable")
+	}
+	if closeErr := response.Body.Close(); closeErr != nil {
+		cleanup.Report("close response body", closeErr)
+	}
 	out.AcknowledgedAt = time.Now().UTC()
 	if response.StatusCode != 204 {
 		return out, errors.New("identity revocation measurement: logout not committed")
@@ -1138,8 +1151,17 @@ func (s *Identity) MeasureRevocationPropagation(ctx context.Context, actor Ident
 					observation.Failure = "http_authority_unavailable"
 					break
 				}
-				io.Copy(io.Discard, io.LimitReader(result.Body, 65537))
-				result.Body.Close()
+				if _, e = io.Copy(io.Discard, io.LimitReader(result.Body, 65537)); e != nil {
+					if closeErr := result.Body.Close(); closeErr != nil {
+						cleanup.Report("close response body", closeErr)
+					}
+					cancel()
+					observation.Failure = "http_authority_unavailable"
+					break
+				}
+				if closeErr := result.Body.Close(); closeErr != nil {
+					cleanup.Report("close response body", closeErr)
+				}
 				cancel()
 				if result.StatusCode == 401 {
 					observation.HTTPDeniedAt = time.Now().UTC()
@@ -1161,7 +1183,8 @@ func (s *Identity) MeasureRevocationPropagation(ctx context.Context, actor Ident
 			defer cancel()
 			select {
 			case observation.SocketClosedAt = <-socketClosed:
-			case <-socketError:
+			case socketErr := <-socketError:
+				cleanup.Report("private socket", socketErr)
 				observation.Failure = "private_socket_close_not_authoritative"
 			case <-wait.Done():
 				observation.Failure = "revocation_deadline_exceeded"
@@ -1243,7 +1266,9 @@ func (s *Identity) MeasurePreferenceContinuity(ctx context.Context, client Ident
 			return out, errors.New("identity preference measurement: actual service unavailable")
 		}
 		raw, e := io.ReadAll(io.LimitReader(response.Body, 65537))
-		response.Body.Close()
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
 		if e != nil || len(raw) > 65536 || response.StatusCode != 200 {
 			return out, errors.New("identity preference measurement: preference read failed")
 		}
@@ -1299,7 +1324,7 @@ func (s *Identity) MeasurePreferenceContinuity(ctx context.Context, client Ident
 func identityMeasurementSafeClient(c IdentityMeasurementClient) (*http.Client, error) {
 	u, err := url.Parse(c.BaseURL)
 	origin, oe := url.Parse(c.Origin)
-	if c.Client == nil || err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost" || u.Hostname() == "::1"))) || oe != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+	if c.Client == nil || err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != httpsScheme && (u.Scheme != "http" || (u.Hostname() != "127.0.0.1" && u.Hostname() != "localhost" && u.Hostname() != "::1"))) || oe != nil || origin.Scheme != httpsScheme || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
 		return nil, errors.New("identity measurement: admitted secure endpoint/origin required")
 	}
 	safe := *c.Client
