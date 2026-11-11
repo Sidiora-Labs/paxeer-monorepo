@@ -226940,7 +226940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.9]
 title = "Decode and store the chain launch events in the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
