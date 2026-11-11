@@ -21090,3 +21090,8 @@ fix = "Decision 3324; task 22.39.394 follows task 22.39.395."
 title = "A node gives the canonical commit of a height once the next block exists and takes a store key as hexadecimal text without a prefix"
 symptom = "The commit that a node returns for its latest height is marked not canonical until the block above it exists; the commit of every lower height is canonical. The JSON-RPC interface of the node takes the data of a store query as hexadecimal text without the 0x prefix. The committed read of services/platform/hosted/indexer/src/ai_source.rs asks for the commit of the latest height and requires it canonical, and sends the store key with the prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers a canonical commit at its latest height and accepts the prefixed key."
 fix = "Decision 3325; task 22.38.36 carries the source and its cases."
+
+[gotcha.4254]
+title = "A list that a check reads is kept with the producer of its entries"
+symptom = "Three checks of the workspace read a list: the type set PrecompileAbiType of the TypeScript SDK and the type list of the Python SDK are read against the generated precompile tables, the copy check of the web app reads apps/web/copy/catalog.ts, and tests/programs/runtime-module-boundaries.sh holds the list of the host modules of the runtime. The generated tables name the type uint32 for the chain field of the launchpad chain events, the sources of the web app carry text for the explorer, exchange, bridge and launchpad pages, and the host directory of the runtime carries market.rs. Each list takes the entries of its producer."
+fix = "Decision 3326; tasks 22.39.396, 22.39.397 and 22.39.398."

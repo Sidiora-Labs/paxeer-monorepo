@@ -13066,6 +13066,12 @@ value = "The source process of decision 3270 takes the signed header and the com
 basis = "Gotcha 4253, decisions 3046 and 3270."
 affects = ["22.38.36"]
 
+[decision.3326]
+title = "A list that a check reads moves with the change of its producer"
+value = "A task that adds an ABI type to a generated precompile table carries the type set and the codec of each SDK that reads the table. A task that adds user-facing text to the web app carries its catalog entry. A task that adds a host module to the runtime carries the module boundary check. Task 22.39.396 carries uint32 in the precompile ABI of the TypeScript and Python SDKs, task 22.39.397 brings the text of the web app into the copy catalog, and task 22.39.398 brings the boundary check and the host modules of the runtime into agreement. The wave gate task 17.5.7 changes none of the three."
+basis = "Gotcha 4254, decisions 3046 and 3321."
+affects = ["22.39.396", "22.39.397", "22.39.398", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42726,6 +42732,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.398]
+title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
+reqs = ["22998.1"]
+touches = ["tests/programs/runtime-module-boundaries.sh", "programs/crates/layerx-programs-runtime/src/host", "programs/crates/layerx-programs-runtime/tests"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_398.kvx && sh tests/programs/runtime-module-boundaries.sh && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime scan"
+do_1 = "do_1 Decision 3326, gotcha 4254. The check tests/programs/runtime-module-boundaries.sh holds the list of the files of programs/crates/layerx-programs-runtime/src/host and the list of the host families whose files may not reach a sibling family, a parent of the crate, or the types Abi, Composition, Storage and Meter. The directory carries market.rs, which the list does not name. Add market.rs to the file list. Decide from its imports whether market is a family under the sibling rules or a module beside the families, as memory.rs and context.rs are, state the choice in the record, and extend the self-test of the script so that it still refuses an unknown file and accepts the files of main."
+symbols = []
+
+[capability.22.39.397]
+title = "Bring the text of the web app into the copy catalog"
+reqs = ["22998.1"]
+touches = ["apps/web/copy/catalog.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
+tests = []
+verification_contract = "test -s apps/web/repair_22_39_397.kvx && cargo test --locked --manifest-path services/human/tools/copy-lint/Cargo.toml && cargo run --locked --manifest-path services/human/tools/copy-lint/Cargo.toml -- apps/web && npm --prefix apps/web run typecheck"
+do_1 = "do_1 Decision 3326, gotcha 4254. Run the copy check as the recipe human-lint-copy of the Makefile runs it: cargo run --manifest-path services/human/tools/copy-lint/Cargo.toml --locked -- apps/web. It lists by file and line the text in the sources of the web app that is not in apps/web/copy/catalog.ts, under apps/web/src/explorer, apps/web/src/app/explorer, apps/web/src/app/exchange, apps/web/src/app/bridge, apps/web/src/app/launchpad, apps/web/src/app/_markets and apps/web/src/journeys. Move each listed text into the catalog as an entry with key, message, context, surface and kind, and read it in the source through the catalog as the neighbouring text of the app does. Keep every message word for word, so that no test that reads the text changes."
+symbols = []
+
+[capability.22.39.396]
+title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/tests/test_spot_call.py"]
+tests = []
+verification_contract = "test -s services/agent/sdk/repair_22_39_396.kvx && make agent-sdk-ts-build && node --test services/agent/sdk/typescript/dist/test/precompile-calls.test.js && python3 -m pytest services/agent/sdk/python/tests/test_spot_call.py -q"
+do_1 = "do_1 Decision 3326, gotcha 4254. The generated table services/agent/sdk/typescript/src/generated/precompile-writes.ts names the type uint32 for the chain field of the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired of the launchpad precompile. Add uint32 to PrecompileAbiType in services/agent/sdk/typescript/src/exchange.ts with its width of 32 bits in the function bits, and make encodeStatic and decodeWord take it with the range check of its width, as they do for uint8 and uint64. Change no generated file by hand."
+symbols = []
 
 [capability.22.39.395]
 title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
@@ -186069,6 +186102,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.397]
+title = "Bring the text of the web app into the copy catalog"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.39.396"]
+reqs = ["22998.1"]
+capabilities = ["22.39.397"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. Run the copy check as the recipe human-lint-copy of the Makefile runs it: cargo run --manifest-path services/human/tools/copy-lint/Cargo.toml --locked -- apps/web. It lists by file and line the text in the sources of the web app that is not in apps/web/copy/catalog.ts, under apps/web/src/explorer, apps/web/src/app/explorer, apps/web/src/app/exchange, apps/web/src/app/bridge, apps/web/src/app/launchpad, apps/web/src/app/_markets and apps/web/src/journeys. Move each listed text into the catalog as an entry with key, message, context, surface and kind, and read it in the source through the catalog as the neighbouring text of the app does. Keep every message word for word, so that no test that reads the text changes."
+do_2 = "do_2 The check also lists catalog entries of kind status next to money whose message is not in STATUS_MESSAGES of services/human/tools/copy-lint/src/main.rs. Decide each one by its use: an entry that is not the status of a money movement takes the kind that fits it, and a real status of a money movement joins STATUS_MESSAGES with a case beside the existing cases of the check. Raise COPY_CATALOG_VERSION by one minor step."
+do_3 = "do_3 Run the copy check, the typecheck and the tests of the web app outside the counted gates until the copy check and the typecheck are clean. A test of the web app that stops for a cause other than this text is not repaired here: record its name and first message. Record in apps/web/repair_22_39_397.kvx the number of entries added by directory and the entries whose kind changed. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["apps/web/copy/catalog.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
+tests = []
+planned_paths = ["apps/web/repair_22_39_397.kvx"]
+build_cmd = "make human-js-install && make agent-sdk-ts-build && cargo build --locked --manifest-path services/human/tools/copy-lint/Cargo.toml"
+verify_cmd = "test -s apps/web/repair_22_39_397.kvx && cargo test --locked --manifest-path services/human/tools/copy-lint/Cargo.toml && cargo run --locked --manifest-path services/human/tools/copy-lint/Cargo.toml -- apps/web && npm --prefix apps/web run typecheck"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.396]
+title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.19"]
+reqs = ["22998.1"]
+capabilities = ["22.39.396"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. The generated table services/agent/sdk/typescript/src/generated/precompile-writes.ts names the type uint32 for the chain field of the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired of the launchpad precompile. Add uint32 to PrecompileAbiType in services/agent/sdk/typescript/src/exchange.ts with its width of 32 bits in the function bits, and make encodeStatic and decodeWord take it with the range check of its width, as they do for uint8 and uint64. Change no generated file by hand."
+do_2 = "do_2 Do the same in services/agent/sdk/python/layerx_sdk/exchange.py: the list of ABI types and the width table carry uint32, and a value outside 32 bits is refused. Then list every type that the two generated tables name and confirm that the type set of each SDK carries each one; add what is missing in the same way."
+do_3 = "do_3 Add cases beside the existing ones in services/agent/sdk/typescript/test/precompile-calls.test.ts and in services/agent/sdk/python/tests/test_spot_call.py: a uint32 value at the upper bound passes through the codec of the SDK and back, the value above the bound is refused, and the event table of the launchpad is accepted with its chain events. Record in services/agent/sdk/repair_22_39_396.kvx the types added and the cases. Run make agent-sdk-ts-build and the two test files outside the counted gates until they are clean, then the counted build once and the counted verification once."
+symbols = []
+touches = ["services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/tests/test_spot_call.py"]
+tests = []
+planned_paths = ["services/agent/sdk/repair_22_39_396.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build"
+verify_cmd = "test -s services/agent/sdk/repair_22_39_396.kvx && make agent-sdk-ts-build && node --test services/agent/sdk/typescript/dist/test/precompile-calls.test.js && python3 -m pytest services/agent/sdk/python/tests/test_spot_call.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.19]
 title = "Bring the generated readers of the launchpad ABI to the chain launch"
 status = "done"
@@ -195538,6 +195631,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.398]
+title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.398"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. The check tests/programs/runtime-module-boundaries.sh holds the list of the files of programs/crates/layerx-programs-runtime/src/host and the list of the host families whose files may not reach a sibling family, a parent of the crate, or the types Abi, Composition, Storage and Meter. The directory carries market.rs, which the list does not name. Add market.rs to the file list. Decide from its imports whether market is a family under the sibling rules or a module beside the families, as memory.rs and context.rs are, state the choice in the record, and extend the self-test of the script so that it still refuses an unknown file and accepts the files of main."
+do_2 = "do_2 The cases at the end of programs/crates/layerx-programs-runtime/src/host/scan.rs name Abi, Storage and Meter to build their state. Move those cases to a place where the check allows the names, for example a test file of the host directory that the list names, as event_tests.rs is named for the ABI modules, or a file under programs/crates/layerx-programs-runtime/tests. Change nothing that the cases assert, keep the word scan in the path of each moved case, and widen no item beyond the crate. Do not relax a rule of the check to fit the source."
+do_3 = "do_3 Run sh tests/programs/runtime-module-boundaries.sh and the cases of the package outside the counted gates until both are clean. Record in programs/crates/layerx-programs-runtime/repair_22_39_398.kvx the choice for market.rs, the cases moved and their new place. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["tests/programs/runtime-module-boundaries.sh", "programs/crates/layerx-programs-runtime/src/host", "programs/crates/layerx-programs-runtime/tests"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_398.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_398.kvx && sh tests/programs/runtime-module-boundaries.sh && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime scan"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -336838,6 +336961,7 @@ do_27 = "Attempt 23 (continue, gotcha 4216, decision 3288): the attempt-22 tree 
 do_28 = "Attempt 24 (continue, gotcha 4221, decision 3293): the attempt-23 tree 3e225f080e0d stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The source identity check passed and the gate reached make workspace-build, which stopped at chain.mk:111 for want of cmake in the gate shell; the tool is now provided. Rebase on main and change nothing for it. Run no gate command outside the counted verification. A refusal after a command names the paths that the command wrote or changed: repair inside the paths, record and stop for a cause outside them. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. On a stop for space record the free space before and after every command. Run the build once and the verification once at the final revision."
 do_29 = "Attempt 25 (continue, gotcha 4226, decision 3297): the attempt-24 tree 350d001e3ec1 stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The gate passed the native library step and stopped in paxeer-build, which builds the node with the module proxy off while nothing had fetched the modules of the root module; after the command the runner refused the library that chain.mk:129 copies to engine/executor/lib. Make three changes inside the paths. In run_wave of gates.py the preparation for wave 6 becomes make workspace-install human-js-install platform-sample-install; adapt the cases of the wave gate test that pin the preparation. In permitted_output of scripts/gates/run_gate.py admit a file directly in engine/executor/lib whose name begins with libevmone. and ends with .so or .dylib, and only when git ignores it. Add to scripts/gates/test_run_gate.py, which the touches now name, a case that such a file is admitted and that another untracked file in that directory is refused, and run that test file. Change no line with GOPROXY=off and nothing in chain.mk. Then, outside the counted gates, run make workspace-install once; a failure whose cause lies outside the paths is recorded with its first message and its file, and the attempt stops. Then run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own. Do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. When every command has passed, bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths, and run the build once and the verification once at the final revision. When a cause outside the paths remains, run no counted verification and name every such cause in the final message."
 do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 and 4229, decisions 3298 and 3299): the attempt-25 tree 256c1389b92f stands (the preparation of run_wave with the install target of the workspace, the admission of the native library in permitted_output, the cases of scripts/gates/test_run_gate.py, the earlier changes). The install target stopped in the inventory check of the workspace, which is stale on main and outside the paths of this task; task 22.39.377 repairs it and makes the install pass, and task 22.39.378 repairs the lock of the wallet workspace. The task now requires both. Rebase on main once both are on it and change nothing in scripts/workspace, tools/workspace, the ignore file or a lock. Then proceed as decision 3297 states. Outside the counted gates run make workspace-install once; when it fails, run every remaining line of its recipe once and record every failing line with its first message and its file. Whatever the result of the install, run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own, and do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. Before the counted gates bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths. Run the build once and the verification once at the final revision only when the install and all six commands have passed; otherwise run no counted verification and name every remaining cause in the final message."
+do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.398 carry the ABI type set of the SDKs, the copy catalog of the web app and the runtime module boundary check. Change none of the three in this task."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
