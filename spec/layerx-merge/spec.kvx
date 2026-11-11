@@ -13042,6 +13042,12 @@ value = "A task that changes precompiles/launchpad/abi.json brings the package t
 basis = "Gotcha 4249, decisions 3046 and 3316."
 affects = ["22.40.7", "22.40.19", "22.40.20", "22.40.18", "22.39.117", "22.39.170"]
 
+[decision.3322]
+title = "The occupancy responsibility debit of the ledger accepts the account of the program payment lookup"
+value = "The occupancy responsibility debit of the ledger accepts as its paying account an agent main account, or an agent asset account whose asset is the asset of the leg. Every other condition stays: the protocol capability, the origin module Programs, the reason storage occupancy and a paying account equal to the authorised source. An account of any other kind and an agent asset account of another asset are refused with LXP_ERR_UNAUTHORIZED_DEBIT. The debit leaves the sequence of the paying account as it is. Task 22.39.395 owns the change. Task 22.38.36 follows it and task 22.39.394, and the release report follows both."
+basis = "Gotcha 4250, decisions 3308 and 3320."
+affects = ["22.39.395", "22.38.36", "22.39.182"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42702,6 +42708,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+reqs = ["22998.1"]
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+verification_contract = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+symbols = []
 
 [capability.22.40.20]
 title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
@@ -187205,7 +187220,7 @@ title = "Drive an isolated chain, one host, two native peers and one asker throu
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -228694,7 +228709,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394"]
+requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []
@@ -309899,6 +309914,37 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.395"]
+interfaces = []
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+do_2 = "do_2 Extend tests/ledger/test_apply_transfer.c next to its occupancy cases with four cases under the authority LXP_AUTH_OCCUPANCY_RESPONSIBILITY: an agent asset account of the asset of the leg pays and its sequence stays; an agent asset account of another asset is refused; an account of a third kind is refused; an agent asset account of the asset of the leg is refused when the origin module is not Programs. Keep every existing case of the file."
+do_3 = "do_3 Write node/programs_occupancy_payer_test.go in the package of node/programs_block_end_test.go and keep the helpers it adds in that file. TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount: a payer that holds the asset of the charge only in an agent asset account creates a namespace of a program through the real call path at the protocol version of the state commitment, then at least three further blocks finalize and commit, and the balance of that account falls by the charge that each block states. TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount states the same for a payer that holds the asset in its agent main account. Use real blocks and real state and no stand-in for the ledger."
+do_4 = "do_4 Record in src/ledger/repair_22_39_395.kvx the changed condition, the cases added, the commands run and their results. Where a file outside the touched paths states the kind of the paying account of this debit, record it with file and line and leave it. Run the build once and the verification once at the final revision. Never stop to ask."
+symbols = []
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+planned_paths = ["node/programs_occupancy_payer_test.go", "src/ledger/repair_22_39_395.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./node/ && CGO_ENABLED=1 go vet ./node/"
+verify_cmd = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.394]
 title = "Check the occupancy debit of a program call at the call"
