@@ -21110,3 +21110,8 @@ fix = "Decision 3328; task 22.38.36 carries the wait of the writers with its cas
 title = "The in-process executor of the processor cases of the launchpad indexer names each statement of the store"
 symptom = "The cases of services/launchpad/indexer/internal/processor/repair_54_test.go run the legacy projection through an in-process executor that accepts the statements of the store by their text (:1081). The store sets the home chain of a pool from the launched chains when a market is created (services/launchpad/indexer/internal/store/store.go:105). A statement that the store gains is therefore read by that executor as well as by the database."
 fix = "Decision 3329; task 22.39.117 carries the statement in the executor of the cases."
+
+[gotcha.4258]
+title = "The message table of the web app is generated from its copy catalog"
+symptom = "The file apps/web/copy/messages.generated.ts holds the runtime messages of the web app and is written by apps/web/copy/generate-runtime.ts from apps/web/copy/catalog.ts. A change of the catalog changes the generated table in the same step, and both files are kept in the tree."
+fix = "Decision 3330; the touches of task 22.39.397 name the generated table."

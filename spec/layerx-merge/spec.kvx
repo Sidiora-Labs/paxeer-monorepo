@@ -13090,6 +13090,12 @@ value = "The in-process executor of the processor cases answers every statement 
 basis = "Gotcha 4257, decisions 3046, 3321 and 3326."
 affects = ["22.39.117"]
 
+[decision.3330]
+title = "The generated message table of the web app moves with its copy catalog"
+value = "A task that changes apps/web/copy/catalog.ts carries apps/web/copy/messages.generated.ts as its generator writes it, in the same change. The table is not edited by hand. Task 22.39.397 carries both files."
+basis = "Gotcha 4258, decisions 3326 and 3046."
+affects = ["22.39.397"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -186173,7 +186179,7 @@ do_1 = "do_1 Decision 3326, gotcha 4254. Run the copy check as the recipe human-
 do_2 = "do_2 The check also lists catalog entries of kind status next to money whose message is not in STATUS_MESSAGES of services/human/tools/copy-lint/src/main.rs. Decide each one by its use: an entry that is not the status of a money movement takes the kind that fits it, and a real status of a money movement joins STATUS_MESSAGES with a case beside the existing cases of the check. Raise COPY_CATALOG_VERSION by one minor step."
 do_3 = "do_3 Run the copy check, the typecheck and the tests of the web app outside the counted gates until the copy check and the typecheck are clean. A test of the web app that stops for a cause other than this text is not repaired here: record its name and first message. Record in apps/web/repair_22_39_397.kvx the number of entries added by directory and the entries whose kind changed. Then run the counted build once and the counted verification once."
 symbols = []
-touches = ["apps/web/copy/catalog.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
+touches = ["apps/web/copy/catalog.ts", "apps/web/copy/messages.generated.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
 tests = []
 planned_paths = ["apps/web/repair_22_39_397.kvx"]
 build_cmd = "make human-js-install && make agent-sdk-ts-build && cargo build --locked --manifest-path services/human/tools/copy-lint/Cargo.toml"
@@ -186189,6 +186195,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3330, gotcha 4258: the generated table apps/web/copy/messages.generated.ts is written by apps/web/copy/generate-runtime.ts from the catalog and is part of this change as the generator writes it. Do not edit it by hand."
 
 [task.22.39.396]
 title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
