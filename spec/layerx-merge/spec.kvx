@@ -187064,7 +187064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.17]
 title = "Run the chain launch journey on an isolated chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.40.8", "22.40.13"]
@@ -196749,7 +196749,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.447]
 title = "Bring the member layerx-programs-arbiter of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197112,7 +197112,7 @@ do_4 = "do_4 Decisions 3355 and 3356, gotcha 4274. Test targets of the identity 
 
 [task.22.39.434]
 title = "Bring the member layerx-human-security-provider of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
