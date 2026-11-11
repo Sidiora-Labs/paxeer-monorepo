@@ -13078,6 +13078,12 @@ value = "A task that changes a flow of the launchpad web application runs the ty
 basis = "Gotcha 4255, decisions 3046, 3316 and 3326."
 affects = ["22.40.10", "22.39.399"]
 
+[decision.3328]
+title = "A writing transaction of the hosted indexer waits for the write lock of its database"
+value = "A writer of the hosted indexer that finds the write lock of the database file held waits for it within a stated bound and does not return at once. This holds as well for a transaction that reads before it writes. The follow loop keeps its present behaviour for a store that stays unavailable past that bound. Task 22.38.36 carries the change in the stores of the indexer with a case of two connections on one file, and its verification runs that case before the journey. The room driver sets no timing whose purpose is to keep the two followers apart."
+basis = "Gotcha 4256, decisions 3046, 3270 and 3325."
+affects = ["22.38.36"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -187385,11 +187391,11 @@ do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the Ru
 do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
 do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
 symbols = ["InferenceRoomDriver"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml"]
 tests = []
-planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs"]
+planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs", "services/platform/hosted/indexer/tests/store_writers.rs"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
-verify_cmd = "CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_DEV_DEBUG=0 cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_source && d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
+verify_cmd = "CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_DEV_DEBUG=0 cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_source --test store_writers && d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-platform"
@@ -187411,6 +187417,7 @@ do_10 = "Attempt 9 (continue after 22.39.386 and 22.39.387 land, gotchas 4236 an
 do_11 = "do_11 Decisions 3310 to 3312, gotchas 4240 and 4241: the note for attempt 9 is wrong where it says that the room proof runs no value operation of the program. The driver sends the LockBond operation for each peer, and that operation is a deposit. The task now requires tasks 22.39.389 and 22.39.390. Take the two fields of every value operation from the function market_value_call_terms of the client library, with a Transfer402 grant for the amount of the bond, and the two fields of every other operation from market_call_terms. A value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 do_12 = "do_12 Decision 3313, gotcha 4243: the record of this task states product facts only. It names no verification tool and none of its commands, no path of the qualification environment, no log file and no file under a temporary directory, and it does not narrate the attempts."
 do_13 = "do_13 Decision 3325, gotcha 4253. In services/platform/hosted/indexer/src/ai_source.rs the committed read takes the signed header and the commit of the height below the latest height of the node and requires that commit canonical, reads the store at the height below that one, and sends the store key as hexadecimal text without a prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers as a node does: the commit of its latest height is not canonical and a store key with a prefix is refused. The cases of that file pass, and the room journey reads through the source with no change to what the indexer verifies."
+do_14 = "do_14 Decision 3328, gotcha 4256. With the AI capture configured the indexer has two followers that write to one database file through separate connections. Find each place where a connection is opened on the file and each transaction that writes, under services/platform/hosted/indexer/src, and make a writer wait for a held write lock within a stated bound; a transaction that reads before it writes takes the write lock when it begins. Add services/platform/hosted/indexer/tests/store_writers.rs: two connections on one file, opened as the indexer opens them, write in turn from two threads for a stated number of rounds, and every write is recorded. Change nothing that the indexer verifies or records. In the room driver set no poll interval and no scan position whose purpose is to keep the two followers apart."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
