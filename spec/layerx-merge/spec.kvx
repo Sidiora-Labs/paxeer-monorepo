@@ -308986,7 +308986,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.388]
 title = "Prove at the host level which receipt admits a value operation after a block-end transition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
