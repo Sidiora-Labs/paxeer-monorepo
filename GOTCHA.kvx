@@ -21105,3 +21105,8 @@ fix = "Decision 3327 and task 22.39.399; the build of task 22.40.10 reads the ty
 title = "The followers of the hosted indexer write to one database file through separate connections"
 symptom = "The hosted indexer opens its database file through more than one connection: the main store (services/platform/hosted/indexer/src/store.rs:724) and the AI views (ai_market.rs:1395, ai_reputation.rs:384 and ai_health.rs:1216 of the same directory). With the AI capture configured, the AI follower and the chain follower write to that file in the same period, so each writing transaction has to take the write lock of the file and wait for it. The follow loop of main.rs records every observation of a follower in the main store."
 fix = "Decision 3328; task 22.38.36 carries the wait of the writers with its case, and its verification runs that case before the journey."
+
+[gotcha.4257]
+title = "The in-process executor of the processor cases of the launchpad indexer names each statement of the store"
+symptom = "The cases of services/launchpad/indexer/internal/processor/repair_54_test.go run the legacy projection through an in-process executor that accepts the statements of the store by their text (:1081). The store sets the home chain of a pool from the launched chains when a market is created (services/launchpad/indexer/internal/store/store.go:105). A statement that the store gains is therefore read by that executor as well as by the database."
+fix = "Decision 3329; task 22.39.117 carries the statement in the executor of the cases."
