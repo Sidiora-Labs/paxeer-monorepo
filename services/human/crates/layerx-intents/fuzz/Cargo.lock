@@ -707,6 +707,7 @@ dependencies = [
  "layerx-program-sdk",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
+ "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

@@ -195061,7 +195061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.392]
 title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.386"]
@@ -195247,7 +195247,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.382]
 title = "Bring the unit cases of the Human runtime and program account fixture files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -195307,7 +195307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.380]
 title = "Bring the unit cases of the program operation and protocol evidence files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -309121,7 +309121,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.388"]

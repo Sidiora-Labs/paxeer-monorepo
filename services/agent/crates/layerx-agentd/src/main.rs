@@ -2308,6 +2308,61 @@ fn lap_market_call_terms(
     layerx_client::ai_market::market_call_terms(operation, program, actor)
 }
 
+fn lap_market_spending_grant(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    payload: &[u8],
+    state: &layerx_client::ai_market::market_program::state::SharedState<'_>,
+    program: [u8; 32],
+) -> Result<layerx_client::MarketSpendingGrant, layerx_client::ai_market::AiClientError> {
+    use layerx_client::ai_market::market_program as market;
+    use layerx_client::MarketSpendingGrant;
+
+    let header = market::registry_ops::PolicySection::decode(
+        state.section(market::state::Section::PolicyLifecycle)?,
+    )?
+    .header;
+    let mut reader = market::codec::Reader::new(payload);
+    let deal = reader.digest32()?;
+    let lap = reader.u64()?;
+    let commitment = reader.digest32()?;
+    let amount_or_recipient = if operation == market::dispatch::ChallengeLap {
+        let amount = reader.u128()?;
+        reader.finish()?;
+        return Ok(MarketSpendingGrant::Deposit {
+            asset: header.funding_asset.bytes(),
+            rewards_account: header.rewards_account.bytes(),
+            amount,
+        });
+    } else if operation == market::dispatch::ResolveChallenge {
+        let _: [u8; 32] = reader.fixed()?;
+        reader.finish()?;
+        let record = market::canary::CanaryRegion::decode(state.control.feature_bytes)?
+            .get(commitment)?
+            .ok_or(market::errors::NOT_FOUND)?;
+        if record.task.deal != deal || record.task.lap != lap {
+            return Err(market::errors::CONFLICT.into());
+        }
+        (
+            record.challenger.ok_or(market::errors::NOT_FOUND)?.bytes(),
+            record.deposit,
+        )
+    } else {
+        return Err(
+            layerx_client::ai_market::AiClientError::MarketNonValueOperation {
+                operation: operation.metadata().name,
+            },
+        );
+    };
+    Ok(MarketSpendingGrant::Payment {
+        owner_program: program,
+        seed: market::REWARDS_ACCOUNT_SEED.to_vec(),
+        source_account: header.rewards_account.bytes(),
+        asset: header.funding_asset.bytes(),
+        recipient: amount_or_recipient.0,
+        amount: amount_or_recipient.1,
+    })
+}
+
 fn deal_market_call_terms(
     operation: layerx_client::ai_market::market_program::dispatch::Operation,
     program: [u8; 32],
@@ -2475,8 +2530,25 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 .endpoint
                 .pending_nonce(&signer.evm_address())
                 .map_err(|_| LapError::Invalid("lap nonce unavailable"))?;
-            let call_terms =
-                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?;
+            let call_terms = if matches!(
+                operation.operation(),
+                market::dispatch::ChallengeLap | market::dispatch::ResolveChallenge
+            ) {
+                let grant = lap_market_spending_grant(
+                    operation.operation(),
+                    operation.payload(),
+                    &shared,
+                    self.0.program.bytes(),
+                )?;
+                layerx_client::market_value_call_terms(
+                    operation.operation(),
+                    self.0.program.bytes(),
+                    actor,
+                    grant,
+                )?
+            } else {
+                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?
+            };
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,
