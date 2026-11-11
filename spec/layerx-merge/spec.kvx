@@ -287560,7 +287560,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.408]
 title = "Fetch the Solidity compilers of the Hardhat projects in the install step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
