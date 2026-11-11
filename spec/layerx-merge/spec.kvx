@@ -196110,7 +196110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.423]
 title = "Bring the three tool members of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196140,7 +196140,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.422]
 title = "Bring the testnet member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196320,7 +196320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.416]
 title = "Bring the oracle feeder member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
