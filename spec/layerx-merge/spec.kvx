@@ -309120,7 +309120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.387]
 title = "Run the block-end occupancy transition of Programs in the block flow of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
