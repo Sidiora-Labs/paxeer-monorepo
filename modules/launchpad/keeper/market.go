@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -221,6 +222,7 @@ func (k *Keeper) createMarket(ctx sdk.Context, caller NestedCaller, evm *vm.EVM,
 	k.setUint64(ctx, types.MarketCountKey, index)
 	k.setMarket(ctx, market)
 	k.indexMarket(ctx, market)
+	k.SetHomeChainByPool(ctx, pool, chainstypes.ChainIDFrom(ctx))
 
 	ctx, _, err = caller.Call(ctx, roles.SidioraFactory, token, append(append([]byte(nil), bindPoolSelector...),
 		addressWord(pool)...))
