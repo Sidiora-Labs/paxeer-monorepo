@@ -186324,7 +186324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.405]
 title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
