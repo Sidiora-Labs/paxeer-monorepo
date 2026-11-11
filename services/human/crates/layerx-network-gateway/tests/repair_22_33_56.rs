@@ -1,24 +1,11 @@
-//! Repair record 22.33.56 (audit 22.30.107):
-//! gateway-registry-shape-drift -> gateway_registry_denom_producer_transport_consumer.
-//! gateway-endpoint-control-characters -> gateway_endpoint_parser_to_request.
-//! gateway-total-deadline -> gateway_total_deadline_fragmented_response,
-//! gateway_total_deadline_tls_handshake, gateway_expired_deadline_starts_no_exchange.
-//! gateway-http-framing -> gateway_http_framing_producer_transport_consumer,
-//! gateway_response_byte_ceiling.
-//! Wiring request, Human/domain 10: reconcile spec/layerx-merge/interfaces.kvx
-//! rows 10.rs-network-gateway-lib-asset-l386-j46 (asset(&self, denom: &str)) and
-//! 10.rs-network-gateway-lib-status-name-limit-l34-j46 (retire STATUS_NAME_LIMIT;
-//! register NETWORK_ID_LIMIT); replace adversarial.rs callers with the actual
-//! WalletObservation::balance, human-service/src/server/production_components.rs
-//! and human-service/tests/observed_balances_denom.rs callers found in this tree.
-//! The registry is outside this task's scope and remains for its owning domain.
-//! Baseline: no unchanged-tree verification was run, as the explicit gate order
-//! permits only hf-done after implementation and hf-build. The recorded first
-//! attempt failed before these tests ran on the out-of-scope Quantity consumer
-//! test (qualification finding 22.33.56.1, repaired by prerequisite 22.31.443).
+// Gateway endpoint, framing, deadline, and registry cases exercise production reads.
 
-#[path = "../../../../platform/hosted/gateway/src/evm.rs"]
-mod hosted_codec;
+include!("support/required.rs");
+
+#[allow(dead_code)]
+mod hosted_codec {
+    include!(concat!(env!("OUT_DIR"), "/hosted_evm.rs"));
+}
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -37,13 +24,13 @@ fn recorded_case(name: &str) -> Value {
     let vectors: Value = serde_json::from_str(include_str!(
         "../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
     ))
-    .unwrap();
+    .required();
     vectors["cases"]
         .as_array()
-        .unwrap()
+        .required()
         .iter()
         .find(|case| case["name"] == name)
-        .unwrap()
+        .required()
         .clone()
 }
 
@@ -51,17 +38,17 @@ fn balances_result() -> Value {
     let identity = decode_hex(
         recorded_case("addr.getUnifiedAccount")["result"]
             .as_str()
-            .unwrap(),
+            .required(),
     )
-    .unwrap();
-    let identity = hosted_codec::decode_unified_account(&identity).unwrap();
+    .required();
+    let identity = hosted_codec::decode_unified_account(&identity).required();
     let coins = decode_hex(
         recorded_case("bank.all_balances")["result"]
             .as_str()
-            .unwrap(),
+            .required(),
     )
-    .unwrap();
-    let balances: Vec<Value> = hosted_codec::decode_coins(&coins).unwrap().into_iter().map(|(denom, amount)| {
+    .required();
+    let balances: Vec<Value> = hosted_codec::decode_coins(&coins).required().into_iter().map(|(denom, amount)| {
         json!({"denom": denom, "amount": hosted_codec::uint256_decimal(&amount)})
     }).collect();
     assert_eq!(
@@ -84,36 +71,37 @@ fn rpc_answer(request: &Value) -> Vec<u8> {
     assert_eq!(request["method"], "px_getBalances");
     assert_eq!(request["params"], json!([selector().canonical_text()]));
     serde_json::to_vec(&json!({"jsonrpc": "2.0", "id": request["id"], "result": balances_result()}))
-        .unwrap()
+        .required()
 }
 
 fn selector() -> AccountIdentifier {
-    AccountIdentifier::parse("0x102132435465768798a9bacbdcedfe0f1e2d3c4b").unwrap()
+    AccountIdentifier::parse("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
+        .required_with("valid account selector")
 }
 
 fn read_request(stream: &mut TcpStream) -> (String, Value) {
     let mut bytes = Vec::new();
     let mut buffer = [0; 1024];
     loop {
-        let count = stream.read(&mut buffer).unwrap();
+        let count = stream.read(&mut buffer).required();
         assert_ne!(count, 0, "client must send its complete request");
         bytes.extend_from_slice(&buffer[..count]);
         assert!(bytes.len() < 65536);
         if let Some(end) = bytes.windows(4).position(|part| part == b"\r\n\r\n") {
-            let head = std::str::from_utf8(&bytes[..end]).unwrap();
+            let head = std::str::from_utf8(&bytes[..end]).required();
             let length: usize = head
                 .split("\r\n")
                 .find_map(|line| {
                     let (name, value) = line.split_once(':')?;
                     name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse().unwrap())
+                        .then(|| value.trim().parse().required())
                 })
-                .unwrap();
+                .required();
             if bytes.len() >= end + 4 + length {
                 assert_eq!(bytes.len(), end + 4 + length, "one framed request only");
                 return (
                     head.to_owned(),
-                    serde_json::from_slice(&bytes[end + 4..]).unwrap(),
+                    serde_json::from_slice(&bytes[end + 4..]).required(),
                 );
             }
         }
@@ -129,15 +117,15 @@ struct Peer {
 
 impl Peer {
     fn start(target: &str, secure: bool, serve: impl FnOnce(TcpStream) + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let port = listener.local_addr().unwrap().port();
+        let listener = TcpListener::bind("127.0.0.1:0").required();
+        listener.set_nonblocking(true).required();
+        let port = listener.local_addr().required().port();
         let scheme = if secure { "https" } else { "http" };
         let endpoint = GatewayEndpoint::parse(&format!(
             "{scheme}://{}{target}",
-            listener.local_addr().unwrap()
+            listener.local_addr().required()
         ))
-        .unwrap();
+        .required();
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopped);
         let worker = thread::spawn(move || {
@@ -148,15 +136,15 @@ impl Peer {
                     Ok((stream, _)) => {
                         stream
                             .set_read_timeout(Some(Duration::from_secs(2)))
-                            .unwrap();
+                            .required();
                         stream
                             .set_write_timeout(Some(Duration::from_secs(2)))
-                            .unwrap();
+                            .required();
                         serve(stream);
                         return;
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1))
+                        thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("accept: {error}"),
                 }
@@ -171,7 +159,7 @@ impl Peer {
     }
 
     fn finish(mut self) {
-        self.worker.take().unwrap().join().unwrap();
+        self.worker.take().required().join().required();
     }
 }
 
@@ -196,30 +184,30 @@ fn gateway_registry_denom_producer_transport_consumer() {
         let (_, request) = read_request(&mut stream);
         stream
             .write_all(&valid_response(&rpc_answer(&request)))
-            .unwrap();
+            .required();
     });
-    let endpoint = GatewayEndpoint::parse(&format!("http://localhost:{}/", peer.port)).unwrap();
-    let balances = endpoint.get_balances(selector()).unwrap();
+    let endpoint = GatewayEndpoint::parse(&format!("http://localhost:{}/", peer.port)).required();
+    let balances = endpoint.get_balances(selector()).required();
     let expected = recorded_case("bank.all_balances")["out"]["response"].clone();
-    for row in expected.as_array().unwrap() {
-        let denom = row["denom"].as_str().unwrap();
+    for row in expected.as_array().required() {
+        let denom = row["denom"].as_str().required();
         assert_eq!(
-            balances.asset(denom).unwrap().amount.to_string(),
-            row["amount"].as_str().unwrap()
+            balances.asset(denom).required().amount.to_string(),
+            row["amount"].as_str().required()
         );
     }
     assert!(balances.asset("absent").is_none());
-    let observed = WalletObservation::accept(balances).unwrap();
-    assert_eq!(observed.wallet(), selector().evm_address().unwrap());
+    let observed = WalletObservation::accept(balances).required();
+    assert_eq!(observed.wallet(), selector().evm_address().required());
     assert_eq!(observed.joined().height, 16);
     assert_eq!(observed.joined().evidence, Evidence::GatewayReported);
-    for row in expected.as_array().unwrap() {
+    for row in expected.as_array().required() {
         assert_eq!(
             observed
-                .balance(row["denom"].as_str().unwrap())
-                .unwrap()
+                .balance(row["denom"].as_str().required())
+                .required()
                 .to_string(),
-            row["amount"].as_str().unwrap()
+            row["amount"].as_str().required()
         );
     }
     assert_eq!(observed.balance("absent"), None);
@@ -283,11 +271,11 @@ fn gateway_endpoint_parser_to_request() {
             assert_eq!(head.split("\r\n").count(), 6);
             stream
                 .write_all(&valid_response(&rpc_answer(&request)))
-                .unwrap();
+                .required();
         });
         let observed =
-            WalletObservation::accept(peer.endpoint.get_balances(selector()).unwrap()).unwrap();
-        assert_eq!(observed.balance("ulxp"), Some(123456789.into()));
+            WalletObservation::accept(peer.endpoint.get_balances(selector()).required()).required();
+        assert_eq!(observed.balance("ulxp"), Some(123_456_789.into()));
         peer.finish();
     }
 }
@@ -321,7 +309,7 @@ fn gateway_http_framing_producer_transport_consumer() {
             let length = body.len();
             let headers = match case {
                 "valid" => {
-                    stream.write_all(&valid_response(&body)).unwrap();
+                    stream.write_all(&valid_response(&body)).required();
                     return;
                 }
                 "truncated" => format!("Content-Length: {}", length + 5),
@@ -350,19 +338,19 @@ fn gateway_http_framing_producer_transport_consumer() {
                 "refused" => "HTTP/1.1 503 Unavailable",
                 _ => "HTTP/1.1 200 OK",
             };
-            write!(stream, "{status}\r\n{headers}\r\n\r\n").unwrap();
+            write!(stream, "{status}\r\n{headers}\r\n\r\n").required();
             if case == "chunked" {
-                write!(stream, "{length:x}\r\n").unwrap();
-                stream.write_all(&body).unwrap();
-                stream.write_all(b"\r\n0\r\n\r\n").unwrap();
+                write!(stream, "{length:x}\r\n").required();
+                stream.write_all(&body).required();
+                stream.write_all(b"\r\n0\r\n\r\n").required();
             } else {
-                stream.write_all(&body).unwrap();
+                stream.write_all(&body).required();
             }
         });
         let answer = peer.endpoint.get_balances(selector());
         if case == "valid" {
-            let observed = WalletObservation::accept(answer.unwrap()).unwrap();
-            assert_eq!(observed.balance("ulxp"), Some(123456789.into()));
+            let observed = WalletObservation::accept(answer.required()).required();
+            assert_eq!(observed.balance("ulxp"), Some(123_456_789.into()));
         } else {
             assert!(
                 matches!(answer, Err(GatewayError::Transport(_))),
@@ -384,7 +372,7 @@ fn gateway_total_deadline_fragmented_response() {
             "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
             body.len()
         )
-        .unwrap();
+        .required();
         let mut fragments = 0;
         for byte in body {
             if stream.write_all(&[byte]).is_err() {
@@ -393,7 +381,7 @@ fn gateway_total_deadline_fragmented_response() {
             fragments += 1;
             thread::sleep(Duration::from_millis(20));
         }
-        sent.send(fragments).unwrap();
+        sent.send(fragments).required();
     });
     let started = Instant::now();
     let answer = peer.endpoint.post_with_deadline(
@@ -410,7 +398,7 @@ fn gateway_total_deadline_fragmented_response() {
         "fragmented response retained caller for {elapsed:?}"
     );
     assert!(
-        received.recv_timeout(Duration::from_secs(2)).unwrap() >= 3,
+        received.recv_timeout(Duration::from_secs(2)).required() >= 3,
         "peer must deliver multiple successful fragments"
     );
     peer.finish();
@@ -422,18 +410,18 @@ fn gateway_total_deadline_tls_handshake() {
     let (hello, received) = mpsc::channel();
     let peer = Peer::start("/", true, move |mut stream| {
         let mut byte = [0; 1];
-        assert_eq!(stream.read(&mut byte).unwrap(), 1);
+        assert_eq!(stream.read(&mut byte).required(), 1);
         assert_eq!(byte[0], 22, "client must start a real TLS handshake");
-        hello.send(()).unwrap();
-        stopped.recv_timeout(Duration::from_secs(2)).unwrap();
+        hello.send(()).required();
+        stopped.recv_timeout(Duration::from_secs(2)).required();
     });
     let started = Instant::now();
     let answer = peer
         .endpoint
         .post_with_deadline("{}", started + Duration::from_millis(250));
     let elapsed = started.elapsed();
-    received.recv_timeout(Duration::from_secs(1)).unwrap();
-    stop.send(()).unwrap();
+    received.recv_timeout(Duration::from_secs(1)).required();
+    stop.send(()).required();
     assert!(
         matches!(answer, Err(GatewayError::Transport(_))),
         "{answer:?}"
@@ -447,17 +435,17 @@ fn gateway_total_deadline_tls_handshake() {
 
 #[test]
 fn gateway_expired_deadline_starts_no_exchange() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").required();
+    listener.set_nonblocking(true).required();
     let endpoint =
-        GatewayEndpoint::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        GatewayEndpoint::parse(&format!("http://{}/", listener.local_addr().required())).required();
     let answer = endpoint.post_with_deadline("{}", Instant::now());
     assert!(matches!(answer, Err(GatewayError::Transport(_))));
-    assert_eq!(
-        listener.accept().unwrap_err().kind(),
-        std::io::ErrorKind::WouldBlock
-    );
-    let endpoint = GatewayEndpoint::parse("http://localhost/").unwrap();
+    assert!(matches!(
+        listener.accept(),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+    ));
+    let endpoint = GatewayEndpoint::parse("http://localhost/").required();
     assert!(matches!(
         endpoint.post_with_deadline("{}", Instant::now()),
         Err(GatewayError::Transport(_))
