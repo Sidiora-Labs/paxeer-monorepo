@@ -1,8 +1,11 @@
+#[allow(dead_code)]
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
 
 use layerx_client::frame::framing::{read_frame, write_frame};
-use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use sha3::Keccak256;
@@ -107,7 +110,12 @@ fn openssl(dir: &Path, args: &[&str]) -> Result<()> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").unwrap_or_else(|error| panic!("{error:?}"));
+    }
+    encoded
 }
 
 fn wire_transaction(unsigned: &[u8]) -> Vec<u8> {
@@ -117,7 +125,7 @@ fn wire_transaction(unsigned: &[u8]) -> Vec<u8> {
         0xc0..=0xf7 => (1, usize::from(list[0] - 0xc0)),
         0xf8..=0xff => {
             let length_bytes = usize::from(list[0] - 0xf7);
-            let length = list[1..1 + length_bytes]
+            let length = list[1..=length_bytes]
                 .iter()
                 .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
             (1 + length_bytes, length)
@@ -129,11 +137,16 @@ fn wire_transaction(unsigned: &[u8]) -> Vec<u8> {
     payload.extend_from_slice(&[0x80, 0x80, 0x80]);
     let mut wire = vec![0x02];
     if payload.len() < 56 {
-        wire.push(0xc0 + payload.len() as u8);
+        wire.push(0xc0 + u8::try_from(payload.len()).unwrap_or_else(|error| panic!("{error:?}")));
     } else {
         let length = payload.len().to_be_bytes();
-        let first = length.iter().position(|byte| *byte != 0).unwrap();
-        wire.push(0xf7 + (length.len() - first) as u8);
+        let first = length
+            .iter()
+            .position(|byte| *byte != 0)
+            .unwrap_or_else(|| panic!("expected value"));
+        wire.push(
+            0xf7 + u8::try_from(length.len() - first).unwrap_or_else(|error| panic!("{error:?}")),
+        );
         wire.extend_from_slice(&length[first..]);
     }
     wire.extend_from_slice(&payload);
@@ -656,6 +669,27 @@ impl Cluster {
             inventory_sequence: 0,
         };
         cluster.publish_inventory()?;
+        cluster.spawn_nodes(
+            &ids,
+            &pins,
+            &peers,
+            &daemon,
+            &inventory_file,
+            &activity_types,
+        )?;
+        cluster.wait_ready()?;
+        Ok(cluster)
+    }
+
+    fn spawn_nodes(
+        &mut self,
+        ids: &[String],
+        pins: &[String],
+        peers: &[SocketAddr],
+        daemon: &Path,
+        inventory_file: &Path,
+        activity_types: &[String],
+    ) -> Result<()> {
         for (index, id) in ids.iter().enumerate() {
             let others: Vec<usize> = (0..NODES).filter(|other| *other != index).collect();
             let peer_list = others
@@ -670,16 +704,13 @@ impl Cluster {
                 .join(",");
             let mut node_key = [0_u8; 32];
             getrandom::fill(&mut node_key)?;
-            let key_file = root.join(format!("{id}.node-key"));
+            let key_file = self.root.join(format!("{id}.node-key"));
             fs::write(&key_file, hex(&node_key))?;
             fs::set_permissions(&key_file, fs::Permissions::from_mode(0o600))?;
-            let log = fs::File::create(root.join(format!("{id}.log")))?;
-            let child = Command::new(&daemon)
+            let log = fs::File::create(self.root.join(format!("{id}.log")))?;
+            let child = Command::new(daemon)
                 .env_clear()
-                .env(
-                    "LAYERX_RUNTIME_CLOCK_SOCKET",
-                    &cluster.clock_authority.socket,
-                )
+                .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.clock_authority.socket)
                 .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
                 .env(
                     "LAYERX_RUNTIME_CLOCK_UID",
@@ -687,56 +718,52 @@ impl Cluster {
                 )
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
-                .env("ATTESTOR_LISTEN_ADDR", cluster.nodes[index].1.to_string())
+                .env("ATTESTOR_LISTEN_ADDR", self.nodes[index].1.to_string())
                 .env("ATTESTOR_PEER_LISTEN_ADDR", peers[index].to_string())
                 .env("ATTESTOR_PEERS", peer_list)
                 .env("ATTESTOR_PEER_PINS", pin_list)
                 .env("ATTESTOR_NODE_KEY_FILE", &key_file)
-                .env("ATTESTOR_DATA_DIR", root.join(format!("{id}.data")))
+                .env("ATTESTOR_DATA_DIR", self.root.join(format!("{id}.data")))
                 .env("ATTESTOR_CHAIN_ID", CHAIN_ID)
-                .env("ATTESTOR_JWKS_URL", cluster.keys.url("/jwks.json"))
+                .env("ATTESTOR_JWKS_URL", self.keys.url("/jwks.json"))
                 .env("ATTESTOR_JWT_ISSUER", ISSUER)
                 .env("ATTESTOR_JWT_AUDIENCE", AUDIENCE)
                 .env("ATTESTOR_JWT_MAX_AGE", JWT_MAX_AGE)
                 .env(
                     "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE",
-                    root.join("authority.pem"),
+                    self.root.join("authority.pem"),
                 )
                 .env("ATTESTOR_AUTHORITY_ISSUER", ISSUER)
                 .env("ATTESTOR_AUTHORITY_TENANT", "attestor-test")
                 .env(
                     "ATTESTOR_INVENTORY_PUBLIC_KEY_FILE",
-                    root.join("authority.pem"),
+                    self.root.join("authority.pem"),
                 )
-                .env("ATTESTOR_INVENTORY_FILE", &inventory_file)
-                .env("ATTESTOR_POLICY_FILE", root.join("policy.json"))
+                .env("ATTESTOR_INVENTORY_FILE", inventory_file)
+                .env("ATTESTOR_POLICY_FILE", self.root.join("policy.json"))
                 .env(
                     "ATTESTOR_KERNEL_POLICY_FILE",
-                    root.join("kernel-policy.json"),
+                    self.root.join("kernel-policy.json"),
                 )
-                .env("ATTESTOR_RPC_URL", cluster.chain.url("/"))
+                .env("ATTESTOR_RPC_URL", self.chain.url("/"))
                 .env(
                     "ATTESTOR_TLS_CERT_FILE",
-                    cluster.pki.path(&format!("{id}.pem")),
+                    self.pki.path(&format!("{id}.pem")),
                 )
-                .env(
-                    "ATTESTOR_TLS_KEY_FILE",
-                    cluster.pki.path(&format!("{id}.key")),
-                )
-                .env("ATTESTOR_TLS_CA_FILE", cluster.pki.path("gateway-ca.pem"))
+                .env("ATTESTOR_TLS_KEY_FILE", self.pki.path(&format!("{id}.key")))
+                .env("ATTESTOR_TLS_CA_FILE", self.pki.path("gateway-ca.pem"))
                 .env(
                     "ATTESTOR_OPERATOR_CA_FILE",
-                    cluster.pki.path("operator-ca.pem"),
+                    self.pki.path("operator-ca.pem"),
                 )
                 .env("ATTESTOR_ACTIVITY_TYPES", activity_types.join(","))
                 .stdin(Stdio::null())
                 .stdout(log.try_clone()?)
                 .stderr(log)
                 .spawn()?;
-            cluster.children.push((id.clone(), child));
+            self.children.push((id.clone(), child));
         }
-        cluster.wait_ready()?;
-        Ok(cluster)
+        Ok(())
     }
 
     fn publish_inventory(&mut self) -> Result<()> {
@@ -811,15 +838,17 @@ impl Cluster {
     }
 
     fn logs(&self) -> String {
-        self.nodes
-            .iter()
-            .map(|(id, _)| {
-                format!(
-                    "\n{id}: {}",
-                    fs::read_to_string(self.root.join(format!("{id}.log"))).unwrap_or_default()
-                )
-            })
-            .collect()
+        use std::fmt::Write as _;
+        let mut logs = String::new();
+        for (id, _) in &self.nodes {
+            write!(
+                &mut logs,
+                "\n{id}: {}",
+                fs::read_to_string(self.root.join(format!("{id}.log"))).unwrap_or_default()
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        }
+        logs
     }
 
     fn sign_raw(&self, body: &[u8], token: &str) -> Result<Vec<(String, u16, Value)>> {
@@ -899,9 +928,9 @@ impl Cluster {
     }
 
     fn audit(&self, client: &AttestorClient) -> Result<Vec<u64>> {
-        SIGNERS
+        self.nodes
             .iter()
-            .map(|id| Ok(checked(client.health(id))?.audit_sequence))
+            .map(|(id, _)| Ok(checked(client.health(id))?.audit_sequence))
             .collect()
     }
 }
@@ -969,26 +998,6 @@ fn main_account(did: &str) -> Result<[u8; 32]> {
     )))?;
     checked(layerx_intents::canonical::account_id_for_protocol(
         &account, 3,
-    ))
-}
-
-fn transfer(public: [u8; 32]) -> Result<layerx_types::payload::Payload> {
-    use layerx_crypto::payments::{Payment, TransferLeg};
-    use layerx_types::payload::{ActivityType, ModuleId, Payload};
-    let did = actor(public);
-    let transfer = Payment::ProgramTransfer {
-        program: [21; 32],
-        legs: vec![TransferLeg {
-            from: main_account(&did)?,
-            asset: [0; 32],
-            to: main_account(&actor([0x52; 32]))?,
-            amount: TRANSFER,
-        }],
-    };
-    checked(Payload::new(
-        &activity_registry()?,
-        checked(ActivityType::new(ModuleId::Programs, 5))?,
-        &checked(transfer.encode(did.as_bytes()))?,
     ))
 }
 
@@ -1065,9 +1074,8 @@ fn assert_verified(
     let invalid = layerx_crypto::signer::AgentSignature::new(tampered).and_then(|signature| {
         recover_sender(call, &signature).map_err(|_| layerx_crypto::VerifyError::BadSignature)
     });
-    match invalid {
-        Ok(address) => assert_ne!(address, signer.evm_address()),
-        Err(_) => {}
+    if let Ok(address) = invalid {
+        assert_ne!(address, signer.evm_address());
     }
     Ok(())
 }
@@ -1093,6 +1101,38 @@ fn sign_approved(
     Ok(signer.sign_activity(call, disclosure, from, &approval, assertion))
 }
 
+fn check_gateway_material(cluster: &Cluster) -> Result<()> {
+    cluster.pki.certificate_der("gateway-ca")?;
+    cluster.pki.certificate_der("gateway")?;
+    cluster.pki.key_der("gateway")?;
+    Ok(())
+}
+
+fn disclosed_activity_signer(
+    cluster: &Cluster,
+    public: [u8; 32],
+    wallet: [u8; 20],
+) -> Result<AttestorSigner> {
+    let config = serde_json::from_value(json!({
+        "nodes": cluster.nodes.iter().map(|(id, address)| json!({"id":id,"address":address})).collect::<Vec<_>>(),
+        "trust_anchors": [cluster.pki.path("gateway-ca.der")],
+        "client_certificate_chain": [cluster.pki.path("gateway.der")],
+        "client_private_key_pkcs8": cluster.pki.path("gateway.pk8"),
+        "key_id": "lx-user-key", "public_key": public,
+        "evm_key_id": EVM_KEY, "evm_address": wallet,
+        "signers": SIGNERS, "network_id": NETWORK, "timeout_seconds": 60,
+    }))?;
+    checked(AttestorSigner::from_config(&config))
+}
+
+fn assert_first_audit(signer: &AttestorSigner, first: &AttestorCallSignature) {
+    assert_eq!(
+        first.audit().keys().map(String::as_str).collect::<Vec<_>>(),
+        SIGNERS
+    );
+    assert_eq!(&signer.audit_sequences(), first.audit());
+}
+
 #[test]
 fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Result<()> {
     let mut cluster = Cluster::start()?;
@@ -1115,44 +1155,9 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     assert_eq!(generated.audit.len(), NODES);
     assert!(generated.audit.values().all(|sequence| *sequence > 0));
     cluster.approve_sign("lx-user-key", &generated.public_key)?;
-    cluster.approve_generate(EVM_KEY, "secp256k1", OWNER)?;
-    let generated_evm = serde_json::to_vec(&json!({
-        "session_id": "generate-evm-owner", "key_id": EVM_KEY,
-        "curve": "secp256k1", "owner": OWNER, "account": "",
-    }))?;
-    let mut wallet_public = None;
-    for (node, status, body) in cluster.post_raw("/v1/keys/generate", &generated_evm, None)? {
-        assert_eq!(status, 200, "{node}: {body}");
-        let encoded = body["public_key"]
-            .as_str()
-            .ok_or("missing EVM public key")?;
-        let public = (0..encoded.len())
-            .step_by(2)
-            .map(|offset| u8::from_str_radix(&encoded[offset..offset + 2], 16))
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        if let Some(agreed) = &wallet_public {
-            assert_eq!(agreed, &public);
-        } else {
-            wallet_public = Some(public);
-        }
-    }
-    let public = wallet_public.ok_or("missing EVM key generation responses")?;
-    cluster.approve_sign(EVM_KEY, &public)?;
-    let point = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)?.to_encoded_point(false);
-    let wallet: [u8; 20] = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
-    cluster.pki.certificate_der("gateway-ca")?;
-    cluster.pki.certificate_der("gateway")?;
-    cluster.pki.key_der("gateway")?;
-    let config = serde_json::from_value(json!({
-        "nodes": cluster.nodes.iter().map(|(id, address)| json!({"id":id,"address":address})).collect::<Vec<_>>(),
-        "trust_anchors": [cluster.pki.path("gateway-ca.der")],
-        "client_certificate_chain": [cluster.pki.path("gateway.der")],
-        "client_private_key_pkcs8": cluster.pki.path("gateway.pk8"),
-        "key_id": "lx-user-key", "public_key": generated.public_key,
-        "evm_key_id": EVM_KEY, "evm_address": wallet,
-        "signers": SIGNERS, "network_id": NETWORK, "timeout_seconds": 60,
-    }))?;
-    let signer = checked(AttestorSigner::from_config(&config))?;
+    let wallet = generate_evm_wallet(&mut cluster)?;
+    check_gateway_material(&cluster)?;
+    let signer = disclosed_activity_signer(&cluster, generated.public_key, wallet)?;
     let observer = cluster.client()?;
     let assertion = cluster.tokens.mint(OWNER)?;
 
@@ -1166,11 +1171,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         &assertion,
     )?)?;
     assert_verified(&signer, &canonical, &first)?;
-    assert_eq!(
-        first.audit().keys().map(String::as_str).collect::<Vec<_>>(),
-        SIGNERS
-    );
-    assert_eq!(&signer.audit_sequences(), first.audit());
+    assert_first_audit(&signer, &first);
     for (node, sequence) in first.audit() {
         assert!(*sequence > generated.audit[node]);
     }
@@ -1178,41 +1179,14 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     let before = cluster.audit(&observer)?;
     let (other_canonical, other_disclosure) =
         activity(cluster.clock.as_ref(), generated.public_key, wallet, 2)?;
-    assert_eq!(
-        sign_approved(&signer, &canonical, &other_disclosure, wallet, &assertion)?,
-        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-            "fee_limit"
-        )))
-    );
-    let mut altered = disclosure.clone();
-    altered.amounts[0].value = altered.amounts[0]
-        .value
-        .checked_add(1)
-        .ok_or("amount overflow")?;
-    assert_eq!(
-        sign_approved(&signer, &canonical, &altered, wallet, &assertion)?,
-        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-            "amounts"
-        )))
-    );
-    let mut foreign = canonical.clone();
-    foreign.chain_id += 1;
-    let foreign_disclosure = checked(bind_call(&foreign, wallet))?;
-    assert_eq!(
-        sign_approved(&signer, &foreign, &foreign_disclosure, wallet, &assertion)?,
-        Err(AttestorError::WrongNetwork {
-            expected: NETWORK,
-            actual: NETWORK + 1
-        })
-    );
-    let other_wallet = [0x55; 20];
-    let other_sender = checked(bind_call(&canonical, other_wallet))?;
-    assert_eq!(
-        sign_approved(&signer, &canonical, &other_sender, other_wallet, &assertion)?,
-        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-            "from"
-        )))
-    );
+    assert_disclosure_refusals(
+        &signer,
+        &canonical,
+        &disclosure,
+        &other_disclosure,
+        wallet,
+        &assertion,
+    )?;
     assert_eq!(cluster.audit(&observer)?, before);
     assert_eq!(&signer.audit_sequences(), first.audit());
 
@@ -1245,32 +1219,13 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     }
     assert_eq!(&signer.audit_sequences(), shared.audit());
 
-    let (repeat_canonical, repeat_disclosure) =
-        activity(cluster.clock.as_ref(), generated.public_key, wallet, 3)?;
-    let repeat_session = "activity-repeated-under-one-token";
-    let repeat = serde_json::to_vec(&json!({
-        "session_id": repeat_session,
-        "key_id": EVM_KEY,
-        "kind": "evm_tx",
-        "signers": SIGNERS,
-        "transaction": hex(&wire_transaction(&layerx_human_kms::attestor::unsigned_evm_transaction(&repeat_canonical))),
-    }))?;
-    assert_eq!(
-        repeat_disclosure.signing_digest()?,
-        repeat_canonical.signing_hash()
-    );
-    for (node, status, body) in cluster.sign_raw(&repeat, &assertion)? {
-        assert_eq!(status, 200, "{node}: {body}");
-    }
-    let before = cluster.audit(&observer)?;
-    for (node, status, body) in cluster.sign_raw(&repeat, &assertion)? {
-        assert_eq!(status, 401, "{node}: {body}");
-        assert_eq!(body["error"]["code"], "token_invalid", "{node}: {body}");
-    }
-    for (index, sequence) in cluster.audit(&observer)?.iter().enumerate() {
-        assert!(*sequence > before[index]);
-    }
-
+    assert_repeated_session(
+        &cluster,
+        &observer,
+        generated.public_key,
+        wallet,
+        &assertion,
+    )?;
     let second = checked(sign_approved(
         &signer,
         &other_canonical,
@@ -1334,7 +1289,7 @@ impl SendFixture {
         let address = listener.local_addr()?;
         let mut seal = Zeroizing::new([0; 32]);
         getrandom::fill(&mut *seal)?;
-        fs::write(root.join("seal"), &*seal)?;
+        fs::write(root.join("seal"), *seal)?;
         fs::write(root.join("snapshot.json"), serde_json::to_vec(&snapshot)?)?;
         fs::write(root.join("assertion"), cluster.tokens.mint(OWNER)?)?;
         let nodes: Vec<_> = cluster
@@ -1566,12 +1521,16 @@ fn native_value_transaction(value: u64) -> Vec<u8> {
     let amount = &amount[amount.iter().take_while(|byte| **byte == 0).count()..];
     let mut fields = vec![0x7d, 0x80, 0x01, 0x02, 0x82, 0x52, 0x08, 0x94];
     fields.extend([0x44; 20]);
-    fields.push(0x80 + u8::try_from(amount.len()).expect("u64 RLP width"));
+    fields.push(
+        0x80 + u8::try_from(amount.len())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "u64 RLP width")),
+    );
     fields.extend(amount);
     fields.extend([0x80, 0xc0]);
     let mut raw = vec![
         2,
-        0xc0 + u8::try_from(fields.len()).expect("short native transfer"),
+        0xc0 + u8::try_from(fields.len())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "short native transfer")),
     ];
     raw.extend(fields);
     raw
@@ -1675,57 +1634,7 @@ fn attestor_signs_a_send_authorization_then_the_completed_send() -> Result<()> {
     );
     assert_eq!(fixture.cluster.audit(&client)?, after);
 
-    let config = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
-    let mut signer = checked(layerx_human_kms::attestor::AttestorSigner::from_config(
-        &config,
-    ))?;
-    checked(signer.set_evm_assertion(&fs::read_to_string(fixture.root.join("assertion"))?))?;
-    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
-    let mut signature = checked(signer.sign_evm_transaction(&unsigned, call.chain_id))?;
-    signature[64] += 27;
-    let signature = checked(layerx_crypto::signer::AgentSignature::new(signature))?;
-    assert_eq!(recover_sender(&call, &signature)?, fixture.wallet);
-    let assembled = layerx_crypto::evm_transaction::assemble(&call, &signature);
-    assert_eq!(decode_signed(&assembled)?.0, call);
-    let first_audit = signer.audit_sequences();
-    assert_eq!(
-        first_audit.keys().map(String::as_str).collect::<Vec<_>>(),
-        SIGNERS
-    );
-    assert!(first_audit.values().all(|sequence| *sequence > 0));
-    let first_assertion = fs::read_to_string(fixture.root.join("assertion"))?;
-    std::thread::sleep(Duration::from_secs(1));
-    let second_assertion = fixture.cluster.tokens.mint(OWNER)?;
-    assert_ne!(first_assertion, second_assertion);
-    checked(signer.set_evm_assertion(&second_assertion))?;
-    let mut next = call.clone();
-    next.nonce += 1;
-    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&next);
-    let mut signature = checked(signer.sign_evm_transaction(&unsigned, next.chain_id))?;
-    signature[64] += 27;
-    let signature = checked(layerx_crypto::signer::AgentSignature::new(signature))?;
-    assert_eq!(recover_sender(&next, &signature)?, fixture.wallet);
-    for (node, sequence) in signer.audit_sequences() {
-        assert!(sequence > first_audit[&node]);
-    }
-    checked(signer.set_evm_assertion(&fixture.cluster.tokens.mint(STRANGER)?))?;
-    let refused = signer.sign_evm_transaction(&unsigned, next.chain_id);
-    assert!(
-        matches!(&refused, Err(AttestorError::Refused {status: 401, code, ..}) if code == "token_not_owner"),
-        "{refused:?}"
-    );
-    checked(signer.set_evm_assertion(&fixture.cluster.tokens.mint(OWNER)?))?;
-    // The EVM policy caps native transaction value at 10^18; exercise its next value.
-    let over = native_value_transaction(1_000_000_000_000_000_001);
-    let refused = signer.sign_evm_transaction(&over, call.chain_id);
-    assert!(
-        matches!(&refused, Err(error) if error.refusal_code() == Some("value_cap")),
-        "{refused:?}"
-    );
-    assert!(refused
-        .as_ref()
-        .err()
-        .is_some_and(|error| error.to_string().contains("value_cap")));
+    assert_direct_signer_policy(&fixture, &call)?;
     Ok(())
 }
 
@@ -1894,4 +1803,170 @@ fn refuses_mismatched_activity_disclosure_offline() -> Result<()> {
     })();
     let _ = fs::remove_dir_all(&root);
     outcome
+}
+
+fn generate_evm_wallet(cluster: &mut Cluster) -> Result<[u8; 20]> {
+    cluster.approve_generate(EVM_KEY, "secp256k1", OWNER)?;
+    let generated_evm = serde_json::to_vec(&json!({
+        "session_id": "generate-evm-owner", "key_id": EVM_KEY,
+        "curve": "secp256k1", "owner": OWNER, "account": "",
+    }))?;
+    let mut wallet_public = None;
+    for (node, status, body) in cluster.post_raw("/v1/keys/generate", &generated_evm, None)? {
+        assert_eq!(status, 200, "{node}: {body}");
+        let encoded = body["public_key"]
+            .as_str()
+            .ok_or("missing EVM public key")?;
+        let public = (0..encoded.len())
+            .step_by(2)
+            .map(|offset| u8::from_str_radix(&encoded[offset..offset + 2], 16))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if let Some(agreed) = &wallet_public {
+            assert_eq!(agreed, &public);
+        } else {
+            wallet_public = Some(public);
+        }
+    }
+    let public = wallet_public.ok_or("missing EVM key generation responses")?;
+    cluster.approve_sign(EVM_KEY, &public)?;
+    let point = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)?.to_encoded_point(false);
+    let wallet: [u8; 20] = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+    Ok(wallet)
+}
+
+fn assert_disclosure_refusals(
+    signer: &AttestorSigner,
+    canonical: &Eip1559Call,
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+    other_disclosure: &layerx_crypto::disclosure::Disclosure,
+    wallet: [u8; 20],
+    assertion: &str,
+) -> Result<()> {
+    assert_eq!(
+        sign_approved(signer, canonical, other_disclosure, wallet, assertion)?,
+        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
+            "fee_limit"
+        )))
+    );
+    let mut altered = disclosure.clone();
+    altered.amounts[0].value = altered.amounts[0]
+        .value
+        .checked_add(1)
+        .ok_or("amount overflow")?;
+    assert_eq!(
+        sign_approved(signer, canonical, &altered, wallet, assertion)?,
+        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
+            "amounts"
+        )))
+    );
+    let mut foreign = canonical.clone();
+    foreign.chain_id += 1;
+    let foreign_disclosure = checked(bind_call(&foreign, wallet))?;
+    assert_eq!(
+        sign_approved(signer, &foreign, &foreign_disclosure, wallet, assertion)?,
+        Err(AttestorError::WrongNetwork {
+            expected: NETWORK,
+            actual: NETWORK + 1
+        })
+    );
+    let other_wallet = [0x55; 20];
+    let other_sender = checked(bind_call(canonical, other_wallet))?;
+    assert_eq!(
+        sign_approved(signer, canonical, &other_sender, other_wallet, assertion)?,
+        Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
+            "from"
+        )))
+    );
+    Ok(())
+}
+
+fn assert_repeated_session(
+    cluster: &Cluster,
+    observer: &AttestorClient,
+    public_key: [u8; 32],
+    wallet: [u8; 20],
+    assertion: &str,
+) -> Result<()> {
+    let (repeat_canonical, repeat_disclosure) =
+        activity(cluster.clock.as_ref(), public_key, wallet, 3)?;
+    let repeat_session = "activity-repeated-under-one-token";
+    let repeat = serde_json::to_vec(&json!({
+        "session_id": repeat_session,
+        "key_id": EVM_KEY,
+        "kind": "evm_tx",
+        "signers": SIGNERS,
+        "transaction": hex(&wire_transaction(&layerx_human_kms::attestor::unsigned_evm_transaction(&repeat_canonical))),
+    }))?;
+    assert_eq!(
+        repeat_disclosure.signing_digest()?,
+        repeat_canonical.signing_hash()
+    );
+    for (node, status, body) in cluster.sign_raw(&repeat, assertion)? {
+        assert_eq!(status, 200, "{node}: {body}");
+    }
+    let before = cluster.audit(observer)?;
+    for (node, status, body) in cluster.sign_raw(&repeat, assertion)? {
+        assert_eq!(status, 401, "{node}: {body}");
+        assert_eq!(body["error"]["code"], "token_invalid", "{node}: {body}");
+    }
+    for (index, sequence) in cluster.audit(observer)?.iter().enumerate() {
+        assert!(*sequence > before[index]);
+    }
+
+    Ok(())
+}
+
+fn assert_direct_signer_policy(fixture: &SendFixture, call: &Eip1559Call) -> Result<()> {
+    let config = serde_json::from_slice(&fs::read(fixture.root.join("attestor.json"))?)?;
+    let mut signer = checked(layerx_human_kms::attestor::AttestorSigner::from_config(
+        &config,
+    ))?;
+    checked(signer.set_evm_assertion(&fs::read_to_string(fixture.root.join("assertion"))?))?;
+    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(call);
+    let mut signature = checked(signer.sign_evm_transaction(&unsigned, call.chain_id))?;
+    signature[64] += 27;
+    let signature = checked(layerx_crypto::signer::AgentSignature::new(signature))?;
+    assert_eq!(recover_sender(call, &signature)?, fixture.wallet);
+    let assembled = layerx_crypto::evm_transaction::assemble(call, &signature);
+    assert_eq!(decode_signed(&assembled)?.0, call.clone());
+    let first_audit = signer.audit_sequences();
+    assert_eq!(
+        first_audit.keys().map(String::as_str).collect::<Vec<_>>(),
+        SIGNERS
+    );
+    assert!(first_audit.values().all(|sequence| *sequence > 0));
+    let first_assertion = fs::read_to_string(fixture.root.join("assertion"))?;
+    std::thread::sleep(Duration::from_secs(1));
+    let second_assertion = fixture.cluster.tokens.mint(OWNER)?;
+    assert_ne!(first_assertion, second_assertion);
+    checked(signer.set_evm_assertion(&second_assertion))?;
+    let mut next = call.clone();
+    next.nonce += 1;
+    let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&next);
+    let mut signature = checked(signer.sign_evm_transaction(&unsigned, next.chain_id))?;
+    signature[64] += 27;
+    let signature = checked(layerx_crypto::signer::AgentSignature::new(signature))?;
+    assert_eq!(recover_sender(&next, &signature)?, fixture.wallet);
+    for (node, sequence) in signer.audit_sequences() {
+        assert!(sequence > first_audit[&node]);
+    }
+    checked(signer.set_evm_assertion(&fixture.cluster.tokens.mint(STRANGER)?))?;
+    let refused = signer.sign_evm_transaction(&unsigned, next.chain_id);
+    assert!(
+        matches!(&refused, Err(AttestorError::Refused {status: 401, code, ..}) if code == "token_not_owner"),
+        "{refused:?}"
+    );
+    checked(signer.set_evm_assertion(&fixture.cluster.tokens.mint(OWNER)?))?;
+    // The EVM policy caps native transaction value at 10^18; exercise its next value.
+    let over = native_value_transaction(1_000_000_000_000_000_001);
+    let refused = signer.sign_evm_transaction(&over, call.chain_id);
+    assert!(
+        matches!(&refused, Err(error) if error.refusal_code() == Some("value_cap")),
+        "{refused:?}"
+    );
+    assert!(refused
+        .as_ref()
+        .err()
+        .is_some_and(|error| error.to_string().contains("value_cap")));
+    Ok(())
 }

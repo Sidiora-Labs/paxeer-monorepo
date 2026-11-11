@@ -8,27 +8,7 @@ use layerx_types::rung::Rung;
 
 #[test]
 fn human_kms_and_service_name_no_intents_envelope() -> Result<(), Box<dyn std::error::Error>> {
-    for (path, source) in [
-        ("kms/attestor.rs", include_str!("../src/attestor.rs")),
-        ("kms/server.rs", include_str!("../src/server.rs")),
-        (
-            "service/agents/create.rs",
-            include_str!("../../layerx-human-service/src/agents/create.rs"),
-        ),
-        (
-            "service/custody/gateway.rs",
-            include_str!("../../layerx-human-service/src/custody/gateway.rs"),
-        ),
-    ] {
-        let compact: String = source.chars().filter(|ch| !ch.is_whitespace()).collect();
-        for retired in [
-            "layerx_intents::canonical",
-            "layerx_intents::owner_activity",
-        ] {
-            assert!(!compact.contains(retired), "{path} still names {retired}");
-        }
-    }
-
+    assert_no_retired_envelopes();
     let mut to = [0; 20];
     to[18..].copy_from_slice(&[0x10, 0x1a]);
     let call = Eip1559Call {
@@ -117,4 +97,27 @@ fn human_kms_and_service_name_no_intents_envelope() -> Result<(), Box<dyn std::e
     invalid.activity_id = invalid.tx_hash;
     assert!(invalid.bound_activity(expected).is_err());
     Ok(())
+}
+
+fn assert_no_retired_envelopes() {
+    for (path, source) in [
+        ("kms/attestor.rs", include_str!("../src/attestor.rs")),
+        ("kms/server.rs", include_str!("../src/server.rs")),
+        (
+            "service/agents/create.rs",
+            include_str!("../../layerx-human-service/src/agents/create.rs"),
+        ),
+        (
+            "service/custody/gateway.rs",
+            include_str!("../../layerx-human-service/src/custody/gateway.rs"),
+        ),
+    ] {
+        let compact: String = source.chars().filter(|ch| !ch.is_whitespace()).collect();
+        for retired in [
+            "layerx_intents::canonical",
+            "layerx_intents::owner_activity",
+        ] {
+            assert!(!compact.contains(retired), "{path} still names {retired}");
+        }
+    }
 }
