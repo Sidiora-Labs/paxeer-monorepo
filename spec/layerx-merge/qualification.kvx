@@ -40618,3 +40618,11 @@ symbol = "programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassTh
 observed = "Attempt 1 at 2814328058c8 on base 730e92f12467: builds 1 and 2 exit 0; verification 1 exits 1 at 2b598859ae0c; verification 2 exits 1 at 08db8fc9d314 with five cases stopped by Programs occupancy at height 2: LXP_ERR_CONTEXT_MISMATCH; log /out/logs/verify-2.log."
 assumption = "The context that the block flow gives the transition differs from the context of the calls of the block."
 severity = "high"
+
+[finding.22.39.377.2]
+task = "22.39.377"
+file = "scripts/workspace"
+symbol = "workspace"
+observed = "Attempt 4 at 733e686765a1 on base 6e50fba5bf0f: the build exits 0 at tree e09d7033312e (log /out/logs/build-1.log); no verification ran; make workspace-install outside the counted gates exits 2 with the message that the lock file services/human/Cargo.lock needs to be updated."
+assumption = "The lock files of five workspaces outside the paths went stale with task 22.39.386."
+severity = "high"
