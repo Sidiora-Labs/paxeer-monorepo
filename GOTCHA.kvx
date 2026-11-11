@@ -21210,3 +21210,18 @@ fix = "Decision 3359."
 title = "Two kinds of Go source under the root module run only inside another package or module"
 symptom = "The three test files of services/platform/ramps/toolkit/src/repair_22_31_211 are compiled into the packages they test through an overlay written by services/platform/ramps/toolkit/tests/repair_22_31_211.rs. The program apps/launchpad/web/src/core/repair-22-31-22/attest.go is run by file path from sdk/launchpad/shared by a web case and imports packages of that module."
 fix = "Decision 3360."
+
+[gotcha.4278]
+title = "The all-target lint of the gateway member of the platform reads source files of other members through path includes"
+symptom = "tests/repair_22_33_1439.rs of services/platform/hosted/gateway declares sources of the program SDK and of the AI market program by path, and src/lib.rs declares the committed proof library of the interop workspace by path. In the including target the compiler reports items, imports and braces of those files as unused, and the lint reads the committed proof sources again."
+fix = "Decision 3361."
+
+[gotcha.4279]
+title = "A test target of the program SDK compiles a generated client from a fixture file"
+symptom = "tests/support/bytes_call_boundary.rs of programs/sdk/rust includes tests/fixtures/repair_22_33_242/client.inc as source and also compares it as text, so the lint of the member reads generated code that stays byte for byte."
+fix = "Decision 3362."
+
+[gotcha.4280]
+title = "The human service member holds a type of the crypto member that is marked deprecated"
+symptom = "The lint with warnings denied reports each use of the onboarding consent type of layerx_crypto in services/human/crates/layerx-human-service as a use of a deprecated item."
+fix = "Decision 3363."

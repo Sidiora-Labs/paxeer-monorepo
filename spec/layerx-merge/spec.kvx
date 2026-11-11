@@ -13276,6 +13276,24 @@ value = "An overlay source of services/platform/ramps/toolkit/src/repair_22_31_2
 basis = "Gotcha 4277 and decision 3353."
 affects = ["22.39.431"]
 
+[decision.3361]
+title = "A source file is linted in the member that holds it"
+value = "A module declaration that includes a source file of another member by path may carry allow(unused), since the including target uses a part of the file. A clippy finding in an included file is repaired in the file. Task 22.39.417 holds the sources of the committed proof library for the findings its lint reads there."
+basis = "Gotcha 4278 and decisions 3346, 3357 and 3359."
+affects = ["22.39.417"]
+
+[decision.3362]
+title = "Generated source that a test target includes from a fixture file is not shaped by the lint"
+value = "The module of the test target that includes the fixture carries allow(clippy::all, clippy::pedantic) and the fixture file stays byte for byte."
+basis = "Gotcha 4279."
+affects = ["22.39.452"]
+
+[decision.3363]
+title = "A use of a deprecated item of another member that the member still serves carries the allow attribute on the using item"
+value = "In services/human/crates/layerx-human-service each item that names the onboarding consent type of the crypto member carries allow(deprecated). The public field keeps its type. The move to the binding authorization form is not part of the lint task."
+basis = "Gotcha 4280 and decision 3355."
+affects = ["22.39.435"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -163858,7 +163876,7 @@ do_1 = "do_1 Decision 3318. Add apps/launchpad/web/src/widgets/trade/home-chain.
 do_2 = "do_2 Decision 3317. Add apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx: for a token of a launched chain it lists the revenue epochs with the claimable amount of the connected holder from chainRevenueClaimable, claims one epoch or all open ones through claimChainRevenue and claimChainRevenueBatch on the chain the wallet is on, offers the call openChainRevenueEpoch when the next epoch may open, and shows a claimed epoch as claimed after the receipt. Place it where the token page shows holder rewards."
 do_3 = "do_3 Write home-chain.test.ts and chain-revenue.test.tsx beside the files: the chain id and path for zero and nonzero home chains, the switch and add requests in order, a root market sending no switch, the claim calls with their arguments, and the function names asserted against precompiles/launchpad/abi.json read from the tree. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts"]
+touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts", "apps/launchpad/web/src/widgets/trading/use-trade-panel.ts", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/trade/home-chain.ts", "apps/launchpad/web/src/widgets/trade/home-chain.test.ts", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.test.tsx"]
 build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
@@ -163874,6 +163892,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 The active trade panel and the token page layout are apps/launchpad/web/src/widgets/trading/use-trade-panel.ts and apps/launchpad/web/src/widgets/trading/token-market-layout.tsx. Connect the home chain trade and the chain revenue claim there and keep the cases that read those two files passing."
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
@@ -196644,6 +196663,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3362 and gotcha 4279. The module of tests/support/bytes_call_boundary.rs that includes tests/fixtures/repair_22_33_242/client.inc carries allow(clippy::all, clippy::pedantic). The fixture file is not changed. Then run the lint over all targets by hand until it prints no finding, then the build once and the verification once."
 
 [task.22.39.451]
 title = "Bring the Solana porting members of the programs workspace through the lint of the recipe"
@@ -197128,6 +197148,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decisions 3355 and 3356, gotcha 4274. Test targets of the identity provider member compile src/server/identity_projection.rs through a path include. Its references to the time and hex helpers are written in the form that resolves in the service and in each including target. List every file of the member that another member includes by path before changing a reference in it. The variant Found of ReceiptLookup keeps its shape and the type carries allow(clippy::large_enum_variant). Run cargo check over the whole workspace of services/human with all targets by hand, then the lint of the member over all targets until it prints no finding, then the build once and the verification once at the final revision."
+do_5 = "do_5 Decision 3363 and gotcha 4280. Each item of the member that names the onboarding consent type of the crypto member carries allow(deprecated), on the smallest item that covers the use. The public field keeps its type. Repair every other finding in the code, then run the build once and the verification once."
 
 [task.22.39.434]
 title = "Bring the member layerx-human-security-provider of the human workspace through the lint of the recipe"
@@ -197478,7 +197499,7 @@ do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every me
 do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
 do_3 = "do_3 Record in services/platform/hosted/gateway/repair_22_39_417.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/gateway"]
+touches = ["services/platform/hosted/gateway", "services/interop/crates/layerx-committed-proof/src"]
 tests = []
 planned_paths = ["services/platform/hosted/gateway/repair_22_39_417.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
@@ -197495,6 +197516,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3342, gotcha 4265. The verification now lints the member with the option --no-deps, so a finding in a member it depends on is outside this task and is not changed here."
+do_5 = "do_5 Decision 3361 and gotcha 4278. Put allow(unused) on each module declaration by path that names a source file of another member, and nothing else on it. Repair the findings the lint reads in services/interop/crates/layerx-committed-proof/src in those files, keep every public name and signature there, and run the tests of that member at the base revision and on the tree. Keep no copy of a file of another member. Then run the lint of the gateway member over all targets by hand until it prints no finding, then the build once and the verification once."
 
 [task.22.39.416]
 title = "Bring the oracle feeder member of the platform through the workspace lint"
@@ -197675,7 +197697,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 240
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
