@@ -287614,7 +287614,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.409]
 title = "Run each part of the workspace test and lint recipes and record what each part covers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
