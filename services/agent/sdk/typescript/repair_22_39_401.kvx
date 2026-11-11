@@ -1,0 +1,20 @@
+[generated.precompile_writes]
+file = "services/agent/sdk/typescript/src/generated/precompile-writes.ts"
+generator = "services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs"
+write_recipe = "make platform-sdk-generate"
+check_recipe = "make platform-sdk-check"
+pipeline_record = "sdk/platform/pipeline.kvx"
+
+[generated.python_precompile_writes]
+file = "services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py"
+generator = "services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs"
+write_recipe = "make platform-sdk-generate"
+check_recipe = "make platform-sdk-check"
+pipeline_record = "sdk/platform/pipeline.kvx"
+
+[generator.agent_sdk_gen]
+typescript_outputs = ["services/agent/sdk/typescript/src/generated/client.ts", "services/agent/sdk/typescript/src/generated/guarantees.md"]
+
+[generator.platform_sdkgen]
+typescript_output = "services/agent/sdk/typescript/src/generated/receipt.ts"
+typescript_record = "sdk/platform/pipeline.kvx"

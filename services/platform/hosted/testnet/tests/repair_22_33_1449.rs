@@ -69,6 +69,7 @@ mod control {
 
     #[test]
     fn doc_testnet_readme_control_contract_round_trip() -> Result<(), String> {
+        let _ = main as fn();
         let release = ReleaseGate {
             package_semver: env!("CARGO_PKG_VERSION").to_owned(),
             pending_package_semver: env!("CARGO_PKG_VERSION").to_owned(),
@@ -169,7 +170,7 @@ mod control {
     }
 
     #[test]
-    fn doc_testnet_readme_native_smoke_inputs() {
+    fn doc_testnet_readme_native_smoke_inputs() -> Result<(), String> {
         let mut configuration = platform_testnet();
         let pending = PendingRelease {
             package_semver: configuration.package_semver.clone(),
@@ -180,7 +181,11 @@ mod control {
         configuration.evm_chain_id = u64::from(configuration.network_id);
         assert!(configuration.validate(&pending).is_err());
         for line in SMOKE.lines().filter(|line| line.starts_with(": \"${")) {
-            let variable = line.trim_start_matches(": \"${").split(':').next().unwrap();
+            let variable = line
+                .trim_start_matches(": \"${")
+                .split(':')
+                .next()
+                .ok_or("missing required input name")?;
             assert!(
                 README.contains(variable),
                 "undocumented required input: {variable}"
@@ -188,10 +193,10 @@ mod control {
         }
         let payment_call = SMOKE
             .split_once("/payment-journey.py\"")
-            .unwrap()
+            .ok_or("missing payment journey call")?
             .1
             .split_once("receipt_id=")
-            .unwrap()
+            .ok_or("missing receipt ID assignment")?
             .0;
         assert!(payment_call
             .contains("--evm-chain-id \"$(jq -er '.evm_chain_id' \"$work/parameters.json\")\""));
@@ -228,13 +233,14 @@ mod control {
                 "missing native payment input: {value}"
             );
         }
+        Ok(())
     }
 
     #[test]
-    fn doc_testnet_readme_node_receipt_inspection() {
+    fn doc_testnet_readme_node_receipt_inspection() -> Result<(), String> {
         let inspection_call = SMOKE
             .split_once("admit_journey receipt-inspection")
-            .unwrap()
+            .ok_or("missing receipt inspection admission")?
             .1;
         assert!(
             inspection_call.contains("/receipt_inspection.py\" --node \"$LAYERX_TEST_NODE_URL\"")
@@ -274,5 +280,6 @@ mod control {
         assert!(INSPECTION.contains("key.first_height <= verified.height <= key.last_height"));
         assert!(INSPECTION.contains("error.check == \"bad_signature\""));
         assert!(SMOKE.contains(".verification_level == \"sequencer-signed\""));
+        Ok(())
     }
 }

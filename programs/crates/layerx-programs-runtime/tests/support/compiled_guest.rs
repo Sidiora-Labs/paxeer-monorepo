@@ -5,7 +5,11 @@ pub fn load_or_build(variable: &str, package: &str, artifact: &str) -> Vec<u8> {
         path.into()
     } else {
         let programs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let target = programs.join("target/runtime-test-guests");
+        let target = match std::env::var_os("CARGO_TARGET_DIR") {
+            Some(target) if Path::new(&target).is_absolute() => Path::new(&target).to_path_buf(),
+            Some(target) => programs.join(target),
+            None => programs.join("target"),
+        };
         eprintln!("{variable} is unset; compiling the real {package} guest");
         let status = Command::new(env!("CARGO"))
             .current_dir(&programs)
