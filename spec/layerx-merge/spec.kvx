@@ -13036,6 +13036,12 @@ value = "The checks on the debit of an occupancy position that depend on the ter
 basis = "Gotcha 4248, decisions 3301 and 3308."
 affects = ["22.39.394", "22.39.182"]
 
+[decision.3321]
+title = "A change of the ABI of the launchpad precompile carries its readers"
+value = "A task that changes precompiles/launchpad/abi.json brings the package tests that state its entries and the byte copy of the attestor along in the same commit. The generated write tables of the agent SDKs and the signature sources of the explorer are produced again by their generators in task 22.40.19. The records of the protocol bindings of the launchpad SDK are produced again by real execution with their recorders in task 22.40.20 once the sources of the keeper and the precompile stand, never by editing a hash. A task whose verification covers the protocol module of the launchpad SDK follows task 22.40.20. The closing task of the series asserts the copy, the tables and the recorded hashes at the final tree."
+basis = "Gotcha 4249, decisions 3046 and 3316."
+affects = ["22.40.7", "22.40.19", "22.40.20", "22.40.18", "22.39.117", "22.39.170"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42696,6 +42702,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.40.20]
+title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
+reqs = ["22400.5", "22998.1"]
+touches = ["sdk/launchpad/protocol/bindings", "sdk/launchpad/protocol/catalog"]
+tests = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestNativeBindingCarriesTheChainLaunch", "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestRecordedSourceHashesMatchTheTree"]
+verification_contract = "test -s sdk/launchpad/protocol/bindings/repair_22_40_20.kvx && cd sdk/launchpad/protocol && go test -count=1 -timeout 30m ./bindings/... ./catalog/..."
+do_1 = "do_1 Decision 3321, gotcha 4249. The records native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 carry the sha256 of sources of the launchpad keeper and precompile, and producer-revision.txt names the revision of the producer. List in sdk/launchpad/protocol/bindings/repair_22_40_20.kvx every source whose sha256 at the base differs from its record."
+symbols = []
+
+[capability.22.40.19]
+title = "Bring the generated readers of the launchpad ABI to the chain launch"
+reqs = ["22400.5", "22998.1"]
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/sdk/python/layerx_sdk/generated", "services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"]
+tests = ["tests/ci/test_repair_22_40_19.py::test_write_tables_carry_the_chain_launch", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs::producer_backed_chain_launched_preserves_layout"]
+verification_contract = "test -s services/agent/sdk/repair_22_40_19.kvx && python3 -m pytest -q tests/ci/test_repair_22_40_19.py && cargo test --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider producer_backed"
+do_1 = "do_1 Decision 3321, gotcha 4249. Run node scripts/generate-precompile-writes.mjs in services/agent/sdk/typescript so that src/generated/precompile-writes.ts and services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py carry the state-changing functions and the events of the chain launch from precompiles/launchpad/abi.json. Change neither file by hand."
+symbols = []
 
 [capability.22.39.394]
 title = "Check the occupancy debit of a program call at the call"
@@ -186012,6 +186036,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.40.19]
+title = "Bring the generated readers of the launchpad ABI to the chain launch"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.19"]
+interfaces = []
+do_1 = "do_1 Decision 3321, gotcha 4249. Run node scripts/generate-precompile-writes.mjs in services/agent/sdk/typescript so that src/generated/precompile-writes.ts and services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py carry the state-changing functions and the events of the chain launch from precompiles/launchpad/abi.json. Change neither file by hand."
+do_2 = "do_2 Run services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py in the way its header and the README of the service state, so that precompiles.json carries the functions, events and errors of the chain launch. Add to src/aggregator_precompiles_test.rs of that crate one case producer_backed_chain_launched_preserves_layout that reads the event ChainLaunched from precompiles/launchpad/abi.json, encodes one log with it and asserts that the aggregator returns the names and types of the producer in order."
+do_3 = "do_3 Write tests/ci/test_repair_22_40_19.py with test_write_tables_carry_the_chain_launch: it reads precompiles/launchpad/abi.json and both generated files as text and asserts that every function of the ABI that is neither view nor pure has its canonical signature in both files and every event its name in both. Record the commands run, the count of entries added to each file and the results in services/agent/sdk/repair_22_40_19.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/sdk/python/layerx_sdk/generated", "services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"]
+tests = ["tests/ci/test_repair_22_40_19.py::test_write_tables_carry_the_chain_launch", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs::producer_backed_chain_launched_preserves_layout"]
+planned_paths = ["tests/ci/test_repair_22_40_19.py", "services/agent/sdk/repair_22_40_19.kvx"]
+build_cmd = "cargo build --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider --tests && node --check services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs"
+verify_cmd = "test -s services/agent/sdk/repair_22_40_19.kvx && python3 -m pytest -q tests/ci/test_repair_22_40_19.py && cargo test --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider producer_backed"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.17]
 title = "Run the chain launch journey on an isolated chain"
 status = "pending"
@@ -226802,6 +226856,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.40.20]
+title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.7", "22.40.8"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.20"]
+interfaces = []
+do_1 = "do_1 Decision 3321, gotcha 4249. The records native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 carry the sha256 of sources of the launchpad keeper and precompile, and producer-revision.txt names the revision of the producer. List in sdk/launchpad/protocol/bindings/repair_22_40_20.kvx every source whose sha256 at the base differs from its record."
+do_2 = "do_2 Produce the records again with the recorders of that directory (record_native.py, record_node.py, and record_retained.py where its inputs changed) in the way sdk/launchpad/protocol/bindings/repair_m948.kvx describes: real execution through the node built from the base. Edit no hash, log or revision by hand and change no source of the keeper, the precompile or the node. Bring the catalog under sdk/launchpad/protocol/catalog and the generated bindings to the ABI with their own generators where they derive from it."
+do_3 = "do_3 Write sdk/launchpad/protocol/bindings/repair_22_40_20_test.go with TestNativeBindingCarriesTheChainLaunch, which reads precompiles/launchpad/abi.json and asserts that the metadata of the native binding carries the event ChainLaunched and every function of the chain launch with the types of the producer, and TestRecordedSourceHashesMatchTheTree, which asserts for both records that every recorded sha256 equals the sha256 of the file of the tree. Run go test over the whole module once and record every case that stops for another cause with its first message; repair none of them here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/protocol/bindings", "sdk/launchpad/protocol/catalog"]
+tests = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestNativeBindingCarriesTheChainLaunch", "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestRecordedSourceHashesMatchTheTree"]
+planned_paths = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go", "sdk/launchpad/protocol/bindings/repair_22_40_20.kvx"]
+build_cmd = "cd sdk/launchpad/protocol && go vet ./bindings/... ./catalog/..."
+verify_cmd = "test -s sdk/launchpad/protocol/bindings/repair_22_40_20.kvx && cd sdk/launchpad/protocol && go test -count=1 -timeout 30m ./bindings/... ./catalog/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.13]
 title = "Serve launched chains and their revenue from the launchpad API"
 status = "pending"
@@ -226905,11 +226989,11 @@ do_1 = "do_1 Decisions 3316 to 3318 and the contract spec/layerx-merge/contracts
 do_2 = "do_2 Add precompiles/launchpad/chainlaunch.go with the methods and wire them in the method table (launchpad.go, run.go), the gas table (gas.go), the event encoders (events.go) and the error mapping (errors.go) in the way createMarket and triggerAirdrop are wired. launchChain is payable and hands its value to LaunchChain; the reads are view; a state-changing method is refused in a static call and in a delegate call as the other methods of the address are. The gas of launchChain is at least the gas of createMarket plus the gas of createChain at the registry address."
 do_3 = "do_3 Write precompiles/launchpad/chainlaunch_test.go with cases through the ABI: TestChainLaunchReturnsTokenPoolRightChainAndChainId, TestChainLaunchEmitsChainLaunchedAndTheMarketEvents, TestChainLaunchRevertLeavesNoState, TestChainLaunchStaticCallIsRefused, TestChainLaunchReadsReturnTheRecord, TestChainRevenueOpenAndClaimThroughTheAbi, TestLaunchedChainControlThroughTheAbi, TestHomeChainRefusalIsWrongChain and TestChainLaunchAbiMatchesSolidityInterface, which compares the selectors and event topics of abi.json with Launchpad.sol. Regenerate what the package derives from abi.json (the files under precompiles/launchpad/abi and precompiles/launchpad/testdata where they pin the ABI) with the generator the package uses. Search the tree for other pins of the ABI of this address; a pin outside the paths is named in the final message with file and line and is not changed here. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["precompiles/launchpad/Launchpad.sol", "precompiles/launchpad/abi.json", "precompiles/launchpad/launchpad.go", "precompiles/launchpad/run.go", "precompiles/launchpad/gas.go", "precompiles/launchpad/events.go", "precompiles/launchpad/errors.go", "precompiles/launchpad/abi", "precompiles/launchpad/testdata", "spec/layerx-merge/contracts"]
+touches = ["precompiles/launchpad", "spec/layerx-merge/contracts", "services/wallet/attestor/internal/policy/evm/abi/launchpad.json"]
 tests = []
 planned_paths = ["precompiles/launchpad/chainlaunch.go", "precompiles/launchpad/chainlaunch_test.go"]
 build_cmd = "go build ./precompiles/launchpad/... && go test -count=1 -run '^$' ./precompiles/launchpad/..."
-verify_cmd = "go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+verify_cmd = "go test -count=1 -timeout 30m ./precompiles/launchpad/... && cmp precompiles/launchpad/abi.json services/wallet/attestor/internal/policy/evm/abi/launchpad.json"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -226921,6 +227005,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3321, gotcha 4249. The package tests that state the entries of the ABI (abi_test.go, abi_direct_test.go, run_test.go, proof_precompile_go_test.go and the golden file under testdata) follow the new surface: extend what they state by the functions, events and errors of the chain launch and by nothing else, and weaken no assertion. Copy precompiles/launchpad/abi.json byte for byte to services/wallet/attestor/internal/policy/evm/abi/launchpad.json. The package test that compiles the launchpad contracts reads the compiler from the variable SOLC or from PATH."
 
 [task.22.40.6]
 title = "Let the holder of the fee right pause, resume and retire the launched chain"
@@ -228669,7 +228754,7 @@ do_4 = "Attempt 2 (continue, gotcha 3708, decisions 3010 and 3011): the attempt-
 title = "Bring the remaining stages of the launchpad Makefile ci target to green and run them from the public launchpad workflow"
 status = "pending"
 mode = "BUILD"
-wave = 3
+wave = 8
 requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
@@ -229032,8 +229117,8 @@ do_10 = "Attempt 6 (continue, gotchas 3583 and 3584, decisions 2771 and 2887): t
 title = "Give the five launchpad shared service packages in-process fixtures or configured skips and retire their baseline entries"
 status = "pending"
 mode = "BUILD"
-wave = 2
-requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374"]
+wave = 7
+requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374", "22.40.20"]
 reqs = ["22998.1"]
 capabilities = ["22.39.117"]
 interfaces = []
@@ -355432,7 +355517,7 @@ title = "Close the chain launch series: interface rows served, documents cross-c
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17"]
+requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17", "22.40.19", "22.40.20"]
 reqs = ["22400.6", "22998.1"]
 capabilities = ["22.40.18"]
 interfaces = []
@@ -355455,6 +355540,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3321: the test file also asserts that services/wallet/attestor/internal/policy/evm/abi/launchpad.json equals precompiles/launchpad/abi.json byte for byte, that every sha256 in the source hash tables of native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 equals the sha256 of the file of the tree, and that both generated write tables of the agent SDKs name every function of abi.json that is neither view nor pure."
 
 [task.22.40.12]
 title = "Document the chain launch for users and integrators"
