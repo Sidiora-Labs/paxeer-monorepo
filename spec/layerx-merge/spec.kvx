@@ -13198,6 +13198,24 @@ value = "Decision 3342 holds for task 22.39.420. Its verification runs clippy wi
 basis = "Gotchas 4265 and 4268, decisions 3341 and 3342."
 affects = ["22.39.420"]
 
+[decision.3348]
+title = "The parts of the chain test package list carry the one digit of their test group"
+value = "The target test of chain.mk runs test-group-0 to test-group-3 and the root Makefile forwards the same names. The target split-test-packages writes the four parts of the package list with the suffixes 0 to 3, by the suffix length 1 of split. Task 22.39.431 owns the recipe."
+basis = "Gotcha 4269."
+affects = ["22.39.431"]
+
+[decision.3349]
+title = "Each part of the workspace test and lint recipes has an owning task"
+value = "Task 22.39.427 owns the prepare step of agent-test, task 22.39.428 the epoch cases of the evaluator member under platform-test, task 22.39.429 the middleware and reference application parts, task 22.39.430 interop-test, task 22.39.431 the chain test groups, task 22.39.432 the static type checks of the manifest recipes and task 22.39.433 the governance suite of the root Forge project. Tasks 22.39.434 to 22.39.440 lint the members of the human workspace one at a time and task 22.39.441 runs human-lint whole; tasks 22.39.442 to 22.39.453 do the same for the programs workspace and task 22.39.454 runs programs-lint whole (decisions 3340 and 3341). Task 22.39.426 runs again the parts that changed after the record of task 22.39.409. An owning task repairs inside its declared paths and lists what lies outside them in its closing report. Task 17.5.7 requires the owning tasks."
+basis = "The record tools/workspace/sweep_22_39_409.kvx, decisions 3340, 3341 and 3342."
+affects = ["17.5.7", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440", "22.39.441", "22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.454"]
+
+[decision.3350]
+title = "A task that tests against the AI market program crate follows task 22.39.400"
+value = "The evaluator member depends on the AI market program crate by path. Task 22.39.428 and the lint task of that crate, 22.39.445, require task 22.39.400, so a consumer is repaired against the program as that task leaves it (decision 3046)."
+basis = "services/platform/hosted/ai-evaluator/Cargo.toml, decision 3046."
+affects = ["22.39.428", "22.39.445"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42858,6 +42876,267 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.454]
+title = "Bring the whole lint recipe of the programs workspace through"
+reqs = ["22998.1"]
+touches = ["programs", "scripts/programs"]
+tests = []
+verification_contract = "test -s programs/repair_22_39_454.kvx && make -s programs-lint"
+do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k programs-lint once by hand and keep the output in a file outside the tree. The recipe checks the module boundaries, lints the whole workspace with all targets and the host interface feature, runs scripts/programs/dependency-policy.sh and the advisory, source and ban checks."
+symbols = []
+
+[capability.22.39.453]
+title = "Bring the bench, fuzz and integration test members of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/benches/compiled-equivalent", "programs/fuzz", "programs/tests"]
+tests = []
+verification_contract = "test -s programs/tests/repair_22_39_453.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-interpreter-compiled-equivalent -p layerx-programs-fuzz -p layerx-programs-integration-tests --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-interpreter-compiled-equivalent -p layerx-programs-fuzz -p layerx-programs-integration-tests --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.452]
+title = "Bring the program SDK and its lint member of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/sdk/rust"]
+tests = []
+verification_contract = "test -s programs/sdk/rust/repair_22_39_452.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk -p layerx-program-lint --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk -p layerx-program-lint --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.451]
+title = "Bring the Solana porting members of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/porting/solana"]
+tests = []
+verification_contract = "test -s programs/porting/solana/repair_22_39_451.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-solana -p layerx-porting-solana-guest --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-solana -p layerx-porting-solana-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.450]
+title = "Bring the EVM porting members of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/porting/evm"]
+tests = []
+verification_contract = "test -s programs/porting/evm/repair_22_39_450.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-evm -p layerx-porting-evm-guest --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-evm -p layerx-porting-evm-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.449]
+title = "Bring the CosmWasm porting members of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/porting/cosmwasm"]
+tests = []
+verification_contract = "test -s programs/porting/cosmwasm/repair_22_39_449.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-cosmwasm -p layerx-porting-cosmwasm-guest --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-cosmwasm -p layerx-porting-cosmwasm-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.448]
+title = "Bring the isolation member of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-sandbox"]
+tests = []
+verification_contract = "test -s programs/repair_22_39_448.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p 'layerx-programs-s*' --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml with the package pattern that the verification command of this task carries and the options --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.447]
+title = "Bring the member layerx-programs-arbiter of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-arbiter"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_447.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.446]
+title = "Bring the member layerx-programs-runtime of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_446.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.445]
+title = "Bring the member layerx-programs-ai-market of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.444]
+title = "Bring the member layerx-programs-market of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-market"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-market/repair_22_39_444.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-market --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-market --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.443]
+title = "Bring the member layerx-programs-interpreter of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-interpreter"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-interpreter/repair_22_39_443.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-interpreter --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-interpreter --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.442]
+title = "Bring the member layerx-programs-registry of the programs workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-registry"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-registry/repair_22_39_442.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.441]
+title = "Bring the whole lint recipe of the human workspace through"
+reqs = ["22998.1"]
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web"]
+tests = []
+verification_contract = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && make -s human-lint"
+do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-lint once by hand and keep the output in a file outside the tree. The recipe lints the workspace and the copy lint tool, tests and runs the boundary check over services/human/crates, runs services/human/tools/dependency-policy.sh and the advisory, ban and source check, and runs the lint script of apps/web."
+symbols = []
+
+[capability.22.39.440]
+title = "Bring the member layerx-network-gateway of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-network-gateway"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-network-gateway/repair_22_39_440.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.439]
+title = "Bring the member layerx-intents of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-intents"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-intents/repair_22_39_439.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.438]
+title = "Bring the member layerx-human-kms of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-kms"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-kms/repair_22_39_438.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.437]
+title = "Bring the member layerx-human-test-support of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-test-support"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-test-support/repair_22_39_437.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.436]
+title = "Bring the member layerx-human-identity-provider of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-identity-provider"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_436.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.435]
+title = "Bring the member layerx-human-service of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-service/repair_22_39_435.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.434]
+title = "Bring the member layerx-human-security-provider of the human workspace through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-security-provider"]
+tests = []
+verification_contract = "test -s services/human/crates/layerx-human-security-provider/repair_22_39_434.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+symbols = []
+
+[capability.22.39.433]
+title = "Let the governance suite of the root Forge project read the artifact it deploys"
+reqs = ["22998.1"]
+touches = ["foundry.toml", "tests/solidity/governance"]
+tests = []
+verification_contract = "test -s tests/solidity/governance/repair_22_39_433.kvx && forge test --match-path 'tests/solidity/governance/*'"
+do_1 = "do_1 Decision 3349. The default profile of foundry.toml writes its artifacts under build/forge-artifacts and grants read and write access to tests/vectors/names and write access to build. Run forge test once for the default profile and list every suite that stops. The suite of tests/solidity/governance/SidioraProxyTimelock.t.sol deploys a contract from an artifact file of the output directory."
+symbols = []
+
+[capability.22.39.432]
+title = "Bring the static type checks of the manifest recipes through"
+reqs = ["22998.1"]
+touches = ["Makefile", "contracts", "tests/integration/rpc_tests"]
+tests = []
+verification_contract = "test -s tools/workspace/repair_22_39_432.kvx && make -s paxeer-npm-install > /dev/null && make -s paxeer-npm-static-test"
+do_1 = "do_1 Decision 3349. The target paxeer-npm-static-test of the Makefile runs the type checker for contracts and for tests/integration/rpc_tests through npm exec with the prefix option, and paxeer-manifest-test and paxeer-manifest-lint both depend on it. Run make paxeer-npm-install, then make paxeer-npm-static-test once, and read from the output which directory the type checker takes its project file from."
+symbols = []
+
+[capability.22.39.431]
+title = "Number the parts of the chain test package list as the test groups read them"
+reqs = ["22998.1"]
+touches = ["chain.mk"]
+tests = []
+verification_contract = "test -s tools/workspace/repair_22_39_431.kvx && rm -f build/packages.txt build/packages.txt.* && make -s -f chain.mk split-test-packages && for g in 0 1 2 3; do test -s build/packages.txt.$g || exit 1; done && test $(cat build/packages.txt.0 build/packages.txt.1 build/packages.txt.2 build/packages.txt.3 | wc -l) -eq $(wc -l < build/packages.txt)"
+do_1 = "do_1 Decision 3348, gotcha 4269. The target split-test-packages of chain.mk splits the package list of the build directory into four parts, and the target test runs test-group-0 to test-group-3, each of which reads the part that carries its own number as suffix. Give split the suffix length 1 so that the parts carry the suffixes 0 to 3."
+symbols = []
+
+[capability.22.39.430]
+title = "Bring the interop test recipe through"
+reqs = ["22998.1"]
+touches = ["services/interop/crates"]
+tests = []
+verification_contract = "test -s services/interop/crates/repair_22_39_430.kvx && make -s interop-test && cargo clippy --manifest-path services/interop/Cargo.toml --locked --workspace --all-targets -- -D warnings"
+do_1 = "do_1 Decision 3349. The recipe interop-test runs tests/ci/interop_workspace_test.py over the manifest services/interop/Cargo.toml. Run make -k interop-test once by hand, and cargo test over the workspace with the option --no-fail-fast, keep the outputs in files outside the tree, and list every case that stops."
+symbols = []
+
+[capability.22.39.429]
+title = "Bring the middleware and reference application parts of the platform test recipe through"
+reqs = ["22998.1"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc"]
+tests = []
+verification_contract = "test -s services/platform/middleware/repair_22_39_429.kvx && make -s platform-test-middleware platform-test-reference-apps"
+do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dependencies of the samples are absent. Run make -k platform-test-middleware, make -k platform-test-reference-apps and make -k platform-test-docs each by itself, keep each output in a file outside the tree, and list every case and every step that stops."
+symbols = []
+
+[capability.22.39.428]
+title = "Bring the epoch cases of the evaluator member through the platform test recipe"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/ai-evaluator"]
+tests = []
+verification_contract = "test -s services/platform/hosted/ai-evaluator/repair_22_39_428.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3349 and 3350. The recipe platform-test runs the tests of the platform workspace through tools/runtime/run-with-clock.sh (services/platform/Makefile.inc:127). Run that first line of the recipe by hand with the cargo option --no-fail-fast and list every case that stops. The cases of services/platform/hosted/ai-evaluator/tests/epoch.rs run the evaluator in process against the AI market program crate."
+symbols = []
+
+[capability.22.39.427]
+title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"
+reqs = ["22998.1"]
+touches = ["services/agent/tools/run-real-node-tests.sh"]
+tests = []
+verification_contract = "test -s services/agent/tools/repair_22_39_427.kvx && make -s agent-test-native-prerequisites"
+do_1 = "do_1 Decision 3349. The script services/agent/tools/run-real-node-tests.sh asks make at lines 93 to 97 for two native test programs under the build directory, and the target agent-test-native-prerequisites of the Makefile runs the script with the argument prepare. Run make agent-test-native-prerequisites once and list each target that make has no rule for. For each one read in the history of tests/daemon and of the Makefile what took its place."
+symbols = []
+
+[capability.22.39.426]
+title = "Run again the parts of the workspace recipes that changed after the record of task 22.39.409"
+reqs = ["22998.1"]
+touches = ["tools/workspace"]
+tests = []
+verification_contract = "WAVE_GATE_IN_PLACE=1 test -s tools/workspace/sweep_22_39_426.kvx && for t in core-test-all human-test platform-verify-sdks programs-test specgen-test specgen-lint; do grep -q -e $t tools/workspace/sweep_22_39_426.kvx || exit 1; done"
+do_1 = "do_1 Decision 3349. Work in the checkout of the task and make no second checkout or copy of the tree. Run make workspace-install first. Set CARGO_TARGET_DIR to the directory target at the root of the checkout for every command."
+symbols = []
 
 [capability.22.39.425]
 title = "Bring the cli member of the platform tools through the lint of the recipe"
@@ -196129,6 +196408,636 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.453]
+title = "Bring the bench, fuzz and integration test members of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.453"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-interpreter-compiled-equivalent -p layerx-programs-fuzz -p layerx-programs-integration-tests --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/tests/repair_22_39_453.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/benches/compiled-equivalent", "programs/fuzz", "programs/tests"]
+tests = []
+planned_paths = ["programs/tests/repair_22_39_453.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-interpreter-compiled-equivalent -p layerx-programs-fuzz -p layerx-programs-integration-tests --all-targets"
+verify_cmd = "test -s programs/tests/repair_22_39_453.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-interpreter-compiled-equivalent -p layerx-programs-fuzz -p layerx-programs-integration-tests --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.452]
+title = "Bring the program SDK and its lint member of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.452"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk -p layerx-program-lint --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/sdk/rust/repair_22_39_452.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/sdk/rust"]
+tests = []
+planned_paths = ["programs/sdk/rust/repair_22_39_452.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk -p layerx-program-lint --all-targets"
+verify_cmd = "test -s programs/sdk/rust/repair_22_39_452.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-program-sdk -p layerx-program-lint --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.451]
+title = "Bring the Solana porting members of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.451"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-solana -p layerx-porting-solana-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/porting/solana/repair_22_39_451.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/porting/solana"]
+tests = []
+planned_paths = ["programs/porting/solana/repair_22_39_451.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-porting-solana -p layerx-porting-solana-guest --all-targets"
+verify_cmd = "test -s programs/porting/solana/repair_22_39_451.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-solana -p layerx-porting-solana-guest --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.450]
+title = "Bring the EVM porting members of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.450"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-evm -p layerx-porting-evm-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/porting/evm/repair_22_39_450.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/porting/evm"]
+tests = []
+planned_paths = ["programs/porting/evm/repair_22_39_450.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-porting-evm -p layerx-porting-evm-guest --all-targets"
+verify_cmd = "test -s programs/porting/evm/repair_22_39_450.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-evm -p layerx-porting-evm-guest --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.449]
+title = "Bring the CosmWasm porting members of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.449"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-cosmwasm -p layerx-porting-cosmwasm-guest --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/porting/cosmwasm/repair_22_39_449.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/porting/cosmwasm"]
+tests = []
+planned_paths = ["programs/porting/cosmwasm/repair_22_39_449.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-porting-cosmwasm -p layerx-porting-cosmwasm-guest --all-targets"
+verify_cmd = "test -s programs/porting/cosmwasm/repair_22_39_449.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-porting-cosmwasm -p layerx-porting-cosmwasm-guest --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.448]
+title = "Bring the isolation member of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.448"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml with the package pattern that the verification command of this task carries and the options --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/repair_22_39_448.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-sandbox"]
+tests = []
+planned_paths = ["programs/repair_22_39_448.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p 'layerx-programs-s*' --all-targets"
+verify_cmd = "test -s programs/repair_22_39_448.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p 'layerx-programs-s*' --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.447]
+title = "Bring the member layerx-programs-arbiter of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.447"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-arbiter/repair_22_39_447.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-arbiter"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-arbiter/repair_22_39_447.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_447.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.446]
+title = "Bring the member layerx-programs-runtime of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.446"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-runtime/repair_22_39_446.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-runtime"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_446.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_446.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.445]
+title = "Bring the member layerx-programs-ai-market of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.400"]
+reqs = ["22998.1"]
+capabilities = ["22.39.445"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.444]
+title = "Bring the member layerx-programs-market of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.444"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-market --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-market/repair_22_39_444.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-market"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-market/repair_22_39_444.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-market --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-market/repair_22_39_444.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-market --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.443]
+title = "Bring the member layerx-programs-interpreter of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.443"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-interpreter --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-interpreter/repair_22_39_443.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-interpreter"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-interpreter/repair_22_39_443.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-interpreter --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-interpreter/repair_22_39_443.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-interpreter --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.442]
+title = "Bring the member layerx-programs-registry of the programs workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.442"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in programs/crates/layerx-programs-registry/repair_22_39_442.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-registry"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-registry/repair_22_39_442.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-registry/repair_22_39_442.kvx && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.440]
+title = "Bring the member layerx-network-gateway of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.440"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-network-gateway/repair_22_39_440.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-network-gateway"]
+tests = []
+planned_paths = ["services/human/crates/layerx-network-gateway/repair_22_39_440.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-network-gateway/repair_22_39_440.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.439]
+title = "Bring the member layerx-intents of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.439"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-intents/repair_22_39_439.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-intents"]
+tests = []
+planned_paths = ["services/human/crates/layerx-intents/repair_22_39_439.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-intents/repair_22_39_439.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-intents --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.438]
+title = "Bring the member layerx-human-kms of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.438"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-human-kms/repair_22_39_438.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-human-kms"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-kms/repair_22_39_438.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-human-kms/repair_22_39_438.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.437]
+title = "Bring the member layerx-human-test-support of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.437"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-human-test-support/repair_22_39_437.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-human-test-support"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-test-support/repair_22_39_437.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-human-test-support/repair_22_39_437.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.436]
+title = "Bring the member layerx-human-identity-provider of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.436"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-human-identity-provider/repair_22_39_436.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-human-identity-provider"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-identity-provider/repair_22_39_436.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-human-identity-provider/repair_22_39_436.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.435]
+title = "Bring the member layerx-human-service of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.435"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-human-service/repair_22_39_435.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-human-service"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/repair_22_39_435.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-human-service/repair_22_39_435.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.434]
+title = "Bring the member layerx-human-security-provider of the human workspace through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.434"]
+interfaces = []
+do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --all-targets --no-deps --keep-going, with the arguments -D warnings after the two dashes, before any counted run, and list every location it reports, grouped by lint."
+do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
+do_3 = "do_3 Record in services/human/crates/layerx-human-security-provider/repair_22_39_434.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/crates/layerx-human-security-provider"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-security-provider/repair_22_39_434.kvx"]
+build_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --all-targets"
+verify_cmd = "test -s services/human/crates/layerx-human-security-provider/repair_22_39_434.kvx && cargo clippy --locked --manifest-path services/human/Cargo.toml -p layerx-human-security-provider --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.430]
+title = "Bring the interop test recipe through"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.404"]
+reqs = ["22998.1"]
+capabilities = ["22.39.430"]
+interfaces = []
+do_1 = "do_1 Decision 3349. The recipe interop-test runs tests/ci/interop_workspace_test.py over the manifest services/interop/Cargo.toml. Run make -k interop-test once by hand, and cargo test over the workspace with the option --no-fail-fast, keep the outputs in files outside the tree, and list every case that stops."
+do_2 = "do_2 For each stopping case decide from the source which side holds the rule. Where the case asserts a behaviour that a decision of the spec has changed, change the case to assert the behaviour as decided and name the decision in the record. Where the crate departs from its interface, repair the crate. Weaken no assertion and remove no case."
+do_3 = "do_3 Record in services/interop/crates/repair_22_39_430.kvx each repaired case with its file and the rule it asserts. A stop whose cause lies outside services/interop/crates is listed in the closing report with file and first message and is not repaired here. The lint of task 22.39.404 stays clean. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates"]
+tests = []
+planned_paths = ["services/interop/crates/repair_22_39_430.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
+verify_cmd = "test -s services/interop/crates/repair_22_39_430.kvx && make -s interop-test && cargo clippy --manifest-path services/interop/Cargo.toml --locked --workspace --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.428]
+title = "Bring the epoch cases of the evaluator member through the platform test recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.400"]
+reqs = ["22998.1"]
+capabilities = ["22.39.428"]
+interfaces = []
+do_1 = "do_1 Decisions 3349 and 3350. The recipe platform-test runs the tests of the platform workspace through tools/runtime/run-with-clock.sh (services/platform/Makefile.inc:127). Run that first line of the recipe by hand with the cargo option --no-fail-fast and list every case that stops. The cases of services/platform/hosted/ai-evaluator/tests/epoch.rs run the evaluator in process against the AI market program crate."
+do_2 = "do_2 For each stopping case of the evaluator member find the application error code in the AI market program crate and the rule that returns it. Change the case or the evaluator source so that the evaluator makes the call the program accepts by its rules as they stand. The program crate is the producer and is not changed here; a consumer case asserts the names and codes of the producer (decision 3046). Weaken no assertion and remove no case."
+do_3 = "do_3 List in the closing report every stopping case of another member with its file and first message and repair none of them. Record in services/platform/hosted/ai-evaluator/repair_22_39_428.kvx what each epoch case asserts. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/ai-evaluator"]
+tests = []
+planned_paths = ["services/platform/hosted/ai-evaluator/repair_22_39_428.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets"
+verify_cmd = "test -s services/platform/hosted/ai-evaluator/repair_22_39_428.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.425]
 title = "Bring the cli member of the platform tools through the lint of the recipe"
 status = "pending"
@@ -287612,6 +288521,198 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.454]
+title = "Bring the whole lint recipe of the programs workspace through"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453"]
+reqs = ["22998.1"]
+capabilities = ["22.39.454"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k programs-lint once by hand and keep the output in a file outside the tree. The recipe checks the module boundaries, lints the whole workspace with all targets and the host interface feature, runs scripts/programs/dependency-policy.sh and the advisory, source and ban checks."
+do_2 = "do_2 Repair each remaining location by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table, of programs/clippy.toml or of programs/deny.toml, no removal of a check. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte."
+do_3 = "do_3 A repair keeps every test result of the workspace as at the base revision. Record in programs/repair_22_39_454.kvx what each step of the recipe covers and the locations repaired here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs", "scripts/programs"]
+tests = []
+planned_paths = ["programs/repair_22_39_454.kvx"]
+build_cmd = "make -n programs-lint > /dev/null"
+verify_cmd = "test -s programs/repair_22_39_454.kvx && make -s programs-lint"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.441]
+title = "Bring the whole lint recipe of the human workspace through"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440"]
+reqs = ["22998.1"]
+capabilities = ["22.39.441"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-lint once by hand and keep the output in a file outside the tree. The recipe lints the workspace and the copy lint tool, tests and runs the boundary check over services/human/crates, runs services/human/tools/dependency-policy.sh and the advisory, ban and source check, and runs the lint script of apps/web."
+do_2 = "do_2 Repair each stop inside services/human/tools/boundary-check, services/human/tools/copy-lint, services/human/tools/dependency-policy.sh and apps/web by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table or of a lint configuration, no removal of a check."
+do_3 = "do_3 A stop whose cause lies in a member crate is listed in the closing report with file and first message. Record in services/human/tools/repair_22_39_441.kvx what each step of the recipe covers. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web"]
+tests = []
+planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
+build_cmd = "make -n human-lint > /dev/null"
+verify_cmd = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && make -s human-lint"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.432]
+title = "Bring the static type checks of the manifest recipes through"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.432"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. The target paxeer-npm-static-test of the Makefile runs the type checker for contracts and for tests/integration/rpc_tests through npm exec with the prefix option, and paxeer-manifest-test and paxeer-manifest-lint both depend on it. Run make paxeer-npm-install, then make paxeer-npm-static-test once, and read from the output which directory the type checker takes its project file from."
+do_2 = "do_2 Change the recipe so that each type check reads the project file of its own directory, contracts/tsconfig.json and the project file of tests/integration/rpc_tests, and reports the type errors of those sources. Repair a type error it then reports in the source that holds it. Loosen no compiler option."
+do_3 = "do_3 Then run make -k paxeer-manifest-test and make -k paxeer-manifest-lint once each by hand, keep the outputs in files outside the tree, and list in the closing report every step that stops with its first message. Repair nothing beyond the static check. Record in tools/workspace/repair_22_39_432.kvx what the static check covers. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["Makefile", "contracts", "tests/integration/rpc_tests"]
+tests = []
+planned_paths = ["tools/workspace/repair_22_39_432.kvx"]
+build_cmd = "make -n paxeer-npm-static-test > /dev/null"
+verify_cmd = "test -s tools/workspace/repair_22_39_432.kvx && make -s paxeer-npm-install > /dev/null && make -s paxeer-npm-static-test"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.429]
+title = "Bring the middleware and reference application parts of the platform test recipe through"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.429"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dependencies of the samples are absent. Run make -k platform-test-middleware, make -k platform-test-reference-apps and make -k platform-test-docs each by itself, keep each output in a file outside the tree, and list every case and every step that stops."
+do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
+do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc"]
+tests = []
+planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
+build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"
+verify_cmd = "test -s services/platform/middleware/repair_22_39_429.kvx && make -s platform-test-middleware platform-test-reference-apps"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 400
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.427]
+title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.427"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. The script services/agent/tools/run-real-node-tests.sh asks make at lines 93 to 97 for two native test programs under the build directory, and the target agent-test-native-prerequisites of the Makefile runs the script with the argument prepare. Run make agent-test-native-prerequisites once and list each target that make has no rule for. For each one read in the history of tests/daemon and of the Makefile what took its place."
+do_2 = "do_2 Change the script so that it asks only for native programs that the Makefile builds and that a case of the agent tests reads. Where a case still reads a program the tree no longer holds, name the case with file and line in the closing report and change no test here."
+do_3 = "do_3 Then run make -k agent-test once by hand, keep the output in a file outside the tree, and list in the closing report every case that stops with its file and first message. Repair nothing outside the script. Record in services/agent/tools/repair_22_39_427.kvx the native programs the script builds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/tools/run-real-node-tests.sh"]
+tests = []
+planned_paths = ["services/agent/tools/repair_22_39_427.kvx"]
+build_cmd = "sh -n services/agent/tools/run-real-node-tests.sh"
+verify_cmd = "test -s services/agent/tools/repair_22_39_427.kvx && make -s agent-test-native-prerequisites"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.426]
+title = "Run again the parts of the workspace recipes that changed after the record of task 22.39.409"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.426"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3349. Work in the checkout of the task and make no second checkout or copy of the tree. Run make workspace-install first. Set CARGO_TARGET_DIR to the directory target at the root of the checkout for every command."
+do_2 = "do_2 Run each of these targets by itself with make -k, in this order: core-test-all, human-test, platform-verify-sdks, programs-test, specgen-test, specgen-lint. Keep the output of each run in a file outside the tree. Change no source file, no recipe and no test."
+do_3 = "do_3 Record in tools/workspace/sweep_22_39_426.kvx as product facts, one entry per target: the target, the manifests or directories it covers and the tools it needs on the path. The closing report lists, for each target, its exit code and its first message where it stops. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/workspace"]
+tests = []
+planned_paths = ["tools/workspace/sweep_22_39_426.kvx"]
+build_cmd = "make -n core-test-all > /dev/null && make -n human-test > /dev/null"
+verify_cmd = "WAVE_GATE_IN_PLACE=1 test -s tools/workspace/sweep_22_39_426.kvx && for t in core-test-all human-test platform-verify-sdks programs-test specgen-test specgen-lint; do grep -q -e $t tools/workspace/sweep_22_39_426.kvx || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 400
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.409]
 title = "Run each part of the workspace test and lint recipes and record what each part covers"
 status = "done"
@@ -311204,6 +312305,36 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.431]
+title = "Number the parts of the chain test package list as the test groups read them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.431"]
+interfaces = []
+do_1 = "do_1 Decision 3348, gotcha 4269. The target split-test-packages of chain.mk splits the package list of the build directory into four parts, and the target test runs test-group-0 to test-group-3, each of which reads the part that carries its own number as suffix. Give split the suffix length 1 so that the parts carry the suffixes 0 to 3."
+do_2 = "do_2 Run make -f chain.mk split-test-packages and check that the four parts exist and together hold every line of the package list once. Then run GOPROXY=off make -k paxeer-test once by hand, keep the output in a file outside the tree, and list in the closing report every package that stops with its first message. Repair no test here."
+do_3 = "do_3 Record in tools/workspace/repair_22_39_431.kvx the names of the groups and of the parts. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["chain.mk"]
+tests = []
+planned_paths = ["tools/workspace/repair_22_39_431.kvx"]
+build_cmd = "make -n -f chain.mk split-test-packages > /dev/null"
+verify_cmd = "test -s tools/workspace/repair_22_39_431.kvx && rm -f build/packages.txt build/packages.txt.* && make -s -f chain.mk split-test-packages && for g in 0 1 2 3; do test -s build/packages.txt.$g || exit 1; done && test $(cat build/packages.txt.0 build/packages.txt.1 build/packages.txt.2 build/packages.txt.3 | wc -l) -eq $(wc -l < build/packages.txt)"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 400
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.411]
 title = "Rebuild the test programs of the kernel when a header they include changes"
@@ -338116,7 +339247,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410", "22.39.426", "22.39.427", "22.39.428", "22.39.429", "22.39.430", "22.39.431", "22.39.432", "22.39.433", "22.39.441", "22.39.454"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -338170,6 +339301,7 @@ do_29 = "Attempt 25 (continue, gotcha 4226, decision 3297): the attempt-24 tree 
 do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 and 4229, decisions 3298 and 3299): the attempt-25 tree 256c1389b92f stands (the preparation of run_wave with the install target of the workspace, the admission of the native library in permitted_output, the cases of scripts/gates/test_run_gate.py, the earlier changes). The install target stopped in the inventory check of the workspace, which is stale on main and outside the paths of this task; task 22.39.377 repairs it and makes the install pass, and task 22.39.378 repairs the lock of the wallet workspace. The task now requires both. Rebase on main once both are on it and change nothing in scripts/workspace, tools/workspace, the ignore file or a lock. Then proceed as decision 3297 states. Outside the counted gates run make workspace-install once; when it fails, run every remaining line of its recipe once and record every failing line with its first message and its file. Whatever the result of the install, run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own, and do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. Before the counted gates bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths. Run the build once and the verification once at the final revision only when the install and all six commands have passed; otherwise run no counted verification and name every remaining cause in the final message."
 do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.398 carry the ABI type set of the SDKs, the copy catalog of the web app and the runtime module boundary check. Change none of the three in this task."
 do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 22.39.409, which carry the readers of the settlement section, the generated files of the agent TypeScript SDK, the recipes of the developer dashboard, the lints of the platform and interop crates, the terminal vectors of the program ABI, the lifecycle cases, the output directory of the program recipes, the compiler fetch of the install step and the record of what each part of the test and lint recipes covers. Change none of those in this task and drop from its tree each change that those tasks carry. The gate runs in the checkout of the task and makes no second checkout. The permitted outputs of scripts/gates/run_gate.py hold the ignored build directory of the C SDK example."
+do_33 = "do_33 Decision 3349: the task now requires tasks 22.39.426 to 22.39.433, 22.39.441 and 22.39.454, which own the parts of the workspace test and lint recipes. Change nothing for those parts in this task."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -340203,6 +341335,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.433]
+title = "Let the governance suite of the root Forge project read the artifact it deploys"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.433"]
+interfaces = []
+do_1 = "do_1 Decision 3349. The default profile of foundry.toml writes its artifacts under build/forge-artifacts and grants read and write access to tests/vectors/names and write access to build. Run forge test once for the default profile and list every suite that stops. The suite of tests/solidity/governance/SidioraProxyTimelock.t.sol deploys a contract from an artifact file of the output directory."
+do_2 = "do_2 Either grant the default profile read access to its own output directory build/forge-artifacts and nothing wider, or have the suite deploy the contract from the source type it imports. Choose the form the other suites of tests/solidity use for the same need. The access for writing stays as it is."
+do_3 = "do_3 Run forge test again. A suite that stops for another cause is listed in the closing report with its first message and is not repaired here. Record in tests/solidity/governance/repair_22_39_433.kvx the access the default profile grants. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["foundry.toml", "tests/solidity/governance"]
+tests = []
+planned_paths = ["tests/solidity/governance/repair_22_39_433.kvx"]
+build_cmd = "forge build"
+verify_cmd = "test -s tests/solidity/governance/repair_22_39_433.kvx && forge test --match-path 'tests/solidity/governance/*'"
+gate_kind = "planned"
+sandbox_profile = "solidity"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

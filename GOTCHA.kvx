@@ -21165,3 +21165,8 @@ fix = "Decisions 3344 to 3346 and task 22.39.425."
 title = "The option --no-deps also leaves out a dependency that the manifest names by path outside the workspace"
 symptom = "A member of the platform workspace can depend by path on a package of another workspace. Clippy with the package option reports on that package as well. With the option --no-deps the report covers the named members only."
 fix = "Decision 3347."
+
+[gotcha.4269]
+title = "The split tool numbers its parts with two digits unless a suffix length is given"
+symptom = "With the numeric suffix option and no suffix length, split writes the parts of a file with the suffixes 00, 01, 02 and 03 when asked for four parts. A recipe that reads a part by the number of its group passes the suffix length that matches the group names."
+fix = "Decision 3348 and task 22.39.431."
