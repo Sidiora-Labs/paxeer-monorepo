@@ -2117,7 +2117,6 @@ fn publish_program_decision(
         release_program_decision(store, held, snapshot, request, context, limiter, outcome)?;
         None
     };
-
     Ok(reference)
 }
 fn release_program_decision(

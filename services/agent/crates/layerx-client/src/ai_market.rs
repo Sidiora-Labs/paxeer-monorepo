@@ -113,18 +113,22 @@ pub mod inference_market {
     pub struct HostMeterKey(ed25519_dalek::SigningKey);
 
     impl HostMeterKey {
+        #[must_use]
         pub fn from_seed(seed: &[u8; 32]) -> Self {
             Self(ed25519_dalek::SigningKey::from_bytes(seed))
         }
+        #[must_use]
         pub fn public_key(&self) -> [u8; 32] {
             self.0.verifying_key().to_bytes()
         }
+        #[must_use]
         pub fn sign(&self, digest: &[u8; 32]) -> [u8; 64] {
             use ed25519_dalek::Signer as _;
             self.0.sign(digest).to_bytes()
         }
     }
 
+    #[must_use]
     pub fn meter_digest(stream: [u8; 32], reading: u64, key: [u8; 32]) -> [u8; 32] {
         let mut hash = sha2::Sha256::new();
         hash.update(b"LXP/v1/signature-preimage\0");
@@ -135,6 +139,10 @@ pub mod inference_market {
         hash.finalize().into()
     }
 
+    /// # Errors
+    ///
+    /// Returns a noncanonical-data error for a zero stream or authority, or a signature error
+    /// when the meter attestation does not verify.
     pub fn stream_meter_calldata(
         stream: [u8; 32],
         reading: u64,
@@ -163,6 +171,11 @@ pub mod inference_market {
         Ok(out)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for invalid transaction terms or noncanonical meter calldata, an
+    /// invalid attestation, an unauthorized signing key, signing failure, or invalid signed
+    /// transaction bytes.
     pub async fn sign_stream_meter(
         calldata: &[u8],
         terms: &NativeTerms<'_>,
@@ -215,11 +228,11 @@ pub mod inference_market {
         if layerx_crypto::evm_transaction::recover_sender(&call, &signature)? != from {
             return Err(AiClientError::UnauthorizedKey);
         }
-        Ok(super::OperationRecord::from_signed_transaction(
+        super::OperationRecord::from_signed_transaction(
             layerx_crypto::evm_transaction::assemble(&call, &signature),
             sha2::Sha256::digest(calldata).into(),
             terms.not_after,
-        )?)
+        )
     }
 
     /// Secret-keyed, deterministic sampling; the signature is never sent to peers.
@@ -331,10 +344,18 @@ pub mod inference_market {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the payload fails the seal-evidence operation codec validation.
     pub fn seal_evidence(payload: &[u8]) -> Result<MarketOperation, AiClientError> {
         MarketOperation::new(dispatch::SealEvidence, payload.to_vec())
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for a stale snapshot, invalid shared state, absent or mismatched
+    /// captured roster, expired request, unauthorized actor, sequence overflow, or invalid
+    /// envelope fields.
     pub fn lap_envelope(
         snapshot: &FinalizedSnapshot,
         operation: &MarketOperation,
@@ -598,6 +619,10 @@ pub mod inference_market {
         Ok(BookView::decode(bytes)?)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the shared state or model query is invalid, or the resulting book
+    /// view is malformed.
     pub fn book_view(
         snapshot: &FinalizedSnapshot,
         model: Digest32,
@@ -613,6 +638,10 @@ pub mod inference_market {
         Ok(bytes)
     }
 
+    /// # Errors
+    ///
+    /// Returns a sequencer error if the lookup fails, or `FinalityMismatch` if the recorded
+    /// deal fields differ from the request.
     pub fn verify_recorded_deal(
         endpoint: &crate::sequencer::SequencerEndpoint,
         request: &RecordDealRequest,
@@ -653,6 +682,11 @@ pub mod inference_market {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for malformed shared state or admission data, a missing epoch or room,
+    /// a mismatched roster, expired request, sequence overflow, invalid deal payload, or
+    /// invalid envelope fields.
     pub fn deal_envelope(
         snapshot: &FinalizedSnapshot,
         deal: &RecordDealRequest,
@@ -717,6 +751,12 @@ pub mod inference_market {
 
     /// Read content-addressed namespace artifacts at H-1 and authenticate them under
     /// the independently pinned validator commit at H before exposing a snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if committed headers or namespace artifacts are unavailable, their
+    /// proofs or content digests fail verification, the state is malformed, or the captured
+    /// snapshot cannot be finalized.
     pub fn poll_finalized_market(
         endpoint: &crate::sequencer::SequencerEndpoint,
         verifier: &layerx_programs_registry::chain_proof::ChainProofVerifier,
@@ -765,10 +805,8 @@ pub mod inference_market {
             let name = reader.take(length)?;
             let digest: [u8; 32] = reader.fixed()?;
             let _length = reader.u32()?;
-            if name == program::SHARED_STATE_KEY {
-                if state_digest.replace(digest).is_some() {
-                    return Err(invalid());
-                }
+            if name == program::SHARED_STATE_KEY && state_digest.replace(digest).is_some() {
+                return Err(invalid());
             }
         }
         reader.finish()?;
@@ -3121,6 +3159,11 @@ impl OperationJournal {
         Ok(record.state)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the journal cannot be locked or read, the record is stale or in an
+    /// invalid state, receipt authentication fails, its digest or transaction fields mismatch,
+    /// or the updated record cannot be persisted.
     pub fn resolve_receipt(
         &self,
         record: &mut OperationRecord,
@@ -3399,6 +3442,9 @@ impl EpochHistoryEntry {
     }
 }
 
+/// # Errors
+///
+/// Returns `MissingOperation` when no dispatch entry has the supplied name.
 pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientError> {
     dispatch::OPERATIONS
         .iter()
@@ -3407,6 +3453,10 @@ pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientE
         .ok_or(AiClientError::MissingOperation(name))
 }
 
+/// # Errors
+///
+/// Returns a codec error for malformed result bytes, or `CorruptRecord` when a refusal code is
+/// absent from the application error registry.
 pub fn program_refusal(
     operation: Operation,
     bytes: &[u8],
@@ -3429,6 +3479,11 @@ pub fn program_refusal(
         .transpose()
 }
 
+/// # Errors
+///
+/// Returns an error for invalid signed transaction bytes, a different chain or target,
+/// malformed program-call or envelope bytes, or mismatched program, ABI, entrypoint or expiry
+/// fields.
 pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientError> {
     let (call, _) = evm_transaction::decode_signed(record.signed_bytes())?;
     let mut target = [0; 20];
@@ -3445,9 +3500,14 @@ pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientErro
     {
         return Err(AiClientError::NotNativeProgramCall);
     }
-    Ok(native.calldata.to_vec())
+    Ok(native.calldata)
 }
 
+/// # Errors
+///
+/// Returns an error for an invalid envelope, a nonmutation operation, mismatched transaction
+/// terms, invalid actor DID, unauthorized key, disclosure or signing failure, or invalid signed
+/// transaction bytes.
 pub async fn sign_market_envelope(
     envelope: &[u8],
     terms: &NativeTerms<'_>,
@@ -3502,6 +3562,10 @@ pub async fn sign_market_envelope(
     )
 }
 
+/// # Errors
+///
+/// Returns an error if the signed envelope is invalid, journal persistence or reload fails,
+/// retained bytes or intent differ, submission fails, or the program reports a refusal.
 pub fn submit_market_operation(
     journal: &OperationJournal,
     record: &mut OperationRecord,
