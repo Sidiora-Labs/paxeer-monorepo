@@ -195076,7 +195076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.393]
 title = "Bind the agent dependency policy to the closure that the agent workspace ships"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -195138,7 +195138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.390]
 title = "Build the call terms of a value operation of the AI market in the client library"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.386", "22.39.389", "22.39.392"]
