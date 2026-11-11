@@ -162993,7 +162993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.16]
 title = "Show launched chains and trade on the home chain in the launchpad mobile application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.40.13"]
