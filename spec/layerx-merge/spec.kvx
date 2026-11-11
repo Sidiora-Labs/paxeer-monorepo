@@ -196434,7 +196434,7 @@ do_5 = "do_5 Decision 3343. Each public function of the member that returns a re
 
 [task.22.39.413]
 title = "Bring the AI evaluator member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
