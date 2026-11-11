@@ -1,0 +1,5 @@
+[repair]
+member = "layerx-programs-integration-tests"
+lint = "dead_code"
+locations = 1
+surface = "The integration fixture encoder is exercised by the single-key read bridge case."
