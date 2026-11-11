@@ -164965,7 +164965,7 @@ do_3 = "Attempt 2 (continue, gotcha 3515, decisions 2812, 2838 and 2843): the at
 
 [task.22.39.95]
 title = "Repair the failing launchpad web and mobile test files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.94", "22.39.295", "22.39.313", "22.39.314", "22.39.357", "22.39.372", "22.39.376"]
