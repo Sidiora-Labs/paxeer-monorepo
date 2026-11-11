@@ -1,0 +1,15 @@
+[solana.lints]
+too_many_lines = 6
+cast_possible_truncation = 4
+cast_possible_wrap = 3
+doc_markdown = 1
+drop_non_drop = 1
+needless_pass_by_value = 1
+too_many_arguments = 1
+unwrap_used = 48
+
+[solana.coverage]
+case_list_comparison = "18 cases with the same names"
+test_result_comparison = "18 passed in each run; zero failed or ignored"
+workspace_compile_comparison = "all targets compile in each tree"
+remaining_member_lint_locations = 0
