@@ -21190,3 +21190,8 @@ fix = "Decision 3353."
 title = "The argument count lint applies to public functions whose signatures other code holds"
 symptom = "Two public functions of the step module of the arbiter member take nine and ten arguments, and a test of the member holds their signatures."
 fix = "Decision 3354."
+
+[gotcha.4274]
+title = "A source file that a test target of another member includes by path resolves crate paths in the including crate"
+symptom = "A reference written as crate::name inside such a file names a module of the including crate, which need not hold that module."
+fix = "Decision 3356."
