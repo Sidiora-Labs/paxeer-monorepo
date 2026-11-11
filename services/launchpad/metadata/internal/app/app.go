@@ -16,19 +16,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/smithy-go"
-	"github.com/ethereum/go-ethereum/ethclient"
-	gethrpc "github.com/ethereum/go-ethereum/rpc"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5"
 	"image"
 	"image/png"
 	"io"
@@ -44,6 +31,20 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
+	"github.com/ethereum/go-ethereum/ethclient"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/go-chi/chi/v5"
@@ -114,7 +115,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == metadataProductionEnv {
 		metrics, err = telemetry.New("metadatad", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if err != nil {
 			return nil, err
@@ -124,7 +125,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if secretCheck != nil {
 		checks["secrets"] = secretCheck
 	}
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != metadataProductionEnv {
 		if err = migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -144,7 +145,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	defer func() {
 		if !owned {
-			rdb.Close()
+			if closeErr := rdb.Close(); closeErr != nil {
+				logger.Error("metadata Redis close", "error", closeErr)
+			}
 		}
 	}()
 	var rpc *ethclient.Client
@@ -162,8 +165,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return workerError
 	}
 	var legacyReads *metadata.ProductionLegacyReads
-	edge := cfg.NodeEnv == "production" && cfg.Ingress == config.IngressEdge
-	if cfg.NodeEnv == "production" {
+	edge := cfg.NodeEnv == metadataProductionEnv && cfg.Ingress == config.IngressEdge
+	if cfg.NodeEnv == metadataProductionEnv {
 		if !edge {
 			serverTLS, err = metadataServerTLS(cfg)
 			if err != nil {
@@ -339,7 +342,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var devReads *metadata.DevelopmentV2Reads
 	var devMedia *developmentMedia
 	var devStore *storage.Client
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != metadataProductionEnv {
 		var chain *gethrpc.Client
 		var receipts metadata.DevelopmentReceipts
 		if cfg.RPCURL != "" {
@@ -394,7 +397,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	// request: without trusting it the per-IP rate limit would be one bucket
 	// shared by every browser (same choice as the development gateway).
 	var trustedProxies []netip.Prefix
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != metadataProductionEnv {
 		trustedProxies = []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("::/0")}
 	} else if edge {
 		if trustedProxies, err = cfg.TrustedProxies(); err != nil {
@@ -404,7 +407,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{TrustedProxies: trustedProxies, CORSOrigins: cfg.CORSAllowedOrigins, Health: sharedhttp.HealthDeps{Custom: checks, State: tracker.Ready, DB: func(c context.Context) error { return cfg.CheckRuntimeSchema(c, pool) }, Redis: func(c context.Context) error { return rdb.Ping(c).Err() }}})
 	mux.Group(func(gr chi.Router) {
 		gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{Max: rateLimitMax, Window: rateLimitWindow, Redis: rdb}))
-		if cfg.NodeEnv == "production" {
+		if cfg.NodeEnv == metadataProductionEnv {
 			if edge {
 				gr.Use(metadata.SessionChannel(connected.Identity))
 			} else {
@@ -444,7 +447,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		// authority (user -> metadata) needs the mTLS private channel and is
 		// not served on edge ingress.
 		connected.RegisterApprovedObjects(mux)
-	} else if cfg.NodeEnv == "production" {
+	} else if cfg.NodeEnv == metadataProductionEnv {
 		mux.Group(func(gr chi.Router) { gr.Use(metadataAccountChannel(cfg)); connected.RegisterAccountAuthority(gr) })
 	} else if devMedia != nil {
 		// Immutable approved variants (the production CDN's role), outside
@@ -496,14 +499,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					if mediaContext.Err() != nil {
 						return
 					}
-					if cfg.NodeEnv == "production" {
+					if cfg.NodeEnv == metadataProductionEnv {
 						workerMu.Lock()
 						workerError = e
 						workerMu.Unlock()
 					}
 					if e != nil && logger != nil {
 						// Development keeps readiness unaffected and logs the cause.
-						if cfg.NodeEnv == "production" {
+						if cfg.NodeEnv == metadataProductionEnv {
 							logger.Error("metadata retention unavailable")
 						} else {
 							logger.Error("development media maintenance failed", slog.String("err", e.Error()))
@@ -536,7 +539,9 @@ func probeServiceReady(ctx context.Context, endpoint string, configured *http.Cl
 	if e != nil {
 		return fmt.Errorf("media_authority_unavailable")
 	}
-	defer response.Body.Close()
+	if closeErr := response.Body.Close(); closeErr != nil {
+		return fmt.Errorf("media_authority_unavailable")
+	}
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("media_authority_unavailable")
 	}
@@ -560,7 +565,9 @@ func runMediaMaintenance(ctx context.Context, pool *pgxpool.Pool, schema string,
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if _, e := connection.Exec(cleanup, "SELECT pg_advisory_unlock(hashtextextended($1,0))", key); e != nil {
-			connection.Conn().Close(cleanup)
+			if closeErr := connection.Conn().Close(cleanup); closeErr != nil {
+				slog.Error("metadata database connection close", "error", closeErr)
+			}
 		}
 	}()
 	// Each class owns its deadline, so a blocked object read cannot spend
@@ -742,7 +749,7 @@ func metadataPrivateChannel(cfg config.Config, identity metadata.RequestIdentity
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Cache-Control", "no-store")
 				w.WriteHeader(status)
-				json.NewEncoder(w).Encode(map[string]string{"code": "media_channel_unavailable"})
+				writeJSON(w, map[string]string{"code": "media_channel_unavailable"})
 			}
 			if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 				deny(403)
@@ -870,7 +877,9 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 				cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
 				if _, e := connection.Exec(cleanup, "SELECT pg_advisory_unlock(hashtextextended($1,0))", lock); e != nil {
-					connection.Conn().Close(cleanup)
+					if closeErr := connection.Conn().Close(cleanup); closeErr != nil {
+						slog.Error("metadata database connection close", "error", closeErr)
+					}
 				}
 			}()
 			// Pending assets use the private-until timestamp as their retry
@@ -897,14 +906,14 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			if e = store.Pool.QueryRow(ctx, "SELECT state FROM "+table("assets")+" WHERE id=$1", asset.id).Scan(&current); e != nil {
 				return e
 			}
-			if current != "UPLOADING" && current != "QUARANTINED" && current != "VALIDATING" && current != "APPROVED" {
+			if current != metadataUploadingState && current != metadataQuarantinedState && current != metadataValidatingState && current != metadataApprovedState {
 				return nil
 			}
-			if current == "QUARANTINED" {
-				if e = store.TransitionAsset(ctx, asset.id, current, "VALIDATING"); e != nil {
+			if current == metadataQuarantinedState {
+				if e = store.TransitionAsset(ctx, asset.id, current, metadataValidatingState); e != nil {
 					return e
 				}
-				current = "VALIDATING"
+				current = metadataValidatingState
 			}
 			reject := func(engine, revision string) error {
 				tag, err := store.Pool.Exec(ctx, "WITH rejected AS(UPDATE "+table("assets")+" SET state='REJECTED',scanner_engine=$2,scanner_revision=$3 WHERE id=$1 AND state=$4 RETURNING id) UPDATE "+table("asset_details_v2")+" SET rejected_until=clock_timestamp()+interval '24 hours' WHERE asset_id IN(SELECT id FROM rejected)", asset.id, engine, revision, current)
@@ -917,7 +926,7 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 				return nil
 			}
 			key := asset.key
-			if current == "APPROVED" {
+			if current == metadataApprovedState {
 				key = "quarantine/" + asset.id
 			}
 			if key != "quarantine/"+asset.id {
@@ -926,13 +935,15 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			object, e := media.Objects.Client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(media.Objects.QuarantineBucket), Key: aws.String(key)})
 			if e != nil {
 				var api smithy.APIError
-				if current == "UPLOADING" && errors.As(e, &api) && api.ErrorCode() == "NoSuchKey" {
+				if current == metadataUploadingState && errors.As(e, &api) && api.ErrorCode() == "NoSuchKey" {
 					return nil
 				}
 				return fmt.Errorf("metadata_quarantine_unavailable")
 			}
 			original, e := raster.ReadBounded(object.Body)
-			object.Body.Close()
+			if closeErr := object.Body.Close(); closeErr != nil && e == nil {
+				e = closeErr
+			}
 			if e != nil {
 				if errors.Is(e, raster.ErrLimit) {
 					return reject("", "")
@@ -950,14 +961,14 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 				}
 				return e
 			}
-			if current == "UPLOADING" {
-				if e = store.TransitionAsset(ctx, asset.id, "UPLOADING", "QUARANTINED"); e != nil {
+			if current == metadataUploadingState {
+				if e = store.TransitionAsset(ctx, asset.id, metadataUploadingState, metadataQuarantinedState); e != nil {
 					return e
 				}
-				if e = store.TransitionAsset(ctx, asset.id, "QUARANTINED", "VALIDATING"); e != nil {
+				if e = store.TransitionAsset(ctx, asset.id, metadataQuarantinedState, metadataValidatingState); e != nil {
 					return e
 				}
-				current = "VALIDATING"
+				current = metadataValidatingState
 			}
 			scan := sharedhttp.ScanVerifiedBuffer(ctx, original, media.Scanner)
 			if scan.Verdict == sharedhttp.ScanInfected {
@@ -1000,12 +1011,12 @@ func metadataAccountChannel(cfg config.Config) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, e := io.ReadAll(http.MaxBytesReader(w, r.Body, 16384))
 			if e != nil {
-				http.Error(w, "media_channel_unavailable", 413)
+				http.Error(w, "media_channel_unavailable", http.StatusRequestEntityTooLarge)
 				return
 			}
 			r.Body = io.NopCloser(bytes.NewReader(body))
 			if e = verify.Authenticate(r, body); e != nil {
-				http.Error(w, "media_channel_unavailable", 403)
+				http.Error(w, "media_channel_unavailable", http.StatusForbidden)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -1067,7 +1078,7 @@ var configVariables = func() map[string]struct{} {
 func StartupVariables(err error) []string {
 	seen := map[string]struct{}{}
 	for _, token := range strings.FieldsFunc(err.Error(), func(r rune) bool {
-		return !(r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_')
+		return (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_'
 	}) {
 		if _, ok := configVariables[token]; ok {
 			seen[token] = struct{}{}
