@@ -3,12 +3,10 @@ use layerx_programs_ai_market::{
     REWARDS_ACCOUNT_SEED, SHARED_STATE_KEY,
 };
 use layerx_programs_runtime::{
-    self as rt,
-    abi::{AbiError, ReceiptView},
-    ActivityBudgetBinding, AuthorizationContext, AuthorizedExecutionRequest,
+    self as rt, ActivityBudgetBinding, AuthorizationContext, AuthorizedExecutionRequest,
     BudgetedAuthorizedExecutionRequest, Capability, CapabilitySet, CompositionContext,
-    DeclaredBudget, Executor, FuelSchedule, ReceiptOracle, Storage, StorageNamespace,
-    V2ActivityOutcome, ValidatedModule, WasmEngine, ABI_V5_VERSION, CALL_ENTRY_EXPORT,
+    DeclaredBudget, Executor, FuelSchedule, Storage, StorageNamespace, V2ActivityOutcome,
+    ValidatedModule, WasmEngine, ABI_V5_VERSION, CALL_ENTRY_EXPORT,
 };
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
@@ -198,7 +196,7 @@ pub fn module() -> Checked<Arc<ValidatedModule>> {
 }
 
 /// Caller-owned in-memory account store, the peer of the production transfer host.
-/// Its sight facts and restart image are generated from the same committed balances.
+/// Its restart image is generated from the same committed balances.
 #[derive(Default)]
 pub struct Ledger {
     pub balances: BTreeMap<[u8; 32], u128>,
@@ -275,42 +273,6 @@ impl Ledger {
         self.balances = next;
         self.transfers += legs.len();
         Ok(())
-    }
-}
-struct Sight<'a> {
-    ledger: &'a Ledger,
-    asset: [u8; 32],
-}
-impl ReceiptOracle for Sight<'_> {
-    fn verified_receipt(&self, _: [u8; 32]) -> Result<ReceiptView, AbiError> {
-        Err(AbiError::ReceiptMismatch)
-    }
-    fn verified_balance(
-        &self,
-        account: [u8; 32],
-        asset: [u8; 32],
-        receipt: [u8; 32],
-    ) -> Result<rt::BalanceView, AbiError> {
-        if asset != self.asset
-            || receipt
-                != codec::sha256([self.ledger.image().as_slice()])
-                    .map_err(|_| AbiError::ReceiptMismatch)?
-        {
-            return Err(AbiError::ReceiptMismatch);
-        }
-        Ok(rt::BalanceView {
-            account,
-            asset,
-            balance: self
-                .ledger
-                .balances
-                .get(&account)
-                .copied()
-                .ok_or(AbiError::BalanceAbsent)?,
-            receipt_digest: receipt,
-            state_root: receipt,
-            observed_sequence: 1,
-        })
     }
 }
 
@@ -443,13 +405,6 @@ impl Guest {
             Capability::SharedStorageWrite,
             Capability::EmitEvent,
         ];
-        let receipt =
-            codec::sha256([self.ledger.image().as_slice()]).map_err(|e| format!("{e:?}"))?;
-        caps.push(Capability::BalanceView {
-            account: self.account,
-            asset: self.asset,
-            receipt_digest: receipt,
-        });
         if matches!(e.operation, dispatch::FUND | dispatch::LockBond) {
             let amount = if e.operation == dispatch::FUND {
                 rewards::FundRequest::decode(e.payload)
@@ -566,10 +521,7 @@ impl Guest {
                 u128::MAX,
             )
             .map_err(|e| format!("{e:?}"))?;
-        let sight = Sight {
-            ledger: &self.ledger,
-            asset: self.asset,
-        };
+        let no_receipts = rt::UnavailableReceiptOracle;
         let request = BudgetedAuthorizedExecutionRequest::new(
             AuthorizedExecutionRequest {
                 module: &self.module,
@@ -578,7 +530,7 @@ impl Guest {
                     actor,
                     CapabilitySet::new(caps).map_err(|e| format!("{e:?}"))?,
                 ),
-                receipts: &sight,
+                receipts: &no_receipts,
                 entrypoint: CALL_ENTRY_EXPORT,
                 calldata: envelope,
                 composition: CompositionContext::isolated(),

@@ -183,10 +183,10 @@ pub fn application_error(frame: &[u8]) -> String {
     }
 }
 
-/// Core balance facts transported from the preceding real kernel execution.
-/// No balances or receipt identities are synthesized by the Rust harness.
+/// Historical balance facts are transported from the real kernel execution.
+/// The current guest has no sight grant or receipt authority.
 struct KernelBalanceEvidence {
-    view: layerx_programs_runtime::BalanceView,
+    view: Option<layerx_programs_runtime::BalanceView>,
 }
 impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
     fn verified_receipt(
@@ -201,12 +201,14 @@ impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
         asset: [u8; 32],
         receipt: [u8; 32],
     ) -> Result<layerx_programs_runtime::BalanceView, layerx_programs_runtime::AbiError> {
-        if (account, asset, receipt)
-            != (self.view.account, self.view.asset, self.view.receipt_digest)
-        {
+        let view = self
+            .view
+            .as_ref()
+            .ok_or(layerx_programs_runtime::AbiError::BalanceEvidenceUnavailable)?;
+        if (account, asset, receipt) != (view.account, view.asset, view.receipt_digest) {
             return Err(layerx_programs_runtime::AbiError::ReceiptMismatch);
         }
-        Ok(self.view.clone())
+        Ok(view.clone())
     }
 }
 
@@ -242,35 +244,40 @@ fn execute_kernel_fund_with_budget(
             return Err(format!("kernel {name} differs from producer"));
         }
     }
-    let sight = read("sight")?;
-    if sight.len() != 152 {
-        return Err("kernel balance observation length".into());
-    }
-    let array = |at| <[u8; 32]>::try_from(&sight[at..at + 32]).expect("fixed sight field");
-    let view = BalanceView {
-        account: array(0),
-        asset: array(32),
-        balance: u128::from_be_bytes(sight[64..80].try_into().unwrap()),
-        receipt_digest: array(80),
-        state_root: array(112),
-        observed_sequence: u64::from_be_bytes(sight[144..152].try_into().unwrap()),
+    let view = if dir.join("sight").exists() {
+        let sight = read("sight")?;
+        if sight.len() != 152 {
+            return Err("kernel balance observation length".into());
+        }
+        let array = |at| <[u8; 32]>::try_from(&sight[at..at + 32]).expect("fixed sight field");
+        let view = BalanceView {
+            account: array(0),
+            asset: array(32),
+            balance: u128::from_be_bytes(sight[64..80].try_into().unwrap()),
+            receipt_digest: array(80),
+            state_root: array(112),
+            observed_sequence: u64::from_be_bytes(sight[144..152].try_into().unwrap()),
+        };
+        let receipt = layerx_wire::receipt::decode(&read("prior-receipt")?)
+            .map_err(|e| format!("kernel receipt: {e:?}"))?;
+        let unsigned = layerx_wire::receipt::encode_unsigned(&receipt)
+            .map_err(|e| format!("kernel unsigned receipt: {e:?}"))?;
+        let digest = layerx_wire::hash::receipt_digest(&unsigned)
+            .map_err(|e| format!("kernel receipt digest: {e:?}"))?;
+        let prior = receipt.protocol().ok_or("protocol receipt required")?;
+        if prior.result_code() != 0
+            || digest != view.receipt_digest
+            || prior.resulting_state_root() != view.state_root
+            || prior.global_sequence() != view.observed_sequence
+            || view.asset != asset
+            || view.account != f.rewards
+        {
+            return Err("kernel balance observation binding".into());
+        }
+        Some(view)
+    } else {
+        None
     };
-    let receipt = layerx_wire::receipt::decode(&read("prior-receipt")?)
-        .map_err(|e| format!("kernel receipt: {e:?}"))?;
-    let unsigned = layerx_wire::receipt::encode_unsigned(&receipt)
-        .map_err(|e| format!("kernel unsigned receipt: {e:?}"))?;
-    let digest = layerx_wire::hash::receipt_digest(&unsigned)
-        .map_err(|e| format!("kernel receipt digest: {e:?}"))?;
-    let prior = receipt.protocol().ok_or("protocol receipt required")?;
-    if prior.result_code() != 0
-        || digest != view.receipt_digest
-        || prior.resulting_state_root() != view.state_root
-        || prior.global_sequence() != view.observed_sequence
-        || view.asset != asset
-        || view.account != f.rewards
-    {
-        return Err("kernel balance observation binding".into());
-    }
     let module = WasmEngine::declared()
         .map_err(|e| e.to_string())?
         .validate_versioned_metered(ABI_V5_VERSION, &read("wasm")?, FuelSchedule::WASMI_0_31_2)
@@ -283,7 +290,7 @@ fn execute_kernel_fund_with_budget(
     seed.write(layerx_programs_ai_market::SHARED_STATE_KEY, &f.current)
         .map_err(|e| e.to_string())?;
     assert_eq!(seed.commit(), 1);
-    let caps = CapabilitySet::new([
+    let mut granted = vec![
         Capability::EmitEvent,
         Capability::SharedStorageRead,
         Capability::SharedStorageWrite,
@@ -292,13 +299,15 @@ fn execute_kernel_fund_with_budget(
             to: f.rewards,
             maximum_amount: AMOUNT,
         },
-        Capability::BalanceView {
+    ];
+    if let Some(ref view) = view {
+        granted.push(Capability::BalanceView {
             account: f.rewards,
             asset,
-            receipt_digest: digest,
-        },
-    ])
-    .map_err(|e| e.to_string())?;
+            receipt_digest: view.receipt_digest,
+        });
+    }
+    let caps = CapabilitySet::new(granted).map_err(|e| e.to_string())?;
     let declaration = AccessDeclaration::absent();
     let maximum = DeclaredBudget::protocol_maximum().resource_budget();
     let budget = match diagnostic_allowance {
@@ -364,7 +373,11 @@ fn execute_kernel_fund_with_budget(
         executor.execute_authorized_v5_budgeted_for_qualification(
             &mut storage,
             BudgetedAuthorizedExecutionRequest::new(request, admitted, actor, binding),
-            prior.global_sequence() + 1,
+            u64::from_be_bytes(
+                read("global-sequence")?
+                    .try_into()
+                    .map_err(|_| "kernel global sequence length")?,
+            ),
             HEIGHT + 1,
         )
     }

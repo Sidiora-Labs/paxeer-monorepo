@@ -12994,6 +12994,42 @@ value = "A record file that a task commits states what a reader of the repositor
 basis = "Gotcha 4243, decisions 3052 and 3255."
 affects = ["22.39.391", "22.38.36"]
 
+[decision.3314]
+title = "A task that changes the dependencies of a crate refreshes every lock file that carries the crate"
+value = "A crate of this repository that other workspaces take by path has a block in the lock file of each of them. A task that adds, removes or moves a dependency of such a crate searches the repository for every Cargo.lock that carries the crate, names those lock files in its paths, refreshes each with the smallest change, so that no version of a package already locked changes, and proves each with cargo metadata under the locked option in its verification. Task 22.39.392 refreshes the lock files that carry layerx-client for the change of task 22.39.386. Task 22.39.390 changes the dependencies of the same crate again and refreshes the same files; it requires 22.39.392 because both change them (decision 3211). The paths of task 22.39.386 named services/agent/Cargo.lock only; that was an error of the task text and not of the attempt."
+basis = "Gotcha 4245, decisions 3046, 3211 and 3283."
+affects = ["22.39.392", "22.39.390", "22.39.377"]
+
+[decision.3315]
+title = "The ban list of the agent dependency policy binds the closure that the agent workspace ships"
+value = "The agent layer may not open node projections: that rule is about what the agent workspace ships. The shipped closure is every package that a member of the workspace reaches through ordinary and build dependency edges. A listed crate inside that closure is refused as before, and the list does not shrink. A test target of the workspace may link the platform packages that produce what the agent consumes, because a consumer case asserts against the real producer (decision 3046); a listed crate that only such a development edge reaches is not a refusal. The script computes the shipped closure from the resolve graph of the cargo metadata and names the crate and one path to it when it refuses. Its license rule and its unsafe rule keep covering every package and every source file. The ban list of services/agent/deny.toml admits rusqlite only under layerx-indexer and libsqlite3-sys only under rusqlite, so any other route to them stays refused by the audit. Task 22.39.393 owns the script, the ban list and the cases of the script (decisions 3130 and 3211). Open owner point: the policy binds the shipped closure (in force), or the cases that need the real projection move to a workspace of their own under services/agent/tests and the agent workspace carries no listed crate in any target."
+basis = "Gotcha 4246, decisions 3046, 3052, 3130, 3183 and 3211."
+affects = ["22.39.393", "22.39.211"]
+
+[decision.3316]
+title = "The launchpad launches a virtual chain together with its token in one call"
+value = "The launchpad at 0x0000000000000000000000000000000000001017 gains launchChain(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps), payable, which returns the token, the pool, the number of the fee right, the registry number of the chain and its chain id, and a variant with a permit that mirrors createMarketWithPermit. One state transition creates the market for the caller with the charges of createMarket, creates the chain record through the keeper of the chain registry with the value of the call as bond and creation fee, names as operator of the chain a revenue account that the module derives from the registry number and that no key controls, writes the record that binds chain, pool, token and fee right, sets the home chain of the market to the new chain and emits ChainLaunched. A refusal of any part reverts all of it. The holder of the fee right of the launch market may pause, resume and retire the launched chain through the launchpad; on retirement the returned bond is paid to that holder; the operator of a launched chain never changes, and the governance pause stays with the authority of the registry. The call createChain at 0x000000000000000000000000000000000000101E keeps its behaviour, and a chain created there has no launch record. The records live under new prefixes of the launchpad store, are carried by genesis export and import, and need no migration: an absent record reads as the root network. Gas of every chain stays PAX and consensus is unchanged (decision 2268). The series is tasks 22.40.1 to 22.40.18 with requirements 22400.1 to 22400.6, and the release report 22.39.182 requires its closing task."
+basis = "Gotcha 4247, decisions 2268 and 3046."
+affects = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17", "22.40.18", "22.39.182"]
+
+[decision.3317]
+title = "The operator share of a launched chain is paid to the holders of its token by epoch"
+value = "The operator share of the base fees of a launched chain is paid at the end of each block to the revenue account of that chain, as the registry pays every operator. openChainRevenueEpoch(uint32 chain) may be called by anyone once 3600 seconds of block time have passed since the previous epoch of that chain; it refuses when the PAX balance of the revenue account is zero or the eligible supply is zero. It opens the next epoch with the whole PAX balance as epoch amount, the previous block as snapshot block and the eligible supply of the token by the rule of the airdrop epochs of the launchpad: the past total supply less the past balances of the pool and of the burn address. claimChainRevenue(uint32 chain, uint64 epoch) pays the caller the epoch amount times its past balance divided by the eligible supply, once, and the residue of the rounding goes to the last claim as in the airdrop epochs. A batch form claims several epochs. Coins of another denomination found in the revenue account when an epoch opens go to the launchpad treasury. Epochs stay claimable after the chain retires. The trading charges of the market in the quote asset keep following its fee strategy."
+basis = "Gotcha 4247, decision 3316."
+affects = ["22.40.1", "22.40.2", "22.40.5", "22.40.7", "22.40.8", "22.40.14", "22.40.17"]
+
+[decision.3318]
+title = "A market trades inside its home chain"
+value = "Every market records a home chain: the chain of the transaction that created it, and for a market created by launchChain the launched chain. Zero is the root network. The calls buy and sell, the pool swap calls and each leg of swapTokenForToken on a market with a nonzero home chain are accepted only in a transaction whose chain is the home chain and are refused with the error WrongChain elsewhere. Reads and quotes are served on every chain. A market with home chain zero keeps its present behaviour on every chain. The chain of a call is the one the ante handler placed in the context of the transaction. A client sends a trade of such a market with chain id 125000000 plus the registry number through the node path of that chain."
+basis = "Gotcha 4247, decisions 2268 and 3316."
+affects = ["22.40.1", "22.40.2", "22.40.4", "22.40.7", "22.40.8", "22.40.14", "22.40.16", "22.40.17"]
+
+[decision.3319]
+title = "The verification of task 22.39.117 covers the shared packages and the launchpad modules through trading charts"
+value = "The verification of task 22.39.117 runs the tests of the shared packages and of the modules api, indexer, pnl-tracker, ranking-algo, the launchpad statistics module and trading-charts, and the build, vet and format checks of every module. The tests of the remaining modules run in task 22.39.170, which requires task 22.39.117 and runs the whole ci target of the launchpad Makefile."
+basis = "Decisions 3130 and 3211."
+affects = ["22.39.117", "22.39.170"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42654,6 +42690,186 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.40.18]
+title = "Close the chain launch series: interface rows served, documents cross-checked, reconcile clean"
+reqs = ["22400.6", "22998.1"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/programme/interfaces_reconcile.py", "tools/qualification/audit_repairs", "spec/layerx-merge/contracts"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_40_18.py"
+do_1 = "do_1 Run spec/layerx-merge/programme/interfaces_reconcile.py over the tree and update every interface.22.chainlaunch row of spec/layerx-merge/interfaces.kvx from status new to served with its real path, line, signature and callers; bring spec/layerx-merge/contracts/chain-launchpad.md in line with the served declarations."
+symbols = []
+
+[capability.22.40.17]
+title = "Run the chain launch journey on an isolated chain"
+reqs = ["22400.6", "22998.1"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/program_market_attestation.py", "modules/launchpad/keeper", "precompiles/launchpad"]
+tests = []
+verification_contract = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/chain_launch_journey.py || { tail -n 150 $d/*/native.log; exit 1; }"
+do_1 = "do_1 Write tools/qualification/paxeer-x/chain_launch_journey.py on the fixture tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py, with the build arguments and the evidence directory convention of tools/qualification/paxeer-x/program_market_attestation.py. On the isolated chain of the fixture it sends real transactions through the JSON-RPC of a node: launchChain with value; reads of launchedChain, getChain and homeChainOf; a buy signed with the chain id of the launched chain through the path of that chain, accepted; the same buy with chain id 125, refused with WrongChain; chain transactions over enough blocks that the operator share reaches the revenue account; openChainRevenueEpoch after the interval, by the block time control the fixture offers or by waiting; two holders claim and the sum equals the epoch amount; the holder of the fee right pauses, resumes and retires the chain and receives the bond."
+symbols = []
+
+[capability.22.40.16]
+title = "Show launched chains and trade on the home chain in the launchpad mobile application"
+reqs = ["22400.5", "22998.1"]
+touches = ["apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/src/screens/portfolio.tsx", "apps/launchpad/mobile/src/contracts.ts", "apps/launchpad/mobile/src/runtime", "apps/launchpad/mobile/test/vitest"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/chain-launch.test.ts"
+do_1 = "do_1 The token screen (apps/launchpad/mobile/src/screens/token.tsx) shows for a token of a launched chain the chain name, registry number, chain id and status from GET /v2/chains/ID of the launchpad API, and the revenue epochs with the claimable amount of the wallet. A trade of such a token is signed with the chain id of the home chain and sent through the node path of that chain; a token of the root network keeps its present path. Add the functions of the launchpad address that the screens call to apps/launchpad/mobile/src/contracts.ts from precompiles/launchpad/abi.json in the way the file takes the other functions."
+symbols = []
+
+[capability.22.40.15]
+title = "Add the launched chain reads to the launchpad API client"
+reqs = ["22400.5", "22998.1"]
+touches = ["sdk/launchpad/packages/sdk/src/index.ts", "sdk/launchpad/packages/sdk/src/served-routes.ts", "sdk/launchpad/packages/sdk/src/transport.ts", "sdk/launchpad/packages/sdk/src/validate.ts", "sdk/launchpad/packages/sdk/README.md", "sdk/launchpad/packages/sdk/test"]
+tests = []
+verification_contract = "pnpm --dir sdk/launchpad/packages/sdk exec node --test test/chains.test.mjs test/served-routes.test.mjs"
+do_1 = "do_1 Add sdk/launchpad/packages/sdk/src/chains.ts to the package: three typed read operations over the transport of the package for GET /v2/chains, GET /v2/chains/ID and GET /v2/chains/ID/revenue, each with a validator of its response, and the field homeChain on the pool detail type where the package types it. Export them from index.ts and list the three routes as served in served-routes.ts. The generated files of the package are not edited by hand."
+symbols = []
+
+[capability.22.40.14]
+title = "Trade a chain market on its home chain and claim chain revenue in the launchpad web application"
+reqs = ["22400.2", "22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/trade/home-chain.test.ts src/widgets/holder-rewards/chain-revenue.test.tsx"
+do_1 = "do_1 Decision 3318. Add apps/launchpad/web/src/widgets/trade/home-chain.ts: it reads homeChainOf(pool) at the launchpad address and gives the chain id (125 for zero, 125000000 plus the registry number otherwise) and the node path of that chain. Before a buy, a sell or a swap of a market with a nonzero home chain the trade widgets (apps/launchpad/web/src/widgets/trade, apps/launchpad/web/src/widgets/swap) ask the wallet to switch to that chain and, when the wallet does not know it, to add it with the parameters the ready panel of the chain launch uses; the transaction is signed with that chain id and sent through the node path of the chain. A market of the root network keeps its present path. A refusal WrongChain is shown as the instruction to switch, not as a generic failure."
+symbols = []
+
+[capability.22.40.13]
+title = "Serve launched chains and their revenue from the launchpad API"
+reqs = ["22400.5", "22998.1"]
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/app", "services/launchpad/api/migrations"]
+tests = []
+verification_contract = "cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run 'TestChains|TestPoolDetailCarriesHomeChain|Frozen'"
+do_1 = "do_1 Add services/launchpad/api/internal/rest/chains.go with GET /v2/chains (a page of launched chains, newest first, with the cursor rule of the other v2 lists), GET /v2/chains/ID (one launched chain by registry number, 404 with the error body of the API when there is none) and GET /v2/chains/ID/revenue (its epochs, newest first, and with the query holder the claims of that holder). The rows come from the tables of task 22.40.9 through the store layer in the way pool_reads.go reads pools. Field names are the names of the ABI: chain, chainId, pool, token, nftId, creator, blockNumber, status, epoch, epochAmount, snapshotBlock, eligibleSupply; amounts are decimal strings."
+symbols = []
+
+[capability.22.40.12]
+title = "Document the chain launch for users and integrators"
+reqs = ["22400.6", "22998.1"]
+touches = ["docs/wiki/VirtualChains.md", "docs/launchpad", "spec/layerx-merge/programme/tests/test_virtual_chains_docs.py", "spec/layerx-merge/contracts"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_chain_launch_docs.py spec/layerx-merge/programme/tests/test_virtual_chains_docs.py"
+do_1 = "do_1 Write docs/launchpad/chain-launch.md: what a launch creates, the one transaction and its value, the home chain rule with the chain id and node path a wallet uses to trade, how the fee share becomes revenue epochs and how a holder claims, what the holder of the fee right controls, and the full declarations of the functions, events and errors of the chain launch copied from precompiles/launchpad/Launchpad.sol. State plainly that a chain shares the state and the validators of the network and is a namespace for identity, fees and block space."
+symbols = []
+
+[capability.22.40.11]
+title = "Show the launch asset and the revenue epochs of a chain in the explorer"
+reqs = ["22400.5", "22998.1"]
+touches = ["apps/explorer/ui/paxeerX/chains/ChainDetail.tsx", "apps/explorer/ui/paxeerX/chains/detail.ts", "apps/explorer/ui/paxeerX/chains/detail.spec.ts", "apps/explorer/ui/paxeerX/chains/model.ts", "apps/explorer/ui/paxeerX/chains/model.spec.ts", "apps/explorer/ui/paxeerX/chains/ChainsList.tsx"]
+tests = []
+verification_contract = "yarn --cwd apps/explorer vitest run ui/paxeerX/chains/launch.spec.ts ui/paxeerX/chains/detail.spec.ts ui/paxeerX/chains/model.spec.ts"
+do_1 = "do_1 The chain page of the explorer (apps/explorer/ui/paxeerX/chains/ChainDetail.tsx, detail.ts) shows a registry record. Add apps/explorer/ui/paxeerX/chains/launch.ts: it reads launchedChain(chain) and the last revenue epoch at the launchpad address through the read path detail.ts uses for the registry, and maps them to a view model with token, pool, fee right, home chain, last epoch number, epoch amount in PAX and snapshot block. A chain without a launch record yields no launch section and no error."
+symbols = []
+
+[capability.22.40.10]
+title = "Launch a chain and its token in one flow of the launchpad web application"
+reqs = ["22400.5", "22998.1"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
+tests = []
+verification_contract = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain src/widgets/create"
+do_1 = "do_1 Decision 3316. The wizard at /create/chain creates a chain through createChain of the registry (apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts:115) and the token wizard creates a market apart from it. Merge them: the flow asks for the token name, symbol and fee strategy with the fields and rules of the token wizard (apps/launchpad/web/src/widgets/create), the chain name with the rule of chain-domain.ts, and the size tier; the review shows bond plus creation fee read from params of the registry and the charges of the market; one wallet transaction calls launchChain at the launchpad address on chain 125 with that value. Take the ABI entries from precompiles/launchpad/abi.json in the way the web application takes the ABI of that address."
+symbols = []
+
+[capability.22.40.9]
+title = "Decode and store the chain launch events in the launchpad indexer"
+reqs = ["22400.5", "22998.1"]
+touches = ["services/launchpad/indexer/internal/decode", "services/launchpad/indexer/internal/processor", "services/launchpad/indexer/internal/store", "services/launchpad/indexer/internal/migrate", "services/launchpad/indexer/internal/db"]
+tests = []
+verification_contract = "cd services/launchpad/indexer && go test -count=1 ./internal/decode/ && go test -count=1 -timeout 20m ./internal/processor/ -run '^TestChainLaunch'"
+do_1 = "do_1 The launchpad indexer decodes the events of the launchpad address through the registry of services/launchpad/indexer/internal/decode (registry.go names MarketCreated and its emitter). Add ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired with the precompile as emitter, decoded from the event definitions of precompiles/launchpad/abi.json in the way the indexer takes the other events of that address; the field names of the decoded rows are the names of the ABI."
+symbols = []
+
+[capability.22.40.8]
+title = "Prove in one block of a node that a chain launches with its token and trades on itself"
+reqs = ["22400.1", "22998.1"]
+touches = ["node/layerxchains_block_test.go", "modules/launchpad/keeper", "precompiles/launchpad"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./node/ -run '^(TestOneBlockLaunchesChainAndToken|TestLaunchedChainMarketTradesOnlyInItsChain|TestLaunchedChainRevenueReachesHolders|TestChainLaunchSurvivesRestart|TestLaunchedChainControlInABlock)$'"
+do_1 = "do_1 Read node/layerxchains_block_test.go and reuse its node harness. Write node/chainlaunch_block_test.go. TestOneBlockLaunchesChainAndToken: a root transaction calls launchChain with value; in the same block the chain record is active, its operator is the revenue account, launchedChain returns token, pool and fee right, and a second launch with the same chain name is refused and leaves no market. TestLaunchedChainMarketTradesOnlyInItsChain: a buy signed with the chain id of the launched chain is accepted, the same buy signed with chain id 125 and with the chain id of a second chain is refused with WrongChain, and a market of the root network is bought on all three."
+symbols = []
+
+[capability.22.40.7]
+title = "Serve the chain launch at the launchpad address"
+reqs = ["22400.1", "22998.1"]
+touches = ["precompiles/launchpad/Launchpad.sol", "precompiles/launchpad/abi.json", "precompiles/launchpad/launchpad.go", "precompiles/launchpad/run.go", "precompiles/launchpad/gas.go", "precompiles/launchpad/events.go", "precompiles/launchpad/errors.go", "precompiles/launchpad/abi", "precompiles/launchpad/testdata", "spec/layerx-merge/contracts"]
+tests = []
+verification_contract = "go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+do_1 = "do_1 Decisions 3316 to 3318 and the contract spec/layerx-merge/contracts/chain-launchpad.md. Add to precompiles/launchpad/Launchpad.sol and precompiles/launchpad/abi.json the functions launchChain, launchChainWithPermit, openChainRevenueEpoch, claimChainRevenue, claimChainRevenueBatch, pauseLaunchedChain, resumeLaunchedChain, retireLaunchedChain and the reads launchedChain, launchedChainOfPool, homeChainOf, chainRevenueEpoch and chainRevenueClaimable, the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired and the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed, with the declarations of the contract. Where the document and the keeper differ, the keeper governs and the document is corrected in this task."
+symbols = []
+
+[capability.22.40.6]
+title = "Let the holder of the fee right pause, resume and retire the launched chain"
+reqs = ["22400.4", "22998.1"]
+touches = ["modules/launchpad/keeper/feerights.go", "modules/launchpad/types/expected_keepers.go", "modules/layerxchains/keeper/keeper.go"]
+tests = []
+verification_contract = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestLaunchedChainControl'"
+do_1 = "do_1 Decision 3316. Add modules/launchpad/keeper/chaincontrol.go with PauseLaunchedChain, ResumeLaunchedChain and RetireLaunchedChain(chain, caller): each refuses NotLaunchedChain without a launch record and NotFeeRightHolder unless the caller is the owner of the fee right of the launch market (FeeRightOwnerOf, modules/launchpad/keeper/feerights.go), then calls Pause, Resume or Retire of the chain registry with the revenue account as operator (modules/layerxchains/keeper/keeper.go:258, :270 and :314). The module never calls SetOperator. A governance pause stays with the authority of the registry, and a resume of such a chain is refused by the registry as it is today."
+symbols = []
+
+[capability.22.40.5]
+title = "Pay the operator share of a launched chain to the holders of its token by epoch"
+reqs = ["22400.3", "22998.1"]
+touches = ["modules/launchpad/keeper/airdrop.go", "modules/launchpad/keeper/custody.go"]
+tests = []
+verification_contract = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestChainRevenue' && go test -count=1 ./modules/launchpad/keeper/ -run 'Airdrop'"
+do_1 = "do_1 Decision 3317. Add modules/launchpad/keeper/chainrevenue.go. OpenChainRevenueEpoch(chain) refuses NotLaunchedChain for a chain without a launch record, EpochTooEarly before 3600 seconds of block time since the previous epoch of the chain, and NothingToDistribute when the PAX balance of the revenue account or the eligible supply is zero. It moves the whole PAX balance of the revenue account into the custody of the module under the epoch, sends coins of every other denomination found there to the launchpad treasury, and writes the epoch with the previous block as snapshot block and the eligible supply computed by the rule TriggerAirdrop uses (modules/launchpad/keeper/airdrop.go:167): reuse that computation in place, do not copy it."
+symbols = []
+
+[capability.22.40.4]
+title = "Bind the trades of a market to its home chain"
+reqs = ["22400.2", "22998.1"]
+touches = ["modules/launchpad/keeper/swap.go", "modules/launchpad/keeper/market.go", "modules/layerxchains/types/context.go", "modules/evm/ante/sig.go"]
+tests = []
+verification_contract = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestHomeChain'"
+do_1 = "do_1 Decision 3318. A market created by CreateMarket records as home chain the chain of the transaction (DomainFrom of modules/layerxchains/types/context.go; none means zero, the root network); LaunchChain already sets it. Add modules/launchpad/keeper/homechain.go with the check: a market with a nonzero home chain accepts a state change of its pool only when the chain of the context equals the home chain and refuses with WrongChain otherwise; a market with home chain zero accepts on every chain. Call the check at the single entry through which buy, sell, the pool swap calls and each leg of the token for token swap pass (Swap, modules/launchpad/keeper/swap.go:247). Reads and quotes do not call it."
+symbols = []
+
+[capability.22.40.3]
+title = "Launch a chain and its market in one state transition of the launchpad keeper"
+reqs = ["22400.1", "22998.1"]
+touches = ["modules/launchpad/keeper/market.go", "modules/launchpad/keeper/keeper.go", "modules/launchpad/types/expected_keepers.go", "modules/layerxchains/keeper/keeper.go", "node/app.go"]
+tests = []
+verification_contract = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestLaunchChain' && go test -count=1 ./modules/layerxchains/keeper/..."
+do_1 = "do_1 Decision 3316. Add modules/launchpad/keeper/chainlaunch.go with LaunchChain: it takes the arguments of CreateMarket (modules/launchpad/keeper/market.go:127) and the chain name, gas allowance, byte allowance, fee share and value. It creates the market for the creator with the same charges and events as CreateMarket, creates the chain through the keeper of the chain registry (Create, modules/layerxchains/keeper/keeper.go:171) with the revenue account of the new chain as operator and the value as bond and creation fee, writes the LaunchedChain record and the index by pool, sets the home chain of the market to the new chain and emits ChainLaunched. All of it happens on one cached context that is written only when every part succeeded, so a refusal of the chain part leaves no market and a refusal of the market part leaves no chain."
+symbols = []
+
+[capability.22.40.2]
+title = "Add the records of the chain launch to the launchpad module"
+reqs = ["22400.1", "22998.1"]
+touches = ["modules/launchpad/types/keys.go", "modules/launchpad/types/errors.go", "modules/launchpad/types/events.go", "modules/launchpad/types/genesis.go", "modules/launchpad/keeper/genesis.go"]
+tests = []
+verification_contract = "go test -count=1 ./modules/launchpad/types/... && go test -count=1 ./modules/launchpad/keeper/ -run '^TestChainLaunch(Store|Genesis)'"
+do_1 = "do_1 Decision 3316. In modules/launchpad/types/ add chainlaunch.go with the record LaunchedChain (registry number, chain id, pool, token, number of the fee right, creator, block of the launch), the record of a revenue epoch (chain, epoch number, amount, snapshot block, eligible supply, claimed total, opening time) and the function that derives the revenue account of a chain from the module name and the registry number, distinct from every pool, token and custody account of the module. Add the key prefixes to keys.go after the last prefix in use, the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed to errors.go and the event names ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired to events.go."
+symbols = []
+
+[capability.22.40.1]
+title = "Write the contract of the chain launchpad and its planned interface rows"
+reqs = ["22400.1", "22998.1"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/README.md", "spec/layerx-merge/contracts/virtual-chains.md", "precompiles/launchpad/Launchpad.sol"]
+tests = []
+verification_contract = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_chain_launchpad_contract.py"
+do_1 = "do_1 Decisions 3316, 3317 and 3318. Write spec/layerx-merge/contracts/chain-launchpad.md as the normative contract of the series: the address 0x0000000000000000000000000000000000001017; the full Solidity declarations of launchChain, launchChainWithPermit, openChainRevenueEpoch, claimChainRevenue, claimChainRevenueBatch, pauseLaunchedChain, resumeLaunchedChain, retireLaunchedChain and the reads launchedChain, launchedChainOfPool, homeChainOf, chainRevenueEpoch and chainRevenueClaimable; the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired, each with timestamp and blockNumber as its last two fields as the other events of the launchpad carry them; the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed; the derivation of the revenue account of a chain; the store records; the home chain rule; the epoch arithmetic with one worked example; and the routes GET /v2/chains, GET /v2/chains/ID and GET /v2/chains/ID/revenue of the launchpad API with their fields, where ID is the registry number. Read precompiles/launchpad/Launchpad.sol, modules/launchpad/keeper/airdrop.go and spec/layerx-merge/contracts/virtual-chains.md first and keep their names, widths and tuple orders. Add the document to spec/layerx-merge/contracts/README.md."
+symbols = []
+
+[capability.22.39.393]
+title = "Bind the agent dependency policy to the closure that the agent workspace ships"
+reqs = ["22998.1"]
+touches = ["services/agent/tools/dependency-policy.sh", "services/agent/deny.toml"]
+tests = []
+verification_contract = "test -s services/agent/tools/repair_22_39_393.kvx && sh services/agent/tools/dependency-policy.sh && python3 services/agent/tools/test_dependency_policy.py"
+do_1 = "do_1 Decision 3315, gotcha 4246. services/agent/tools/dependency-policy.sh refuses when the name of any package of the cargo metadata is on its list (:11 to :15). The metadata holds the packages of development dependencies, and services/agent/Cargo.lock carries rusqlite and libsqlite3-sys through layerx-indexer, which the host package and the client library reach only through development dependencies. Change the ban part of the script: from the resolve graph of the metadata compute the packages that the members of the workspace reach through ordinary and build edges, and refuse when a listed crate is among them, with a message that names the crate and one path from a member to it. Keep the list as it is, and keep the license part and the unsafe part over everything they cover now."
+symbols = []
+
+[capability.22.39.392]
+title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
+reqs = ["22998.1"]
+touches = ["cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+verification_contract = "test -s services/agent/repair_22_39_392.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done"
+do_1 = "do_1 Decision 3314, gotcha 4245. services/agent/crates/layerx-client/Cargo.toml:17 lists layerx-program-sdk as an ordinary dependency. The sixteen lock files that the paths name carry the package layerx-client and do not list it. For each, run cargo fetch on the manifest beside the lock file without the locked option, so that cargo adds the missing entries and keeps every version already locked."
+symbols = []
 
 [capability.22.39.391]
 title = "Strip the wording of the verification tool from the record of the block-end transition task"
@@ -162670,6 +162886,155 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.40.16]
+title = "Show launched chains and trade on the home chain in the launchpad mobile application"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.40.13"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.16"]
+interfaces = []
+do_1 = "do_1 The token screen (apps/launchpad/mobile/src/screens/token.tsx) shows for a token of a launched chain the chain name, registry number, chain id and status from GET /v2/chains/ID of the launchpad API, and the revenue epochs with the claimable amount of the wallet. A trade of such a token is signed with the chain id of the home chain and sent through the node path of that chain; a token of the root network keeps its present path. Add the functions of the launchpad address that the screens call to apps/launchpad/mobile/src/contracts.ts from precompiles/launchpad/abi.json in the way the file takes the other functions."
+do_2 = "do_2 The portfolio screen lists claimable chain revenue per token with a claim action (claimChainRevenueBatch). Launching a chain stays in the web application; the mobile application links to it."
+do_3 = "do_3 Write apps/launchpad/mobile/test/vitest/chain-launch.test.ts: the chain id and path chosen for zero and nonzero home chains, the claim call and its arguments, the names asserted against precompiles/launchpad/abi.json read from the tree, and a response of the API validated with the type the screens use. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/src/screens/portfolio.tsx", "apps/launchpad/mobile/src/contracts.ts", "apps/launchpad/mobile/src/runtime", "apps/launchpad/mobile/test/vitest"]
+tests = []
+planned_paths = ["apps/launchpad/mobile/test/vitest/chain-launch.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/chain-launch.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.15]
+title = "Add the launched chain reads to the launchpad API client"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.40.13"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.15"]
+interfaces = []
+do_1 = "do_1 Add sdk/launchpad/packages/sdk/src/chains.ts to the package: three typed read operations over the transport of the package for GET /v2/chains, GET /v2/chains/ID and GET /v2/chains/ID/revenue, each with a validator of its response, and the field homeChain on the pool detail type where the package types it. Export them from index.ts and list the three routes as served in served-routes.ts. The generated files of the package are not edited by hand."
+do_2 = "do_2 Add to the README of the package a short section with one example per operation. Write sdk/launchpad/packages/sdk/test/chains.test.mjs: each operation requests its path and validates a sample response taken from the cases of task 22.40.13; a response without chainId is refused by the validator; the three routes are reported served. The existing test of the served routes stays green. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk/src/index.ts", "sdk/launchpad/packages/sdk/src/served-routes.ts", "sdk/launchpad/packages/sdk/src/transport.ts", "sdk/launchpad/packages/sdk/src/validate.ts", "sdk/launchpad/packages/sdk/README.md", "sdk/launchpad/packages/sdk/test"]
+tests = []
+planned_paths = ["sdk/launchpad/packages/sdk/src/chains.ts", "sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/launchpad/packages/sdk run build"
+verify_cmd = "pnpm --dir sdk/launchpad/packages/sdk exec node --test test/chains.test.mjs test/served-routes.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.14]
+title = "Trade a chain market on its home chain and claim chain revenue in the launchpad web application"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.10"]
+reqs = ["22400.2", "22998.1"]
+capabilities = ["22.40.14"]
+interfaces = []
+do_1 = "do_1 Decision 3318. Add apps/launchpad/web/src/widgets/trade/home-chain.ts: it reads homeChainOf(pool) at the launchpad address and gives the chain id (125 for zero, 125000000 plus the registry number otherwise) and the node path of that chain. Before a buy, a sell or a swap of a market with a nonzero home chain the trade widgets (apps/launchpad/web/src/widgets/trade, apps/launchpad/web/src/widgets/swap) ask the wallet to switch to that chain and, when the wallet does not know it, to add it with the parameters the ready panel of the chain launch uses; the transaction is signed with that chain id and sent through the node path of the chain. A market of the root network keeps its present path. A refusal WrongChain is shown as the instruction to switch, not as a generic failure."
+do_2 = "do_2 Decision 3317. Add apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx: for a token of a launched chain it lists the revenue epochs with the claimable amount of the connected holder from chainRevenueClaimable, claims one epoch or all open ones through claimChainRevenue and claimChainRevenueBatch on the chain the wallet is on, offers the call openChainRevenueEpoch when the next epoch may open, and shows a claimed epoch as claimed after the receipt. Place it where the token page shows holder rewards."
+do_3 = "do_3 Write home-chain.test.ts and chain-revenue.test.tsx beside the files: the chain id and path for zero and nonzero home chains, the switch and add requests in order, a root market sending no switch, the claim calls with their arguments, and the function names asserted against precompiles/launchpad/abi.json read from the tree. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trade/home-chain.ts", "apps/launchpad/web/src/widgets/trade/home-chain.test.ts", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.test.tsx"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/trade/home-chain.test.ts src/widgets/holder-rewards/chain-revenue.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.11]
+title = "Show the launch asset and the revenue epochs of a chain in the explorer"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.11"]
+interfaces = []
+do_1 = "do_1 The chain page of the explorer (apps/explorer/ui/paxeerX/chains/ChainDetail.tsx, detail.ts) shows a registry record. Add apps/explorer/ui/paxeerX/chains/launch.ts: it reads launchedChain(chain) and the last revenue epoch at the launchpad address through the read path detail.ts uses for the registry, and maps them to a view model with token, pool, fee right, home chain, last epoch number, epoch amount in PAX and snapshot block. A chain without a launch record yields no launch section and no error."
+do_2 = "do_2 ChainDetail.tsx shows the section Launch asset with links to the token and pool pages and the section Revenue epochs; the chains list (model.ts, ChainsList.tsx) marks a chain that has a launch asset with the token symbol. Both themes and the dense table style of the list are kept."
+do_3 = "do_3 Write apps/explorer/ui/paxeerX/chains/launch.spec.ts: the decoding of both reads against return data built from the entries of precompiles/launchpad/abi.json read from the tree, the empty case and the formatting of the amount. Keep detail.spec.ts and model.spec.ts green. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/paxeerX/chains/ChainDetail.tsx", "apps/explorer/ui/paxeerX/chains/detail.ts", "apps/explorer/ui/paxeerX/chains/detail.spec.ts", "apps/explorer/ui/paxeerX/chains/model.ts", "apps/explorer/ui/paxeerX/chains/model.spec.ts", "apps/explorer/ui/paxeerX/chains/ChainsList.tsx"]
+tests = []
+planned_paths = ["apps/explorer/ui/paxeerX/chains/launch.ts", "apps/explorer/ui/paxeerX/chains/launch.spec.ts"]
+build_cmd = "yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json"
+verify_cmd = "yarn --cwd apps/explorer vitest run ui/paxeerX/chains/launch.spec.ts ui/paxeerX/chains/detail.spec.ts ui/paxeerX/chains/model.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.10]
+title = "Launch a chain and its token in one flow of the launchpad web application"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.10"]
+interfaces = []
+do_1 = "do_1 Decision 3316. The wizard at /create/chain creates a chain through createChain of the registry (apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts:115) and the token wizard creates a market apart from it. Merge them: the flow asks for the token name, symbol and fee strategy with the fields and rules of the token wizard (apps/launchpad/web/src/widgets/create), the chain name with the rule of chain-domain.ts, and the size tier; the review shows bond plus creation fee read from params of the registry and the charges of the market; one wallet transaction calls launchChain at the launchpad address on chain 125 with that value. Take the ABI entries from precompiles/launchpad/abi.json in the way the web application takes the ABI of that address."
+do_2 = "do_2 After the receipt decode ChainLaunched and read back launchedChain and getChain; the ready panel shows the token, the pool, the registry number, the chain id, the node path of the chain, Add to wallet, the explorer link and a link to the trading page of the token. A receipt whose event or read-back differs from the reviewed launch is shown as a failed launch with the transaction hash, as the adapter does today for createChain. The stored draft of chain-storage.ts gains the token fields with a version step that discards older drafts. The entry Launch a chain of create-wizard.tsx leads to the merged flow, and the wizard keeps no path that creates a chain without a token."
+do_3 = "do_3 Update the tests beside the files in place and add apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts: the call is launchChain with the eight arguments in the order of the ABI and the value of bond plus creation fee; the function and event names are asserted against precompiles/launchpad/abi.json read from the tree; a refused name, a wrong network and a receipt without ChainLaunched are each handled. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain src/widgets/create"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.378]
 title = "Refresh the lock of the wallet workspace for the manifest of the perps application"
 status = "done"
@@ -185632,6 +185997,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.40.17]
+title = "Run the chain launch journey on an isolated chain"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["22.40.8", "22.40.13"]
+reqs = ["22400.6", "22998.1"]
+capabilities = ["22.40.17"]
+interfaces = []
+do_1 = "do_1 Write tools/qualification/paxeer-x/chain_launch_journey.py on the fixture tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py, with the build arguments and the evidence directory convention of tools/qualification/paxeer-x/program_market_attestation.py. On the isolated chain of the fixture it sends real transactions through the JSON-RPC of a node: launchChain with value; reads of launchedChain, getChain and homeChainOf; a buy signed with the chain id of the launched chain through the path of that chain, accepted; the same buy with chain id 125, refused with WrongChain; chain transactions over enough blocks that the operator share reaches the revenue account; openChainRevenueEpoch after the interval, by the block time control the fixture offers or by waiting; two holders claim and the sum equals the epoch amount; the holder of the fee right pauses, resumes and retires the chain and receives the bond."
+do_2 = "do_2 Each step asserts on receipts, logs of the transaction and reads. The driver exits 0 only when every step passed and writes a result file with the transaction hashes and the values read. A defect of the product that the journey exposes is repaired in place by the smallest change when it lies in modules/launchpad or precompiles/launchpad, and is otherwise named in the final message with the step. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/program_market_attestation.py", "modules/launchpad/keeper", "precompiles/launchpad"]
+tests = []
+planned_paths = ["tools/qualification/paxeer-x/chain_launch_journey.py"]
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && python3 tools/qualification/paxeer-x/chain_launch_journey.py --begin-build && python3 tools/qualification/paxeer-x/chain_launch_journey.py --build"
+verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/chain_launch_journey.py || { tail -n 150 $d/*/native.log; exit 1; }"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 420
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.375]
 title = "Accept a further deal that names the bids of the earlier deal of its ask"
 status = "done"
@@ -195044,12 +195438,74 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
-[task.22.39.390]
-title = "Build the call terms of a value operation of the AI market in the client library"
-status = "pending"
+[task.22.39.393]
+title = "Bind the agent dependency policy to the closure that the agent workspace ships"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.386", "22.39.389"]
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.393"]
+interfaces = []
+do_1 = "do_1 Decision 3315, gotcha 4246. services/agent/tools/dependency-policy.sh refuses when the name of any package of the cargo metadata is on its list (:11 to :15). The metadata holds the packages of development dependencies, and services/agent/Cargo.lock carries rusqlite and libsqlite3-sys through layerx-indexer, which the host package and the client library reach only through development dependencies. Change the ban part of the script: from the resolve graph of the metadata compute the packages that the members of the workspace reach through ordinary and build edges, and refuse when a listed crate is among them, with a message that names the crate and one path from a member to it. Keep the list as it is, and keep the license part and the unsafe part over everything they cover now."
+do_2 = "do_2 The script takes an optional argument, the path of a metadata file, as services/platform/tools/dependency-policy.sh does (:9 to :25); without an argument it reads the metadata of services/agent/Cargo.toml under the locked option as now. Write services/agent/tools/test_dependency_policy.py with the unittest module of the standard library, run as a program, with cases that hand the script a small metadata file: a listed crate reached only through a development edge passes the ban part, a listed crate reached through an ordinary edge is refused, a listed crate reached through a build edge is refused, a listed crate reached through an ordinary edge of a package that a member reaches through an ordinary edge is refused, and a listed crate below a development edge of a package that is not a member is not counted. One more case runs the script without an argument on the repository and expects exit 0."
+do_3 = "do_3 In services/agent/deny.toml the entries of rusqlite and libsqlite3-sys (:31 and :32) admit one direct parent each through the wrappers field: layerx-indexer for rusqlite and rusqlite for libsqlite3-sys. Keep the reasons and every other entry. Where the cargo-deny executable is present run cargo deny --manifest-path services/agent/Cargo.toml check bans once outside the counted gates. A refusal of another cause is not repaired here: record its first message."
+do_4 = "do_4 Run the whole script on the repository. A refusal of its license part or its unsafe part whose cause lies outside the paths is not repaired here: record the message and the file and say so in the final message. Write services/agent/tools/repair_22_39_393.kvx under decision 3313 with the rule of the closure, the cases, the result of the script on the repository and the result of the bans check. Decisions 3286 and 3287: run every part of the verification outside the counted gates until clean, then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/tools/dependency-policy.sh", "services/agent/deny.toml"]
+tests = []
+planned_paths = ["services/agent/tools/test_dependency_policy.py", "services/agent/tools/repair_22_39_393.kvx"]
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml > /dev/null"
+verify_cmd = "test -s services/agent/tools/repair_22_39_393.kvx && sh services/agent/tools/dependency-policy.sh && python3 services/agent/tools/test_dependency_policy.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.392]
+title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.386"]
+reqs = ["22998.1"]
+capabilities = ["22.39.392"]
+interfaces = []
+do_1 = "do_1 Decision 3314, gotcha 4245. services/agent/crates/layerx-client/Cargo.toml:17 lists layerx-program-sdk as an ordinary dependency. The sixteen lock files that the paths name carry the package layerx-client and do not list it. For each, run cargo fetch on the manifest beside the lock file without the locked option, so that cargo adds the missing entries and keeps every version already locked."
+do_2 = "do_2 Read the change of each lock file with git diff under the text option. The change adds the dependency line to the block of layerx-client and the packages that the new dependency needs and that the file did not hold. Where the version of a package already locked changed, restore the file and refresh it again so that no locked version changes. Where a manifest is refused for another cause, change no manifest: record the manifest, the command and the first message."
+do_3 = "do_3 Search every Cargo.lock of the repository for a block of layerx-client without the line layerx-program-sdk. A file that the paths do not name is recorded with its path and is not changed. Write services/agent/repair_22_39_392.kvx with one line for each lock file and the names of the packages added, and the files that the search found. Decision 3313 holds for the record."
+do_4 = "do_4 Decisions 3286 and 3287: run every part of the verification outside the counted gates until clean, then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+planned_paths = ["services/agent/repair_22_39_392.kvx"]
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml > /dev/null"
+verify_cmd = "test -s services/agent/repair_22_39_392.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.390]
+title = "Build the call terms of a value operation of the AI market in the client library"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.386", "22.39.389", "22.39.392"]
 reqs = ["22998.1"]
 capabilities = ["22.39.390"]
 interfaces = []
@@ -195058,11 +195514,11 @@ do_2 = "do_2 Search the client library, the daemon and every other product calle
 do_3 = "do_3 Cases in services/agent/crates/layerx-client/tests/market_value_call_terms.rs. The bytes of a deposit decode with CapabilitySet::decode_canonical of the runtime to the three mutation capabilities and one Transfer402 grant with the given asset, account and ceiling. The bytes of a payment decode to the three mutation capabilities and one ProgramSpend grant with the given fields. Encoding the decoded grants again gives the same bytes. No output holds a BalanceView grant. An operation outside the set, a zero amount and a grant of the wrong direction are refused. Every value operation of the recorded set is covered by a case."
 do_4 = "do_4 Decisions 3286, 3287 and 3212: before the counted build compile every target of the build command and run the verification command outside the counted gates until clean, then run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock", "cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-client/tests/market_value_call_terms.rs", "services/agent/crates/layerx-client/repair_22_39_390.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
-verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
+verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -195074,6 +195530,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3314, gotcha 4245: this task makes layerx-programs-runtime an ordinary dependency of the client library, which changes the block of layerx-client in every lock file that carries it. After the change of Cargo.toml refresh the sixteen lock files that the paths now name, as task 22.39.392 did: cargo fetch on each manifest without the locked option, and no version of a package already locked changes. The verification runs cargo metadata under the locked option on each manifest. Name the refreshed files in the record of the task."
 
 [task.22.39.386]
 title = "Build the call terms of a market operation in the client library and use them in the agent daemon"
@@ -195200,7 +195657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.382]
 title = "Bring the unit cases of the Human runtime and program account fixture files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -195260,7 +195717,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.380]
 title = "Bring the unit cases of the program operation and protocol evidence files of the agent daemon under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.222"]
@@ -197997,7 +198454,7 @@ title = "Bring the agent workspace lint target to green under the workspace lint
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385"]
+requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385", "22.39.393"]
 reqs = ["22998.1"]
 capabilities = ["22.39.211"]
 interfaces = []
@@ -198024,6 +198481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue after tasks 22.39.215 to 22.39.229 land; gotcha 3749, decisions 3039 and 3053): the attempt-1 tree 227acaa1fe0d stands as the starting point (the eight repairs in layerx-types, the layerx-crypto repairs, the record). Merge main once every per-crate lint task is on it, run the lint target once as the verification states, and repair at the source only what the whole-workspace run still reports (a lint that appears only when the members are linted together), following the repair rules of decision 3053 with the same prohibitions. Record the count by crate at the start and the end of the attempt in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed repair cycles, record the remaining count by crate and stop the attempt."
 do_5 = "do_5 Gotcha 4225: at revision cb8c8ad4b426 the library of layerx-client reports 21 lint messages under the lints of the workspace with warnings denied, all in services/agent/crates/layerx-client/src/ai_market.rs (:110, :113, :116, :122, :132, :160, :212, :328, :332, :595, :610, :650, :714, :762, :2931, :3209, :3217, :3239, :3255, :3258 and :3312): fourteen functions that return a Result and have no Errors section in their documentation, four items that could carry the must_use attribute, one Ok around the question mark operator that is not needed, one if statement that can be collapsed and one implicit clone of a vector through to_vec. They came to main with the inference market series. Repair each at its source (decisions 3052 and 3053); no allowance."
 do_6 = "Attempt 3 (continue after tasks 22.39.380 to 22.39.385 land, gotcha 4234, decision 3305): the attempt-2 tree b8de14815ac5 stands for layerx-client src/ai_market.rs, layerx-crypto src/disclosure/call.rs and the record. The verification stopped at the test build of the library of layerx-agentd with 828 messages; tasks 22.39.380 to 22.39.385 repair them by file and the task now requires them. Rebase on main once the six tasks are on it. The five files of the library of the agent daemon that attempt 2 changed (approval/mod.rs, budget/program_lifecycle_settlement.rs, human_runtime.rs, ops/program.rs and policy/approval.rs) take the version of main at the rebase; a repair of attempt 2 that main does not hold is made again only when the lint still reports its message. The verification now passes the keep going option. Before the counted gates run the lint of the verification command and repair every message it still reports anywhere in services/agent/crates until it is clean (decision 3242), under the repair rules of decisions 3053 and 3230: no lint level change and no allow attribute at crate or module level. Extend the record with the count per package before and after. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 4 (continue after 22.39.393 lands, gotcha 4246, decision 3315): the attempt-3 tree 5f91a115b291 stands (the lint repairs of the workspace, the record). The lint of the workspace over all targets is clean. The verification stopped at the ban part of services/agent/tools/dependency-policy.sh on rusqlite and libsqlite3-sys, which only development dependencies of the host package and of the client library reach; task 22.39.393 binds that part to the shipped closure. Change nothing in the script, in services/agent/deny.toml and in the development dependencies here. On the new base run the three parts of the verification outside the counted gates until clean; a lint that the new base brings inside the paths is repaired at its source under decision 3053. Bring the record under decision 3313. Then run the build once and the verification once at the final revision."
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
@@ -226329,6 +226787,276 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.40.13]
+title = "Serve launched chains and their revenue from the launchpad API"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.9"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.13"]
+interfaces = []
+do_1 = "do_1 Add services/launchpad/api/internal/rest/chains.go with GET /v2/chains (a page of launched chains, newest first, with the cursor rule of the other v2 lists), GET /v2/chains/ID (one launched chain by registry number, 404 with the error body of the API when there is none) and GET /v2/chains/ID/revenue (its epochs, newest first, and with the query holder the claims of that holder). The rows come from the tables of task 22.40.9 through the store layer in the way pool_reads.go reads pools. Field names are the names of the ABI: chain, chainId, pool, token, nftId, creator, blockNumber, status, epoch, epochAmount, snapshotBlock, eligibleSupply; amounts are decimal strings."
+do_2 = "do_2 The pool detail of v2 gains homeChain, zero for a market of the root network. Add the routes and the field to the frozen response schema case (frozen_response_schema_test.go), each as an addition that removes and renames nothing."
+do_3 = "do_3 Write services/launchpad/api/internal/rest/chains_test.go with the cases TestChainsListPagesNewestFirst, TestChainsDetailAndNotFound, TestChainsRevenueWithAndWithoutHolder, TestChainsFieldNamesMatchTheAbi (against precompiles/launchpad/abi.json read from the tree) and TestPoolDetailCarriesHomeChain. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api/internal/rest", "services/launchpad/api/internal/store", "services/launchpad/api/internal/app", "services/launchpad/api/migrations"]
+tests = []
+planned_paths = ["services/launchpad/api/internal/rest/chains.go", "services/launchpad/api/internal/rest/chains_test.go"]
+build_cmd = "cd services/launchpad/api && go build ./... && go vet ./internal/rest/ ./internal/store/"
+verify_cmd = "cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/rest/ -run 'TestChains|TestPoolDetailCarriesHomeChain|Frozen'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.9]
+title = "Decode and store the chain launch events in the launchpad indexer"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.9"]
+interfaces = []
+do_1 = "do_1 The launchpad indexer decodes the events of the launchpad address through the registry of services/launchpad/indexer/internal/decode (registry.go names MarketCreated and its emitter). Add ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired with the precompile as emitter, decoded from the event definitions of precompiles/launchpad/abi.json in the way the indexer takes the other events of that address; the field names of the decoded rows are the names of the ABI."
+do_2 = "do_2 Store them: a table of launched chains (registry number, chain id, pool, token, fee right, creator, block, transaction, status, retired block), a table of revenue epochs (chain, epoch, amount, snapshot block, eligible supply, opened block) and a table of revenue claims (chain, epoch, holder, amount, block, transaction), with a migration in the way the indexer adds tables, unchanged by a replay of a block and correct under a reorganisation by the rule the processor applies to its other tables. A market row gains its home chain from ChainLaunched; other markets read zero."
+do_3 = "do_3 Write services/launchpad/indexer/internal/decode/chainlaunch_test.go (TestChainLaunchEventsDecodeWithTheNamesOfTheAbi asserts every field name against precompiles/launchpad/abi.json read from the tree; TestChainLaunchEventWithShortDataIsRefused) and services/launchpad/indexer/internal/processor/chainlaunch_test.go (TestChainLaunchRowsAreWrittenOnce, TestChainLaunchReplayOfABlockChangesNothing, TestChainLaunchRetirementUpdatesTheRow). The frozen layout cases of the decode package stay green; where one pins the list of event names, extend its expected list. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer/internal/decode", "services/launchpad/indexer/internal/processor", "services/launchpad/indexer/internal/store", "services/launchpad/indexer/internal/migrate", "services/launchpad/indexer/internal/db"]
+tests = []
+planned_paths = ["services/launchpad/indexer/internal/decode/chainlaunch_test.go", "services/launchpad/indexer/internal/processor/chainlaunch_test.go"]
+build_cmd = "cd services/launchpad/indexer && go build ./... && go vet ./internal/decode/ ./internal/processor/"
+verify_cmd = "cd services/launchpad/indexer && go test -count=1 ./internal/decode/ && go test -count=1 -timeout 20m ./internal/processor/ -run '^TestChainLaunch'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.8]
+title = "Prove in one block of a node that a chain launches with its token and trades on itself"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.1", "22998.1"]
+capabilities = ["22.40.8"]
+interfaces = []
+do_1 = "do_1 Read node/layerxchains_block_test.go and reuse its node harness. Write node/chainlaunch_block_test.go. TestOneBlockLaunchesChainAndToken: a root transaction calls launchChain with value; in the same block the chain record is active, its operator is the revenue account, launchedChain returns token, pool and fee right, and a second launch with the same chain name is refused and leaves no market. TestLaunchedChainMarketTradesOnlyInItsChain: a buy signed with the chain id of the launched chain is accepted, the same buy signed with chain id 125 and with the chain id of a second chain is refused with WrongChain, and a market of the root network is bought on all three."
+do_2 = "do_2 TestLaunchedChainRevenueReachesHolders: chain transactions pay base fees over several blocks, the operator share arrives in the revenue account at the end of each block (modules/evm/keeper/abci.go:230), block time passes 3600 seconds, openChainRevenueEpoch succeeds, two holders and the pool hold the token, the two claims sum to the epoch amount and the pool cannot claim. TestChainLaunchSurvivesRestart: after a restart of the node the launch record, the home chain, the open epoch and a claim mark read back unchanged, and an export of the state followed by an import yields the same records. TestLaunchedChainControlInABlock: the holder of the fee right pauses, a chain transaction is refused admission, the holder resumes, then retires and receives the bond."
+do_3 = "do_3 A defect of the module or of the precompile that a case exposes is repaired in place under modules/launchpad or precompiles/launchpad by the smallest change and named in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["node/layerxchains_block_test.go", "modules/launchpad/keeper", "precompiles/launchpad"]
+tests = []
+planned_paths = ["node/chainlaunch_block_test.go"]
+build_cmd = "go build ./node/... && go test -count=1 -run '^$' ./node/"
+verify_cmd = "go test -count=1 -timeout 30m ./node/ -run '^(TestOneBlockLaunchesChainAndToken|TestLaunchedChainMarketTradesOnlyInItsChain|TestLaunchedChainRevenueReachesHolders|TestChainLaunchSurvivesRestart|TestLaunchedChainControlInABlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.7]
+title = "Serve the chain launch at the launchpad address"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.40.4", "22.40.5", "22.40.6", "22.40.1"]
+reqs = ["22400.1", "22998.1"]
+capabilities = ["22.40.7"]
+interfaces = []
+do_1 = "do_1 Decisions 3316 to 3318 and the contract spec/layerx-merge/contracts/chain-launchpad.md. Add to precompiles/launchpad/Launchpad.sol and precompiles/launchpad/abi.json the functions launchChain, launchChainWithPermit, openChainRevenueEpoch, claimChainRevenue, claimChainRevenueBatch, pauseLaunchedChain, resumeLaunchedChain, retireLaunchedChain and the reads launchedChain, launchedChainOfPool, homeChainOf, chainRevenueEpoch and chainRevenueClaimable, the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired and the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed, with the declarations of the contract. Where the document and the keeper differ, the keeper governs and the document is corrected in this task."
+do_2 = "do_2 Add precompiles/launchpad/chainlaunch.go with the methods and wire them in the method table (launchpad.go, run.go), the gas table (gas.go), the event encoders (events.go) and the error mapping (errors.go) in the way createMarket and triggerAirdrop are wired. launchChain is payable and hands its value to LaunchChain; the reads are view; a state-changing method is refused in a static call and in a delegate call as the other methods of the address are. The gas of launchChain is at least the gas of createMarket plus the gas of createChain at the registry address."
+do_3 = "do_3 Write precompiles/launchpad/chainlaunch_test.go with cases through the ABI: TestChainLaunchReturnsTokenPoolRightChainAndChainId, TestChainLaunchEmitsChainLaunchedAndTheMarketEvents, TestChainLaunchRevertLeavesNoState, TestChainLaunchStaticCallIsRefused, TestChainLaunchReadsReturnTheRecord, TestChainRevenueOpenAndClaimThroughTheAbi, TestLaunchedChainControlThroughTheAbi, TestHomeChainRefusalIsWrongChain and TestChainLaunchAbiMatchesSolidityInterface, which compares the selectors and event topics of abi.json with Launchpad.sol. Regenerate what the package derives from abi.json (the files under precompiles/launchpad/abi and precompiles/launchpad/testdata where they pin the ABI) with the generator the package uses. Search the tree for other pins of the ABI of this address; a pin outside the paths is named in the final message with file and line and is not changed here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["precompiles/launchpad/Launchpad.sol", "precompiles/launchpad/abi.json", "precompiles/launchpad/launchpad.go", "precompiles/launchpad/run.go", "precompiles/launchpad/gas.go", "precompiles/launchpad/events.go", "precompiles/launchpad/errors.go", "precompiles/launchpad/abi", "precompiles/launchpad/testdata", "spec/layerx-merge/contracts"]
+tests = []
+planned_paths = ["precompiles/launchpad/chainlaunch.go", "precompiles/launchpad/chainlaunch_test.go"]
+build_cmd = "go build ./precompiles/launchpad/... && go test -count=1 -run '^$' ./precompiles/launchpad/..."
+verify_cmd = "go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.6]
+title = "Let the holder of the fee right pause, resume and retire the launched chain"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.40.3"]
+reqs = ["22400.4", "22998.1"]
+capabilities = ["22.40.6"]
+interfaces = []
+do_1 = "do_1 Decision 3316. Add modules/launchpad/keeper/chaincontrol.go with PauseLaunchedChain, ResumeLaunchedChain and RetireLaunchedChain(chain, caller): each refuses NotLaunchedChain without a launch record and NotFeeRightHolder unless the caller is the owner of the fee right of the launch market (FeeRightOwnerOf, modules/launchpad/keeper/feerights.go), then calls Pause, Resume or Retire of the chain registry with the revenue account as operator (modules/layerxchains/keeper/keeper.go:258, :270 and :314). The module never calls SetOperator. A governance pause stays with the authority of the registry, and a resume of such a chain is refused by the registry as it is today."
+do_2 = "do_2 On retirement the registry returns the bond to the operator: forward exactly the returned amount from the revenue account to the caller in the same transition, measured as the difference of the PAX balance of the revenue account around the registry call, so that fee share waiting for an epoch is not forwarded. Emit LaunchedChainRetired with chain, holder and returned bond. The launch record and the epochs stay."
+do_3 = "do_3 Write modules/launchpad/keeper/chaincontrol_test.go with the cases TestLaunchedChainControlHolderPausesAndResumes, TestLaunchedChainControlOtherCallerIsRefused, TestLaunchedChainControlFollowsTransferOfTheFeeRight, TestLaunchedChainControlRetirePaysTheBondToTheHolder, TestLaunchedChainControlRetireKeepsWaitingFeeShare and TestLaunchedChainControlChainWithoutLaunchRecordIsRefused. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper/feerights.go", "modules/launchpad/types/expected_keepers.go", "modules/layerxchains/keeper/keeper.go"]
+tests = []
+planned_paths = ["modules/launchpad/keeper/chaincontrol.go", "modules/launchpad/keeper/chaincontrol_test.go"]
+build_cmd = "go build ./modules/launchpad/..."
+verify_cmd = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestLaunchedChainControl'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.5]
+title = "Pay the operator share of a launched chain to the holders of its token by epoch"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.40.3"]
+reqs = ["22400.3", "22998.1"]
+capabilities = ["22.40.5"]
+interfaces = []
+do_1 = "do_1 Decision 3317. Add modules/launchpad/keeper/chainrevenue.go. OpenChainRevenueEpoch(chain) refuses NotLaunchedChain for a chain without a launch record, EpochTooEarly before 3600 seconds of block time since the previous epoch of the chain, and NothingToDistribute when the PAX balance of the revenue account or the eligible supply is zero. It moves the whole PAX balance of the revenue account into the custody of the module under the epoch, sends coins of every other denomination found there to the launchpad treasury, and writes the epoch with the previous block as snapshot block and the eligible supply computed by the rule TriggerAirdrop uses (modules/launchpad/keeper/airdrop.go:167): reuse that computation in place, do not copy it."
+do_2 = "do_2 ClaimChainRevenue(chain, epoch, holder) pays the epoch amount times the past balance of the holder at the snapshot block divided by the eligible supply, in PAX, marks the claim and refuses AlreadyClaimed on a second call; the residue of the rounding is paid by the rule ClaimAirdropEpoch uses (:232). The pool and the burn address are not eligible. A batch entry claims a list of epochs of one chain for one holder and skips none silently: an epoch that refuses makes the batch refuse. ChainRevenueClaimable(chain, epoch, holder) is the read. Emit ChainRevenueEpochOpened and ChainRevenueClaimed. Epochs stay claimable after the chain retires."
+do_3 = "do_3 Write modules/launchpad/keeper/chainrevenue_test.go with the cases TestChainRevenueEpochOpensWithSnapshotAndEligibleSupply, TestChainRevenueEpochRefusals, TestChainRevenueClaimsSumToTheEpochAmount (three holders with balances that do not divide evenly), TestChainRevenueSecondClaimIsRefused, TestChainRevenuePoolAndBurnAddressAreNotEligible, TestChainRevenueOtherDenominationsGoToTheTreasury and TestChainRevenueClaimableAfterRetirement. The airdrop cases of the package stay green. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper/airdrop.go", "modules/launchpad/keeper/custody.go"]
+tests = []
+planned_paths = ["modules/launchpad/keeper/chainrevenue.go", "modules/launchpad/keeper/chainrevenue_test.go"]
+build_cmd = "go build ./modules/launchpad/..."
+verify_cmd = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestChainRevenue' && go test -count=1 ./modules/launchpad/keeper/ -run 'Airdrop'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.4]
+title = "Bind the trades of a market to its home chain"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.40.3"]
+reqs = ["22400.2", "22998.1"]
+capabilities = ["22.40.4"]
+interfaces = []
+do_1 = "do_1 Decision 3318. A market created by CreateMarket records as home chain the chain of the transaction (DomainFrom of modules/layerxchains/types/context.go; none means zero, the root network); LaunchChain already sets it. Add modules/launchpad/keeper/homechain.go with the check: a market with a nonzero home chain accepts a state change of its pool only when the chain of the context equals the home chain and refuses with WrongChain otherwise; a market with home chain zero accepts on every chain. Call the check at the single entry through which buy, sell, the pool swap calls and each leg of the token for token swap pass (Swap, modules/launchpad/keeper/swap.go:247). Reads and quotes do not call it."
+do_2 = "do_2 Follow the context from the ante handler (modules/evm/ante/sig.go:80, node/ante/evm_checktx.go) to the keeper call of a precompile and state in a test how the value arrives. Where the value does not reach the keeper, carry it in place along the existing path of the call, without a new global and without changing the fee rules of the chain."
+do_3 = "do_3 Write modules/launchpad/keeper/homechain_test.go with the cases TestHomeChainRecordedAtCreation, TestHomeChainTradeAcceptedOnItsChain, TestHomeChainTradeRefusedOnRootAndOnAnotherChain, TestHomeChainRootMarketTradesOnEveryChain, TestHomeChainEachLegOfTokenForTokenIsChecked and TestHomeChainReadsAreServedOnEveryChain. Run the whole keeper package once outside the counted gates. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper/swap.go", "modules/launchpad/keeper/market.go", "modules/layerxchains/types/context.go", "modules/evm/ante/sig.go"]
+tests = []
+planned_paths = ["modules/launchpad/keeper/homechain.go", "modules/launchpad/keeper/homechain_test.go"]
+build_cmd = "go build ./modules/launchpad/... ./modules/evm/... ./precompiles/launchpad/..."
+verify_cmd = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestHomeChain'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.3]
+title = "Launch a chain and its market in one state transition of the launchpad keeper"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.40.2"]
+reqs = ["22400.1", "22998.1"]
+capabilities = ["22.40.3"]
+interfaces = []
+do_1 = "do_1 Decision 3316. Add modules/launchpad/keeper/chainlaunch.go with LaunchChain: it takes the arguments of CreateMarket (modules/launchpad/keeper/market.go:127) and the chain name, gas allowance, byte allowance, fee share and value. It creates the market for the creator with the same charges and events as CreateMarket, creates the chain through the keeper of the chain registry (Create, modules/layerxchains/keeper/keeper.go:171) with the revenue account of the new chain as operator and the value as bond and creation fee, writes the LaunchedChain record and the index by pool, sets the home chain of the market to the new chain and emits ChainLaunched. All of it happens on one cached context that is written only when every part succeeded, so a refusal of the chain part leaves no market and a refusal of the market part leaves no chain."
+do_2 = "do_2 The registry number is known only once the registry assigned it, and the operator must be the revenue account of that number: read NextID of the registry (keeper.go:140) before the call and assert the assigned number after it. Where Create takes the value from the account of the operator, add to the registry keeper an entry that names the payer of the value apart from the operator; the call createChain of the registry keeps its behaviour and its tests stay green. Declare the registry keeper in modules/launchpad/types/expected_keepers.go with exactly the methods the launchpad uses and hand it to the launchpad keeper in node/app.go where the launchpad keeper is built (:996); the registry keeper must exist before that line."
+do_3 = "do_3 Write modules/launchpad/keeper/chainlaunch_test.go with the cases TestLaunchChainCreatesMarketChainAndBinding (the record, the index by pool, the home chain, the operator of the chain equal to the revenue account, the event), TestLaunchChainRefusedChainLeavesNoMarket (a taken chain name, a value below bond plus creation fee, a fee share above the maximum), TestLaunchChainRefusedMarketLeavesNoChain and TestLaunchChainChargesMatchCreateMarket. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/keeper/market.go", "modules/launchpad/keeper/keeper.go", "modules/launchpad/types/expected_keepers.go", "modules/layerxchains/keeper/keeper.go", "node/app.go"]
+tests = []
+planned_paths = ["modules/launchpad/keeper/chainlaunch.go", "modules/launchpad/keeper/chainlaunch_test.go"]
+build_cmd = "go build ./modules/launchpad/... ./modules/layerxchains/... ./node/..."
+verify_cmd = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestLaunchChain' && go test -count=1 ./modules/layerxchains/keeper/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.2]
+title = "Add the records of the chain launch to the launchpad module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22400.1", "22998.1"]
+capabilities = ["22.40.2"]
+interfaces = []
+do_1 = "do_1 Decision 3316. In modules/launchpad/types/ add chainlaunch.go with the record LaunchedChain (registry number, chain id, pool, token, number of the fee right, creator, block of the launch), the record of a revenue epoch (chain, epoch number, amount, snapshot block, eligible supply, claimed total, opening time) and the function that derives the revenue account of a chain from the module name and the registry number, distinct from every pool, token and custody account of the module. Add the key prefixes to keys.go after the last prefix in use, the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed to errors.go and the event names ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired to events.go."
+do_2 = "do_2 In modules/launchpad/keeper/ add chainlaunch_store.go with the reads and writes: launched chain by registry number, registry number by pool, home chain by pool (an absent record reads as zero), revenue epoch by chain and number, last epoch of a chain, and the claim mark by chain, epoch and holder. Carry the record families through genesis export, import and validation in the way the module carries its markets, in a deterministic order; an import of a genesis without them yields empty families."
+do_3 = "do_3 Write modules/launchpad/types/chainlaunch_test.go (the revenue account is stable for a registry number, differs between numbers and equals no pool or token address of a sample market) and modules/launchpad/keeper/chainlaunch_store_test.go with the cases TestChainLaunchStoreRoundTrip, TestChainLaunchStoreAbsentHomeChainIsRoot and TestChainLaunchGenesisRoundTrip. Change no existing behaviour of the module. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/launchpad/types/keys.go", "modules/launchpad/types/errors.go", "modules/launchpad/types/events.go", "modules/launchpad/types/genesis.go", "modules/launchpad/keeper/genesis.go"]
+tests = []
+planned_paths = ["modules/launchpad/types/chainlaunch.go", "modules/launchpad/types/chainlaunch_test.go", "modules/launchpad/keeper/chainlaunch_store.go", "modules/launchpad/keeper/chainlaunch_store_test.go"]
+build_cmd = "go build ./modules/launchpad/... && go vet ./modules/launchpad/types/..."
+verify_cmd = "go test -count=1 ./modules/launchpad/types/... && go test -count=1 ./modules/launchpad/keeper/ -run '^TestChainLaunch(Store|Genesis)'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.376]
 title = "Give the development trade read of the launchpad the watermark of the head"
 status = "done"
@@ -227866,7 +228594,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183"]
+requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []
@@ -228301,7 +229029,7 @@ touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad
 tests = ["sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool", "sdk/launchpad/shared/db/production::TestPhase2ReaderCompatibility", "sdk/launchpad/shared/storage::TestArchiveActualCanonicalPostgresAndObjectStorage", "sdk/launchpad/shared/delivery/natsdriver"]
 planned_paths = ["tests/ci/data/launchpad_go_test_baseline.json"]
 build_cmd = "cd sdk/launchpad/shared && go vet ./..."
-verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./chain/... ./db/... ./delivery/... ./storage/... && cd ../../.. && GOFLAGS=-timeout=15m make -C services/launchpad test build vet fmt-check"
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./chain/... ./db/... ./delivery/... ./storage/... && cd ../../.. && GOFLAGS=-timeout=15m make -C services/launchpad test MODULES='../../sdk/launchpad/shared ../../sdk/launchpad/protocol api indexer pnl-tracker ranking-algo stats-* trading-charts' && GOFLAGS=-timeout=15m make -C services/launchpad build vet fmt-check"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -285612,7 +286340,7 @@ title = "Make the install target of the workspace pass on a clean checkout"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.392"]
 reqs = ["22998.1"]
 capabilities = ["22.39.377"]
 interfaces = []
@@ -285642,6 +286370,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Attempt 2 (continue, gotcha 4232, decision 3302): the attempt-1 tree f2764a63469d stands (the scanner root with its message, the completed inventories with the cover classes and their cases, the ignore entry, the install recipe with one recursive call on each line, the record). The touches now name the directories of the contracts mars, saturn and venus under tools/benchmark/loadtest/contracts. In each of the three manifests write line 24 in the form of line 24 of the manifest of jupiter: version 0.4.9 with the path of the crate beside it. Refresh each lock so that cargo fetch with the locked option passes; only the entry of that package changes, it loses its registry source and its checksum, and a further moved entry is written into the record with its name and both versions. Bring the inventory entries of the three manifests in line with the class the manifest of jupiter has. The qualification environment now carries cargo-deny 0.19.0; change nothing in services/platform/Makefile.inc. Then run make workspace-install outside the counted gates until it exits 0, as do_5 states; a further failure outside the paths is recorded with command, exit code, first message, file and line, and the remaining recipe lines are run. In the record state every result as command, exit code and log, and remove the sentences that describe how the qualification environment keeps its results. Run the build once and the verification once at the final revision, and only when the install passes."
+do_8 = "Attempt 5 (continue after 22.39.392 lands, gotcha 4245, decisions 3314 and 3313): the attempt-4 tree 733e686765a1 stands (the two check scripts and their tests, the split recipe lines of workspace-install, the ignore rule, the three contract manifests on pax-cosmwasm by path, the two root lists, the record). The refusals of locked cargo commands in workspace-install came from lock files outside the paths, which task 22.39.392 refreshes; change none of them here. On the new base run make workspace-install outside the counted gates until it is clean (decision 3286). A refusal that remains outside the paths is recorded with its command and first message and ends the attempt without a counted verification. In the record tools/workspace/repair_22_39_377.kvx remove the sections that narrate the attempts and every log path and path of the qualification environment (decision 3313), and keep the classes, the manifests, the moved contracts and the findings as product facts. Then run the build once and the verification once at the final revision."
 
 [task.22.39.363]
 title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
@@ -309073,7 +309802,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.388"]
@@ -354653,9 +355382,98 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.40.18]
+title = "Close the chain launch series: interface rows served, documents cross-checked, reconcile clean"
+status = "pending"
+mode = "BUILD"
+wave = 9
+requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17"]
+reqs = ["22400.6", "22998.1"]
+capabilities = ["22.40.18"]
+interfaces = []
+do_1 = "do_1 Run spec/layerx-merge/programme/interfaces_reconcile.py over the tree and update every interface.22.chainlaunch row of spec/layerx-merge/interfaces.kvx from status new to served with its real path, line, signature and callers; bring spec/layerx-merge/contracts/chain-launchpad.md in line with the served declarations."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_40_18.py asserting that every interface.22.chainlaunch row has status served and a present symbol at its path, that the contract document and docs/launchpad/chain-launch.md name every function, event and error of the chain launch in precompiles/launchpad/abi.json, that the test files of tasks 22.40.8 to 22.40.17 exist, and that the record tools/qualification/audit_repairs/repair_22_40_18.kvx lists the tasks of the series. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/programme/interfaces_reconcile.py", "tools/qualification/audit_repairs", "spec/layerx-merge/contracts"]
+tests = []
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_40_18.py", "tools/qualification/audit_repairs/repair_22_40_18.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_40_18.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.12]
+title = "Document the chain launch for users and integrators"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.6", "22998.1"]
+capabilities = ["22.40.12"]
+interfaces = []
+do_1 = "do_1 Write docs/launchpad/chain-launch.md: what a launch creates, the one transaction and its value, the home chain rule with the chain id and node path a wallet uses to trade, how the fee share becomes revenue epochs and how a holder claims, what the holder of the fee right controls, and the full declarations of the functions, events and errors of the chain launch copied from precompiles/launchpad/Launchpad.sol. State plainly that a chain shares the state and the validators of the network and is a namespace for identity, fees and block space."
+do_2 = "do_2 In docs/wiki/VirtualChains.md replace the section Launch in three clicks by the merged flow and link the new document; keep the registry reference of the page, since createChain stays served. Link the new document from spec/layerx-merge/contracts/chain-launchpad.md."
+do_3 = "do_3 Write spec/layerx-merge/programme/tests/test_chain_launch_docs.py: every function, event and error name of the chain launch that the contract document lists is present in precompiles/launchpad/abi.json and in docs/launchpad/chain-launch.md; the relative links of both pages resolve to files of the tree. Keep spec/layerx-merge/programme/tests/test_virtual_chains_docs.py green and change it in place where it pins the replaced section. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/wiki/VirtualChains.md", "docs/launchpad", "spec/layerx-merge/programme/tests/test_virtual_chains_docs.py", "spec/layerx-merge/contracts"]
+tests = []
+planned_paths = ["docs/launchpad/chain-launch.md", "spec/layerx-merge/programme/tests/test_chain_launch_docs.py"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_chain_launch_docs.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_chain_launch_docs.py spec/layerx-merge/programme/tests/test_virtual_chains_docs.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.1]
+title = "Write the contract of the chain launchpad and its planned interface rows"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22400.1", "22998.1"]
+capabilities = ["22.40.1"]
+interfaces = []
+do_1 = "do_1 Decisions 3316, 3317 and 3318. Write spec/layerx-merge/contracts/chain-launchpad.md as the normative contract of the series: the address 0x0000000000000000000000000000000000001017; the full Solidity declarations of launchChain, launchChainWithPermit, openChainRevenueEpoch, claimChainRevenue, claimChainRevenueBatch, pauseLaunchedChain, resumeLaunchedChain, retireLaunchedChain and the reads launchedChain, launchedChainOfPool, homeChainOf, chainRevenueEpoch and chainRevenueClaimable; the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired, each with timestamp and blockNumber as its last two fields as the other events of the launchpad carry them; the errors WrongChain, NotLaunchedChain, NotFeeRightHolder, EpochTooEarly, NothingToDistribute and AlreadyClaimed; the derivation of the revenue account of a chain; the store records; the home chain rule; the epoch arithmetic with one worked example; and the routes GET /v2/chains, GET /v2/chains/ID and GET /v2/chains/ID/revenue of the launchpad API with their fields, where ID is the registry number. Read precompiles/launchpad/Launchpad.sol, modules/launchpad/keeper/airdrop.go and spec/layerx-merge/contracts/virtual-chains.md first and keep their names, widths and tuple orders. Add the document to spec/layerx-merge/contracts/README.md."
+do_2 = "do_2 Append to spec/layerx-merge/interfaces.kvx one row per function, event, error, store record, keeper entry and route of the contract, with ids of the form interface.22.chainlaunch-NAME, the kinds precompile_method, precompile_event, precompile_error, storage_key, go_exported, rest_route and ts_export as they apply, line 0, status new, callers empty, the contract field contracts/chain-launchpad.md with the anchor of the section, and a notes field that names the owning task of the series and task 22.40.18 as the one that reconciles the row to served. The paths are the ones the series plans: precompiles/launchpad/chainlaunch.go for the methods, events and errors, modules/launchpad/keeper/chainlaunch.go, homechain.go, chainrevenue.go and chaincontrol.go for the keeper entries, modules/launchpad/types/keys.go for the store records and services/launchpad/api/internal/rest/chains.go for the routes. Follow the shape of the row interface.22.inference-f11-errors and its neighbours. Change no existing row."
+do_3 = "do_3 Write spec/layerx-merge/programme/tests/test_chain_launchpad_contract.py: the document names every function, event and error above; every interface.22.chainlaunch row parses, has one of the kinds above, the contract field of the document and a notes field that names a task of the series; no two rows share an id. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/README.md", "spec/layerx-merge/contracts/virtual-chains.md", "precompiles/launchpad/Launchpad.sol"]
+tests = []
+planned_paths = ["spec/layerx-merge/contracts/chain-launchpad.md", "spec/layerx-merge/programme/tests/test_chain_launchpad_contract.py"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_chain_launchpad_contract.py"
+verify_cmd = "python3 -m pytest -q spec/layerx-merge/programme/tests/test_chain_launchpad_contract.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.391]
 title = "Strip the wording of the verification tool from the record of the block-end transition task"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.387"]
@@ -430845,6 +431663,30 @@ qualification = "UNRUN"
 title = "Retired kernel test programs without a rule are deleted and the trading vector generator is built and checked against its fixture"
 ac_1 = "tests/state/lxp_test_idempotency.c, tests/network/test_oracle_replay_absent.c and tests/programs/test_paxai_storage_continuity.c are absent; tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal and tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired pass without them."
 ac_2 = "make build/tools/dump_trading_vectors builds tests/modules/dump_trading_vectors.c, and the JSON it prints carries source tests/modules/dump_trading_vectors.c and the same (name, activity_type) vector list as tests/fixtures/trading-payloads/vectors.json."
+
+[req.22400.6]
+title = "The chain launch series closes with its interfaces served, its documents written and a journey on an isolated chain"
+ac_1 = "Every interface.22.chainlaunch row of spec/layerx-merge/interfaces.kvx has status served; docs/launchpad/chain-launch.md and docs/wiki/VirtualChains.md describe the flow; tools/qualification/paxeer-x/chain_launch_journey.py launches a chain with its token, trades on the chain, opens a revenue epoch and claims on an isolated chain and exits 0."
+
+[req.22400.5]
+title = "Every consumer of the chain launch reads the names of the producer"
+ac_1 = "The launchpad indexer, the launchpad API, the API client, the launchpad web and mobile applications and the explorer decode and show the launch, the home chain and the revenue epochs with the function, event and field names of precompiles/launchpad/abi.json, and each has a test that asserts those names against that file or against the responses of the API."
+
+[req.22400.4]
+title = "The holder of the fee right of the launch market controls the launched chain"
+ac_1 = "pauseLaunchedChain, resumeLaunchedChain and retireLaunchedChain are accepted from the holder of the fee right and refused from every other caller; on retirement the returned bond is paid to that holder in the same transaction; epochs opened before retirement stay claimable."
+
+[req.22400.3]
+title = "The operator share of a launched chain is paid to the holders of its token by epoch"
+ac_1 = "The operator share of the base fees of a launched chain reaches the revenue account of that chain at the end of each block; openChainRevenueEpoch fixes an epoch amount with a snapshot block and claimChainRevenue pays each holder its part once in PAX; the payments of an epoch sum to its amount."
+
+[req.22400.2]
+title = "A market trades inside its home chain"
+ac_1 = "Every market records its home chain; buy, sell and swap of a market with a nonzero home chain are accepted only in a transaction of that chain and refused with WrongChain elsewhere; reads and quotes are served on every chain; a market of the root network behaves as before."
+
+[req.22400.1]
+title = "One call of the launchpad launches a virtual chain together with its token"
+ac_1 = "A call of launchChain at the launchpad address creates in one transaction the market with its token, pool and fee right, the chain record in the chain registry and the record that binds them; a refusal of either part leaves no state of the other; node/chainlaunch_block_test.go proves it in one block of a node."
 
 [req.22380.6]
 title = "An isolated-chain driver proves the market end to end and the docs describe it honestly"
