@@ -13156,6 +13156,12 @@ value = "The lint table of services/platform/Cargo.toml applies to every member.
 basis = "Gotcha 4264, decisions 3052, 3326 and 3339."
 affects = ["22.39.403", "22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424"]
 
+[decision.3341]
+title = "The verification of a member lint task lints its member without the members it depends on"
+value = "A task of decision 3340 owns the members of one directory. Its verification runs clippy with the package option, all targets, the option --no-deps and warnings denied, so its result depends only on the source it owns. The whole recipe platform-lint, which lints every member together, stays the verification of task 22.39.403."
+basis = "Gotchas 4264 and 4265, decision 3340."
+affects = ["22.39.413", "22.39.403"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -196425,7 +196431,7 @@ touches = ["services/platform/hosted/ai-evaluator"]
 tests = []
 planned_paths = ["services/platform/hosted/ai-evaluator/repair_22_39_413.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets"
-verify_cmd = "test -s services/platform/hosted/ai-evaluator/repair_22_39_413.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets -- -D warnings"
+verify_cmd = "test -s services/platform/hosted/ai-evaluator/repair_22_39_413.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-ai-evaluator --all-targets --no-deps -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -196437,6 +196443,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3341, gotcha 4265. The verification now lints the member with the option --no-deps, so a finding in a member it depends on is outside this task and is not changed here."
 
 [task.22.39.412]
 title = "Bring the agent boundary member of the platform through the workspace lint"

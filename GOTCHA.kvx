@@ -21145,3 +21145,8 @@ fix = "Decision 3339; task 22.39.403 owns the source of the three members."
 title = "A member of the platform workspace is linted alone with the package option"
 symptom = "The recipe platform-lint of services/platform/Makefile.inc lints the whole workspace of services/platform/Cargo.toml in one command. With the package option clippy denies warnings only in the selected member and compiles the members it depends on without the denial, and the option accepts a pattern, so a member is selected by a prefix of its package name."
 fix = "Decision 3340; tasks 22.39.412 to 22.39.424."
+
+[gotcha.4265]
+title = "Clippy lints the workspace members a selected member depends on unless the option --no-deps is given"
+symptom = "With the package option alone, cargo clippy lints the selected member and each member of the same workspace that it depends on, under the lint table of the manifest. With the option --no-deps before the separator it lints the selected member only, and the members it depends on are compiled without lints."
+fix = "Decision 3341; the verification of a member lint task selects its member with the option --no-deps."
