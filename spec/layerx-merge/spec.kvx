@@ -13030,6 +13030,102 @@ value = "The verification of task 22.39.117 runs the tests of the shared package
 basis = "Decisions 3130 and 3211."
 affects = ["22.39.117", "22.39.170"]
 
+[decision.3320]
+title = "A program call that commits leaves the block-end occupancy transition able to finish"
+value = "The checks on the debit of an occupancy position that depend on the terms of a call run at the call: the payer, the root program, the activity binding, and the responsibility ceiling that the signed fee limit leaves after the execution ceiling of the budget. A call that does not pass them reverts with the code of the check and commits nothing. A fee limit taken from quoteCallFee for the budget that is sent is enough for the call to pass them. The block-end transition of decision 3308 finalises the positions that passed these checks; it runs in every block as that decision states."
+basis = "Gotcha 4248, decisions 3301 and 3308."
+affects = ["22.39.394", "22.39.182"]
+
+[decision.3321]
+title = "A change of the ABI of the launchpad precompile carries its readers"
+value = "A task that changes precompiles/launchpad/abi.json brings the package tests that state its entries and the byte copy of the attestor along in the same commit. The generated write tables of the agent SDKs and the signature sources of the explorer are produced again by their generators in task 22.40.19. The records of the protocol bindings of the launchpad SDK are produced again by real execution with their recorders in task 22.40.20 once the sources of the keeper and the precompile stand, never by editing a hash. A task whose verification covers the protocol module of the launchpad SDK follows task 22.40.20. The closing task of the series asserts the copy, the tables and the recorded hashes at the final tree."
+basis = "Gotcha 4249, decisions 3046 and 3316."
+affects = ["22.40.7", "22.40.19", "22.40.20", "22.40.18", "22.39.117", "22.39.170"]
+
+[decision.3322]
+title = "The occupancy responsibility debit of the ledger accepts the account of the program payment lookup"
+value = "The occupancy responsibility debit of the ledger accepts as its paying account an agent main account, or an agent asset account whose asset is the asset of the leg. Every other condition stays: the protocol capability, the origin module Programs, the reason storage occupancy and a paying account equal to the authorised source. An account of any other kind and an agent asset account of another asset are refused with LXP_ERR_UNAUTHORIZED_DEBIT. The debit leaves the sequence of the paying account as it is. Task 22.39.395 owns the change. Task 22.38.36 follows it and task 22.39.394, and the release report follows both."
+basis = "Gotcha 4250, decisions 3308 and 3320."
+affects = ["22.39.395", "22.38.36", "22.39.182"]
+
+[decision.3323]
+title = "A task that changes the source of the AI market guest carries the measured fuel bound of the Fund case"
+value = "The measured bound of the Fund operation in rpc/repair_478_test.go states the CPU fuel of the committed guest. A task that changes the guest source measures the Fund operation again with that case, sets the bound to the measured value in the same commit and writes the earlier and the new value into its record. The bounds of the same case against the CPU allowance and against the earlier stop stay as they are, and a change that brings the Fund operation over either of them is not accepted. Task 22.38.13 carries the case."
+basis = "Gotcha 4251, decisions 3046 and 3321."
+affects = ["22.38.13"]
+
+[decision.3324]
+title = "The node cases of the occupancy debit at a call pay from the account that the hosted fixture funds"
+value = "The node cases of task 22.39.394 use the payer of the hosted programs fixture as the fixture funds it, with the occupancy asset in the agent asset account, and add no second account of that asset to the identity. Task 22.39.394 follows task 22.39.395, with which the occupancy responsibility debit of the ledger accepts that account (decision 3322). The call requires the payment account that the program payment lookup returns for the payer and the asset and states no kind of account of its own."
+basis = "Gotcha 4252, decisions 3320 and 3322."
+affects = ["22.39.394", "22.39.395"]
+
+[decision.3325]
+title = "The committed AI read source reads one height below the latest height of the node and sends store keys without a prefix"
+value = "The source process of decision 3270 takes the signed header and the commit of the height below the latest height of the node, where the commit is canonical, and reads the proved store entries at the height below that one. It sends the key of a store query as hexadecimal text without a prefix. The document it answers with and the checks of the indexer are unchanged, and the source still holds no key. The node double of the cases of the source answers as a node does on both points: the commit of its latest height is not canonical, and a store key with a prefix is refused. Task 22.38.36 carries the source and its cases together with the room journey that reads through it, and its verification runs those cases before the journey."
+basis = "Gotcha 4253, decisions 3046 and 3270."
+affects = ["22.38.36"]
+
+[decision.3326]
+title = "A list that a check reads moves with the change of its producer"
+value = "A task that adds an ABI type to a generated precompile table carries the type set and the codec of each SDK that reads the table. A task that adds user-facing text to the web app carries its catalog entry. A task that adds a host module to the runtime carries the module boundary check. Task 22.39.396 carries uint32 in the precompile ABI of the TypeScript and Python SDKs, task 22.39.397 brings the text of the web app into the copy catalog, and task 22.39.398 brings the boundary check and the host modules of the runtime into agreement. The wave gate task 17.5.7 changes none of the three."
+basis = "Gotcha 4254, decisions 3046 and 3321."
+affects = ["22.39.396", "22.39.397", "22.39.398", "17.5.7"]
+
+[decision.3327]
+title = "The build of a launchpad web task reads the type check for the files of its flow, and one task holds the type check of the whole application"
+value = "A task that changes a flow of the launchpad web application runs the type check of the application and reads its result for the files of the flow. A test file that builds a value of a changed type belongs to the flow and moves with it. Task 22.39.399 holds the type check of the whole application at zero findings, after task 22.40.10, and records where the workspace runs it. The verification of task 22.40.10 is the test command of the application, which prepares the inputs that its integration cases read."
+basis = "Gotcha 4255, decisions 3046, 3316 and 3326."
+affects = ["22.40.10", "22.39.399"]
+
+[decision.3328]
+title = "A writing transaction of the hosted indexer waits for the write lock of its database"
+value = "A writer of the hosted indexer that finds the write lock of the database file held waits for it within a stated bound and does not return at once. This holds as well for a transaction that reads before it writes. The follow loop keeps its present behaviour for a store that stays unavailable past that bound. Task 22.38.36 carries the change in the stores of the indexer with a case of two connections on one file, and its verification runs that case before the journey. The room driver sets no timing whose purpose is to keep the two followers apart."
+basis = "Gotcha 4256, decisions 3046, 3270 and 3325."
+affects = ["22.38.36"]
+
+[decision.3329]
+title = "A statement that the store of the launchpad indexer gains is carried by the in-process executor of its processor cases"
+value = "The in-process executor of the processor cases answers every statement that the store of the launchpad indexer sends during a projection, with the effect the statement has on the rows the cases hold. A task that adds a statement to the store carries it there. Task 22.39.117 carries the statement that sets the home chain of a pool, and changes nothing in the store."
+basis = "Gotcha 4257, decisions 3046, 3321 and 3326."
+affects = ["22.39.117"]
+
+[decision.3330]
+title = "The generated message table of the web app moves with its copy catalog"
+value = "A task that changes apps/web/copy/catalog.ts carries apps/web/copy/messages.generated.ts as its generator writes it, in the same change. The table is not edited by hand. Task 22.39.397 carries both files."
+basis = "Gotcha 4258, decisions 3326 and 3046."
+affects = ["22.39.397"]
+
+[decision.3331]
+title = "A reader of the reward state reads the part of the settlement section before the room market tail"
+value = "Every reader of the reward state in programs/crates/layerx-programs-ai-market takes the first part that room_market of the shared state returns and never the whole section. A section with an empty reward state and a room market tail reads as a market with no reward state. The layout of the section and the bytes a writer produces do not change. Task 22.39.400 carries the readers and task 22.38.36 follows it."
+basis = "Gotcha 4259, decisions 3046 and 3316."
+affects = ["22.39.400", "22.38.36"]
+
+[decision.3332]
+title = "A recipe that reads a built module reads it from the Cargo output directory it was built into"
+value = "A recipe or build script that builds a guest module and then reads it resolves one output directory and uses it for both steps: the directory that CARGO_TARGET_DIR names when it is set, the target directory of the manifest otherwise. The result is the same with the variable set and unset. Task 22.39.407 carries the recipes and scripts."
+basis = "Gotcha 4260, decision 3326."
+affects = ["22.39.407", "17.5.7"]
+
+[decision.3333]
+title = "The workspace install fetches the Solidity compilers that the Hardhat projects pin"
+value = "The install step of the JavaScript projects places each compiler that scripts/workspace/check-hardhat-compilers.mjs requires in the compiler cache, taken from the published compiler list and checked against the digest that list states. The versions come from the configuration of the projects and are not repeated in the install step. A compiler already in the cache with the right digest is not fetched again. The compile steps stay offline. Task 22.39.408 carries the install step."
+basis = "Gotcha 4261, decisions 3052 and 3053."
+affects = ["22.39.408", "17.5.7"]
+
+[decision.3334]
+title = "A check or test recipe leaves the source tree as it found it"
+value = "A recipe that checks, lints or tests writes only to paths the repository ignores. A type check that keeps build information writes it to an ignored path or keeps none. Task 22.39.402 applies this to the developer dashboard."
+basis = "Decisions 3052 and 3326."
+affects = ["22.39.402", "17.5.7"]
+
+[decision.3335]
+title = "A generated SDK file is written by one generator and checked against that generator"
+value = "Each file under a generated directory of an SDK has one generator. The check of the platform SDKs compares a file only with the output of the generator that owns it, and the generate recipe leaves every such file in the state the check accepts. Task 22.39.401 carries the generated files of the agent TypeScript SDK."
+basis = "Decisions 3326 and 3330."
+affects = ["22.39.401", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42690,6 +42786,168 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.409]
+title = "Run each part of the workspace test and lint recipes and record what each part covers"
+reqs = ["22998.1"]
+touches = ["tools/workspace"]
+tests = []
+verification_contract = "WAVE_GATE_IN_PLACE=1 test -s tools/workspace/sweep_22_39_409.kvx && for t in core-test-all agent-test human-test platform-test platform-verify-sdks platform-test-tooling platform-test-middleware platform-test-reference-apps platform-test-docs programs-test interop-test paxeer-test paxeer-manifest-test developer-dashboard-static-test specgen-test agent-lint human-lint platform-lint programs-lint interop-lint paxeer-manifest-lint specgen-lint; do grep -q -e $t tools/workspace/sweep_22_39_409.kvx || exit 1; done"
+do_1 = "do_1 Work in the checkout of the task and make no second checkout or copy of the tree. Run make workspace-install first. Set CARGO_TARGET_DIR to the directory target at the root of the checkout for every command. Read the prerequisites of workspace-test and of workspace-lint in the Makefile."
+symbols = []
+
+[capability.22.39.408]
+title = "Fetch the Solidity compilers of the Hardhat projects in the install step"
+reqs = ["22998.1"]
+touches = ["Makefile", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = ["scripts/workspace/install-hardhat-compilers-test.mjs::places_a_compiler_with_the_stated_digest", "scripts/workspace/install-hardhat-compilers-test.mjs::refuses_a_compiler_with_another_digest"]
+verification_contract = "test -s tools/workspace/repair_22_39_408.kvx && node --check scripts/workspace/install-hardhat-compilers.mjs && node scripts/workspace/install-hardhat-compilers-test.mjs && make -s paxeer-npm-install && make -s paxeer-hardhat-compilers-ready"
+do_1 = "do_1 Decision 3333, gotcha 4261. Read scripts/workspace/check-hardhat-compilers.mjs and state which compiler versions, builds and cache paths it requires for the projects contracts, tests/integration/dapp_tests and tests/integration/rpc_tests. Write scripts/workspace/install-hardhat-compilers.mjs, which reads the same versions from the same place as the check, takes each missing compiler from the published compiler list, compares it with the digest that list states before it is placed in the cache, and leaves a compiler that is already present with the right digest alone. A digest that differs stops the script with a message that names the compiler."
+symbols = []
+
+[capability.22.39.407]
+title = "Read built guest modules from the Cargo output directory in the program recipes"
+reqs = ["22998.1"]
+touches = ["Makefile", "programs/sdk/rust/quickstart/build.sh", "programs/sdk/rust/response-fixture/build.sh", "programs/sdk/rust/examples", "programs/crates/layerx-programs-runtime/tests/support/compiled_guest.rs"]
+tests = []
+verification_contract = "test -s programs/repair_22_39_407.kvx && CARGO_TARGET_DIR=$(pwd)/target make -s programs-interpreter-conformance programs-sdk-rust programs-porting-v2-references && make -s programs-sdk-rust"
+do_1 = "do_1 Decision 3332, gotcha 4260. List every place that builds a guest module with Cargo and then reads it from a path: the recipes programs-interpreter-conformance, programs-interpreter-bench, programs-sdk-rust and programs-porting-v2-references of the Makefile, the scripts programs/sdk/rust/quickstart/build.sh and programs/sdk/rust/response-fixture/build.sh, the build scripts under programs/sdk/rust/examples, and programs/crates/layerx-programs-runtime/tests/support/compiled_guest.rs. For each state the directory it builds into and the path it reads."
+symbols = []
+
+[capability.22.39.406]
+title = "Register the migration owner of the lifecycle cases once"
+reqs = ["22998.1"]
+touches = ["tests/programs/test_lifecycle.c", "tests/programs/audit_22_30_2.h", "src/state/lxp_identity.c"]
+tests = []
+verification_contract = "make -s programs-core-test"
+do_1 = "do_1 The case lifecycle_environment of tests/programs/test_lifecycle.c registers the identity did:lxp:native-migration-owner with lxp_identity_register of src/state/lxp_identity.c on the fixture that audit_init of tests/programs/audit_22_30_2.h prepares, and expects LXP_OK. Build the program build/tests/programs_lifecycle and run it by hand. Where the registration answers another code, find where that identity or its sequence is already held and state the cause."
+symbols = []
+
+[capability.22.39.405]
+title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
+reqs = ["22998.1"]
+touches = ["scripts/programs/generate-abi-vectors.py", "programs/tests/vectors", "tests/fixtures/programs/emulator-response-code", "sdk/platform/conformance/fixtures"]
+tests = []
+verification_contract = "test -s programs/tests/vectors/repair_22_39_405.kvx && make -s programs-abi-drift && ! git status --porcelain -- programs/tests/vectors tests/fixtures/programs/emulator-response-code | grep -q ."
+do_1 = "do_1 The recipe programs-abi-drift of the Makefile runs tests/programs/check-abi-drift.sh, which runs scripts/programs/generate-abi-vectors.py with the check option. The generator takes the vector programs/tests/vectors/terminal-v4-outcome.hex from the receipt fixture tests/fixtures/programs/emulator-response-code/receipt.hex and compares the two. Run the recipe by hand on the tree as it is. Then find every recipe, script and test that writes the receipt fixture or a file under programs/tests/vectors, starting with the generator under sdk/platform/conformance/fixtures, run each one, and run the check again."
+symbols = []
+
+[capability.22.39.404]
+title = "Pass the lint of the interop crates with warnings denied"
+reqs = ["22998.1"]
+touches = ["services/interop/crates"]
+tests = []
+verification_contract = "test -s services/interop/repair_22_39_404.kvx && cargo clippy --manifest-path services/interop/Cargo.toml --locked --workspace --all-targets -- -D warnings"
+do_1 = "do_1 The recipe interop-lint of the Makefile runs clippy with warnings denied over the manifest services/interop/Cargo.toml, all targets. Run that clippy command by hand. The literal at services/interop/crates/layerx-committed-proof/src/lib.rs:730 is a long number with no separators: write it with separators, value unchanged."
+symbols = []
+
+[capability.22.39.403]
+title = "Pass the lint of the platform crates with warnings denied"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/internal/src"]
+tests = []
+verification_contract = "test -s services/platform/hosted/internal/repair_22_39_403.kvx && make -s platform-lint"
+do_1 = "do_1 The recipe platform-lint of services/platform/Makefile.inc runs clippy with warnings denied over the three platform manifests. Run it by hand. The function validate of services/platform/hosted/internal/src/producer.rs is longer than the line bound of the lint: split it into named steps that keep its checks, their order and every answer. Add no allow attribute and change no lint level."
+symbols = []
+
+[capability.22.39.402]
+title = "Build and test the developer dashboard through its recipes without changing the source tree"
+reqs = ["22998.1"]
+touches = ["Makefile", "apps/web/package.json", "services/platform/hosted/dashboard/web"]
+tests = []
+verification_contract = "test -s services/platform/hosted/dashboard/repair_22_39_402.kvx && make -s developer-dashboard-install developer-dashboard-build developer-dashboard-static-test && ! git status --porcelain --untracked-files=all -- services/platform/hosted/dashboard/web apps/web | grep -q ."
+do_1 = "do_1 Decision 3334. The recipes developer-dashboard-install, developer-dashboard-build and developer-dashboard-static-test of the Makefile install, build and check services/platform/hosted/dashboard/web. The build recipe first builds the package @layerx/ui, which lives at apps/web/packages/layerx-ui and is built by the script build:ui of apps/web/package.json; apps/web declares no npm workspaces. Make the build recipe call that script, and make the script find its bundler in the installed modules of apps/web."
+symbols = []
+
+[capability.22.39.401]
+title = "Bring the generated files of the agent TypeScript SDK into line with their generator"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/tools/sdk-gen", "sdk/platform/generators"]
+tests = []
+verification_contract = "test -s services/agent/sdk/typescript/repair_22_39_401.kvx && make -s platform-sdk-check && make -s agent-sdk-ts-build"
+do_1 = "do_1 Decision 3335. The recipe platform-sdk-check of services/platform/Makefile.inc compares generated SDK files with the output of sdk/platform/generators, and the recipe platform-sdk-generate writes them with services/agent/tools/sdk-gen and with sdk/platform/generators. Run platform-sdk-check by hand and list each file it names, starting with services/agent/sdk/typescript/src/generated/precompile-writes.ts. For each file state which generator owns it and what the two generators write for it."
+symbols = []
+
+[capability.22.39.400]
+title = "Read the reward state before the room market tail of the settlement section"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/canonical_contract.rs", "programs/crates/layerx-programs-ai-market/tests/fixtures/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_a_room_opens_before_the_first_epoch", "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_a_room_opens_on_a_market_with_a_reward_state", "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_the_room_closes"]
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 524184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_39_400 --test f11_rooms_and_deals --test f11_bonds --test f11_placement_book --test f11_lap_settlement --test f11_payout_split --test repair_22_33_223 --test settlement_capacity && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget fund_fits_the_protocol_cpu_fuel_cap"
+do_1 = "do_1 Decision 3331, gotcha 4259. Write the case first, in programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs, with the producers that tests/f11_rooms_and_deals.rs uses: on a market that has no epoch yet a room opens through OpenRoom, and read_header of src/queries.rs then answers the header of the market. Add the same case for a market that has an epoch and a reward state before the room opens, and a case in which the room closes again. Run the cases by hand and note which step of the read answers a state code."
+symbols = []
+
+[capability.22.39.399]
+title = "Hold the type check of the launchpad web application at zero findings"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+tests = []
+verification_contract = "test -s apps/launchpad/web/repair_22_39_399.kvx && pnpm --dir apps/launchpad/web run typecheck && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of this task does and run pnpm --dir apps/launchpad/web run typecheck. List every finding by file. Places to read first: the types of the PostCSS plugin in apps/launchpad/web/src/app/breakpoints.test.ts; the pool detail in apps/launchpad/web/src/core/market/pool-resolver.ts, where the operation table of the SDK returns the generated type of sdk/launchpad/packages/sdk-v2 and the transport type of sdk/launchpad/packages/sdk adds homeChain to the pool; the import of jsdom in apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx; and the type of the request method in apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts."
+symbols = []
+
+[capability.22.39.398]
+title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
+reqs = ["22998.1"]
+touches = ["tests/programs/runtime-module-boundaries.sh", "programs/crates/layerx-programs-runtime/src/host", "programs/crates/layerx-programs-runtime/tests"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_398.kvx && sh tests/programs/runtime-module-boundaries.sh && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime scan"
+do_1 = "do_1 Decision 3326, gotcha 4254. The check tests/programs/runtime-module-boundaries.sh holds the list of the files of programs/crates/layerx-programs-runtime/src/host and the list of the host families whose files may not reach a sibling family, a parent of the crate, or the types Abi, Composition, Storage and Meter. The directory carries market.rs, which the list does not name. Add market.rs to the file list. Decide from its imports whether market is a family under the sibling rules or a module beside the families, as memory.rs and context.rs are, state the choice in the record, and extend the self-test of the script so that it still refuses an unknown file and accepts the files of main."
+symbols = []
+
+[capability.22.39.397]
+title = "Bring the text of the web app into the copy catalog"
+reqs = ["22998.1"]
+touches = ["apps/web/copy/catalog.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
+tests = []
+verification_contract = "test -s apps/web/repair_22_39_397.kvx && cargo test --locked --manifest-path services/human/tools/copy-lint/Cargo.toml && cargo run --locked --manifest-path services/human/tools/copy-lint/Cargo.toml -- apps/web && npm --prefix apps/web run typecheck"
+do_1 = "do_1 Decision 3326, gotcha 4254. Run the copy check as the recipe human-lint-copy of the Makefile runs it: cargo run --manifest-path services/human/tools/copy-lint/Cargo.toml --locked -- apps/web. It lists by file and line the text in the sources of the web app that is not in apps/web/copy/catalog.ts, under apps/web/src/explorer, apps/web/src/app/explorer, apps/web/src/app/exchange, apps/web/src/app/bridge, apps/web/src/app/launchpad, apps/web/src/app/_markets and apps/web/src/journeys. Move each listed text into the catalog as an entry with key, message, context, surface and kind, and read it in the source through the catalog as the neighbouring text of the app does. Keep every message word for word, so that no test that reads the text changes."
+symbols = []
+
+[capability.22.39.396]
+title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/tests/test_spot_call.py"]
+tests = []
+verification_contract = "test -s services/agent/sdk/repair_22_39_396.kvx && make agent-sdk-ts-build && node --test services/agent/sdk/typescript/dist/test/precompile-calls.test.js && python3 -m pytest services/agent/sdk/python/tests/test_spot_call.py -q"
+do_1 = "do_1 Decision 3326, gotcha 4254. The generated table services/agent/sdk/typescript/src/generated/precompile-writes.ts names the type uint32 for the chain field of the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired of the launchpad precompile. Add uint32 to PrecompileAbiType in services/agent/sdk/typescript/src/exchange.ts with its width of 32 bits in the function bits, and make encodeStatic and decodeWord take it with the range check of its width, as they do for uint8 and uint64. Change no generated file by hand."
+symbols = []
+
+[capability.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+reqs = ["22998.1"]
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+verification_contract = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+symbols = []
+
+[capability.22.40.20]
+title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
+reqs = ["22400.5", "22998.1"]
+touches = ["sdk/launchpad/protocol/bindings", "sdk/launchpad/protocol/catalog"]
+tests = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestNativeBindingCarriesTheChainLaunch", "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestRecordedSourceHashesMatchTheTree"]
+verification_contract = "test -s sdk/launchpad/protocol/bindings/repair_22_40_20.kvx && cd sdk/launchpad/protocol && go test -count=1 -timeout 30m ./bindings/... ./catalog/..."
+do_1 = "do_1 Decision 3321, gotcha 4249. The records native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 carry the sha256 of sources of the launchpad keeper and precompile, and producer-revision.txt names the revision of the producer. List in sdk/launchpad/protocol/bindings/repair_22_40_20.kvx every source whose sha256 at the base differs from its record."
+symbols = []
+
+[capability.22.40.19]
+title = "Bring the generated readers of the launchpad ABI to the chain launch"
+reqs = ["22400.5", "22998.1"]
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/sdk/python/layerx_sdk/generated", "services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"]
+tests = ["tests/ci/test_repair_22_40_19.py::test_write_tables_carry_the_chain_launch", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs::producer_backed_chain_launched_preserves_layout"]
+verification_contract = "test -s services/agent/sdk/repair_22_40_19.kvx && python3 -m pytest -q tests/ci/test_repair_22_40_19.py && cargo test --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider producer_backed"
+do_1 = "do_1 Decision 3321, gotcha 4249. Run node scripts/generate-precompile-writes.mjs in services/agent/sdk/typescript so that src/generated/precompile-writes.ts and services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py carry the state-changing functions and the events of the chain launch from precompiles/launchpad/abi.json. Change neither file by hand."
+symbols = []
+
+[capability.22.39.394]
+title = "Check the occupancy debit of a program call at the call"
+reqs = ["22998.1"]
+touches = ["src/modules/programs", "include/layerx/programs.h", "programs/crates/layerx-programs-runtime", "modules/lxphost", "node/app.go", "node/programs_block_end_test.go", "precompiles/layerxprograms"]
+tests = ["node/programs_occupancy_call_test.go::TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallAtTheLargestBudgetCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallShortOfTheOccupancyResponsibilityReverts", "node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts", "node/programs_occupancy_call_test.go::TestBlocksApplyAcrossRestartAfterOccupancyCalls"]
+verification_contract = "test -s modules/lxphost/repair_22_39_394.kvx && for c in TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply TestCallAtTheLargestBudgetCommitsAndBlocksApply TestCallShortOfTheOccupancyResponsibilityReverts TestCallByAPayerThatIsNotTheOwnerReverts TestBlocksApplyAcrossRestartAfterOccupancyCalls; do grep -q -e 'func '$c'(' node/programs_occupancy_call_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run 'Quote'"
+do_1 = "do_1 Decision 3320, gotcha 4248. List every check on the debit of an occupancy position in src/modules/programs/occupancy.c and src/modules/programs/occupancy_evidence.c and in what FinalizeProgramsOccupancy of modules/lxphost reaches, and state for each whether it depends on the terms of a call and whether it runs at the call. Record the list in modules/lxphost/repair_22_39_394.kvx as product facts: the check, its file and where it runs."
+symbols = ["FinalizeProgramsOccupancy"]
 
 [capability.22.40.18]
 title = "Close the chain launch series: interface rows served, documents cross-checked, reconcile clean"
@@ -162886,9 +163144,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.399]
+title = "Hold the type check of the launchpad web application at zero findings"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.10"]
+reqs = ["22998.1"]
+capabilities = ["22.39.399"]
+interfaces = []
+do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of this task does and run pnpm --dir apps/launchpad/web run typecheck. List every finding by file. Places to read first: the types of the PostCSS plugin in apps/launchpad/web/src/app/breakpoints.test.ts; the pool detail in apps/launchpad/web/src/core/market/pool-resolver.ts, where the operation table of the SDK returns the generated type of sdk/launchpad/packages/sdk-v2 and the transport type of sdk/launchpad/packages/sdk adds homeChain to the pool; the import of jsdom in apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx; and the type of the request method in apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts."
+do_2 = "do_2 Repair each finding at its cause. For the pool detail, read what the route of the launchpad API returns for the pool and make the type of the operation table and the transport type agree with it, in the SDK package that declares it; a file that a generator of the package writes is changed through its generator and its input. For a missing declaration add the declaration package to the development dependencies of apps/launchpad/web together with the lock file. For a test file correct the types and keep every assertion. Use no ts-ignore, no ts-expect-error, no cast to any and no exclusion in tsconfig.json to quiet a finding."
+do_3 = "do_3 Search the Makefile, the files under .github/workflows and tests/ci for the place where the launchpad web application is checked and record whether the type check runs there; change no workflow file. Run the type check of the web application, the type check of apps/launchpad/mobile and the test command of the web application outside the counted gates until both type checks have zero findings and the tests pass. Record in apps/launchpad/web/repair_22_39_399.kvx each finding, its cause and its repair, and the result of the search. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/repair_22_39_399.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
+verify_cmd = "test -s apps/launchpad/web/repair_22_39_399.kvx && pnpm --dir apps/launchpad/web run typecheck && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.16]
 title = "Show launched chains and trade on the home chain in the launchpad mobile application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.40.13"]
@@ -162918,7 +163206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.15]
 title = "Add the launched chain reads to the launchpad API client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.40.13"]
@@ -162977,7 +163265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -163018,11 +163306,11 @@ do_1 = "do_1 Decision 3316. The wizard at /create/chain creates a chain through 
 do_2 = "do_2 After the receipt decode ChainLaunched and read back launchedChain and getChain; the ready panel shows the token, the pool, the registry number, the chain id, the node path of the chain, Add to wallet, the explorer link and a link to the trading page of the token. A receipt whose event or read-back differs from the reviewed launch is shown as a failed launch with the transaction hash, as the adapter does today for createChain. The stored draft of chain-storage.ts gains the token fields with a version step that discards older drafts. The entry Launch a chain of create-wizard.tsx leads to the merged flow, and the wizard keeps no path that creates a chain without a token."
 do_3 = "do_3 Update the tests beside the files in place and add apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts: the call is launchChain with the eight arguments in the order of the ABI and the value of bond plus creation fee; the function and event names are asserted against precompiles/launchpad/abi.json read from the tree; a refused name, a wrong network and a receipt without ChainLaunched are each handled. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
-build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain src/widgets/create"
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && grep -q -E '^tsc-exit [02]$' $d/tsc.log && ! grep -E '^src/(widgets/create-chain/|widgets/create/create-wizard|page-modules/create-chain/|core/network/contracts)' $d/tsc.log"
+verify_cmd = "pnpm --dir apps/launchpad/web run test"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -163034,6 +163322,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3327, gotcha 4255: the build reads the type check of the application for the files of this flow, and the verification is the test command of the application. The test file apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts builds the stored draft and moves with it: give its drafts the token fields and keep its assertions. Findings of the type check in other files belong to task 22.39.399 and are not changed here. Run the type check and the test command outside the counted gates until the files of the flow have no finding and the tests pass, then run the counted build once and the counted verification once."
 
 [task.22.39.378]
 title = "Refresh the lock of the wallet workspace for the manifest of the perps application"
@@ -164893,7 +165182,7 @@ do_3 = "Attempt 2 (continue, gotcha 3515, decisions 2812, 2838 and 2843): the at
 
 [task.22.39.95]
 title = "Repair the failing launchpad web and mobile test files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.94", "22.39.295", "22.39.313", "22.39.314", "22.39.357", "22.39.372", "22.39.376"]
@@ -185997,6 +186286,187 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.405]
+title = "Keep the terminal vectors of the program ABI in line with the receipt fixture they are taken from"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.405"]
+interfaces = []
+do_1 = "do_1 The recipe programs-abi-drift of the Makefile runs tests/programs/check-abi-drift.sh, which runs scripts/programs/generate-abi-vectors.py with the check option. The generator takes the vector programs/tests/vectors/terminal-v4-outcome.hex from the receipt fixture tests/fixtures/programs/emulator-response-code/receipt.hex and compares the two. Run the recipe by hand on the tree as it is. Then find every recipe, script and test that writes the receipt fixture or a file under programs/tests/vectors, starting with the generator under sdk/platform/conformance/fixtures, run each one, and run the check again."
+do_2 = "do_2 Bring the fixture, the vector and their writers to one state. Where a writer produces bytes that differ from the kept fixture for the same inputs, find the cause and repair it at the writer; where the kept fixture is the stale side, regenerate the fixture and the vector with their own generators and state why in the record. A frozen ABI vector named in programs/abi-frozen.sha256 does not change. A recipe that is run for checking leaves the fixture and the vectors as it found them (decision 3334)."
+do_3 = "do_3 Record in programs/tests/vectors/repair_22_39_405.kvx as product facts: each writer, the file it writes and the recipe that runs it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["scripts/programs/generate-abi-vectors.py", "programs/tests/vectors", "tests/fixtures/programs/emulator-response-code", "sdk/platform/conformance/fixtures"]
+tests = []
+planned_paths = ["programs/tests/vectors/repair_22_39_405.kvx"]
+build_cmd = "python3 -m py_compile scripts/programs/generate-abi-vectors.py && sh -n tests/programs/check-abi-drift.sh"
+verify_cmd = "test -s programs/tests/vectors/repair_22_39_405.kvx && make -s programs-abi-drift && ! git status --porcelain -- programs/tests/vectors tests/fixtures/programs/emulator-response-code | grep -q ."
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.401]
+title = "Bring the generated files of the agent TypeScript SDK into line with their generator"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.401"]
+interfaces = []
+do_1 = "do_1 Decision 3335. The recipe platform-sdk-check of services/platform/Makefile.inc compares generated SDK files with the output of sdk/platform/generators, and the recipe platform-sdk-generate writes them with services/agent/tools/sdk-gen and with sdk/platform/generators. Run platform-sdk-check by hand and list each file it names, starting with services/agent/sdk/typescript/src/generated/precompile-writes.ts. For each file state which generator owns it and what the two generators write for it."
+do_2 = "do_2 Give each listed file one generator. Where both generators write the same file bring them to the same output or take the file away from one of them, and regenerate with the recipe. Do not edit a generated file by hand. After make platform-sdk-generate the working tree shows no change, and platform-sdk-check passes. The build of the agent TypeScript SDK passes with the generated files as they stand."
+do_3 = "do_3 Record in services/agent/sdk/typescript/repair_22_39_401.kvx as product facts: each file, its generator and the recipe that writes it. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/tools/sdk-gen", "sdk/platform/generators"]
+tests = []
+planned_paths = ["services/agent/sdk/typescript/repair_22_39_401.kvx"]
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && cargo build --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml"
+verify_cmd = "test -s services/agent/sdk/typescript/repair_22_39_401.kvx && make -s platform-sdk-check && make -s agent-sdk-ts-build"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.400]
+title = "Read the reward state before the room market tail of the settlement section"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.400"]
+interfaces = []
+do_1 = "do_1 Decision 3331, gotcha 4259. Write the case first, in programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs, with the producers that tests/f11_rooms_and_deals.rs uses: on a market that has no epoch yet a room opens through OpenRoom, and read_header of src/queries.rs then answers the header of the market. Add the same case for a market that has an epoch and a reward state before the room opens, and a case in which the room closes again. Run the cases by hand and note which step of the read answers a state code."
+do_2 = "do_2 List every reader of the settlement section in the source of the crate: captured_roster and the other readers of src/epoch.rs, rewards of src/closure.rs, the readers of src/aggregation.rs, src/commit_reveal.rs, src/rewards.rs, src/roster.rs, src/laps.rs, src/tasks.rs, src/evidence.rs, src/queries.rs, src/lib.rs, src/evaluators/admission.rs and the entry module of the program. For each reader state whether it reads the reward state, the room market tail or the whole section. Make every reader of the reward state take the first part that room_market of the shared state returns. Change no writer, no layout and no instruction. Record the list in programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx as product facts: the reader, its file and the part it reads."
+do_3 = "do_3 Add to the test file one case per kind of reader that do_2 changes, each on a state that carries a room market tail. The cases of tests/canonical_contract.rs that pass before the change pass after it. The crate is also the guest module: build it with the host boundary recipe, keep it within the deployment bound of 524184 bytes, and where the module bytes change bring the fixtures ai-market-opt-z and ai-market-aggregation-baseline under tests/fixtures into line the way their own cases state. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/canonical_contract.rs", "programs/crates/layerx-programs-ai-market/tests/fixtures/f11_rooms_and_deals.rs", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_a_room_opens_before_the_first_epoch", "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_a_room_opens_on_a_market_with_a_reward_state", "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs::header_answers_after_the_room_closes"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx"]
+build_cmd = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/tests/repair_22_39_400.kvx && test $(wc -c < build/paxai-host-boundary/ai_market.wasm) -le 524184 && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test repair_22_39_400 --test f11_rooms_and_deals --test f11_bonds --test f11_placement_book --test f11_lap_settlement --test f11_payout_split --test repair_22_33_223 --test settlement_capacity && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget fund_fits_the_protocol_cpu_fuel_cap"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.397]
+title = "Bring the text of the web app into the copy catalog"
+status = "done"
+mode = "BUILD"
+wave = 7
+requires = ["22.39.396"]
+reqs = ["22998.1"]
+capabilities = ["22.39.397"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. Run the copy check as the recipe human-lint-copy of the Makefile runs it: cargo run --manifest-path services/human/tools/copy-lint/Cargo.toml --locked -- apps/web. It lists by file and line the text in the sources of the web app that is not in apps/web/copy/catalog.ts, under apps/web/src/explorer, apps/web/src/app/explorer, apps/web/src/app/exchange, apps/web/src/app/bridge, apps/web/src/app/launchpad, apps/web/src/app/_markets and apps/web/src/journeys. Move each listed text into the catalog as an entry with key, message, context, surface and kind, and read it in the source through the catalog as the neighbouring text of the app does. Keep every message word for word, so that no test that reads the text changes."
+do_2 = "do_2 The check also lists catalog entries of kind status next to money whose message is not in STATUS_MESSAGES of services/human/tools/copy-lint/src/main.rs. Decide each one by its use: an entry that is not the status of a money movement takes the kind that fits it, and a real status of a money movement joins STATUS_MESSAGES with a case beside the existing cases of the check. Raise COPY_CATALOG_VERSION by one minor step."
+do_3 = "do_3 Run the copy check, the typecheck and the tests of the web app outside the counted gates until the copy check and the typecheck are clean. A test of the web app that stops for a cause other than this text is not repaired here: record its name and first message. Record in apps/web/repair_22_39_397.kvx the number of entries added by directory and the entries whose kind changed. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["apps/web/copy/catalog.ts", "apps/web/copy/messages.generated.ts", "apps/web/src/explorer", "apps/web/src/app/explorer", "apps/web/src/app/exchange", "apps/web/src/app/bridge", "apps/web/src/app/launchpad", "apps/web/src/app/_markets", "apps/web/src/journeys", "services/human/tools/copy-lint/src/main.rs"]
+tests = []
+planned_paths = ["apps/web/repair_22_39_397.kvx"]
+build_cmd = "make human-js-install && make agent-sdk-ts-build && cargo build --locked --manifest-path services/human/tools/copy-lint/Cargo.toml"
+verify_cmd = "test -s apps/web/repair_22_39_397.kvx && cargo test --locked --manifest-path services/human/tools/copy-lint/Cargo.toml && cargo run --locked --manifest-path services/human/tools/copy-lint/Cargo.toml -- apps/web && npm --prefix apps/web run typecheck"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3330, gotcha 4258: the generated table apps/web/copy/messages.generated.ts is written by apps/web/copy/generate-runtime.ts from the catalog and is part of this change as the generator writes it. Do not edit it by hand."
+
+[task.22.39.396]
+title = "Carry the uint32 type in the precompile ABI of the TypeScript and Python SDKs"
+status = "done"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.19"]
+reqs = ["22998.1"]
+capabilities = ["22.39.396"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. The generated table services/agent/sdk/typescript/src/generated/precompile-writes.ts names the type uint32 for the chain field of the events ChainLaunched, ChainRevenueEpochOpened, ChainRevenueClaimed and LaunchedChainRetired of the launchpad precompile. Add uint32 to PrecompileAbiType in services/agent/sdk/typescript/src/exchange.ts with its width of 32 bits in the function bits, and make encodeStatic and decodeWord take it with the range check of its width, as they do for uint8 and uint64. Change no generated file by hand."
+do_2 = "do_2 Do the same in services/agent/sdk/python/layerx_sdk/exchange.py: the list of ABI types and the width table carry uint32, and a value outside 32 bits is refused. Then list every type that the two generated tables name and confirm that the type set of each SDK carries each one; add what is missing in the same way."
+do_3 = "do_3 Add cases beside the existing ones in services/agent/sdk/typescript/test/precompile-calls.test.ts and in services/agent/sdk/python/tests/test_spot_call.py: a uint32 value at the upper bound passes through the codec of the SDK and back, the value above the bound is refused, and the event table of the launchpad is accepted with its chain events. Record in services/agent/sdk/repair_22_39_396.kvx the types added and the cases. Run make agent-sdk-ts-build and the two test files outside the counted gates until they are clean, then the counted build once and the counted verification once."
+symbols = []
+touches = ["services/agent/sdk/typescript/src/exchange.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts", "services/agent/sdk/python/layerx_sdk/exchange.py", "services/agent/sdk/python/tests/test_spot_call.py"]
+tests = []
+planned_paths = ["services/agent/sdk/repair_22_39_396.kvx"]
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build"
+verify_cmd = "test -s services/agent/sdk/repair_22_39_396.kvx && make agent-sdk-ts-build && node --test services/agent/sdk/typescript/dist/test/precompile-calls.test.js && python3 -m pytest services/agent/sdk/python/tests/test_spot_call.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.40.19]
+title = "Bring the generated readers of the launchpad ABI to the chain launch"
+status = "done"
+mode = "BUILD"
+wave = 5
+requires = ["22.40.7"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.19"]
+interfaces = []
+do_1 = "do_1 Decision 3321, gotcha 4249. Run node scripts/generate-precompile-writes.mjs in services/agent/sdk/typescript so that src/generated/precompile-writes.ts and services/agent/sdk/python/layerx_sdk/generated/precompile_writes.py carry the state-changing functions and the events of the chain launch from precompiles/launchpad/abi.json. Change neither file by hand."
+do_2 = "do_2 Run services/explorer/services/sig-provider/sig-provider/src/sources/generate_precompiles.py in the way its header and the README of the service state, so that precompiles.json carries the functions, events and errors of the chain launch. Add to src/aggregator_precompiles_test.rs of that crate one case producer_backed_chain_launched_preserves_layout that reads the event ChainLaunched from precompiles/launchpad/abi.json, encodes one log with it and asserts that the aggregator returns the names and types of the producer in order."
+do_3 = "do_3 Write tests/ci/test_repair_22_40_19.py with test_write_tables_carry_the_chain_launch: it reads precompiles/launchpad/abi.json and both generated files as text and asserts that every function of the ABI that is neither view nor pure has its canonical signature in both files and every event its name in both. Record the commands run, the count of entries added to each file and the results in services/agent/sdk/repair_22_40_19.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/sdk/python/layerx_sdk/generated", "services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"]
+tests = ["tests/ci/test_repair_22_40_19.py::test_write_tables_carry_the_chain_launch", "services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs::producer_backed_chain_launched_preserves_layout"]
+planned_paths = ["tests/ci/test_repair_22_40_19.py", "services/agent/sdk/repair_22_40_19.kvx"]
+build_cmd = "cargo build --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider --tests && node --check services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs"
+verify_cmd = "test -s services/agent/sdk/repair_22_40_19.kvx && python3 -m pytest -q tests/ci/test_repair_22_40_19.py && cargo test --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider producer_backed"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.17]
 title = "Run the chain launch journey on an isolated chain"
 status = "pending"
@@ -187136,7 +187606,7 @@ title = "Drive an isolated chain, one host, two native peers and one asker throu
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395", "22.39.400"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -187144,11 +187614,11 @@ do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the Ru
 do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
 do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
 symbols = ["InferenceRoomDriver"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/Cargo.lock", "services/platform/hosted/indexer/src/ai_source.rs", "services/platform/hosted/indexer/src/bin/ai_source.rs", "services/platform/hosted/indexer/tests/ai_source.rs", "services/platform/hosted/indexer/src", "services/platform/hosted/indexer/tests", "services/platform/hosted/indexer/Cargo.toml"]
 tests = []
-planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs"]
+planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py", "services/agent/crates/layerx-client/examples/inference_room_writes.rs", "services/platform/hosted/indexer/tests/store_writers.rs"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
-verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
+verify_cmd = "CARGO_INCREMENTAL=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_DEV_DEBUG=0 cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_source --test store_writers && d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-platform"
@@ -187169,6 +187639,9 @@ do_9 = "Attempt 8 (continue, gotcha 4235, decision 3306): the attempt-7 tree 775
 do_10 = "Attempt 9 (continue after 22.39.386 and 22.39.387 land, gotchas 4236 and 4237, decisions 3307 and 3308): the attempt-8 tree 949f22eb4b3b stands (the deployment at ABI 2, the registration with profile 2, the upgrade to ABI 5, the fee limit taken from quoteCallFee, the example of layerx-client, the changes of the envelope program and of the fixture). The three steps of decision 3306 commit on the isolated chain. The CreateMarket call is refused as non canonical because the example builds the native call with empty capability bytes and an empty access declaration (services/agent/crates/layerx-client/examples/inference_room_writes.rs:392 to :412). The task now requires tasks 22.39.386 and 22.39.387; rebase on main once both are on it, and settle services/agent/Cargo.lock by letting cargo write it again, never by hand. In the example take the capability bytes and the access declaration of every operation from the function market_call_terms of the client library and write no such byte by hand; set the response capacity to 16384. Change nothing for the block-end occupancy transition: the node runs it after task 22.39.387, so a call at a later height is admitted. When a call at a later height is still refused, record the height, the result code and the last 150 lines of the native log of the node, and stop. The tail of the verification command found no native log, so the driver itself prints the last 150 lines of the native log of the node when a transaction reverts, and the record names the path of that log. The room proof funds through the pay stream and runs no value operation of the program; when a step needs a FUND, a CLAIM or a payout of the program, record it and stop (decision 3309). Change no product source outside the paths. Run every part of the chained verification outside the counted gates until clean (decision 3286), then run the build once and the verification once at the final revision."
 do_11 = "do_11 Decisions 3310 to 3312, gotchas 4240 and 4241: the note for attempt 9 is wrong where it says that the room proof runs no value operation of the program. The driver sends the LockBond operation for each peer, and that operation is a deposit. The task now requires tasks 22.39.389 and 22.39.390. Take the two fields of every value operation from the function market_value_call_terms of the client library, with a Transfer402 grant for the amount of the bond, and the two fields of every other operation from market_call_terms. A value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 do_12 = "do_12 Decision 3313, gotcha 4243: the record of this task states product facts only. It names no verification tool and none of its commands, no path of the qualification environment, no log file and no file under a temporary directory, and it does not narrate the attempts."
+do_13 = "do_13 Decision 3325, gotcha 4253. In services/platform/hosted/indexer/src/ai_source.rs the committed read takes the signed header and the commit of the height below the latest height of the node and requires that commit canonical, reads the store at the height below that one, and sends the store key as hexadecimal text without a prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers as a node does: the commit of its latest height is not canonical and a store key with a prefix is refused. The cases of that file pass, and the room journey reads through the source with no change to what the indexer verifies."
+do_14 = "do_14 Decision 3328, gotcha 4256. With the AI capture configured the indexer has two followers that write to one database file through separate connections. Find each place where a connection is opened on the file and each transaction that writes, under services/platform/hosted/indexer/src, and make a writer wait for a held write lock within a stated bound; a transaction that reads before it writes takes the write lock when it begins. Add services/platform/hosted/indexer/tests/store_writers.rs: two connections on one file, opened as the indexer opens them, write in turn from two threads for a stated number of rounds, and every write is recorded. Change nothing that the indexer verifies or records. In the room driver set no poll interval and no scan position whose purpose is to keep the two followers apart."
+do_15 = "do_15 Decision 3331, gotcha 4259: the task now requires task 22.39.400, which makes the readers of the reward state read the part of the settlement section before the room market tail. Change nothing under programs/crates/layerx-programs-ai-market in this task. The record states the bound of each retry that the source of the indexer applies."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -187182,7 +187655,7 @@ interfaces = []
 do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
 do_2 = "do_2 Extend tests/programs/test_ai_host_boundary.c with one native CALL per F11 operation through the built guest and assert status 0 and a present replay record; bring any operation over the cap under it through the joint-section readers."
 symbols = ["f11_fuel_table", "test_f11_host_boundary"]
-touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx", "rpc/repair_478_test.go"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
 build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
@@ -187194,7 +187667,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 300
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -187210,6 +187683,7 @@ do_11 = "Attempt 9 (continue, gotcha 4160, decision 3233): the attempt-8 tree a7
 do_12 = "Attempt 10 (continue after 22.39.365 lands, gotcha 4189, decisions 3260, 3258 and 3233): the attempt-9 tree c98a277c6018 stands (the changes of the guest source in src/lib.rs, src/placement.rs, src/rewards.rs, src/rooms.rs and src/state.rs, the module f11_budget of tests/fuel_budget.rs, tests/repair_22_33_260.rs, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). It builds with a guest of 523159 bytes and no verification saw it. The task now requires task 22.39.365, which changes the check of the RecordDeal operation in src/rooms.rs and regenerates the committed guest: rebase on main once it is on it and keep its change whole. The touches now name the committed guest and the aggregation baseline pair. Before the counted gates: regenerate the committed guest with tests/fixtures/build-guest.sh, run the three targets of the verification outside the counted gates, and repair until the nine cases that stopped at tests/support/guest.rs:163 and the table at tests/fuel_budget.rs:4019 pass; the room opening operation (selector 0x0b01) measured 1000037 of 1000000 at fb504f884432, and the bounds of attempt 9 stand (no change of DEFAULT_CPU_FUEL, of the bound of the table, of the measured state, of the set of selectors, of a wire form or of the stored layout, every existing case unchanged). Regenerate the guest again after the last change of the source and record its size; it must stay inside 524184 bytes. Regenerate the aggregation baseline pair with the option --aggregation-probe only when a case reports it stale. Search tools/qualification/audit_repairs/test_repair_22_33_219.py and test_repair_22_33_788.py, which read the metadata of the committed guest, for a pinned value and record a pin with file and line. When the table cannot pass inside the bounds, record the fuel by stage for each overrunning selector and stop. Run the build once and the verification once at the final revision."
 do_13 = "do_13 Decision 3282, gotcha 4210: the helpers open and settle of tests/repair_22_33_260.rs are repaired on main by task 22.39.365, which this task requires. On the rebase keep the form of main for those two helpers and drop the copy of the attempt-9 tree where both do the same; keep every other change of the tree. Run every target that takes in the file once before the counted gates."
 do_14 = "Attempt 11 (continue, gotcha 4230, decision 3300): the attempt-10 tree 52b3dca95be5 stands (the readers and the room opening path of the guest source, the fuel table and its cases, the two fixture pairs, the native harness, the fixture repair, the record). The room opening operation (selector 0x0b01) stays under the cap; the one red case is red because the table asked for a whole replay record, which decision 3300 withdraws. Rebase on main first: another task changes the guest source for the bids of a further deal of an ask; keep its change whole. In tests/programs/test_ai_host_boundary.c the call function sends every F11 envelope in the plain call form again, and the short CALL case keeps its profile of 256 boundaries; give the f11 command one way to ask for a single call wrapped with the profile of 4096 boundaries and 1048576 bytes. In tests/fuel_budget.rs the table asserts for every F11 selector status 0 of the kernel and of the receipt, fuel under 1000000 and the equality of result, stored state and events with the in-process path, and asserts no record for an F11 call. Add the case f11_whole_record_is_refused_on_the_full_state: the room opening operation on the full state, wrapped with that profile, ends with the bounds refusal of the record (check capture witness bytes) and the stored state of the program is unchanged; write into the record of the task what the receipt of that call charges. Change nothing under programs/crates/layerx-programs-runtime and no bound of decision 3233. The fuel marks stay under the build variable of the diagnostic entry. Regenerate the committed guest without that variable with tests/fixtures/build-guest.sh (decision 3260) and write its size into the record; it stays inside 524184 bytes, and when it does not after the rebase, bring it inside with the means of the earlier attempts of this task and remove no check. Run the three targets of the verification outside the counted gates until all are clean (decisions 3286 and 3287), then run the build once and the verification once at the final revision."
+do_15 = "do_15 Decision 3323, gotcha 4251. The case TestRepair478_FundWithinProductionAllowance of rpc/repair_478_test.go bounds the CPU fuel of the Fund operation by the value measured for the committed guest. After the last change of the guest source measure the Fund operation with that case, set the measured bound of the case to the measured value and write the earlier and the new value into the record of the task. Change no other line of that file and keep its bounds against the CPU allowance and the earlier stop."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
@@ -195438,6 +195912,96 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.404]
+title = "Pass the lint of the interop crates with warnings denied"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.404"]
+interfaces = []
+do_1 = "do_1 The recipe interop-lint of the Makefile runs clippy with warnings denied over the manifest services/interop/Cargo.toml, all targets. Run that clippy command by hand. The literal at services/interop/crates/layerx-committed-proof/src/lib.rs:730 is a long number with no separators: write it with separators, value unchanged."
+do_2 = "do_2 Run the command again until it exits 0 and repair each further finding under services/interop/crates in the code. Add no allow attribute and change no lint level. No value, no wire format and no public name changes. The tests of each crate that changes pass unchanged."
+do_3 = "do_3 Record in services/interop/repair_22_39_404.kvx as product facts: each file that changed and the lint it now passes. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/interop/crates"]
+tests = []
+planned_paths = ["services/interop/repair_22_39_404.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
+verify_cmd = "test -s services/interop/repair_22_39_404.kvx && cargo clippy --manifest-path services/interop/Cargo.toml --locked --workspace --all-targets -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.403]
+title = "Pass the lint of the platform crates with warnings denied"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.403"]
+interfaces = []
+do_1 = "do_1 The recipe platform-lint of services/platform/Makefile.inc runs clippy with warnings denied over the three platform manifests. Run it by hand. The function validate of services/platform/hosted/internal/src/producer.rs is longer than the line bound of the lint: split it into named steps that keep its checks, their order and every answer. Add no allow attribute and change no lint level."
+do_2 = "do_2 Run the recipe again until it exits 0 and treat each further finding under services/platform/hosted/internal/src the same way: change the code, not the lint. A finding in a file outside that directory is named in the closing report with its file and lint and is not changed here. The tests of the crate pass unchanged."
+do_3 = "do_3 Record in services/platform/hosted/internal/repair_22_39_403.kvx as product facts: each function that changed and the steps it now has. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/platform/hosted/internal/src"]
+tests = []
+planned_paths = ["services/platform/hosted/internal/repair_22_39_403.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --workspace --all-targets"
+verify_cmd = "test -s services/platform/hosted/internal/repair_22_39_403.kvx && make -s platform-lint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.398]
+title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.398"]
+interfaces = []
+do_1 = "do_1 Decision 3326, gotcha 4254. The check tests/programs/runtime-module-boundaries.sh holds the list of the files of programs/crates/layerx-programs-runtime/src/host and the list of the host families whose files may not reach a sibling family, a parent of the crate, or the types Abi, Composition, Storage and Meter. The directory carries market.rs, which the list does not name. Add market.rs to the file list. Decide from its imports whether market is a family under the sibling rules or a module beside the families, as memory.rs and context.rs are, state the choice in the record, and extend the self-test of the script so that it still refuses an unknown file and accepts the files of main."
+do_2 = "do_2 The cases at the end of programs/crates/layerx-programs-runtime/src/host/scan.rs name Abi, Storage and Meter to build their state. Move those cases to a place where the check allows the names, for example a test file of the host directory that the list names, as event_tests.rs is named for the ABI modules, or a file under programs/crates/layerx-programs-runtime/tests. Change nothing that the cases assert, keep the word scan in the path of each moved case, and widen no item beyond the crate. Do not relax a rule of the check to fit the source."
+do_3 = "do_3 Run sh tests/programs/runtime-module-boundaries.sh and the cases of the package outside the counted gates until both are clean. Record in programs/crates/layerx-programs-runtime/repair_22_39_398.kvx the choice for market.rs, the cases moved and their new place. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["tests/programs/runtime-module-boundaries.sh", "programs/crates/layerx-programs-runtime/src/host", "programs/crates/layerx-programs-runtime/tests"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_398.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_398.kvx && sh tests/programs/runtime-module-boundaries.sh && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime scan"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.393]
 title = "Bind the agent dependency policy to the closure that the agent workspace ships"
 status = "done"
@@ -198451,7 +199015,7 @@ do_4 = "Attempt 2 (continue, gotcha 3753, decisions 3053 and 3057): start from t
 
 [task.22.39.211]
 title = "Bring the agent workspace lint target to green under the workspace lints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385", "22.39.393"]
@@ -226787,9 +227351,39 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.40.20]
+title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
+status = "done"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.7", "22.40.8"]
+reqs = ["22400.5", "22998.1"]
+capabilities = ["22.40.20"]
+interfaces = []
+do_1 = "do_1 Decision 3321, gotcha 4249. The records native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 carry the sha256 of sources of the launchpad keeper and precompile, and producer-revision.txt names the revision of the producer. List in sdk/launchpad/protocol/bindings/repair_22_40_20.kvx every source whose sha256 at the base differs from its record."
+do_2 = "do_2 Produce the records again with the recorders of that directory (record_native.py, record_node.py, and record_retained.py where its inputs changed) in the way sdk/launchpad/protocol/bindings/repair_m948.kvx describes: real execution through the node built from the base. Edit no hash, log or revision by hand and change no source of the keeper, the precompile or the node. Bring the catalog under sdk/launchpad/protocol/catalog and the generated bindings to the ABI with their own generators where they derive from it."
+do_3 = "do_3 Write sdk/launchpad/protocol/bindings/repair_22_40_20_test.go with TestNativeBindingCarriesTheChainLaunch, which reads precompiles/launchpad/abi.json and asserts that the metadata of the native binding carries the event ChainLaunched and every function of the chain launch with the types of the producer, and TestRecordedSourceHashesMatchTheTree, which asserts for both records that every recorded sha256 equals the sha256 of the file of the tree. Run go test over the whole module once and record every case that stops for another cause with its first message; repair none of them here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/protocol/bindings", "sdk/launchpad/protocol/catalog"]
+tests = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestNativeBindingCarriesTheChainLaunch", "sdk/launchpad/protocol/bindings/repair_22_40_20_test.go::TestRecordedSourceHashesMatchTheTree"]
+planned_paths = ["sdk/launchpad/protocol/bindings/repair_22_40_20_test.go", "sdk/launchpad/protocol/bindings/repair_22_40_20.kvx"]
+build_cmd = "cd sdk/launchpad/protocol && go vet ./bindings/... ./catalog/..."
+verify_cmd = "test -s sdk/launchpad/protocol/bindings/repair_22_40_20.kvx && cd sdk/launchpad/protocol && go test -count=1 -timeout 30m ./bindings/... ./catalog/..."
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.13]
 title = "Serve launched chains and their revenue from the launchpad API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.9"]
@@ -226819,7 +227413,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.9]
 title = "Decode and store the chain launch events in the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -226849,7 +227443,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.8]
 title = "Prove in one block of a node that a chain launches with its token and trades on itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -226879,7 +227473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.7]
 title = "Serve the chain launch at the launchpad address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.40.4", "22.40.5", "22.40.6", "22.40.1"]
@@ -226890,11 +227484,11 @@ do_1 = "do_1 Decisions 3316 to 3318 and the contract spec/layerx-merge/contracts
 do_2 = "do_2 Add precompiles/launchpad/chainlaunch.go with the methods and wire them in the method table (launchpad.go, run.go), the gas table (gas.go), the event encoders (events.go) and the error mapping (errors.go) in the way createMarket and triggerAirdrop are wired. launchChain is payable and hands its value to LaunchChain; the reads are view; a state-changing method is refused in a static call and in a delegate call as the other methods of the address are. The gas of launchChain is at least the gas of createMarket plus the gas of createChain at the registry address."
 do_3 = "do_3 Write precompiles/launchpad/chainlaunch_test.go with cases through the ABI: TestChainLaunchReturnsTokenPoolRightChainAndChainId, TestChainLaunchEmitsChainLaunchedAndTheMarketEvents, TestChainLaunchRevertLeavesNoState, TestChainLaunchStaticCallIsRefused, TestChainLaunchReadsReturnTheRecord, TestChainRevenueOpenAndClaimThroughTheAbi, TestLaunchedChainControlThroughTheAbi, TestHomeChainRefusalIsWrongChain and TestChainLaunchAbiMatchesSolidityInterface, which compares the selectors and event topics of abi.json with Launchpad.sol. Regenerate what the package derives from abi.json (the files under precompiles/launchpad/abi and precompiles/launchpad/testdata where they pin the ABI) with the generator the package uses. Search the tree for other pins of the ABI of this address; a pin outside the paths is named in the final message with file and line and is not changed here. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["precompiles/launchpad/Launchpad.sol", "precompiles/launchpad/abi.json", "precompiles/launchpad/launchpad.go", "precompiles/launchpad/run.go", "precompiles/launchpad/gas.go", "precompiles/launchpad/events.go", "precompiles/launchpad/errors.go", "precompiles/launchpad/abi", "precompiles/launchpad/testdata", "spec/layerx-merge/contracts"]
+touches = ["precompiles/launchpad", "spec/layerx-merge/contracts", "services/wallet/attestor/internal/policy/evm/abi/launchpad.json"]
 tests = []
 planned_paths = ["precompiles/launchpad/chainlaunch.go", "precompiles/launchpad/chainlaunch_test.go"]
 build_cmd = "go build ./precompiles/launchpad/... && go test -count=1 -run '^$' ./precompiles/launchpad/..."
-verify_cmd = "go test -count=1 -timeout 30m ./precompiles/launchpad/..."
+verify_cmd = "go test -count=1 -timeout 30m ./precompiles/launchpad/... && cmp precompiles/launchpad/abi.json services/wallet/attestor/internal/policy/evm/abi/launchpad.json"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -226906,10 +227500,11 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3321, gotcha 4249. The package tests that state the entries of the ABI (abi_test.go, abi_direct_test.go, run_test.go, proof_precompile_go_test.go and the golden file under testdata) follow the new surface: extend what they state by the functions, events and errors of the chain launch and by nothing else, and weaken no assertion. Copy precompiles/launchpad/abi.json byte for byte to services/wallet/attestor/internal/policy/evm/abi/launchpad.json. The package test that compiles the launchpad contracts reads the compiler from the variable SOLC or from PATH."
 
 [task.22.40.6]
 title = "Let the holder of the fee right pause, resume and retire the launched chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.40.3"]
@@ -226939,7 +227534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.5]
 title = "Pay the operator share of a launched chain to the holders of its token by epoch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.40.3"]
@@ -226969,7 +227564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.4]
 title = "Bind the trades of a market to its home chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.40.3"]
@@ -226999,7 +227594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.3]
 title = "Launch a chain and its market in one state transition of the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.40.2"]
@@ -227029,7 +227624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.2]
 title = "Add the records of the chain launch to the launchpad module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -228594,7 +229189,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18"]
+requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []
@@ -228654,7 +229249,7 @@ do_4 = "Attempt 2 (continue, gotcha 3708, decisions 3010 and 3011): the attempt-
 title = "Bring the remaining stages of the launchpad Makefile ci target to green and run them from the public launchpad workflow"
 status = "pending"
 mode = "BUILD"
-wave = 3
+wave = 8
 requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
@@ -229017,15 +229612,15 @@ do_10 = "Attempt 6 (continue, gotchas 3583 and 3584, decisions 2771 and 2887): t
 title = "Give the five launchpad shared service packages in-process fixtures or configured skips and retire their baseline entries"
 status = "pending"
 mode = "BUILD"
-wave = 2
-requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374"]
+wave = 7
+requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374", "22.40.20"]
 reqs = ["22998.1"]
 capabilities = ["22.39.117"]
 interfaces = []
 do_1 = "do_1 Decision 2820, gotcha 3468. The 35 tests recorded in tests/ci/data/launchpad_go_test_baseline.json span sdk/launchpad/shared/chain, db/production, delivery, delivery/natsdriver and storage, whose tests open NATS, Postgres and object-storage services, and shared/auth, whose six tests read launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, a file the repository does not track. For the five service packages start the service in process where the module already carries a fixture (the testpki package is the pattern) or skip with t.Skip naming the environment variable that configures the service when it is unset, so the tests pass in the public check without a live service and run in full where one is configured."
 do_2 = "do_2 Delete the entries of the five service packages from the baseline file; the six auth entries stay with the untracked schema file named as the reason until the owner tracks the production specification pair, and the recipe keeps deriving its skip pattern from the file."
 symbols = []
-touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad/Makefile", "services/launchpad/trading-charts/internal/engine/candle_stream_test.go", "apps/launchpad/web/src/core/network/deployment.ts", "services/launchpad/api/internal/app/stream_relay_production_test.go", "services/launchpad/indexer/internal/config/repair_m999_test.go", "services/launchpad/indexer/internal/decode/repair_m995_test.go", "services/launchpad/indexer/internal/receipt/repair_53_test.go", "services/launchpad/indexer/internal/receipt/rpc.go", "services/launchpad/indexer/internal/receipt/identity.go", "tests/ci/data/launchpad_go_test_baseline.json"]
+touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad/Makefile", "services/launchpad/trading-charts/internal/engine/candle_stream_test.go", "apps/launchpad/web/src/core/network/deployment.ts", "services/launchpad/api/internal/app/stream_relay_production_test.go", "services/launchpad/indexer/internal/config/repair_m999_test.go", "services/launchpad/indexer/internal/decode/repair_m995_test.go", "services/launchpad/indexer/internal/receipt/repair_53_test.go", "services/launchpad/indexer/internal/receipt/rpc.go", "services/launchpad/indexer/internal/receipt/identity.go", "services/launchpad/indexer/internal/processor/repair_54_test.go", "tests/ci/data/launchpad_go_test_baseline.json"]
 tests = ["sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool", "sdk/launchpad/shared/db/production::TestPhase2ReaderCompatibility", "sdk/launchpad/shared/storage::TestArchiveActualCanonicalPostgresAndObjectStorage", "sdk/launchpad/shared/delivery/natsdriver"]
 planned_paths = ["tests/ci/data/launchpad_go_test_baseline.json"]
 build_cmd = "cd sdk/launchpad/shared && go vet ./..."
@@ -229064,6 +229659,7 @@ do_22 = "Attempt 19 (continue, gotcha 4191, decisions 3262 and 3183): the attemp
 do_23 = "Attempt 20 (continue after 22.39.374 lands, gotcha 4211, decision 3283): the attempt-19 tree a26f513fc045 stands (the repaired signing key case, everything of the earlier attempts, the record). The run of the test target outside the counted gates passed the modules before the profit tracker and stopped there at TestRepair_63_RecordedReplayHeaders, internal/production/l16/repair_63_test.go:217: the case pins the checksum of the producer transcript that task 22.39.162 extended by one record. The directory is outside the paths and task 22.39.374 repairs it; the task now requires it. Rebase on main once that task is on it and change nothing under services/launchpad/pnl-tracker. The modules after the profit tracker in the list of the test target have still not run at this tree: run the test target once more outside the counted gates. A red case whose cause sits inside the paths is repaired in this attempt, and a red site outside the paths is recorded with file, line and message and the attempt stops. Run the build once and the verification once at the final revision."
 do_24 = "Attempt 21 (continue, gotcha 4217, decision 3289): the attempt-20 tree ba77c1f483af stands (the repair of the connection cleanup at the start of a transaction, everything of the earlier attempts, the record). The test target passed every module before the launchpad statistics module and stopped in its package projectionstats at TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery, phase2_test.go:182: the case creates a stream with three replicas and the broker that L13_PHASE3_NATS_URL named was a single node. The case is right and the public workflow runs it against three nodes (.github/workflows/launchpad-test.yml:296). Three nodes now answer on the same ports. Change nothing in that case, add no skip and change no file of the launchpad statistics module. Rebase on main. The targets build, vet, fmt-check, lint, race and cover-check of the ci target have not run at this tree. Before the counted verification run the test target and then each of those targets once outside the counted gates, in the order of the ci target (decision 3286). Repair a red result whose cause sits inside the paths. For a cause outside the paths record the target, the module, the first failing message and its file, go on with the remaining targets, and record all such causes together. The time limit is now 300 minutes. When no cause outside the paths remains, run the build once and the verification once at the final revision. When one remains, commit the record, do not start the counted verification, and stop."
 do_25 = "Attempt 22 (continue, gotcha 4233, decision 3303): the attempt-21 tree 6d0bb29124e2 stands (the build line of the Makefile that leaves the test time limit out of go build, everything of the earlier attempts, the record). The verification now runs the cases of the five shared packages and the targets test, build, vet and fmt-check under GOFLAGS -timeout=15m; the targets lint, race and cover-check left it and belong to task 22.39.170. Rebase on main. Change nothing for the lint tool, for the role of the indexer case or for the profile directory, and leave no file under services/launchpad/.cover in the tree. In the record replace the results of the lint, race and cover stages with one sentence that names decision 3303 and gotcha 4233. Outside the counted gates run the test target for the trading-charts module once under the limit (GOFLAGS=-timeout=15m make -C services/launchpad test MODULES=trading-charts) and confirm that TestFaultBrokerTenMinuteOutageAndPostPublishCrash passes inside it; shorten, skip or remove no case. The other modules passed the test target at this tree and are run again outside the counted gates only when the rebase changes a file they read. A red case whose cause sits inside the paths is repaired in this attempt; a red site outside the paths is recorded with file, line and message and the attempt stops. Run the build once and the verification once at the final revision."
+do_26 = "do_26 Decision 3329, gotcha 4257: the in-process executor of services/launchpad/indexer/internal/processor/repair_54_test.go answers the statement of the store that sets the home chain of a pool from the launched chains (services/launchpad/indexer/internal/store/store.go:105), with the effect the statement has on the rows the cases hold: a pool whose address and token match a launched chain takes its chain, and a pool without one stays as it is. Change nothing in the store and no assertion of the cases. Then run every module of the verification, each one to its end, and repair what belongs to this task."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -286335,9 +286931,137 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.39.409]
+title = "Run each part of the workspace test and lint recipes and record what each part covers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.409"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Work in the checkout of the task and make no second checkout or copy of the tree. Run make workspace-install first. Set CARGO_TARGET_DIR to the directory target at the root of the checkout for every command. Read the prerequisites of workspace-test and of workspace-lint in the Makefile."
+do_2 = "do_2 Run each prerequisite target of workspace-test by itself with make -k, in the order the Makefile lists them, then forge test with the offline option, then each prerequisite target of workspace-lint that the first list does not hold. Keep the output of each run in a file outside the tree. Between targets remove build output that the next target does not need when the free space of the volume is under three gigabytes. Change no source file, no recipe and no test."
+do_3 = "do_3 Record in tools/workspace/sweep_22_39_409.kvx as product facts, one entry per target: the target, the manifests or directories it covers and the tools it needs on the path. The closing report lists, for each target, its exit code, its first message where it stops, the largest use of the volume and of memory during the run, and the time it took. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/workspace"]
+tests = []
+planned_paths = ["tools/workspace/sweep_22_39_409.kvx"]
+build_cmd = "make -n workspace-test > /dev/null && make -n workspace-lint > /dev/null"
+verify_cmd = "WAVE_GATE_IN_PLACE=1 test -s tools/workspace/sweep_22_39_409.kvx && for t in core-test-all agent-test human-test platform-test platform-verify-sdks platform-test-tooling platform-test-middleware platform-test-reference-apps platform-test-docs programs-test interop-test paxeer-test paxeer-manifest-test developer-dashboard-static-test specgen-test agent-lint human-lint platform-lint programs-lint interop-lint paxeer-manifest-lint specgen-lint; do grep -q -e $t tools/workspace/sweep_22_39_409.kvx || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.408]
+title = "Fetch the Solidity compilers of the Hardhat projects in the install step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.408"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3333, gotcha 4261. Read scripts/workspace/check-hardhat-compilers.mjs and state which compiler versions, builds and cache paths it requires for the projects contracts, tests/integration/dapp_tests and tests/integration/rpc_tests. Write scripts/workspace/install-hardhat-compilers.mjs, which reads the same versions from the same place as the check, takes each missing compiler from the published compiler list, compares it with the digest that list states before it is placed in the cache, and leaves a compiler that is already present with the right digest alone. A digest that differs stops the script with a message that names the compiler."
+do_2 = "do_2 Run the script as part of the recipe paxeer-npm-install of the Makefile, after the three installs, so that workspace-install reaches it. The check script and the compile steps stay offline and unchanged. Add a test beside the script, scripts/workspace/install-hardhat-compilers-test.mjs, that runs it against a local list: a compiler with the stated digest is placed, one with another digest is refused, a present one is not fetched again."
+do_3 = "do_3 Run make paxeer-npm-install and make paxeer-hardhat-compilers-ready by hand until both exit 0. Record in tools/workspace/repair_22_39_408.kvx as product facts: the versions, where they are read from and the recipe that fetches them. Search tests/ci and .github/workflows for a place that pins the text of the changed recipe and bring it along. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["Makefile", "scripts/workspace/check-hardhat-compilers.mjs"]
+tests = ["scripts/workspace/install-hardhat-compilers-test.mjs::places_a_compiler_with_the_stated_digest", "scripts/workspace/install-hardhat-compilers-test.mjs::refuses_a_compiler_with_another_digest"]
+planned_paths = ["scripts/workspace/install-hardhat-compilers.mjs", "scripts/workspace/install-hardhat-compilers-test.mjs", "tools/workspace/repair_22_39_408.kvx"]
+build_cmd = "node --check scripts/workspace/check-hardhat-compilers.mjs && make -n workspace-install > /dev/null"
+verify_cmd = "test -s tools/workspace/repair_22_39_408.kvx && node --check scripts/workspace/install-hardhat-compilers.mjs && node scripts/workspace/install-hardhat-compilers-test.mjs && make -s paxeer-npm-install && make -s paxeer-hardhat-compilers-ready"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.407]
+title = "Read built guest modules from the Cargo output directory in the program recipes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.407"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3332, gotcha 4260. List every place that builds a guest module with Cargo and then reads it from a path: the recipes programs-interpreter-conformance, programs-interpreter-bench, programs-sdk-rust and programs-porting-v2-references of the Makefile, the scripts programs/sdk/rust/quickstart/build.sh and programs/sdk/rust/response-fixture/build.sh, the build scripts under programs/sdk/rust/examples, and programs/crates/layerx-programs-runtime/tests/support/compiled_guest.rs. For each state the directory it builds into and the path it reads."
+do_2 = "do_2 Make each one resolve a single output directory and use it for the build and for the read: the directory that CARGO_TARGET_DIR names when a caller sets it, the target directory of the manifest otherwise. Keep the variable PROGRAMS_WORKSPACE_CARGO as it is. No recipe copies a module into the source tree."
+do_3 = "do_3 Run the three recipes of the verification by hand with CARGO_TARGET_DIR set to a directory outside the manifests and again with it unset, until both runs exit 0. Record in programs/repair_22_39_407.kvx as product facts: each place and how it resolves the directory. Search tests/ci for a case that pins the text of a changed recipe line and bring it along. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["Makefile", "programs/sdk/rust/quickstart/build.sh", "programs/sdk/rust/response-fixture/build.sh", "programs/sdk/rust/examples", "programs/crates/layerx-programs-runtime/tests/support/compiled_guest.rs"]
+tests = []
+planned_paths = ["programs/repair_22_39_407.kvx"]
+build_cmd = "sh -n programs/sdk/rust/quickstart/build.sh && sh -n programs/sdk/rust/response-fixture/build.sh && make -n programs-interpreter-conformance programs-sdk-rust programs-porting-v2-references > /dev/null"
+verify_cmd = "test -s programs/repair_22_39_407.kvx && CARGO_TARGET_DIR=$(pwd)/target make -s programs-interpreter-conformance programs-sdk-rust programs-porting-v2-references && make -s programs-sdk-rust"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
+[task.22.39.402]
+title = "Build and test the developer dashboard through its recipes without changing the source tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.402"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "do_1 Decision 3334. The recipes developer-dashboard-install, developer-dashboard-build and developer-dashboard-static-test of the Makefile install, build and check services/platform/hosted/dashboard/web. The build recipe first builds the package @layerx/ui, which lives at apps/web/packages/layerx-ui and is built by the script build:ui of apps/web/package.json; apps/web declares no npm workspaces. Make the build recipe call that script, and make the script find its bundler in the installed modules of apps/web."
+do_2 = "do_2 The static test runs a type check. Make it keep its build information in a path the repository ignores, or keep none, so that after the three recipes git status shows no untracked and no changed file under services/platform/hosted/dashboard/web and under apps/web. Change no ignore rule at the root for this."
+do_3 = "do_3 Run the three recipes in order by hand until each exits 0, then record in services/platform/hosted/dashboard/repair_22_39_402.kvx as product facts: the three recipes and the command each runs. Search tests/ci for a case that pins the text of a changed recipe line and bring it along. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["Makefile", "apps/web/package.json", "services/platform/hosted/dashboard/web"]
+tests = []
+planned_paths = ["services/platform/hosted/dashboard/repair_22_39_402.kvx"]
+build_cmd = "make -s developer-dashboard-install"
+verify_cmd = "test -s services/platform/hosted/dashboard/repair_22_39_402.kvx && make -s developer-dashboard-install developer-dashboard-build developer-dashboard-static-test && ! git status --porcelain --untracked-files=all -- services/platform/hosted/dashboard/web apps/web | grep -q ."
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.22.39.377]
 title = "Make the install target of the workspace pass on a clean checkout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.392"]
@@ -309799,6 +310523,98 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.406]
+title = "Register the migration owner of the lifecycle cases once"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.406"]
+interfaces = []
+do_1 = "do_1 The case lifecycle_environment of tests/programs/test_lifecycle.c registers the identity did:lxp:native-migration-owner with lxp_identity_register of src/state/lxp_identity.c on the fixture that audit_init of tests/programs/audit_22_30_2.h prepares, and expects LXP_OK. Build the program build/tests/programs_lifecycle and run it by hand. Where the registration answers another code, find where that identity or its sequence is already held and state the cause."
+do_2 = "do_2 Repair at the cause so that the identity is registered in one place and every case of the file that needs it reads the registered identity. The rule of lxp_identity_register that refuses a registration it has already taken stays as it is, and no expected code of a case is relaxed. The cases audit_migration_receipt_and_duplicate_recovery and the other cases of the file pass."
+do_3 = "do_3 Run make programs-core-test by hand until it exits 0; a stop in another program of that recipe is named in the closing report with the program and its first message and is not changed here. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tests/programs/test_lifecycle.c", "tests/programs/audit_22_30_2.h", "src/state/lxp_identity.c"]
+tests = []
+planned_paths = []
+build_cmd = "make -s all"
+verify_cmd = "make -s programs-core-test"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.395"]
+interfaces = []
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+do_2 = "do_2 Extend tests/ledger/test_apply_transfer.c next to its occupancy cases with four cases under the authority LXP_AUTH_OCCUPANCY_RESPONSIBILITY: an agent asset account of the asset of the leg pays and its sequence stays; an agent asset account of another asset is refused; an account of a third kind is refused; an agent asset account of the asset of the leg is refused when the origin module is not Programs. Keep every existing case of the file."
+do_3 = "do_3 Write node/programs_occupancy_payer_test.go in the package of node/programs_block_end_test.go and keep the helpers it adds in that file. TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount: a payer that holds the asset of the charge only in an agent asset account creates a namespace of a program through the real call path at the protocol version of the state commitment, then at least three further blocks finalize and commit, and the balance of that account falls by the charge that each block states. TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount states the same for a payer that holds the asset in its agent main account. Use real blocks and real state and no stand-in for the ledger."
+do_4 = "do_4 Record in src/ledger/repair_22_39_395.kvx the changed condition, the cases added, the commands run and their results. Where a file outside the touched paths states the kind of the paying account of this debit, record it with file and line and leave it. Run the build once and the verification once at the final revision. Never stop to ask."
+symbols = []
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+planned_paths = ["node/programs_occupancy_payer_test.go", "src/ledger/repair_22_39_395.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./node/ && CGO_ENABLED=1 go vet ./node/"
+verify_cmd = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.394]
+title = "Check the occupancy debit of a program call at the call"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.395"]
+reqs = ["22998.1"]
+capabilities = ["22.39.394"]
+interfaces = []
+do_1 = "do_1 Decision 3320, gotcha 4248. List every check on the debit of an occupancy position in src/modules/programs/occupancy.c and src/modules/programs/occupancy_evidence.c and in what FinalizeProgramsOccupancy of modules/lxphost reaches, and state for each whether it depends on the terms of a call and whether it runs at the call. Record the list in modules/lxphost/repair_22_39_394.kvx as product facts: the check, its file and where it runs."
+do_2 = "do_2 Write node tests in node/programs_occupancy_call_test.go that pass through the block flow of the application with the schedules of decision 3301 installed. A call that adds persistent bytes to an account of a program, with the fee limit taken from quoteCallFee for the budget that is sent, commits and the three blocks after it apply. The same call with the largest budget that the runtime declares commits and the blocks after it apply. A call whose signed fee limit covers the execution ceiling of its budget and not the responsibility of the bytes it adds reverts with the code of the check and commits nothing, and the blocks after it apply. A call whose payer is not the owner of the account it adds bytes to reverts in the same way. After these calls the chain keeps applying blocks across a restart."
+do_3 = "do_3 Where a case of do_2 shows a check of do_1 that depends on the terms of a call and does not run at the call, apply it at the call so that the call reverts, in src/modules/programs and where needed in programs/crates/layerx-programs-runtime. Where the quote and the check differ, bring quoteCallFee and the check to the same amount. Keep the block-end transition as decision 3308 states it and change no schedule value of decision 3301. The existing cases of node/programs_block_end_test.go pass unchanged. Run the build once and the verification once at the final revision."
+symbols = ["FinalizeProgramsOccupancy"]
+touches = ["src/modules/programs", "include/layerx/programs.h", "programs/crates/layerx-programs-runtime", "modules/lxphost", "node/app.go", "node/programs_block_end_test.go", "precompiles/layerxprograms"]
+tests = ["node/programs_occupancy_call_test.go::TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallAtTheLargestBudgetCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallShortOfTheOccupancyResponsibilityReverts", "node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts", "node/programs_occupancy_call_test.go::TestBlocksApplyAcrossRestartAfterOccupancyCalls"]
+planned_paths = ["node/programs_occupancy_call_test.go", "modules/lxphost/repair_22_39_394.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./node/ ./precompiles/layerxprograms/ && CGO_ENABLED=1 go vet ./modules/lxphost/ ./node/ ./precompiles/layerxprograms/"
+verify_cmd = "test -s modules/lxphost/repair_22_39_394.kvx && for c in TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply TestCallAtTheLargestBudgetCommitsAndBlocksApply TestCallShortOfTheOccupancyResponsibilityReverts TestCallByAPayerThatIsNotTheOwnerReverts TestBlocksApplyAcrossRestartAfterOccupancyCalls; do grep -q -e 'func '$c'(' node/programs_occupancy_call_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run 'Quote'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3324, gotcha 4252. The cases of node/programs_occupancy_call_test.go use the payer of the hosted programs fixture as the fixture funds it and add no further account of the occupancy asset. The call requires the payment account that lxp_kernel_program_payment_account returns for the payer and the asset and states no kind of account of its own; the record modules/lxphost/repair_22_39_394.kvx says so."
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
@@ -336589,7 +337405,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -336641,6 +337457,8 @@ do_27 = "Attempt 23 (continue, gotcha 4216, decision 3288): the attempt-22 tree 
 do_28 = "Attempt 24 (continue, gotcha 4221, decision 3293): the attempt-23 tree 3e225f080e0d stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The source identity check passed and the gate reached make workspace-build, which stopped at chain.mk:111 for want of cmake in the gate shell; the tool is now provided. Rebase on main and change nothing for it. Run no gate command outside the counted verification. A refusal after a command names the paths that the command wrote or changed: repair inside the paths, record and stop for a cause outside them. When the gate stops at a later command for a cause outside the paths, record the command, the exit code, the first failing message and its file, and stop. On a stop for space record the free space before and after every command. Run the build once and the verification once at the final revision."
 do_29 = "Attempt 25 (continue, gotcha 4226, decision 3297): the attempt-24 tree 350d001e3ec1 stands (the Makefile, the web package file, the completion gate case, run_gate.py, gates.py, the wave gate test). The gate passed the native library step and stopped in paxeer-build, which builds the node with the module proxy off while nothing had fetched the modules of the root module; after the command the runner refused the library that chain.mk:129 copies to engine/executor/lib. Make three changes inside the paths. In run_wave of gates.py the preparation for wave 6 becomes make workspace-install human-js-install platform-sample-install; adapt the cases of the wave gate test that pin the preparation. In permitted_output of scripts/gates/run_gate.py admit a file directly in engine/executor/lib whose name begins with libevmone. and ends with .so or .dylib, and only when git ignores it. Add to scripts/gates/test_run_gate.py, which the touches now name, a case that such a file is admitted and that another untracked file in that directory is refused, and run that test file. Change no line with GOPROXY=off and nothing in chain.mk. Then, outside the counted gates, run make workspace-install once; a failure whose cause lies outside the paths is recorded with its first message and its file, and the attempt stops. Then run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own. Do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. When every command has passed, bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths, and run the build once and the verification once at the final revision. When a cause outside the paths remains, run no counted verification and name every such cause in the final message."
 do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 and 4229, decisions 3298 and 3299): the attempt-25 tree 256c1389b92f stands (the preparation of run_wave with the install target of the workspace, the admission of the native library in permitted_output, the cases of scripts/gates/test_run_gate.py, the earlier changes). The install target stopped in the inventory check of the workspace, which is stale on main and outside the paths of this task; task 22.39.377 repairs it and makes the install pass, and task 22.39.378 repairs the lock of the wallet workspace. The task now requires both. Rebase on main once both are on it and change nothing in scripts/workspace, tools/workspace, the ignore file or a lock. Then proceed as decision 3297 states. Outside the counted gates run make workspace-install once; when it fails, run every remaining line of its recipe once and record every failing line with its first message and its file. Whatever the result of the install, run the six commands of scripts/gates/wave-6.sh once each through scripts/gates/run_gate.py, one command for each call, with the environment that run_wave sets and a log directory of their own, and do not stop at the first command that fails: repair a cause inside the paths, record a cause outside the paths with the command, the exit code, the first failing message and its file, and run the next command. Record the free space before and after every command. Before the counted gates bring the checkout back to the revision, with no changed tracked file and no untracked file outside the ignored paths. Run the build once and the verification once at the final revision only when the install and all six commands have passed; otherwise run no counted verification and name every remaining cause in the final message."
+do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.398 carry the ABI type set of the SDKs, the copy catalog of the web app and the runtime module boundary check. Change none of the three in this task."
+do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 22.39.409, which carry the readers of the settlement section, the generated files of the agent TypeScript SDK, the recipes of the developer dashboard, the lints of the platform and interop crates, the terminal vectors of the program ABI, the lifecycle cases, the output directory of the program recipes, the compiler fetch of the install step and the record of what each part of the test and lint recipes covers. Change none of those in this task and drop from its tree each change that those tasks carry. The gate runs in the checkout of the task and makes no second checkout. The permitted outputs of scripts/gates/run_gate.py hold the ignored build directory of the C SDK example."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -355387,7 +356205,7 @@ title = "Close the chain launch series: interface rows served, documents cross-c
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17"]
+requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17", "22.40.19", "22.40.20"]
 reqs = ["22400.6", "22998.1"]
 capabilities = ["22.40.18"]
 interfaces = []
@@ -355410,10 +356228,11 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3321: the test file also asserts that services/wallet/attestor/internal/policy/evm/abi/launchpad.json equals precompiles/launchpad/abi.json byte for byte, that every sha256 in the source hash tables of native-execution.json and native-node-rpc.json under sdk/launchpad/protocol/bindings/testdata/repair_m948 equals the sha256 of the file of the tree, and that both generated write tables of the agent SDKs name every function of abi.json that is neither view nor pure."
 
 [task.22.40.12]
 title = "Document the chain launch for users and integrators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -355443,7 +356262,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.1]
 title = "Write the contract of the chain launchpad and its planned interface rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

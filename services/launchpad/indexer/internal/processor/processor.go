@@ -58,6 +58,10 @@ type ProcessorStore interface {
 	GetPoolByPoolID(ctx context.Context, poolID string) (*sqlcdb.IndexerPool, error)
 	IngestReady(ctx context.Context, chain int32, stream, owner string, fence int64) error
 	InsertAirdropClaim(ctx context.Context, p sqlcdb.InsertAirdropClaimParams) error
+	InsertLaunchedChain(ctx context.Context, row store.LaunchedChain) error
+	InsertChainRevenueEpoch(ctx context.Context, row store.ChainRevenueEpoch) error
+	InsertChainRevenueClaim(ctx context.Context, row store.ChainRevenueClaim) error
+	RetireLaunchedChain(ctx context.Context, chain, block int64) error
 	InsertConfigUpdate(ctx context.Context, p sqlcdb.InsertConfigUpdateParams) error
 	InsertFeeDistribution(ctx context.Context, p sqlcdb.InsertFeeDistributionParams) error
 	InsertFeeEvent(ctx context.Context, p sqlcdb.InsertFeeEventParams) error
@@ -443,6 +447,45 @@ func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs 
 	}
 
 	switch ev.EventName {
+	case "ChainLaunched":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertLaunchedChain(ctx, store.LaunchedChain{Chain: chain, ChainID: asString(args["chainId"]), Pool: asString(args["pool"]), Token: asString(args["token"]), FeeRight: asString(args["nftId"]), Creator: asString(args["creator"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueEpochOpened":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueEpoch(ctx, store.ChainRevenueEpoch{Chain: chain, Epoch: asString(args["epoch"]), Amount: asString(args["epochAmount"]), SnapshotBlock: asString(args["snapshotBlock"]), EligibleSupply: asString(args["eligibleSupply"]), OpenedBlock: blockNumber})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueClaimed":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueClaim(ctx, store.ChainRevenueClaim{Chain: chain, Epoch: asString(args["epoch"]), Holder: asString(args["holder"]), Amount: asString(args["amount"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "LaunchedChainRetired":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		if err := p.deps.Store.RetireLaunchedChain(ctx, chain, blockNumber); err != nil {
+			return nil, err
+		}
+		return wev(), nil
 	case "MarketCreated":
 		if err := p.handleMarketCreated(ctx, args, ev.TxHash, blockNumber, blockTs); err != nil {
 			return nil, err

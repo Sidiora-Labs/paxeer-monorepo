@@ -3,7 +3,7 @@
 //
 // A call sent to 0x1017 itself resolves its selector through abi.json in the
 // role order Router, SidioraFactory, Quoter, PoolRegistry, FeesRouter,
-// FeeAccumulator, ProtocolConfig. A call forwarded by a registered surface
+// FeeAccumulator, ProtocolConfig, followed by the chain launch methods. A call forwarded by a registered surface
 // (a generation 2 role address or a pool address holding the surface
 // runtime) carries the original caller in its last 20 bytes and resolves
 // through the ABI of the surface's role.

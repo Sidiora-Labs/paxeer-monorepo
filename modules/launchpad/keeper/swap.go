@@ -254,6 +254,9 @@ func (k *Keeper) Swap(ctx sdk.Context, caller NestedCaller, locks SwapState, den
 		return ctx, SwapResult{}, fmt.Errorf("%w: market %s has no pool", types.ErrInvalidMarket, denom)
 	}
 	pool := common.HexToAddress(market.PoolAddress)
+	if err := k.checkHomeChain(ctx, pool); err != nil {
+		return ctx, SwapResult{}, err
+	}
 	release, err := k.EnterLock(locks, PoolLock(pool))
 	if err != nil {
 		return ctx, SwapResult{}, err

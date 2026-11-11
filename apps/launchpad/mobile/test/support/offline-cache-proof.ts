@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import {
   SdkClient,
   decodeV2Contract,
-} from '../../../../../sdk/launchpad/packages/sdk/src/transport.ts';
+} from '@kindle/sdk';
 import {
   SnapshotCache,
   validatePublicSnapshot,
@@ -24,10 +24,15 @@ import {
 import { activityRoutes } from '../../src/runtime/routes/activity.ts';
 
 class PublicSnapshotDisk implements PublicSnapshotStorage {
+  readonly directory: string;
+  private readonly handle: FileHandle;
   private constructor(
-    readonly directory: string,
-    private readonly handle: FileHandle,
-  ) {}
+    directory: string,
+    handle: FileHandle,
+  ) {
+    this.directory = directory;
+    this.handle = handle;
+  }
 
   static async open(directory: string) {
     return new PublicSnapshotDisk(directory, await open(directory, 'r'));

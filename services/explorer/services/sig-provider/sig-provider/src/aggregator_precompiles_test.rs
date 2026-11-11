@@ -274,3 +274,29 @@ fn producer_backed_swap_preserves_layout_over_http() {
         http.server.stop(true).await;
     });
 }
+
+#[test]
+fn producer_backed_chain_launched_preserves_layout() {
+    actix_web::rt::System::new().block_on(async {
+        let producer = producer("precompiles/launchpad/abi.json");
+        let event = producer.event("ChainLaunched").unwrap();
+        let values = vec![
+            Token::Uint(37.into()),
+            Token::Address([0x11; 20].into()),
+            Token::Address([0x22; 20].into()),
+            Token::Uint(125.into()),
+            Token::Uint(42.into()),
+            Token::Address([0x33; 20].into()),
+            Token::Uint(1_700_000_000_u64.into()),
+            Token::Uint(99.into()),
+        ];
+        let raw = encoded_event(event, &values);
+        let report = precompile_aggregator(vec![])
+            .get_event_abi_with_coverage(raw)
+            .await
+            .unwrap();
+        assert_eq!(report.value.len(), 1);
+        assert_eq!(report.value[0].layout, sig_provider::EventLayout::Exact);
+        assert_producer_event(&[report.value[0].abi.clone()], event, &values);
+    });
+}

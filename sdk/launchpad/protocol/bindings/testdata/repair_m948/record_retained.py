@@ -14,13 +14,14 @@ source = (bindings / 'repair_m948_test.go').read_text()
 scenarios = source[source.index('type repairM948Chain'):source.index('func TestRepairM_948_RoleMetadata')]
 scenarios = scenarios.replace('*testing.T', '*recordRun').replace('TestRepairM_948_', 'record')
 artifact = (bindings / 'repair_37_test.go').read_text()
-artifact = artifact[artifact.index('func repair37Artifact'):artifact.index('func TestRepair_37_retained_emitter_v2')]
+artifact = artifact[artifact.index('func repair37Humanize'):artifact.index('func TestRepair_37_retained_emitter_v2')]
 artifact = artifact.replace('*testing.T', '*recordRun').replace('assertProofABI(t, canonical, *exported)', 'if len(canonical.Methods) != len(exported.Methods) { t.Fatal("artifact method inventory differs") }')
 imports = '''package main
 import (
  "bytes"
  "context"
  "crypto/sha256"
+ "encoding/hex"
  "encoding/json"
  "fmt"
  "math/big"
