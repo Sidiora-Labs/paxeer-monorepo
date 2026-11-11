@@ -21150,3 +21150,13 @@ fix = "Decision 3340; tasks 22.39.412 to 22.39.424."
 title = "Clippy lints the workspace members a selected member depends on unless the option --no-deps is given"
 symptom = "With the package option alone, cargo clippy lints the selected member and each member of the same workspace that it depends on, under the lint table of the manifest. With the option --no-deps before the separator it lints the selected member only, and the members it depends on are compiled without lints."
 fix = "Decision 3341; the verification of a member lint task selects its member with the option --no-deps."
+
+[gotcha.4266]
+title = "A member lint task leaves the tests of its member with the results they have at the base revision"
+symptom = "A repair for a lint changes the shape of code and its documentation. The cases of the member that pass at the base revision pass on the repaired tree, and a case that needs the prerequisites of the recipe platform-test is run the way that recipe runs it. A public function that returns a result with the unit error type is repaired with a named error type."
+fix = "Decisions 3342 and 3343."
+
+[gotcha.4267]
+title = "The members of the platform tools are linted in two tasks and a shared test file is repaired where it lives"
+symptom = "The lint of the manifest tools/platform/Cargo.toml covers three members. A test target of the member cli includes source files of the member by path, so an item that the target does not use is reported there as never used. The file sdk/platform/pipeline.kvx records a digest of the generator sources, so a change to those sources changes the digest."
+fix = "Decisions 3344 to 3346 and task 22.39.425."

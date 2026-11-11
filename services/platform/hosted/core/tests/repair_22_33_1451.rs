@@ -13,19 +13,23 @@ mod repair_22_33_1451 {
     const EVM_KEY: &str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
     fn transcripts() -> Value {
-        serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json")).unwrap()
+        serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json"))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
     }
 
     fn receipt_cases() -> Vec<Value> {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         ))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(
             fixture["provenance"]["generator"],
             "rpc/sequencer_receipt_vectors_test.go"
         );
-        fixture["cases"].as_array().unwrap().clone()
+        fixture["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("required value"))
+            .clone()
     }
 
     // Replay committed producer captures over real HTTP. Missing exchanges are
@@ -42,11 +46,12 @@ mod repair_22_33_1451 {
         fn new(scenario: &str) -> Self {
             let captures: BTreeMap<_, _> = transcripts()["scenarios"][scenario]
                 .as_object()
-                .unwrap()
+                .unwrap_or_else(|| panic!("required value"))
                 .iter()
                 .map(|(key, value)| {
-                    let offset = key.find('[').unwrap();
-                    let params: Value = serde_json::from_str(&key[offset..]).unwrap();
+                    let offset = key.find('[').unwrap_or_else(|| panic!("required value"));
+                    let params: Value = serde_json::from_str(&key[offset..])
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"));
                     (format!("{}{params}", &key[..offset]), Some(value.clone()))
                 })
                 .collect();
@@ -54,9 +59,14 @@ mod repair_22_33_1451 {
             let responses = Arc::clone(&captures);
             let requests = Arc::new(Mutex::new(Vec::new()));
             let observed = Arc::clone(&requests);
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
-            listener.set_nonblocking(true).unwrap();
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            let address = listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            listener
+                .set_nonblocking(true)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let stop = Arc::new(AtomicBool::new(false));
             let stopping = Arc::clone(&stop);
             let worker = thread::spawn(move || {
@@ -71,33 +81,41 @@ mod repair_22_33_1451 {
                     };
                     stream
                         .set_read_timeout(Some(Duration::from_secs(5)))
-                        .unwrap();
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"));
                     stream
                         .set_write_timeout(Some(Duration::from_secs(5)))
-                        .unwrap();
-                    let request =
-                        layerx_platform_internal::http::parse_client_request(&mut stream).unwrap();
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                    let request = layerx_platform_internal::http::parse_client_request(&mut stream)
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"));
                     assert_eq!(request.method, "POST");
                     assert_eq!(request.path, "/");
-                    let request: Value = serde_json::from_slice(&request.body).unwrap();
+                    let request: Value = serde_json::from_slice(&request.body)
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"));
                     assert_eq!(request["jsonrpc"], "2.0");
-                    observed.lock().unwrap().push(request.clone());
+                    observed
+                        .lock()
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                        .push(request.clone());
                     let key = format!(
                         "{}{}",
-                        request["method"].as_str().unwrap(),
+                        request["method"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("required value")),
                         request["params"]
                     );
                     let result = responses
                         .lock()
-                        .unwrap()
+                        .unwrap_or_else(|error| panic!("required value: {error:?}"))
                         .get(&key)
                         .unwrap_or_else(|| panic!("exchange absent from capture: {key}"))
                         .clone();
                     if let Some(result) = result {
                         let body = json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
                             .to_string();
-                        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
-                        stream.flush().unwrap();
+                        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap_or_else(|error| panic!("required value: {error:?}"));
+                        stream
+                            .flush()
+                            .unwrap_or_else(|error| panic!("required value: {error:?}"));
                     }
                 }
             });
@@ -110,10 +128,10 @@ mod repair_22_33_1451 {
             }
         }
 
-        fn set(&self, method: &str, params: Value, response: Option<Value>) {
+        fn set(&self, method: &str, params: &Value, response: Option<Value>) {
             self.captures
                 .lock()
-                .unwrap()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
                 .insert(format!("{method}{params}"), response);
         }
 
@@ -127,7 +145,8 @@ mod repair_22_33_1451 {
                     host: self.address.ip().to_string(),
                     port: self.address.port(),
                 },
-                EvmSender::from_hex_secret(EVM_KEY).unwrap(),
+                EvmSender::from_hex_secret(EVM_KEY)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
                 chain_id,
             )
         }
@@ -136,17 +155,17 @@ mod repair_22_33_1451 {
             let hash = case["receiptJson"]["txHash"].clone();
             self.set(
                 "px_getReceiptKeys",
-                json!([]),
+                &json!([]),
                 Some(json!({"keys":[case["pinnedKey"]]})),
             );
             self.set(
                 "pax_sequencerReceipt",
-                json!([hash]),
+                &json!([hash]),
                 Some(case["receiptJson"].clone()),
             );
             self.set(
                 "eth_getTransactionReceipt",
-                json!([hash]),
+                &json!([hash]),
                 Some(Value::Null),
             );
         }
@@ -155,7 +174,11 @@ mod repair_22_33_1451 {
     impl Drop for Transport {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Release);
-            self.worker.take().unwrap().join().unwrap();
+            self.worker
+                .take()
+                .unwrap_or_else(|| panic!("required value"))
+                .join()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
     }
 
@@ -168,22 +191,37 @@ mod repair_22_33_1451 {
     impl Core {
         fn new() -> Self {
             static PROVIDER: std::sync::OnceLock<()> = std::sync::OnceLock::new();
-            PROVIDER.get_or_init(|| install_provider().unwrap());
+            PROVIDER.get_or_init(|| {
+                install_provider().unwrap_or_else(|error| panic!("required value: {error:?}"));
+            });
             let root = env::temp_dir().join(format!(
                 "repair-1451-{}-{}",
                 std::process::id(),
                 TRACE.fetch_add(1, Ordering::Relaxed)
             ));
-            fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&root)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             for name in ["journal", "funding-intents", "funding-receipts"] {
                 fs::DirBuilder::new()
                     .mode(0o700)
                     .create(root.join(name))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
             }
             let recorded = transcripts();
-            let certificate = hex_decode(recorded["tls"]["certificate"].as_str().unwrap()).unwrap();
-            let key = hex_decode(recorded["tls"]["key"].as_str().unwrap()).unwrap();
+            let certificate = hex_decode(
+                recorded["tls"]["certificate"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("required value")),
+            )
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            let key = hex_decode(
+                recorded["tls"]["key"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("required value")),
+            )
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let tls = Arc::new(
                 ServerConfig::builder()
                     .with_no_client_auth()
@@ -191,7 +229,7 @@ mod repair_22_33_1451 {
                         vec![CertificateDer::from(certificate.clone())],
                         PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key)),
                     )
-                    .unwrap(),
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
             );
             Self {
                 root,
@@ -203,25 +241,31 @@ mod repair_22_33_1451 {
         fn open(&self, transport: &Transport) -> Arc<Config> {
             let treasury = SeedSigner::new(&[9; 32]);
             Arc::new(Config {
-                listen: "127.0.0.1:0".parse().unwrap(),
-                admin_listen: "127.0.0.1:0".parse().unwrap(),
+                listen: "127.0.0.1:0"
+                    .parse()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                admin_listen: "127.0.0.1:0"
+                    .parse()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
                 tls: Arc::clone(&self.tls),
                 admin_tls: Arc::clone(&self.tls),
-                sequencer: SequencerEndpoint::new(&transport.url(), &[]).unwrap(),
-                network: PxEndpoint::new(&transport.url(), &[]).unwrap(),
+                sequencer: SequencerEndpoint::new(&transport.url(), &[])
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                network: PxEndpoint::new(&transport.url(), &[])
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
                 network_id: 125,
-                node: NodeEndpoint {
+                _node: NodeEndpoint {
                     host: String::new(),
                     port: 0,
                 },
-                node_token: Zeroizing::new(String::new()),
-                replica: NodeEndpoint {
+                _node_token: Zeroizing::new(String::new()),
+                _replica: NodeEndpoint {
                     host: String::new(),
                     port: 0,
                 },
-                replica_token: Zeroizing::new(String::new()),
+                _replica_token: Zeroizing::new(String::new()),
                 receipt_events_token: Some(Zeroizing::new(TOKEN.into())),
-                wallet_caps_token: None,
+                _wallet_caps_token: None,
                 admin_token: Zeroizing::new(TOKEN.into()),
                 treasury_did: did_for_public_key(&treasury.public_key()),
                 treasury: Arc::new(treasury),
@@ -230,7 +274,7 @@ mod repair_22_33_1451 {
                 sequencer_id: [4; 32],
                 supervisor_socket: self.root.join("supervisor.sock"),
                 state_dir: self.root.clone(),
-                fee_limit: 1000,
+                _fee_limit: 1000,
                 receipt_deadline: Duration::ZERO,
                 admin_lock: Mutex::new(()),
                 journal_lock: Mutex::new(()),
@@ -242,8 +286,11 @@ mod repair_22_33_1451 {
             config: &Arc<Config>,
             request: &Request,
         ) -> (u16, Value, Option<String>) {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            let address = listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let config = Arc::clone(config);
             let plane = if request.path.starts_with("/admin/") {
                 Plane::Admin
@@ -251,18 +298,28 @@ mod repair_22_33_1451 {
                 Plane::Core
             };
             let worker = thread::spawn(move || {
-                let (tcp, _) = listener.accept().unwrap();
-                handle_connection(&config, plane, tcp).unwrap();
+                let (tcp, _) = listener
+                    .accept()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                handle_connection(&config, plane, tcp)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
             });
-            let tcp = TcpStream::connect(address).unwrap();
-            tcp.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+            let tcp = TcpStream::connect(address)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            tcp.set_read_timeout(Some(Duration::from_secs(10)))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             tcp.set_write_timeout(Some(Duration::from_secs(10)))
-                .unwrap();
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let connector = native_tls::TlsConnector::builder()
-                .add_root_certificate(native_tls::Certificate::from_der(&self.certificate).unwrap())
+                .add_root_certificate(
+                    native_tls::Certificate::from_der(&self.certificate)
+                        .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                )
                 .build()
-                .unwrap();
-            let mut stream = connector.connect("localhost", tcp).unwrap();
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            let mut stream = connector
+                .connect("localhost", tcp)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             write!(
                 stream,
                 "{} {} HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\nConnection: close\r\n",
@@ -270,32 +327,43 @@ mod repair_22_33_1451 {
                 request.path,
                 request.body.len()
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
             for (key, value) in &request.headers {
-                write!(stream, "{key}: {value}\r\n").unwrap();
+                write!(stream, "{key}: {value}\r\n")
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
             }
-            stream.write_all(b"\r\n").unwrap();
-            stream.write_all(&request.body).unwrap();
-            stream.flush().unwrap();
+            stream
+                .write_all(b"\r\n")
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            stream
+                .write_all(&request.body)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            stream
+                .flush()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let response =
                 layerx_platform_internal::http::read_http_message(&mut stream, MAX_REQUEST_BYTES)
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let status = response.headers[""]
                 .split_whitespace()
                 .nth(1)
-                .unwrap()
+                .unwrap_or_else(|| panic!("required value"))
                 .parse()
-                .unwrap();
-            let body = serde_json::from_slice(&response.body).unwrap();
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            let body = serde_json::from_slice(&response.body)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let retry = response.headers.get("retry-after").cloned();
-            worker.join().unwrap();
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             (status, body, retry)
         }
     }
 
     impl Drop for Core {
         fn drop(&mut self) {
-            fs::remove_dir_all(&self.root).unwrap();
+            fs::remove_dir_all(&self.root)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
     }
 
@@ -314,15 +382,17 @@ mod repair_22_33_1451 {
             "transaction",
             case["receiptJson"]["txHash"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_else(|| panic!("required value"))
                 .strip_prefix("0x")
-                .unwrap(),
+                .unwrap_or_else(|| panic!("required value")),
         )
-        .unwrap()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
     }
 
     fn refusal_code(response: &Response) -> Value {
-        serde_json::from_str::<Value>(&response.body).unwrap()["error"]["code"].clone()
+        serde_json::from_str::<Value>(&response.body)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))["error"]["code"]
+            .clone()
     }
 
     #[test]
@@ -331,7 +401,7 @@ mod repair_22_33_1451 {
         for wrong in [0, 1, 126, u64::MAX] {
             transport.set(
                 "eth_chainId",
-                json!([]),
+                &json!([]),
                 Some(json!(format!("0x{wrong:x}"))),
             );
             let slot = chain_fund::FundingSlot::configured(Ok(transport.funding(125)));
@@ -345,35 +415,62 @@ mod repair_22_33_1451 {
             );
             let response = transport
                 .funding(wrong)
-                .sign_native([0x39; 20], 123456, 0, 21000, 1_000_000_000, 3_000_000_000)
-                .expect_err("wrong network must not sign");
+                .sign_native([0x39; 20], 123_456, 0, 21000, 1_000_000_000, 3_000_000_000)
+                .map_or_else(core::convert::identity, |_| {
+                    panic!("{}", "wrong network must not sign")
+                });
             assert_eq!(response.status, 503);
             assert_eq!(refusal_code(&response), "treasury_unavailable");
         }
-        transport.set("eth_chainId", json!([]), Some(json!("0x7d")));
+        transport.set("eth_chainId", &json!([]), Some(json!("0x7d")));
         let slot = chain_fund::FundingSlot::configured(Ok(transport.funding(125)));
-        let connected = slot.get().unwrap();
-        assert_eq!(connected.readiness().unwrap()["chain_id"], 125);
+        let connected = slot
+            .get()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        assert_eq!(
+            connected
+                .readiness()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))["chain_id"],
+            125
+        );
         let signed = connected
-            .sign_native([0x39; 20], 123456, 0, 21000, 1_000_000_000, 3_000_000_000)
+            .sign_native([0x39; 20], 123_456, 0, 21000, 1_000_000_000, 3_000_000_000)
             .unwrap_or_else(|response| panic!("{}", response.body));
         assert_eq!(
             format!("0x{}", hex_encode(&signed.raw)),
             transcripts()["funding_raw"]
         );
         // A cached connection cannot authorize a signature after origin drift.
-        transport.set("eth_chainId", json!([]), Some(json!("0x1")));
+        transport.set("eth_chainId", &json!([]), Some(json!("0x1")));
         assert_eq!(connected.readiness(), Err("chain_unavailable"));
         let response = connected
-            .sign_native([0x39; 20], 123456, 1, 21000, 1_000_000_000, 3_000_000_000)
-            .expect_err("drifted origin must not sign");
+            .sign_native([0x39; 20], 123_456, 1, 21000, 1_000_000_000, 3_000_000_000)
+            .map_or_else(core::convert::identity, |_| {
+                panic!("{}", "drifted origin must not sign")
+            });
         assert_eq!(response.status, 503);
-        assert!(transport.requests.lock().unwrap().iter().all(|request| {
-            matches!(
-                request["method"].as_str(),
-                Some("eth_chainId" | "eth_blockNumber")
-            )
-        }));
+        assert!(transport
+            .requests
+            .lock()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .iter()
+            .all(|request| {
+                matches!(
+                    request["method"].as_str(),
+                    Some("eth_chainId" | "eth_blockNumber")
+                )
+            }));
+    }
+
+    fn chain_bound_request(command: &FundingCommand) -> Request {
+        Request {
+            method: "POST".into(),
+            path: "/admin/v1/testnet/fund".into(),
+            query: None,
+            headers: BTreeMap::from([("idempotency-key".into(), "chain-bound".into())]),
+            body: serde_json::to_vec(command)
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        }
     }
 
     #[test]
@@ -385,16 +482,13 @@ mod repair_22_33_1451 {
             funding_id: "chain-bound".into(),
             did: format!("did:layerx:{}", "ab".repeat(32)),
             public_key: "ab".repeat(32),
-            amount: 123456,
+            amount: 123_456,
         };
-        let request = Request {
-            method: "POST".into(),
-            path: "/admin/v1/testnet/fund".into(),
-            query: None,
-            headers: BTreeMap::from([("idempotency-key".into(), "chain-bound".into())]),
-            body: serde_json::to_vec(&command).unwrap(),
-        };
-        let funding = config.funding.get().unwrap();
+        let request = chain_bound_request(&command);
+        let funding = config
+            .funding
+            .get()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let signed = funding
             .sign_native(
                 [0x39; 20],
@@ -410,7 +504,7 @@ mod repair_22_33_1451 {
             funding.sender_address(),
             config.treasury.as_ref(),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(transfer.chain_id, 125);
         funding_native::persist_prepared(
             &config,
@@ -448,22 +542,30 @@ mod repair_22_33_1451 {
         )
         .is_err());
         let path = funding_record_path(&reopened, "funding-intents", "chain-bound");
-        let mut stored: Value =
-            serde_json::from_slice(&funding_read(&path).unwrap().unwrap()).unwrap();
+        let mut stored: Value = serde_json::from_slice(
+            &funding_read(&path)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                .unwrap_or_else(|| panic!("required value")),
+        )
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         stored["transfer"]["chain_id"] = json!(1);
-        stored["transfer"]["signed"] = serde_json::to_value(&foreign).unwrap();
-        let corrupted = serde_json::to_vec(&stored).unwrap();
+        stored["transfer"]["signed"] = serde_json::to_value(&foreign)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let corrupted =
+            serde_json::to_vec(&stored).unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(
             funding_store(&path, &corrupted),
             Err("immutable funding record differs".to_owned())
         );
         // Simulate disk corruption outside the immutable store API, then
         // reopen the production reader and require it to reject the record.
-        fs::write(&path, corrupted).unwrap();
+        fs::write(&path, corrupted).unwrap_or_else(|error| panic!("required value: {error:?}"));
         drop(reopened);
         let reopened = core.open(&transport);
         let response = prepare_funding(&reopened, &request, &command, "chain-bound")
-            .expect_err("foreign durable transfer must not replay");
+            .map_or_else(core::convert::identity, |_| {
+                panic!("{}", "foreign durable transfer must not replay")
+            });
         assert_eq!(response.status, 503);
         assert_eq!(refusal_code(&response), "journal_unavailable");
         let (status, body, _) = core.exchange(
@@ -483,7 +585,7 @@ mod repair_22_33_1451 {
         let tx_hash = hash(case);
         let params = json!([case["receiptJson"]["txHash"]]);
         let path = format!("/v1/receipts/{}", hex_encode(&tx_hash));
-        transport.set("pax_sequencerReceipt", params.clone(), Some(Value::Null));
+        transport.set("pax_sequencerReceipt", &params, Some(Value::Null));
         assert!(matches!(
             await_authenticated_receipt(&config, tx_hash, Duration::ZERO),
             Ok(Lookup::Absent)
@@ -499,10 +601,10 @@ mod repair_22_33_1451 {
         let wallet: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/wallet/test/fixtures/sequencer-receipt.json"
         ))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         transport.set(
             "pax_sequencerReceipt",
-            params.clone(),
+            &params,
             Some(wallet["submitted"].clone()),
         );
         assert!(
@@ -517,7 +619,7 @@ mod repair_22_33_1451 {
         assert_eq!(body["result"]["rung"], "submitted");
         assert_eq!(body["result"]["activity_id"], hex_encode(&tx_hash));
         assert_eq!(body["result"]["nonce"], "0");
-        transport.set("pax_sequencerReceipt", params.clone(), None);
+        transport.set("pax_sequencerReceipt", &params, None);
         assert!(await_authenticated_receipt(&config, tx_hash, Duration::ZERO).is_err());
         let (status, body, retry) = core.exchange(&config, &get(&path));
         assert_eq!(status, 503, "{body}");
@@ -525,7 +627,7 @@ mod repair_22_33_1451 {
         assert_eq!(retry.as_deref(), Some("5"));
         transport.set(
             "pax_sequencerReceipt",
-            params,
+            &params,
             Some(case["receiptJson"].clone()),
         );
         let (status, body, _) = core.exchange(&config, &get(&path));
@@ -534,11 +636,11 @@ mod repair_22_33_1451 {
             body["result"]["receipt"],
             case["signedReceipt"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_else(|| panic!("required value"))
                 .strip_prefix("0x")
-                .unwrap()
+                .unwrap_or_else(|| panic!("required value"))
         );
-        transport.set("px_getReceiptKeys", json!([]), None);
+        transport.set("px_getReceiptKeys", &json!([]), None);
         let (status, body, retry) = core.exchange(&config, &get(&path));
         assert_eq!(status, 503, "{body}");
         assert_eq!(body["error"]["code"], "receipt_unavailable");
@@ -553,8 +655,8 @@ mod repair_22_33_1451 {
         for case in &receipt_cases()[..6] {
             transport.case(case);
             let tx_hash = hash(case);
-            let authenticated =
-                await_authenticated_receipt(&config, tx_hash, Duration::ZERO).unwrap();
+            let authenticated = await_authenticated_receipt(&config, tx_hash, Duration::ZERO)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
             let Lookup::Verified(receipt) = authenticated else {
                 panic!("producer receipt must verify")
             };
@@ -572,7 +674,7 @@ mod repair_22_33_1451 {
                 body["result"]["state"],
                 if success { "completed" } else { "refused" }
             );
-            assert_eq!(body["result"]["result_code"], if success { 0 } else { 1 });
+            assert_eq!(body["result"]["result_code"], i32::from(!success));
             assert_eq!(body["result"]["rung"], "receipted");
             assert_eq!(body["result"]["activity_id"], hex_encode(&tx_hash));
             assert_eq!(
@@ -625,7 +727,10 @@ mod repair_22_33_1451 {
             "V3-tampered-log",
             "V3-non-canonical-bytes",
         ] {
-            let case = cases.iter().find(|case| case["id"] == name).unwrap();
+            let case = cases
+                .iter()
+                .find(|case| case["id"] == name)
+                .unwrap_or_else(|| panic!("required value"));
             transport.case(case);
             let (status, body, retry) = core.exchange(
                 &config,
@@ -679,26 +784,30 @@ mod repair_22_33_1451 {
         request.headers.clear();
         let (status, body, _) = core.exchange(&config, &request);
         assert_eq!(status, 401, "{body}");
-        assert!(transport.requests.lock().unwrap().is_empty());
+        assert!(transport
+            .requests
+            .lock()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .is_empty());
         let params = json!([case["receiptJson"]["txHash"]]);
-        transport.set("pax_sequencerReceipt", params.clone(), Some(Value::Null));
+        transport.set("pax_sequencerReceipt", &params, Some(Value::Null));
         let (status, body, _) = core.exchange(&config, &get(&path));
         assert_eq!(status, 404, "{body}");
         assert_eq!(body["error"]["code"], "not_found");
         let wallet: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/wallet/test/fixtures/sequencer-receipt.json"
         ))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         transport.set(
             "pax_sequencerReceipt",
-            params.clone(),
+            &params,
             Some(wallet["submitted"].clone()),
         );
         let (status, body, _) = core.exchange(&config, &get(&path));
         assert_eq!(status, 202, "{body}");
         assert_eq!(body["result"]["state"], "pending");
         assert_eq!(body["result"]["rung"], "submitted");
-        transport.set("pax_sequencerReceipt", params, None);
+        transport.set("pax_sequencerReceipt", &params, None);
         let (status, body, _) = core.exchange(&config, &get(&path));
         assert_eq!(status, 503, "{body}");
         assert_eq!(body["error"]["code"], "receipt_events_unavailable");
