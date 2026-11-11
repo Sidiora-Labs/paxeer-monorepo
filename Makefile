@@ -2570,6 +2570,7 @@ paxeer-npm-install: paxeer-node-preflight
 	npm --prefix contracts ci --ignore-scripts --no-audit --no-fund
 	npm --prefix tests/integration/dapp_tests ci --ignore-scripts --no-audit --no-fund
 	npm --prefix tests/integration/rpc_tests ci --ignore-scripts --no-audit --no-fund
+	node scripts/workspace/install-hardhat-compilers.mjs
 
 paxeer-npm-dependencies-ready:
 	@test -d contracts/node_modules
