@@ -46,6 +46,10 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
+use layerx_programs_runtime::abi::{
+    AbiError, Capability as RuntimeCapability, CapabilitySet as RuntimeCapabilitySet,
+};
+use layerx_programs_runtime::storage::ProgramId as RuntimeProgramId;
 use layerx_types::activity::ActivityBuildError;
 use layerx_types::ids::{Did, LengthError};
 use layerx_types::intent;
@@ -1019,6 +1023,123 @@ pub struct MarketCallTerms {
     pub access_declaration: Vec<u8>,
 }
 
+/// The single spending authority required by a market value action.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MarketSpendingGrant {
+    Deposit {
+        asset: [u8; 32],
+        rewards_account: [u8; 32],
+        amount: u128,
+    },
+    Payment {
+        owner_program: [u8; 32],
+        seed: Vec<u8>,
+        source_account: [u8; 32],
+        asset: [u8; 32],
+        recipient: [u8; 32],
+        amount: u128,
+    },
+}
+
+/// Builds canonical runtime authority and access fields for one value action.
+///
+/// # Errors
+/// Refuses a nonvalue operation, a grant in the wrong direction, a zero amount,
+/// invalid authority fields, or invalid program and principal identifiers.
+pub fn market_value_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+    grant: MarketSpendingGrant,
+) -> Result<MarketCallTerms, AiClientError> {
+    let deposit = matches!(
+        operation,
+        dispatch::FUND | dispatch::LockBond | dispatch::ChallengeLap
+    );
+    let payment = matches!(
+        operation,
+        dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::RefundBond
+            | dispatch::ResolveChallenge
+    );
+    if !deposit && !payment {
+        return Err(AiClientError::MarketNonValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let spending = match grant {
+        MarketSpendingGrant::Deposit {
+            asset,
+            rewards_account,
+            amount,
+        } if deposit => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::Transfer402 {
+                asset,
+                to: rewards_account,
+                maximum_amount: amount,
+            }
+        }
+        MarketSpendingGrant::Payment {
+            owner_program,
+            seed,
+            source_account,
+            asset,
+            recipient,
+            amount,
+        } if payment => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::ProgramSpend {
+                owner_program: RuntimeProgramId::new(owner_program).map_err(AbiError::from)?,
+                seed,
+                source_account,
+                asset,
+                to: recipient,
+                maximum_amount: amount,
+            }
+        }
+        _ => {
+            return Err(AiClientError::MarketValueGrantDirection {
+                operation: operation.metadata().name,
+            })
+        }
+    };
+    let mut grants = MUTATION_CAPABILITIES
+        .into_iter()
+        .map(|capability| match capability {
+            layerx_program_sdk::Capability::SharedStorageRead => {
+                Ok(RuntimeCapability::SharedStorageRead)
+            }
+            layerx_program_sdk::Capability::SharedStorageWrite => {
+                Ok(RuntimeCapability::SharedStorageWrite)
+            }
+            layerx_program_sdk::Capability::EmitEvent => Ok(RuntimeCapability::EmitEvent),
+            _ => Err(AbiError::InvalidCapability),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    grants.push(spending);
+    let capabilities = RuntimeCapabilitySet::new(grants)?.canonical_encoding();
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
 /// Builds the host-admitted fields for a market operation.
 ///
 /// # Errors
@@ -1081,6 +1202,14 @@ pub enum AiClientError {
     MarketValueOperation {
         operation: &'static str,
     },
+    MarketNonValueOperation {
+        operation: &'static str,
+    },
+    MarketValueGrantDirection {
+        operation: &'static str,
+    },
+    MarketValueAmountZero,
+    MarketAbi(AbiError),
     ProgramSdk(ProgramError),
     ProgramRefused {
         operation: &'static str,
@@ -1129,6 +1258,7 @@ macro_rules! from_refusal {
 }
 
 from_refusal!(
+    AbiError => MarketAbi,
     ProgramError => ProgramSdk,
     QueryError => Query,
     InvalidNativeCall => NativeCall,
