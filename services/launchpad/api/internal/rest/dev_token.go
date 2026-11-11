@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+//nolint:gosec // This public ABI describes token reads and contains no credential.
 const developmentTokenReadABI = `[
  {"type":"function","name":"name","inputs":[],"outputs":[{"type":"string"}]},
  {"type":"function","name":"symbol","inputs":[],"outputs":[{"type":"string"}]},
@@ -75,11 +76,11 @@ func (c *developmentChain) tokenDocument(ctx context.Context, token string, wm s
 	if err != nil {
 		return nil, err
 	}
-	names := []string{"name", "symbol", "decimals", "totalSupply"}
+	names := []string{"name", "symbol", literalDecimals, "totalSupply"}
 	results := make([]hexutil.Bytes, len(names))
 	batch := make([]rpc.BatchElem, len(names))
 	for i, name := range names {
-		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": token, "data": hexutil.Encode(contract.Methods[name].ID)}, map[string]any{"blockHash": wm.BlockHash, "requireCanonical": true}}, Result: &results[i]}
+		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": token, literalData: hexutil.Encode(contract.Methods[name].ID)}, map[string]any{"blockHash": wm.BlockHash, "requireCanonical": true}}, Result: &results[i]}
 	}
 	if err = c.client.BatchCallContext(ctx, batch); err != nil {
 		return nil, errChainReferenceUnavailable
@@ -96,7 +97,7 @@ func (c *developmentChain) tokenDocument(ctx context.Context, token string, wm s
 	}
 	name, hasName := values["name"].(string)
 	symbol, hasSymbol := values["symbol"].(string)
-	decimals, hasDecimals := values["decimals"].(uint8)
+	decimals, hasDecimals := values[literalDecimals].(uint8)
 	supply, hasSupply := values["totalSupply"].(*big.Int)
 	if hasSupply && (supply.Sign() < 0 || supply.BitLen() > 256) {
 		return nil, store.ErrDataIntegrity
@@ -112,12 +113,12 @@ func (c *developmentChain) tokenDocument(ctx context.Context, token string, wm s
 		doc["symbol"] = symbol
 	}
 	if hasDecimals {
-		doc["decimals"] = int(decimals)
-		doc["decimalsQuality"] = "verified"
+		doc[literalDecimals] = int(decimals)
+		doc["decimalsQuality"] = literalVerified
 	}
 	if hasSupply {
 		doc["totalSupplyRaw"] = supply.String()
-		doc["supplyQuality"] = "verified"
+		doc["supplyQuality"] = literalVerified
 	}
 	if len(values) > 0 {
 		doc["sourcePosition"] = chainPosition(pos)

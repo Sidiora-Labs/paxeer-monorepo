@@ -41,23 +41,23 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		r, token, err := accountingRequest(req, candles)
 		if err != nil {
-			WriteV2APIError(w, req, 422, "FIELD_INVALID")
+			WriteV2APIError(w, req, 422, literalFIELDINVALID)
 			return
 		}
 		if token != "" && !candles {
 			// The development surface never issues cursors.
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 			return
 		}
 		ctx := req.Context()
 		indexed, err := d.st.DevelopmentPoolIndexed(ctx, r.Pool)
 		if err != nil {
 			noteDevelopmentReadError(req, err)
-			WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		if !indexed {
-			WriteV2APIError(w, req, 404, "NOT_FOUND")
+			WriteV2APIError(w, req, 404, literalNOTFOUND)
 			return
 		}
 		if candles {
@@ -67,9 +67,9 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 		items, err := d.st.DevelopmentTrades(ctx, r)
 		if err != nil {
 			noteDevelopmentReadError(req, err)
-			code := "DEPENDENCY_UNAVAILABLE"
+			code := literalDEPENDENCYUNAVAILABLE
 			if errors.Is(err, store.ErrDataIntegrity) {
-				code = "INTEGRITY_QUARANTINED"
+				code = literalINTEGRITYQUARANTINED
 			}
 			WriteV2APIError(w, req, 503, code)
 			return
@@ -80,7 +80,7 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 			filtered := make([]json.RawMessage, 0, len(items))
 			height, err := strconv.ParseUint(wm.Height, 10, 64)
 			if err != nil {
-				WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+				WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 				return
 			}
 			for _, raw := range items {
@@ -91,12 +91,12 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 					} `json:"position"`
 				}
 				if json.Unmarshal(raw, &trade) != nil {
-					WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+					WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 					return
 				}
 				tradeHeight, err := strconv.ParseUint(trade.Position.Height, 10, 64)
 				if err != nil {
-					WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+					WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 					return
 				}
 				if tradeHeight < height || tradeHeight == height && strings.EqualFold(trade.Position.BlockHash, wm.BlockHash) {
@@ -105,8 +105,8 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 			}
 			items = filtered
 		}
-		data := map[string]any{"items": items}
-		writeMarketEnvelope(w, req, "TradesResponse", data, wm, "partial", nil)
+		data := map[string]any{literalItems: items}
+		writeMarketEnvelope(w, req, "TradesResponse", data, wm, literalPartial, nil)
 	}
 }
 
@@ -114,9 +114,9 @@ func devHistory(d *developmentMarket, candles bool) http.HandlerFunc {
 // revision (the development stores carry neither) and validates it against
 // the named contract document before sending it.
 func writeHSDEnvelope(w http.ResponseWriter, req *http.Request, name string, data any, next *string) {
-	body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "watermark": nil, "revision": nil, "quality": "partial", "nextCursor": next, "generatedAt": time.Now().UTC().Format(hsdTimestamp)})
+	body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalWatermark: nil, literalRevision: nil, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: time.Now().UTC().Format(hsdTimestamp)})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	writeHSDBody(w, body, "no-store")
@@ -141,7 +141,7 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 		raw, err := base64.RawURLEncoding.DecodeString(token)
 		var c developmentCandleCursor
 		if err != nil || len(raw) > 512 || json.Unmarshal(raw, &c) != nil || c.Filter != filter || c.After < 0 || c.Snapshot == "" {
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 			return
 		}
 		r.ExpectedSnapshot = c.Snapshot
@@ -150,7 +150,7 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 	recorded, err := st.DevelopmentCandlesRecorded(req.Context(), r.Pool, r.Interval, (r.From+999)/1000, (r.To+999)/1000)
 	if err != nil {
 		noteDevelopmentReadError(req, err)
-		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	if !recorded {
@@ -158,7 +158,7 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 			WriteV2APIError(w, req, 409, "RESNAPSHOT_REQUIRED")
 			return
 		}
-		writeHSDEnvelope(w, req, "CandlesResponse", map[string]any{"items": []any{}, "snapshotId": uuid.NewString(), "seriesModelVersion": DevelopmentSeriesModelVersion}, nil)
+		writeHSDEnvelope(w, req, "CandlesResponse", map[string]any{literalItems: []any{}, literalSnapshotId: uuid.NewString(), literalSeriesModelVersion: DevelopmentSeriesModelVersion}, nil)
 		return
 	}
 	noteDevelopmentReadOperation(req, "DevelopmentCandlePage")
@@ -169,12 +169,12 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 	}
 	if errors.Is(err, store.ErrDataIntegrity) {
 		noteDevelopmentReadError(req, err)
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	if err != nil {
 		noteDevelopmentReadError(req, err)
-		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	var next any
@@ -182,14 +182,14 @@ func serveDevelopmentCandles(w http.ResponseWriter, req *http.Request, st *store
 		raw, err := json.Marshal(developmentCandleCursor{Snapshot: page.SnapshotID, Filter: filter, After: *page.NextStart})
 		if err != nil {
 			noteDevelopmentReadError(req, err)
-			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		next = base64.RawURLEncoding.EncodeToString(raw)
 	}
-	body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": map[string]any{"items": page.Items, "snapshotId": page.SnapshotID, "seriesModelVersion": page.SeriesModelVersion}, "watermark": page.Watermark, "revision": page.Revision, "quality": "partial", "nextCursor": next, "generatedAt": time.Now().UTC().Format(hsdTimestamp)})
+	body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: map[string]any{literalItems: page.Items, literalSnapshotId: page.SnapshotID, literalSeriesModelVersion: page.SeriesModelVersion}, literalWatermark: page.Watermark, literalRevision: page.Revision, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: time.Now().UTC().Format(hsdTimestamp)})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON("CandlesResponse", body) != nil {
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	writeHSDBody(w, body, "no-store")
