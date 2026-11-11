@@ -405,6 +405,7 @@ func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Sto
 		if registrationErr = rest.RegisterAccountingV2WithAdmission(gr, model, []byte(a.cfg.StreamSigningKey), nil, a.admission); registrationErr != nil {
 			return
 		}
+		// Production snapshots include launched chains, their revenue and pool home chains.
 		if registrationErr = rest.RegisterProductionReads(gr, rest.ProductionReadOptions{Model: model, Stream: a.privateStream, Store: st, StatsOrigin: a.cfg.StatsURL, RegisterSnapshots: true, Admission: a.admission, AllowedOrigins: allowedOrigins, TrustedProxyCIDRs: trustedProxies}); registrationErr != nil {
 			return
 		}

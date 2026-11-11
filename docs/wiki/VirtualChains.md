@@ -6,13 +6,13 @@ A virtual chain is one record in Paxeer's `layerxchains` registry. Creating one 
 
 This guide describes the feature-20 contract. Runtime and client availability follow the individual tasks in [the programme specification](../../spec/layerx-merge/spec.kvx); these instructions do not establish that a particular deployment has enabled the feature. The [normative contract](../../spec/layerx-merge/contracts/virtual-chains.md) defines the integration requirements.
 
-## Launch in three clicks
+## Launch a market and chain
 
-Open **Launch a chain** in the launchpad at `/create/chain`, with a wallet connected to Paxeer's root network (chain ID `125`).
+Open **Launch a chain** in the launchpad at `/create/chain` with a wallet connected to Paxeer's root network (chain ID `125`). The merged flow creates a token, market pool, fee-right NFT and bound virtual chain in one payable `launchChain` transaction. The wallet supplies at least the current registry minimum bond plus creation fee as `msg.value`; market charges and transaction gas are separate. The receipt's `ChainLaunched` event identifies the new registry number and derived chain ID. The [chain launch guide](../launchpad/chain-launch.md) covers the transaction, home-chain trading, revenue claims and chain controls.
 
-1. **Name the chain.** Use 3 to 32 characters of lowercase `a-z`, digits and hyphen, with no leading or trailing hyphen. Availability is checked through `chainByName(name)`: zero means unused. Names are unique among every record, including retired ones.
-2. **Pick a size tier.** The wizard reads the current bond, creation fee and capacity from `params()`. A tier must fit the permitted gas range and remaining total allowance.
-3. **Confirm one wallet transaction.** The review shows the bond plus creation fee, with transaction gas charged separately. Confirm `createChain` once. After the receipt's `ChainCreated` event is decoded and `getChain` reads back the record, the ready panel shows the registry ID, derived chain ID, copyable RPC URL, **Add to wallet** and explorer link. Nothing else is installed, hosted or configured.
+Choose a chain name of 3 to 32 lowercase letters, digits or hyphens, without a leading or trailing hyphen. `chainByName(name)` returns zero for an unused name; retired names remain reserved. The wizard reads the current bond, creation fee and capacity from `params()`. A size tier must fit the permitted gas range and remaining total allowance. After confirmation, use the registry number to form `<rpcBase>/chain/<id>` and set the wallet to EVM chain ID `125000000 + id` before trading the launched market.
+
+The registry's direct `createChain` call remains available to create a chain without a launchpad market binding. Its `ChainCreated` event and `getChain` readback expose the registry record described in the ABI below.
 
 | Tier | Gas allowance per block | Byte allowance per block |
 | --- | --- | --- |
