@@ -62,7 +62,10 @@ static int audit_register(audit_fixture *f)
 static int audit_init(audit_fixture *f)
 {
     lxp_byte_span preimage;
+    lxp_identity *owner;
+    uint8_t owner_key[32];
     lx_account_registry *accounts = calloc(1U, sizeof(*accounts));
+    (void)memset(&f->identities, 0, sizeof(f->identities));
     AUDIT_CHECK(accounts != NULL && lx_account_registry_init(accounts) == LXP_OK);
     AUDIT_CHECK(lxp_arena_init(&f->arena, f->arena_bytes,
         sizeof(f->arena_bytes)) == LXP_OK);
@@ -111,6 +114,10 @@ static int audit_init(audit_fixture *f)
     AUDIT_CHECK(lxp_genesis_materialize(&migration_genesis, &f->arena,
         &f->kernel) == LXP_OK);
     AUDIT_CHECK(migration_runtime(&f->kernel) == 0);
+    AUDIT_CHECK(public_key_for(audit_owner_seed, owner_key) == 0);
+    AUDIT_CHECK(lxp_identity_register(&f->identities,
+        (const uint8_t *)"did:lxp:native-migration-owner", 30U,
+        owner_key, &owner) == LXP_OK);
     return audit_begin(f, 1U);
 }
 
@@ -242,9 +249,8 @@ static int audit_migration_abi5_bound_authority_recovery(void)
     size_t old_length = audit_migration_guest(old_wasm, false);
     size_t wasm_length = audit_migration_guest(wasm, true);
     AUDIT_CHECK(f != NULL && audit_init(f) == 0);
-    AUDIT_CHECK(public_key_for(audit_owner_seed, public_key) == 0);
-    AUDIT_CHECK(lxp_identity_register(&f->identities,
-        (const uint8_t *)"did:lxp:native-migration-owner", 30U, public_key, &owner) == LXP_OK);
+    AUDIT_RESULT(lxp_identity_resolve(&f->identities,
+        (const uint8_t *)"did:lxp:native-migration-owner", 30U, &owner), LXP_OK);
     AUDIT_CHECK(public_key_for(audit_governor_seed, public_key) == 0);
     AUDIT_CHECK(lxp_identity_register(&f->identities,
         (const uint8_t *)"did:lxp:native-migration-governor", 33U, public_key, &governor) == LXP_OK);
@@ -677,7 +683,7 @@ static int audit_create_occupancy(audit_fixture *f)
     };
     static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
     static const uint64_t budget[7] = {100000U,65536U,1024U,1024U,1U,1024U,0U};
-    uint8_t public_key[32], signature[64], deploy[1024] = {0x81U}, call[512] = {0};
+    uint8_t signature[64], deploy[1024] = {0x81U}, call[512] = {0};
     lxp_identity *owner;
     lxp_activity activity;
     lxp_authority_grant grant;
@@ -686,10 +692,8 @@ static int audit_create_occupancy(audit_fixture *f)
     lxp_fee_params fees = {0};
     lxp_receipt receipt;
     size_t offset = 106U;
-    AUDIT_CHECK(public_key_for(audit_owner_seed, public_key) == 0);
-    AUDIT_CHECK(lxp_identity_register(&f->identities,
-        (const uint8_t *)"did:lxp:native-migration-owner", 30U,
-        public_key, &owner) == LXP_OK);
+    AUDIT_RESULT(lxp_identity_resolve(&f->identities,
+        (const uint8_t *)"did:lxp:native-migration-owner", 30U, &owner), LXP_OK);
     write_u16(deploy + 32U, 1U); deploy[34U] = 1U;
     (void)memcpy(deploy + 36U, owner->did_id, 32U);
     AUDIT_CHECK(lxp_hash_sha256(wasm, sizeof(wasm), deploy + 68U) == LXP_OK);

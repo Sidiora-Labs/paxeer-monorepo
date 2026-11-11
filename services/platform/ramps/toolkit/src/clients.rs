@@ -1,6 +1,7 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read as _, Write as _};
 use std::net::{IpAddr, TcpStream, ToSocketAddrs as _};
+use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -40,7 +41,6 @@ impl SecretFile {
         let path = path.into();
         let file = open_secret(&path)?;
         let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
-        use std::os::unix::fs::MetadataExt as _;
         Ok(Self {
             path,
             device: metadata.dev(),
@@ -51,7 +51,6 @@ impl SecretFile {
     /// # Errors
     /// Refuses replacement and validates the descriptor before reading bounded content.
     pub fn read(&self) -> Result<Vec<u8>, RampError> {
-        use std::os::unix::fs::MetadataExt as _;
         let mut file = open_secret(&self.path)?;
         let metadata = file.metadata().map_err(|_| RampError::Configuration)?;
         if (metadata.dev(), metadata.ino()) != (self.device, self.inode) {
@@ -76,10 +75,12 @@ impl SecretFile {
 }
 
 fn open_secret(path: &Path) -> Result<File, RampError> {
-    use std::os::unix::fs::OpenOptionsExt as _;
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
+        .custom_flags(
+            i32::try_from((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits())
+                .map_err(|_| RampError::Configuration)?,
+        )
         .open(path)
         .map_err(|_| RampError::Configuration)?;
     require_private(&file.metadata().map_err(|_| RampError::Configuration)?)?;
@@ -867,6 +868,8 @@ pub struct LayerxConfig {
 }
 
 impl LayerxConfig {
+    /// # Errors
+    /// Returns an error when `LayerX` configuration, receipt keys, or TLS inputs are invalid.
     pub fn build(&self, http: MutualTlsClient) -> Result<LayerxClient, String> {
         if self.chain_id == 0 {
             return Err("invalid LayerX chain_id: must be nonzero".to_owned());
@@ -1032,6 +1035,8 @@ impl PreparedLayerx {
 }
 
 impl LayerxClient {
+    /// # Errors
+    /// Returns an error if the order or payload is invalid or payment preparation fails.
     pub fn prepare_native_receive(
         &self,
         order: &RampOrder,
@@ -1110,6 +1115,8 @@ impl LayerxClient {
 
     /// Accepts a customer's exact signed ordinary-principal budget payment.
     /// The operator never signs a debit on the customer's behalf.
+    /// # Errors
+    /// Returns an error if the order, signed transaction, budget, or pending nonce is invalid.
     pub fn prepare_customer_payment(
         &self,
         order: &RampOrder,
@@ -1229,6 +1236,8 @@ impl LayerxClient {
 
     /// Reconciles the exact signed bytes retained in the journal. Recovery is
     /// read only; only the funded engine may authorize re-delivery.
+    /// # Errors
+    /// Returns an error if retained bytes, sequencer evidence, or the order receipt fails authentication.
     pub fn resolve_transaction(
         &self,
         order: &RampOrder,
@@ -1247,39 +1256,7 @@ impl LayerxClient {
         let raw = durable_raw.map(<[u8]>::to_vec);
         match &answer {
             None => {
-                if let Some(raw) = &raw {
-                    let (call, _) = decode_signed(raw).map_err(|_| RampError::Layerx)?;
-                    let sender = self.payment_sender(order)?;
-                    let latest = self
-                        .sequencer
-                        .latest_nonce(&sender)
-                        .map_err(|_| RampError::Layerx)?;
-                    let pending = self
-                        .sequencer
-                        .pending_nonce(&sender)
-                        .map_err(|_| RampError::Layerx)?;
-                    if latest != call.nonce || pending != call.nonce {
-                        return Err(RampError::ReceiptMismatch);
-                    }
-                    if redeliver {
-                        let result = self.submit_prepared(
-                            order,
-                            PreparedLayerx {
-                                tx_hash,
-                                raw_transaction: raw.clone(),
-                            },
-                        );
-                        return Ok((result, None, false));
-                    }
-                }
-                return Ok((
-                    LayerxSubmission::Unknown {
-                        activity_id: tx_hash,
-                        canonical_activity: raw,
-                    },
-                    None,
-                    false,
-                ));
+                return self.resolve_without_receipt(order, tx_hash, raw, redeliver);
             }
             Some(SequencerReceipt::Submitted { nonce, .. }) => {
                 if let Some(raw) = &raw {
@@ -1341,6 +1318,48 @@ impl LayerxClient {
         ))
     }
 
+    fn resolve_without_receipt(
+        &self,
+        order: &RampOrder,
+        tx_hash: [u8; 32],
+        raw: Option<Vec<u8>>,
+        redeliver: bool,
+    ) -> Result<(LayerxSubmission, Option<ReceiptEvidence>, bool), RampError> {
+        if let Some(bytes) = &raw {
+            let (call, _) = decode_signed(bytes).map_err(|_| RampError::Layerx)?;
+            let sender = self.payment_sender(order)?;
+            let latest = self
+                .sequencer
+                .latest_nonce(&sender)
+                .map_err(|_| RampError::Layerx)?;
+            let pending = self
+                .sequencer
+                .pending_nonce(&sender)
+                .map_err(|_| RampError::Layerx)?;
+            if latest != call.nonce || pending != call.nonce {
+                return Err(RampError::ReceiptMismatch);
+            }
+            if redeliver {
+                let result = self.submit_prepared(
+                    order,
+                    PreparedLayerx {
+                        tx_hash,
+                        raw_transaction: bytes.clone(),
+                    },
+                );
+                return Ok((result, None, false));
+            }
+        }
+        Ok((
+            LayerxSubmission::Unknown {
+                activity_id: tx_hash,
+                canonical_activity: raw,
+            },
+            None,
+            false,
+        ))
+    }
+
     fn authenticate_payment_transaction(
         &self,
         order: &RampOrder,
@@ -1367,6 +1386,8 @@ impl LayerxClient {
 
     /// Authenticates successful execution and, for a committed answer, exact
     /// transaction inclusion. Shared by payment, live custody and recovery.
+    /// # Errors
+    /// Returns an error if the receipt signature, execution facts, or committed inclusion is invalid.
     pub fn authenticate_settlement<'a>(
         &self,
         transaction: [u8; 32],
@@ -1390,40 +1411,15 @@ impl LayerxClient {
                 receipt,
                 block_number,
                 block_hash,
-            } => {
-                let head = self
-                    .sequencer
-                    .block_number()
-                    .map_err(|_| RampError::Layerx)?;
-                let block = self
-                    .sequencer
-                    .block_by_number(*block_number)
-                    .map_err(|_| RampError::Layerx)?
-                    .ok_or(RampError::Layerx)?;
-                if *block_number > head
-                    || *block_number < receipt.height
-                    || block.hash != *block_hash
-                {
-                    return Err(RampError::ReceiptMismatch);
-                }
-                let raw = block
-                    .transactions
-                    .iter()
-                    .find(|raw| transaction_hash(raw) == transaction)
-                    .cloned()
-                    .ok_or(RampError::ReceiptMismatch)?;
-                let (call, signature) =
-                    decode_signed(&raw).map_err(|_| RampError::ReceiptMismatch)?;
-                if call.chain_id != self.chain_id
-                    || call.nonce != receipt.nonce
-                    || call.to != receipt.to
-                    || recover_sender(&call, &signature).map_err(|_| RampError::ReceiptMismatch)?
-                        != receipt.from
-                {
-                    return Err(RampError::ReceiptMismatch);
-                }
-                (receipt, Some(raw))
-            }
+            } => (
+                receipt,
+                Some(self.committed_transaction(
+                    transaction,
+                    receipt,
+                    *block_number,
+                    *block_hash,
+                )?),
+            ),
         };
         let keys: Vec<_> = self
             .receipt_keys
@@ -1498,6 +1494,43 @@ impl LayerxClient {
         Ok((Some(receipt), inclusion))
     }
 
+    fn committed_transaction(
+        &self,
+        transaction: [u8; 32],
+        receipt: &layerx_client::sequencer::ExecutedReceipt,
+        block_number: u64,
+        block_hash: [u8; 32],
+    ) -> Result<Vec<u8>, RampError> {
+        let head = self
+            .sequencer
+            .block_number()
+            .map_err(|_| RampError::Layerx)?;
+        let block = self
+            .sequencer
+            .block_by_number(block_number)
+            .map_err(|_| RampError::Layerx)?
+            .ok_or(RampError::Layerx)?;
+        if block_number > head || block_number < receipt.height || block.hash != block_hash {
+            return Err(RampError::ReceiptMismatch);
+        }
+        let raw = block
+            .transactions
+            .iter()
+            .find(|raw| transaction_hash(raw) == transaction)
+            .cloned()
+            .ok_or(RampError::ReceiptMismatch)?;
+        let (call, signature) = decode_signed(&raw).map_err(|_| RampError::ReceiptMismatch)?;
+        if call.chain_id != self.chain_id
+            || call.nonce != receipt.nonce
+            || call.to != receipt.to
+            || recover_sender(&call, &signature).map_err(|_| RampError::ReceiptMismatch)?
+                != receipt.from
+        {
+            return Err(RampError::ReceiptMismatch);
+        }
+        Ok(raw)
+    }
+
     fn verify_customer_budget(
         &self,
         order: &RampOrder,
@@ -1546,6 +1579,8 @@ impl LayerxClient {
 }
 
 /// Parses the maintained hosted KMS wire response without accepting extra fields.
+/// # Errors
+/// Returns an error if the response or its signature is invalid.
 pub fn decode_kms_signature_response(
     call: &Eip1559Call,
     response: &[u8],
@@ -1562,6 +1597,8 @@ pub fn decode_kms_signature_response(
 }
 
 /// Decodes the hosted KMS compact signature and authenticates its EVM signer.
+/// # Errors
+/// Returns an error if the compact signature or recovered signer is invalid.
 pub fn authenticate_kms_signature(
     call: &Eip1559Call,
     encoded: &str,
@@ -2281,6 +2318,16 @@ mod historical_boundary_tests {
             document["receipt"] = capture["receipt_hex"].clone();
             let mut facts: AuthorityBody = serde_json::from_value(document.clone())
                 .unwrap_or_else(|error| panic!("canonical authority: {error}"));
+            assert!(!facts.receipt.is_empty());
+            for field in [
+                &facts.batch_id,
+                &facts.asset,
+                &facts.previous_state_root,
+                &facts.resulting_state_root,
+            ] {
+                assert!(parse_hex32(field).is_ok());
+            }
+            assert!(facts.batch_evidence.is_some());
             let activity = facts.activity_id.clone();
             let network = facts.protocol_network_id;
             let protocol = facts
@@ -2481,7 +2528,7 @@ mod ca_bundle_tests {
             .args(args)
             .current_dir(dir)
             .status()
-            .expect("openssl");
+            .unwrap_or_else(|error| panic!("openssl: {error:?}"));
         assert!(status.success(), "openssl {args:?}");
     }
 
@@ -2526,30 +2573,45 @@ mod ca_bundle_tests {
     }
 
     fn private(path: &Path, bytes: &[u8]) {
-        fs::write(path, bytes).expect("write");
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).expect("chmod");
+        fs::write(path, bytes).unwrap_or_else(|error| panic!("write: {error:?}"));
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+            .unwrap_or_else(|error| panic!("chmod: {error:?}"));
     }
 
     fn handshake(dir: &Path, ca_pem: &Path) -> bool {
         let files = MutualTlsFiles {
             ca_pem: ca_pem.to_path_buf(),
-            identity_pkcs12: SecretFile::new(dir.join("client.p12")).expect("identity"),
-            identity_password: SecretFile::new(dir.join("password")).expect("password"),
+            identity_pkcs12: SecretFile::new(dir.join("client.p12"))
+                .unwrap_or_else(|error| panic!("identity: {error:?}")),
+            identity_password: SecretFile::new(dir.join("password"))
+                .unwrap_or_else(|error| panic!("password: {error:?}")),
         };
-        let client = MutualTlsClient::new(&files, Duration::from_secs(5)).expect("client");
-        let server = fs::read(dir.join("second.p12")).expect("server identity");
-        let acceptor =
-            TlsAcceptor::new(Identity::from_pkcs12(&server, "bundle").expect("identity"))
-                .expect("acceptor");
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
-        let address = listener.local_addr().expect("address");
+        let client = MutualTlsClient::new(&files, Duration::from_secs(5))
+            .unwrap_or_else(|error| panic!("client: {error:?}"));
+        let server = fs::read(dir.join("second.p12"))
+            .unwrap_or_else(|error| panic!("server identity: {error:?}"));
+        let acceptor = TlsAcceptor::new(
+            Identity::from_pkcs12(&server, "bundle")
+                .unwrap_or_else(|error| panic!("identity: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("acceptor: {error:?}"));
+        let listener =
+            TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("bind: {error:?}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("address: {error:?}"));
         let accept = std::thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("accept");
+            let (stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("accept: {error:?}"));
             let _ = acceptor.accept(stream);
         });
-        let stream = TcpStream::connect(address).expect("connect");
+        let stream =
+            TcpStream::connect(address).unwrap_or_else(|error| panic!("connect: {error:?}"));
         let connected = client.connector.connect("localhost", stream).is_ok();
-        accept.join().expect("server");
+        accept
+            .join()
+            .unwrap_or_else(|error| panic!("server: {error:?}"));
         connected
     }
 
@@ -2557,23 +2619,27 @@ mod ca_bundle_tests {
     fn every_root_of_the_ca_bundle_is_trusted() {
         let dir =
             std::env::temp_dir().join(format!("layerx-ramp-ca-bundle-{}", std::process::id()));
-        fs::create_dir_all(&dir).expect("dir");
+        fs::create_dir_all(&dir).unwrap_or_else(|error| panic!("dir: {error:?}"));
         for name in ["first", "second", "client"] {
             self_signed(&dir, name);
         }
         private(
             &dir.join("client.p12"),
-            &fs::read(dir.join("client.p12")).expect("p12"),
+            &fs::read(dir.join("client.p12")).unwrap_or_else(|error| panic!("p12: {error:?}")),
         );
         private(&dir.join("password"), b"bundle\n");
-        let first = fs::read(dir.join("first.pem")).expect("first");
-        let second = fs::read(dir.join("second.pem")).expect("second");
+        let first =
+            fs::read(dir.join("first.pem")).unwrap_or_else(|error| panic!("first: {error:?}"));
+        let second =
+            fs::read(dir.join("second.pem")).unwrap_or_else(|error| panic!("second: {error:?}"));
         let only_first = dir.join("only-first.pem");
-        fs::write(&only_first, &first).expect("write");
+        fs::write(&only_first, &first).unwrap_or_else(|error| panic!("write: {error:?}"));
         let bundle = dir.join("bundle.pem");
-        fs::write(&bundle, [first.as_slice(), second.as_slice()].concat()).expect("write");
+        fs::write(&bundle, [first.as_slice(), second.as_slice()].concat())
+            .unwrap_or_else(|error| panic!("write: {error:?}"));
         let empty = dir.join("empty.pem");
-        fs::write(&empty, b"no certificate here\n").expect("write");
+        fs::write(&empty, b"no certificate here\n")
+            .unwrap_or_else(|error| panic!("write: {error:?}"));
 
         assert!(
             !handshake(&dir, &only_first),
@@ -2585,14 +2651,18 @@ mod ca_bundle_tests {
         );
         let files = MutualTlsFiles {
             ca_pem: empty,
-            identity_pkcs12: SecretFile::new(dir.join("client.p12")).expect("identity"),
-            identity_password: SecretFile::new(dir.join("password")).expect("password"),
+            identity_pkcs12: SecretFile::new(dir.join("client.p12"))
+                .unwrap_or_else(|error| panic!("identity: {error:?}")),
+            identity_password: SecretFile::new(dir.join("password"))
+                .unwrap_or_else(|error| panic!("password: {error:?}")),
         };
         assert!(MutualTlsClient::new(&files, Duration::from_secs(5)).is_err());
         let _ = fs::remove_dir_all(&dir);
     }
 }
 
+/// # Errors
+/// Returns an error if retained provider, `LayerX`, or custody facts do not match live evidence.
 pub fn verify_recovery_settlement(
     projection: &crate::journal::Projection,
     operator: &crate::OperatorIdentity,
@@ -2600,7 +2670,6 @@ pub fn verify_recovery_settlement(
     layerx: &LayerxClient,
     custody: &PaxeerCustodyClient,
 ) -> Result<(), RampError> {
-    use crate::journal::WorkflowStage;
     let chain_id = layerx.sequencer.chain_id().map_err(|_| RampError::Paxeer)?;
     if chain_id != layerx.chain_id {
         return Err(RampError::Paxeer);
@@ -2614,125 +2683,8 @@ pub fn verify_recovery_settlement(
         if &snapshot.order.operator != operator {
             return Err(RampError::OrderBinding);
         }
-        if projection
-            .source_settlement(&snapshot.order.order_digest)
-            .is_none()
-            && (snapshot.evidence.provider_operation_id.is_some()
-                || matches!(
-                    snapshot.stage,
-                    WorkflowStage::ProviderSubmissionPlanned
-                        | WorkflowStage::ProviderSubmittedUnknown
-                        | WorkflowStage::ProviderPending
-                        | WorkflowStage::ProviderSettled
-                        | WorkflowStage::ProviderReversed
-                        | WorkflowStage::Done
-                        | WorkflowStage::ReversalPending
-                        | WorkflowStage::Reversed
-                ))
-        {
-            let key = format!("idempotency:{}", hex(&snapshot.order.order_digest));
-            let id = snapshot
-                .evidence
-                .provider_operation_id
-                .as_deref()
-                .unwrap_or(&key);
-            let result = provider.reconcile(&snapshot.order, id)?;
-            if snapshot
-                .evidence
-                .provider_operation_id
-                .as_deref()
-                .is_some_and(|id| !id.starts_with("idempotency:") && id != result.operation_id)
-                || matches!(result.state, ProviderState::SubmittedUnknown)
-                || snapshot.stage == WorkflowStage::ProviderPending
-                    && result.state != ProviderState::Pending
-                || snapshot.stage == WorkflowStage::ProviderRefused
-                    && (result.state != ProviderState::Refused
-                        || result.refusal_code != snapshot.evidence.refusal_code)
-                || snapshot.stage == WorkflowStage::ManualReview
-                    && (result.state != ProviderState::ManualReview
-                        || result.refusal_code != snapshot.evidence.refusal_code)
-                || matches!(
-                    snapshot.stage,
-                    WorkflowStage::Done | WorkflowStage::ProviderSettled
-                ) && (result.state != ProviderState::Settled
-                    || result.evidence_digest != snapshot.evidence.provider_evidence_digest)
-                || matches!(
-                    snapshot.stage,
-                    WorkflowStage::ProviderReversed
-                        | WorkflowStage::ReversalPending
-                        | WorkflowStage::Reversed
-                ) && (result.state != ProviderState::Reversed
-                    || result.evidence_digest != snapshot.evidence.provider_evidence_digest)
-                || matches!(result.state, ProviderState::Reversed)
-                    && !matches!(
-                        snapshot.stage,
-                        WorkflowStage::ProviderReversed
-                            | WorkflowStage::ReversalPending
-                            | WorkflowStage::Reversed
-                    )
-            {
-                return Err(RampError::Provider);
-            }
-        }
-        if let Some(transaction) = snapshot.evidence.tx_hash {
-            let raw = snapshot
-                .evidence
-                .raw_transaction
-                .as_deref()
-                .ok_or(RampError::Layerx)?;
-            let (answer, _, committed) =
-                layerx.resolve_transaction(&snapshot.order, transaction, Some(raw), false)?;
-            match answer {
-                LayerxSubmission::Verified { leg, .. } => {
-                    if snapshot
-                        .evidence
-                        .receipt_digest
-                        .is_some_and(|digest| digest != leg.receipt_digest)
-                        || snapshot
-                            .evidence
-                            .receipt_height
-                            .is_some_and(|height| height != leg.height)
-                        || snapshot.evidence.rung.is_some_and(|rung| rung > leg.rung)
-                        || matches!(
-                            snapshot.stage,
-                            WorkflowStage::Done | WorkflowStage::LayerxVerified
-                        ) && !committed
-                    {
-                        return Err(RampError::ReceiptMismatch);
-                    }
-                }
-                LayerxSubmission::Unknown { .. } | LayerxSubmission::Pending { .. }
-                    if snapshot.evidence.receipt_digest.is_none()
-                        && snapshot.evidence.rung == Some(layerx_types::rung::Rung::Submitted)
-                        && matches!(
-                            snapshot.stage,
-                            WorkflowStage::LayerxSubmissionPlanned
-                                | WorkflowStage::LayerxSubmittedUnknown
-                                | WorkflowStage::LayerxPending
-                                | WorkflowStage::LayerxRefused
-                        ) => {}
-                _ => return Err(RampError::Layerx),
-            }
-        } else if let Some(activity) = snapshot.evidence.activity_id {
-            // Legacy replay is inspected only; Journal refuses enabling v1 writers.
-            match layerx.resolve(&snapshot.order, activity)? {
-                LayerxSubmission::Verified { leg, .. }
-                    if snapshot
-                        .evidence
-                        .receipt_digest
-                        .is_none_or(|digest| digest == leg.receipt_digest) => {}
-                _ => return Err(RampError::Layerx),
-            }
-        } else if matches!(
-            snapshot.stage,
-            WorkflowStage::Done
-                | WorkflowStage::LayerxVerified
-                | WorkflowStage::LayerxSubmissionPlanned
-                | WorkflowStage::LayerxSubmittedUnknown
-                | WorkflowStage::LayerxPending
-        ) {
-            return Err(RampError::Layerx);
-        }
+        verify_recovery_provider(projection, snapshot, provider)?;
+        verify_recovery_layerx(snapshot, layerx)?;
     }
     for snapshot in projection.paxeer_transfers() {
         let current =
@@ -2769,12 +2721,150 @@ pub fn verify_recovery_settlement(
     Ok(())
 }
 
+fn verify_recovery_provider(
+    projection: &crate::journal::Projection,
+    snapshot: &crate::journal::OrderSnapshot,
+    provider: &ProviderClient,
+) -> Result<(), RampError> {
+    use crate::journal::WorkflowStage;
+    if projection
+        .source_settlement(&snapshot.order.order_digest)
+        .is_none()
+        && (snapshot.evidence.provider_operation_id.is_some()
+            || matches!(
+                snapshot.stage,
+                WorkflowStage::ProviderSubmissionPlanned
+                    | WorkflowStage::ProviderSubmittedUnknown
+                    | WorkflowStage::ProviderPending
+                    | WorkflowStage::ProviderSettled
+                    | WorkflowStage::ProviderReversed
+                    | WorkflowStage::Done
+                    | WorkflowStage::ReversalPending
+                    | WorkflowStage::Reversed
+            ))
+    {
+        let key = format!("idempotency:{}", hex(&snapshot.order.order_digest));
+        let id = snapshot
+            .evidence
+            .provider_operation_id
+            .as_deref()
+            .unwrap_or(&key);
+        let result = provider.reconcile(&snapshot.order, id)?;
+        if snapshot
+            .evidence
+            .provider_operation_id
+            .as_deref()
+            .is_some_and(|id| !id.starts_with("idempotency:") && id != result.operation_id)
+            || matches!(result.state, ProviderState::SubmittedUnknown)
+            || snapshot.stage == WorkflowStage::ProviderPending
+                && result.state != ProviderState::Pending
+            || snapshot.stage == WorkflowStage::ProviderRefused
+                && (result.state != ProviderState::Refused
+                    || result.refusal_code != snapshot.evidence.refusal_code)
+            || snapshot.stage == WorkflowStage::ManualReview
+                && (result.state != ProviderState::ManualReview
+                    || result.refusal_code != snapshot.evidence.refusal_code)
+            || matches!(
+                snapshot.stage,
+                WorkflowStage::Done | WorkflowStage::ProviderSettled
+            ) && (result.state != ProviderState::Settled
+                || result.evidence_digest != snapshot.evidence.provider_evidence_digest)
+            || matches!(
+                snapshot.stage,
+                WorkflowStage::ProviderReversed
+                    | WorkflowStage::ReversalPending
+                    | WorkflowStage::Reversed
+            ) && (result.state != ProviderState::Reversed
+                || result.evidence_digest != snapshot.evidence.provider_evidence_digest)
+            || matches!(result.state, ProviderState::Reversed)
+                && !matches!(
+                    snapshot.stage,
+                    WorkflowStage::ProviderReversed
+                        | WorkflowStage::ReversalPending
+                        | WorkflowStage::Reversed
+                )
+        {
+            return Err(RampError::Provider);
+        }
+    }
+    Ok(())
+}
+
+fn verify_recovery_layerx(
+    snapshot: &crate::journal::OrderSnapshot,
+    layerx: &LayerxClient,
+) -> Result<(), RampError> {
+    use crate::journal::WorkflowStage;
+    if let Some(transaction) = snapshot.evidence.tx_hash {
+        let raw = snapshot
+            .evidence
+            .raw_transaction
+            .as_deref()
+            .ok_or(RampError::Layerx)?;
+        let (answer, _, committed) =
+            layerx.resolve_transaction(&snapshot.order, transaction, Some(raw), false)?;
+        match answer {
+            LayerxSubmission::Verified { leg, .. } => {
+                if snapshot
+                    .evidence
+                    .receipt_digest
+                    .is_some_and(|digest| digest != leg.receipt_digest)
+                    || snapshot
+                        .evidence
+                        .receipt_height
+                        .is_some_and(|height| height != leg.height)
+                    || snapshot.evidence.rung.is_some_and(|rung| rung > leg.rung)
+                    || matches!(
+                        snapshot.stage,
+                        WorkflowStage::Done | WorkflowStage::LayerxVerified
+                    ) && !committed
+                {
+                    return Err(RampError::ReceiptMismatch);
+                }
+            }
+            LayerxSubmission::Unknown { .. } | LayerxSubmission::Pending { .. }
+                if snapshot.evidence.receipt_digest.is_none()
+                    && snapshot.evidence.rung == Some(layerx_types::rung::Rung::Submitted)
+                    && matches!(
+                        snapshot.stage,
+                        WorkflowStage::LayerxSubmissionPlanned
+                            | WorkflowStage::LayerxSubmittedUnknown
+                            | WorkflowStage::LayerxPending
+                            | WorkflowStage::LayerxRefused
+                    ) => {}
+            _ => return Err(RampError::Layerx),
+        }
+    } else if let Some(activity) = snapshot.evidence.activity_id {
+        // Legacy replay is inspected only; Journal refuses enabling v1 writers.
+        match layerx.resolve(&snapshot.order, activity)? {
+            LayerxSubmission::Verified { leg, .. }
+                if snapshot
+                    .evidence
+                    .receipt_digest
+                    .is_none_or(|digest| digest == leg.receipt_digest) => {}
+            _ => return Err(RampError::Layerx),
+        }
+    } else if matches!(
+        snapshot.stage,
+        WorkflowStage::Done
+            | WorkflowStage::LayerxVerified
+            | WorkflowStage::LayerxSubmissionPlanned
+            | WorkflowStage::LayerxSubmittedUnknown
+            | WorkflowStage::LayerxPending
+    ) {
+        return Err(RampError::Layerx);
+    }
+    Ok(())
+}
+
 /// Applies the persisted v2 rung, with an explicit legacy final-stage branch.
+/// # Errors
+/// Returns an error if the observed custody transfer conflicts with its persisted state.
 pub fn verify_custody_recovery(
     snapshot: &crate::journal::PaxeerSnapshot,
     observation: &crate::journal::PaxeerObservation<'_>,
 ) -> Result<(), RampError> {
-    let persisted = snapshot.rung.or_else(|| match snapshot.stage.as_str() {
+    let persisted = snapshot.rung.or(match snapshot.stage.as_str() {
         "final" => Some(layerx_types::rung::Rung::Committed),
         "receipted" => Some(layerx_types::rung::Rung::Receipted),
         _ => None,

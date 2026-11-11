@@ -21095,3 +21095,83 @@ fix = "Decision 3325; task 22.38.36 carries the source and its cases."
 title = "A list that a check reads is kept with the producer of its entries"
 symptom = "Three checks of the workspace read a list: the type set PrecompileAbiType of the TypeScript SDK and the type list of the Python SDK are read against the generated precompile tables, the copy check of the web app reads apps/web/copy/catalog.ts, and tests/programs/runtime-module-boundaries.sh holds the list of the host modules of the runtime. The generated tables name the type uint32 for the chain field of the launchpad chain events, the sources of the web app carry text for the explorer, exchange, bridge and launchpad pages, and the host directory of the runtime carries market.rs. Each list takes the entries of its producer."
 fix = "Decision 3326; tasks 22.39.396, 22.39.397 and 22.39.398."
+
+[gotcha.4255]
+title = "The type check of the launchpad web application covers its test files and the built types of the SDK packages"
+symptom = "The command tsc --noEmit of apps/launchpad/web includes every TypeScript file of the application through its tsconfig.json, test files included, and resolves the types of the SDK packages from their built output. A change of a type that a test file reads, such as the stored draft of the chain flow, reaches each test file that builds a value of that type. A type that one SDK package generates and the other widens is read where the application passes one to the other, as the pool detail is in apps/launchpad/web/src/core/market/pool-resolver.ts."
+fix = "Decision 3327 and task 22.39.399; the build of task 22.40.10 reads the type check for the files of its flow, and its touches name the test file that builds the stored draft."
+
+[gotcha.4256]
+title = "The followers of the hosted indexer write to one database file through separate connections"
+symptom = "The hosted indexer opens its database file through more than one connection: the main store (services/platform/hosted/indexer/src/store.rs:724) and the AI views (ai_market.rs:1395, ai_reputation.rs:384 and ai_health.rs:1216 of the same directory). With the AI capture configured, the AI follower and the chain follower write to that file in the same period, so each writing transaction has to take the write lock of the file and wait for it. The follow loop of main.rs records every observation of a follower in the main store."
+fix = "Decision 3328; task 22.38.36 carries the wait of the writers with its case, and its verification runs that case before the journey."
+
+[gotcha.4257]
+title = "The in-process executor of the processor cases of the launchpad indexer names each statement of the store"
+symptom = "The cases of services/launchpad/indexer/internal/processor/repair_54_test.go run the legacy projection through an in-process executor that accepts the statements of the store by their text (:1081). The store sets the home chain of a pool from the launched chains when a market is created (services/launchpad/indexer/internal/store/store.go:105). A statement that the store gains is therefore read by that executor as well as by the database."
+fix = "Decision 3329; task 22.39.117 carries the statement in the executor of the cases."
+
+[gotcha.4258]
+title = "The message table of the web app is generated from its copy catalog"
+symptom = "The file apps/web/copy/messages.generated.ts holds the runtime messages of the web app and is written by apps/web/copy/generate-runtime.ts from apps/web/copy/catalog.ts. A change of the catalog changes the generated table in the same step, and both files are kept in the tree."
+fix = "Decision 3330; the touches of task 22.39.397 name the generated table."
+
+[gotcha.4259]
+title = "The settlement section of the AI market holds the reward state and then the room market tail"
+symptom = "The settlement section of the shared state of programs/crates/layerx-programs-ai-market carries the reward state first. Once a room is open the room book follows it, closed by its length and the tail mark, as encode_room_market_parts of src/state.rs writes it. The reward state may be empty while the tail is present, which is the state of a market that opens a room before its first epoch. The function room_market of the shared state returns the two parts."
+fix = "Decision 3331 and task 22.39.400."
+
+[gotcha.4260]
+title = "Program recipes build guest modules into the Cargo output directory of the caller"
+symptom = "The recipes programs-interpreter-conformance, programs-sdk-rust and programs-porting-v2-references of the Makefile, and the build scripts under programs/sdk/rust, build guest modules with Cargo and then read each module from a path. Cargo writes to the directory that CARGO_TARGET_DIR names when a caller sets it and to the target directory of the manifest otherwise."
+fix = "Decision 3332 and task 22.39.407."
+
+[gotcha.4261]
+title = "The Hardhat projects compile with Solidity compilers held in the local compiler cache"
+symptom = "The projects contracts, tests/integration/dapp_tests and tests/integration/rpc_tests compile offline. The target paxeer-hardhat-compilers-ready runs scripts/workspace/check-hardhat-compilers.mjs, which reads the compiler versions the projects pin and requires each in the compiler cache of Hardhat."
+fix = "Decision 3333 and task 22.39.408."
+
+[gotcha.4262]
+title = "The spec generator decodes every quoted value of a kvx file as a Go interpreted string"
+symptom = "The parser tools/specgen/kvx.go passes each quoted scalar and each quoted list item to the unquote function of the Go standard library and refuses the file on the first value that is not a valid interpreted string. The recipe specgen-lint of the Makefile runs the generator with the check option over spec/workflow.kvx and the spec of the active feature, and compares the four pointer files CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md with its output."
+fix = "Decision 3336 and task 22.39.410."
+
+[gotcha.4263]
+title = "The recipe platform-lint covers every member of the three platform manifests"
+symptom = "The recipe of services/platform/Makefile.inc runs clippy over the whole workspace of each of the three platform manifests with all targets and with warnings denied, so the recipe passes only when every member passes. The members internal, identity and paxeer under services/platform/hosted are linted in the same command."
+fix = "Decision 3339; task 22.39.403 owns the source of the three members."
+
+[gotcha.4264]
+title = "A member of the platform workspace is linted alone with the package option"
+symptom = "The recipe platform-lint of services/platform/Makefile.inc lints the whole workspace of services/platform/Cargo.toml in one command. With the package option clippy denies warnings only in the selected member and compiles the members it depends on without the denial, and the option accepts a pattern, so a member is selected by a prefix of its package name."
+fix = "Decision 3340; tasks 22.39.412 to 22.39.424."
+
+[gotcha.4265]
+title = "Clippy lints the workspace members a selected member depends on unless the option --no-deps is given"
+symptom = "With the package option alone, cargo clippy lints the selected member and each member of the same workspace that it depends on, under the lint table of the manifest. With the option --no-deps before the separator it lints the selected member only, and the members it depends on are compiled without lints."
+fix = "Decision 3341; the verification of a member lint task selects its member with the option --no-deps."
+
+[gotcha.4266]
+title = "A member lint task leaves the tests of its member with the results they have at the base revision"
+symptom = "A repair for a lint changes the shape of code and its documentation. The cases of the member that pass at the base revision pass on the repaired tree, and a case that needs the prerequisites of the recipe platform-test is run the way that recipe runs it. A public function that returns a result with the unit error type is repaired with a named error type."
+fix = "Decisions 3342 and 3343."
+
+[gotcha.4267]
+title = "The members of the platform tools are linted in two tasks and a shared test file is repaired where it lives"
+symptom = "The lint of the manifest tools/platform/Cargo.toml covers three members. A test target of the member cli includes source files of the member by path, so an item that the target does not use is reported there as never used. The file sdk/platform/pipeline.kvx records a digest of the generator sources, so a change to those sources changes the digest."
+fix = "Decisions 3344 to 3346 and task 22.39.425."
+
+[gotcha.4268]
+title = "The option --no-deps also leaves out a dependency that the manifest names by path outside the workspace"
+symptom = "A member of the platform workspace can depend by path on a package of another workspace. Clippy with the package option reports on that package as well. With the option --no-deps the report covers the named members only."
+fix = "Decision 3347."
+
+[gotcha.4269]
+title = "The split tool numbers its parts with two digits unless a suffix length is given"
+symptom = "With the numeric suffix option and no suffix length, split writes the parts of a file with the suffixes 00, 01, 02 and 03 when asked for four parts. A recipe that reads a part by the number of its group passes the suffix length that matches the group names."
+fix = "Decision 3348 and task 22.39.431."
+
+[gotcha.4270]
+title = "A database role belongs to the whole Postgres server and outlives the database of a test"
+symptom = "A role that a statement of a test creates stays on the server when the private database of the test is dropped. A second run of the same test on that server finds the role present."
+fix = "Decision 3351."

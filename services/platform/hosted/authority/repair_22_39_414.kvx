@@ -1,0 +1,89 @@
+[authority]
+member = "layerx-platform-authority"
+contract = "Authority operations return a named unit error when required state is unavailable or invalid."
+
+[lint.dead_code]
+files = ["src/committed/proto.rs", "src/human.rs", "src/human/dynamic.rs", "src/main.rs", "tests/support/committed_human_fixture.rs", "tests/support/lifecycle_dispatch.rs", "tests/support/lifecycle_finality.rs"]
+product = "Proof readers expose the fields used by commitment verification; authority test fixtures and finality assertions remain available to their integration cases."
+
+[lint.manual_is_multiple_of]
+files = ["src/human/budget_state/record.rs"]
+product = "Budget records require complete 32-byte words."
+
+[lint.missing_errors_doc]
+files = ["src/human/budget_state.rs", "src/chain_receipt.rs", "src/committed.rs", "src/protected.rs", "src/human.rs", "src/human/dynamic.rs"]
+product = "Fallible authority operations document their refusal conditions."
+
+[lint.result_unit_err]
+files = ["src/lib.rs", "src/human/budget_state.rs", "src/committed.rs", "src/protected.rs", "src/chain_receipt.rs", "src/human.rs", "src/human/dynamic.rs", "src/human/session_membership.rs", "src/main.rs"]
+product = "AuthorityResult uses AuthorityError for eleven public authority operations and their member callers."
+functions = ["protected::read", "committed::CommittedHeader::open", "committed::CommittedHeader::bind_receipt", "committed::CommittedHeader::prove", "committed::verify_membership", "committed::base64", "budget_state::identity_key", "budget_state::Session::open", "budget_state::Session::identity", "budget_state::Session::unchanged", "budget_state::Session::fresh"]
+changed_callers = ["src/chain_receipt.rs", "src/human.rs", "src/human/dynamic.rs", "src/human/session_membership.rs", "src/main.rs"]
+
+[lint.must_use_candidate]
+files = ["src/chain_receipt.rs", "src/committed.rs", "src/lib.rs", "src/human.rs", "tests/support/committed_human_fixture.rs"]
+product = "Returned receipt data, documents, and responses carry use annotations."
+
+[lint.type_complexity]
+files = ["src/chain_receipt.rs"]
+product = "ReceiptReply names the parsed receipt and commitment tuple."
+
+[lint.too_many_lines]
+files = ["src/chain_receipt.rs"]
+product = "Receipt transport and receipt validation are separate operations."
+
+[lint.cast_possible_truncation]
+files = ["src/chain_receipt.rs", "src/committed.rs", "src/committed/ics23.rs", "src/committed/multistore.rs"]
+product = "Encoded byte extraction uses the low byte of each integer word."
+
+[lint.checked_conversions]
+files = ["src/committed/ics23.rs"]
+product = "Proof enum values remain within the signed 32-bit range."
+
+[lint.manual_let_else]
+files = ["src/committed.rs"]
+product = "Membership proof decoding requires its first byte field."
+
+[lint.bool_to_int_with_if]
+files = ["src/committed.rs"]
+product = "Base64 padding derives from the final encoded byte."
+
+[lint.expect_used]
+files = ["tests/support/lifecycle_finality.rs"]
+product = "Finality assertions require valid ABI and proof fields."
+
+[lint.ignored_unit_patterns]
+files = ["src/human/budget_state/record.rs", "src/human/dynamic.rs"]
+product = "Budget records and registration binding match their parser's unit error explicitly."
+
+[lint.deprecated]
+files = ["src/human/dynamic.rs", "src/human/dynamic/registration.rs"]
+product = "Signed historical registration consent is decoded and bound to its original activity bytes."
+
+[lint.semicolon_if_nothing_returned]
+files = ["src/main.rs"]
+product = "The chain server worker returns unit after serving requests."
+
+[lint.ptr_arg]
+files = ["tests/support/committed_human_fixture.rs"]
+product = "Receipt fixture mutation accepts a mutable byte slice."
+
+[lint.items_after_statements]
+files = ["tests/support/committed_human_fixture.rs"]
+product = "Session issuer imports precede fixture statements."
+
+[lint.needless_borrow]
+files = ["tests/support/committed_human_fixture.rs", "tests/human_tls.rs"]
+product = "Receipt and TLS fixture readers use their existing byte and path references."
+
+[lint.needless_pass_by_value]
+files = ["tests/support/committed_human_fixture.rs"]
+product = "The node worker borrows its listener, state, fixture and transcript."
+
+[lint.too_many_lines]
+files = ["tests/support/committed_human_fixture.rs", "tests/chain_receipts.rs", "tests/budget_proof_exports.rs", "tests/human_tls.rs", "tests/repair_22_33_1471.rs"]
+product = "Fixture construction and assertions use focused helpers while retaining the same evidence checks."
+
+[lint.private_interfaces]
+files = ["tests/support/committed_human_fixture.rs"]
+product = "The exported fixture path helper accepts the public fixture type."

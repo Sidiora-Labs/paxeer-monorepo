@@ -115,12 +115,15 @@ impl std::fmt::Debug for SourceSettlementRecordV2 {
 pub struct VerifiedSourceSettlement(SourceSettlementRecordV2);
 
 impl VerifiedSourceSettlement {
+    #[must_use]
     pub const fn record(&self) -> &SourceSettlementRecordV2 {
         &self.0
     }
+    #[must_use]
     pub const fn source_claim_id(&self) -> [u8; 32] {
         self.0.source_claim_id
     }
+    #[must_use]
     pub const fn evidence_digest(&self) -> [u8; 32] {
         self.0.source_evidence_digest
     }
@@ -130,18 +133,24 @@ impl VerifiedSourceSettlement {
 }
 
 impl SourceSettlementRecordV2 {
+    #[must_use]
     pub const fn order_digest(&self) -> [u8; 32] {
         self.order_digest
     }
+    #[must_use]
     pub fn chain_name(&self) -> &str {
         &self.chain
     }
+    #[must_use]
     pub const fn source_claim_id(&self) -> [u8; 32] {
         self.source_claim_id
     }
+    #[must_use]
     pub const fn evidence_digest(&self) -> [u8; 32] {
         self.source_evidence_digest
     }
+    /// # Errors
+    /// Returns an error if retained source facts do not match the order.
     pub fn validate_order(&self, order: &RampOrder) -> Result<(), RampError> {
         order.validate_bound()?;
         let evidence = SourceEvidence::new(self.canonical_source_evidence.clone())
@@ -191,12 +200,14 @@ impl SourceSettlementRecordV2 {
     }
 }
 
+#[must_use]
 pub fn source_trace(header: Option<&str>, order_digest: [u8; 32]) -> TraceId {
     let mut entropy = [0; 16];
     entropy.copy_from_slice(&order_digest[..16]);
     TraceId::from_inbound(header, entropy)
 }
 
+#[must_use]
 pub const fn source_error_status(error: SourceVerificationError) -> u16 {
     match error {
         SourceVerificationError::SourcePending => 202,
@@ -218,6 +229,8 @@ pub struct SourceSettlementService {
 }
 
 impl SourceSettlementService {
+    /// # Errors
+    /// Returns an error if source configuration or a quote binding is invalid.
     pub fn new(config: SourceSettlementConfig) -> Result<Self, RampError> {
         if config.ethereum.is_none() && config.solana.is_none() || config.quotes.is_empty() {
             return Err(RampError::Configuration);
@@ -256,6 +269,8 @@ impl SourceSettlementService {
         })
     }
 
+    /// # Errors
+    /// Returns an error if a configured source quote is absent or not an on-ramp quote.
     pub fn validate_catalogue(
         &self,
         catalogue: &BTreeMap<String, QuoteTerms>,
@@ -271,6 +286,8 @@ impl SourceSettlementService {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the source request or its encoded evidence is invalid.
     pub fn evidence(request: &SourceSettlementRequest) -> Result<SourceEvidence, RampError> {
         if request.version != SOURCE_SETTLEMENT_VERSION
             || request.order_digest == [0; 32]
@@ -283,24 +300,15 @@ impl SourceSettlementService {
         SourceEvidence::new(canonical).map_err(RampError::SourceSettlement)
     }
 
+    /// # Errors
+    /// Returns an error if source finality or its binding to the order is invalid.
     pub fn verify(
         &self,
         order: &RampOrder,
         request: &SourceSettlementRequest,
         trace: &TraceId,
     ) -> Result<VerifiedSourceSettlement, RampError> {
-        order.validate_bound()?;
-        if order.direction() != RampDirection::OnRamp || order.order_digest != request.order_digest
-        {
-            return Err(RampError::OrderBinding);
-        }
-        let binding = self
-            .quotes
-            .get(&order.quote.quote_id)
-            .ok_or(RampError::OrderBinding)?;
-        if binding.chain != request.chain {
-            return Err(RampError::OrderBinding);
-        }
+        let binding = self.quote_binding(order, request)?;
         let evidence = Self::evidence(request)?;
         let (finality, chain, network, custody) = match request.chain {
             SourceChainKind::Ethereum => {
@@ -393,6 +401,28 @@ impl SourceSettlementService {
         Ok(VerifiedSourceSettlement(record))
     }
 
+    fn quote_binding(
+        &self,
+        order: &RampOrder,
+        request: &SourceSettlementRequest,
+    ) -> Result<&SourceQuoteBinding, RampError> {
+        order.validate_bound()?;
+        if order.direction() != RampDirection::OnRamp || order.order_digest != request.order_digest
+        {
+            return Err(RampError::OrderBinding);
+        }
+        let binding = self
+            .quotes
+            .get(&order.quote.quote_id)
+            .ok_or(RampError::OrderBinding)?;
+        if binding.chain != request.chain {
+            return Err(RampError::OrderBinding);
+        }
+        Ok(binding)
+    }
+
+    /// # Errors
+    /// Returns an error if retained source evidence fails fresh verification.
     pub fn verify_retained(
         &self,
         order: &RampOrder,
