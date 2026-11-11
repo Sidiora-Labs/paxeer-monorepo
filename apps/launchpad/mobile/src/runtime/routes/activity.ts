@@ -2,8 +2,8 @@ import {
   Operations,
   decodeContract,
   type SdkClient,
-} from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
-import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
+} from '@kindle/sdk';
+import type { QuoteBody } from '@kindle/sdk';
 import { createPublicClient, defineChain, getAddress, http } from 'viem';
 import type { PublicConfiguration } from '../service-client.ts';
 import { onchainQuote } from '../onchain-quote.ts';

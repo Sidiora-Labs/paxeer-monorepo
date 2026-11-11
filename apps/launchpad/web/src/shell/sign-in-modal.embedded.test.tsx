@@ -6,13 +6,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { defineChain } from 'viem';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // The embedded-wallet flag is computed when wagmi-config is first imported, so
 // the deployment settings go into the real environment before any app module
 // loads. Supabase points at a closed local port: the SDK is constructed for
 // real, and anything it tries to reach fails instead of hitting a service.
-const ENV_KEYS = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'] as const;
-const previous = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
+const ENV_KEYS = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+] as const;
+const previous = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
 let app: {
   SignInModal: typeof import('./sign-in-modal').default;
@@ -25,6 +30,7 @@ let app: {
 };
 
 beforeAll(async () => {
+  const started = performance.now();
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_closed_local_boundary';
@@ -41,7 +47,16 @@ beforeAll(async () => {
     openAuthModal: store.openAuthModal,
     closeAuthModal: store.closeAuthModal,
   };
-});
+  const durationMs = performance.now() - started;
+  const measurement = { setup: 'sign-in-modal.embedded:four-module-imports', durationMs };
+  console.info(JSON.stringify(measurement));
+  if (process.env.L38_ARTIFACT_DIR)
+    appendFileSync(
+      join(process.env.L38_ARTIFACT_DIR, 'module-imports.ndjson'),
+      JSON.stringify(measurement) + '\n',
+      { mode: 0o600 }
+    );
+}, 60000);
 
 afterAll(() => {
   for (const key of ENV_KEYS) {
@@ -50,12 +65,23 @@ afterAll(() => {
   }
 });
 
-const chain = defineChain({ id: 125, name: 'Closed local boundary', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
+const chain = defineChain({
+  id: 125,
+  name: 'Closed local boundary',
+  nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 },
+  rpcUrls: { default: { http: ['http://127.0.0.1:1'] } },
+});
 
 it('with the embedded wallet configured and no browser wallet, the note points at the embedded wallet', async () => {
   expect(app.embeddedWalletConfigured).toBe(true);
   delete (window as unknown as { ethereum?: unknown }).ethereum;
-  const config = createConfig({ chains: [chain], connectors: [injected()], transports: { 125: http('http://127.0.0.1:1', { retryCount: 0, timeout: 500 }) }, ssr: true, multiInjectedProviderDiscovery: false });
+  const config = createConfig({
+    chains: [chain],
+    connectors: [injected()],
+    transports: { 125: http('http://127.0.0.1:1', { retryCount: 0, timeout: 500 }) },
+    ssr: true,
+    multiInjectedProviderDiscovery: false,
+  });
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -66,15 +92,19 @@ it('with the embedded wallet configured and no browser wallet, the note points a
     root.render(
       <WagmiProvider config={config}>
         <QueryClientProvider client={queries}>
-          <WalletRuntimeProvider><SignInModal /></WalletRuntimeProvider>
+          <WalletRuntimeProvider>
+            <SignInModal />
+          </WalletRuntimeProvider>
         </QueryClientProvider>
-      </WagmiProvider>,
+      </WagmiProvider>
     );
   });
   const dialog = () => document.body.querySelector<HTMLElement>('[role="dialog"]');
   // First synchronous render: no note yet, whatever the deployment offers.
   expect(dialog()?.textContent).not.toContain('No browser wallet found');
-  await act(async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 0)); });
+  await act(async () => {
+    for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   const text = dialog()?.textContent ?? '';
   expect(text).toContain(app.NO_BROWSER_WALLET_NOTE);
   expect(text).not.toContain(app.NO_BROWSER_WALLET_NOTE_WALLET_ONLY);
