@@ -40570,3 +40570,67 @@ symbol = "workspace"
 observed = "Attempt 1 at f2764a63469d on base 4454df22eb4c: the build exits 0 at f2764a63469d, log /out/logs/build-1.log; no verification ran; outside the counted gates make workspace-install exits 2 at cargo fetch for tools/benchmark/loadtest/contracts/mars/Cargo.toml, no matching package named pax-cosmwasm found, and make platform-dependencies-install exits 2 at services/platform/Makefile.inc:27 for want of cargo-deny."
 assumption = "Three manifests outside the paths of the task ask the registry for a crate that only the repository holds, and the environment lacked the policy tool."
 severity = "high"
+
+[finding.22.39.117.21]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 21 at 6d0bb29124e2 on base 9162dfc88276: no build and no verification ran; the model endpoint ended the session during the cover pass outside the counted gates and the attempt ended with eight untracked coverage profile files under services/launchpad/.cover outside the paths; log /out/logs/run-task.log."
+assumption = "The verification of the task carried stages of the ci target that task 22.39.170 owns."
+severity = "high"
+
+[finding.22.39.211.2]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 2 at b8de14815ac5 on base 14c3a7dc09d6: build 2 exits 0 at 16cf8e62c639; verification 1 exits 1 at 16cf8e62c639 with 828 lint messages in the test build of the library of layerx-agentd; log /out/logs/verify-1.log."
+assumption = "No task linted the unit cases of the library of the agent daemon before the lint of the whole workspace."
+severity = "high"
+
+[finding.22.38.36.6]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 7 at 7758669f073c on base 4e0c32c6ac68: build 1 exits 0 at 3cc322196072; verification 1 exits 1 at 3cc322196072, the registration of the rewards account reverts with LXP_VERSION_UNSUPPORTED: registerAccount: LXP_ERR_VERSION_UNSUPPORTED; log /out/logs/verify-1.log."
+assumption = "A program deployed directly at ABI 5 holds no account profile record, and the driver of a live chain cannot write one into the store."
+severity = "high"
+
+[finding.22.38.36.7]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 8 at 949f22eb4b3b on base 6a436ad48594: builds 1 to 3 exit 0; verification 1 exits 1 at c2141b9f8116, the CreateMarket call reverts with execution reverted: LXP_NON_CANONICAL: call: LXP_ERR_NON_CANONICAL after the deployment at ABI 2, the registration with profile 2 and the upgrade to ABI 5 committed; log /out/logs/verify-1.log."
+assumption = "The example sends empty capability bytes and an empty access declaration, which the runtime refuses before the guest runs."
+severity = "high"
+
+[finding.22.39.386.1]
+task = "22.39.386"
+file = "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_mutation_terms_match_the_kernel_case"
+symbol = "market_call_terms.rs::market_mutation_terms_match_the_kernel_case"
+observed = "Attempt 1 at 6612bd53354c on base 730e92f12467: build 1 exits 101 at 4cb12e331b33 (E0282 at services/agent/crates/layerx-agentd/src/main.rs:3619); build 2 exits 0 at c31bee07ae1b; verification 1 exits 1 at c31bee07ae1b (E0603 at services/agent/crates/layerx-client/tests/market_call_terms.rs:2); build 3 exits 0 at d6e09867ceab; no verification ran on the final tree; log /out/logs/verify-1.log."
+assumption = "The counted gates were spent on first compiles of a tree that is sound apart from the set of refused operations."
+severity = "high"
+
+[finding.22.39.387.1]
+task = "22.39.387"
+file = "node/programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow"
+symbol = "programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow"
+observed = "Attempt 1 at 2814328058c8 on base 730e92f12467: builds 1 and 2 exit 0; verification 1 exits 1 at 2b598859ae0c; verification 2 exits 1 at 08db8fc9d314 with five cases stopped by Programs occupancy at height 2: LXP_ERR_CONTEXT_MISMATCH; log /out/logs/verify-2.log."
+assumption = "The context that the block flow gives the transition differs from the context of the calls of the block."
+severity = "high"
+
+[finding.22.39.377.2]
+task = "22.39.377"
+file = "scripts/workspace"
+symbol = "workspace"
+observed = "Attempt 4 at 733e686765a1 on base 6e50fba5bf0f: the build exits 0 at tree e09d7033312e (log /out/logs/build-1.log); no verification ran; make workspace-install outside the counted gates exits 2 with the message that the lock file services/human/Cargo.lock needs to be updated."
+assumption = "The lock files of five workspaces outside the paths went stale with task 22.39.386."
+severity = "high"
+
+[finding.22.39.211.3]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 3 at 5f91a115b291 on base 790e967d7423: the build exits 0 at 733347168a88 (log /out/logs/build-1.log); the verification exits 1 at 733347168a88 with the lint clean and services/agent/tools/dependency-policy.sh stopping with dependency policy: forbidden boundary or global-initialisation crate; log /out/logs/verify-1.log."
+assumption = "The ban part of the agent dependency policy counts crates that only test targets of the workspace link."
+severity = "high"

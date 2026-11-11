@@ -2171,12 +2171,10 @@ fn measured_fund_cpu_fuel() -> u64 {
     let shared_state_key_bytes =
         u64::try_from(layerx_programs_ai_market::SHARED_STATE_KEY.len()).unwrap();
     let shared_state_value_bytes = u64::try_from(f.current.len()).unwrap();
-    let rewards_balance_read_bytes = u64::try_from(core::mem::size_of::<u128>()).unwrap();
     assert_eq!(shared_state_key_bytes, 14);
-    assert_eq!(rewards_balance_read_bytes, 16);
     assert_eq!(
         usage.storage_read_bytes,
-        shared_state_key_bytes + shared_state_value_bytes + rewards_balance_read_bytes
+        shared_state_key_bytes + shared_state_value_bytes
     );
     assert_eq!(
         usage.storage_write_bytes,

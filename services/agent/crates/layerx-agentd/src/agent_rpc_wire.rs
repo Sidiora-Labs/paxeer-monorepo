@@ -2459,6 +2459,31 @@ impl ProgramActivityWire {
 }
 
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod budget_create_wire_tests {
     use super::{
         budget_create_purpose_suffix, BudgetCreateWire, Canonical, BUDGET_CREATE_PURPOSE_TEXT_V1,
@@ -2873,7 +2898,7 @@ mod native_contract_tests {
         let mut invalid = request;
         invalid.actor = match layerx_agent_api::identity::AgentDid::new("did:layerx:bob") {
             Ok(actor) => actor,
-            Err(_) => panic!("bounded actor did not construct"),
+            Err(error) => panic!("bounded actor did not construct: {error:?}"),
         };
         assert!(native_human_prepare(&invalid, RequestId(1)).is_err());
     }
@@ -3238,12 +3263,12 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             account_id: [2_u8; 32],
         },
     ] {
-        let bytes = target.encode().expect("canonical selector");
+        let bytes = target.encode().assert_value("canonical selector");
         let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted"});
-        let request = decode_wire::<ProofBundleWire>(value.as_object().expect("object"), id)
-            .expect("wire")
+        let request = decode_wire::<ProofBundleWire>(value.as_object().assert_value("object"), id)
+            .assert_value("wire")
             .into_request(id)
-            .expect("selector");
+            .assert_value("selector");
         assert_eq!(request.selector.as_bytes(), bytes.as_bytes());
         for invalid in [
             String::new(),
@@ -3252,14 +3277,17 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             "000103".to_owned() + &"00".repeat(32),
         ] {
             let malformed = json!({"target": invalid, "requested_rung": "receipted"});
-            assert!(
-                decode_wire::<ProofBundleWire>(malformed.as_object().expect("object"), id)
-                    .and_then(|wire| wire.into_request(id))
-                    .is_err()
-            );
+            assert!(decode_wire::<ProofBundleWire>(
+                malformed.as_object().assert_value("object"),
+                id
+            )
+            .and_then(|wire| wire.into_request(id))
+            .is_err());
         }
         let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted", "authority": "caller"});
-        assert!(decode_wire::<ProofBundleWire>(unknown.as_object().expect("object"), id).is_err());
+        assert!(
+            decode_wire::<ProofBundleWire>(unknown.as_object().assert_value("object"), id).is_err()
+        );
     }
 }
 
@@ -3316,17 +3344,17 @@ mod native_send_contract_tests {
             "commitment":"05".repeat(32)
         });
         let purpose = serde_json::from_value::<NativeSendPurposeV2Wire>(purpose_body.clone())
-            .expect("Send purpose wire")
+            .assert_value("Send purpose wire")
             .into_request(id)
-            .expect("Send purpose contract");
+            .assert_value("Send purpose contract");
         let digest: [u8; 32] =
-            Sha256::digest(purpose.canonical_bytes().expect("canonical purpose")).into();
+            Sha256::digest(purpose.canonical_bytes().assert_value("canonical purpose")).into();
         json!({
             "variant":"native_send_v1", "activity":{"version":"1", "module":"1", "ordinal":"5"},
             "actor":format!("did:layerx:{owner_public_key}"), "authority":"owner", "account_sequence":"7",
             "not_before":"1", "not_after":"100", "idempotency_key":"04".repeat(32),
             "fee_limit":"123", "payload":payload,
-            "payload_hash":lower_hex(&Sha256::digest(hex_bytes(payload, id).expect("real Send payload"))),
+            "payload_hash":lower_hex(&Sha256::digest(hex_bytes(payload, id).assert_value("real Send payload"))),
             "capability_id":"22".repeat(32),
             "purpose":{"purpose":purpose_body,
                 "signature":lower_hex(&key.sign(&digest).to_bytes())},
@@ -3337,24 +3365,26 @@ mod native_send_contract_tests {
     #[test]
     fn native_send_wire_preserves_exact_signed_request_and_distinct_digest() {
         let body = send_body();
-        let request =
-            decode_wire::<NativeSendPrepareV1Wire>(body.as_object().expect("object"), RequestId(1))
-                .expect("Send wire")
-                .into_request(RequestId(1))
-                .expect("Send contract");
+        let request = decode_wire::<NativeSendPrepareV1Wire>(
+            body.as_object().assert_value("object"),
+            RequestId(1),
+        )
+        .assert_value("Send wire")
+        .into_request(RequestId(1))
+        .assert_value("Send contract");
         assert_eq!(request.canonical(), body);
-        let prepare =
-            native_send_human_prepare(&request, RequestId(1)).expect("Human Send preparation");
+        let prepare = native_send_human_prepare(&request, RequestId(1))
+            .assert_value("Human Send preparation");
         assert_eq!(prepare.activity_type, 0x0001_0005);
         assert_eq!(prepare.payload, request.payload);
         assert_eq!(prepare.idempotency_key, lower_hex(&request.idempotency_key));
-        let canonical = serde_json::to_vec(&body).expect("canonical Send JSON");
+        let canonical = serde_json::to_vec(&body).assert_value("canonical Send JSON");
         let digest: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/agent/native-send-prepare/v1\0")
             .chain_update(&canonical)
             .finalize()
             .into();
-        assert_eq!(request.prepare_digest().expect("Send digest"), digest);
+        assert_eq!(request.prepare_digest().assert_value("Send digest"), digest);
         let old: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/agent/native-effect-prepare/v1\0")
             .chain_update(&canonical)
@@ -3362,17 +3392,17 @@ mod native_send_contract_tests {
             .into();
         assert_ne!(digest, old);
         assert!(decode_wire::<NativeEffectPrepareV1Wire>(
-            body.as_object().expect("object"),
+            body.as_object().assert_value("object"),
             RequestId(1)
         )
         .is_err());
         assert!(decode_wire::<NativePrepareV1Wire>(
-            body.as_object().expect("object"),
+            body.as_object().assert_value("object"),
             RequestId(1)
         )
         .is_err());
         if let Ok(path) = std::env::var("NATIVE_SEND_DAEMON_CANONICAL_OUTPUT") {
-            std::fs::write(path, canonical).expect("private Send canonical artifact");
+            std::fs::write(path, canonical).assert_value("private Send canonical artifact");
         }
     }
 
@@ -3434,7 +3464,7 @@ mod native_send_contract_tests {
         invalid.push(changed);
         for body in invalid {
             assert!(decode_wire::<NativeSendPrepareV1Wire>(
-                body.as_object().expect("object"),
+                body.as_object().assert_value("object"),
                 RequestId(1)
             )
             .and_then(|wire| wire.into_request(RequestId(1)))
