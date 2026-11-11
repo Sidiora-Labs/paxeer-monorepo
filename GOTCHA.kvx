@@ -21130,3 +21130,8 @@ fix = "Decision 3332 and task 22.39.407."
 title = "The Hardhat projects compile with Solidity compilers held in the local compiler cache"
 symptom = "The projects contracts, tests/integration/dapp_tests and tests/integration/rpc_tests compile offline. The target paxeer-hardhat-compilers-ready runs scripts/workspace/check-hardhat-compilers.mjs, which reads the compiler versions the projects pin and requires each in the compiler cache of Hardhat."
 fix = "Decision 3333 and task 22.39.408."
+
+[gotcha.4262]
+title = "The spec generator decodes every quoted value of a kvx file as a Go interpreted string"
+symptom = "The parser tools/specgen/kvx.go passes each quoted scalar and each quoted list item to the unquote function of the Go standard library and refuses the file on the first value that is not a valid interpreted string. The recipe specgen-lint of the Makefile runs the generator with the check option over spec/workflow.kvx and the spec of the active feature, and compares the four pointer files CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md with its output."
+fix = "Decision 3336 and task 22.39.410."

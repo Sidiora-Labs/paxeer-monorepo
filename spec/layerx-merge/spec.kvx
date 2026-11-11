@@ -13126,6 +13126,24 @@ value = "Each file under a generated directory of an SDK has one generator. The 
 basis = "Decisions 3326 and 3330."
 affects = ["22.39.401", "17.5.7"]
 
+[decision.3336]
+title = "A spec value is written in the form the spec generator decodes"
+value = "A quoted value of a kvx file under spec is a valid Go interpreted string. A literal backslash is written as two, and no other escape than those of that form is used. Every reader of the spec decodes a value to the same text as the generator. The tests of tools/specgen hold a case that parses the spec of the active feature, so a value outside the form is refused by the test recipe as well as by the lint recipe. Task 22.39.410 carries the case and task 17.5.7 follows it."
+basis = "Gotcha 4262, decisions 3052 and 3326."
+affects = ["22.39.410", "17.5.7"]
+
+[decision.3337]
+title = "The lock file of the SDK pipeline is written with the generated file it records"
+value = "The file sdk/platform/pipeline.kvx records the hash of each generated SDK file, and the check option of the platform generator compares each file with its record. A change that regenerates a recorded file writes the lock with the write option of the same generator in the same commit, through the recipe platform-sdk-generate. A record is never edited by hand. Task 22.39.401 brings the record of services/agent/sdk/typescript/src/generated/precompile-writes.ts in line with the file its script writes."
+basis = "Decisions 3326 and 3335."
+affects = ["22.39.401"]
+
+[decision.3338]
+title = "A test program is rebuilt when a header it includes changes"
+value = "The rule of a test program under tests/programs in the Makefile names the headers the source includes, by a generated dependency file or by a list, so a change of a header alone rebuilds the program before the test recipe runs it. Task 22.39.411 carries the rules."
+basis = "Decisions 3052 and 3334."
+affects = ["22.39.411", "22.39.406"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42786,6 +42804,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.411]
+title = "Rebuild the test programs of the kernel when a header they include changes"
+reqs = ["22998.1"]
+touches = ["Makefile"]
+tests = []
+verification_contract = "test -s tests/programs/repair_22_39_411.kvx && make -s programs-core-test && touch tests/programs/audit_22_30_2.h && make -n programs-core-test | grep -q -e 'test_lifecycle[.]c'"
+do_1 = "do_1 Decision 3338. The rules of the test programs in the Makefile, such as the rule of the lifecycle program built from tests/programs/test_lifecycle.c, name the source file and the libraries as prerequisites and no header. List the test programs under tests/programs whose source includes a header of tests/programs or of src, and the rule of each."
+symbols = []
+
+[capability.22.39.410]
+title = "Parse the spec of the active feature in the tests of the spec generator"
+reqs = ["22998.1"]
+touches = ["tools/specgen", "CLAUDE.md", "AGENTS.md", ".cursor/rules/spec-workflow.mdc", ".github/copilot-instructions.md"]
+tests = ["tools/specgen/validate_test.go::TestActiveFeatureSpecParses"]
+verification_contract = "test -s tools/specgen/repair_22_39_410.kvx && grep -q -e 'func TestActiveFeatureSpecParses(' tools/specgen/validate_test.go && make -s specgen-lint && go test -count=1 ./tools/specgen"
+do_1 = "do_1 Decision 3336, gotcha 4262. Add the case TestActiveFeatureSpecParses to tools/specgen/validate_test.go: from the repository root it reads spec/workflow.kvx, resolves the active feature the way the generator does, and parses the spec.kvx of that feature with ParseFile; every section and every value decodes. The cases of tools/specgen/repair_m782_test.go stay as they are, and the parser refuses the same malformed strings as before."
+symbols = []
 
 [capability.22.39.409]
 title = "Run each part of the workspace test and lint recipes and record what each part covers"
@@ -186329,7 +186365,7 @@ do_1 = "do_1 Decision 3335. The recipe platform-sdk-check of services/platform/M
 do_2 = "do_2 Give each listed file one generator. Where both generators write the same file bring them to the same output or take the file away from one of them, and regenerate with the recipe. Do not edit a generated file by hand. After make platform-sdk-generate the working tree shows no change, and platform-sdk-check passes. The build of the agent TypeScript SDK passes with the generated files as they stand."
 do_3 = "do_3 Record in services/agent/sdk/typescript/repair_22_39_401.kvx as product facts: each file, its generator and the recipe that writes it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/sdk/typescript/src/generated", "services/agent/tools/sdk-gen", "sdk/platform/generators"]
+touches = ["services/agent/sdk/typescript/src/generated", "services/agent/tools/sdk-gen", "sdk/platform/generators", "sdk/platform/pipeline.kvx", "services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs", "services/platform/Makefile.inc"]
 tests = []
 planned_paths = ["services/agent/sdk/typescript/repair_22_39_401.kvx"]
 build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && cargo build --locked --manifest-path services/agent/tools/sdk-gen/Cargo.toml"
@@ -186345,6 +186381,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3337. The check compares services/agent/sdk/typescript/src/generated/precompile-writes.ts with its record in sdk/platform/pipeline.kvx. The file is written by services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs. Run make platform-sdk-generate so the generator writes the lock, and do not edit a record by hand. Where the recipe of services/platform/Makefile.inc writes the lock before the script has written the file, put the steps in the order that leaves the tree unchanged on a second run."
 
 [task.22.39.400]
 title = "Read the reward state before the room market tail of the settlement section"
@@ -227350,6 +227387,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.39.410]
+title = "Parse the spec of the active feature in the tests of the spec generator"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.410"]
+interfaces = []
+do_1 = "do_1 Decision 3336, gotcha 4262. Add the case TestActiveFeatureSpecParses to tools/specgen/validate_test.go: from the repository root it reads spec/workflow.kvx, resolves the active feature the way the generator does, and parses the spec.kvx of that feature with ParseFile; every section and every value decodes. The cases of tools/specgen/repair_m782_test.go stay as they are, and the parser refuses the same malformed strings as before."
+do_2 = "do_2 Run make specgen-lint by hand. Where the check names one of the four pointer files as different from the output of the generator, write the file with the generator and do not edit it by hand. Where the check names a value of a kvx file under spec, do not change that file: name the file, the line and the message in the closing report and stop."
+do_3 = "do_3 Record in tools/specgen/repair_22_39_410.kvx as product facts: the files the check reads, the files it compares and the case that parses the spec. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/specgen", "CLAUDE.md", "AGENTS.md", ".cursor/rules/spec-workflow.mdc", ".github/copilot-instructions.md"]
+tests = ["tools/specgen/validate_test.go::TestActiveFeatureSpecParses"]
+planned_paths = ["tools/specgen/repair_22_39_410.kvx"]
+build_cmd = "make -s specgen-build && go vet ./tools/specgen"
+verify_cmd = "test -s tools/specgen/repair_22_39_410.kvx && grep -q -e 'func TestActiveFeatureSpecParses(' tools/specgen/validate_test.go && make -s specgen-lint && go test -count=1 ./tools/specgen"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.40.20]
 title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
@@ -310524,6 +310591,36 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.411]
+title = "Rebuild the test programs of the kernel when a header they include changes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.411"]
+interfaces = []
+do_1 = "do_1 Decision 3338. The rules of the test programs in the Makefile, such as the rule of the lifecycle program built from tests/programs/test_lifecycle.c, name the source file and the libraries as prerequisites and no header. List the test programs under tests/programs whose source includes a header of tests/programs or of src, and the rule of each."
+do_2 = "do_2 Make each listed rule depend on the headers its source includes: prefer dependency files written by the compiler and included by the Makefile, kept under the build directory, over a list kept by hand. A clean build still passes, no file appears in the source tree, and a second run of make with nothing changed rebuilds nothing."
+do_3 = "do_3 Record in tests/programs/repair_22_39_411.kvx as product facts: the rules changed and how a header reaches each. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["Makefile"]
+tests = []
+planned_paths = ["tests/programs/repair_22_39_411.kvx"]
+build_cmd = "make -s all"
+verify_cmd = "test -s tests/programs/repair_22_39_411.kvx && make -s programs-core-test && touch tests/programs/audit_22_30_2.h && make -n programs-core-test | grep -q -e 'test_lifecycle[.]c'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.406]
 title = "Register the migration owner of the lifecycle cases once"
 status = "pending"
@@ -337405,7 +337502,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5", "22.39.239", "22.39.243", "22.39.287", "22.39.294", "22.39.301", "22.39.309", "22.39.317", "22.39.335", "22.39.339", "22.39.350", "22.39.352", "22.39.353", "22.39.354", "22.39.358", "22.39.360", "22.39.361", "22.39.363", "22.39.366", "22.39.377", "22.39.378", "22.39.396", "22.39.397", "22.39.398", "22.39.400", "22.39.401", "22.39.402", "22.39.403", "22.39.404", "22.39.405", "22.39.406", "22.39.407", "22.39.408", "22.39.409", "22.39.410"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
