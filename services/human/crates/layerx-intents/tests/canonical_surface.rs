@@ -25,7 +25,9 @@ fn receipt_reexports_round_trip_after_activity_retirement() {
     for name in ["receipt-0", "receipt-1"] {
         let bytes = checked(std::fs::read(root.join(name)));
         let receipt = checked(decode_receipt(&bytes));
-        let protocol: &ProtocolReceipt = receipt.protocol().expect("full protocol receipt");
+        let protocol: &ProtocolReceipt = receipt
+            .protocol()
+            .unwrap_or_else(|| panic!("full protocol receipt"));
         assert_eq!(protocol.protocol_version(), header.protocol_version());
         assert!((header.first_sequence()..=header.last_sequence())
             .contains(&protocol.global_sequence()));

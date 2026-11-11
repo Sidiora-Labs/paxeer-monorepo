@@ -21175,3 +21175,23 @@ fix = "Decision 3348 and task 22.39.431."
 title = "A database role belongs to the whole Postgres server and outlives the database of a test"
 symptom = "A role that a statement of a test creates stays on the server when the private database of the test is dropped. A second run of the same test on that server finds the role present."
 fix = "Decision 3351."
+
+[gotcha.4271]
+title = "The chart recovery test file of the launchpad web application runs against the joined services of the prepared test environment"
+symptom = "Its seven cases read the local chain and the trades endpoint that the environment script starts, and the time the file takes inside the whole web run varies with the run."
+fix = "Decision 3352."
+
+[gotcha.4272]
+title = "The Go package listing of a module prints no package when one directory under it does not load"
+symptom = "A directory that holds test files of more than one package, or C sources beside Go sources built without cgo, stops the listing of the whole module before it prints."
+fix = "Decision 3353."
+
+[gotcha.4273]
+title = "The argument count lint applies to public functions whose signatures other code holds"
+symptom = "Two public functions of the step module of the arbiter member take nine and ten arguments, and a test of the member holds their signatures."
+fix = "Decision 3354."
+
+[gotcha.4274]
+title = "A source file that a test target of another member includes by path resolves crate paths in the including crate"
+symptom = "A reference written as crate::name inside such a file names a module of the including crate, which need not hold that module."
+fix = "Decision 3356."

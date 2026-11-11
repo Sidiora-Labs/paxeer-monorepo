@@ -110,7 +110,10 @@ fn budget_call(compiled: &CompiledIntent) -> Eip1559Call {
         0x0003_0008 => ("budgetDefund(bytes32,uint128)", &[(2, 34), (34, 50)]),
         activity => panic!("unexpected budget activity: {activity:#x}"),
     };
-    assert_eq!(payload.len(), ranges.last().expect("budget fields").1);
+    assert_eq!(
+        payload.len(),
+        ranges.last().unwrap_or_else(|| panic!("budget fields")).1
+    );
     let mut data = ledger_selector(signature).to_vec();
     for &(start, end) in ranges {
         let mut word = [0; 32];
@@ -212,6 +215,58 @@ fn budget_fund_compiles_to_canonical_call_payload() {
     }
 }
 
+fn assert_malformed_budget_create_call(call: &Eip1559Call) {
+    for (rule, index, value) in [
+        ("zero budget id", 0, 0_u128),
+        ("zero budget account", 1, 0),
+        ("zero asset", 2, 0),
+        ("zero per-period limit", 4, 0),
+        ("zero initial amount", 6, 0),
+        ("zero period length", 7, 0),
+        ("expiry equals period start", 9, 0),
+        ("expiry before period start", 8, 1_900_000_000_001),
+        ("rollover zero", 11, 0),
+        ("rollover three", 11, 3),
+    ] {
+        let mut invalid = call.clone();
+        let word = &mut invalid.data[4 + index * 32..4 + (index + 1) * 32];
+        word.fill(0);
+        word[16..].copy_from_slice(&value.to_be_bytes());
+        assert_eq!(
+            bind_call(&invalid, FROM),
+            Err(DisclosureError::MalformedPayload),
+            "{rule}"
+        );
+    }
+    let mut invalid_carry = call.clone();
+    for (index, width) in [
+        (4, 16),
+        (5, 16),
+        (6, 16),
+        (7, 8),
+        (8, 8),
+        (9, 8),
+        (10, 8),
+        (11, 1),
+    ] {
+        let mut noncanonical = invalid_carry.clone();
+        noncanonical.data[4 + index * 32 + 31 - width] = 1;
+        assert_eq!(
+            bind_call(&noncanonical, FROM),
+            Err(DisclosureError::MalformedPayload),
+            "noncanonical integer at argument {index}"
+        );
+    }
+    invalid_carry.data[4 + 5 * 32..4 + 6 * 32].fill(0);
+    invalid_carry.data[4 + 6 * 32 - 1] = 1;
+    invalid_carry.data[4 + 11 * 32..4 + 12 * 32].fill(0);
+    invalid_carry.data[4 + 12 * 32 - 1] = 1;
+    assert_eq!(
+        bind_call(&invalid_carry, FROM),
+        Err(DisclosureError::MalformedPayload)
+    );
+}
+
 #[test]
 fn budget_create_compiles_to_canonical_call_payload() {
     let registry = registry();
@@ -259,55 +314,7 @@ fn budget_create_compiles_to_canonical_call_payload() {
         assert_eq!(disclosure.expiry.payload_expires_at, 1_900_000_000_000);
         assert_eq!(disclosure.asset, ASSET);
         assert_eq!(disclosure.idempotency_key, BUDGET_ID);
-        for (rule, index, value) in [
-            ("zero budget id", 0, 0_u128),
-            ("zero budget account", 1, 0),
-            ("zero asset", 2, 0),
-            ("zero per-period limit", 4, 0),
-            ("zero initial amount", 6, 0),
-            ("zero period length", 7, 0),
-            ("expiry equals period start", 9, 0),
-            ("expiry before period start", 8, 1_900_000_000_001),
-            ("rollover zero", 11, 0),
-            ("rollover three", 11, 3),
-        ] {
-            let mut invalid = call.clone();
-            let word = &mut invalid.data[4 + index * 32..4 + (index + 1) * 32];
-            word.fill(0);
-            word[16..].copy_from_slice(&value.to_be_bytes());
-            assert_eq!(
-                bind_call(&invalid, FROM),
-                Err(DisclosureError::MalformedPayload),
-                "{rule}"
-            );
-        }
-        let mut invalid_carry = call;
-        for (index, width) in [
-            (4, 16),
-            (5, 16),
-            (6, 16),
-            (7, 8),
-            (8, 8),
-            (9, 8),
-            (10, 8),
-            (11, 1),
-        ] {
-            let mut noncanonical = invalid_carry.clone();
-            noncanonical.data[4 + index * 32 + 31 - width] = 1;
-            assert_eq!(
-                bind_call(&noncanonical, FROM),
-                Err(DisclosureError::MalformedPayload),
-                "noncanonical integer at argument {index}"
-            );
-        }
-        invalid_carry.data[4 + 5 * 32..4 + 6 * 32].fill(0);
-        invalid_carry.data[4 + 6 * 32 - 1] = 1;
-        invalid_carry.data[4 + 11 * 32..4 + 12 * 32].fill(0);
-        invalid_carry.data[4 + 12 * 32 - 1] = 1;
-        assert_eq!(
-            bind_call(&invalid_carry, FROM),
-            Err(DisclosureError::MalformedPayload)
-        );
+        assert_malformed_budget_create_call(&call);
         assert!(DisclosureCheck::verify(
             &create(rollover, carry, 86_401, 1_900_000_000),
             &compiled
@@ -366,7 +373,9 @@ fn budget_create_rejects_millisecond_overflow() {
         (86_400, u64::MAX, CompileField::Expiration),
     ] {
         let intent = create(RolloverPolicy::None, 0, period, expiry);
-        let error = compile(&intent, &registry).expect_err("overflow must refuse compilation");
+        let error = compile(&intent, &registry)
+            .err()
+            .unwrap_or_else(|| panic!("overflow must refuse compilation"));
         assert_eq!(error.field, field);
     }
     let maximum_seconds = u64::MAX / 1_000;

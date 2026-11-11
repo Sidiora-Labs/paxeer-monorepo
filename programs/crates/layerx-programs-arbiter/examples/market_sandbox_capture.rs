@@ -71,7 +71,7 @@ fn write(directory: &Path, name: &str, bytes: &[u8]) -> Result<String> {
 }
 
 fn load(path: &Path) -> Result<Value> {
-    Ok(serde_json::from_slice(&fs::read(path).captured()?).captured()?)
+    serde_json::from_slice(&fs::read(path).captured()?).captured()
 }
 
 fn modules(directory: &Path) -> Result<()> {
@@ -98,7 +98,7 @@ fn execute(
     authority: &MarketSandboxReplayAuthority,
 ) -> Result<MarketSandboxExecution> {
     let mut instance = instantiate_market_sandbox_untrusted(module, authority).captured()?;
-    Ok(instance
+    instance
         .call_market_sandbox_untrusted(MarketSandboxRequest {
             module,
             entrypoint: "compute",
@@ -106,10 +106,12 @@ fn execute(
             authority,
             replay_profile: ProgramReplayProfile::new(128, MAXIMUM as u32).captured()?,
         })
-        .captured()?)
+        .captured()
 }
 
-fn merkle(leaves: &[Vec<u8>]) -> Result<([u8; 32], Vec<Vec<[u8; 32]>>)> {
+type MerklePaths = Vec<Vec<[u8; 32]>>;
+
+fn merkle(leaves: &[Vec<u8>]) -> Result<([u8; 32], MerklePaths)> {
     if leaves.len() < 2 || leaves.len() > 128 {
         return Err("runtime boundary count outside profile".into());
     }

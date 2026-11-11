@@ -1,4 +1,5 @@
 #[path = "proof_arbiter_crate.rs"]
+#[allow(dead_code)]
 mod producer;
 
 #[test]

@@ -13222,6 +13222,42 @@ value = "The historical source case of the launchpad indexer creates its reader 
 basis = "Gotcha 4270."
 affects = ["22.39.117"]
 
+[decision.3352]
+title = "A task of one flow of the launchpad web application verifies with the test files of that flow"
+value = "A task whose paths lie in one flow of the launchpad web application runs, as its verification, the test files of that flow in the prepared test environment. The whole web run belongs to task 22.39.455, which holds the chart recovery file, and to task 22.39.399, which follows it. Task 22.40.10 verifies with the files of the chain launch flow."
+basis = "Gotcha 4271."
+affects = ["22.40.10", "22.39.399", "22.39.455"]
+
+[decision.3353]
+title = "The package list of the chain test recipe names the product packages of the root module"
+value = "The listing of chain.mk leaves the vendored tree under tools out by name and stops on any other directory that does not load. A directory of the root module holds the test files of one package. Task 22.39.431 owns the listing and the directory services/platform/ramps/toolkit/src/repair_22_31_211."
+basis = "Gotcha 4272."
+affects = ["22.39.431"]
+
+[decision.3354]
+title = "A public function whose signature a test of its member holds keeps the signature and carries the allow attribute for its argument count"
+value = "A member lint task does not change a public signature. Where the argument count lint names a public function whose signature a test of the member holds, the function carries allow(clippy::too_many_arguments), the form other members of the tree already use. Decision 3346 stands for every other allow attribute. The arbiter case dispute_over_host_call_isolates_the_storage_write_step has task 22.39.456 as its owner."
+basis = "Gotcha 4273."
+affects = ["22.39.447", "22.39.456", "22.39.454"]
+
+[decision.3355]
+title = "A lint that names the shape of a public item is met on the item where a change of shape would change the public interface"
+value = "Where a lint names the size of a variant of a public type, the argument count of a public function or the way a public function takes an argument, and the repair it suggests changes what other code names or calls, the item keeps its shape and carries the allow attribute for that lint on the item. Decision 3346 stands for every other allow attribute."
+basis = "Decision 3354."
+affects = ["22.39.435", "22.39.444"]
+
+[decision.3356]
+title = "A source file that another member includes by path keeps references that resolve in every crate that includes it"
+value = "Before a member lint task changes a reference inside a source file, it lists the test targets of other members that include the file by path. A reference in such a file is written in a form that resolves in each of them. A module declaration by path that serves this may carry allow(dead_code) under decision 3346."
+basis = "Gotcha 4274."
+affects = ["22.39.435"]
+
+[decision.3357]
+title = "A source file that two members compile has one copy in the tree"
+value = "The second member includes the file by path. A member lint task does not copy a source file of another member into its own directory. A finding inside the included file is repaired in that file by the task that owns it, or listed in the closing report. The module declaration by path may carry allow(dead_code) in any target. Task 22.39.457 restores the single copy of the EVM helper file of the platform gateway member."
+basis = "Gotcha 4274, decision 3346."
+affects = ["22.39.457", "22.39.403"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42882,6 +42918,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.457]
+title = "Have the wallet gateway source file of the platform command line tool compile in each member that includes it"
+reqs = ["22998.1"]
+touches = ["tools/platform/cli/src/wallet_gateway.rs", "tools/platform/cli/src/wallet_gateway", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs"]
+tests = []
+verification_contract = "test -s tools/platform/cli/repair_22_39_457.kvx && ! test -e tools/platform/cli/src/wallet_gateway/evm.rs && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets --no-deps -- -D warnings && cargo clippy --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets --no-deps -- -D warnings && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --no-run"
+do_1 = "do_1 Decisions 3356 and 3357, gotcha 4274. The file services/platform/hosted/gateway/src/paxeer.rs includes tools/platform/cli/src/wallet_gateway.rs by path. Write the hex helper of that file, and every other reference in it, in a form that resolves in the gateway member and in the cli member. Check with cargo check for both members over all targets."
+symbols = []
+
+[capability.22.39.456]
+title = "Have the dispute case over a host call of the arbiter isolate the storage write step"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-arbiter"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3349 and 3354. Run the tests of the arbiter member and read the case dispute_over_host_call_isolates_the_storage_write_step of src/bisect.rs: it runs the storage guest, finds the host call that changes the host state root, plays the dispute over it and asserts that the judge holds the isolated step."
+symbols = []
+
+[capability.22.39.455]
+title = "Hold every case of the chart recovery file steady across whole runs of the launchpad web tests"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts", "apps/launchpad/web/scripts/prepare-test-environment.py", "apps/launchpad/web/vitest.config.ts"]
+tests = []
+verification_contract = "test -s apps/launchpad/web/repair_22_39_455.kvx && pnpm --dir apps/launchpad/web run test && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Decision 3352, gotcha 4271. The file apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts runs its cases against the joined services that apps/launchpad/web/scripts/prepare-test-environment.py starts. Run the whole web test recipe three times by hand and note for each run the result and the duration of every case of that file."
+symbols = []
 
 [capability.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
@@ -163645,12 +163708,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.455]
+title = "Hold every case of the chart recovery file steady across whole runs of the launchpad web tests"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.455"]
+interfaces = []
+do_1 = "do_1 Decision 3352, gotcha 4271. The file apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts runs its cases against the joined services that apps/launchpad/web/scripts/prepare-test-environment.py starts. Run the whole web test recipe three times by hand and note for each run the result and the duration of every case of that file."
+do_2 = "do_2 Where a case reads a joined service once and asserts on the answer, have it wait for the state it asserts with the waiting helper of the file, bounded by the timeout of the case. Where the environment script reports a service ready before the service answers the request the cases send, have the script wait for that answer. Every case and every assertion stays. No retry count is set on the test runner and no case is marked to be skipped."
+do_3 = "do_3 A cause that lies outside the declared paths is listed in the closing report with the path and the first message and is not repaired here. Record in apps/launchpad/web/repair_22_39_455.kvx the cases changed and what each now waits for. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts", "apps/launchpad/web/scripts/prepare-test-environment.py", "apps/launchpad/web/vitest.config.ts"]
+tests = []
+planned_paths = ["apps/launchpad/web/repair_22_39_455.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
+verify_cmd = "test -s apps/launchpad/web/repair_22_39_455.kvx && pnpm --dir apps/launchpad/web run test && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.399]
 title = "Hold the type check of the launchpad web application at zero findings"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.40.10"]
+requires = ["22.40.10", "22.39.455"]
 reqs = ["22998.1"]
 capabilities = ["22.39.399"]
 interfaces = []
@@ -163811,7 +163904,7 @@ touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && grep -q -E '^tsc-exit [02]$' $d/tsc.log && ! grep -E '^src/(widgets/create-chain/|widgets/create/create-wizard|page-modules/create-chain/|core/network/contracts)' $d/tsc.log"
-verify_cmd = "pnpm --dir apps/launchpad/web run test"
+verify_cmd = "(cd apps/launchpad/web && python3 scripts/prepare-test-environment.py -- pnpm exec vitest run src/widgets/create-chain src/widgets/create src/page-modules/create-chain src/core/network/contracts)"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -196414,9 +196507,69 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.457]
+title = "Have the wallet gateway source file of the platform command line tool compile in each member that includes it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.417", "22.39.425"]
+reqs = ["22998.1"]
+capabilities = ["22.39.457"]
+interfaces = []
+do_1 = "do_1 Decisions 3356 and 3357, gotcha 4274. The file services/platform/hosted/gateway/src/paxeer.rs includes tools/platform/cli/src/wallet_gateway.rs by path. Write the hex helper of that file, and every other reference in it, in a form that resolves in the gateway member and in the cli member. Check with cargo check for both members over all targets."
+do_2 = "do_2 The file tools/platform/cli/src/wallet_gateway/evm.rs holds the text of services/platform/hosted/gateway/src/evm.rs with documentation added. Keep one copy: move each difference that the lint asks for into the gateway file, have the cli member include the gateway file by path again, and remove the copy. The module declaration by path may carry allow(dead_code) under decision 3357."
+do_3 = "do_3 The lint of both members over all targets prints no finding and the tests of the cli member give the results they give at the base. Record in tools/platform/cli/repair_22_39_457.kvx the files that each of the two members includes by path. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/platform/cli/src/wallet_gateway.rs", "tools/platform/cli/src/wallet_gateway", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs"]
+tests = []
+planned_paths = ["tools/platform/cli/repair_22_39_457.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets && cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets"
+verify_cmd = "test -s tools/platform/cli/repair_22_39_457.kvx && ! test -e tools/platform/cli/src/wallet_gateway/evm.rs && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets --no-deps -- -D warnings && cargo clippy --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets --no-deps -- -D warnings && cargo test --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.456]
+title = "Have the dispute case over a host call of the arbiter isolate the storage write step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.447"]
+reqs = ["22998.1"]
+capabilities = ["22.39.456"]
+interfaces = []
+do_1 = "do_1 Decisions 3349 and 3354. Run the tests of the arbiter member and read the case dispute_over_host_call_isolates_the_storage_write_step of src/bisect.rs: it runs the storage guest, finds the host call that changes the host state root, plays the dispute over it and asserts that the judge holds the isolated step."
+do_2 = "do_2 Decide from the step proof rules of the member which side departs from them. Where the program code departs, repair the code. Where the case states an expectation the rules do not hold, repair the case and keep what it asserts as strong as before. Record in programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx which side changed and why. Vectors stay byte for byte unless the rules require a change, and each changed vector is named in the record."
+do_3 = "do_3 A cause that lies in another member is listed in the closing report with the path and the first message and is not repaired here. The lint of the member stays without a finding. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-arbiter"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx"]
+build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.453]
 title = "Bring the bench, fuzz and integration test members of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196536,7 +196689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.449]
 title = "Bring the CosmWasm porting members of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196623,6 +196776,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3354, gotcha 4273. The two public functions of src/step.rs that the argument count lint names keep their signatures and carry allow(clippy::too_many_arguments) on the function. No other allow attribute is added. Run the lint by hand over all targets until it prints no finding, then run the build once and the verification once at the final revision."
 
 [task.22.39.446]
 title = "Bring the member layerx-programs-runtime of the programs workspace through the lint of the recipe"
@@ -196713,10 +196867,11 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3355. The public function authorize_profile of src/arbitration.rs keeps its signature and carries allow(clippy::too_many_arguments) and allow(clippy::large_types_passed_by_value) on the function. No other allow attribute is added. Run the lint by hand over all targets until it prints no finding, then run the build once and the verification once at the final revision."
 
 [task.22.39.443]
 title = "Bring the member layerx-programs-interpreter of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196953,6 +197108,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decisions 3355 and 3356, gotcha 4274. Test targets of the identity provider member compile src/server/identity_projection.rs through a path include. Its references to the time and hex helpers are written in the form that resolves in the service and in each including target. List every file of the member that another member includes by path before changing a reference in it. The variant Found of ReceiptLookup keeps its shape and the type carries allow(clippy::large_enum_variant). Run cargo check over the whole workspace of services/human with all targets by hand, then the lint of the member over all targets until it prints no finding, then the build once and the verification once at the final revision."
 
 [task.22.39.434]
 title = "Bring the member layerx-human-security-provider of the human workspace through the lint of the recipe"
@@ -197168,7 +197324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.421]
 title = "Bring the registry member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197384,7 +197540,7 @@ do_4 = "do_4 Decision 3344, gotcha 4265. The verification now lints the member w
 
 [task.22.39.414]
 title = "Bring the authority member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197510,7 +197666,7 @@ title = "Pass the lint of the platform crates with warnings denied"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424", "22.39.425"]
+requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424", "22.39.425", "22.39.457"]
 reqs = ["22998.1"]
 capabilities = ["22.39.403"]
 interfaces = []
@@ -288533,7 +288689,7 @@ title = "Bring the whole lint recipe of the programs workspace through"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453"]
+requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.456"]
 reqs = ["22998.1"]
 capabilities = ["22.39.454"]
 interfaces = []
@@ -312326,7 +312482,7 @@ do_1 = "do_1 Decision 3348, gotcha 4269. The target split-test-packages of chain
 do_2 = "do_2 Run make -f chain.mk split-test-packages and check that the four parts exist and together hold every line of the package list once. Then run GOPROXY=off make -k paxeer-test once by hand, keep the output in a file outside the tree, and list in the closing report every package that stops with its first message. Repair no test here."
 do_3 = "do_3 Record in tools/workspace/repair_22_39_431.kvx the names of the groups and of the parts. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["chain.mk"]
+touches = ["chain.mk", "services/platform/ramps/toolkit/src/repair_22_31_211", "services/platform/ramps/toolkit/tests/repair_22_31_211.rs"]
 tests = []
 planned_paths = ["tools/workspace/repair_22_39_431.kvx"]
 build_cmd = "make -n -f chain.mk split-test-packages > /dev/null"
@@ -312342,6 +312498,7 @@ time_limit_minutes = 400
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3353, gotcha 4272. The package list of the chain test recipe names the product packages of the root module. In chain.mk leave the vendored tree under tools out of the listing by name, with a listing that still stops on any other directory that does not load. Give the directory services/platform/ramps/toolkit/src/repair_22_31_211 the test files of one package per directory so that it loads, with each case reading the same files as before, and keep services/platform/ramps/toolkit/tests/repair_22_31_211.rs in step with it. Run the cases of that directory by hand. A case that stops for a cause outside the declared paths is listed in the closing report with its first message. Files that a hand run writes at the root of the repository are removed before the build and the verification."
 
 [task.22.39.411]
 title = "Rebuild the test programs of the kernel when a header they include changes"
@@ -341348,7 +341505,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.433]
 title = "Let the governance suite of the root Forge project read the artifact it deploys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
