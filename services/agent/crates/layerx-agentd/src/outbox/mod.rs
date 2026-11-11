@@ -168,6 +168,10 @@ impl Outbox {
     /// # Errors
     /// Returns `InvalidTransaction` for invalid signed bytes, `Duplicate` if the hash is
     /// already stored, or a persistence error.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public outbox API that accepts an owned tenant."
+    )]
     pub fn enqueue(
         &mut self,
         store: &mut Store,
@@ -176,11 +180,17 @@ impl Outbox {
     ) -> Result<[u8; 32], OutboxError> {
         let (call, signature) = decode_signed(&raw).map_err(OutboxError::InvalidTransaction)?;
         recover_sender(&call, &signature).map_err(OutboxError::InvalidTransaction)?;
-        self.enqueue_exact(store, tenant, raw, None, None)
+        self.enqueue_exact(store, &tenant, raw, None, None)
     }
 
     /// Queues the verifier's exact type-2 bytes through the same origin-aware path
     /// used by the Human runtime, without an additional preparation authorization.
+    /// # Errors
+    /// Returns an error if submission admission, byte binding or its durable outbox update fails.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public outbox API that accepts an owned tenant."
+    )]
     pub fn enqueue_verified(
         &mut self,
         store: &mut Store,
@@ -189,7 +199,7 @@ impl Outbox {
     ) -> Result<[u8; 32], OutboxError> {
         self.enqueue_with_origin(
             store,
-            tenant,
+            &tenant,
             verified.idempotency_key(),
             verified,
             None,
@@ -206,7 +216,7 @@ impl Outbox {
     pub(crate) fn enqueue_with_origin(
         &mut self,
         store: &mut Store,
-        tenant: TenantId,
+        tenant: &TenantId,
         submission_id: [u8; 32],
         verified: VerifiedSubmission,
         origin: Option<PreparationAuthorization>,
@@ -214,6 +224,11 @@ impl Outbox {
     ) -> Result<[u8; 32], OutboxError> {
         if verified.idempotency_key() != submission_id {
             return Err(OutboxError::IdempotencyMismatch);
+        }
+        if verified.activity_id() != transaction_hash(verified.exact_bytes())
+            || verified.signed_byte_length() != verified.exact_bytes().len()
+        {
+            return Err(OutboxError::Corrupt);
         }
         let indexed_owner = owner.map(|principal| (verified.idempotency_key(), principal));
         self.enqueue_exact(
@@ -228,7 +243,7 @@ impl Outbox {
     fn enqueue_exact(
         &mut self,
         store: &mut Store,
-        tenant: TenantId,
+        tenant: &TenantId,
         signed_canonical_bytes: Vec<u8>,
         origin: Option<PreparationAuthorization>,
         owner: Option<([u8; 32], &str)>,
@@ -289,7 +304,7 @@ impl Outbox {
         ];
         if let Some((idempotency_key, principal)) = owner {
             inserts.push(
-                indexed_submission_owner_entry(&tenant, idempotency_key, submission_id, principal)
+                indexed_submission_owner_entry(tenant, idempotency_key, submission_id, principal)
                     .map_err(OutboxError::Store)?,
             );
         }
@@ -399,7 +414,17 @@ impl Outbox {
         cause: impl Into<String>,
         receipt: Option<VerifiedReceiptEvidence>,
     ) -> Result<SubmissionStatus, OutboxError> {
-        self.transition_at(store, submission_id, to, cause.into(), receipt, None, None)
+        self.transition_at(
+            store,
+            submission_id,
+            to,
+            cause.into(),
+            TransitionEvidence {
+                receipt,
+                location: None,
+                committed: None,
+            },
+        )
     }
 
     /// Records verified execution together with its block position.
@@ -422,9 +447,11 @@ impl Outbox {
             submission_id,
             SubmissionState::Executed,
             "verified execution receipt".to_owned(),
-            Some(receipt),
-            Some((block_height, transaction_index)),
-            None,
+            TransitionEvidence {
+                receipt: Some(receipt),
+                location: Some((block_height, transaction_index)),
+                committed: None,
+            },
         )
     }
 
@@ -448,9 +475,11 @@ impl Outbox {
             submission_id,
             SubmissionState::Failed,
             "verified failure receipt".to_owned(),
-            Some(receipt),
-            Some((block_height, transaction_index)),
-            None,
+            TransitionEvidence {
+                receipt: Some(receipt),
+                location: Some((block_height, transaction_index)),
+                committed: None,
+            },
         )
     }
 
@@ -477,9 +506,11 @@ impl Outbox {
                 submission_id,
                 SubmissionState::Committed,
                 "receipt block committed".to_owned(),
-                None,
-                None,
-                Some(block),
+                TransitionEvidence {
+                    receipt: None,
+                    location: None,
+                    committed: Some(block),
+                },
             );
         }
         let (ours, signature) =
@@ -510,10 +541,14 @@ impl Outbox {
         submission_id: [u8; 32],
         to: SubmissionState,
         cause: String,
-        receipt: Option<VerifiedReceiptEvidence>,
-        location: Option<(u64, u64)>,
-        committed: Option<&SequencerBlock>,
+        input: TransitionEvidence<'_>,
     ) -> Result<SubmissionStatus, OutboxError> {
+        let TransitionEvidence {
+            receipt,
+            location,
+            committed,
+        } = input;
+
         if cause.is_empty() {
             return Err(OutboxError::EmptyCause);
         }
@@ -631,6 +666,7 @@ pub enum OutboxError {
     Store(StoreError),
 }
 
+#[must_use]
 pub fn legal_transition(from: SubmissionState, to: SubmissionState) -> bool {
     matches!(
         (from, to),
@@ -834,6 +870,12 @@ impl<'a> RecordDecoder<'a> {
             _ => Err(OutboxError::Corrupt),
         }
     }
+}
+
+pub(crate) struct TransitionEvidence<'a> {
+    pub(crate) receipt: Option<VerifiedReceiptEvidence>,
+    pub(crate) location: Option<(u64, u64)>,
+    pub(crate) committed: Option<&'a SequencerBlock>,
 }
 
 #[cfg(test)]

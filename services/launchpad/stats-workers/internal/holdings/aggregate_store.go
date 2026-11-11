@@ -31,8 +31,14 @@ func (r *Repository) aggregateDeltaTx(ctx context.Context, tx pgx.Tx, token, cat
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, "UPDATE "+r.schema+".aggregates SET population=population+$4,raw=raw+$5::numeric WHERE token=$1 AND category=$2 AND band=$3", token, category, rawBand(raw), sign, n.String())
-	return err
+	tag, err := tx.Exec(ctx, "UPDATE "+r.schema+".aggregates SET population=population+$4,raw=raw+$5::numeric WHERE token=$1 AND category=$2 AND band=$3 AND population+$4>=0 AND raw+$5::numeric>=0", token, category, rawBand(raw), sign, n.String())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrIntegrity
+	}
+	return nil
 }
 func (r *Repository) balanceDeltaTx(ctx context.Context, tx pgx.Tx, token, address, value string) error {
 	old, category := "0", "unknown"

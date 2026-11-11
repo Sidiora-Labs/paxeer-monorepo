@@ -3,15 +3,18 @@
 import json
 from pathlib import Path
 import re
+import tomllib
 
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[3]
 DESIGN = ROOT / "spec/layerx-merge/docs/architecture/px-node-root.md"
+INFERENCE_DESIGN = Path(__file__).with_name("fixtures") / "px_node_root_inference.md"
 OPENRPC = ROOT / "services/platform/hosted/gateway/openrpc.json"
 CONTRACT = json.loads(OPENRPC.read_text(encoding="utf-8"))
 METHODS = CONTRACT["methods"]
+PINS = json.loads((Path(__file__).with_name("fixtures") / "px_node_root_contracts.json").read_text())
 GROUPS = {
     "22.34.2": {
         "px_resolveAccount",
@@ -34,6 +37,10 @@ GROUPS = {
         "px_getSequenceBatch",
         "pax_sequencerReceipt",
     },
+}
+GROUPS["22.38.12"] = {
+    "px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal",
+    "px_getInferencePeer", "px_getInferenceReceipts",
 }
 REFUSED = {"px_register", "px_requestFunds"}
 # These are real data owners or integration points, not just any existing file.
@@ -88,6 +95,11 @@ SOURCE_ANCHORS = {
     },
 }
 
+SOURCE_ANCHORS.update({
+    name: {"rpc/px_inference.go", "rpc/px_account.go"}
+    for name in GROUPS["22.38.12"]
+})
+
 
 def json_blocks(section):
     return [
@@ -103,6 +115,10 @@ def method_sections(document):
     entries = re.findall(
         r"^### (\w+)\n(.*?)(?=^### |\Z)", inventory, re.M | re.S
     )
+    supplement = INFERENCE_DESIGN.read_text().split("## Method inventory\n", 1)[1].split(
+        "## Client cutover order\n", 1
+    )[0]
+    entries.extend(re.findall(r"^### (\w+)\n(.*?)(?=^### |\Z)", supplement, re.M | re.S))
     names = [name for name, _ in entries]
     assert len(names) == len(set(names)), "duplicate method sections"
     return dict(entries)
@@ -121,9 +137,19 @@ def existing_sources(paths):
 def test_px_node_root_inventory_matches_all_seventeen_contract_methods():
     names = [method["name"] for method in METHODS]
     expected = set().union(*GROUPS.values(), REFUSED)
-    assert len(names) == len(set(names)) == 17
+    assert len(names) == len(set(names)) == 22
     assert set(names) == expected == set(SOURCE_ANCHORS)
     assert set(method_sections(DESIGN.read_text(encoding="utf-8"))) == expected
+    record = tomllib.loads(Path(__file__).with_name("repair_22_39_293.kvx").read_text())
+    assert record["repair"]["source_revision"] == PINS["hosted_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    assert record["repair"]["task"] == "22.39.293"
+    assert record["repair"]["evidence_ledger"] == "/out/run/gates.jsonl"
+    assert len(record["case"]) == 20
+    for case in record["case"].values():
+        assert (ROOT / case["test_file"]).is_file()
+        assert re.search(r"^def " + re.escape(case["test"]) + r"\(", (ROOT / case["test_file"]).read_text(), re.M)
+        assert case["assertion"]
+        existing_sources(case["producers"])
 
 
 @pytest.mark.parametrize("method", METHODS, ids=lambda method: method["name"])
@@ -135,7 +161,10 @@ def test_px_node_root_method_contract_sources_and_decision(method):
     decision, copied_contract = blocks
     # The full real OpenRPC object is the oracle, including every nested result
     # property, parameter description, error, bound, required flag and name.
-    assert copied_contract == method, f"{name}: contract changed or abbreviated"
+    assert copied_contract == PINS["design"][name], f"{name}: archived design contract changed or abbreviated"
+    assert method == next(pin for pin in PINS["hosted"] if pin["name"] == name), (
+        f"{name}: live hosted contract changed or abbreviated"
+    )
     existing_sources(decision["node_sources"])
     existing_sources(decision["gateway_sources"])
     assert SOURCE_ANCHORS[name] <= set(decision["node_sources"])
@@ -167,6 +196,13 @@ def test_px_node_root_three_groups_partition_served_methods():
     blocks = json_blocks(group_section)
     assert len(blocks) == 1
     groups = blocks[0]
+    extension = INFERENCE_DESIGN.read_text().split("## Implementation groups\n", 1)[1].split(
+        "## Method inventory\n", 1
+    )[0]
+    extension_blocks = json_blocks(extension)
+    assert len(extension_blocks) == 1
+    assert not (set(groups) & set(extension_blocks[0]))
+    groups.update(extension_blocks[0])
     assert set(groups) == set(GROUPS)
     sections = method_sections(document)
     served = {
@@ -186,7 +222,7 @@ def test_px_node_root_three_groups_partition_served_methods():
             assert decision["implementation_task"] == task
             assert set(decision["node_sources"]) <= set(group["node_sources"])
         assigned.extend(group["methods"])
-    assert len(assigned) == len(set(assigned)) == 15, "overlapping groups"
+    assert len(assigned) == len(set(assigned)) == 20, "overlapping groups"
     assert set(assigned) == served
     assert not (served & REFUSED)
     assert served | REFUSED == {method["name"] for method in METHODS}

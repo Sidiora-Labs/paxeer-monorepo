@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paxeer inference peer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      body {
+        max-width: 64rem;
+        margin: auto;
+        padding: 2rem 1rem;
+      }
+      h1,
+      h2 {
+        line-height: 1.2;
+      }
+      section {
+        border: 1px solid #8886;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin: 1.25rem 0;
+      }
+      label {
+        display: block;
+        margin-top: 1rem;
+      }
+      input,
+      textarea,
+      button {
+        box-sizing: border-box;
+        font: inherit;
+        padding: 0.6rem;
+      }
+      input,
+      textarea {
+        width: 100%;
+      }
+      textarea,
+      pre,
+      code {
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+      button {
+        margin: 1rem 0.5rem 0 0;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: default;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: minmax(8rem, 1fr) 3fr;
+        gap: 0.5rem 1rem;
+      }
+      dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      #error {
+        color: light-dark(#a41616, #ffb4b4);
+      }
+      .hint {
+        opacity: 0.8;
+      }
+      @media (max-width: 32rem) {
+        dl {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="peer-page">
+      <h1>Inference peer</h1>
+      <p>
+        Connect this browser to a host room with your persistent peer identity.
+      </p>
+      <p id="connection" role="status" aria-live="polite">Starting…</p>
+      <p id="error" role="alert"></p>
+      <section aria-labelledby="device-heading">
+        <h2 id="device-heading">This device</h2>
+        <dl>
+          <dt>Peer key</dt>
+          <dd><code id="peer-key">Opening identity…</code></dd>
+          <dt>WebGPU adapter</dt>
+          <dd id="adapter">Checking…</dd>
+        </dl>
+        <details open>
+          <summary>Measure the participant manifest</summary>
+          <p class="hint">
+            Paste the canonical v1 participant manifest supplied by your room
+            operator. Measurement preserves its identity, capabilities and
+            validity window and adds this device's measured v2 fields.
+          </p>
+          <label for="manifest-v1">Participant manifest v1 (hex)</label>
+          <textarea
+            id="manifest-v1"
+            rows="4"
+            spellcheck="false"
+            required
+          ></textarea>
+          <label for="region">Region code</label>
+          <input
+            id="region"
+            minlength="2"
+            maxlength="2"
+            pattern="[A-Za-z]{2}"
+            placeholder="US"
+            required
+          />
+          <label for="probe-url">Bandwidth probe URL</label>
+          <input id="probe-url" type="url" required />
+          <p class="hint">
+            The probe must serve 64 KiB to 1 MiB of uncompressed bytes over
+            HTTPS or HTTP loopback, with a Content-Length header and CORS access
+            for this page.
+          </p>
+          <button id="measure" type="button" disabled>Measure device</button>
+        </details>
+        <pre id="manifest" aria-label="Measured manifest">Not measured</pre>
+      </section>
+      <section aria-labelledby="room-heading">
+        <h2 id="room-heading">Join a room</h2>
+        <form id="join-form">
+          <label for="host">Host signalling address</label>
+          <input
+            id="host"
+            type="url"
+            placeholder="wss://host.example/"
+            required
+          />
+          <label for="room">Room ID (64 lowercase hex characters)</label>
+          <input
+            id="room"
+            autocomplete="off"
+            pattern="[0-9a-f]{64}"
+            minlength="64"
+            maxlength="64"
+            required
+          />
+          <button id="join" type="submit" disabled>Join room</button>
+          <button id="leave" type="button" disabled>Leave room</button>
+        </form>
+      </section>
+      <section aria-labelledby="status-heading" aria-live="polite">
+        <h2 id="status-heading">Room status</h2>
+        <details>
+          <summary>Host offer</summary>
+          <pre id="offer">Awaiting host</pre>
+        </details>
+        <details>
+          <summary>Host deal</summary>
+          <pre id="deal-details">Awaiting host</pre>
+        </details>
+        <dl>
+          <dt>Deal</dt>
+          <dd id="deal">Awaiting host</dd>
+          <dt>Assigned layers</dt>
+          <dd id="layers">Awaiting assignment</dd>
+          <dt>Lap count</dt>
+          <dd id="laps">Unavailable — host does not send this state</dd>
+          <dt>Earnings</dt>
+          <dd id="earnings">Unavailable — host does not send this state</dd>
+        </dl>
+        <p class="hint">
+          The host signalling protocol does not publish lap counts,
+          countersigned receipts or earnings. A received deal needs chain
+          validation and acceptance before work can begin.
+        </p>
+        <h3>Countersigned receipts</h3>
+        <pre id="receipts">Unavailable — host does not send this state</pre>
+      </section>
+    </main>
+    <script type="module">
+      import { PeerPage } from "./src/page.mjs";
+      const page = new PeerPage(document);
+      page.start().catch((error) => page.showError(error));
+    </script>
+  </body>
+</html>

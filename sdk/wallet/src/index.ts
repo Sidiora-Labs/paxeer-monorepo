@@ -7,7 +7,11 @@ import {
 } from '@supabase/supabase-js';
 import { keccak256, serializeTransaction, type Hex, type TransactionSerializable } from 'viem';
 import { JsonRpcClient } from './rpc.js';
-import { authenticateSequencerReceipt, readSequencerReceipt } from './receipt.js';
+import {
+  authenticateSequencerReceipt,
+  decodeSequencerReceipt,
+  readSequencerReceipt,
+} from './receipt.js';
 import {
   assertSendTxResponse,
   PaxeerWalletError,
@@ -244,6 +248,14 @@ export class PaxeerWallet {
       tx: serialize(tx),
     });
     assertSendTxResponse(response, tx.chainId === undefined ? {} : { chainId: tx.chainId });
+    if (response.receipt) {
+      if (response.receipt.txHash.toLowerCase() !== response.tx_hash.toLowerCase())
+        throw new TypeError('receipt does not match the sent transaction');
+      if (response.receipt.rung === 'submitted') {
+        response.receipt = decodeSequencerReceipt(response.receipt, response.tx_hash);
+        return response;
+      }
+    }
     const { chain } = await this.getWallet();
     const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
     let receipt = response.receipt

@@ -108,6 +108,10 @@ fn durable_subject_bindings_preserve_service_identity_and_refuse_remap_after_res
     assert!(restore_peers(&store, &configured).is_err());
 }
 
+#[allow(
+    deprecated,
+    reason = "the legacy sponsored activity fixture proves retained compatibility"
+)]
 fn signed_submission() -> crate::sign::VerifiedSubmission {
     let bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -118,8 +122,13 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
         ModuleId::Governance,
         &[kind],
     ))]));
-    let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
-    assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+    let activity = must(layerx_wire::historical::activity::decode_signed(
+        bytes, &registry,
+    ));
+    assert_eq!(
+        must(layerx_wire::historical::activity::encode_signed(&activity)),
+        bytes
+    );
     let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
         activity.payload(),
     ));
@@ -197,7 +206,7 @@ fn exact_signed_queue_is_partitioned_before_transmission_and_restores_independen
                 .or_default()
                 .enqueue_with_origin(
                     &mut store,
-                    must(TenantId::new(peer.tenant.clone())),
+                    &must(TenantId::new(peer.tenant.clone())),
                     submission.idempotency_key(),
                     submission.clone(),
                     None,

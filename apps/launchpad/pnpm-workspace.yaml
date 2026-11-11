@@ -1,4 +1,4 @@
 packages:
-  - 'web'
-  - 'mobile'
+  - './web'
+  - './mobile'
   - '../../sdk/launchpad/packages/*'

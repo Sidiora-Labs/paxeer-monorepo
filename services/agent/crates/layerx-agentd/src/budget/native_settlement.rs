@@ -11,7 +11,7 @@ use crate::approval::native_effect::NativeEffectApprovalCarrier;
 use crate::approval::native_program::NativeProgramApprovalCarrier;
 use crate::approval::CallApprovalState;
 use crate::human::HumanPeer;
-use crate::prepare::Prepared;
+use crate::prepare::EvmPrepared;
 use crate::sign::VerifiedSubmission;
 use crate::store::Store;
 
@@ -38,9 +38,16 @@ struct RetainedCarrier {
     call_bound: RetainedBinding,
 }
 
+pub(super) fn retained_actor_id(peer: &HumanPeer) -> Result<[u8; 32], Error> {
+    let subject = peer.subject.as_ref().ok_or(Error::Preparation)?;
+    let actor =
+        layerx_types::ids::Did::new(subject.owner.as_bytes()).map_err(|_| Error::Preparation)?;
+    layerx_wire::hash::did_id_for_protocol(&actor, 3).map_err(|_| Error::Preparation)
+}
+
 fn execution(
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     keys: &[SequencerAuthorization],
 ) -> Result<
@@ -88,7 +95,7 @@ fn execution(
         || executed.height != block_number
         || protocol.batch_id() != height_word
         || header.hash != block_hash
-        || block_number <= prepared.observed_head_sequence
+        || block_number <= prepared.observed_head_height
         || block_hash == [0; 32]
         || endpoint.chain_id().map_err(|_| Error::Receipt)? != call.chain_id
         || endpoint.block_number().map_err(|_| Error::Receipt)? < block_number
@@ -126,10 +133,17 @@ fn execution(
 
 /// Acquires the block immediately preceding the native execution, including
 /// independently authenticated account status for program value accounts.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn committed_native_execution_state_with_account_proofs(
     node: &mut SequencerEndpoint,
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     caps: &crate::read::CommittedCaps,
     program: [u8; 32],
@@ -155,10 +169,12 @@ pub fn committed_native_execution_state_with_account_proofs(
         node,
         endpoint,
         caps,
-        &executed.receipt,
-        submission.activity_id(),
-        protocol.global_sequence(),
-        Sha256::digest(&executed.receipt).into(),
+        &crate::budget::execution_state::ExecutionReceipt {
+            canonical_receipt: &executed.receipt,
+            activity_id: submission.activity_id(),
+            global_sequence: protocol.global_sequence(),
+            receipt_ref: Sha256::digest(&executed.receipt).into(),
+        },
         program,
         accounts,
         proofs,
@@ -167,9 +183,12 @@ pub fn committed_native_execution_state_with_account_proofs(
 
 /// Reads both the durable approval producer and the native receipt consumer.
 /// No unsigned, unqueued, mismatched or unreserved debit can settle.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn read_retained_native_call_debit_settlement(
     endpoint: &SequencerEndpoint,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
     store: &Store,
     peer: &HumanPeer,
@@ -177,7 +196,7 @@ pub fn read_retained_native_call_debit_settlement(
 ) -> Result<(ProgramBudgetReservation, VerifiedProgramDebitSettlement), Error> {
     super::native_binding::verify_retained_submission(prepared, submission)
         .map_err(|_| Error::Preparation)?;
-    let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+    let id: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
     let program =
         prepared.disclosure.activity_type.module() == layerx_types::payload::ModuleId::Programs;
     let (native, reservation, state, encoded) = if program {
@@ -201,17 +220,16 @@ pub fn read_retained_native_call_debit_settlement(
     };
     let binding: RetainedCarrier =
         serde_json::from_slice(&encoded).map_err(|_| Error::Preparation)?;
-    if state != CallApprovalState::Queued
-        || !binding.call_bound.queued
-        || binding.call_bound.signed.as_deref() != Some(submission.exact_bytes())
-        || native.call.encode_unsigned() != prepared.canonical_bytes
-        || native.observed_head_height != prepared.observed_head_sequence
-        || peer.subject.as_ref().is_none_or(|subject| {
-            subject.owner.as_bytes() != prepared.envelope.actor_did().as_bytes()
-        })
-    {
-        return Err(Error::Preparation);
-    }
+    crate::reject_if(
+        state != CallApprovalState::Queued
+            || !binding.call_bound.queued
+            || binding.call_bound.signed.as_deref() != Some(submission.exact_bytes())
+            || native.call.encode_unsigned() != prepared.call.encode_unsigned()
+            || native.observed_head_height != prepared.observed_head_height
+            || native != *prepared
+            || peer.subject.is_none(),
+        || Error::Preparation,
+    )?;
     let keys = binding
         .call_bound
         .receipt_keys
@@ -220,17 +238,40 @@ pub fn read_retained_native_call_debit_settlement(
         .collect::<Vec<_>>();
     let (receipt, executed) = execution(endpoint, prepared, submission, &keys)?;
     let protocol = receipt.protocol().ok_or(Error::Receipt)?;
-    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
-        .map_err(|_| Error::Preparation)?;
-    if reservation.id != id
-        || reservation.allocation_actor() != Some(actor)
-        || reservation.allocation_preparation_digest() != Some(id)
-        || reservation.allocation_sequence() != Some(prepared.observed_head_sequence)
-        || prepared.observed_head_sequence.checked_add(1) != Some(executed.height)
-    {
-        return Err(Error::Allocation);
-    }
-    let mut debits = if protocol.result_code() == 0 {
+    let actor = retained_actor_id(peer)?;
+    crate::reject_if(
+        reservation.id != id
+            || reservation.allocation_actor() != Some(actor)
+            || reservation.allocation_preparation_digest() != Some(id)
+            || reservation.allocation_sequence() != Some(prepared.observed_head_height)
+            || prepared.observed_head_height.checked_add(1) != Some(executed.height),
+        || Error::Allocation,
+    )?;
+    let mut debits =
+        executed_native_debits(prepared, submission, &receipt, &executed, prestate, actor)?;
+    verify_native_fees(endpoint, prepared, &reservation, &receipt, &mut debits)?;
+    let witness = VerifiedProgramDebitSettlement::from_native(
+        &reservation,
+        &executed.receipt,
+        submission.activity_id(),
+        protocol.global_sequence(),
+        debits,
+    )?;
+    Ok((reservation, witness))
+}
+
+fn executed_native_debits(
+    prepared: &EvmPrepared,
+    submission: &VerifiedSubmission,
+    receipt: &layerx_wire::receipt::Receipt,
+    executed: &layerx_client::sequencer::ExecutedReceipt,
+    prestate: Option<&CommittedExecutionState>,
+    actor: [u8; 32],
+) -> Result<Vec<ProgramExecutedDebit>, Error> {
+    let protocol = receipt.protocol().ok_or(Error::Receipt)?;
+    let program =
+        prepared.disclosure.activity_type.module() == layerx_types::payload::ModuleId::Programs;
+    let debits = if protocol.result_code() == 0 {
         if program {
             let state = prestate.ok_or(Error::SourceSnapshot)?;
             state.validate_binding(
@@ -240,6 +281,7 @@ pub fn read_retained_native_call_debit_settlement(
             )?;
             super::program_lifecycle_settlement::native_lifecycle_debits(
                 prepared,
+                actor,
                 state,
                 protocol.global_sequence(),
                 &executed.logs,
@@ -263,21 +305,21 @@ pub fn read_retained_native_call_debit_settlement(
                     let mut data = [0; 64];
                     data[16..32].copy_from_slice(&amount.to_be_bytes());
                     data[63] = 11;
-                    if executed.logs.len() != 1
-                        || log.address != native.call.to
-                        || log.topics
-                            != [
-                                layerx_crypto::evm_transaction::transaction_hash(
-                                    b"Transfer(bytes32,bytes32,bytes32,uint128,uint8)",
-                                ),
-                                *account,
-                                destination,
-                                *asset,
-                            ]
-                        || log.data != data
-                    {
-                        return Err(Error::Terminal);
-                    }
+                    crate::reject_if(
+                        executed.logs.len() != 1
+                            || log.address != prepared.call.to
+                            || log.topics
+                                != [
+                                    layerx_crypto::evm_transaction::transaction_hash(
+                                        b"Transfer(bytes32,bytes32,bytes32,uint128,uint8)",
+                                    ),
+                                    *account,
+                                    destination,
+                                    *asset,
+                                ]
+                            || log.data != data,
+                        || Error::Terminal,
+                    )?;
                     vec![ProgramExecutedDebit {
                         kind: ProgramChargeKind::Principal,
                         source: *account,
@@ -290,45 +332,54 @@ pub fn read_retained_native_call_debit_settlement(
             }
         }
     } else {
-        if !executed.logs.is_empty() {
-            return Err(Error::Terminal);
-        }
+        crate::reject_if(!executed.logs.is_empty(), || Error::Terminal)?;
         Vec::new()
     };
+    Ok(debits)
+}
+
+fn verify_native_fees(
+    endpoint: &SequencerEndpoint,
+    prepared: &EvmPrepared,
+    reservation: &ProgramBudgetReservation,
+    receipt: &layerx_wire::receipt::Receipt,
+    debits: &mut Vec<ProgramExecutedDebit>,
+) -> Result<(), Error> {
+    let protocol = receipt.protocol().ok_or(Error::Receipt)?;
     let fee = super::fee_policy::native_fee_policy_for(
         endpoint,
-        prepared.observed_head_sequence,
-        native.from,
+        prepared.observed_head_height,
+        prepared.from,
     )
     .map_err(|_| Error::FeeProvenance)?;
-    if reservation.allocation_state_root() != Some(fee.state_root)
-        || protocol.previous_state_root() != fee.state_root
-    {
-        return Err(Error::SourceSnapshot);
-    }
+    crate::reject_if(
+        reservation.allocation_state_root() != Some(fee.state_root)
+            || protocol.previous_state_root() != fee.state_root,
+        || Error::SourceSnapshot,
+    )?;
     let rows = reservation.allocations().ok_or(Error::MissingAllocation)?;
     let fee_rows = rows
         .iter()
         .filter(|row| row.kind == ProgramChargeKind::Fee)
         .collect::<Vec<_>>();
-    if fee_rows.len() != 1
-        || fee_rows[0].asset != fee.value.asset.asset_id
-        || fee_rows[0].destination.is_some()
-        || protocol.fee_charged() > fee_rows[0].maximum_amount
-    {
-        return Err(Error::FeeProvenance);
-    }
+    crate::reject_if(
+        fee_rows.len() != 1
+            || fee_rows[0].asset != fee.value.asset.asset_id
+            || fee_rows[0].destination.is_some()
+            || protocol.fee_charged() > fee_rows[0].maximum_amount,
+        || Error::FeeProvenance,
+    )?;
     let summary =
-        layerx_proof::sequencer_logs::decode_summary(&receipt).map_err(|_| Error::Receipt)?;
+        layerx_proof::sequencer_logs::decode_summary(receipt).map_err(|_| Error::Receipt)?;
     let denomination_asset = if let Some(hex) = summary.fee_denom().strip_prefix("layerx/") {
         let bytes = layerx_programs::hex::decode(hex).map_err(|_| Error::FeeProvenance)?;
         <[u8; 32]>::try_from(bytes).map_err(|_| Error::FeeProvenance)?
     } else {
         layerx_crypto::evm_transaction::transaction_hash(summary.fee_denom().as_bytes())
     };
-    if denomination_asset != fee_rows[0].asset {
-        return Err(Error::FeeProvenance);
-    }
+    crate::reject_if(denomination_asset != fee_rows[0].asset, || {
+        Error::FeeProvenance
+    })?;
     if protocol.fee_charged() != 0 {
         debits.push(ProgramExecutedDebit {
             kind: ProgramChargeKind::Fee,
@@ -338,7 +389,7 @@ pub fn read_retained_native_call_debit_settlement(
             actual_amount: protocol.fee_charged(),
         });
     }
-    for debit in &debits {
+    for debit in debits.iter() {
         let row = rows
             .iter()
             .find(|row| {
@@ -348,16 +399,9 @@ pub fn read_retained_native_call_debit_settlement(
                     && row.destination == debit.destination
             })
             .ok_or(Error::UnreservedDebit)?;
-        if debit.actual_amount > row.maximum_amount {
-            return Err(Error::UnreservedDebit);
-        }
+        crate::reject_if(debit.actual_amount > row.maximum_amount, || {
+            Error::UnreservedDebit
+        })?;
     }
-    let witness = VerifiedProgramDebitSettlement::from_native(
-        &reservation,
-        &executed.receipt,
-        submission.activity_id(),
-        protocol.global_sequence(),
-        debits,
-    )?;
-    Ok((reservation, witness))
+    Ok(())
 }

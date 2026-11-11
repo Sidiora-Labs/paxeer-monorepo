@@ -43,7 +43,7 @@ impl ChainProofVerifier {
 
     /// Authenticate a consensus header, including bootstrap headers that have
     /// no predecessor results. State-proof consumers use `verify_head`, which
-    /// additionally requires the commitments represented by VerifiedChainHead.
+    /// additionally requires the commitments represented by `VerifiedChainHead`.
     pub fn verify_header_commit(
         &self,
         header: &ChainHeader,

@@ -1,0 +1,875 @@
+[repair.22.39.274]
+mode = "BUILD"
+source_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
+baseline_command = "python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup"
+baseline_exit = 1
+baseline_log = "/out/logs/retired-bringup-baseline.log"
+baseline_findings = 103
+verification = "Only the bounded hf-build/hf-done ledger proves qualification; its candidate revision, command, exit and private log are authoritative. No passing verification is claimed in advance."
+evidence_ledger = "/out/run/gates.jsonl"
+generated_inventory = "Regenerate with python3 tools/bringup/tests/runtime-dependencies.py after formatting the source files; preserve every actual dependency of the shipping producers."
+
+[finding.1]
+path = "tools/bringup/check-live.sh"
+line = 163
+component = "layerxctl-port"
+symbol = "LNI"
+action = "repaired"
+repair = "Replace obsolete value-loop instructions and output handling with the current authenticated node RPC, retained signed transaction, committed balances and canonical inclusion workflow; remove unsupported deposit/checkpoint arguments and require the producer's canonical block hash and positive committed height."
+
+[finding.2]
+path = "tools/bringup/check-live.sh"
+line = 163
+component = "lni"
+symbol = "LNI"
+action = "repaired"
+repair = "Replace obsolete value-loop instructions and output handling with the current authenticated node RPC, retained signed transaction, committed balances and canonical inclusion workflow; remove unsupported deposit/checkpoint arguments and require the producer's canonical block hash and positive committed height."
+
+[finding.3]
+path = "tools/bringup/check-live.sh"
+line = 176
+component = "mirror"
+symbol = "statusOf"
+action = "repaired"
+repair = "Replace obsolete value-loop instructions and output handling with the current authenticated node RPC, retained signed transaction, committed balances and canonical inclusion workflow; remove unsupported deposit/checkpoint arguments and require the producer's canonical block hash and positive committed height."
+
+[finding.4]
+path = "tools/bringup/check-live.sh"
+line = 2828
+component = "eth-relay"
+symbol = "paxeer-relay"
+action = "repaired"
+repair = "Remove the retired relay process from the expected kernel process roster; the archive node receives signed transactions directly."
+
+[finding.5]
+path = "tools/bringup/check-live.sh"
+line = 3584
+component = "program-events"
+symbol = "lx_getProgramEvents"
+action = "repaired"
+repair = "Document the existing registry-observe path that reads canonical eth_getLogs and committed receipts instead of the retired program-events method."
+
+[finding.6]
+path = "tools/bringup/foundation.go"
+line = 46
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Keep the explicit retired genesis module rejection and reject duplicate JSON keys before decoding; these refusal literals are covered by the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[finding.7]
+path = "tools/bringup/foundation.go"
+line = 46
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Keep the explicit retired genesis module rejection and reject duplicate JSON keys before decoding; these refusal literals are covered by the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[finding.8]
+path = "tools/bringup/repair-m797.kvx"
+line = 43
+component = "layerxctl-port"
+symbol = "lni"
+action = "allowed-reference"
+repair = "Preserve this historical repair record outside task scope; its heading describes transport removal and is covered by documentation_paths pattern tools/bringup/repair-*.kvx in tools/paxeer-x/retired_callers.json under decisions 3104 and 3125."
+
+[finding.9]
+path = "tools/bringup/repair-m797.kvx"
+line = 43
+component = "lni"
+symbol = "lni"
+action = "allowed-reference"
+repair = "Preserve this historical repair record outside task scope; its heading describes transport removal and is covered by documentation_paths pattern tools/bringup/repair-*.kvx in tools/paxeer-x/retired_callers.json under decisions 3104 and 3125."
+
+[finding.10]
+path = "tools/bringup/roster.go"
+line = 23
+component = "replica"
+symbol = "relay-archive"
+action = "allowed-reference"
+repair = "Keep the explicit retired identity rejection and also reject retired hosted owners in multi-service targets; the refusal literal is covered by the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json under decision 3125."
+
+[finding.11]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8788
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.12]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8790
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.13]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8792
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.14]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8815
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.15]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8817
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.16]
+path = "tools/bringup/runtime-dependencies.json"
+line = 8819
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.17]
+path = "tools/bringup/runtime-dependencies.json"
+line = 11494
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.18]
+path = "tools/bringup/runtime-dependencies.json"
+line = 11582
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.19]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12497
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.20]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12498
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.21]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12508
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.22]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12513
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.23]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12514
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.24]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12525
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.25]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12530
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.26]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12531
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.27]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12548
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.28]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12555
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.29]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12556
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.30]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12561
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.31]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12586
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.32]
+path = "tools/bringup/runtime-dependencies.json"
+line = 12613
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.33]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13055
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.34]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13056
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.35]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13070
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.36]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13075
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.37]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13076
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.38]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13091
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.39]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13099
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.40]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13122
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.41]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13131
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.42]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13144
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.43]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13181
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.44]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13213
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.45]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13257
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.46]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13290
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.47]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13314
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.48]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13347
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.49]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13436
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.50]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13439
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.51]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13464
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.52]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13467
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.53]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13703
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.54]
+path = "tools/bringup/runtime-dependencies.json"
+line = 13757
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.55]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15661
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.56]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15662
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.57]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15663
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.58]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15675
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.59]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15676
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.60]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15677
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.61]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15736
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.62]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15743
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.63]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15943
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.64]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15944
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.65]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15945
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.66]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15957
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.67]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15958
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.68]
+path = "tools/bringup/runtime-dependencies.json"
+line = 15959
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.69]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16018
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.70]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16025
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.71]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16829
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.72]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16831
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.73]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16833
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.74]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16865
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.75]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16867
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.76]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16869
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.77]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16897
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.78]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16901
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.79]
+path = "tools/bringup/runtime-dependencies.json"
+line = 16906
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.80]
+path = "tools/bringup/runtime-dependencies.json"
+line = 18239
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.81]
+path = "tools/bringup/runtime-dependencies.json"
+line = 18274
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.82]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21435
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.83]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21442
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.84]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21445
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.85]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21450
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.86]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21464
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.87]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21612
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.88]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21613
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.89]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21619
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.90]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21622
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.91]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21627
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.92]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21628
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.93]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21641
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.94]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21649
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.95]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21667
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.96]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21946
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.97]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21949
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.98]
+path = "tools/bringup/runtime-dependencies.json"
+line = 21968
+component = "verify"
+symbol = "layerxverify"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.99]
+path = "tools/bringup/runtime-dependencies.json"
+line = 24532
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.100]
+path = "tools/bringup/runtime-dependencies.json"
+line = 24534
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.101]
+path = "tools/bringup/runtime-dependencies.json"
+line = 24562
+component = "anchor"
+symbol = "layerxanchor"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.102]
+path = "tools/bringup/runtime-dependencies.json"
+line = 24564
+component = "custody-deposit"
+symbol = "layerxcustody"
+action = "allowed-reference"
+repair = "Regenerate the inventory from go list -deps without dropping retained merge-disabled module, API or precompile packages; retain this provenance reference under the tools/bringup directory allowance in tools/paxeer-x/retired_callers.json authorized by decision 3125."
+
+[finding.103]
+path = "tools/bringup/xweb-config.sh"
+line = 227
+component = "account-naming"
+symbol = "LAYERX-PAYER-DID"
+action = "repaired"
+repair = "Require a 20-byte EVM XWEB_PAYER_ADDRESS and send the current LAYERX-PAYER-ADDRESS header accepted by the sidecar."
+
+[implementation.retained-routes]
+paths = ["tools/bringup/live_rpc.go", "tools/bringup/routes.go", "tools/bringup/xweb_transport.go"]
+observed = "The prerequisite catalogue correction keeps the published hosted methods; the baseline scan reports no retired reference in these declared touches."
+repair = "Keep the actual hosted method names, share the committed asset inventory decoder between payment and renderer consumers, and reject duplicate JSON fields in all routed RPC responses so competing source answers cannot overwrite one another."
+
+[finding.scope]
+task = "22.39.274"
+file = "tools/paxeer-x/retired_callers.json"
+symbol = "allowed_references"
+observed = "The baseline scan at d5a0c9940685169b25d2095344655f65d2ff6420, command python3 tools/paxeer-x/tests/retired_callers_test.py --path tools/bringup, exited 1 with 103 findings; evidence /out/logs/retired-bringup-baseline.log includes 97 provenance, refusal and historical-record references needing catalogue allowances."
+assumption = "Attempt 2 explicitly admits tools/paxeer-x/retired_callers.json and authorizes one directory allowance and a repair-record documentation pattern under decision 3125."
+severity = "note"
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec qualification files are outside the explicit scope; task findings and gotchas are retained here."
+
+[gotcha.baseline-capture]
+observed = "The command-start event has empty aggregated output; capture the completed event to preserve the original inventory without rerunning the scan."
+
+[gotcha.source-location]
+observed = "There is no registry_rpc.go; the shared RPC response decoder is callRPC in routes.go."
+
+[gotcha.value-loop-consumer]
+observed = "check-live still forwarded removed deposit/checkpoint arguments, ignored transaction/block output and required a checkpoint line that value-loop.sh no longer emits; align the consumer with the actual canonical block evidence producer."
+
+[continuation.22.39.274]
+base_revision = "8742bd00eb3acc490f28e5d26038636590216955"
+preserved_attempt_revision = "aebf3baf04cf8dfb53d99d6e5f6f632b7cf49cd2"
+remaining_findings = 97
+resolution = "The 92 generated inventory references and three rejection literals use the tools/bringup directory allowance for layerxanchor, layerxcustody, layerxverify and relay-archive; the two repair-m797.kvx findings use documentation_paths pattern tools/bringup/repair-*.kvx."
+baseline = "Preserve the 103 original finding tuples and the earlier scan evidence by reference; the final scan executes only inside hf-done."
+
+[evidence.22.39.274]
+revision = "The revision field of the final verify row in /out/run/gates.jsonl, also required to equal the build row revision."
+build = "/out/run/gates.jsonl: kind=build, command=go vet ./tools/bringup/... && bash -n tools/bringup/check-live.sh tools/bringup/xweb-config.sh"
+verify = "/out/run/gates.jsonl: kind=verify, command=cg spec done 22.39.274 -f layerx-merge --root /work/paxeer-monorepo"
+qualification = "Only exit=0 in both gate rows at the same candidate revision constitutes passing evidence; the log field locates each private command log."
+
+[gotcha.continuation-catalogue]
+observed = "Attempt 1 left 97 allowed-reference dispositions unresolved because its scope omitted the catalogue; attempt 2 authorizes and records the actual catalogue entries while preserving the earlier source repairs."

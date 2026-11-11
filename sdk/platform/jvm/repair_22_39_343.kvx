@@ -1,0 +1,19 @@
+[repair.22.39.343]
+acceptance = "22998.1"
+decision = "3209"
+base_revision = "00af874880f4448f88311d4ece767c58b77d7f58"
+implementation = "ProgramsClient.java:348-351 declares both account-bound domains; :1268-1279 recognizes either wrapper when identifying transfer-set v2; :1293-1306 unwraps either domain and refuses nested v1/v2 wrappers; :1335, :1379-1385 and :1393 derive named destinations before hashing and refuse v2 without a named destination. Both cursors still require full consumption."
+test = "ProgramsContractTest.java:24 imports assertDoesNotThrow; :327-355 adds programDestinationAuthorizationVectors, verifies every accepted root, rejects a changed root for each accepted vector and refuses every negative vector. programTransferAuthorizationRecomputesV1AndV2RootsAndRejectsMutation is unchanged."
+fixture = "programs/fixtures/pay5/destination-authorization-vectors.json"
+vector_count = 1271
+accepted_vectors = 2
+refused_vectors = 1269
+compatibility = "Version 1 source-name binding and unwrapped transfer-set v1/v2 retain their validation and root derivation. Destination names use the existing principalPaymentAccount identity, asset, name syntax and length checks."
+format = "No Java or KVX formatter is configured for this target; changed lines follow existing indentation and .editorconfig whitespace rules."
+
+[qualification]
+build_command = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_command = "test -s sdk/platform/jvm/repair_22_39_343.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='ProgramsContractTest#programTransferAuthorizationRecomputesV1AndV2RootsAndRejectsMutation+programDestinationAuthorizationVectors' -Dsurefire.failIfNoSpecifiedTests=true"
+verified_revision = "/out/run/gates.jsonl: the final verify row records the exact candidate revision, command, exit and private log; qualification requires passing build and verify rows on the same revision."
+build_evidence = "/out/run/gates.jsonl: passing build row matching the final verify revision."
+publication = "The task runner publishes the candidate; no manual commit or push."

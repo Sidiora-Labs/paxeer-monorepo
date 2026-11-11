@@ -31,7 +31,7 @@ use layerx_committed_proof::{
 };
 use layerx_indexer::ai_market::{
     verify_program_state, BlockCommitProof, FinalityAuthority, Observation as SnapshotObservation,
-    ProjectionStore, ReadVerification, ViewError,
+    ProjectionState, ProjectionStore, ReadVerification, ViewError, Viewer,
 };
 use layerx_indexer::ai_reputation::{
     Admission, FinalizedRead, HistoryRequest, ReputationError, ReputationProjector,
@@ -582,6 +582,400 @@ fn snapshot_observation<'a>(
         source_activity: digest(90)?,
         observed_at_ms: 4000,
     })
+}
+
+#[test]
+fn ai_market_rejects_altered_membership_and_unsigned_reads_across_restart() -> Checked {
+    let state = created_state()?;
+    let material = certify_state(&state, PROGRAM, layerx_programs_ai_market::SHARED_STATE_KEY)?;
+    let (_, _, facts) = capture_state(&state, &material)?;
+    let viewer = Viewer::for_principal("ai-market-refusal-reader")?;
+    let mut altered_proof = material.proof.clone();
+    altered_proof.push(0);
+    let altered_evidence = BlockCommitProof {
+        store_proof: &altered_proof,
+        ..material.evidence()
+    };
+
+    for (name, read, evidence, expected_error) in [
+        (
+            "altered-membership",
+            ReadVerification::SequencerSigned,
+            altered_evidence,
+            ViewError::FinalityUnavailable,
+        ),
+        (
+            "unsigned-read",
+            ReadVerification::Unverified,
+            material.evidence(),
+            ViewError::BindingMismatch,
+        ),
+    ] {
+        let dir = Scratch::new(name);
+        let store = ProjectionStore::open(&dir.db())?;
+        let mut observation = snapshot_observation(&state, facts)?;
+        observation.read = read;
+        let initial = store.observe(&observation)?;
+        assert_eq!(initial.read, read);
+        assert_eq!(
+            store.promote(
+                &initial.snapshot_id,
+                &evidence,
+                &authority(),
+                PUBLICATION_TIME_MS,
+            ),
+            Err(expected_error)
+        );
+        let assert_unpublished = |store: &ProjectionStore| -> Checked {
+            let snapshot = store
+                .snapshot(&initial.snapshot_id)?
+                .expect("saved capture");
+            assert_eq!(snapshot, initial);
+            assert_eq!(snapshot.rank, 0);
+            assert_eq!(snapshot.binding, None);
+            assert_eq!(snapshot.checkpoint, None);
+            assert_eq!(snapshot.publication_time_ms, None);
+            assert_eq!(
+                snapshot.projection,
+                match read {
+                    ReadVerification::Unverified => ProjectionState::ObservedUnverified,
+                    ReadVerification::SequencerSigned =>
+                        ProjectionState::EvidenceVerifiedUnfinalized,
+                }
+            );
+            let stream = store.stream(&market()?)?.expect("observed stream");
+            assert_eq!(stream.finalized_snapshot, None);
+            assert_eq!(stream.finalized_sequence, None);
+            assert!(store.pending_events(&market()?, 10)?.is_empty());
+            for selector in [Some(&initial.snapshot_id), None] {
+                assert!(matches!(
+                    store.market_view(&viewer, &market()?, selector, Some(1000)),
+                    Err(ViewError::FinalityUnavailable)
+                ));
+            }
+            Ok(())
+        };
+        assert_unpublished(&store)?;
+        drop(store);
+        let reopened = ProjectionStore::open(&dir.db())?;
+        assert_unpublished(&reopened)?;
+    }
+
+    let dir = Scratch::new("valid-membership-and-signed-read");
+    let store = ProjectionStore::open(&dir.db())?;
+    let initial = store.observe(&snapshot_observation(&state, facts)?)?;
+    assert_eq!(initial.rank, 0);
+    assert_eq!(initial.read, ReadVerification::SequencerSigned);
+    let finalized = store.promote(
+        &initial.snapshot_id,
+        &material.evidence(),
+        &authority(),
+        PUBLICATION_TIME_MS,
+    )?;
+    assert_eq!(finalized.snapshot_id, initial.snapshot_id);
+    assert_eq!(finalized.rank, FINALIZED_RANK);
+    assert_eq!(finalized.projection, ProjectionState::FinalizedPublishable);
+    assert!(!finalized
+        .binding
+        .as_ref()
+        .expect("finalized binding")
+        .is_empty());
+    assert_eq!(finalized.publication_time_ms, Some(PUBLICATION_TIME_MS));
+    let view = store.market_view(&viewer, &market()?, None, Some(1000))?;
+    assert_eq!(view.snapshot_id, finalized.snapshot_id);
+    view.binding.require_finalized()?;
+    let stream = store.stream(&market()?)?.expect("finalized stream");
+    assert_eq!(stream.finalized_snapshot, Some(finalized.snapshot_id));
+    assert_eq!(
+        stream.finalized_sequence,
+        Some(facts.proof.observed_sequence)
+    );
+    let events = store.pending_events(&market()?, 10)?;
+    assert!(!events.is_empty());
+    drop(store);
+    let reopened = ProjectionStore::open(&dir.db())?;
+    assert_eq!(reopened.snapshot(&finalized.snapshot_id)?, Some(finalized));
+    assert_eq!(reopened.stream(&market()?)?, Some(stream));
+    assert_eq!(reopened.pending_events(&market()?, 10)?, events);
+    assert_eq!(
+        reopened.market_view(&viewer, &market()?, None, Some(1000))?,
+        view
+    );
+    Ok(())
+}
+
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"]
+mod consumer_fixture;
+
+fn transcript_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn transcript_has_current_sources(recorded: &Value) -> bool {
+    [
+        (
+            "consumer_source_sha256",
+            include_bytes!("../src/ai_market.rs").as_slice(),
+        ),
+        (
+            "membership_source_sha256",
+            include_bytes!("../src/ai_market_membership.rs").as_slice(),
+        ),
+    ]
+    .into_iter()
+    .all(|(field, source)| {
+        recorded[field]
+            .as_str()
+            .and_then(|text| unhex(text).ok())
+            .is_some_and(|digest| digest.as_slice() == Sha256::digest(source).as_slice())
+    })
+}
+
+fn transcript_binding(
+    binding: &layerx_programs_ai_market::queries::SnapshotBinding,
+) -> Checked<String> {
+    let mut bytes = vec![0; layerx_programs_ai_market::queries::BINDING_MAX_BYTES];
+    let n = binding.encode(&mut bytes)?;
+    Ok(transcript_hex(&bytes[..n]))
+}
+
+fn live_consumer_transcript() -> Checked<Value> {
+    let state = consumer_fixture::producer_state();
+    let valid = consumer_fixture::Material::new(&state, consumer_fixture::PROGRAM);
+    let authority = FinalityAuthority {
+        chain_id: consumer_fixture::CHAIN_ID.to_owned(),
+        validators: consumer_fixture::authority(),
+    };
+    let viewer = Viewer::for_principal("ai-market-transcript-reader")?;
+    let evidence = |material: &consumer_fixture::Material| Material {
+        header: material.header.clone(),
+        commit: material.commit.clone(),
+        proof: material.proof.clone(),
+    };
+    let dir = Scratch::new("consumer-transcript-successes");
+    let mut successes = Vec::new();
+    for sequence in [77u64, 78] {
+        let (captured, facts) = consumer_fixture::capture(&state, &valid, sequence);
+        let material = evidence(&valid);
+        let authenticated = verify_program_state(
+            &material.evidence(),
+            &authority,
+            facts.proof.chain,
+            facts.proof.program,
+            &captured,
+        )?;
+        let store = ProjectionStore::open(&dir.db())?;
+        let initial = store.observe(&SnapshotObservation {
+            state: &captured,
+            facts,
+            read: ReadVerification::SequencerSigned,
+            source_activity: digest(sequence as u8)?,
+            observed_at_ms: sequence * 100,
+        })?;
+        assert_eq!(initial.rank, 0);
+        let finalized = store.promote(
+            &initial.snapshot_id,
+            &material.evidence(),
+            &authority,
+            sequence * 100 + 1,
+        )?;
+        assert_eq!(finalized.snapshot_id, initial.snapshot_id);
+        assert_eq!(finalized.rank, FINALIZED_RANK);
+        let before = store.market_view(
+            &viewer,
+            &finalized.market,
+            Some(&finalized.snapshot_id),
+            Some(consumer_fixture::HEIGHT),
+        )?;
+        let pending = store.pending_events(&finalized.market, 10)?;
+        assert_eq!(pending.len(), (sequence - 76) as usize);
+        let event = pending.last().expect("finalized event");
+        assert_eq!(event.snapshot_id, finalized.snapshot_id);
+        assert_eq!(Some(&event.binding), finalized.binding.as_ref());
+        assert_eq!(event.rank, FINALIZED_RANK);
+        assert!(!event.published);
+        let cursor = store.stream(&finalized.market)?;
+        drop(store);
+        let database_sha256 = transcript_hex(&Sha256::digest(fs::read(dir.db())?));
+        let reopened = ProjectionStore::open(&dir.db())?;
+        let recovered = reopened
+            .snapshot(&finalized.snapshot_id)?
+            .expect("recovered capture");
+        assert_eq!(recovered, finalized);
+        assert_eq!(reopened.stream(&finalized.market)?, cursor);
+        assert_eq!(reopened.pending_events(&finalized.market, 10)?, pending);
+        let recovered_view = reopened.market_view(
+            &viewer,
+            &finalized.market,
+            Some(&finalized.snapshot_id),
+            Some(consumer_fixture::HEIGHT),
+        )?;
+        assert_eq!(recovered_view, before);
+        recovered_view.binding.verify_capture(&captured, &facts)?;
+        assert_eq!(recovered.state_digest, facts.digest);
+        successes.push(json!({
+            "authenticated_chain": transcript_hex(authenticated.chain().as_bytes()),
+            "authenticated_program": transcript_hex(authenticated.program().as_bytes()),
+            "before_binding": transcript_binding(&before.binding)?,
+            "block_hash": transcript_hex(facts.proof.block_hash.as_bytes()),
+            "chunks": facts.chunks,
+            "database_sha256": database_sha256,
+            "event_binding": transcript_hex(&event.binding),
+            "event_snapshot_id": transcript_hex(event.snapshot_id.as_bytes()),
+            "freshness": format!("{:?}", before.freshness),
+            "native_root": transcript_hex(facts.proof.native_state_root.as_bytes()),
+            "observed_rank": initial.rank,
+            "pending_count": pending.len(),
+            "projection": format!("{:?}", finalized.projection),
+            "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
+            "rank": finalized.rank,
+            "record_binding": finalized.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+            "record_equal_after_reopen": recovered == finalized,
+            "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+            "recovered_projection": format!("{:?}", recovered_view.projection),
+            "recovered_snapshot_id": transcript_hex(recovered_view.snapshot_id.as_bytes()),
+            "recovered_source_activity": transcript_hex(recovered_view.source_activity.as_bytes()),
+            "sequence": sequence,
+            "snapshot_id": transcript_hex(finalized.snapshot_id.as_bytes()),
+            "source_activity": transcript_hex(before.source_activity.as_bytes()),
+            "state_digest": transcript_hex(facts.digest.as_bytes()),
+            "state_sha256": transcript_hex(&Sha256::digest(&captured)),
+            "total_bytes": facts.total_bytes,
+        }));
+    }
+
+    let (captured, facts) = consumer_fixture::capture(&state, &valid, 77);
+    let mut refusals = Vec::new();
+    for case in 0..5 {
+        let mut material = evidence(&valid);
+        let mut offered = facts;
+        let mut read = ReadVerification::SequencerSigned;
+        match case {
+            0 => {
+                material.commit.signatures[0]
+                    .signature
+                    .as_mut()
+                    .expect("signature")[0] ^= 1
+            }
+            1 => material = evidence(&consumer_fixture::Material::new(&state, [99; 32])),
+            2 => material.proof.push(0),
+            3 => offered.proof.block_hash = digest(99)?,
+            4 => read = ReadVerification::Unverified,
+            _ => unreachable!(),
+        }
+        let dir = Scratch::new("consumer-transcript-refusal");
+        let store = ProjectionStore::open(&dir.db())?;
+        let initial = store.observe(&SnapshotObservation {
+            state: &captured,
+            facts: offered,
+            read,
+            source_activity: digest(77)?,
+            observed_at_ms: 7700,
+        })?;
+        let error = store
+            .promote(&initial.snapshot_id, &material.evidence(), &authority, 2000)
+            .expect_err("unauthenticated promotion must fail");
+        assert_eq!(
+            error,
+            if case >= 3 {
+                ViewError::BindingMismatch
+            } else {
+                ViewError::FinalityUnavailable
+            }
+        );
+        assert_eq!(store.snapshot(&initial.snapshot_id)?, Some(initial.clone()));
+        let cursor = store.stream(&initial.market)?.expect("observed stream");
+        assert_eq!(cursor.finalized_snapshot, None);
+        assert_eq!(cursor.finalized_sequence, None);
+        assert!(store.pending_events(&initial.market, 10)?.is_empty());
+        drop(store);
+        let reopened = ProjectionStore::open(&dir.db())?;
+        let recovered = reopened
+            .snapshot(&initial.snapshot_id)?
+            .expect("recovered refusal");
+        assert_eq!(recovered, initial);
+        assert_eq!(recovered.rank, 0);
+        assert_eq!(recovered.binding, None);
+        assert_eq!(recovered.checkpoint, None);
+        assert_eq!(recovered.publication_time_ms, None);
+        assert!(!recovered.projection.finalized());
+        assert_eq!(reopened.stream(&initial.market)?, Some(cursor));
+        let pending = reopened.pending_events(&initial.market, 10)?;
+        assert!(pending.is_empty());
+        let view_error = reopened
+            .market_view(
+                &viewer,
+                &initial.market,
+                Some(&initial.snapshot_id),
+                Some(consumer_fixture::HEIGHT),
+            )
+            .expect_err("refused capture cannot be published");
+        assert_eq!(view_error, ViewError::FinalityUnavailable);
+        assert_eq!(
+            reopened.market_view(
+                &viewer,
+                &initial.market,
+                None,
+                Some(consumer_fixture::HEIGHT)
+            ),
+            Err(ViewError::FinalityUnavailable)
+        );
+        refusals.push(json!({
+            "block_hash": transcript_hex(&material.header.hash()),
+            "case": case,
+            "error": format!("{error:?}"),
+            "native_root": transcript_hex(&material.header.app_hash),
+            "pending_count": pending.len(),
+            "proof_sha256": transcript_hex(&Sha256::digest(&material.proof)),
+            "read_block_hash": transcript_hex(offered.proof.block_hash.as_bytes()),
+            "read_verification": read as u8,
+            "recovered_binding": recovered.binding.as_ref().map(|bytes| transcript_hex(bytes)),
+            "recovered_projection_finalized": recovered.projection.finalized(),
+            "recovered_rank": recovered.rank,
+            "recovered_snapshot_id": transcript_hex(recovered.snapshot_id.as_bytes()),
+            "recovered_state_digest": transcript_hex(recovered.state_digest.as_bytes()),
+            "signature": transcript_hex(&material.commit.signatures[0].signature.expect("signature")),
+            "snapshot_id": transcript_hex(initial.snapshot_id.as_bytes()),
+            "view_error": format!("{view_error:?}"),
+        }));
+    }
+    Ok(json!({
+        "consumer": "services/platform/hosted/indexer/src/ai_market.rs::ProjectionStore",
+        "consumer_source_sha256": transcript_hex(&Sha256::digest(include_bytes!("../src/ai_market.rs"))),
+        "format": 1,
+        "membership_source_sha256": transcript_hex(&Sha256::digest(include_bytes!("../src/ai_market_membership.rs"))),
+        "refusals": refusals,
+        "source_revision": "116ae09395ecb90e9547e536cc7d40168f788fa9",
+        "successes": successes,
+    }))
+}
+
+#[test]
+fn ai_market_transcript_tracks_current_sources() -> Checked {
+    let recorded = consumer_fixture::transcript();
+    assert!(transcript_has_current_sources(&recorded));
+    for field in ["consumer_source_sha256", "membership_source_sha256"] {
+        let mut changed = recorded.clone();
+        let mut digest = unhex(recorded[field].as_str().expect("source digest"))?;
+        assert_eq!(digest.len(), 32);
+        digest[0] ^= 1;
+        changed[field] = json!(transcript_hex(&digest));
+        assert!(
+            !transcript_has_current_sources(&changed),
+            "changed {field} accepted"
+        );
+    }
+    let live = live_consumer_transcript()?;
+    assert!(transcript_has_current_sources(&live));
+    assert_eq!(
+        recorded,
+        live,
+        "current production transcript: {}",
+        serde_json::to_string(&live)?
+    );
+    consumer_fixture::ai_real_consumer_recovers_fresh_guest_captures();
+    consumer_fixture::ai_real_consumer_refuses_unauthenticated_evidence_across_restart();
+    Ok(())
 }
 
 #[test]

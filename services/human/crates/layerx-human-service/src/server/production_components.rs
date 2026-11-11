@@ -3349,9 +3349,12 @@ mod attestor_custody_protocol {
     }
 
     #[test]
-    fn attestor_custody_protocol_keeps_the_existing_behaviour_without_attestors() {
+    fn attestor_custody_protocol_requires_three_without_attestors() {
         assert_eq!(selected_custody_protocol(None, false), Ok(3));
-        assert_eq!(selected_custody_protocol(Some("2"), false), Ok(2));
+        assert_eq!(
+            selected_custody_protocol(Some("2"), false),
+            Err("LAYERX_HUMAN_PROTOCOL_VERSION is unsupported".to_owned())
+        );
         assert_eq!(selected_custody_protocol(Some("3"), false), Ok(3));
         for invalid in ["", "0", "1", "4", "65536", "three"] {
             assert!(selected_custody_protocol(Some(invalid), false).is_err());
@@ -6280,10 +6283,7 @@ impl ProductionComponents {
                     (
                         Some("approval-hold" | "local-journey-state"),
                         Some("unverified")
-                    ) | (
-                        Some("checkpoint-proof"),
-                        Some("checkpoint-finalised" | "settlement-anchored")
-                    )
+                    ) | (Some("checkpoint-proof"), Some("committed"))
                 )
             {
                 return Err(ApiFailure::upstream_degraded());
@@ -7377,7 +7377,23 @@ impl AttestorKms {
         *kms.inner
             .clock
             .lock()
-            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(clock);
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(Arc::new(
+            layerx_human_kms::attestor::AttestorClock::new(clock),
+        ));
+        Ok(kms)
+    }
+
+    pub fn connect_with_clock(
+        config: AttestorCustodyConfig,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, CustodyError> {
+        let kms = Self::connect(config)?;
+        *kms.inner
+            .clock
+            .lock()
+            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? = Some(Arc::new(
+            layerx_human_kms::attestor::AttestorClock::new(clock),
+        ));
         Ok(kms)
     }
 
@@ -7483,7 +7499,18 @@ impl AttestorKms {
         network: u32,
     ) -> Result<layerx_human_kms::attestor::AttestorSigner, layerx_human_kms::attestor::AttestorError>
     {
-        let client = self.inner.config.client()?;
+        let mut client = self.inner.config.client()?;
+        if let Some(clock) = self
+            .inner
+            .clock
+            .lock()
+            .map_err(|_| {
+                layerx_human_kms::attestor::AttestorError::Configuration("attestor clock lock")
+            })?
+            .as_ref()
+        {
+            client = client.with_clock(Arc::clone(clock));
+        }
         let signers: Vec<&str> = self
             .inner
             .config
@@ -7600,6 +7627,7 @@ impl AttestorKms {
         if let Some(raw) = journal.reserve(payload, now)? {
             return Ok(raw);
         }
+        // The attestor signs the disclosure-checked EIP-1559 bank-send transaction.
         let transaction_signer = DisclosedAttestorSigner(signer);
         let signature = super::executor::poll_once_ready(sign_disclosed_call(
             &transaction_signer,

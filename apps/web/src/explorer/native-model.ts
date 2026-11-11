@@ -208,7 +208,7 @@ export function decodeNativeArchiveReceipt(value: unknown): NativeArchiveReceipt
   const source = object(provenance[item.origin], `provenance.${item.origin}`);
   const verification = string(item.verification, "verification");
   const status = string(item.verification_status, "verification_status");
-  const levels = ["unverified", "sequencer_signed", "batch_included", "state_proven", "checkpoint_finalised", "settlement_anchored"];
+  const levels = ["unverified", "sequencer_signed", "batch_included", "state_proven", "checkpoint_finalised"];
   if (![...levels, "sequencer_verified"].includes(verification) || !levels.includes(status)) {
     throw new TypeError("Undeclared archive verification");
   }

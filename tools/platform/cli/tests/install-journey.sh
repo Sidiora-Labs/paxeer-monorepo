@@ -21,6 +21,8 @@ fi
 : "${LAYERX_SIGNING_SEED:?set the funded source Ed25519 seed}"
 : "${LAYERX_SOURCE_ACCOUNT:?set the funded 64-hex source account}"
 : "${LAYERX_PAYMENT_ASSET:?set the 64-hex payment asset}"
+: "${LAYERX_BASE_PAYMENT_DENOM:?set the independently expected native base payment denomination}"
+: "${LAYERX_CONSENSUS_CHAIN_ID:?set the independently expected consensus chain id}"
 : "${LAYERX_PAYMENT_DESTINATION:?set the 64-hex destination account}"
 : "${LAYERX_A2A_SEQUENCE:?set the next source sequence for the A2A payment}"
 : "${LAYERX_SEQUENCER_PUBLIC_KEY:?set the independently pinned 64-hex sequencer public key}"
@@ -395,11 +397,112 @@ import time
 import urllib.request
 from pathlib import Path
 
-payment = json.loads(Path(sys.argv[1]).read_text())
-served = json.loads(Path(sys.argv[2]).read_text())
-root = Path(sys.argv[3])
-transaction = payment['txHash']
-disclosure = payment['disclosure']
+def require(condition, reason):
+    if not condition:
+        raise SystemExit('a2a receipt reconciliation: ' + reason)
+
+
+def hex_bytes(value, size=None):
+    result = bytes.fromhex(value.removeprefix('0x'))
+    require(size is None or len(result) == size, 'invalid evidence width')
+    return result
+
+
+def sequence_authority(height, first, last, previous, resulting, tx_root,
+                       activities, transaction, denomination):
+    require(height > 0 and first > 0 and last >= first
+            and len(activities) == last - first + 1, 'batch range differs from block')
+    ids = [hex_bytes(activity, 32) for activity in activities]
+    require(len(set(ids)) == len(ids) and activities.count(transaction) == 1,
+            'submitted transaction is absent or ambiguous in block')
+    require(hashlib.sha256(b''.join(ids)).digest() == tx_root, 'batch transaction root differs')
+    require(len(previous) == len(resulting) == 32, 'invalid sequence hash width')
+    require(denomination and len(denomination.encode()) <= 64, 'invalid base payment denomination')
+    current = previous
+    authority = None
+    for offset, activity in enumerate(ids):
+        sequence = first + offset
+        following = hashlib.sha256(b'PAXEER/v1/sequence\0' + current
+                                   + sequence.to_bytes(8, 'big') + activity).digest()
+        if activities[offset] == transaction:
+            authority = {'batch_id': height.to_bytes(32, 'big').hex(),
+                         'asset': hashlib.sha256(denomination.encode()).hexdigest(),
+                         'previous_state_root': current.hex(),
+                         'resulting_state_root': following.hex(), 'sequence': sequence}
+        current = following
+    require(current == resulting, 'batch resulting sequence hash differs')
+    return authority
+
+
+def batch_evidence(batch, height, data_hash):
+    wire = hex_bytes(batch['tx'])
+    domain = b'PAXEER/v1/sequence-batch\0'
+    require(len(wire) == len(domain) + 216 and wire.startswith(domain), 'invalid sequence batch')
+    fields = wire[len(domain):]
+    positions = [int.from_bytes(fields[i:i + 8], 'big') for i in (0, 8, 16)]
+    require(int(batch['height']) == height == positions[0], 'batch height differs from block')
+    proof = batch['proof']
+    require(proof['index'] == 0 and proof['total'] > 0, 'batch is not block transaction zero')
+    leaf = hashlib.sha256(b'\0' + hashlib.sha256(wire).digest()).digest()
+    require(leaf == hex_bytes(proof['leafHash'], 32), 'batch proof leaf differs')
+    total = proof['total']
+    depth = 0
+    while total > 1:
+        total = 1 << ((total - 1).bit_length() - 1)
+        depth += 1
+    require(len(proof['aunts']) == depth, 'batch proof has an inconsistent path')
+    for aunt in proof['aunts']:
+        leaf = hashlib.sha256(b'\1' + leaf + hex_bytes(aunt, 32)).digest()
+    require(leaf == hex_bytes(data_hash, 32), 'batch proof differs from committed block')
+    return wire, positions, fields[24:56], fields[56:88], fields[88:120]
+
+
+def batch_digest(wire, chain_id):
+    domain_size = len(b'PAXEER/v1/sequence-batch\0')
+    return hashlib.sha256(wire[:domain_size] + chain_id.encode()
+                          + wire[domain_size:domain_size + 120]).digest()
+
+
+def reconcile_transaction(payment, served, actual, public_key, denomination):
+    transaction = payment['txHash']
+    disclosure = payment['disclosure']
+    require(actual['txHash'] == transaction and actual['receipt'] == served['receipt']
+            and actual['status'] == '0x1', 'A2A receipt differs from the actual node receipt')
+    canonical = hex_bytes(actual['receipt'])
+    require(canonical[:6] == b'\0\2R\1\0\2' and canonical[6:10] == b'\0\0\0\x20'
+            and canonical[10:42].hex() == transaction[2:]
+            and actual['from'].lower() == disclosure['from'].lower()
+            and actual['to'].lower() == disclosure['to'].lower()
+            and int(actual['nonce'], 16) == int(disclosure['evm_nonce']),
+            'receipt does not bind the disclosed signed transaction')
+    require(actual['signingKey'].removeprefix('0x') == public_key,
+            'receipt does not use the independently pinned sequencer key')
+    require(actual['paymentDenom'] == denomination, 'unexpected native payment denomination')
+    return canonical
+
+
+def reconcile_ledger(disclosure, logs):
+    payment_exact = '0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1'
+    # Transfer(bytes32,bytes32,bytes32,uint128,uint8)
+    transfer = '0x3c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0'
+    outcomes = []
+    for log in logs:
+        if log['address'].lower() != disclosure['to'].lower():
+            continue
+        topics = log['topics']
+        if not topics or topics[0] not in (payment_exact, transfer):
+            continue
+        require(len(topics) == 4, 'invalid ledger payment topics')
+        data = hex_bytes(log['data'], 64)
+        if topics[0] == payment_exact:
+            source, destination, asset = topics[2], topics[3], data[:32].hex()
+            amount = int.from_bytes(data[32:], 'big')
+        else:
+            source, destination, asset = topics[1], topics[2], topics[3].removeprefix('0x')
+            amount = int.from_bytes(data[:32], 'big')
+        outcomes.append((source.removeprefix('0x'), destination.removeprefix('0x'), asset, amount))
+    require(outcomes == [(disclosure['source'], disclosure['destination'], disclosure['asset'],
+                          int(disclosure['amount']))], 'ledger payment differs from signed disclosure')
 
 
 def rpc(method, params):
@@ -413,17 +516,15 @@ def rpc(method, params):
     return result['result']
 
 
+payment = json.loads(Path(sys.argv[1]).read_text())
+served = json.loads(Path(sys.argv[2]).read_text())
+root = Path(sys.argv[3])
+transaction = payment['txHash']
+disclosure = payment['disclosure']
+expected_denom = os.environ['LAYERX_BASE_PAYMENT_DENOM']
+public_key = os.environ['LAYERX_SEQUENCER_PUBLIC_KEY']
 actual = rpc('pax_sequencerReceipt', [transaction])
-if actual['txHash'] != transaction or actual['receipt'] != served['receipt'] or actual['status'] != '0x1':
-    raise SystemExit('A2A receipt differs from the actual node receipt')
-canonical = bytes.fromhex(actual['receipt'].removeprefix('0x'))
-if (canonical[:6] != b'\0\2R\1\0\2' or canonical[6:10] != b'\0\0\0\x20'
-        or canonical[10:42].hex() != transaction[2:]
-        or actual['from'].lower() != disclosure['from'].lower()
-        or int(actual['nonce'], 16) != int(disclosure['evm_nonce'])):
-    raise SystemExit('receipt does not bind the disclosed signed transaction')
-if actual['signingKey'].removeprefix('0x') != os.environ['LAYERX_SEQUENCER_PUBLIC_KEY']:
-    raise SystemExit('receipt does not use the independently pinned sequencer key')
+canonical = reconcile_transaction(payment, served, actual, public_key, expected_denom)
 deadline = time.monotonic() + 180
 while True:
     landed = rpc('eth_getTransactionReceipt', [transaction])
@@ -434,6 +535,29 @@ while True:
     if time.monotonic() >= deadline:
         raise SystemExit('transaction did not land before the receipt deadline')
     time.sleep(2)
+height = int(landed['blockNumber'], 16)
+block = rpc('eth_getBlockByNumber', [hex(height), False])
+require(block is not None and int(block['number'], 16) == height
+        and block['hash'] == landed['blockHash']
+        and block['transactions'][int(landed['transactionIndex'], 16)] == transaction,
+        'transaction receipt differs from independently read block')
+commit = rpc('px_getCommit', [str(height)])
+header = commit['signedHeader']['header']
+require(int(commit['height']) == int(header['height']) == height
+        and header['chain_id'] == os.environ['LAYERX_CONSENSUS_CHAIN_ID']
+        and hex_bytes(commit['signedHeader']['commit']['block_id']['hash'], 32)
+            == hex_bytes(block['hash'], 32), 'consensus evidence differs from transaction block')
+batch = rpc('px_getSequenceBatch', [str(height)])
+wire, positions, previous, resulting, tx_root = batch_evidence(batch, height, header['data_hash'])
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+digest = batch_digest(wire, header['chain_id'])
+Ed25519PublicKey.from_public_bytes(hex_bytes(public_key, 32)).verify(wire[-64:], digest)
+require(wire[-96:-64] == hex_bytes(actual['keyId'], 32), 'batch and receipt key identifiers differ')
+authority = sequence_authority(height, positions[1], positions[2], previous, resulting, tx_root,
+                               block['transactions'], transaction, expected_denom)
+require(int(actual['seq'], 16) == int.from_bytes(canonical[42:50], 'big') == authority['sequence'],
+        'receipt sequence differs from independent batch position')
+reconcile_ledger(disclosure, landed['logs'])
 source = bytes.fromhex(disclosure['source'])
 asset = bytes.fromhex(disclosure['asset'])
 sequence = rpc('eth_call', [{'to': disclosure['to'],
@@ -444,11 +568,7 @@ nonce = rpc('eth_getTransactionCount', [disclosure['from'], 'latest'])
 if int(nonce, 16) <= int(disclosure['evm_nonce']):
     raise SystemExit('EVM sender nonce did not advance')
 (root / 'a2a-receipt.hex').write_text(canonical.hex())
-(root / 'a2a-receipt-authority.json').write_text(json.dumps({
-    'batch_id': int(actual['height'], 16).to_bytes(32, 'big').hex(),
-    'asset': hashlib.sha256(actual['paymentDenom'].encode()).hexdigest(),
-    'previous_state_root': canonical[54:86].hex(),
-    'resulting_state_root': canonical[90:122].hex()}))
+(root / 'a2a-receipt-authority.json').write_text(json.dumps(authority))
 A2A_RECEIPT
 "$LAYERX_BIN" --json receipt verify --receipt "$journey_root/a2a-receipt.hex" \
   --batch-id "$(jq -er '.batch_id' "$journey_root/a2a-receipt-authority.json")" \

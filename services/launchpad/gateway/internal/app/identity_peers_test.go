@@ -41,8 +41,10 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/devidentity"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/testpki"
 )
@@ -345,16 +347,6 @@ func bearerRequest(token string) *http.Request {
 	return r
 }
 
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 // lockedBuffer collects a subprocess's output.
 type lockedBuffer struct {
 	mu  sync.Mutex
@@ -384,30 +376,31 @@ func (e *identityE2E) startSocial() socialProcess {
 	t := e.t
 	t.Helper()
 	binary := buildService(t, "social", "sociald")
-	dsn := e.throwawayDatabase("social_platform_e2e_")
+	database := coordinatortest.Bootstrap(t, e.adminDSN, "chat_runtime")
+	dsn := database.Runtimes["chat_runtime"].DSN
+	expectedSchemaFile, expectedSchemaSHA256 := database.ExpectedSchemaFile(t, "chat_runtime")
 	ctx := context.Background()
-	db, err := pgx.Connect(ctx, dsn)
+	db, err := pgx.Connect(ctx, database.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close(ctx)
 	sp := socialProcess{server: e.pki.Leaf("social-server", "social.railway.internal"), ranking: e.peers["ranking"].leaf, pool: "0x" + strings.Repeat("9a", 20), creator: "0x" + strings.Repeat("c0", 20)}
-	if _, err = db.Exec(ctx, `CREATE SCHEMA indexer;
-CREATE TABLE "indexer"."pools" ("pool_address" varchar(42) PRIMARY KEY NOT NULL,"token_address" varchar(42) NOT NULL,"creator" varchar(42) NOT NULL,"optical" varchar(42) NOT NULL,"pool_id" varchar(66) NOT NULL,"nft_id" bigint,"created_at" bigint NOT NULL,"created_block" bigint NOT NULL,"tx_hash" varchar(66) NOT NULL)`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = db.Exec(ctx, `INSERT INTO indexer.pools VALUES($1,$2,$3,$4,$5,1,$6,100,$7)`, sp.pool, "0x"+strings.Repeat("70", 20), sp.creator, "0x"+strings.Repeat("0b", 20), "0x"+strings.Repeat("ab", 32), time.Now().Unix(), "0x"+strings.Repeat("cd", 32)); err != nil {
+	if _, err = db.Exec(ctx, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$2,$3,$4,$5,1,100,$6,$7,0,0,$8,'{}','{}')`, "0x"+strings.Repeat("70", 20), sp.pool, sp.creator, "0x"+strings.Repeat("fa", 20), "0x"+strings.Repeat("0b", 20), "0x"+strings.Repeat("ab", 32), "0x"+strings.Repeat("cd", 32), time.Now().Unix()); err != nil {
 		t.Fatal(err)
 	}
 	cursor := make([]byte, 32)
 	_, _ = rand.Read(cursor)
-	plainPort, privatePort := freePort(t), freePort(t)
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
 	social := e.peers["social"]
 	env := []string{
 		"NODE_ENV=production", "RUNTIME_PROFILE=platform", "ZONE=zone-a", "METRICS_ENVIRONMENT=production", "LOG_LEVEL=error",
 		"SECRETS_PROVIDER=env", "SECRETS_REFRESH_SECONDS=30", "DB_MAX_CONNS=5",
 		fmt.Sprintf("PORT=%d", plainPort), "BIND_ADDRESS=0.0.0.0",
 		"DATABASE_URL=" + dsn,
+		"EXPECTED_SCHEMA_FILE=" + expectedSchemaFile,
+		"EXPECTED_SCHEMA_SHA256=" + expectedSchemaSHA256,
 		"REDIS_URL=" + e2eFixture("GATEWAY_E2E_REDIS_URL", "redis://:kindle_fixture_password@127.0.0.1:26379/12"),
 		"SOCIAL_CURSOR_KEY=" + base64.RawURLEncoding.EncodeToString(cursor),
 		"CORS_ALLOWED_ORIGINS=" + e2eOrigin,
@@ -508,25 +501,20 @@ func (e *identityE2E) startLivestream() livestreamProcess {
 	t := e.t
 	t.Helper()
 	binary := buildService(t, "livestream", "livestreamd")
-	dsn := e.throwawayDatabase("livestream_platform_e2e_")
-	ctx := context.Background()
-	db, err := pgx.Connect(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close(ctx)
-	// media/social owns chat.safety_bans; the platform runtime reads it.
-	if _, err = db.Exec(ctx, `CREATE SCHEMA chat; CREATE TABLE chat.safety_bans(wallet text NOT NULL,revoked_at timestamptz,expires_at timestamptz,scope text NOT NULL,resource text)`); err != nil {
-		t.Fatal(err)
-	}
+	database := coordinatortest.Bootstrap(t, e.adminDSN, "livestream_runtime")
+	dsn := database.Runtimes["livestream_runtime"].DSN
+	expectedSchemaFile, expectedSchemaSHA256 := database.ExpectedSchemaFile(t, "livestream_runtime")
 	server := e.pki.Leaf("livestream-server", "livestream.railway.internal")
-	plainPort, privatePort := freePort(t), freePort(t)
-	lp := livestreamProcess{plainURL: fmt.Sprintf("http://127.0.0.1:%d", plainPort), privateURL: fmt.Sprintf("https://127.0.0.1:%d", privatePort), dsn: dsn}
+	ports := internaltest.FreePorts(t, 2)
+	plainPort, privatePort := ports[0], ports[1]
+	lp := livestreamProcess{plainURL: fmt.Sprintf("http://127.0.0.1:%d", plainPort), privateURL: fmt.Sprintf("https://127.0.0.1:%d", privatePort), dsn: database.AdminDSN}
 	env := []string{
 		"NODE_ENV=production", "RUNTIME_PROFILE=platform", "ZONE=zone-a", "METRICS_ENVIRONMENT=production", "LOG_LEVEL=error",
 		"SECRETS_PROVIDER=env", "SECRETS_REFRESH_SECONDS=30", "DB_MAX_CONNS=5",
 		fmt.Sprintf("PORT=%d", plainPort), "BIND_ADDRESS=0.0.0.0",
 		"DATABASE_URL=" + dsn,
+		"EXPECTED_SCHEMA_FILE=" + expectedSchemaFile,
+		"EXPECTED_SCHEMA_SHA256=" + expectedSchemaSHA256,
 		"REDIS_URL=" + e2eFixture("GATEWAY_E2E_REDIS_URL", "redis://:kindle_fixture_password@127.0.0.1:26379/12"),
 		"LIVEPEER_PROVIDER_MODE=unavailable", "MAX_STREAMS_PER_WALLET=3", "MAX_GLOBAL_STREAMS=100",
 		"LIVESTREAM_VIEWER_TOKEN_KEY=" + strings.Repeat("v7", 20),
@@ -653,11 +641,7 @@ func TestPlatformPeersThroughGatewayIdentityListener(t *testing.T) {
 
 	sp := e.startSocial()
 	clientTLS := e.gatewayClientTLS()
-	routes := append(proxy.SocialConnectedRoutes(),
-		proxy.ConnectedRoute{Method: http.MethodPost, Template: "/v2/callouts", Authenticate: true},
-		proxy.ConnectedRoute{Method: http.MethodGet, Template: "/v2/pools/{poolAddress}/comments"},
-		proxy.ConnectedRoute{Method: http.MethodPost, Template: "/v2/pools/{poolAddress}/comments", Authenticate: true},
-	)
+	routes := proxy.SocialConnectedRoutes()
 	rest, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "social", URL: sp.privateURL, Routes: routes, Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: clientTLS})
 	if err != nil {
 		t.Fatal(err)
@@ -873,11 +857,11 @@ func TestPlatformPeersThroughGatewayIdentityListener(t *testing.T) {
 		// A real dependency failure (the moderation store livestream reads
 		// is gone) stays a 5xx: the gateway answers 503 with livestream's
 		// envelope code, not its message or dependency names.
-		if _, err = db.Exec(ctx, `ALTER TABLE chat.safety_bans RENAME TO safety_bans_offline`); err != nil {
+		if _, err = db.Exec(ctx, `ALTER VIEW chat.safety_bans_v1 RENAME TO safety_bans_v1_offline`); err != nil {
 			t.Fatal(err)
 		}
 		resp, raw = e2eSend(t, nil, http.MethodGet, edge.URL+"/v2/streams/"+ended, nil, nil)
-		if _, err = db.Exec(ctx, `ALTER TABLE chat.safety_bans_offline RENAME TO safety_bans`); err != nil {
+		if _, err = db.Exec(ctx, `ALTER VIEW chat.safety_bans_v1_offline RENAME TO safety_bans_v1`); err != nil {
 			t.Fatal(err)
 		}
 		var relayed interfaces.Error
@@ -885,7 +869,7 @@ func TestPlatformPeersThroughGatewayIdentityListener(t *testing.T) {
 			t.Fatalf("dependency failure through the gateway: %d %s", resp.StatusCode, raw)
 		}
 		// A dead upstream has no envelope: the gateway's own code.
-		dead, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "livestream", URL: fmt.Sprintf("https://127.0.0.1:%d", freePort(t)), Routes: proxy.LivestreamConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: clientTLS})
+		dead, err := proxy.NewConnected(proxy.ConnectedDeps{Name: "livestream", URL: fmt.Sprintf("https://127.0.0.1:%d", internaltest.FreePorts(t, 1)[0]), Routes: proxy.LivestreamConnectedRoutes(), Identity: e.authorityForGateway, SigningKey: e.gatewayKey.Private, TLS: clientTLS})
 		if err != nil {
 			t.Fatal(err)
 		}

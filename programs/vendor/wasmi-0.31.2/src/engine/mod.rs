@@ -1227,6 +1227,219 @@ mod replay_step_tests {
         (store, instance)
     }
 
+    fn issue_1773_unique_snapshots(store: &mut Store<()>) -> Vec<Arc<crate::ExecutionSnapshot>> {
+        let mut snapshots = Vec::new();
+        let mut retain = |snapshot: Arc<crate::ExecutionSnapshot>| {
+            if !snapshots.iter().any(|old| Arc::ptr_eq(old, &snapshot)) {
+                snapshots.push(snapshot);
+            }
+        };
+        for transition in store.take_execution_transitions() {
+            retain(transition.pre);
+            retain(transition.post);
+        }
+        for transition in store.take_execution_replay_transitions() {
+            retain(Arc::clone(&transition.pre.snapshot));
+            retain(Arc::clone(&transition.post.snapshot));
+        }
+        if let Some(trap) = store.take_execution_trap_record() {
+            retain(Arc::clone(&trap.pre.snapshot));
+        }
+        snapshots
+    }
+
+    fn issue_1773_accumulating_snapshots(replay: bool) {
+        use core::sync::atomic::AtomicUsize;
+        let prefixes: &[&[u8]] = &[
+            &[],
+            &[0x41, 0, 0x41, 42, 0x36, 2, 0],
+            &[0x41, 1, 0x40, 0, 0x1a],
+        ];
+        for (fixture, prefix) in prefixes.iter().enumerate() {
+            for work_limit in [false, true] {
+                let mut body = prefix.to_vec();
+                body.extend(core::iter::repeat_n(0x01, 40));
+                body.extend_from_slice(&[0x41, 7, 0x0b]);
+                let engine = Engine::default();
+                let bytes = module_bytes(&[&body], true);
+                let module = Module::new(&engine, &bytes[..]).unwrap();
+                let (mut store, instance) = instantiate(&engine, &module, replay);
+                let ceiling = 1_600_000;
+                let (maximum_bytes, maximum_work) = if work_limit {
+                    (u64::MAX, ceiling)
+                } else {
+                    (ceiling, u64::MAX)
+                };
+                if replay {
+                    store.enable_execution_replay_observer_with_limits(
+                        128,
+                        maximum_bytes,
+                        maximum_work,
+                    );
+                } else {
+                    store.enable_execution_observer_with_limits(
+                        1,
+                        128,
+                        maximum_bytes,
+                        maximum_work,
+                    );
+                }
+                let admissions = Arc::new(AtomicUsize::new(0));
+                let counter = Arc::clone(&admissions);
+                store.set_execution_supplement_with_retention(move |_, _, charge, _, _| {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    charge.memory_bytes = 4;
+                    charge.instance_state_bytes = 0;
+                    charge.arbitration_engine_canonical_bytes = 0;
+                    Ok(crate::ExecutionSupplement::default())
+                });
+                assert!(instance
+                    .get_typed_func::<(), i32>(&store, "run")
+                    .unwrap()
+                    .call(&mut store, ())
+                    .is_err());
+                assert_eq!(
+                    store.execution_observer_error(),
+                    Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+                );
+                let count = store.execution_observer_retained_snapshots().unwrap();
+                assert!(count >= 2 && count < 128);
+                assert_eq!(
+                    admissions.load(Ordering::SeqCst),
+                    count,
+                    "full allocation must be admitted before comparison capture or host query"
+                );
+                let snapshots = issue_1773_unique_snapshots(&mut store);
+                assert_eq!(snapshots.len(), count);
+                let retained = snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                    .sum::<u64>();
+                assert!(retained <= ceiling, "retained {retained} exceeds {ceiling}");
+                assert!(snapshots
+                    .iter()
+                    .all(|snapshot| snapshot.program_counter != u64::MAX));
+                if fixture == 1 {
+                    assert!(snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.linear_memory[0] == 42));
+                }
+                if fixture == 2 {
+                    assert!(snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.linear_memory.len() == 2 * 65536));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn issue_1773_full_snapshot_bytes_are_bounded_before_capture() {
+        issue_1773_accumulating_snapshots(false);
+
+        let engine = Engine::default();
+        let bytes = module_bytes(&[&[0x41, 7, 0x0b]], true);
+        let module = Module::new(&engine, &bytes[..]).unwrap();
+        let (mut store, instance) = instantiate(&engine, &module, false);
+        store.enable_execution_observer_with_limits(1, 128, 65536, u64::MAX);
+        assert!(instance
+            .get_typed_func::<(), i32>(&store, "run")
+            .unwrap()
+            .call(&mut store, ())
+            .is_err());
+        assert_eq!(store.execution_observer_retained_snapshots(), Some(0));
+        assert_eq!(
+            store.execution_observer_error(),
+            Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn issue_1773_replay_and_terminal_snapshots_share_retention_bound() {
+        issue_1773_accumulating_snapshots(true);
+        let engine = Engine::default();
+        let bytes = module_bytes(&[&[0x41, 7, 0x0b]], true);
+        let module = Module::new(&engine, &bytes[..]).unwrap();
+        for replay in [false, true] {
+            for terminal_fits in [false, true] {
+                let ceiling = if terminal_fits { 512_000 } else { 300_000 };
+                let (mut store, instance) = instantiate(&engine, &module, replay);
+                if replay {
+                    store.enable_execution_replay_observer_with_limits(128, ceiling, u64::MAX);
+                } else {
+                    store.enable_execution_observer_with_limits(1, 128, ceiling, u64::MAX);
+                }
+                let result = instance
+                    .get_typed_func::<(), i32>(&store, "run")
+                    .unwrap()
+                    .call(&mut store, ());
+                if terminal_fits {
+                    assert_eq!(result.unwrap(), 7);
+                    assert_eq!(store.execution_observer_error(), None);
+                    assert_eq!(store.execution_observer_retained_snapshots(), Some(3));
+                } else {
+                    assert!(result.is_err());
+                    assert_eq!(
+                        store.execution_observer_error(),
+                        Some(crate::ExecutionObserverError::SnapshotLimitExceeded)
+                    );
+                    assert_eq!(store.execution_observer_retained_snapshots(), Some(2));
+                }
+                let snapshots = issue_1773_unique_snapshots(&mut store);
+                assert_eq!(snapshots.len(), if terminal_fits { 3 } else { 2 });
+                assert!(
+                    snapshots
+                        .iter()
+                        .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                        .sum::<u64>()
+                        <= ceiling
+                );
+                assert_eq!(
+                    snapshots
+                        .iter()
+                        .any(|snapshot| snapshot.program_counter == u64::MAX),
+                    terminal_fits
+                );
+            }
+        }
+
+        let (mut recorded, instance) = instantiate(&engine, &module, true);
+        assert_eq!(
+            instance
+                .get_typed_func::<(), i32>(&recorded, "run")
+                .unwrap()
+                .call(&mut recorded, ())
+                .unwrap(),
+            7
+        );
+        for expected in recorded.take_execution_replay_transitions() {
+            let (mut restored, instance) = instantiate(&engine, &module, true);
+            restored.enable_execution_replay_observer_with_limits(2, 512_000, 1_500_000);
+            let actual = engine
+                .execute_step(
+                    ExecutionReplayContext::new(restored.as_context_mut(), instance),
+                    &expected.pre,
+                )
+                .unwrap();
+            let transition = match actual {
+                ExecutionStepOutcome::Boundary(transition)
+                | ExecutionStepOutcome::Returned(transition) => transition,
+                ExecutionStepOutcome::Trapped(trap) => panic!("unexpected trap: {trap:?}"),
+            };
+            assert_eq!(transition, expected);
+            assert_eq!(restored.execution_observer_retained_snapshots(), Some(2));
+            let snapshots = issue_1773_unique_snapshots(&mut restored);
+            assert_eq!(snapshots.len(), 2);
+            assert!(
+                snapshots
+                    .iter()
+                    .map(|snapshot| snapshot.retained_vec_bytes().unwrap())
+                    .sum::<u64>()
+                    <= 512_000
+            );
+        }
+    }
+
     #[test]
     fn replay_restores_real_integer_memory_and_nested_frames_without_changing_legacy_snapshots() {
         let fixtures = [

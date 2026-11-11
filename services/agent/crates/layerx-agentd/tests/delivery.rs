@@ -183,10 +183,19 @@ fn engine_with_events(
     let create = SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor {
-            block_height: subscription_start,
-            tx_index: 0,
-            log_index: 0,
+        // 2985: zero starts before local events; ordinal N resumes after local counter N - 1.
+        start: if subscription_start == 0 {
+            ApiCursor {
+                block_height: 0,
+                tx_index: 0,
+                log_index: 0,
+            }
+        } else {
+            ApiCursor {
+                block_height: 0,
+                tx_index: u32::MAX,
+                log_index: assert_ok(u32::try_from(subscription_start - 1), "local start counter"),
+            }
         },
         delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "target"),
     };
@@ -265,6 +274,16 @@ fn loaded_seam_is_ordered_observable_and_has_no_duplicate() {
                 assert_eq!(
                     event.delivery.event_bytes,
                     core_event(event.global_sequence).canonical_bytes
+                );
+                assert_eq!(
+                    event.delivery.cursor,
+                    ApiCursor {
+                        block_height: 0,
+                        // 2985: (0, 0, sequence + 1) -> (0, MAX, sequence).
+                        tx_index: u32::MAX,
+                        log_index: u32::try_from(event.global_sequence)
+                            .unwrap_or_else(|error| panic!("log index: {error}"))
+                    }
                 );
                 order.push((Some(event.phase), event.global_sequence));
             }
@@ -411,10 +430,11 @@ fn start_before_filter_subject_genesis_transitions_before_first_live_match() {
     assert_eq!(first_match.phase, DeliveryPhase::Live);
     assert_eq!(
         first_match.delivery.cursor,
+        // 2985: local ordinal 6 / attempt-1 (0, 0, 6) -> (0, MAX, 5).
         ApiCursor {
-            block_height: 6,
-            tx_index: 0,
-            log_index: 0
+            block_height: 0,
+            tx_index: u32::MAX,
+            log_index: 5
         }
     );
     if let Err(error) = delivery.accept_front(2) {
@@ -431,4 +451,172 @@ fn start_before_filter_subject_genesis_transitions_before_first_live_match() {
             if event.global_sequence == 6 && event.phase == DeliveryPhase::Live
     ));
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn genesis_anchor_counter_starts_at_zero_for_large_sequences_and_survives_reopen() {
+    let root = test_directory("genesis-carry");
+    let first = u64::from(u32::MAX) - 1;
+    let sequences = [first, first + 1, first + 2];
+    let mut delivery = engine(&root, &sequences, first, 0, first + 3, 4, 3);
+    let mut cursors = Vec::new();
+    for sequence in sequences {
+        let item = assert_some(
+            assert_ok(deliver(&mut delivery), "unexpected error"),
+            "local event",
+        );
+        let DeliveryItem::Event(event) = &item else {
+            panic!("event before seam")
+        };
+        assert_eq!(event.global_sequence, sequence);
+        if sequence == first {
+            drop(delivery);
+            delivery = assert_ok(
+                DeliveryEngine::open(
+                    assert_ok(
+                        SubscriptionStore::open(
+                            assert_ok(Store::open(&root), "unexpected error"),
+                            durable_tenant(),
+                        ),
+                        "unexpected error",
+                    ),
+                    target(),
+                    first + 3,
+                    4,
+                    retry_policy(3),
+                ),
+                "unexpected error",
+            );
+            assert_eq!(
+                assert_ok(deliver(&mut delivery), "unexpected error"),
+                Some(item.clone())
+            );
+        }
+        assert_eq!(
+            assert_ok(delivery.accept_front(100), "unexpected error"),
+            item
+        );
+        acknowledge(&mut delivery, event.delivery.cursor);
+        cursors.push(event.delivery.cursor);
+    }
+    // 2985: the anchor counter is independent of the large global sequence; no transaction carry.
+    assert_eq!(
+        cursors,
+        (0..3)
+            .map(|counter| ApiCursor {
+                block_height: 0,
+                tx_index: u32::MAX,
+                log_index: counter,
+            })
+            .collect::<Vec<_>>()
+    );
+    assert!(cursors.windows(2).all(|pair| pair[0] < pair[1]));
+    drop(delivery);
+    assert_ok(fs::remove_dir_all(root), "unexpected error");
+}
+
+#[test]
+fn legacy_local_event_without_a_durable_anchor_keeps_its_ordinal_cursor() {
+    use layerx_agentd::store::{ObjectKind, TenantKey};
+    let root = test_directory("missing-anchor");
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            durable_tenant(),
+            4,
+            0,
+        ),
+        "unexpected error",
+    );
+    assert_ok(ingest(&mut ingestor, core_event(0)), "unexpected error");
+    let mut store = ingestor.into_store();
+    let mut metadata_id = b"event-evidence:".to_vec();
+    metadata_id.extend_from_slice(&0_u64.to_be_bytes());
+    let key = assert_ok(
+        TenantKey::new(durable_tenant(), ObjectKind::Configuration, metadata_id),
+        "unexpected error",
+    );
+    let mut metadata = assert_some(store.get(&key), "expected Some value")
+        .bytes()
+        .to_vec();
+    assert_eq!(&metadata[metadata.len() - 16..metadata.len() - 12], b"LXA2");
+    metadata.truncate(metadata.len() - 16);
+    assert_ok(store.put_local(key, metadata), "unexpected error");
+    // 2985: legacy evidence keeps (sequence + 1, 0, 0), replacing attempt-1 refusal.
+    let ingestor = assert_ok(
+        EventIngestor::open(store, durable_tenant(), 4, 0),
+        "unexpected error",
+    );
+    assert_eq!(
+        assert_ok(ingestor.retained_event(0), "unexpected error"),
+        core_event(0)
+    );
+    drop(ingestor);
+    let mut subscriptions = assert_ok(
+        SubscriptionStore::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            durable_tenant(),
+        ),
+        "unexpected error",
+    );
+    assert_ok(
+        subscriptions.create(
+            id(),
+            SubscriptionCreate {
+                scope: scope(),
+                filter: filter(),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
+                delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "target"),
+            },
+        ),
+        "unexpected error",
+    );
+    let mut delivery = assert_ok(
+        DeliveryEngine::open(subscriptions, target(), 1, 4, retry_policy(3)),
+        "unexpected error",
+    );
+    let item = assert_some(
+        assert_ok(deliver(&mut delivery), "unexpected error"),
+        "legacy local event",
+    );
+    let DeliveryItem::Event(event) = &item else {
+        panic!("legacy event before seam")
+    };
+    assert_eq!(event.global_sequence, 0);
+    assert_eq!(event.delivery.event_bytes, core_event(0).canonical_bytes);
+    assert_eq!(
+        event.delivery.cursor,
+        ApiCursor {
+            block_height: 1,
+            tx_index: 0,
+            log_index: 0
+        }
+    );
+    assert_eq!(
+        assert_ok(delivery.accept_front(100), "unexpected error"),
+        item
+    );
+    acknowledge(&mut delivery, event.delivery.cursor);
+    drop(delivery);
+    assert_ok(fs::remove_dir_all(root), "unexpected error");
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
 }

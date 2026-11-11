@@ -30,20 +30,23 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 const RECORDED: &str = include_str!("../src/repair_22_31_227_fixture/committed.json");
-const CA: &[u8] = include_bytes!("../src/repair_22_33_1564_fixture/ca.der");
+const CA: &[u8] = include_bytes!("fixtures/repair_22_33_1564_fixture/ca.der");
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    let text = value.as_str().expect("recorded hex");
+    let text = value.as_str().unwrap_or_else(|| panic!("recorded hex"));
     let text = text.strip_prefix("0x").unwrap_or(text);
     assert_eq!(text.len(), N * 2);
     let mut result = [0; N];
     for (byte, pair) in result.iter_mut().zip(text.as_bytes().chunks_exact(2)) {
-        *byte =
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex"), 16).expect("recorded byte");
+        *byte = u8::from_str_radix(
+            std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex: {error:?}")),
+            16,
+        )
+        .unwrap_or_else(|error| panic!("recorded byte: {error:?}"));
     }
     result
 }
@@ -67,27 +70,30 @@ impl Server {
                     rustls::crypto::ring::default_provider(),
                 ))
                 .with_safe_default_protocol_versions()
-                .expect("TLS versions")
+                .unwrap_or_else(|error| panic!("TLS versions: {error:?}"))
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![CertificateDer::from(
-                        include_bytes!("../src/repair_22_31_227_fixture/server.der").to_vec(),
+                        include_bytes!("fixtures/repair_22_31_227_fixture/server.der").to_vec(),
                     )],
                     PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
-                        include_bytes!("../src/repair_22_31_227_fixture/server-key.der").to_vec(),
+                        include_bytes!("fixtures/repair_22_31_227_fixture/server-key.der").to_vec(),
                     )),
                 )
-                .expect("committed test certificate"),
+                .unwrap_or_else(|error| panic!("committed test certificate: {error:?}")),
             )
         });
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("loopback listener: {error:?}"));
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .unwrap_or_else(|error| panic!("nonblocking listener: {error:?}"));
         let endpoint = format!(
             "{}://{}",
             if tls { "https" } else { "http" },
-            listener.local_addr().expect("peer address")
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("peer address: {error:?}"))
         );
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = stop.clone();
@@ -105,60 +111,40 @@ impl Server {
                 };
                 socket
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("read bound");
+                    .unwrap_or_else(|error| panic!("read bound: {error:?}"));
                 socket
                     .set_write_timeout(Some(Duration::from_secs(3)))
-                    .expect("write bound");
+                    .unwrap_or_else(|error| panic!("write bound: {error:?}"));
                 let stream: Box<dyn PeerIo> = match &config {
                     Some(config) => Box::new(rustls::StreamOwned::new(
-                        rustls::ServerConnection::new(config.clone()).expect("TLS peer"),
+                        rustls::ServerConnection::new(config.clone())
+                            .unwrap_or_else(|error| panic!("TLS peer: {error:?}")),
                         socket,
                     )),
                     None => Box::new(socket),
                 };
-                let mut reader = BufReader::new(stream);
-                let mut line = String::new();
-                reader.read_line(&mut line).expect("request line");
-                assert!(line.starts_with("POST "), "{line}");
-                let path = line
-                    .split_whitespace()
-                    .nth(1)
-                    .expect("request path")
-                    .to_owned();
-                let mut length = None;
-                let mut header_bytes = line.len();
-                loop {
-                    line.clear();
-                    assert!(reader.read_line(&mut line).expect("HTTP header") > 0);
-                    header_bytes += line.len();
-                    assert!(header_bytes <= 8192);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some((name, value)) = line.split_once(':') {
-                        if name.eq_ignore_ascii_case("content-length") {
-                            length = Some(value.trim().parse::<usize>().expect("content length"));
-                        }
-                    }
-                }
-                let length = length.expect("length-delimited request");
-                assert!(length <= 1_048_576);
-                let mut bytes = vec![0; length];
-                reader.read_exact(&mut bytes).expect("request body");
-                let request: Value = serde_json::from_slice(&bytes).expect("JSON request");
+                let PeerRequest {
+                    reader,
+                    path,
+                    request,
+                } = read_peer_request(stream);
                 received
                     .lock()
-                    .expect("request log")
+                    .unwrap_or_else(|error| panic!("request log: {error:?}"))
                     .push((path, request.clone()));
                 let result = handler(&request);
                 let bytes = serde_json::to_vec(&json!({
                     "jsonrpc":"2.0", "id":request["id"], "result": result
                 }))
-                .expect("JSON response");
+                .unwrap_or_else(|error| panic!("JSON response: {error:?}"));
                 let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).expect("response headers");
-                stream.write_all(&bytes).expect("response body");
-                stream.flush().expect("response flush");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).unwrap_or_else(|error| panic!("response headers: {error:?}"));
+                stream
+                    .write_all(&bytes)
+                    .unwrap_or_else(|error| panic!("response body: {error:?}"));
+                stream
+                    .flush()
+                    .unwrap_or_else(|error| panic!("response flush: {error:?}"));
             }
         });
         Self {
@@ -170,7 +156,10 @@ impl Server {
     }
 
     fn requests(&self) -> Vec<(String, Value)> {
-        self.requests.lock().expect("request log").clone()
+        self.requests
+            .lock()
+            .unwrap_or_else(|error| panic!("request log: {error:?}"))
+            .clone()
     }
 }
 
@@ -180,7 +169,7 @@ impl Drop for Server {
         if let Some(worker) = self.worker.take() {
             let result = worker.join();
             if !std::thread::panicking() {
-                result.expect("peer worker");
+                result.unwrap_or_else(|error| panic!("peer worker: {error:?}"));
             }
         }
     }
@@ -217,17 +206,21 @@ fn reading(nanos: u64) -> ClockReading {
 impl Clock for TranscriptClock {
     fn sample(&self, budget: Duration) -> Result<ClockReading, ClockError> {
         assert!(!budget.is_zero());
-        self.budgets.lock().expect("clock budgets").push(budget);
+        self.budgets
+            .lock()
+            .unwrap_or_else(|error| panic!("clock budgets: {error:?}"))
+            .push(budget);
         self.readings
             .lock()
-            .expect("clock transcript")
+            .unwrap_or_else(|error| panic!("clock transcript: {error:?}"))
             .pop_front()
-            .expect("bounded clock samples")
+            .unwrap_or_else(|| panic!("bounded clock samples"))
     }
 }
 
 fn recorded_policy(first: u64, last: u64) -> ReceiptPolicy {
-    let recorded: Value = serde_json::from_str(RECORDED).expect("recorded node transcript");
+    let recorded: Value = serde_json::from_str(RECORDED)
+        .unwrap_or_else(|error| panic!("recorded node transcript: {error:?}"));
     ReceiptPolicy {
         protocol_version: 2,
         network_id: 125,
@@ -253,10 +246,10 @@ fn default_unified_route_uses_exact_node_and_hosted_paths_including_private_ca()
         } else {
             RpcClient::connect(&peer.endpoint, None)
         }
-        .expect("root client");
+        .unwrap_or_else(|error| panic!("root client: {error:?}"));
         assert_eq!(
             root.get_identity_sequence(&format!("0x{}", "11".repeat(20)))
-                .expect("root RPC"),
+                .unwrap_or_else(|error| panic!("root RPC: {error:?}")),
             7
         );
         let exact = format!("{}/published/agent", peer.endpoint);
@@ -265,11 +258,11 @@ fn default_unified_route_uses_exact_node_and_hosted_paths_including_private_ca()
         } else {
             RpcClient::connect_hosted(&exact, None)
         }
-        .expect("explicit hosted client");
+        .unwrap_or_else(|error| panic!("explicit hosted client: {error:?}"));
         assert_eq!(
             hosted
                 .get_identity_sequence(&format!("0x{}", "11".repeat(20)))
-                .expect("explicit path RPC"),
+                .unwrap_or_else(|error| panic!("explicit path RPC: {error:?}")),
             7
         );
         let node = if tls {
@@ -277,10 +270,10 @@ fn default_unified_route_uses_exact_node_and_hosted_paths_including_private_ca()
         } else {
             RpcClient::connect_node(&peer.endpoint, None)
         }
-        .expect("explicit node client");
+        .unwrap_or_else(|error| panic!("explicit node client: {error:?}"));
         assert_eq!(
             node.get_identity_sequence(&format!("0x{}", "11".repeat(20)))
-                .expect("node RPC"),
+                .unwrap_or_else(|error| panic!("node RPC: {error:?}")),
             7
         );
         let paths: Vec<_> = peer.requests().into_iter().map(|(path, _)| path).collect();
@@ -312,7 +305,8 @@ fn default_unified_route_uses_exact_node_and_hosted_paths_including_private_ca()
 }
 
 fn cursor(position: u64) -> StreamCursor {
-    StreamCursor::new(format!("{position:016x}{:08x}{:08x}", 0, 0)).expect("producer cursor")
+    StreamCursor::new(format!("{position:016x}{:08x}{:08x}", 0, 0))
+        .unwrap_or_else(|error| panic!("producer cursor: {error:?}"))
 }
 
 struct EventLog(BTreeMap<u64, String>);
@@ -351,30 +345,39 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::create_dir(&path).expect("new test directory");
+        std::fs::create_dir(&path).unwrap_or_else(|error| panic!("new test directory: {error:?}"));
         Self(path)
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).expect("remove test directory");
+        std::fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("remove test directory: {error:?}"));
     }
 }
 
 #[test]
 fn unbounded_stream_identities_are_bounded_atomic_and_resume_from_persisted_cursor() {
-    let total = u64::try_from(STREAM_REPLAY_IDENTITIES * 8).expect("test history size");
+    let total = u64::try_from(STREAM_REPLAY_IDENTITIES * 8)
+        .unwrap_or_else(|error| panic!("test history size: {error:?}"));
     let log = EventLog((1..=total).map(|n| (n, format!("event-{n}"))).collect());
     let mut stream = ResumableStream::new(cursor(0));
     let mut after = 0;
     while after < total / 2 {
         let page = log.page(after, 64);
-        let events = stream.accept(page.clone()).expect("producer page");
+        let events = stream
+            .accept(page.clone())
+            .unwrap_or_else(|error| panic!("producer page: {error:?}"));
         assert_eq!(events.len(), 64);
-        after = events.last().expect("nonempty page").value;
+        after = events
+            .last()
+            .unwrap_or_else(|| panic!("nonempty page"))
+            .value;
         assert_eq!(
             stream.retained_identities(),
-            (after as usize).min(STREAM_REPLAY_IDENTITIES)
+            (usize::try_from(after)
+                .unwrap_or_else(|error| panic!("fixture integer must fit usize: {error:?}")))
+            .min(STREAM_REPLAY_IDENTITIES)
         );
         let before = stream.clone();
         assert!(stream.accept(page).is_err(), "replayed page");
@@ -406,10 +409,14 @@ fn unbounded_stream_identities_are_bounded_atomic_and_resume_from_persisted_curs
 
     let directory = Directory::new();
     let path = directory.0.join("cursor");
-    std::fs::write(&path, stream.cursor().as_str()).expect("persist processed cursor");
+    std::fs::write(&path, stream.cursor().as_str())
+        .unwrap_or_else(|error| panic!("persist processed cursor: {error:?}"));
     drop(stream);
-    let persisted = StreamCursor::new(std::fs::read_to_string(&path).expect("reopen cursor store"))
-        .expect("durable cursor");
+    let persisted = StreamCursor::new(
+        std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("reopen cursor store: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("durable cursor: {error:?}"));
     let mut stream = ResumableStream::new(persisted);
     assert_eq!(stream.retained_identities(), 0);
     assert!(
@@ -426,25 +433,24 @@ fn unbounded_stream_identities_are_bounded_atomic_and_resume_from_persisted_curs
     while after < total {
         let events = stream
             .accept(log.page(after, 64))
-            .expect("resume strictly after durable cursor");
+            .unwrap_or_else(|error| panic!("resume strictly after durable cursor: {error:?}"));
         assert_eq!(events[0].value, after + 1);
-        after = events.last().expect("nonempty page").value;
+        after = events
+            .last()
+            .unwrap_or_else(|| panic!("nonempty page"))
+            .value;
         assert!(stream.retained_identities() <= STREAM_REPLAY_IDENTITIES);
     }
     assert_eq!(stream.cursor(), &cursor(total));
     assert_eq!(stream.retained_identities(), STREAM_REPLAY_IDENTITIES);
     let empty = log.page(total, 1);
-    assert!(stream.accept(empty).expect("idle page").is_empty());
+    assert!(stream
+        .accept(empty)
+        .unwrap_or_else(|error| panic!("idle page: {error:?}"))
+        .is_empty());
     assert_eq!(stream.cursor(), &cursor(total));
 
-    let mut boundary = ResumableStream::new(cursor(0));
-    let mut page = log.page(0, STREAM_PAGE_EVENTS);
-    page.events[0].event_id = "x".repeat(STREAM_EVENT_ID_BYTES);
-    assert_eq!(
-        boundary.accept(page).expect("inclusive bounds").len(),
-        STREAM_PAGE_EVENTS
-    );
-    assert_eq!(boundary.retained_identities(), STREAM_REPLAY_IDENTITIES);
+    assert_stream_boundary(&log);
 }
 
 fn registry_document(abi: u16, lifecycle: &str, tag: u8, sequence: u64) -> (Value, [u8; 32]) {
@@ -486,15 +492,29 @@ fn discovery_lifecycle_binding_authenticates_transitions_and_every_supported_pro
         .into_iter()
         .enumerate()
         {
-            let (value, key) = registry_document(abi, lifecycle, tag, sequence as u64 + 10);
+            let (value, key) = registry_document(
+                abi,
+                lifecycle,
+                tag,
+                u64::try_from(sequence)
+                    .unwrap_or_else(|error| panic!("fixture integer must fit u64: {error:?}"))
+                    + 10,
+            );
             // Cross the JSON codec just as a recorded registry response does.
-            let encoded = serde_json::to_vec(&value).expect("producer document");
-            let transported = serde_json::from_slice(&encoded).expect("transport JSON");
+            let encoded = serde_json::to_vec(&value)
+                .unwrap_or_else(|error| panic!("producer document: {error:?}"));
+            let transported = serde_json::from_slice(&encoded)
+                .unwrap_or_else(|error| panic!("transport JSON: {error:?}"));
             let verified = verify_signed_discovery(&transported, [0x11; 32], 1500, key)
-                .expect("signed lifecycle");
+                .unwrap_or_else(|error| panic!("signed lifecycle: {error:?}"));
             assert_eq!(verified.lifecycle(), expected);
             assert_eq!(verified.abi_version(), abi);
-            assert_eq!(verified.observed_sequence(), sequence as u64 + 10);
+            assert_eq!(
+                verified.observed_sequence(),
+                u64::try_from(sequence)
+                    .unwrap_or_else(|error| panic!("fixture integer must fit u64: {error:?}"))
+                    + 10
+            );
             for other in ["active", "deprecated", "tombstoned"]
                 .into_iter()
                 .filter(|other| *other != lifecycle)
@@ -525,7 +545,10 @@ fn discovery_lifecycle_binding_authenticates_transitions_and_every_supported_pro
             }
             for field in ["discovery_public_key", "discovery_signature"] {
                 let mut unsigned = value.clone();
-                unsigned.as_object_mut().expect("document").remove(field);
+                unsigned
+                    .as_object_mut()
+                    .unwrap_or_else(|| panic!("document"))
+                    .remove(field);
                 assert!(
                     verify_signed_discovery(&unsigned, [0x11; 32], 1500, key).is_err(),
                     "ABI {abi} unsigned {field}"
@@ -541,7 +564,10 @@ fn discovery_lifecycle_binding_authenticates_transitions_and_every_supported_pro
 #[test]
 fn discovery_live_node_read_requires_independent_state_authority() {
     let peer = Server::open(false, |request| {
-        match request["method"].as_str().expect("method") {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("method"))
+        {
             "eth_chainId" => json!("0x7d"),
             "eth_getBlockByNumber" => {
                 json!({"number":"0xa", "hash":format!("0x{}", "12".repeat(32))})
@@ -550,16 +576,13 @@ fn discovery_live_node_read_requires_independent_state_authority() {
             method => panic!("unexpected live read {method}"),
         }
     });
-    fn now() -> Result<u64, ProgramOperationError> {
-        Ok(1500)
-    }
     let client = HttpProgramTransport::connect_node_with_policy(
         &peer.endpoint,
         None,
         recorded_policy(10, 10),
-        now,
+        || Ok(1500),
     )
-    .expect("node trust");
+    .unwrap_or_else(|error| panic!("node trust: {error:?}"));
     assert!(matches!(
         client.discover([0x11; 32]),
         Err(ProgramOperationError::MissingNodeReadAuthority)
@@ -573,18 +596,22 @@ fn discovery_live_node_read_requires_independent_state_authority() {
 
 #[test]
 fn receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation() {
-    let recorded: Value = serde_json::from_str(RECORDED).expect("recorded node transcript");
+    let recorded: Value = serde_json::from_str(RECORDED)
+        .unwrap_or_else(|error| panic!("recorded node transcript: {error:?}"));
     let receipt = recorded["receiptJson"].clone();
     let activity = fixed(&receipt["txHash"]);
     let peer = Server::open(false, move |request| {
-        match request["method"].as_str().expect("method") {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("method"))
+        {
             "eth_chainId" => json!("0x7d"),
             "pax_sequencerReceipt" => receipt.clone(),
             method => panic!("unexpected receipt request {method}"),
         }
     });
     let rpc = RpcClient::connect(&peer.endpoint, None)
-        .expect("node RPC")
+        .unwrap_or_else(|error| panic!("node RPC: {error:?}"))
         .with_clock(TranscriptClock::advancing());
     for (first, last) in [(10, 10), (1, 10), (10, u64::MAX)] {
         let verified = rpc
@@ -594,12 +621,12 @@ fn receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation()
                 &recorded_policy(first, last),
                 Duration::from_secs(1),
             )
-            .expect("authorized receipt height");
+            .unwrap_or_else(|error| panic!("authorized receipt height: {error:?}"));
         assert_eq!(
             verified
                 .receipt()
                 .protocol()
-                .expect("protocol receipt")
+                .unwrap_or_else(|| panic!("protocol receipt"))
                 .activity_id(),
             activity
         );
@@ -637,6 +664,270 @@ fn receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation()
         ),
         Err(RpcError::Verification)
     ));
+    assert_wrong_receipt_authorities(&rpc, &recorded, activity, &key);
+    // Historical authority remains usable after configuring the next epoch separately.
+    let verified = rpc
+        .wait_for(
+            activity,
+            Commitment::Receipted,
+            &recorded_policy(10, 10),
+            Duration::from_secs(1),
+        )
+        .unwrap_or_else(|error| panic!("retained historical pin: {error:?}"));
+    assert_eq!(
+        verified.canonical_bytes(),
+        fixed_bytes(&recorded["receiptJson"]["receipt"])
+    );
+    assert!(peer.requests().iter().all(|(path, _)| path == "/"));
+}
+
+fn fixed_bytes(value: &Value) -> Vec<u8> {
+    let text = value
+        .as_str()
+        .unwrap_or_else(|| panic!("hex bytes"))
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("node hex"));
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("byte: {error:?}"))
+        })
+        .collect()
+}
+
+#[test]
+fn wallet_ambient_clock_is_replaced_by_injected_deadline_and_bounded_polling() {
+    let peer = Server::open(false, |request| {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("method"))
+        {
+            "eth_chainId" => json!("0x7d"),
+            "pax_sequencerReceipt" => Value::Null,
+            method => panic!("unexpected poll {method}"),
+        }
+    });
+    let account =
+        derive_from_seed(&[0x42; 32], 0).unwrap_or_else(|error| panic!("test wallet: {error:?}"));
+    let signer = LocalSigner::from_derived_account(&account);
+    let policy = recorded_policy(10, 10);
+    let clock = TranscriptClock::advancing();
+    let rpc = RpcClient::connect(&peer.endpoint, None)
+        .unwrap_or_else(|error| panic!("RPC: {error:?}"))
+        .with_clock(clock.clone());
+    let wallet = Wallet {
+        rpc: &rpc,
+        signer: &signer,
+        policy: &policy,
+        native_asset: [1; 32],
+    };
+    let activity = [0x11; 32];
+    assert!(
+        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::ZERO), Err(RpcError::Pending { activity_id }) if activity_id == activity)
+    );
+    assert!(matches!(
+        wallet.wait_for(activity, Commitment::Receipted, Duration::from_secs(301)),
+        Err(RpcError::InvalidRequest)
+    ));
+    assert!(clock
+        .budgets
+        .lock()
+        .unwrap_or_else(|error| panic!("clock budgets: {error:?}"))
+        .is_empty());
+    assert!(peer.requests().is_empty());
+    assert!(
+        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::from_millis(120)), Err(RpcError::Pending { activity_id }) if activity_id == activity)
+    );
+    let requests = peer.requests();
+    assert_eq!(requests[0].1["method"], "eth_chainId");
+    let polls = requests
+        .iter()
+        .filter(|(_, request)| request["method"] == "pax_sequencerReceipt")
+        .count();
+    assert!((1..=2).contains(&polls), "bounded polls: {polls}");
+    let budgets = clock
+        .budgets
+        .lock()
+        .unwrap_or_else(|error| panic!("clock budgets: {error:?}"));
+    assert_eq!(
+        budgets.len(),
+        13,
+        "deadline follows injected transcript to 120ms"
+    );
+    assert!(budgets
+        .iter()
+        .all(|budget| *budget <= Duration::from_millis(120)));
+}
+
+#[test]
+fn wallet_clock_unavailability_regression_and_late_success_are_refused() {
+    let account =
+        derive_from_seed(&[0x42; 32], 0).unwrap_or_else(|error| panic!("test wallet: {error:?}"));
+    let signer = LocalSigner::from_derived_account(&account);
+    let policy = recorded_policy(10, 10);
+    let rpc = RpcClient::connect("http://127.0.0.1:1", None)
+        .unwrap_or_else(|error| panic!("configuration: {error:?}"));
+    let wallet = Wallet {
+        rpc: &rpc,
+        signer: &signer,
+        policy: &policy,
+        native_asset: [1; 32],
+    };
+    assert!(matches!(
+        wallet.wait_for([1; 32], Commitment::Receipted, Duration::from_secs(1)),
+        Err(RpcError::Clock(ClockError::Unavailable))
+    ));
+    for (samples, expected) in [
+        (vec![Err(ClockError::Unavailable)], ClockError::Unavailable),
+        (
+            vec![Ok(reading(10)), Ok(reading(9))],
+            ClockError::Regression,
+        ),
+        (
+            vec![
+                Ok(reading(10)),
+                Ok(ClockReading {
+                    generation: [2; 16],
+                    ..reading(11)
+                }),
+            ],
+            ClockError::Regression,
+        ),
+    ] {
+        let rpc = RpcClient::connect("http://127.0.0.1:1", None)
+            .unwrap_or_else(|error| panic!("configuration: {error:?}"))
+            .with_clock(TranscriptClock::readings(samples));
+        let wallet = Wallet {
+            rpc: &rpc,
+            signer: &signer,
+            policy: &policy,
+            native_asset: [1; 32],
+        };
+        assert!(
+            matches!(wallet.wait_for([1;32], Commitment::Receipted, Duration::from_secs(1)), Err(RpcError::Clock(error)) if error == expected)
+        );
+    }
+    let recorded: Value =
+        serde_json::from_str(RECORDED).unwrap_or_else(|error| panic!("recorded node: {error:?}"));
+    let activity = fixed(&recorded["receiptJson"]["txHash"]);
+    let value = recorded["receiptJson"].clone();
+    let peer = Server::open(false, move |request| {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("method"))
+        {
+            "eth_chainId" => json!("0x7d"),
+            "pax_sequencerReceipt" => value.clone(),
+            method => panic!("unexpected request {method}"),
+        }
+    });
+    // Start, chain pre/post, loop, receipt pre/post: valid receipt arrives after expiry.
+    let clock = TranscriptClock::readings(
+        [0, 1, 2, 3, 4, 100]
+            .into_iter()
+            .map(|ms| Ok(reading(ms * 1_000_000))),
+    );
+    let rpc = RpcClient::connect(&peer.endpoint, None)
+        .unwrap_or_else(|error| panic!("RPC: {error:?}"))
+        .with_clock(clock);
+    let wallet = Wallet {
+        rpc: &rpc,
+        signer: &signer,
+        policy: &policy,
+        native_asset: [1; 32],
+    };
+    assert!(
+        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::from_millis(100)), Err(RpcError::Pending { activity_id }) if activity_id == activity)
+    );
+    assert_eq!(
+        peer.requests().len(),
+        2,
+        "late response cannot start another poll"
+    );
+}
+
+struct PeerRequest {
+    reader: BufReader<Box<dyn PeerIo>>,
+    path: String,
+    request: Value,
+}
+fn read_peer_request(stream: Box<dyn PeerIo>) -> PeerRequest {
+    let mut reader = BufReader::new(stream);
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .unwrap_or_else(|error| panic!("request line: {error:?}"));
+    assert!(line.starts_with("POST "), "{line}");
+    let path = line
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or_else(|| panic!("request path"))
+        .to_owned();
+    let mut length = None;
+    let mut header_bytes = line.len();
+    loop {
+        line.clear();
+        assert!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("HTTP header: {error:?}"))
+                > 0
+        );
+        header_bytes += line.len();
+        assert!(header_bytes <= 8192);
+        if line == "\r\n" {
+            break;
+        }
+        if let Some((name, value)) = line.split_once(':') {
+            if name.eq_ignore_ascii_case("content-length") {
+                length = Some(
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .unwrap_or_else(|error| panic!("content length: {error:?}")),
+                );
+            }
+        }
+    }
+    let length = length.unwrap_or_else(|| panic!("length-delimited request"));
+    assert!(length <= 1_048_576);
+    let mut bytes = vec![0; length];
+    reader
+        .read_exact(&mut bytes)
+        .unwrap_or_else(|error| panic!("request body: {error:?}"));
+    let request: Value =
+        serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("JSON request: {error:?}"));
+    PeerRequest {
+        reader,
+        path,
+        request,
+    }
+}
+
+fn assert_stream_boundary(log: &EventLog) {
+    let mut boundary = ResumableStream::new(cursor(0));
+    let mut page = log.page(0, STREAM_PAGE_EVENTS);
+    page.events[0].event_id = "x".repeat(STREAM_EVENT_ID_BYTES);
+    assert_eq!(
+        boundary
+            .accept(page)
+            .unwrap_or_else(|error| panic!("inclusive bounds: {error:?}"))
+            .len(),
+        STREAM_PAGE_EVENTS
+    );
+    assert_eq!(boundary.retained_identities(), STREAM_REPLAY_IDENTITIES);
+}
+
+fn assert_wrong_receipt_authorities(
+    rpc: &RpcClient,
+    recorded: &Value,
+    activity: [u8; 32],
+    key: &SigningKey,
+) {
     let wrong_identity = ReceiptPolicy {
         sequencer: SequencerAuthorization::new(
             [0x77; 32],
@@ -673,164 +964,4 @@ fn receipt_key_range_checks_same_real_receipt_at_boundaries_and_after_rotation()
         ),
         Err(RpcError::Verification)
     ));
-    // Historical authority remains usable after configuring the next epoch separately.
-    let verified = rpc
-        .wait_for(
-            activity,
-            Commitment::Receipted,
-            &recorded_policy(10, 10),
-            Duration::from_secs(1),
-        )
-        .expect("retained historical pin");
-    assert_eq!(
-        verified.canonical_bytes(),
-        fixed_bytes(&recorded["receiptJson"]["receipt"])
-    );
-    assert!(peer.requests().iter().all(|(path, _)| path == "/"));
-}
-
-fn fixed_bytes(value: &Value) -> Vec<u8> {
-    let text = value
-        .as_str()
-        .expect("hex bytes")
-        .strip_prefix("0x")
-        .expect("node hex");
-    text.as_bytes()
-        .chunks_exact(2)
-        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).expect("hex"), 16).expect("byte"))
-        .collect()
-}
-
-#[test]
-fn wallet_ambient_clock_is_replaced_by_injected_deadline_and_bounded_polling() {
-    let peer = Server::open(false, |request| {
-        match request["method"].as_str().expect("method") {
-            "eth_chainId" => json!("0x7d"),
-            "pax_sequencerReceipt" => Value::Null,
-            method => panic!("unexpected poll {method}"),
-        }
-    });
-    let account = derive_from_seed(&[0x42; 32], 0).expect("test wallet");
-    let signer = LocalSigner::from_derived_account(&account);
-    let policy = recorded_policy(10, 10);
-    let clock = TranscriptClock::advancing();
-    let rpc = RpcClient::connect(&peer.endpoint, None)
-        .expect("RPC")
-        .with_clock(clock.clone());
-    let wallet = Wallet {
-        rpc: &rpc,
-        signer: &signer,
-        policy: &policy,
-        native_asset: [1; 32],
-    };
-    let activity = [0x11; 32];
-    assert!(
-        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::ZERO), Err(RpcError::Pending { activity_id }) if activity_id == activity)
-    );
-    assert!(matches!(
-        wallet.wait_for(activity, Commitment::Receipted, Duration::from_secs(301)),
-        Err(RpcError::InvalidRequest)
-    ));
-    assert!(clock.budgets.lock().expect("clock budgets").is_empty());
-    assert!(peer.requests().is_empty());
-    assert!(
-        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::from_millis(120)), Err(RpcError::Pending { activity_id }) if activity_id == activity)
-    );
-    let requests = peer.requests();
-    assert_eq!(requests[0].1["method"], "eth_chainId");
-    let polls = requests
-        .iter()
-        .filter(|(_, request)| request["method"] == "pax_sequencerReceipt")
-        .count();
-    assert!((1..=2).contains(&polls), "bounded polls: {polls}");
-    let budgets = clock.budgets.lock().expect("clock budgets");
-    assert_eq!(
-        budgets.len(),
-        13,
-        "deadline follows injected transcript to 120ms"
-    );
-    assert!(budgets
-        .iter()
-        .all(|budget| *budget <= Duration::from_millis(120)));
-}
-
-#[test]
-fn wallet_clock_unavailability_regression_and_late_success_are_refused() {
-    let account = derive_from_seed(&[0x42; 32], 0).expect("test wallet");
-    let signer = LocalSigner::from_derived_account(&account);
-    let policy = recorded_policy(10, 10);
-    let rpc = RpcClient::connect("http://127.0.0.1:1", None).expect("configuration");
-    let wallet = Wallet {
-        rpc: &rpc,
-        signer: &signer,
-        policy: &policy,
-        native_asset: [1; 32],
-    };
-    assert!(matches!(
-        wallet.wait_for([1; 32], Commitment::Receipted, Duration::from_secs(1)),
-        Err(RpcError::Clock(ClockError::Unavailable))
-    ));
-    for (samples, expected) in [
-        (vec![Err(ClockError::Unavailable)], ClockError::Unavailable),
-        (
-            vec![Ok(reading(10)), Ok(reading(9))],
-            ClockError::Regression,
-        ),
-        (
-            vec![
-                Ok(reading(10)),
-                Ok(ClockReading {
-                    generation: [2; 16],
-                    ..reading(11)
-                }),
-            ],
-            ClockError::Regression,
-        ),
-    ] {
-        let rpc = RpcClient::connect("http://127.0.0.1:1", None)
-            .expect("configuration")
-            .with_clock(TranscriptClock::readings(samples));
-        let wallet = Wallet {
-            rpc: &rpc,
-            signer: &signer,
-            policy: &policy,
-            native_asset: [1; 32],
-        };
-        assert!(
-            matches!(wallet.wait_for([1;32], Commitment::Receipted, Duration::from_secs(1)), Err(RpcError::Clock(error)) if error == expected)
-        );
-    }
-    let recorded: Value = serde_json::from_str(RECORDED).expect("recorded node");
-    let activity = fixed(&recorded["receiptJson"]["txHash"]);
-    let value = recorded["receiptJson"].clone();
-    let peer = Server::open(false, move |request| {
-        match request["method"].as_str().expect("method") {
-            "eth_chainId" => json!("0x7d"),
-            "pax_sequencerReceipt" => value.clone(),
-            method => panic!("unexpected request {method}"),
-        }
-    });
-    // Start, chain pre/post, loop, receipt pre/post: valid receipt arrives after expiry.
-    let clock = TranscriptClock::readings(
-        [0, 1, 2, 3, 4, 100]
-            .into_iter()
-            .map(|ms| Ok(reading(ms * 1_000_000))),
-    );
-    let rpc = RpcClient::connect(&peer.endpoint, None)
-        .expect("RPC")
-        .with_clock(clock);
-    let wallet = Wallet {
-        rpc: &rpc,
-        signer: &signer,
-        policy: &policy,
-        native_asset: [1; 32],
-    };
-    assert!(
-        matches!(wallet.wait_for(activity, Commitment::Receipted, Duration::from_millis(100)), Err(RpcError::Pending { activity_id }) if activity_id == activity)
-    );
-    assert_eq!(
-        peer.requests().len(),
-        2,
-        "late response cannot start another poll"
-    );
 }

@@ -1,3 +1,7 @@
+#[path = "support/recording.rs"]
+mod recording;
+use recording::{recorded_base64, recorded_timestamp};
+
 use std::collections::BTreeSet;
 
 use ed25519_dalek::{Signature, VerifyingKey};
@@ -62,86 +66,6 @@ fn fixed<const N: usize>(value: &Value, field: &str) -> [u8; N] {
     bytes(value, field)
         .try_into()
         .unwrap_or_else(|_| panic!("incorrect byte length for {field}"))
-}
-
-fn recorded_base64(encoded: &str) -> Vec<u8> {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    assert_eq!(encoded.len() % 4, 0);
-    let mut decoded = Vec::new();
-    let chunks = encoded.as_bytes().chunks_exact(4);
-    let count = chunks.len();
-    for (index, chunk) in chunks.enumerate() {
-        let padding = chunk.iter().rev().take_while(|byte| **byte == b'=').count();
-        assert!(padding <= 2);
-        assert!(padding == 0 || index + 1 == count);
-        let mut word = 0_u32;
-        for (position, byte) in chunk.iter().enumerate() {
-            let digit = if position >= 4 - padding {
-                assert_eq!(*byte, b'=');
-                0
-            } else {
-                ALPHABET
-                    .iter()
-                    .position(|candidate| candidate == byte)
-                    .unwrap_or_else(|| panic!("invalid recorded base64")) as u32
-            };
-            word = (word << 6) | digit;
-        }
-        assert_eq!(word & ((1 << (padding * 8)) - 1), 0);
-        decoded.extend_from_slice(&word.to_be_bytes()[1..4 - padding]);
-    }
-    decoded
-}
-
-fn recorded_timestamp(encoded: &str) -> Timestamp {
-    assert!(encoded.is_ascii());
-    let utc = encoded
-        .strip_suffix('Z')
-        .unwrap_or_else(|| panic!("non-UTC recording"));
-    let (date, time) = utc
-        .split_once('T')
-        .unwrap_or_else(|| panic!("invalid recorded time"));
-    let date: Vec<u32> = date.split('-').map(|part| part.parse().unwrap()).collect();
-    assert_eq!(date.len(), 3);
-    let (year, month, day) = (date[0], date[1], date[2]);
-    assert!((1..=9999).contains(&year));
-    assert!((1..=12).contains(&month));
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let months = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    assert!((1..=months[month as usize - 1]).contains(&day));
-    let (whole, fraction) = time.split_once('.').unwrap_or((time, ""));
-    assert!(fraction.len() <= 9 && fraction.bytes().all(|byte| byte.is_ascii_digit()));
-    let time: Vec<u32> = whole.split(':').map(|part| part.parse().unwrap()).collect();
-    assert_eq!(time.len(), 3);
-    assert!(time[0] < 24 && time[1] < 60 && time[2] < 60);
-    let days_before_year = |year: u32| {
-        let previous = i64::from(year - 1);
-        365 * previous + previous / 4 - previous / 100 + previous / 400
-    };
-    let days = days_before_year(year) - days_before_year(1970)
-        + i64::from(months[..month as usize - 1].iter().sum::<u32>())
-        + i64::from(day - 1);
-    Timestamp {
-        seconds: days * 86_400 + i64::from(time[0] * 3600 + time[1] * 60 + time[2]),
-        nanos: if fraction.is_empty() {
-            0
-        } else {
-            fraction.parse::<u32>().unwrap() * 10_u32.pow(9 - fraction.len() as u32)
-        },
-    }
 }
 
 fn recorded_hex(value: &Value, field: &str) -> Vec<u8> {
@@ -574,6 +498,11 @@ fn committed_vector_commits_verify() {
             })
             .collect();
         let commit = commit(&case["commit"]);
+        assert_eq!(set.len(), 2);
+        assert_eq!(set[1].voting_power, 1);
+        assert_eq!(commit.signatures.len(), 2);
+        assert_eq!(commit.signatures[1].block_id_flag, BlockIdFlag::Absent);
+        let absent_power = set[1].voting_power as u64;
         assert_eq!(header.chain_id, string(provenance, "chainId"));
         assert_eq!(header.chain_id, execution.chain_id);
         assert_eq!(header.height, execution.height + 1);
@@ -603,7 +532,18 @@ fn committed_vector_commits_verify() {
         let expected = &case["expected"];
         let expected_error = match id {
             "committed-payExact" => {
-                assert_eq!(commit_result, Ok(number(expected, "power")), "{id}");
+                assert_eq!(
+                    set.iter()
+                        .map(|validator| validator.voting_power as u64)
+                        .sum::<u64>(),
+                    number(expected, "power"),
+                    "{id}"
+                );
+                assert_eq!(
+                    commit_result,
+                    Ok(number(expected, "power") - absent_power),
+                    "{id}"
+                );
                 None
             }
             "commit-under-two-thirds" => {
@@ -630,7 +570,18 @@ fn committed_vector_commits_verify() {
             _ => panic!("unexpected committed vector {id}"),
         };
         if id != "commit-under-two-thirds" {
-            assert_eq!(commit_result, Ok(number(expected, "commitPower")), "{id}");
+            assert_eq!(
+                set.iter()
+                    .map(|validator| validator.voting_power as u64)
+                    .sum::<u64>(),
+                number(expected, "commitPower"),
+                "{id}"
+            );
+            assert_eq!(
+                commit_result,
+                Ok(number(expected, "commitPower") - absent_power),
+                "{id}"
+            );
         }
         if id != "wrong-validators-hash" {
             assert_eq!(header_result, Ok(header.hash()), "{id}");
@@ -644,7 +595,11 @@ fn committed_vector_commits_verify() {
         match expected_error {
             None => {
                 assert_eq!(string(expected, "rung"), "committed");
-                assert_eq!(verified, Ok(number(expected, "power")), "{id}");
+                assert_eq!(
+                    verified,
+                    Ok(number(expected, "power") - absent_power),
+                    "{id}"
+                );
             }
             Some(error) => {
                 assert_eq!(string(expected, "rung"), "refused");

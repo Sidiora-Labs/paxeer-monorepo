@@ -348,14 +348,99 @@ func TestEveryConfigurationPutsTheNativeCapFirst(t *testing.T) {
 	}
 }
 
-func TestCommittedManifestCarriesPlaceholdersEveryToolRefuses(t *testing.T) {
-	_, err := LoadAttestorManifest(filepath.Join("..", "attestors.json"))
+func TestCommittedManifestMatchesEveryChainAndEmitsGovernedProposals(t *testing.T) {
+	manifestPath := filepath.Join("..", "attestors.json")
+	manifest := loadManifest(t, manifestPath)
+	if manifest.Threshold != 1 || len(manifest.Signers()) != 1 || manifest.Signers()[0].Hex() != "0x12598f221f1e645322c7665537d4ab130281f51d" {
+		t.Fatalf("unexpected governed manifest: %+v", manifest)
+	}
+	chains := chainconfig.Chains()
+	if len(chains) != 9 {
+		t.Fatalf("got %d committed chains, want nine", len(chains))
+	}
+	for _, chain := range chains {
+		t.Run(chain.Name, func(t *testing.T) {
+			canonical := loadCanonical(t, committedConfiguration(t, chain.Name))
+			if err := manifest.Check(ChainConfig{Attestors: canonical.Attestors, Threshold: canonical.Threshold}); err != nil {
+				t.Fatalf("committed signer configuration differs from manifest: %v", err)
+			}
+			// Fill only the remaining deployment inputs in a temporary copy.
+			config := deployableConfigurationWithManifest(t, chain.Name, manifest)
+			root := t.TempDir()
+			bodies, proposals := filepath.Join(root, "bodies"), filepath.Join(root, "proposals")
+			var report bytes.Buffer
+			vault := ethereumVault
+			if chain.Name == "solana" {
+				vault = vectors.VectorVaultHandle.Hex()
+			}
+			if err := Run([]string{"-manifest", manifestPath, "-authority", governanceAuthority,
+				"-vault", vault, "-proposals", proposals, config, bodies}, &report); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(bodies, "02-set-attestors.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := decodeStrict[types.MsgSetAttestors](t, "02-set-attestors.json", raw)
+			if err := msg.ValidateBasic(); err != nil {
+				t.Fatal(err)
+			}
+			if msg.Authority != governanceAuthority || msg.Set.Threshold != manifest.Threshold || len(msg.Set.Attestors) != len(manifest.Signers()) {
+				t.Fatalf("emitted set differs from the governed configuration: %+v", msg.Set)
+			}
+			for i, attestor := range msg.Set.Attestors {
+				if attestor.Signer != manifest.Signers()[i] || !attestor.Bond.IsZero() {
+					t.Fatalf("emitted attestor differs from manifest: %+v", attestor)
+				}
+			}
+			proposalPath := filepath.Join(proposals, OpenChainProposalFile)
+			proposalRaw, err := os.ReadFile(proposalPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			messages := decodeProposalStrict(t, File{Name: OpenChainProposalFile, Body: proposalRaw})
+			if len(messages) < 2 {
+				t.Fatal("opening proposal has no attestor set")
+			}
+			registration, ok := messages[0].(*types.MsgRegisterChain)
+			if !ok || registration.Chain.ChainID != chain.ID {
+				t.Fatalf("opening proposal does not register chain %d: %v", chain.ID, messages[0])
+			}
+			sameCarried(t, "governed proposal attestors", messages[1], &msg)
+			for _, path := range []string{filepath.Join(bodies, "02-set-attestors.json"), proposalPath} {
+				if !strings.Contains(report.String(), path) {
+					t.Fatalf("command did not report %s", path)
+				}
+			}
+		})
+	}
+}
+
+func TestPendingGovernanceManifestIsRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "attestors.json")
+	document := struct {
+		Attestors         []string `json:"attestors"`
+		Threshold         uint32   `json:"threshold"`
+		PendingGovernance bool     `json:"pending_governance"`
+	}{
+		Attestors:         []string{"PLACEHOLDER:attestor-1", "PLACEHOLDER:attestor-2", "PLACEHOLDER:attestor-3", "PLACEHOLDER:attestor-4", "PLACEHOLDER:attestor-5"},
+		Threshold:         3,
+		PendingGovernance: true,
+	}
+	raw, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LoadAttestorManifest(path)
 	if err == nil {
-		t.Fatal("the committed attestor manifest was accepted")
+		t.Fatal("the pending governance manifest was accepted")
 	}
 	refusal := fieldError(t, err)
-	if refusal.Field != fieldDocument {
-		t.Fatalf("the refusal names %q, want %s", refusal.Field, fieldDocument)
+	if refusal.File != path || refusal.Field != fieldDocument {
+		t.Fatalf("wrong pending governance refusal: %v", err)
 	}
 	if !strings.Contains(refusal.Msg, `unknown field "pending_governance"`) {
 		t.Fatalf("the refusal reads %q, want the pending governance field refused", refusal.Msg)
@@ -572,12 +657,19 @@ func TestRunWritesNothingWhenItRefuses(t *testing.T) {
 	}
 }
 
-func TestRunRefusesTheCommittedPlaceholderManifest(t *testing.T) {
+func TestRunRefusesConfigurationThatDiffersFromCommittedManifest(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "proposals")
 	var report bytes.Buffer
 	err := Run([]string{"-manifest", filepath.Join("..", "attestors.json"), ethereumPath, out}, &report)
 	if err == nil {
-		t.Fatal("the command ran against the committed placeholder manifest")
+		t.Fatal("the command accepted a configuration differing from the governed manifest")
+	}
+	refusal := fieldError(t, err)
+	if refusal.Field != fieldAttestors || !strings.Contains(refusal.Msg, "attestors against") {
+		t.Fatalf("expected signer-count mismatch after manifest acceptance: %v", err)
+	}
+	if report.Len() != 0 {
+		t.Fatalf("refused command reported output: %s", &report)
 	}
 	if _, statErr := os.Stat(out); !os.IsNotExist(statErr) {
 		t.Fatalf("the refused run left %s behind (%v)", out, statErr)
@@ -636,6 +728,11 @@ func solanaOwner() string {
 // and returns the copy's path, laid out as <root>/<chain>/config.json.
 func deployableConfiguration(t *testing.T, chain string) string {
 	t.Helper()
+	return deployableConfigurationWithManifest(t, chain, loadManifest(t, testManifest))
+}
+
+func deployableConfigurationWithManifest(t *testing.T, chain string, manifest AttestorManifest) string {
+	t.Helper()
 	raw, err := os.ReadFile(committedConfiguration(t, chain))
 	if err != nil {
 		t.Fatalf("reading the %s configuration: %v", chain, err)
@@ -647,10 +744,14 @@ func deployableConfiguration(t *testing.T, chain string) string {
 		t.Fatalf("decoding the %s configuration: %v", chain, err)
 	}
 	attestors := make([]string, 0, 5)
-	for _, signer := range loadManifest(t, testManifest).Signers() {
+	for _, signer := range manifest.Signers() {
 		attestors = append(attestors, signer.Hex())
 	}
 	document["attestors"] = attestors
+	document["threshold"] = manifest.Threshold
+	if chain == "hyperevm" {
+		document["big_blocks"].(map[string]any)["acknowledged"] = true
+	}
 	if chain == "solana" {
 		document["owner"] = solanaOwner()
 		document["solana"].(map[string]any)["program_id"] = vectors.VectorProgramID.Base58()

@@ -167,10 +167,13 @@ exact order (a standalone `ReceiptLookupFrame::encode` omits the presence tag):
 | 13 | `inclusion_height` | u64 |
 
 Human verification codes are 1 SEQUENCER_SIGNED, 2 BATCH_INCLUDED,
-3 STATE_PROVEN, 4 CHECKPOINT_FINALISED and 5 SETTLEMENT_ANCHORED. Codes 4 and 5
-are retained historical migration metadata. They confer no extra chain authority;
-the actual achieved rung is carried separately, and requests above Committed
-are refused. UNVERIFIED, unknown tags/codes, empty receipt material, truncation,
+3 STATE_PROVEN and 6 COMMITTED, as implemented by
+[human_receipt_frame.rs](../services/agent/crates/layerx-agentd/src/human_receipt_frame.rs).
+Legacy codes 4 and 5 decode as COMMITTED for migration; current encoding emits
+code 6. A committed claim requires verification of the block commit, with no
+additional settlement rung. The actual achieved rung is carried separately,
+and requests above Committed are refused. UNVERIFIED, unknown tags/codes, empty
+receipt material, truncation,
 trailing bytes and oversized frames are rejected by the codec. A decodable
 frame still requires the consumer's cryptographic and binding checks.
 

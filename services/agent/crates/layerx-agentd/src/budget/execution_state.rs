@@ -56,6 +56,27 @@ pub(crate) fn committed_coordinates(
 }
 
 impl CommittedExecutionState {
+    /// Height of the authenticated state immediately before this execution.
+    #[must_use]
+    pub const fn prestate_height(&self) -> u64 {
+        self.prestate_height
+    }
+
+    /// Whether the program already existed before execution (false for deployment).
+    #[must_use]
+    pub fn program_existed(&self) -> bool {
+        self.program_records.program.is_some()
+    }
+
+    /// Authenticated pre-execution balance and frozen status of a program value account.
+    #[must_use]
+    pub fn account_status(&self, account: [u8; 32]) -> Option<(u128, bool)> {
+        self.program_records
+            .accounts
+            .get(&account)
+            .map(|value| (value.balance, value.frozen))
+    }
+
     pub(crate) fn program_records(&self) -> &CommittedProgramRecords {
         &self.program_records
     }
@@ -140,11 +161,15 @@ impl CommittedExecutionState {
 }
 
 #[cfg(test)]
+type TestProgramRecordRead<'a> =
+    dyn FnMut(&[u8], u64) -> Result<Option<Vec<u8>>, ProgramSettlementError> + 'a;
+
+#[cfg(test)]
 fn collect_program_records(
     program: [u8; 32],
     accounts: &[[u8; 32]],
     height: u64,
-    read: &mut dyn FnMut(&[u8], u64) -> Result<Option<Vec<u8>>, ProgramSettlementError>,
+    read: &mut TestProgramRecordRead<'_>,
 ) -> Result<BTreeMap<Vec<u8>, Vec<u8>>, ProgramSettlementError> {
     let mut program_records = BTreeMap::new();
     let mut read_record = |key: Vec<u8>| -> Result<Option<Vec<u8>>, ProgramSettlementError> {
@@ -191,32 +216,43 @@ fn collect_program_records(
 
 pub(crate) fn committed_execution_state(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
-    _verifier: &EvidenceAuthority,
-    _sequencer_key: [u8; 32],
+    input: &CommittedExecutionEvidence<'_>,
     endpoint: &SequencerEndpoint,
     caps: &crate::read::CommittedCaps,
     receipt: &VerifiedReceiptEvidence,
     program: [u8; 32],
     accounts: &[[u8; 32]],
-    _correlation: u64,
-    _authorization: SequencerAuthorization,
 ) -> Result<CommittedExecutionState, ProgramSettlementError> {
+    let CommittedExecutionEvidence {
+        verifier,
+        sequencer_key,
+        correlation,
+        authorization,
+    } = *input;
+
     committed_execution_state_with_account_proofs(
         node,
-        _verifier,
-        _sequencer_key,
+        verifier,
+        sequencer_key,
         endpoint,
         caps,
         receipt,
         program,
         accounts,
-        _correlation,
-        _authorization,
+        correlation,
+        authorization,
         &BTreeMap::new(),
     )
 }
 
 /// Acquires receipt-bound prestate with separately authenticated account status.
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub fn committed_execution_state_with_account_proofs(
     node: &mut SequencerEndpoint,
     _verifier: &EvidenceAuthority,
@@ -234,10 +270,12 @@ pub fn committed_execution_state_with_account_proofs(
         node,
         endpoint,
         caps,
-        receipt.canonical_receipt(),
-        receipt.activity_id(),
-        receipt.global_sequence(),
-        receipt.receipt_ref(),
+        &ExecutionReceipt {
+            canonical_receipt: receipt.canonical_receipt(),
+            activity_id: receipt.activity_id(),
+            global_sequence: receipt.global_sequence(),
+            receipt_ref: receipt.receipt_ref(),
+        },
         program,
         accounts,
         account_proofs,
@@ -248,14 +286,18 @@ pub(super) fn acquire_execution_state(
     node: &mut SequencerEndpoint,
     endpoint: &SequencerEndpoint,
     caps: &crate::read::CommittedCaps,
-    canonical_receipt: &[u8],
-    activity_id: [u8; 32],
-    global_sequence: u64,
-    receipt_ref: [u8; 32],
+    input: &ExecutionReceipt<'_>,
     program: [u8; 32],
     accounts: &[[u8; 32]],
     account_proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
 ) -> Result<CommittedExecutionState, ProgramSettlementError> {
+    let ExecutionReceipt {
+        canonical_receipt,
+        activity_id,
+        global_sequence,
+        receipt_ref,
+    } = *input;
+
     let fail = |_| ProgramSettlementError::SourceSnapshot;
     let observed_head = endpoint.block_number().map_err(fail)?;
     if node.chain_id().map_err(fail)? != endpoint.chain_id().map_err(fail)?
@@ -342,9 +384,9 @@ pub(super) fn acquire_execution_state(
         program_records,
         accounts: caps.all_accounts().clone(),
         observed_head_sequence: observed_head,
-        activity_id: activity_id,
-        global_sequence: global_sequence,
-        receipt_ref: receipt_ref,
+        activity_id,
+        global_sequence,
+        receipt_ref,
     };
     state.validate_binding(activity_id, global_sequence, receipt_ref)?;
     Ok(state)
@@ -468,12 +510,14 @@ fn decode_fee_schedule(bytes: &[u8]) -> Result<ProgramFeeView, ProgramSettlement
     }
     let mut prices = [0; 7];
     for (index, price) in prices.iter_mut().enumerate() {
-        *price = abi_uint(&bytes, index + 1, 8)? as u64;
+        *price = u64::try_from(abi_uint(bytes, index + 1, 8)?)
+            .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
     }
     let fee_schedule = ProgramFeeView {
-        version: abi_uint(&bytes, 0, 4)? as u32,
+        version: u32::try_from(abi_uint(bytes, 0, 4)?)
+            .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
         prices,
-        fee_asset: abi_word(&bytes, 8)?,
+        fee_asset: abi_word(bytes, 8)?,
     };
     if fee_schedule.version == 0
         || fee_schedule.prices.contains(&0)
@@ -503,14 +547,7 @@ pub(crate) fn read_program_records_with_account_proofs(
     if program == [0; 32] || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
-    let read = |signature: &[u8], arguments: &[u8]| -> Result<Vec<u8>, ProgramSettlementError> {
-        let mut calldata =
-            layerx_crypto::evm_transaction::transaction_hash(signature)[..4].to_vec();
-        calldata.extend(arguments);
-        verified_program_record(node, checkpoint, &calldata)
-            .map(|value| value.canonical_state().to_vec())
-            .map_err(|_| ProgramSettlementError::SourceSnapshot)
-    };
+    let reader = ProgramRecordReader { node, checkpoint };
     let reads = crate::read::CommittedReads::at_checkpoint(node, checkpoint)
         .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
     if !reads
@@ -520,7 +557,7 @@ pub(crate) fn read_program_records_with_account_proofs(
         if !accounts.is_empty() {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
-        let bytes = read(b"getCurrentFeeSchedule()", &[])?;
+        let bytes = reader.read(b"getCurrentFeeSchedule()", &[])?;
         let fee_schedule = decode_fee_schedule(&bytes)?;
         return Ok(CommittedProgramRecords {
             program: None,
@@ -532,55 +569,12 @@ pub(crate) fn read_program_records_with_account_proofs(
             exit_routes: BTreeMap::new(),
         });
     }
-    let bytes = read(b"getProgram(bytes32)", &program)?;
-    if bytes.len() != 192 {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
-    let program_view = ProgramView {
-        policy: abi_uint(&bytes, 0, 1)? as u8,
-        authority: abi_word(&bytes, 1)?,
-        code_hash: abi_word(&bytes, 2)?,
-        abi_version: abi_uint(&bytes, 3, 2)? as u16,
-        version: abi_uint(&bytes, 4, 4)? as u32,
-        active: abi_bool(&bytes, 5)?,
-    };
-    if !matches!(program_view.policy, 0 | 1)
-        || (program_view.policy == 0) != (program_view.authority == [0; 32])
-        || program_view.code_hash == [0; 32]
-        || !matches!(program_view.abi_version, 1..=4)
-        || program_view.version == 0
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
+    let program_view = reader.program(program)?;
     let owner = crate::protocol_evidence::verified_program_owner(node, checkpoint, &program)
         .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
-    let bytes = read(b"getWindDown(bytes32)", &program)?;
-    if bytes.len() != 192 {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
-    let wind_down = WindDownView {
-        status: abi_uint(&bytes, 0, 1)? as u8,
-        exit_program: abi_word(&bytes, 1)?,
-        deadline: abi_uint(&bytes, 2, 8)? as u64,
-        effective_sequence: abi_uint(&bytes, 3, 8)? as u64,
-        account_count: abi_uint(&bytes, 4, 2)? as u16,
-        live_count: abi_uint(&bytes, 5, 2)? as u16,
-    };
-    if !matches!(wind_down.status, 1..=3) || wind_down.live_count > wind_down.account_count {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
-    let bytes = read(b"getInterface(bytes32)", &program)?;
-    let interface = InterfaceView {
-        version: abi_uint(&bytes, 0, 4)? as u32,
-        digest: abi_word(&bytes, 1)?,
-        encoding: abi_tail(&bytes, 2, 3, 1_048_576)?,
-    };
-    if interface.version != 0
-        && <[u8; 32]>::from(Sha256::digest(&interface.encoding)) != interface.digest
-    {
-        return Err(ProgramSettlementError::SourceSnapshot);
-    }
-    let bytes = read(b"getCurrentFeeSchedule()", &[])?;
+    let wind_down = reader.wind_down(program)?;
+    let interface = reader.interface(program)?;
+    let bytes = reader.read(b"getCurrentFeeSchedule()", &[])?;
     let fee_schedule = decode_fee_schedule(&bytes)?;
     let mut bindings = BTreeMap::new();
     let mut exit_routes = BTreeMap::new();
@@ -588,7 +582,127 @@ pub(crate) fn read_program_records_with_account_proofs(
         if *account == [0; 32] || bindings.contains_key(account) {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
-        let bytes = read(b"getProgramAccountById(bytes32)", account)?;
+        let value = reader.account(program, account, account_proofs)?;
+        bindings.insert(*account, value);
+        if wind_down.status >= 2 {
+            let bytes = reader.read(
+                b"getExitRoute(bytes32,bytes32)",
+                &[program.as_slice(), account.as_slice()].concat(),
+            )?;
+            let route = ProgramExitRoute {
+                asset: abi_word(&bytes, 0)?,
+                destination: abi_word(&bytes, 1)?,
+                seed: abi_tail(&bytes, 2, 3, 128)?,
+            };
+            if route.asset == [0; 32] || route.destination == [0; 32] {
+                return Err(ProgramSettlementError::SourceSnapshot);
+            }
+            exit_routes.insert(*account, route);
+        }
+    }
+    Ok(CommittedProgramRecords {
+        program: Some(program_view),
+        owner,
+        wind_down: Some(wind_down),
+        interface: Some(interface),
+        fee_schedule,
+        accounts: bindings,
+        exit_routes,
+    })
+}
+
+struct ProgramRecordReader<'a> {
+    node: &'a SequencerEndpoint,
+    checkpoint: &'a crate::read::ServedCheckpoint,
+}
+
+impl ProgramRecordReader<'_> {
+    fn read(&self, signature: &[u8], arguments: &[u8]) -> Result<Vec<u8>, ProgramSettlementError> {
+        let mut calldata =
+            layerx_crypto::evm_transaction::transaction_hash(signature)[..4].to_vec();
+        calldata.extend(arguments);
+        verified_program_record(self.node, self.checkpoint, &calldata)
+            .map(|value| value.canonical_state().to_vec())
+            .map_err(|_| ProgramSettlementError::SourceSnapshot)
+    }
+
+    fn program(&self, program: [u8; 32]) -> Result<ProgramView, ProgramSettlementError> {
+        let bytes = self.read(b"getProgram(bytes32)", &program)?;
+        if bytes.len() != 192 {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+        let program_view = ProgramView {
+            policy: u8::try_from(abi_uint(&bytes, 0, 1)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            authority: abi_word(&bytes, 1)?,
+            code_hash: abi_word(&bytes, 2)?,
+            abi_version: u16::try_from(abi_uint(&bytes, 3, 2)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            version: u32::try_from(abi_uint(&bytes, 4, 4)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            active: abi_bool(&bytes, 5)?,
+        };
+        if !matches!(program_view.policy, 0 | 1)
+            || (program_view.policy == 0) != (program_view.authority == [0; 32])
+            || program_view.code_hash == [0; 32]
+            || !matches!(program_view.abi_version, 1..=4)
+            || program_view.version == 0
+        {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+
+        Ok(program_view)
+    }
+
+    fn wind_down(&self, program: [u8; 32]) -> Result<WindDownView, ProgramSettlementError> {
+        let bytes = self.read(b"getWindDown(bytes32)", &program)?;
+        if bytes.len() != 192 {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+        let wind_down = WindDownView {
+            status: u8::try_from(abi_uint(&bytes, 0, 1)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            exit_program: abi_word(&bytes, 1)?,
+            deadline: u64::try_from(abi_uint(&bytes, 2, 8)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            effective_sequence: u64::try_from(abi_uint(&bytes, 3, 8)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            account_count: u16::try_from(abi_uint(&bytes, 4, 2)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            live_count: u16::try_from(abi_uint(&bytes, 5, 2)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+        };
+        if !matches!(wind_down.status, 1..=3) || wind_down.live_count > wind_down.account_count {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+
+        Ok(wind_down)
+    }
+
+    fn interface(&self, program: [u8; 32]) -> Result<InterfaceView, ProgramSettlementError> {
+        let bytes = self.read(b"getInterface(bytes32)", &program)?;
+        let interface = InterfaceView {
+            version: u32::try_from(abi_uint(&bytes, 0, 4)?)
+                .map_err(|_| ProgramSettlementError::SourceSnapshot)?,
+            digest: abi_word(&bytes, 1)?,
+            encoding: abi_tail(&bytes, 2, 3, 1_048_576)?,
+        };
+        if interface.version != 0
+            && <[u8; 32]>::from(Sha256::digest(&interface.encoding)) != interface.digest
+        {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+
+        Ok(interface)
+    }
+
+    fn account(
+        &self,
+        program: [u8; 32],
+        account: &[u8; 32],
+        account_proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+    ) -> Result<ProgramAccountView, ProgramSettlementError> {
+        let bytes = self.read(b"getProgramAccountById(bytes32)", account)?;
         let owner_program = abi_word(&bytes, 0)?;
         let asset = abi_word(&bytes, 1)?;
         let seed = abi_tail(
@@ -617,15 +731,16 @@ pub(crate) fn read_program_records_with_account_proofs(
         args.extend(length);
         args.extend(&seed);
         args.resize(128 + seed.len().div_ceil(32) * 32, 0);
-        let bytes = read(b"getProgramAccount(bytes32,bytes32,bytes)", &args)?;
+        let bytes = self.read(b"getProgramAccount(bytes32,bytes32,bytes)", &args)?;
         if bytes.len() != 96 || abi_word(&bytes, 0)? != *account || abi_word(&bytes, 1)? != asset {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
-        let registered_sequence = abi_uint(&bytes, 2, 8)? as u64;
-        if registered_sequence > checkpoint.height {
+        let registered_sequence = u64::try_from(abi_uint(&bytes, 2, 8)?)
+            .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
+        if registered_sequence > self.checkpoint.height {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
-        let bytes = read(
+        let bytes = self.read(
             b"getValueAccount(bytes32,bytes32)",
             &[program.as_slice(), account.as_slice()].concat(),
         )?;
@@ -646,8 +761,8 @@ pub(crate) fn read_program_records_with_account_proofs(
             || authenticated.authority_key.is_some()
             || authenticated.asset_id() != asset
             || authenticated.balance() != observed.balance
-            || header.batch_number() != checkpoint.height
-            || header.resulting_state_root() != checkpoint.app_hash
+            || header.batch_number() != self.checkpoint.height
+            || header.resulting_state_root() != self.checkpoint.app_hash
         {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
@@ -659,32 +774,9 @@ pub(crate) fn read_program_records_with_account_proofs(
             balance: observed.balance,
             frozen: authenticated.frozen,
         };
-        bindings.insert(*account, value);
-        if wind_down.status >= 2 {
-            let bytes = read(
-                b"getExitRoute(bytes32,bytes32)",
-                &[program.as_slice(), account.as_slice()].concat(),
-            )?;
-            let route = ProgramExitRoute {
-                asset: abi_word(&bytes, 0)?,
-                destination: abi_word(&bytes, 1)?,
-                seed: abi_tail(&bytes, 2, 3, 128)?,
-            };
-            if route.asset == [0; 32] || route.destination == [0; 32] {
-                return Err(ProgramSettlementError::SourceSnapshot);
-            }
-            exit_routes.insert(*account, route);
-        }
+
+        Ok(value)
     }
-    Ok(CommittedProgramRecords {
-        program: Some(program_view),
-        owner,
-        wind_down: Some(wind_down),
-        interface: Some(interface),
-        fee_schedule,
-        accounts: bindings,
-        exit_routes,
-    })
 }
 
 #[cfg(test)]
@@ -769,7 +861,7 @@ mod tests {
                 binding_value.clone(),
             ),
         ]);
-        let expected_keys = vec![
+        let expected_keys = [
             program_key.clone(),
             key(b"program-owner\0", &program.bytes()),
             key(b"wind-down\0s", &program.bytes()),
@@ -901,6 +993,9 @@ pub struct ProgramValueObservation {
     pub exists: bool,
 }
 
+/// # Errors
+/// Returns an error if the preparation, receipt, source snapshot or retained allocation does
+/// not prove the requested settlement.
 pub fn decode_program_value_observation(
     bytes: &[u8],
 ) -> Result<ProgramValueObservation, ProgramSettlementError> {
@@ -913,4 +1008,18 @@ pub fn decode_program_value_observation(
         return Err(ProgramSettlementError::SourceSnapshot);
     }
     Ok(ProgramValueObservation { balance, exists })
+}
+
+pub(crate) struct CommittedExecutionEvidence<'a> {
+    pub(crate) verifier: &'a EvidenceAuthority,
+    pub(crate) sequencer_key: [u8; 32],
+    pub(crate) correlation: u64,
+    pub(crate) authorization: SequencerAuthorization,
+}
+
+pub(crate) struct ExecutionReceipt<'a> {
+    pub(crate) canonical_receipt: &'a [u8],
+    pub(crate) activity_id: [u8; 32],
+    pub(crate) global_sequence: u64,
+    pub(crate) receipt_ref: [u8; 32],
 }

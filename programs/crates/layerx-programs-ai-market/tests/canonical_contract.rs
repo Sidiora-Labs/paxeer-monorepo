@@ -164,8 +164,35 @@ const EXPECTED_OPERATIONS: &[(u16, &str)] = &[
     (0x0901, "SealEvidence"),
     (0x0A01, "READ_HEADER"),
     (0x0A02, "READ_STATE_CHUNK"),
+    (0x0B01, "OpenRoom"),
+    (0x0B02, "PostAsk"),
+    (0x0B03, "PostBid"),
+    (0x0B04, "RecordDeal"),
+    (0x0B05, "SettleLaps"),
+    (0x0B06, "ChallengeLap"),
+    (0x0B07, "ResolveChallenge"),
+    (0x0B08, "SplitPayout"),
+    (0x0B09, "LockBond"),
+    (0x0B0A, "SlashBond"),
+    (0x0B0B, "RefundBond"),
+    (0x0B0C, "CloseRoom"),
+    (0x0B10, "RoomView"),
+    (0x0B11, "DealView"),
+    (0x0B12, "PeerView"),
+    (0x0B13, "ReceiptBatchView"),
+    (0x0B14, "BookView"),
 ];
 const EXPECTED_ERRORS: &[(&str, &str, u16)] = &[
+    ("F11", "RoomUnknown", 0x0B01),
+    ("F11", "RoomClosed", 0x0B02),
+    ("F11", "AskUnfunded", 0x0B03),
+    ("F11", "BidBelowFloor", 0x0B04),
+    ("F11", "RosterDigestMismatch", 0x0B05),
+    ("F11", "BatchUnsealed", 0x0B06),
+    ("F11", "ChallengeWindowClosed", 0x0B07),
+    ("F11", "BondLocked", 0x0B08),
+    ("F11", "BondInsufficient", 0x0B09),
+    ("F11", "SplitExceedsSettled", 0x0B0A),
     ("COMMON", "BAD_VERSION", 0x0001),
     ("COMMON", "NON_CANONICAL", 0x0002),
     ("COMMON", "WRONG_DOMAIN", 0x0003),
@@ -408,9 +435,9 @@ fn primitives_versions_ordering_and_decimal_boundaries() -> Checked {
 }
 
 #[test]
-fn all_fifty_five_selectors_and_entire_error_freeze() -> Checked {
-    assert_eq!(EXPECTED_OPERATIONS.len(), 55);
-    assert_eq!(OPERATIONS.len(), 55);
+fn all_seventy_two_selectors_and_entire_error_freeze() -> Checked {
+    assert_eq!(EXPECTED_OPERATIONS.len(), 72);
+    assert_eq!(OPERATIONS.len(), 72);
     for &(code, name) in EXPECTED_OPERATIONS {
         let op = Operation::decode(code)?;
         assert_eq!(op.selector(), code);
@@ -921,7 +948,7 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
         revision: 1,
         sections: [&[]; 6],
     };
-    let mut out = vec![0; 196_609];
+    let mut out = vec![0; layerx_programs_ai_market::MAX_STATE_BYTES + 1];
     assert_eq!(state.encoded_len()?, 64);
     assert_eq!(encode_state(&state, &mut out)?, 64);
     assert_eq!(&out[..64], hex(STATE_BYTES).as_slice());
@@ -946,7 +973,7 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
     }
     .encoded_len()
     .is_err());
-    let maxima = [16376, 24568, 24568, 81912, 24568, 24552];
+    let maxima = [16376, 24568, 24568, 131064, 24568, 24552];
     let payloads: Vec<Vec<u8>> = maxima.iter().map(|&n| vec![1; n]).collect();
     let full = StateFrame {
         revision: 1,
@@ -959,9 +986,18 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
             &payloads[5],
         ],
     };
-    assert_eq!(full.encoded_len()?, 196_608);
-    assert_eq!(encode_state(&full, &mut out)?, 196_608);
-    assert_eq!(decode_state(&out[..196_608])?, full);
+    assert_eq!(
+        full.encoded_len()?,
+        layerx_programs_ai_market::MAX_STATE_BYTES
+    );
+    assert_eq!(
+        encode_state(&full, &mut out)?,
+        layerx_programs_ai_market::MAX_STATE_BYTES
+    );
+    assert_eq!(
+        decode_state(&out[..layerx_programs_ai_market::MAX_STATE_BYTES])?,
+        full
+    );
     for i in 0..6 {
         let excess = vec![1; maxima[i] + 1];
         let mut sections = [&[][..]; 6];
@@ -971,7 +1007,7 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
             sections,
         };
         assert_eq!(oversized.encoded_len(), Err(CAPACITY));
-        let mut scratch = vec![0x5a; 196_609];
+        let mut scratch = vec![0x5a; layerx_programs_ai_market::MAX_STATE_BYTES + 1];
         assert_eq!(encode_state(&oversized, &mut scratch), Err(CAPACITY));
         assert!(scratch.iter().all(|&b| b == 0x5a));
         let mut declared = input.clone();
@@ -980,7 +1016,10 @@ fn independent_state_frame_hash_all_section_caps_and_refusals() -> Checked {
             .copy_from_slice(&u32::try_from(maxima[i] + 1)?.to_be_bytes());
         assert_eq!(decode_state(&declared).err(), Some(CAPACITY));
     }
-    assert_eq!(decode_state(&vec![0; 196_609]).err(), Some(CAPACITY));
+    assert_eq!(
+        decode_state(&vec![0; layerx_programs_ai_market::MAX_STATE_BYTES + 1]).err(),
+        Some(CAPACITY)
+    );
     let mut short = [0x5a; 63];
     assert_eq!(encode_state(&state, &mut short), Err(CAPACITY));
     assert_eq!(short, [0x5a; 63]);
@@ -1067,7 +1106,7 @@ fn read_header_bindings(digest: StateDigest) -> Checked {
     .is_err());
     assert!(encode_read_header(
         &ReadHeader {
-            total_bytes: 196_609,
+            total_bytes: (layerx_programs_ai_market::MAX_STATE_BYTES + 1) as u32,
             ..header
         },
         &mut bytes
@@ -1140,7 +1179,7 @@ fn chunk_refusals_and_maximum(
             ..request
         },
         ChunkRequest {
-            offset: 196_608,
+            offset: layerx_programs_ai_market::MAX_STATE_BYTES as u32,
             ..request
         },
         ChunkRequest {
@@ -1188,8 +1227,8 @@ fn chunk_refusals_and_maximum(
     assert!(decode_chunk_response(&trailing).is_err());
     let page = vec![1; 8192];
     let maximum = ChunkResponse {
-        total_bytes: 196_608,
-        offset: 188_416,
+        total_bytes: layerx_programs_ai_market::MAX_STATE_BYTES as u32,
+        offset: (layerx_programs_ai_market::MAX_STATE_BYTES - 8192) as u32,
         bytes: &page,
         ..response
     };
@@ -1197,7 +1236,7 @@ fn chunk_refusals_and_maximum(
     assert_eq!(
         check_chunk_response(
             &ChunkRequest {
-                offset: 188_416,
+                offset: (layerx_programs_ai_market::MAX_STATE_BYTES - 8192) as u32,
                 ..bound
             },
             &maximum

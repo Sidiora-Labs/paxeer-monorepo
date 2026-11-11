@@ -68,7 +68,9 @@ impl From<SignRefusal> for SignError {
     }
 }
 
-/// Remote Ed25519 signer reached over a pinned mutual-TLS connection.
+/// Remote Ed25519 custodian for bind consent and native payer authorization
+/// reached over a pinned mutual-TLS connection. Activity signing is refused
+/// before transport; EVM transactions require a separate secp256k1 key.
 pub struct RemoteSigner {
     endpoint: SocketAddr,
     server_name: String,
@@ -133,7 +135,7 @@ impl RemoteSigner {
             .map_err(|error| handshake_refusal(&error))?;
         let length = u32::try_from(body.len()).map_err(|_| SignRefusal::MalformedResponse)?;
         tls.write_all(&length.to_be_bytes())
-            .and_then(|()| tls.write_all(&body))
+            .and_then(|()| tls.write_all(body))
             .map_err(|error| io_refusal(&error))?;
         read_response(&mut tls)
     }
@@ -175,7 +177,10 @@ impl Signer for RemoteSigner {
     }
 
     fn sign<'a>(&'a self, request: SigningRequest<'a>) -> SignFuture<'a> {
-        Box::pin(async move { self.sign_once(request).map_err(SignError::from) })
+        Box::pin(async move {
+            request.external_signing_bytes()?;
+            self.sign_once(request).map_err(SignError::from)
+        })
     }
 
     fn evm_address(&self) -> Option<[u8; 20]> {
@@ -189,6 +194,9 @@ impl Signer for RemoteSigner {
 
 /// Decodes the v2 retained-bind request body after the bounded length frame.
 /// Refuses v1 activity requests, unknown kinds, truncation and trailing bytes.
+///
+/// # Errors
+/// Returns `MalformedResponse` for an unsupported frame or invalid bind message.
 pub fn decode_bind_request(body: &[u8]) -> Result<BindMessage, SignRefusal> {
     if body.get(..7) != Some(b"LXRS\0\x02\x01".as_slice()) {
         return Err(SignRefusal::MalformedResponse);
@@ -197,8 +205,8 @@ pub fn decode_bind_request(body: &[u8]) -> Result<BindMessage, SignRefusal> {
 }
 
 fn encode_request(request: SigningRequest<'_>) -> Result<Vec<u8>, SignRefusal> {
-    // Protocol v1 transports scoped payer digests only. Raw bind consent needs
-    // a separately versioned peer contract and is explicitly refused here.
+    // Protocol v1 transports scoped payer digests only. Raw bind consent uses
+    // the separate v2 BindSigner frame and is explicitly refused here.
     request
         .external_signing_bytes()
         .map_err(|_| SignRefusal::Refused)?;

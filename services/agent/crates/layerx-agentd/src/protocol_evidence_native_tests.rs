@@ -32,15 +32,20 @@ fn daemon_terminal_fixture_carries_the_credit_and_maintenance_the_platform_write
         &[kind],
     ));
     let registry = checked(layerx_types::payload::ModuleRegistry::new(&[registration]));
-    let activity = checked(layerx_wire::activity::decode_signed(
+    let activity = checked(layerx_wire::historical::activity::decode_signed(
         &read(&root, "activity"),
         &registry,
     ));
     assert_eq!(activity.payload(), credit.as_slice());
-    checked(crate::prepare::disclose(
-        &checked(layerx_wire::activity::encode_unsigned(&activity)),
-        &registry,
-    ));
+    let (prepared, _, _, _, _) = native_fixture();
+    checked(crate::prepare::verify_call_binding(&prepared.transaction));
+    assert_eq!(
+        prepared.transaction.disclosure,
+        checked(layerx_crypto::disclosure::call::bind_call(
+            &prepared.transaction.call,
+            prepared.actor_address,
+        )),
+    );
     assert!(matches!(
         checked(layerx_wire::batch_maintenance::decode_maintenance(&read(
             &root,
@@ -97,6 +102,11 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
         header.protocol_version(),
         header.network_id(),
     ));
+    let unsigned = checked(layerx_wire::receipt::encode_unsigned(&decoded));
+    let mut preimage = b"LXP/v1/receipt\0".to_vec();
+    preimage.extend_from_slice(&unsigned);
+    let expected_reference: [u8; 32] = <sha2::Sha256 as sha2::Digest>::digest(&preimage).into();
+    assert_eq!(terminal.receipt_ref(), expected_reference);
     assert_eq!(terminal.activity_id(), protocol.activity_id());
     assert_eq!(terminal.result_code(), 0);
     prove_terminal_recovery();
@@ -105,6 +115,16 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
         terminal.level(),
         layerx_types::verify::VerificationLevel::BATCH_INCLUDED
     );
+    assert_terminal_refusals(&raw, authority, evidence, &header, &maintenance, public);
+}
+fn assert_terminal_refusals(
+    raw: &RawReceiptEvidence,
+    authority: AuthorizedBatch,
+    evidence: MaintainedOutcomeEvidence<'_>,
+    header: &layerx_wire::receipt::BatchHeader,
+    maintenance: &[u8],
+    public: [u8; 32],
+) {
     // Exercise the public ingress without maintained-transition evidence; the
     // terminal receipt alone cannot authenticate the complete batch transition.
     assert!(checked(
@@ -114,11 +134,11 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
             public,
         )
     )
-    .verify_receipt(&raw)
+    .verify_receipt(raw)
     .is_err());
     let wrong = replace_terminal_root(authority, header.resulting_state_root());
     assert!(VerifiedReceiptEvidence::verify_authorized_maintained(
-        &raw,
+        raw,
         &wrong,
         &evidence,
         &[raw.canonical_receipt().to_vec()],
@@ -127,7 +147,7 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
     )
     .is_err());
     assert!(VerifiedReceiptEvidence::verify_authorized_maintained(
-        &raw,
+        raw,
         &authority,
         &evidence,
         &[raw.canonical_receipt().to_vec()],
@@ -135,14 +155,14 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
         header.network_id() + 1
     )
     .is_err());
-    let mut corrupted = maintenance.clone();
+    let mut corrupted = maintenance.to_vec();
     corrupted[50] ^= 1;
     let bad_evidence = MaintainedOutcomeEvidence {
         maintenance: &corrupted,
         ..evidence
     };
     assert!(VerifiedReceiptEvidence::verify_authorized_maintained(
-        &raw,
+        raw,
         &authority,
         &bad_evidence,
         &[raw.canonical_receipt().to_vec()],
@@ -164,7 +184,7 @@ pub(super) fn native_fixture() -> (
 ) {
     use crate::prepare::{
         evm::{AbiArgument, PrecompileCall, PrecompileTarget},
-        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, EvmPrepared,
     };
     use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -172,13 +192,18 @@ pub(super) fn native_fixture() -> (
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))));
-    let case = document["cases"]
-        .as_array()
-        .expect("recorded cases")
+    let Some(cases) = document["cases"].as_array() else {
+        panic!("recorded cases");
+    };
+    let Some(case) = cases
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("native call recording");
-    let raw = decode_hex(case["rawTransaction"].as_str().expect("raw transaction"));
+    else {
+        panic!("native call recording");
+    };
+    let raw = decode_hex(checked(
+        case["rawTransaction"].as_str().ok_or("raw transaction"),
+    ));
     let (call, signature) = checked(decode_signed(&raw));
     let actor_address = checked(recover_sender(&call, &signature));
     assert_eq!(
@@ -187,7 +212,7 @@ pub(super) fn native_fixture() -> (
             "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"
         )
     );
-    let transaction = checked(prepare_bound(
+    let transaction: EvmPrepared = checked(prepare_bound(
         EvmPreparationState {
             chain_id: 125,
             pending_nonce: 2,
@@ -236,10 +261,12 @@ pub(super) fn native_fixture() -> (
     ))]));
     let pin = &case["pinnedKey"];
     let keys = vec![layerx_client::sequencer::ReceiptKeyEntry {
-        key_id: checked(decode_hex(pin["keyId"].as_str().expect("key id")).try_into()),
-        public_key: checked(decode_hex(pin["publicKey"].as_str().expect("public key")).try_into()),
-        first_height: pin["firstHeight"].as_u64().expect("first height"),
-        last_height: pin["lastHeight"].as_u64().expect("last height"),
+        key_id: checked(decode_hex(checked(pin["keyId"].as_str().ok_or("key id"))).try_into()),
+        public_key: checked(
+            decode_hex(checked(pin["publicKey"].as_str().ok_or("public key"))).try_into(),
+        ),
+        first_height: checked(pin["firstHeight"].as_u64().ok_or("first height")),
+        last_height: checked(pin["lastHeight"].as_u64().ok_or("last height")),
     }];
     (
         prepared,
@@ -259,33 +286,38 @@ fn native_type2_bytes_and_matching_node_receipt_survive_restart() {
     prove_terminal_recovery();
 }
 
-fn prove_terminal_recovery() {
-    use crate::outbox::{resolve_unknown, Outbox, ResolutionObservation, SubmissionState};
-    use crate::store::{ObjectKind, Store, TenantId, TenantKey};
-    use layerx_client::sequencer::SequencerEndpoint;
-    use layerx_crypto::evm_transaction::transaction_hash;
-    use sha2::{Digest, Sha256};
+#[test]
+fn receipt_reference_survives_terminal_recovery() {
+    actual_daemon_terminal_requires_the_complete_maintained_transition();
+}
+
+fn track_terminal(
+    hash: [u8; 32],
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+    status: &crate::outbox::SubmissionStatus,
+    canonical: &[u8],
+) -> (serde_json::Value, layerx_types::rung::Rung) {
+    let verified = checked(crate::finality::VerifiedReceipt::verify(
+        hash, canonical, keys,
+    ));
+    let response = checked(crate::human_runtime::write_submission(
+        status,
+        Some(&verified),
+    ));
+    checked(crate::agent_rpc_dispatch::decode_write_answer(
+        layerx_agent_api::error::RequestId(1684),
+        response,
+    ))
+}
+
+fn spawn_terminal_server(
+    listener: std::net::TcpListener,
+    expected_signed: Vec<u8>,
+    receipt_view: serde_json::Value,
+    hash: [u8; 32],
+) -> std::thread::JoinHandle<()> {
     use std::io::{BufRead, BufReader, Read, Write};
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let (prepared, registry, signed, receipt_view, keys) = native_fixture();
-    let verified = checked(crate::sign::verify_before_submit(
-        &signed,
-        &prepared,
-        &prepared.actor_address,
-        &registry,
-    ));
-    let hash = transaction_hash(&signed);
-    assert_eq!(verified.activity_id(), hash);
-    assert_eq!(format!("0x{}", hex::encode(hash)), receipt_view["txHash"]);
-    let canonical_receipt = decode_hex(receipt_view["receipt"].as_str().expect("node receipt"));
-    let receipt_digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
-    let listener = checked(std::net::TcpListener::bind("127.0.0.1:0"));
-    let mut endpoint = checked(SequencerEndpoint::new(
-        &format!("http://{}", checked(listener.local_addr())),
-        &[],
-    ));
-    let expected_signed = signed.clone();
-    let server = std::thread::spawn(move || {
+    std::thread::spawn(move || {
         for expected_method in [
             "eth_sendRawTransaction",
             "pax_sequencerReceipt",
@@ -310,7 +342,7 @@ fn prove_terminal_recovery() {
                     }
                 }
             }
-            let mut body = vec![0; length.expect("request length")];
+            let mut body = vec![0; checked(length.ok_or("request length"))];
             checked(reader.read_exact(&mut body));
             let request: serde_json::Value = checked(serde_json::from_slice(&body));
             assert_eq!(request["method"], expected_method);
@@ -334,7 +366,68 @@ fn prove_terminal_recovery() {
             checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()));
             checked(stream.write_all(&body));
         }
-    });
+    })
+}
+
+fn mark_submission_unknown(
+    outbox: &mut crate::outbox::Outbox,
+    store: &mut crate::store::Store,
+    id: [u8; 32],
+) {
+    use crate::outbox::SubmissionState;
+    checked(outbox.transition(
+        store,
+        id,
+        SubmissionState::Submitted,
+        "sent exact native transaction",
+        None,
+    ));
+    checked(outbox.transition(
+        store,
+        id,
+        SubmissionState::Unknown,
+        "restart before receipt resolution",
+        None,
+    ));
+}
+
+fn prove_terminal_recovery() {
+    use crate::outbox::{resolve_unknown, Outbox, ResolutionObservation, SubmissionState};
+    use crate::store::{Store, TenantId};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_crypto::evm_transaction::transaction_hash;
+    use sha2::{Digest, Sha256};
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let (prepared, registry, signed, receipt_view, keys) = native_fixture();
+    let verified = checked(crate::sign::verify_before_submit(
+        &signed,
+        &prepared,
+        &prepared.actor_address,
+        &registry,
+    ));
+    let hash = transaction_hash(&signed);
+    assert_eq!(verified.activity_id(), hash);
+    assert_eq!(format!("0x{}", hex::encode(hash)), receipt_view["txHash"]);
+    let canonical_receipt = decode_hex(checked(
+        receipt_view["receipt"].as_str().ok_or("node receipt"),
+    ));
+    let receipt_hash: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let decoded = checked(layerx_wire::receipt::decode(&canonical_receipt));
+    let unsigned = checked(layerx_wire::receipt::encode_unsigned(&decoded));
+    let mut preimage = b"LXP/v1/receipt\0".to_vec();
+    preimage.extend_from_slice(&unsigned);
+    let receipt_reference: [u8; 32] = Sha256::digest(&preimage).into();
+    assert_eq!(
+        checked(super::canonical_receipt_reference(&canonical_receipt)),
+        receipt_reference
+    );
+    assert_ne!(receipt_reference, receipt_hash);
+    let listener = checked(std::net::TcpListener::bind("127.0.0.1:0"));
+    let mut endpoint = checked(SequencerEndpoint::new(
+        &format!("http://{}", checked(listener.local_addr())),
+        &[],
+    ));
+    let server = spawn_terminal_server(listener, signed.clone(), receipt_view, hash);
     let root = std::env::temp_dir().join(format!(
         "native-terminal-{}-{}",
         std::process::id(),
@@ -351,20 +444,7 @@ fn prove_terminal_recovery() {
         checked(endpoint.send_raw_transaction(checked(outbox.bytes_for_transmission(id)))),
         hash
     );
-    checked(outbox.transition(
-        &mut store,
-        id,
-        SubmissionState::Submitted,
-        "sent exact native transaction",
-        None,
-    ));
-    checked(outbox.transition(
-        &mut store,
-        id,
-        SubmissionState::Unknown,
-        "restart before receipt resolution",
-        None,
-    ));
+    mark_submission_unknown(&mut outbox, &mut store, id);
     drop(outbox);
     drop(store);
     let mut store = checked(Store::open(&root));
@@ -388,25 +468,74 @@ fn prove_terminal_recovery() {
     assert_eq!(result.observation, ResolutionObservation::ExecutedReceipt);
     assert_eq!(result.state, SubmissionState::Executed);
     checked(server.join());
+    let before_reopen = track_terminal(
+        hash,
+        &keys,
+        checked(outbox.status(hash).ok_or("terminal before reopen")),
+        &canonical_receipt,
+    );
+    assert_eq!(
+        before_reopen.0["receipt_ref"],
+        hex::encode(receipt_reference)
+    );
+    assert_eq!(
+        before_reopen.0["evidence"][0]["digest"],
+        hex::encode(receipt_reference)
+    );
+    assert_recovered_terminal(
+        (store, outbox, root, tenant),
+        (hash, signed, receipt_hash, receipt_reference),
+        &keys,
+        &canonical_receipt,
+        &before_reopen,
+    );
+}
+fn assert_recovered_terminal(
+    resources: (
+        crate::store::Store,
+        crate::outbox::Outbox,
+        std::path::PathBuf,
+        crate::store::TenantId,
+    ),
+    identity: ([u8; 32], Vec<u8>, [u8; 32], [u8; 32]),
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+    canonical_receipt: &[u8],
+    before_reopen: &(serde_json::Value, layerx_types::rung::Rung),
+) {
+    use crate::outbox::{Outbox, SubmissionState};
+    use crate::store::{ObjectKind, Store, TenantKey};
+    let (store, outbox, root, tenant) = resources;
+    let (hash, signed, receipt_hash, receipt_reference) = identity;
     drop(outbox);
     drop(store);
     let store = checked(Store::open(&root));
     let mut recovered = Outbox::default();
     checked(recovered.restore(&store, tenant.clone(), hash));
-    let status = recovered.status(hash).expect("recovered native execution");
+    let status = checked(recovered.status(hash).ok_or("recovered native execution"));
     assert_eq!(status.state, SubmissionState::Executed);
-    let evidence = status.evidence.expect("authenticated node receipt");
-    assert_eq!(evidence.receipt_ref(), receipt_digest);
+    let evidence = checked(status.evidence.ok_or("authenticated node receipt"));
+    assert_eq!(evidence.receipt_ref(), receipt_hash);
     assert_eq!(evidence.block_height(), 1001);
     assert_eq!(evidence.transaction_index(), 1);
     let receipt_key = checked(TenantKey::new(
         tenant,
         ObjectKind::Receipt,
-        receipt_digest.to_vec(),
+        receipt_hash.to_vec(),
     ));
     assert_eq!(
-        store.get(&receipt_key).expect("durable receipt").bytes(),
+        checked(store.get(&receipt_key).ok_or("durable receipt")).bytes(),
         canonical_receipt
+    );
+    let retained = checked(store.get(&receipt_key).ok_or("retained signed receipt"));
+    let after_reopen = track_terminal(hash, keys, status, retained.bytes());
+    assert_eq!(&after_reopen, before_reopen);
+    assert_eq!(
+        after_reopen.0["receipt_ref"],
+        hex::encode(receipt_reference)
+    );
+    assert_eq!(
+        checked(super::canonical_receipt_reference(retained.bytes())),
+        receipt_reference
     );
     assert_eq!(checked(recovered.exact_signed_bytes(hash)), signed);
     assert!(recovered.bytes_for_transmission(hash).is_err());

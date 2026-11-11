@@ -16,9 +16,13 @@ use crate::disclosure::DisclosureError;
 mod codec;
 use codec::{protocol_version_supported, Decoder, Encoder};
 
-pub use crate::disclosure::call::bind_call;
+pub use crate::disclosure::call::{bind_call, validate_call};
 pub use crate::disclosure::Disclosure;
 #[deprecated(note = "Use binding::BindAuthorization for EVM identity registration")]
+#[allow(
+    deprecated,
+    reason = "Retains the deprecated onboarding reexports for existing callers"
+)]
 pub use crate::onboarding::{OnboardingConsent, SponsoredRegistration};
 pub use crate::send::{
     ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit,
@@ -312,7 +316,7 @@ impl Payment {
     /// Rejects malformed fields or an issuer inconsistent with the actor.
     pub fn encode(&self, actor: &[u8]) -> Result<Vec<u8>, DisclosureError> {
         self.validate(actor)?;
-        let mut e = Encoder::new(32768);
+        let mut e = Encoder::new(32_768);
         match self {
             Self::Register(r) => {
                 e.u16(1)?;

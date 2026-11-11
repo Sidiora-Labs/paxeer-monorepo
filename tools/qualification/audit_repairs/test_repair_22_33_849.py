@@ -208,8 +208,30 @@ def test_f064_retains_nonempty_native_and_explorer_acceptance_corpora():
     gateway = (ROOT / "services/platform/hosted/gateway/src/lib.rs").read_text()
     assert "fn production_route_refuses_every_program_and_activity_route()" in gateway
     explorer = ROOT / "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"
-    assert 'test "committed_vectors_drive_verify"' in explorer.read_text()
-    assert "SequencerReceipt.verify(tx_hash" in explorer.read_text()
+    vectors = explorer.read_text()
+    assert 'test "committed_vectors_drive_verify"' in vectors
+    # 20d1e29d9d installs governed trust and supplies full committed evidence.
+    assert 'Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)' in vectors
+    assert "alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures" in vectors
+    assert re.search(
+        r"setup do\s+GovernedReceiptFixtures\.restore_on_exit\(\)\s+"
+        r"GovernedReceiptFixtures\.configure_committed\(\)", vectors,
+    )
+    assert 'committed_vectors.json' in vectors
+    assert '%{"cases" => cases} = @vectors |> File.read!() |> Jason.decode!()' in vectors
+    assert "Enum.map(cases, &committed_vectors_drive_verify/1)" in vectors
+    assert "defp committed_vectors_drive_verify(test_case) do" in vectors
+    assert '"0x" <> raw_transaction = test_case["rawTransaction"]' in vectors
+    assert "tx_hash = raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256()" in vectors
+    assert '{:ok, keys} = SequencerReceipt.decode_receipt_keys([test_case["pinnedKey"]])' in vectors
+    assert re.search(
+        r'SequencerReceipt\.verify\(\s*tx_hash,\s*test_case\["receiptJson"\],\s*keys,\s*'
+        r'GovernedReceiptFixtures\.committed_opts\(test_case\)\s*\)', vectors,
+    )
+    assert re.search(
+        r"Enum\.map\(cases, &committed_vectors_drive_verify/1\) == \[\s*"
+        r"\{:committed, key, 10\},\s*\{:error, :r7\},\s*\{:error, :r8\}\s*\]", vectors,
+    )
 
 
 def test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals():
@@ -242,7 +264,11 @@ def test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusal
         assert guard in commit
     producer = (ROOT / "tools/platform/cli/src/programs.rs").read_text()
     assert 'pub fn call(' in producer and 'prepare_program_transaction(client, data, key_file)?' in producer
-    assert '"eth_sendRawTransaction"' in producer
+    assert "layerx_platform_cli::rpc::prepare_submission(raw, None)?" in producer
+    assert 'client.post("/", prepared.request(), None)' in producer
+    assert "prepared.resolve(response)" in producer
+    shared_rpc = (ROOT / "tools/platform/cli/src/rpc.rs").read_text()
+    assert '"eth_sendRawTransaction"' in shared_rpc
     assert 'const PROGRAMS_ADDRESS: &str = "0x000000000000000000000000000000000000101d"' in producer
     assert "pub fn registry_get" in producer and "decode_program_view(program_id, &result)" in producer
     assert "pub fn interface_get" in producer and "decode_interface_view(program_id, &result)" in producer
@@ -502,7 +528,7 @@ def test_f066_retained_refusal_producer_drives_drift_check_and_all_seven_suites(
     assert "require(count > 0" in text
 
 
-@pytest.mark.parametrize("change", ["receipt", "missing", "producer"])
+@pytest.mark.parametrize("change", ["receipt", "missing", "producer", "provenance", "source_hash"])
 def test_f066_real_fixture_drift_is_refused_without_rewriting(change, tmp_path):
     owner = module("receipt_refusals")
     for name in (owner.SOURCE, owner.OUTPUT):
@@ -515,6 +541,10 @@ def test_f066_real_fixture_drift_is_refused_without_rewriting(change, tmp_path):
         value["cases"][0]["signedReceipt"] = value["cases"][0]["signedReceipt"][:-2]
     elif change == "missing":
         value["cases"].pop()
+    elif change == "provenance":
+        value["provenance"]["source"] = "retired"
+    elif change == "source_hash":
+        value["provenance"]["sourceSha256"] = "0" * 64
     else:
         value["provenance"]["generator"] = "retired"
     path.write_text(json.dumps(value))
@@ -574,7 +604,7 @@ def test_f021_funding_refuses_unserved_faucet_and_retired_producers(addition):
 def test_f021_keeps_unserved_host_refusal_and_private_page_corpus():
     text = source("108.0.7")
     corpus = text.split("private_network_only() {", 1)[1].split("check docs-names-clean", 1)[0]
-    assert hashlib.sha256(corpus.encode()).hexdigest() == "795b4896435ae93c81738d19542161b89b386f179c1009f6db716cfa8da35656"
+    assert hashlib.sha256(corpus.encode()).hexdigest() == "6edf5838237f403a6f2a16d37bd973c943ec14a821d9c038b268d93ab17cef7c"
     assert "docs-names: docs/offending.md: faucet.paxeer.network is not a public name" in text
     assert '[[ $(wc -l <<<"$out") -eq 2 ]]' in text
     assert "docs/platform/beta-resets.ics" in text

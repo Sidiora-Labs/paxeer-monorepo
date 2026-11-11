@@ -214,7 +214,7 @@ impl<'a> Backfill<'a> {
                         "paxscan block {height} hash {paxscan_hash} differs from the node's {node_hash}"
                     )));
                 }
-                if node_transaction_hashes(&header, height)? != paxscan.transaction_hashes {
+                if node_transaction_hashes(header, height)? != paxscan.transaction_hashes {
                     return Err(IndexError::Integrity(format!(
                         "paxscan block {height} transactions differ from the node's"
                     )));

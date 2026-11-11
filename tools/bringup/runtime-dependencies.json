@@ -8139,7 +8139,7 @@
       "dependencies": [],
       "files": {
         "init.go": "fddf36bd02368a8c453a13de30c407a929ce6e8bbae590396172b772a8c0228b",
-        "statik.go": "9d58878dbf3e56d645f601dc71ad0fe8564f9529f8acf48b548d33e13c70d92b"
+        "statik.go": "750dba9624cc1b3a58f30219237e450b2a9ab900502559df4cb3d1ab33fc8dba"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/docs/swagger",
       "imports": [
@@ -8962,7 +8962,7 @@
         "genesis.go": "15f3350f3890f5d8b96141b539d562f69ef263e60278e0db30535963deb40b05",
         "grpc_query.go": "ec86a572c53cd2abafd9784c64f95c8b63474af8ba665ab1b3a72fd9d0883ccd",
         "keeper.go": "8266e575b76ceac775d020c9709ecb6bbb94c311ef7e2c524b3138bf52ff63f7",
-        "metrics.go": "e3736005257585d1a7a07542f26daa3ff8b230ec48f1b27bae82493e305a9f44",
+        "metrics.go": "bb1474adb4a3109d6c4f7da0777fbc6726a84b77df53c68d0b8e1be8dde90d8b",
         "migrations.go": "761b0ce8b498d863e8a102993ed7dca2bb3769c69aa8c1b907e4c65da9c610bc",
         "msg_server.go": "b5e0dcfa7f3022a4393588347cc540208c01c2ac878353e271a4228f454c1711",
         "params.go": "1f24a9b70cdd44d9376607485aa504bdf89e6bc4a5657b6bd395a929ebe27c34",
@@ -10862,7 +10862,7 @@
         "utils"
       ],
       "files": {
-        "genesis.go": "504c5e249b1648ac3cb0f91278a9a123cd36372add2fd3441786e580b2b817df",
+        "genesis.go": "2c309780d378422c8b295d99210b642315e248aaf2bae286caec256509bf076d",
         "gov.go": "7106b4c1c56e3beab099704348e1bde9f5c221d10b25af5dfe3fc8997523ebeb",
         "handler.go": "3cba149b2ba61815cf14ac62e3f31f0f34dfd2e05ae72656c4b713e3dce452a5",
         "module.go": "ac191027bb29cf45ad23057e65810cd739d258e4cd617b21d229f6861960f7ff"
@@ -11056,7 +11056,7 @@
         "utils"
       ],
       "files": {
-        "artifacts.go": "134a7d6f31f8e09452e062e549736bb5b01e41a509559e0797189e0393e5ab41",
+        "artifacts.go": "dd8eff9adf26f025e557be95153aba2c074e37a1d11b16e7e775cb8a82efb320",
         "cw20.go": "08243befd41f06d7edcac29def086e1447b3e174c178cb168ae99e86d4b34f86"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/cw20",
@@ -11420,7 +11420,7 @@
         "sdk/types"
       ],
       "files": {
-        "config.go": "a699503f7839785c874f1fe043462ac08680311cd65f646eabd41448ae2245ba"
+        "config.go": "6531229060f69f3b7258bfa7ac7355a66fc8ec93e799ee4a684c10a88c2c0634"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config",
       "imports": [
@@ -11533,13 +11533,13 @@
         "layerx_binding.go": "c8c8730a55fe2c3e95eacb0efb01c1bc87c8607157a423482308b5239addcf63",
         "log.go": "2f28b9d2f88e2fb92f1f747588a4f51d1fddee76fb86ac44bbd3c73630054caf",
         "metrics.go": "155f23b20372001bf1308efda8bc2a763ce3531c965a8de8af86f2fd95ee0c32",
-        "msg_server.go": "4e8ced470956b3411a00c7b5fcb625d56de43c9814f95e8682ce43666f8723a7",
+        "msg_server.go": "c9b03614b5d0d026828157741cd6e763d5002e5e84c16b9e1148346ae2f57ace",
         "nonce.go": "6b00d084ba47b4e55b62533d40d291109c550ff0676c0a98efebd06dcd132609",
-        "params.go": "1600a29f9d8dd5edd54bb6b74fdf8d13e8d9a26ed4591a5eee2406ce7e4bfb92",
+        "params.go": "9908dc041a0e221c96aa6b976caad3296c76e5c2789356add8a903f1de68a080",
         "pointer.go": "27f44fd020a837521037b6f2eb0076ca4e3d385cf4ccb27ce41bd0ad832aaf62",
         "pointer_upgrade.go": "66ce10c2ae98d5dcb950e2da011b7eaee7c8ccb4c3ab87e885a76119b3fe0f18",
         "precompile.go": "fafc6375e6a0a0ad9d782439de49b0c896773fe6ea5adf6f8daee7d3c4fa3f18",
-        "receipt.go": "50483f3a4e925efd90ae4513a953f0ec3a6b080a8fbbc09b44ce9a54b951fb09",
+        "receipt.go": "f97a25ba9e2f4d67eda046c7d1554c21ed8f9f3c1e8c18e593081a4c4c86cb60",
         "replay.go": "1c92b645c38a0defe8aca299876e20843d7d802955f71e45e6387b5a2eda61fa",
         "state.go": "2eec1b64fad3f5822ed35e1146d014e48e21b3bb85902ea12a75de4191ae00d7",
         "storage_cleanup.go": "e1867ca496806c177cf081ecc8432cc65875052304ee751f9b060b2806c4d533",
@@ -11714,10 +11714,11 @@
         "sdk/server/types"
       ],
       "files": {
-        "config.go": "07b33b6dfbe208eff1fb2a0ac098ec77160dd61ea4833cf5429d4ef47f33fc92"
+        "config.go": "6d8515ee5b8f1d969902589216823689dd9e7d4d7386a3cfe216b125e8cebc2c"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/replay",
       "imports": [
+        "fmt",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types",
         "github.com/spf13/cast"
       ],
@@ -11818,7 +11819,7 @@
         "config.pb.go": "1ce510f152305181a04a34b8d0adb6c9c6d2fe0b1b2d616f6e2dc31366956a57",
         "constants.go": "cee492ba352d457ddba5e78de47387364ac4efb3bd67718a69ecfbd63af78ef2",
         "enums.pb.go": "189d60cfbe77631a01ad570980eedd63a6cce7aee16fbba880013816b5b61ded",
-        "errors.go": "1c4c3127a731c64bf83d0fe67ad715aa45864d3c74899a89aee5e9694636f08c",
+        "errors.go": "e6435c25272ee270d43da40e7984ab1b90c5b7586b0ad55ec4523321219f32aa",
         "events.go": "cd5ebc66d1698ded595dbb4e6373faebd675e03725f5e00e46e5a0e2d3fc0d89",
         "fee_denom_genesis.go": "1fc75a716030b903683a03557acfca34c9a746101bba3ba690e1c4a9a39d26d9",
         "genesis.go": "de227f6c76eb18705d8b09483a9b74b66874b5b56468ce0d5957675bf441d463",
@@ -12041,10 +12042,10 @@
       ],
       "files": {
         "airdrop.go": "42f9a2606d3000ac9df441e9536b966c3edf2985175a54ac35ddf37a422c78e6",
-        "custody.go": "e86e0e343265744f05426fc9a2b2df977de0838d088256031ea1aa3f86af3eba",
+        "custody.go": "6fa4032b221fa7aff2ecb7ae11bcfbddcfe81e195f789d114f0e49cff64eb2c7",
         "fee_accounting_counts.go": "b9d234f8a104f82f05c91888c32a4c69b3000caff275a903c8a3d439e9d90c72",
         "feerights.go": "f60c3c6da93179a164ac699a1d3280bd19bf913c80f79155ca989c1e8b739b0b",
-        "fees.go": "b5aefa9f18e43a200b5c2baa5fa416d5dd17ad00acfd6bc988f07fac98da12ef",
+        "fees.go": "6cd1ad0490d9c75d25df2ddd3f61c0afa5a4c84d0dc13986d030fddf4a996afc",
         "genesis.go": "f1fd942741ed494e06899404d70e3927b162f713a8cc71db742bbf2cf5ecc4e5",
         "grpc_query.go": "804f8b76a88be6abfd1030aa31d744258ce861b511aa61f64622c90020fa7917",
         "grpc_query_airdrop_claimed.go": "08d8a1c652c3514d7fed58ddf38785fde1b5edf8b1ea8ae217ff3c9cca8d9d03",
@@ -12261,7 +12262,7 @@
         "errors.go": "99a53fb515f6c07724d39098747ee576a5be7c8379793af844a974afa99d63a0",
         "events.go": "af69266ac4911788674619d43dc4703648fba4ab1bf127f605f91bcb60638d06",
         "expected_keepers.go": "82c778e8e5a6253af922636f31e044b0f0018a7db06a019e9720c10142659217",
-        "genesis.go": "0a2f697aa5a61f678f7adba1f664b6e552ecedbe62780c6f2d7de9e88b40c7ae",
+        "genesis.go": "8b85180d2c99255b9ebd9cec53ed3dd05880b1a5f54c1838f20dfdbcdb03dab4",
         "keys.go": "cff618ffdf8fa99027f7023e35246b5206ebf7d5fcea576cba15bbf59c43dc3d",
         "market.go": "2178de152879691d15eb3296fc7f0b2743c710b408db324b0eed9ff66db9cb2c",
         "math.go": "d0bba88ef97298fcf168d428bd7788e8bd0cfff3203a94dffb79b7c3229b6d5b",
@@ -12535,7 +12536,7 @@
         "bond_return.go": "4fbb2df31a8352eb5495172c0679e4ff045e3f5bd47e41f2f64bc856375f1e21",
         "challenges.go": "0ec2c907eb6fb4a787904576afb793cc47f80759dea9998f12ce1f2029756097",
         "checkpoints.go": "771f12be88321cfdbc760e2c0c71473b5aa55761634d15945cf7e8e9dd43062c",
-        "custody_reader.go": "f814b8bc1d9a8f2f4c88f04d102d4ce37d7b4310a5eb06500f2f2932e2788f91",
+        "custody_reader.go": "0ec2abaaeb79eac3b92df30fe677c6d1d63e0ed0849c74dfd07b6cfdeea0c791",
         "genesis.go": "1a05fd88001779e61024025e22be8677912ecb14afd21c96f20664fa6947125e",
         "guarantors.go": "d56013acd1e2e198a48f39001397cb8788eb97ad609fc7fbde8786701299c748",
         "keeper.go": "887b257453c744dce7e8adabb4778b1505a94a0fac14cd50c4ed09127efc1924",
@@ -12688,7 +12689,7 @@
         "genesis.go": "b174d96d1f173e951374a00b4e492d27a10f2ac5fdfedbb3f2998bab59042cb1",
         "keeper.go": "6e3cf6171f979333d8cad22d3c0aaae64fed5ed29822904d260ccbc92b244e61",
         "kernel_codes.go": "a82d728a153a3450946be4bd13fb4048a7db10183b2ce6661f4aa5b2ba6db603",
-        "lifecycle.go": "8738276f7eaddffdcb233a3ce8f1ec7f8383e0574911b7707b70723a00354db9",
+        "lifecycle.go": "de60c9d604ca1ea676991a1dbd78225d0078ba85cf23cefab98c4a7a4672ef76",
         "msg_server.go": "84001b60a4224c682c4f49defe9e5a2c9a8e12fbfc2bcbbbe1363bfc8bf1118a",
         "pause.go": "5847b41173a1e94eac80311319e45d36dcccac32bed5f0c73cfe3a587d602275",
         "revoke.go": "eb9c94af70f078b7e675cd23c5aee30a3c78eed51da177e4411d375a1df17671",
@@ -13329,7 +13330,7 @@
         "msgs.go": "b91336ba8e70754fbffa47af607dac6d7c8fb14ac5355700eddd1b962135f20d",
         "params.go": "b904c9f58335857a7feac80ebcbe588785ac417467914e743da52a8df4279c26",
         "params.pb.go": "1f2c2c4925421848efc0b037656cad37f57376c7561e7293200901e9c7e5d1b8",
-        "state.go": "df543d924047da98ad89cb7e2176fb41003cf3eaa3cff28dfc8bbc1b2408e790",
+        "state.go": "40cee3ae627f4b1791186020c4752b3d82a4d4a94387399f662ed6de4f169d2e",
         "state.pb.go": "0b75dce66976d577361e201ff2e343260a53f1b3cdf13d85badfbf977e515572",
         "tx.pb.go": "d438b2424bee50bec46feb1b73a313cc81b0f12283a2864781eaf4bb3d780b5c"
       },
@@ -13540,15 +13541,15 @@
       ],
       "files": {
         "accounts.go": "36ca8936ab6895ede4e758249d678c54fb6fc82554ca4cb5cf44776c6949841e",
-        "assets.go": "63583fb6677d2f5598882e5f0cb9ae230f541344bde5b34d47f059301741693f",
+        "assets.go": "dc42cae3427bf2a9bc2dc9e063981b0deb56ff655abc50c6411c684cd13a112a",
         "authority.go": "8e7dfb5313b6d5e4aa806523217c9a704f6997ca06e0abea1b49836089d80176",
         "draw.go": "68156604f4bd275a011b3f86d3dfb7bd056a5d7397d7bebca8e64ad893159cf3",
         "events.go": "8a36d391e7f15c80fb25a3cd902965e1a58b1a1b186dbd89bdd42ca3f91c6700",
         "execute.go": "ce8c94e25095877fa4e9fd909a7ed3a419dcd361e8f8c68a7a850d37f609952b",
-        "genesis.go": "6f60bbbdbb0d7483d8223e1ac571fcf02114ac3bbbb2bda259b3145533f11379",
+        "genesis.go": "53408a124997464e9e9fb11bfeac27c60997d55e7ef88281c8dcee853f7073f3",
         "grants.go": "b592580a289a89c5d7d90b772a3fa6462cae3e6890be177a495cd45f40448b62",
-        "issuer_binding.go": "a12fbca27994a3e70d13d543643ad244766f20b3e7c32533f9284a66064c1202",
-        "keeper.go": "b5dcd67908fb91538e25ab47eab6cd087eef1affeda88fd1dff00d10c3c81562",
+        "issuer_binding.go": "65cf950b8a0967ccc918b09494998aad2b505add26476871235415ef34463e3b",
+        "keeper.go": "85102a6e8026ee332a7469bc11f13c808dc5cb81981a802ad4baf37bf553973c",
         "kernel_codes.go": "9635e624cccbe509035bcc69473737e99cad6fcc23ed94d0ae927ea248dc8d24",
         "mirror.go": "b0fbaad074777ef2a47ef7cd2a031878281ab87d01d35c62b51de789917178fe",
         "msg_server.go": "f3004ee94e4dbd9f2f8b60efb0c178b04cdf6124664aad17499bb4f52522129e",
@@ -13723,20 +13724,20 @@
         "escrow_views.go": "7b6d96a4c0f061d6b9460b69690642b3efdb43325ffadc3df1dc274391f4f7c3",
         "execute.go": "097e009e362051f09f5b90ce0acfb2053996ca536cd7da266d6a6f861de84e8a",
         "gate.go": "99867559e1b380eb4e6a753a7b0cb3a04d7bd1405e137da5aa67cd2f9cfcd5a9",
-        "genesis.go": "065e2d207414d8cc67ca924045769b9276c2fdce390ae46523106e22b00f95ae",
+        "genesis.go": "5b1832cf3a3485167c92808ef009f8b61c74bcf18bdcc43c3dd82081c362518f",
         "grpc_query.go": "8ea0740bd362800fd5f5b046dce619525b04350989412bdd9c79929e20e9adba",
         "keeper.go": "4f7215615d22af1250064e924c5093ee1c02bd3432a59caf7bc77a9e064c03e5",
         "msg_server.go": "da0d2f85158147253097a03fbc7ec7073817f0bb26ce3392ffad7fa918ed4071",
         "params.go": "5fe07c7aa28a086db0ec3035105f27a12004bb8e4e175d1291f00e0b746906fb",
         "service_agreement.go": "20dd11ff8f115f92e4df310f2c32caad432227aa84223bcfb5a9602061e7f3e4",
         "service_delivery.go": "5cba5e1d674a2031bbc470725b5ab59cf153438ba72161ddee4b7fa7df671cb5",
-        "service_dispute.go": "086d840346a407225609c181bf637b5884eedbce9811092c6ecc00fa2620d563",
+        "service_dispute.go": "32e980103d8653614654c35aa2458b9477694d9b6a52846e19d0c621a65328c5",
         "service_indexes.go": "d7f2058cee33d0b46da400125ad8b45c9eb931b699a911b9e98a5958e80f6ca9",
         "service_offer.go": "d231b2eaf6788628a64d27cad56df25aadb3fb558c8fd21e4d3ecfcb0f90c19e",
         "service_views.go": "37e9cb10994c5bbd6b046352f6d714b1426ebd4b3d24800f4b177c5a5f0dc4a8",
         "stream_agent.go": "542c22a364578ce565161a06e6c265fd8920934cd06251616fc416021628d0d5",
         "stream_lifecycle.go": "da3a681aea99c5fb2245cc211dff77b930fd07c2ad0e351421be409247186c49",
-        "stream_open.go": "40c5ae2dd5e806b92eb4150262fe976bd632325ee33d52530228afbc7e58e971",
+        "stream_open.go": "dcd34314e84c8fe40143a3f476e35791cdeb3a55797191af9c2fd24bf78a2392",
         "stream_settle.go": "6736b97749d829b4213cf545108163a951ad86b0085812e6bcbe70ac269a24c2",
         "stream_views.go": "8ca9d1afb2ed7b6583c4ab7af6cb1bd4e7727db4c6198b599e35bfa5489142a0"
       },
@@ -13792,7 +13793,7 @@
         "idempotency.go": "546fed2749300ec8f87cb8f4e7f50ea2d73d45b566dde84e832dc72c7dc2162f",
         "keys.go": "3ca47bd8b6f8f5f1f4bff293687fc2c60ca5fa6ee7b1fe10c9ae947a8232d12d",
         "msgs.go": "e5a2db2b0e010ea52699974be23c7fcb9f761249cf0ddaa8d1b2264d307e730d",
-        "params.go": "ea3a10e5f5ef4157aebf8c85417a768f0c06f284f012b930c2f1cfd2901b818f",
+        "params.go": "a12bccfdef54ec3e1b72fae793c5dbac4efaca21361fdbe929d46f140486ef7b",
         "payload_budget.go": "7da30d716d2fa27d96853b1dbf72ce7ca1350cb856e8c46968585d4bd23890e5",
         "payload_escrow.go": "50868ae54e6257b796e84db25aa7318c591f8488277c704ee57b5681c946139d",
         "payload_service.go": "9a8b6820e0eb92b53eff51137baf12d818efd5829e0c80711b6e3d5927594bee",
@@ -13861,15 +13862,16 @@
         "accountmap.go": "2c3b6f8e73a7165dfa63f229a0c3b7d8392ba1e6db6dbf6ca39e6c1ce8736d36",
         "authority_hash.go": "f5313801949d10b60e560ab18c7efe542e03acef3feac7db5d5752b3d6e343ab",
         "code.go": "d10f5ed74e1f861e9f9d206231e25bfbd087e902ee88d8086192ec1cffecd942",
-        "code_names.go": "1cb58b89c53ebd194b677638320de1709961a048ea25e3aa499595df2ce38047",
-        "ctx.go": "dce79aebb1a88afa187312beadebbf80fed765a0a0cca5fa9dfd9dd83b1001f4",
+        "code_names.go": "e8ef098143041242840d706f9575833eff83bf16b1000a771ae0e806222f2dda",
+        "ctx.go": "5fa2c983c37acfdbc6db2fde33adb981f94ec64dc73d3dcb5269db9b1bc5289a",
         "execute.go": "1ac6ad20c69c76426102a7315685848230e2cdf5af10e9d5700460c89dd2a9b0",
-        "genesis.go": "0274fb4bdce9cc277c058001ed70e0d66c3e258952429978c2b4d2ea28f818d1",
-        "host.go": "6c3669bf31d6b7a417658572773a62484266c3a2467e92918e492e7136d14ef8",
+        "genesis.go": "a9f2b89a562fb7ea1f45b3614c835d4653e53bb95df0f3d7dadd43ce6efbdf7d",
+        "host.go": "f48c429b5124e019adfe65a2ff9e005a63979e5de31fe873adc75a18b733bbeb",
         "module.go": "db79ff9ccf11d1f6bc159eb4029dc38c074b54c99301689228b9f769e94983a3",
         "read.go": "26643a7eaf80d85cc54e450804a34390cae27dfafe470ef04b90f69268c9a53a",
         "read_program.go": "46c70ebe52d4aaaffc911c1181bbc7e0fbb54eca6fa995a76eb60ff5d816f7da",
-        "simulate.go": "0f07855a5334db64b7a27cfe8d88e339216f132122f303947085b513ead947f9"
+        "sandbox_encoding.go": "30589e86aafc9c64fc014f48256a407014fc15ee094a057125376d5973446423",
+        "simulate.go": "f1dca688338940176707c8c772bfd8ca8181c87cad9e3d268a1a5d42b9486449"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost",
       "imports": [
@@ -15600,6 +15602,7 @@
         "consensus/libs/utils",
         "consensus/proto/tendermint/types",
         "consensus/types",
+        "core/deps/geth",
         "core/deps/geth/common",
         "core/deps/geth/consensus/misc/eip4844",
         "core/deps/geth/core",
@@ -15758,6 +15761,7 @@
         "sdk/server/config",
         "sdk/server/types",
         "sdk/std",
+        "sdk/store/prefix",
         "sdk/store/rootmulti",
         "sdk/store/types",
         "sdk/storev2/commitment",
@@ -15838,23 +15842,24 @@
         "wasm/x/wasm/types"
       ],
       "files": {
-        "abci.go": "e94ca235bfc5d2c0fb99d04867ad770030cd582bb841ae9f8641a4bd529f8fa7",
-        "ante.go": "bac100ff91ea69aa909b01eee23d21e333e1673c1075cbb72b02a6d7fba0e21a",
-        "app.go": "81e442641feca3fba01c6e7720200c0d854ba7b12592ca7dce1766da5a15c581",
+        "abci.go": "dd53710343e1735ae03ff91fc19821922b30c0c9f5d5d08496ba32ac3b1b8698",
+        "ante.go": "08972c20c3fdec12a17c1cb296ad0fd210ac09be2ed5001f1a2185aee0f0efc2",
+        "app.go": "80c5e95654d093e5f970290d67029b7dc16f7ff416669424e37fab7b7c3ee5d4",
         "benchmark.go": "7299b31c97b8e5d778e2dff157056c9802af1a553e4de19afa0be6a426740bad",
         "benchmark_buildtag_default.go": "7ae4b79e017c8d80eb166c7feb17e9b748afc7d978e2f5025529d7d4d2435606",
         "const.go": "d964866749ba4b8f4a1003c69ae9ea0569b9e7a1d4fdbfe4992c7a3642ea1c14",
         "encoding.go": "690162d47ab357ca4bcd3aad7517dccf8400faaf2a6af551beb73c5976a7ffc0",
-        "eth_replay.go": "b107e9750262c3dbaef369df6f6d54819dc0b8cffeeca35b653e863b20cbc435",
+        "eth_replay.go": "f72e9cf41ee03b0df1297b984a4d611fd626cf95046e1bdb76085458e2271124",
         "export.go": "57369391a980156f88170e0f2f461f520c61ec17db1f83af12b0544118ac194d",
         "genesis.go": "689e3b6f4b6e939cf259e24cda1b78e46edbb2e1a3ab719122f5d411501c0db9",
         "giga_v6120.go": "a2654b2760315d328078c55aa73016703f494dd65d2905a43432d47d7a87d1ff",
-        "invariance.go": "7395faecedd4c4e22c727e6685c75e806970f2727d4f2cb31234df2e5010cd94",
+        "invariance.go": "c91a82b26fef6851e897db72cdad8b3d5fe44b6d4271a2fcb944bfe2e37c62c3",
         "leader_source.go": "477de0eace2401322428446b411c4a6a5774a416265ceeebe870dcc77744a117",
         "metrics.go": "4912a9f41209b21120fbef3f097319291f6955054b4ff63f9fff7e7537e2d301",
         "mock_balances_buildtag_default.go": "21d7b5bc6324d150c7226b626ee34834c57d2917dd3d3a0ccd557bb4701a0251",
-        "paxdb.go": "adbf0cad9145a3d3860f1cf3cec39db022fda03050261bef42994a185a8f9ebb",
-        "precompiles.go": "c915f6f6bfa4e55ce5ba28c7868020fd10f87f90eb340b8f45f769e124c55c24",
+        "node_start.go": "ba9d354f19a20b342512324104e8b5f38866feac3c43731001449901218cc8c4",
+        "paxdb.go": "b400e1a03f54b799c68741eda9ad8b54827da4716491df87fe226d5e73f716c0",
+        "precompiles.go": "ab19c2838618cfa641b73152bf685b3b334a40c6b83ff860ffa831f34a38be8f",
         "precompiles_v6120.go": "55cda92e1743175df332d96b5a4287fb9ce8547c105c9b14fae2657761fa5843",
         "prioritizer.go": "b2fc4b037042df25011031720e4e11e5a1951dfe4b63ba9a66b30df0264e0eda",
         "process_proposal_order.go": "16b5e4668079bdcfb32bd76b7702cce0296240f84d43d60007754d95b37ef339",
@@ -15863,8 +15868,8 @@
         "receipt_store_config.go": "02d12e8b13953c2ef711bcc6b4440c7c82970caf60924a3b6158a05ce571ed41",
         "sequenced_halt.go": "2b6235e4bca1705ab0dc37510bcd3947cacabb5f3f4ee245bfed99d56d17ce1f",
         "sequenced_metrics.go": "f23e9d8c53aa43af1885630b3514ab8dcf786c7c4592ad06654c60aa27c15eae",
-        "test_helpers.go": "4a6e7bad997fc2a7b050dea2e3be4fe84286d5fbc262d554cdcf41b3ef93e7a4",
-        "upgrades.go": "918999b35be2383d8cd21b4d24d2e6957456b6ff5c406aab0e107490b6fa69bb",
+        "test_helpers.go": "3441ab106736d125562db78a5e53b6b96cb37c8c3d1d53c42826a5dffad864cc",
+        "upgrades.go": "7abc6efac49a83402b4ff133c437a8b45d85a36eabdd30cbf3ce1489c3e08898",
         "upgrades_v611.go": "97f8128a9c91f77c1839ce1008c5be0102717518284ce9d7e7d88712402aea8d",
         "upgrades_v6120.go": "648d0dfa9b3eed583490b3ae2205fc30ffb1956fe7e0ab83bb220e4b9370e141",
         "upgrades_v6120_pointers.go": "af67fa99a273956b6fdcaed01f3bbade897c23cf7f8ff02545648e682ea412a7",
@@ -16038,6 +16043,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/std",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/commitment",
@@ -16117,6 +16123,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/keeper",
         "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types",
         "github.com/armon/go-metrics",
+        "github.com/ethereum/go-ethereum",
         "github.com/ethereum/go-ethereum/common",
         "github.com/ethereum/go-ethereum/consensus/misc/eip4844",
         "github.com/ethereum/go-ethereum/core",
@@ -16148,8 +16155,10 @@
         "math",
         "math/big",
         "math/rand",
+        "net",
         "net/http",
         "os",
+        "os/signal",
         "path/filepath",
         "reflect",
         "regexp",
@@ -16158,6 +16167,7 @@
         "strconv",
         "strings",
         "sync",
+        "syscall",
         "testing",
         "time"
       ],
@@ -16219,7 +16229,7 @@
       "files": {
         "cosmos_checktx.go": "32730bbc3ca2d5c85fa8b68de89b7bc36917a6771655c1f92d55f20d68a40e0b",
         "cosmos_delivertx.go": "e94148f40ba2e4a238e835b350ba28ba83568511746b5b9b92b157fa088ebf64",
-        "evm_checktx.go": "89acb5bea2471d68552eefb0de027dcb09e8642c76eb8a4b8bf60195f2e91d13",
+        "evm_checktx.go": "bba7df3039e49afec3964941fea8990ef9c136191572d49baa584beb2b7e0c64",
         "evm_delivertx.go": "6694355bba41decb36ca38be7d0142354e7f83a01885795a57ae9d9521ba2143",
         "types.go": "7d355d8f08859ad259b4a0ee67946efc2ff831839e2b504b32388df6ba87790c"
       },
@@ -16556,29 +16566,29 @@
       "files": {
         "accept.go": "c7c8180949aff382e7dc7a771fa1a2c7dc9583c39f120e357592fba0759d34eb",
         "accepter.go": "593f01f4dab2b294b4b22a2b11f5f3f633c4b09ba0e9b60e8fecfbf4c084d7a5",
-        "config.go": "458a917da7ccd1d7ac080ba335ee44795fc45429d1c1513ce99a6be12ab253b4",
+        "config.go": "b89c0773b5dc3878eaf6db5020bcdf894fded8b6d6ce2e48dfb81e1f06e988c8",
         "consensus_source.go": "715ea565aa1209496c40439946958055e3362778b2ee064516a0d80af71d3295",
         "dial.go": "20d9e78f0ca5e7ecc3c897d46fab48bbadb42a593b651292e4d598f8c88a9d07",
-        "driver.go": "6371e70b062561c818a39992ee82814c52151a0b25240b1724cd600471318e25",
-        "executor.go": "4472cfd91e440747bfd26600476e6fc85fae6987656b1c10bfef721ce1a07415",
+        "driver.go": "471ef6928b13f73fbadbcfd2fa104703e3750e3045cfedcd6d90220009e39dcc",
+        "executor.go": "6e9664fa63b7c49b53009710614f8c778dcf4662b53ff60127e406a450119141",
         "failover.go": "1c766e1b068df72a07d1a15f66a543aa7952f7ededa8ab148652b3e93ae25053",
         "fee.go": "0686f3f289e7a29692ac1db3522aea42f65134f680943c2144ad270efb41c355",
         "follower.go": "f75e3408d16fa6639703c498c7c48cfd82f3fa3487d2538a8a4e2e6977cb6998",
         "handover.go": "8a73690e063f4fc7e830da73bf96729a1138ad294d50b5d3c8f6256ac90badbf",
         "layers.go": "c2c3becd5fd0e277052b321872a26574c891aa364dd40b7885c121dc2508de16",
         "lease.go": "06998d8353b0e3e2126a11017bd96abe27784b4512e9182799bf3cabb6fc3a52",
-        "lease_renew.go": "248b577a28da5dbb4e025688d41da1f72db5f05f2c2c6816cdc1f1e5858216f0",
+        "lease_renew.go": "c1aead99a9d49f122ca247da6bad5af2c586792ebd91753deb16d1fdf476e465",
         "limits.go": "f5179ad8bf13985e862877ef913a8691541a0c8241cd1e13b9b9a8c6d5653a72",
         "log_feed.go": "7e295d0ebab7c1f0e095d1337ca890ccfd2df979cdac30dc080825ea2c0a79bf",
-        "metrics.go": "e24e71a88699bc7cec7cce04dca62e33cc1ecb4024e98f902a9fc24a2b373357",
+        "metrics.go": "d821a3a1a326597073923bc1c4a90d2828fda99b26eaa7b828a95dd140f6d2a5",
         "microbatch.go": "5116f3c21c8c519ed1bee1084ba046a9ec3f11c402b8b2c105c629865b576bbe",
         "node.go": "2e0e45d18e241f02a21b1ea6bfe831deee4ecf1e74834cba414281e3a725e9b9",
-        "node_start.go": "bdccb9e0baf25ce6deb05e67b28dd65d72c1b0d81fd4036e36cfd49f8b545db7",
+        "node_start.go": "bdacbaa2e13a24545c3eb51a34a8406c9268a3c4342c5d2c5f2516f31eeece64",
         "node_stop.go": "366c991390afbdb568e309e2e2c2c0cde2e1cd9b71569764e99c3df1f81125e0",
         "nonce_admission.go": "8f3b650201b6ac12cb5702f102d25a2b229950c93b899b669c8e2bf76e71b2a0",
         "nonce_queue.go": "087f34a7d803c52129545bd05b8ab359227028ce5221bd1677677a6035cd3120",
         "precompiles.go": "0cc6d43e7d7d8e7f26b97cc0996737fafc1d27d86009cc19c50aedb03362851e",
-        "receipt.go": "fd5e182f019b043139e16b69d2324ac736cc5406cfd0cae0478fdce568b5ec30",
+        "receipt.go": "b830bb8e83eab98fb656e7629a273b35aff3394dcd5f67aea1b9a3842b360d92",
         "receipt_source.go": "286a03b83c67a4cb9b12234fd4f9c91c81bf33939866315e97401912a5503110",
         "receiptkey.go": "dd9373d94b240a238cbcc802dc3f0e182d7293bf4f9007916f46a404d549695e",
         "replay.go": "e06af4b68e74a12bf4dd2c06ac84c82598209ddb9921be5906ba63e30e752921",
@@ -17111,7 +17121,7 @@
         "utils/metrics"
       ],
       "files": {
-        "addr.go": "059b968030d02a5031b674d6476ef6694c20dbd7a1b4842574ab3602a935526d"
+        "addr.go": "9de9dded8218dac81057b94a13436d8ad7f5506b8fb6e4ce85e2728fb46fb820"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr/legacy/v575",
       "imports": [
@@ -18243,15 +18253,19 @@
       ],
       "files": {
         "evm_events.go": "c3c94a29d1a4d9d874841a34c1a351bad5ebcd4b5990cb00c01b83ebe524b925",
-        "lxp_errors.go": "93d61e31c1b209d8ad7b37a540740e6eb216f6bb30e1c7b40e9f8956e3c99eab",
+        "lxp_errors.go": "03bf7021dacbc46073a977377234d41546641c062afe80bd7600ef15f7621e29",
         "merge_plan.go": "4cdbcda55c5f07a8c10b7c5c2a6cf90ac124d2b00a501eb8562025bf966d04f3",
+        "pointer_artifacts.go": "a34a8bb593e729089c513cb6e9b5b1d1c0f53799386c58ca888a8f3232ad1c68",
         "precompiles.go": "c862238e63722d02ede6e59419c6437be96ab20969ed04ed537fe96aaeaffcd0",
         "retire.go": "2f69da8682b731748335e3c9380dcee6ba780461efc73008d354b934da09bec7"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common",
       "imports": [
         "bytes",
+        "crypto/sha256",
         "embed",
+        "encoding/hex",
+        "encoding/json",
         "errors",
         "fmt",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state",
@@ -18281,7 +18295,12 @@
         "math/big",
         "strings"
       ],
-      "inputs": [],
+      "inputs": [
+        "pointer_artifacts/cw1155.bin",
+        "pointer_artifacts/cw20.bin",
+        "pointer_artifacts/cw721.bin",
+        "pointer_artifacts/manifest.json"
+      ],
       "path": "precompiles/common"
     },
     {
@@ -20914,7 +20933,7 @@
       "files": {
         "abi.go": "91284275ff07a8bcd3846522e812e8342f9fe58d2f5ef0b497013b323e716fb6",
         "errors.go": "ade8a84fe0b325fcfcfbc2fa9184e569229b100d4bc5cc40c0c9efa89c4473a7",
-        "events.go": "a0ed2f808b0f48c53d29416ce1dc5118d7befcf7eb0da9df7820b27503d2da5c",
+        "events.go": "44c106bde3ad3de7c3b6013f95294ac65178b88ae5645f9838860a695500dad7",
         "fees.go": "a961e43a7ba6e1894a63c82467d6b3038c326cabbeffaadd56fa02d1372e81b4",
         "gas.go": "762add2c1c3937278d8c1f922c65958831bc90fb1279ada6e58697ebec274da7",
         "hooks.go": "e29b8043673284764876160e58734d249b002d974665081909e8b7318937c22a",
@@ -21378,7 +21397,7 @@
         "sdk/x/upgrade/keeper"
       ],
       "files": {
-        "teeattestor.go": "0d54f738fa8a738dae1b1efcbf91dd9743f35f135963bd6507883f143c2e7576"
+        "teeattestor.go": "5626faf7ae265946b26412d1d0903f1028c9700e428b55774d473f03e0169c42"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/teeattestor",
       "imports": [
@@ -21738,13 +21757,13 @@
         "budget.go": "f72d769e5b61732107133582d5c92f4e39673ddba1e18cbc68b840d704a071fd",
         "errors.go": "309e9423ecefabf6df97bf9dec4db76f81adbe84a422038f1f2f18805eadb8bd",
         "escrow.go": "41ba728f20e8d63fbe8e7e3767f792bdc33a2f544defa60b3e9f730f221426a3",
-        "events.go": "967fc4fe75b5821a82c1e0c3d439586b5d1be4cc0eba4e100b7c0246d25867d5",
-        "gas.go": "3db9c09d6f3046ef9e042d37ad90ee051d1d093cf32573bdfc77fdf108a0759d",
+        "events.go": "adb0470e25b20668cd0a20c7a07ade61db89b2dde2055a647a46f06e21a410ee",
+        "gas.go": "6ac6dc53ff4a435143bd72ef1442ab5ed1d842c8a9a7a942b94a6993b07715bb",
         "keepers.go": "8739026ed5220d80f18b468f0a1cc84af15bb30a303b4a38541ff38b31b4398d",
-        "layerxpay.go": "fe72671f717b4b9c334483ca731725c6442f6aaa01cb9435b8647c001df3dbb7",
+        "layerxpay.go": "91a4f71b9bc24b2e3a9662be59452f7574ec5aece783ac866fb3745d07a7a969",
         "service.go": "10307a7616d1cfb5159415b8168f74bbc9ad959f743257e13bb21919cebb0073",
         "service_views.go": "9ad6bea7b4754ae2de22cc4bd73aec384976c199f640298a00bbf9fbbe74f3e4",
-        "stream.go": "00deb635b243de78065bac4f5af9df9e9956a03329b0bd1f7a1e39cb600de2a7"
+        "stream.go": "4893b4080f5a45f8eb600727f07706c07cf41837253c2b61b71da9fa540ac2cb"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay",
       "imports": [
@@ -21785,12 +21804,10 @@
         "core/deps/geth/core/tracing",
         "core/deps/geth/core/types",
         "core/deps/geth/core/vm",
-        "core/deps/geth/crypto",
         "layerxproof/codec",
         "modules/evm/keeper",
         "modules/evm/types",
-        "modules/layerxcustody/keeper",
-        "modules/layerxcustody/types",
+        "modules/layerxledger/types",
         "modules/lxphost",
         "modules/xweb/keeper",
         "modules/xweb/types",
@@ -21806,14 +21823,15 @@
         "descriptors.go": "eea42c37c5101d8b113eb144e7ade3148b3a410e5596f8100b980ea04394f51a",
         "errors.go": "cf06fe52e99a3dc482f6f78bedf9e71043af5d6e68de3beca868618396334c6b",
         "events.go": "697ab90075e135cde2e77adea3a405e369de346766e8dc8ad21ff897b6126d8c",
-        "events_call.go": "1980989872b8a3998c5ac9e7104253f657e554738d2f7380393ee2ad916828cf",
+        "events_call.go": "f347f738d4e86a32f7c7526ff9e25829e45cf9fe79fab3473bc25132e0515191",
         "events_sandbox.go": "cf96c4341bcd98de4c25fe482c84287c9b54301eafca540d7f52344c2bab9242",
-        "gas.go": "31b5999d486d9c910582bf5b0929b28fbc8b525f53e875c969a879b1399f4b21",
+        "gas.go": "2b415f6f195016684197dcc7d5dc76a42f460ae78cb5bf04a0cb7d2fc5c8e298",
         "gate.go": "fe51c945f1357a6f10b73cc81f0c6a48f77a339c44645d49d38291db000f780c",
         "idempotency.go": "903978307504122d400bd55e9eae789504750e7e5fc97f990ace49f444934b0d",
-        "layerxprograms.go": "ebe928e15124beee0072c6cc7c977727e2989013187a231fd7fb4a7d3bb3d00d",
+        "layerxprograms.go": "de70507801796a39689816e39a66355957c32a553492b25b65e50fe1993733d2",
         "method_account.go": "53d58d74ba25da3343da0bfa17dfeaab649c28c9c689eb4ff210f5e41c4d73f6",
-        "method_call.go": "89d259147de4b54a8a2206a563662b5f3fd54621bd8ba8ab47ac2fea0e7857c8",
+        "method_call.go": "8a86d54e39323424ea26e2e21e84fa9e2b952464695968e9d9cf6428d93e1e4c",
+        "method_call_receipts.go": "5c2bcb2d10d170613a42e554bec34eac4e826efbd2d1b956b29bb8adb735ad4a",
         "method_deploy.go": "29aa4ae1bce46fadf08ad17aa8677f857dcb4e2124a521a8eee898eafa0cbef0",
         "method_exit.go": "15562d4133f36dc6cf2f90016b028fc984841961e9db9ddb6b468774e3b862ae",
         "method_quote.go": "b543244251848f4f5d465c197222731fd6419dfa2f4c410a697707ce7a102016",
@@ -21833,8 +21851,9 @@
         "payload_sandbox.go": "113f5df3e5eb1db4039398430f1294ab4ea2604faf8a62d4758b8634a56b4b1e",
         "payload_winddown.go": "218d83252d5e013107486a6e600d8d555b54aa52ddc72d5d88d60b17f5b5953d",
         "principal.go": "16acc6c7cc2fd8f3b11300c89ee9c5554d1a6d7a9b6eb84d0b7af84db8a3aeda",
-        "response.go": "21361eadd791e0ee338cc0f27294e9dbcd75ae21100e7cf20373af87155c7518",
-        "submit.go": "1dc9ed4ce1339f007de8a1bd8b545fb8e154c8dd5cd0ef38af9147ce095dcb2a",
+        "response.go": "4abd268ebbd9be9cc33dbb116226a46de17ac2fb8acc0b05cb9f650ecaf51721",
+        "sandbox_lease.go": "6764c995a3c46b46b09bfdb9e1ec5c108104f837382c3d68b28998c4eb8fc241",
+        "submit.go": "8f970de67eb6a81f2b5224f939ec611b79e28908a607e202621e69efd917d393",
         "view_accounts.go": "a547be4a890cc42c7aa9ce3a6d395ad59f118b76346b5df25ec94ad385c42c80",
         "view_fees.go": "c48f1853a4af8c73cb845279a2cc6789fa515da3ba032f16db78ce782e8738e9",
         "view_metering.go": "ac3ad526980a3928da50a646ee0dc83061f8045a307e7becfdb81e1f990aef1b",
@@ -21842,7 +21861,7 @@
         "view_sandbox.go": "f183a9c96a77b2e8347c7e0b118e8449dd34b0f37ff70539c5f3c88f65b37349",
         "view_web.go": "0ab94ffc41d8cfe22b81818596db9e93efb9d39a0a29e8e3e6f19958d581f5d1",
         "view_winddown.go": "89b06d6c4bc23c96ee4b8ec50b6ad8ce97cf48638506ac23eb72c8d9764d15a2",
-        "xweb.go": "b85ebca82e142a857a1ba7b0a7d50a11c4a2dd232aba3b5ea864a60f28fef9e5"
+        "xweb.go": "a9d56f34f6cafbd22a1ac779a9afcb0232725245eb624a35375b9aa401d29d56"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms",
       "imports": [
@@ -21855,8 +21874,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types",
-        "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper",
-        "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types",
@@ -21871,9 +21889,9 @@
         "github.com/ethereum/go-ethereum/core/tracing",
         "github.com/ethereum/go-ethereum/core/types",
         "github.com/ethereum/go-ethereum/core/vm",
-        "github.com/ethereum/go-ethereum/crypto",
         "math",
         "math/big",
+        "slices",
         "sync"
       ],
       "inputs": [
@@ -22756,7 +22774,7 @@
         "utils"
       ],
       "files": {
-        "pointer.go": "cfdd69f4ceaf48e46081b70fa53839ab214b05cc20d2484cacdf36e694dd6087",
+        "pointer.go": "ed503168edae042c0c3a8442cf63278ba002afdc1df2a5390d212adbf50cf928",
         "setup.go": "063a14e533dc5fd9de8c196e349a441be35c09cc95b0d4ae0b5aa6ee096160e0"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointer",
@@ -23317,7 +23335,7 @@
         "sdk/types"
       ],
       "files": {
-        "pointerview.go": "107f019b391e1d3fc001e735b6e91fdac122576611e8a0612a6127339257bcdc",
+        "pointerview.go": "ae4ac4b9b13095d601808a85862b85837e2474771310ddff2338c30876516070",
         "setup.go": "14f292bcfb6a5f221a368501e4089738096927b2fe5e6b3705e002f055db759e"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointerview",
@@ -24047,7 +24065,7 @@
       ],
       "files": {
         "setup.go": "a430fec4eb4d60757c8bb03a2308049a7ca41cff06cf78bb9a1400d7b2d31aba",
-        "staking.go": "c17e7f55ffe6c9e2f66c056dfd2a31f09906eae355bf8df9a8db536386d28fc5"
+        "staking.go": "8ed9cfb09330467327f3ff803fa3edaea3e80c9e3fc4292ab651f9b3e3e7dfe5"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/staking",
       "imports": [
@@ -25314,11 +25332,15 @@
         "modules/evm/types/ethtx",
         "modules/layerxchains/keeper",
         "modules/layerxchains/types",
+        "modules/layerxpay/types",
+        "modules/lxphost",
         "modules/sequencer/keeper",
         "modules/sequencer/types",
         "node/legacyabci",
         "precompiles/bank",
         "precompiles/layerxledger",
+        "precompiles/layerxpay",
+        "precompiles/layerxprograms",
         "precompiles/wasmd",
         "rpc/config",
         "rpc/ethbloom",
@@ -25341,6 +25363,7 @@
         "sdk/x/auth/tx",
         "sdk/x/bank/types",
         "src/modules/history",
+        "storage/common/keys",
         "storage/db_engine/types",
         "storage/ledger_db/receipt",
         "utils",
@@ -25350,7 +25373,7 @@
       "files": {
         "association.go": "91a98ed0e305deee4f8073e606c1256443a34e99cc75f2ac0aa7a8c26fb89b0f",
         "block.go": "350a558efc488efdc3751758f0a016768c8044a3fee68422ac66d1ce72280adf",
-        "block_trace_profiled.go": "d300cf3090f807c666e6d89a60fe9aca343b76c4843a55c1e711e37758b507ab",
+        "block_trace_profiled.go": "dbfda1ab42a418f358f11a586a1178152ef5c44505e0b5e85744d97382120d7f",
         "bloom.go": "265983670386c54bc38fb26b61e1c41586019ba3f1004c73743be4f6c49af4bb",
         "context.go": "18f81bb159642df7833cb0ccf5252cd2350e39bcc62a55e0aa21aa248dd99f06",
         "domain_index.go": "9f544dcfc168382be744e336fba459f604b49266993a5865fab7558ac659e06b",
@@ -25358,49 +25381,52 @@
         "domain_ws_apis.go": "f4047d9f6c2f0f4547a51955668932c2258d6dbade5868130e5c13d688ceba72",
         "echo.go": "8e5bd1dde1adc074c5ac1c4cab672a04f8306e6520958ebf9d6c34976afcceb0",
         "endpoints.go": "2959a44e1b2bbfd416b901f64b9ff9150bafd56c9d5fd3bd134443429a9ce689",
-        "filter.go": "5e9ca888cb31dcc763eb41094ec9dce71f63531cc112ab698695e5b5fcaad776",
-        "info.go": "898c4e4807e8b5ed9eaf980190e3e2cd2bd5f8d3f708a0efc4a3172b3fe73699",
+        "filter.go": "8507d91f5fe99073ff3bee1b84d00e6f4610da5683bd602863ca7a1edce9c790",
+        "info.go": "4dae823eba49968c22ed5452b900c637c670fea4cbaccb75eb2b9aec2189185a",
         "ip_rate_limit.go": "64396275841abf3574aa2d1642929ed958f6d821f34268074116e1488981b6ba",
         "jwt_handler.go": "884b37f40f5cde380dd06fdb01665f5128c00c371bacbde77d494505dc3e9f3c",
-        "metrics.go": "c0fb9524623063bbcf5e6e7282985683f27489c1e0e4450a06d72aca8f36a11c",
+        "metrics.go": "fe07d16c9387f4c584200f3df85d2fdcad23c14e5a290431da875263bee0f8c0",
         "net.go": "e545b947bdabb1c5258c35dcd388c3dde054d37e9db49700951505a148673176",
         "net_peers.go": "39a813078fd20bde172cd479c5276dbec4749f3dbf42a1d8ba06fdce948c7f9c",
         "notifier.go": "6d541ffcab796d4e759fccc40965de89fcbc5d3450f0090be22b5393d5757b32",
         "pax_filter.go": "cca6463eb81ac72b10fd69c52cb839d434c6fab8925ed16f098412fbdf33ea82",
         "pax_legacy.go": "7cb6b89b1cfc8888b3aa67aeeea5619e91054af3551d25afc67c9845813b556d",
-        "pax_legacy_http.go": "3ab5049941900fb7359b2af1b890bd22424fe9244cc3a916695e630c80cb3052",
-        "px_account.go": "8e471ffe0d7a23ce6884585f218d2676ea4fd5fc15546bca9dc4c8b41a9ea4b0",
-        "px_assets.go": "2aec1d690eb91246b2c6b617484ac7b82c4e6a1ca2159d116717fabbc9f67b7e",
+        "pax_legacy_http.go": "604190a9115f7cd07a414388d85fd803808046bc99dfb4fca25aa38105563814",
+        "px_account.go": "7699c36831c2429db091d8a1fea2ba11d5bd1fad37a21ce31e2bb1fe18a61daa",
+        "px_assets.go": "ebbeb37b8a20d05c05ceb86cdcf5b40d2505f11c57bde075be121cfb315dadc7",
         "px_discovery.go": "6806df86bc53094afbf065940a6dc1374ce63fe01be24be1ce7818d5acd5c21e",
         "px_history.go": "f84b41b54314ae253d33025d6d610d8a74c6b3c17776aff99abdb83352d6c405",
+        "px_inference.go": "edaed8ebddeab404e84206b84c5bff6c2581aaf3da662b8a3e2e53a9736796a2",
+        "px_kernel.go": "03948cf67705d0911b167761bad2f0a2d5ec344703be0cc4b4d55ba4cf06d1ea",
+        "px_params.go": "936c288004fd9f8b207d63bf14c7ad73d609dfff2135bdb5486d8b737048a12d",
         "query_builder.go": "f86f7b84b513911e78b4d655c1302f3f856eeffdfd1359e969c84c0c32840a18",
         "raw_tx.go": "f9fbc37195fff9e6b07acca00758e320e26a7bbf6ebec05767bbbd6505748ae6",
         "raw_tx_index.go": "9da445c578843360a97cd98ad6a0ced6d016f14aa99101aee5ab63aa22674001",
         "rpc_unsupported.go": "a3882fde09d7c5b37c66583b9b3eea02f08d91046d0cc9ab1dccab43cae6a693",
-        "rpcstack.go": "8cdf289224f061dfbc8a397803947cc755cada27a263afe4a7d62764e1710202",
+        "rpcstack.go": "3eceb48aabf592bb11e65d4194c3fbfed301be29739fe00cf7f14a330f943221",
         "send.go": "14ed1197b0d9f89fec492aa104fe1130958901095db4d60369ccb4d9529464e4",
         "send_sync.go": "8c824309056630b7e3864d5af353090205dfbc8c827e4b436ce7539952ae0010",
-        "sequencer_receipt.go": "458ed4ad4b40a4301a6792388b1a3b595ec0c36340b3de514b1fb7e7d133c455",
-        "served_methods.go": "6263a16bafb62c32fac5b7799606c491d418d0e6f6562aef95a7fcdb86037e34",
-        "server.go": "e557e29f684a4a9c2ee26de5fb401473dd92ac9c3ad26782e3f3b516719cea0f",
+        "sequencer_receipt.go": "f7b743a8b9b3f25b5ed5f899851545edf41e1a9a13901c9383f5b72e53f49f57",
+        "served_methods.go": "cdeaa5ea8be344f2e1a3b1554b9a6aeab626764f5907ea3922c8d4962f87a4c3",
+        "server.go": "4ac283ab4eec7f95a58e0025f12ba4837a7eedb58a3cfeb70df87091d87d7d35",
         "server_options.go": "235c9e0d1d243e2f6dc287e9b72786a8c0e9f60e17f1a173da5e2e1307e54b19",
-        "simulate.go": "165254d0ac079b518a9417548a42a6108f3d23fa44274d937e850af9002e07c5",
+        "simulate.go": "68ba28313fabe7f8e595aa294e70347eb96172a51faeb2b5385963f70efbe867",
         "state.go": "f8ff009215398c01806b7852d79f9f08e42f107b14dcde9c09b288f7f13f3b1f",
-        "subscribe.go": "1d833217f2da766f414a2261cd003ede674a12334e1796aae1d444de58a1aa33",
-        "test.go": "238bc765224bbaf52bf825c76a9c0467f31235bf871adb2355122c5e490bd08b",
+        "subscribe.go": "e200c7310c515e30cd32e87dd7a6c38a5d4714683d19729bc0b2aa52d95541dc",
+        "test.go": "985d8f706a6e04b7f947f6ab4e4dcb00bdea5f54c38d9ae8f409a59a2134c6cb",
         "trace_baker.go": "2a0206e3621d1a2c31d8bfc3ecf6d270a3c8371f30cbc8cb98be40b4d1384e03",
         "trace_profile.go": "074dcf756514ada35a0c9a8e57badc20efb3e619fb4099fad7df1560467b97a9",
         "trace_tx_decoder.go": "488224e46f4e188d9c8e7b86e151083a8cec73e0b00a0aac7833ab0a6be2f1ff",
-        "tracers.go": "816a8d43bfe61d774da9f851f8e5d4da3d0d0703c6b8e0e8a16f79d9b27fd5e7",
-        "tx.go": "06f5bde3e458e9f788ca94efb5595798a82142567084fdf77aa43dce351125a2",
-        "txpool.go": "5230b7d6d1442accf25e371472ada6cc35a0b06e72b9371b8d701f148d076118",
+        "tracers.go": "a9a5005d49acbefa5c819fa69cb27d1ba2c157a6cb43f47579bc02b34d7a56b8",
+        "tx.go": "86521d0482db2fa4569cf33dde06a247a2a4b4ea1a6d8a32c7aa47e2c8b0e338",
+        "txpool.go": "17394b86e1e5fb3b1decfd42302bfb92bac0668d99ef7fb4f33c385ff94e5c94",
         "uncle.go": "5e199da1514ed805c4859bf2504544a8010c3b20c4fec8c3e486a64c6732d116",
         "uncle_count.go": "7a3a87e7567772eb087b15a3b29e8d00f24615b01e8aebd99ed29dacfeb80e0d",
         "unsupported_ethdb.go": "6b106a045a084cd11671a5742ff12a696945ce22dd112e7d1ec607aa1145dc61",
         "utils.go": "504cbb284e686799411d84122c80128c72d761423d048eb89de0e7070d155dcf",
         "watermark_manager.go": "f0c860fbc0722b78f8681721122aa493ecf0208cae4926e8065d0229ababab42",
         "web3.go": "3e244945f42a28e8daf355f6ed6b27b3fdfed0bc56d83536391d314fa5c3c9c7",
-        "websockets.go": "d7ff3385439ffad232bb0e144568222ef02878af27323a795c0050f4793ba575",
+        "websockets.go": "8bfa3df8ffbd9fe6985a964b9f2efd895bef7ceae833c88303060a2afa907881",
         "worker_pool.go": "5817eac3796a5def8db42b18d35f7656dd09a57cbb849a123d1f2e469f1b07f0",
         "worker_pool_metrics.go": "cbbc62273e86afbf61133d7373402fa5dc5c3b2ef8b7e2a2826beaf8f3e5e8da"
       },
@@ -25438,11 +25464,15 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper",
         "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci",
         "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank",
         "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms",
         "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/wasmd",
         "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config",
         "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/ethbloom",
@@ -25465,6 +25495,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/tx",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/src/modules/history",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys",
         "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types",
         "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt",
         "github.com/Sidiora-Labs/Paxeer-X-Network/utils",
@@ -25541,10 +25572,11 @@
         "sdk/server/types"
       ],
       "files": {
-        "config.go": "69438d2e566f81556616db7aadb7c625c4db4385bcb06de7805c7b60666b2039"
+        "config.go": "6c1f409468ac7a930a17ae09990429ea744aa45e238d7330c294058a53cb878a"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config",
       "imports": [
+        "errors",
         "fmt",
         "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types",
         "github.com/ethereum/go-ethereum/rpc",
@@ -25647,7 +25679,7 @@
         "sdk/x/auth/legacy/legacytx"
       ],
       "files": {
-        "abci.go": "736b72bf1b11066899737372348c8293215f03a41157551aae84f42109c3b8f4",
+        "abci.go": "ed8854f07a2528d048079dc8f3118f6df332bf264ca69380ab2a81ed85fd7e0e",
         "abci_query_metrics.go": "93fb5839a1fbdc61b37195b6f68295689851d230b095973fec9b39483d3942d4",
         "baseapp.go": "76c486f2f40c7d49645de723844cfcd5e1f7db56af60039c812ba23447f898e5",
         "grpcrouter.go": "1196735e648fc904803c0a38124fdc7adb02750717aac530574fbf2ec7401446",
@@ -25871,14 +25903,16 @@
       "path": "sdk/client/debug"
     },
     {
-      "dependencies": [],
+      "dependencies": [
+        "docs/swagger"
+      ],
       "files": {
         "init.go": "42206fd00d73015c6d8b875fda2ba981fa984548b1c02a7c57d0e17fa7942d22",
-        "statik.go": "2d6c79a517eb13c70579fa808c09391a8670dd6c8925037198d9ebca888de0c5"
+        "statik.go": "c2646a63219677637b4ba957b3dd537d51d74effecf7c2fb7427decc78517475"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/docs/statik",
       "imports": [
-        "github.com/rakyll/statik/fs"
+        "github.com/Sidiora-Labs/Paxeer-X-Network/docs/swagger"
       ],
       "inputs": [],
       "path": "sdk/client/docs/statik"
@@ -27118,7 +27152,7 @@
       ],
       "files": {
         "client_offline.go": "97d05449bfcf07a0e060c689f1f457905523afcc3e7555c8e1867586bbb433d2",
-        "client_online.go": "99bd4609a65bd368fba5b5e57a0530f28935d6a7d992d4e07c70fd3ed03f69a3",
+        "client_online.go": "eee47016c96d96e53ef641ed29b77a88d7c0d6fd98f6d6d2cd0e22e837daf4bd",
         "codec.go": "a1d9c03db343647c09c2dc324604d585e2e235a9747055a334fb160e82a41889",
         "config.go": "d69feeb304080259c134be630ece9cfdea67f5775a374c2b889ee629a1ba8b14",
         "converter.go": "7137b10dcb921a617aba2570807c3ecef727df500fc6efc22d99589923ccd3a2",
@@ -27659,7 +27693,7 @@
       "files": {
         "dbadapter.go": "c2bae2cb3af32bce3a1e02336d0342c7d653e7d83582b18b30d97c219e2f6424",
         "proof.go": "312a9fc56c2e1c59131c7b829906279bfee6201a92a9cb44ca6e2688ad75fc97",
-        "store.go": "d1c20bd37e92d1b63b9441f5b57e466f754e6c9561751c10f3b4c3c401911531"
+        "store.go": "8eec37bd0f66111bdd8033beb5b86a9a19502091734b03740e0a15a6734c9c17"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti",
       "imports": [
@@ -28385,7 +28419,7 @@
         "sdk/types"
       ],
       "files": {
-        "rest.go": "f80949e66587b1e5e14bf0da1128a4db934b6b2cfdbd8a129f0afe20e06b43db"
+        "rest.go": "079f9d518aa0fb58fb849154ededc626eb679d57ffd0359b6e3571572cb17e2d"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest",
       "imports": [
@@ -32137,7 +32171,7 @@
       "files": {
         "alias_functions.go": "7f34689cb9b75fb25cbf72da9c2ed59746424d209198ba970be747d206827163",
         "delegation.go": "8ce2613c3c70fab177339987f00f2d1332cdaf6b61cf561c64b42f7d2a47e1f1",
-        "grpc_query.go": "acf2bb723bf1c4e199e500eadec7eb962944d09358d5f6a1568c1c74319dfc62",
+        "grpc_query.go": "c2e368a085bda8fecf6f85957745f2429b35697b1d1aa4eebfb9dadc5f9e7365",
         "historical_info.go": "0ef561f191e5cc813160ebe8feea9e2b2e9ff7cee3e66ba8127acf78cf9595d3",
         "hooks.go": "c0d6a03aa7e74e4358cb4238f99536c6b537b5969607a84ad5ca7a07e4aa30a2",
         "keeper.go": "4840a7448db7b2b3cd4fc9f021e6e1ab91809e0bda3ebacd0da0723eeb530d9f",
@@ -32738,7 +32772,7 @@
       ],
       "files": {
         "restore.go": "4cf25670eea5153a505018f69c311978c7ce3bab01feb721a5b0888d765af0fe",
-        "writer.go": "dcb89a781ad8a7d487d404c33147289449badb66462ca51cc3fa5dc3395716b0"
+        "writer.go": "67530ad5b5551f5f390f82d98535a53d57872a4feff52eb78a8096d5e3377ce8"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/backup",
       "imports": [
@@ -33036,6 +33070,7 @@
         "services/wallet/attestor/internal/auth/agent",
         "services/wallet/attestor/internal/auth/jwt",
         "services/wallet/attestor/internal/backup",
+        "services/wallet/attestor/internal/config",
         "services/wallet/attestor/internal/health",
         "services/wallet/attestor/internal/lxwire",
         "services/wallet/attestor/internal/policy",
@@ -33044,24 +33079,25 @@
         "services/wallet/attestor/internal/policy/native",
         "services/wallet/attestor/internal/store",
         "services/wallet/attestor/internal/transport",
-        "services/wallet/attestor/internal/tss/dealer",
+        "services/wallet/attestor/internal/tss/dealershare",
         "services/wallet/attestor/internal/tss/ecdsa",
         "services/wallet/attestor/internal/tss/eddsa",
         "services/wallet/attestor/internal/tss/refresh"
       ],
       "files": {
-        "authority.go": "e04b58142aec14cd04ba6e42f28fc253d0983b4196b6b64a550a1ba8557c68d1",
+        "authority.go": "de81a3cd070b5a9ca08b51a7449f2eee87fd19bb4c743298ffa82ea5ab2b8127",
+        "ceremony_node.go": "77979ce793eac256511416492c740290358ed88ef7ebebd0f85d4d41b3dbcbae",
         "errors.go": "1debe3ded8bf67fb781a53ba367c8cb0d9fdcc01f9880e85d77302b2ad2a0527",
         "evm_review.go": "e4b4b92c441a33097d15c13a9a66a530a5a4b0a5c492af2fc2776888b42f2179",
-        "keys.go": "940e6ef7b10e9a118f1efb86aabfe383ae3608fd0692a04d13fba9ae123131b3",
-        "native_purpose.go": "dc74e61e76fdb3d751a1ff5eb4fa3e3b2c381ef5ecd534d86db515d5efb3f5af",
+        "keys.go": "0df27725afb5395208f65524d76139fdae698007ddae4f27ff04cb1da0a2c31c",
+        "native_purpose.go": "c2684bf1805cf90e0699d26d23ace1c069379dd29490cab8c84a8298a9baf2ec",
         "peer.go": "66c869324d92f0ef1b2b2503503115d7c9cfbadaefd74795da92439049e089d3",
-        "public_identity.go": "fbd91c1703cd15acbe2470e379bf58dbeaf4259f23c5c2bcc444084bb7b006ae",
-        "server.go": "4910cac7e6cf174495db510668c14cc3417c92f9e23a8dcbf052e8dc56ad9ffc",
+        "public_identity.go": "dd36f77b03c9ecf935135229bd76f9c456ed1ae408d720aa413ea39bb7be6fd3",
+        "server.go": "ec7070e9ba2d0d010ff95d601501b2b9aa2cf65ee770b44f68e5c86a185e1ab5",
         "session.go": "25bd9bbde24a52bce12c18ac4f5d878bb5287883dc862b0ac2fba4bed8af6d76",
-        "sign.go": "c87bb40625f560b05e03853d94cc0e8b0d043c2a32f54323bea32638ee32cb68",
+        "sign.go": "fb5fb174c36f2336fc52f95e8e001b10cc69eb6b01850147f79f6054c7ef6afb",
         "sign_intent.go": "e4fddc4e15483637b8cdc33bf78650877f5fadaf155bd8fa8997b04e6663d92b",
-        "verification.go": "da0bd7e99c53055828114fcf7e62d64755babd124c2d027bfff3d4292009bb0e"
+        "verification.go": "98364be9147edc4cfce10db89dfd85499e5a138cdacbd3ff5ec8725503800857"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/server",
       "imports": [
@@ -33084,6 +33120,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/backup",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/config",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/health",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy",
@@ -33092,7 +33129,7 @@
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/native",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport",
-        "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/ecdsa",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa",
         "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/refresh",
@@ -33108,11 +33145,13 @@
         "net",
         "net/http",
         "os",
+        "path/filepath",
         "sort",
         "strconv",
         "strings",
         "sync",
-        "time"
+        "time",
+        "unicode/utf8"
       ],
       "inputs": [],
       "path": "services/wallet/attestor/internal/server"
@@ -33120,9 +33159,10 @@
     {
       "dependencies": [],
       "files": {
-        "backup.go": "1a7df9ec169d6526914b3809b0d2bf79abc79ee1d3fbba9e2bd6c78c6ba3c072",
+        "backup.go": "72502bf61cbde454fdcc0686251a4f815cc76333702a0a7a8f683856d5ddc74f",
+        "replacement.go": "ad4ccd4dfc99a151c5ff40fb0608613394451fd5cb5edc92f6e5243a2db8f988",
         "replay.go": "cfc4dcf304b0e4ef203ecd961218b0ce7b6e3194214f5c5ec8dcca0406246b0e",
-        "store.go": "aa602383c97c39bd3f3b8af96f51637b0b6fafb5c4379b9c4b54d1dfb152019f"
+        "store.go": "aee80a3128404632462349d5b0f34046f22df61298ca9a7d308e125422b26bc4"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store",
       "imports": [
@@ -33140,6 +33180,7 @@
         "io",
         "os",
         "path/filepath",
+        "slices",
         "sort",
         "time"
       ],
@@ -33186,7 +33227,7 @@
       "files": {
         "dealer.go": "a007f17f33f770c0f1abf7c50cbbaeb1b07f47f6dc0a3e3cd33460a47b08a69c"
       },
-      "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer",
+      "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare",
       "imports": [
         "crypto/ed25519",
         "crypto/sha512",
@@ -33200,7 +33241,7 @@
         "sort"
       ],
       "inputs": [],
-      "path": "services/wallet/attestor/internal/tss/dealer"
+      "path": "services/wallet/attestor/internal/tss/dealershare"
     },
     {
       "dependencies": [],
@@ -33266,19 +33307,19 @@
     },
     {
       "dependencies": [
-        "services/wallet/attestor/internal/tss/dealer"
+        "services/wallet/attestor/internal/tss/dealershare"
       ],
       "files": {
-        "addshare.go": "ad2b6742a09cc0875f4a693f2d7ff1c01f750184c6a2452d31c6a6f5d00a2245",
-        "ecdsa.go": "afc7b7968a0bea14e450141cd2a7ca96d2313cf31d09d93683d4bb2dd135b841",
-        "eddsa.go": "4759c8d92848ac269333a1289a36e702863711b56dcb7aefda37f8341c32cb99"
+        "addshare.go": "b521e74e66d052c7d681a6899e6c91c2168a29a3513625517b2e3522b8fc9771",
+        "ecdsa.go": "d24b8e3c60ff212da41dc7cabfe3b0a4120c7d1eb634440b3cc0beea8f3042c4",
+        "eddsa.go": "2ae79730b6a1f1f5c82cd87a52a72377fae4863bd0493ff4c855eb556c837bf0"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/refresh",
       "imports": [
         "context",
         "errors",
         "fmt",
-        "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer",
+        "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare",
         "github.com/getamis/alice/crypto/birkhoffinterpolation",
         "github.com/getamis/alice/crypto/commitment",
         "github.com/getamis/alice/crypto/ecpointgrouplaw",
@@ -33304,7 +33345,7 @@
       ],
       "files": {
         "accounts.go": "ae9d20d85a2601d1c179d7c4b86f12ccc64d76de9edf630006ca3e3a8d6e88dc",
-        "indexer.go": "90fbac628d957bed63a949342e70cd061b20567e08b4cf25be4fb5483d729e1c"
+        "indexer.go": "4d4641a955bcfdb125a9b31279af11c8e68cf263b287c0aebd6977bf6edefe21"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/src/modules/history",
       "imports": [
@@ -34291,30 +34332,34 @@
         "edge_state.go": "0b75e03241e3f5ebef1db90a01c9356e5bd769765a5750f84e8ebd129eda35a8",
         "edge_transfer.go": "ba0fe3b2d5a3aa1b0ddb317b7363f1de058808b762515244739babf911370cfe",
         "fleet.go": "9d11a604b1ce3ee48c87b70b9fd4a8c74e8439b47b0dd373be39b7c3c564a94d",
-        "foundation.go": "820b5a6fcb2c749c693e0e06c8d12428e3fe24462c1b1c63b9b778336611e23f",
+        "foundation.go": "ebff8437b2fb716670d3f35d877c6aba1df216b0b8470c133d7092d8ab645671",
         "foundation_cli.go": "79beb1409c0d5ebcf748c3e9f8d72907812a350dccee7e7d4fb63c35be517465",
-        "inspect.go": "db1f1cabb668ee3a37c91e662c17815ecd34440962c09fcc0e90336767a9f7fa",
+        "inspect.go": "c12f4073c8d323569bd5830ce9a4364e030765417daddaa7daf5ceaf12499924",
         "inventory.go": "542b779d4e692b482818b8f4c2a33f23730da46d3a031f6749e529d54c99c2c4",
         "live_cli.go": "f0afb4f2edefa573e151e6d01a36ca14f1cf7844e805c47b96a25d72c7ee5dac",
         "live_evidence.go": "7b1862b22ca5a68cfd822c7f769580448215772add9c51f8f21096ada02dc6e6",
         "live_journeys.go": "19e8d859e18d191080ad5abd4fbe0351e1d2059fca67e993e08d89054129cc8f",
-        "live_repair.go": "8997b9482f7bdc12d9f977810a2eff65a7e4835f6736f187ae1a913f7dc8b86d",
-        "live_rpc.go": "8f792cbda5545616b6753f6548528030fcb579a48df17c3a721636a68ddcd9fd",
+        "live_repair.go": "357e7d7a6f6cd50a5ec5e7e5364e4047752bacbaaf3718a2bdb99ed13674a652",
+        "live_rpc.go": "559b7b4591851e90c3e131cef5603a84e6d35499ecd5eb85262352b4b1df4ac1",
         "paxd_identity.go": "302d9ed16a5e68f781de8f2eaec27951d0baee18bbf8efef8193efe658bddc48",
         "pkcs12.go": "58a8306a7b4fdb34ab5891c2c1acd7cfc2bc5e0502ebef254d071a6991f08c02",
-        "qualification_contract.go": "c4fb3e6b17d225320bfcd37e2bcded992bc2bb4ae356b564c521782db9ac843a",
+        "qualification_contract.go": "957569d0692ee33852dc52826f35c50e04500517c7a19a5acd929f7c3708192a",
         "registry_lifecycle.go": "df070b428dd9809af704d607188becb532867cd8706772a63c38558179d35f7a",
         "renewal.go": "cf273ad2149c91f054520770f85bb289038ae8530bf47fbf8f39dba1a2766659",
         "repair_cli.go": "318ace4dfa994a3b5a206ff2c70ac1b8c75920c32a631158f79c6e3054ec6f43",
         "repair_m795_cli.go": "b3936914ddf9f53d6ecbf243b1aabcbc9e7e619a38c7f30a217e1970e156df44",
+        "repair_m798_cli.go": "b3e8df3de4b87490cb2e669cf6f6bed750a513e568265bee10bcc1410b56feb8",
         "resync_state.go": "848a974b5f7abbaa3a2caaaaf6542d8bad03c01cd0a5172a3561007f5d1d4911",
-        "roster.go": "7e63b3dade45547939e172188a9a90dec10fec3a8dd6fa859adbade524747ef5",
-        "routes.go": "6da0c42905f7086c590146b105b8aac05d2ef04069d1b2cbc1c80eeaacf0c1ae",
+        "roster.go": "1ba33dea3db8c5c5e7e67b890f408a81d72ce88e6acc1f393181d383ce056112",
+        "routes.go": "ee21dc2418220008df329f211be70abe203cb6aa9d954b3e0039f06886cf82e5",
         "runtime_bundle.go": "869dd2b845515643fd189283ecdad1d44dee6474e3413fb7326f6135656950ac",
         "search_selection.go": "60aecfe948b38ee80106fdb6bea7cd2f094869084d10bdd8ce2208290d391337",
         "secret_plan.go": "624df03716653c36a03f433bf1f2526b86c31aa4b34729f53df9669a5e9d3312",
         "secrets.go": "a9f4107f8c02a95949af800ab9e4cbb0668bfb8361bbd2865b0a51ce8ef07d22",
-        "sqlite_evidence.go": "c24a3b5f9104d4aaf9568205266405a2fd34f90573626364cec57b8d73146ea3"
+        "sqlite_evidence.go": "c24a3b5f9104d4aaf9568205266405a2fd34f90573626364cec57b8d73146ea3",
+        "upgrade_state.go": "429300384b1afda23611e08f01b674d0c90eab5ff7a97a254d62fa818ade08e2",
+        "value_loop.go": "1799b67871925ef58e1f7c3dcab7bcc26e26b0269f7620e27f6cb31378b73710",
+        "xweb_transport.go": "d0899bbaa938e4bc558f0227f478da208f8e204e283495bea83c203b58df55d0"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/tools/bringup",
       "imports": [
@@ -34606,7 +34651,7 @@
       ],
       "files": {
         "address.go": "6431830a671c6e54d57245d431482c2a8a031df82c2e5045ff34550225aa71a9",
-        "associate.go": "182eae952a34bbba4a16654dbec183c8a1740dba546d8367a22c496dba5ee7a5"
+        "associate.go": "33f96c4a34c4bd3522eb2cce67a0c953d63f66465cc70ce2730985dcbffe2c4f"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/utils/helpers/legacy/v575",
       "imports": [
@@ -34855,7 +34900,7 @@
         "alias.go": "2fd67fb04d6a19075d9b90e4850c03a48b720c237c699ec54f4b46ab489e0630",
         "handler.go": "32b756819e9b7f626308145e46cedf54dcc23bef9b880cea163fbcba16f5ea3f",
         "ibc.go": "9f98354799a0950e65ef7695ddf80e4a9f139c4882c8f520d34527147436fc10",
-        "module.go": "bf5214ddbd37e110643a823330d2a31f6551c2eb3b4f42260ceb3e60ed9614e8"
+        "module.go": "5abeb7f188135a59052dbc201570a2102154dd9284f51ee2279caf9523dd90c2"
       },
       "import_path": "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm",
       "imports": [
@@ -34890,7 +34935,8 @@
         "github.com/spf13/cast",
         "github.com/spf13/cobra",
         "math",
-        "math/rand"
+        "math/rand",
+        "strconv"
       ],
       "inputs": [],
       "path": "wasm/x/wasm"
@@ -35298,7 +35344,7 @@
         "handler_plugin.go": "747228ef9c4cd70db36e38c24e0e186760c348d54b888c1daafbb50f9007cca1",
         "handler_plugin_encoders.go": "ce9569673801135bebf7880052d0f2727c9dd67936a16737b5267fb2b536f5a5",
         "ibc.go": "8e9cdfa1d69991cbef3f5bddf24a07b8f61bb414cc35a37adc404bc6c6cd3689",
-        "keeper.go": "2de40ea6fb761b3a2458622d54cf863711cd187a3fab83b9ed70f904688158ee",
+        "keeper.go": "e89a2ab7b2209cd7aedfb6a2704e4df2a5de5bf864791f56792fcb8ee2e80422",
         "legacy_querier.go": "f1e5364a83aea461fcab9bc95e038397c36b07e17d8957f27f09ce040db24b3f",
         "metrics.go": "0bd0878bdd8da6fefa9926c0d67ec1ee902352de6507caff796efcafae16e9f5",
         "msg_dispatcher.go": "c271c7107aaa45be3648a41e6984dbc62ac0db0010f732182b7637d0865400dc",
@@ -35309,7 +35355,7 @@
         "query_plugins.go": "6706d0285b1182d8f54cf0a060c18084f442e5f00ece3625a2ec0731dfbfedc9",
         "relay.go": "ada10e409d9e8f14f806bb37df5827da1a48b2536bc700fc86c41f230b649053",
         "snapshotter.go": "d3393f34fdd86c7355b44fdc7c8ac106c8e6cdabd826e66db8ec33ca76217052",
-        "test_common.go": "c3d29689e31ef11a2cf18b7dbe542db1b42238d7bf8dbf4523ae745e2ace03b4",
+        "test_common.go": "a95c47b3b18332a4ec102d97a986ac2fc627d0a1175cb5a4e92044b96dbcce5e",
         "test_fuzz.go": "0f391fd4e80a903e75ef9c51ee6d7fb93d5423d76c51f2b536cdca340b17b151",
         "vm_wrapper.go": "bdb5d5bbca705eb55ee3a921bf113dc2ba6d4a6a5d5d4aadf00a312d2091b0be"
       },

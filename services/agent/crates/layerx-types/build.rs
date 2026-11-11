@@ -270,6 +270,7 @@ struct ProgramsModuleAbi {
     account: u32,
     sandbox: u32,
     sandbox_destroy: u32,
+    guest_abi_v5: u32,
 }
 
 fn programs_module_abi_version(table: &[(String, u32)], name: &str) -> Result<u32, String> {
@@ -290,7 +291,7 @@ fn programs_module_abi(source: &str) -> Result<ProgramsModuleAbi, String> {
         let Some((suffix, value)) = rest.split_once(" = ") else {
             continue;
         };
-        if !suffix.ends_with("ABI_VERSION") {
+        if !suffix.ends_with("ABI_VERSION") && suffix != "GUEST_ABI_V5_VERSION" {
             continue;
         }
         let value = value
@@ -323,19 +324,24 @@ fn programs_module_abi(source: &str) -> Result<ProgramsModuleAbi, String> {
     let sandbox = programs_module_abi_version(&versions, "LX_PROGRAMS_SANDBOX_ABI_VERSION")?;
     let sandbox_destroy =
         programs_module_abi_version(&versions, "LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION")?;
+    let guest_abi_v5 = programs_module_abi_version(&versions, "LX_PROGRAMS_GUEST_ABI_V5_VERSION")?;
     let highest = versions
         .iter()
         .map(|(_, version)| *version)
         .max()
         .ok_or_else(|| "no Programs module ABI version is declared".to_owned())?;
-    if sandbox_destroy != highest {
+    if guest_abi_v5 != highest {
         return Err(format!(
-            "the highest Programs module ABI {highest} is not LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION = {sandbox_destroy}, the version src/modules/programs/registration.c registers the module at"
+            "the highest Programs module ABI {highest} is not LX_PROGRAMS_GUEST_ABI_V5_VERSION = {guest_abi_v5}, the version-five hosted Programs registration"
         ));
     }
-    if initial >= account || account >= sandbox || sandbox >= sandbox_destroy {
+    if initial >= account
+        || account >= sandbox
+        || sandbox >= sandbox_destroy
+        || sandbox_destroy >= guest_abi_v5
+    {
         return Err(format!(
-            "the named Programs module ABI versions {initial}, {account}, {sandbox} and {sandbox_destroy} do not ascend"
+            "the named Programs module ABI versions {initial}, {account}, {sandbox}, {sandbox_destroy} and {guest_abi_v5} do not ascend"
         ));
     }
     Ok(ProgramsModuleAbi {
@@ -344,6 +350,7 @@ fn programs_module_abi(source: &str) -> Result<ProgramsModuleAbi, String> {
         account,
         sandbox,
         sandbox_destroy,
+        guest_abi_v5,
     })
 }
 
@@ -358,6 +365,7 @@ fn programs_module_abi_body(table: &ProgramsModuleAbi) -> String {
     let account = table.account;
     let sandbox = table.sandbox;
     let sandbox_destroy = table.sandbox_destroy;
+    let guest_abi_v5 = table.guest_abi_v5;
     format!(
         "// Generated from include/layerx/programs.h by build.rs. Do not edit.\n\n\
 /// Every Programs module ABI version the kernel header allocates, in header order.\n\
@@ -369,11 +377,13 @@ pub const ACCOUNT: u32 = {account};\n\n\
 /// The version the kernel header allocates to `LX_PROGRAMS_SANDBOX_ABI_VERSION`.\n\
 pub const SANDBOX: u32 = {sandbox};\n\n\
 /// The version the kernel header allocates to\n\
-/// `LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION`, the version the Programs module\n\
-/// registers at and the only module ABI a state-commitment receipt carries.\n\
+/// `LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION`, the default hosted registration.\n\
 pub const SANDBOX_DESTROY: u32 = {sandbox_destroy};\n\n\
-/// The Programs module ABI version the kernel publishes at now.\n\
-pub const CURRENT: u32 = {sandbox_destroy};\n"
+/// The hosted version-five module registration, sharing the header allocation\n\
+/// `LX_PROGRAMS_GUEST_ABI_V5_VERSION`; guest ABI support is validated separately.\n\
+pub const GUEST_ABI_V5: u32 = {guest_abi_v5};\n\n\
+/// The highest Programs module ABI version the hosted kernel registers.\n\
+pub const CURRENT: u32 = {guest_abi_v5};\n"
     )
 }
 

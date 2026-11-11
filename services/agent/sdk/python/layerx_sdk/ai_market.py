@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from .committed import CommitTrust
     from .exchange import WalletRequest
 
+# Live projection wire rank; transaction finality is authenticated by CommitTrust.
 FINALIZED_RANK = 4
 SETTLEMENT_RANK = 5
 DEFAULT_PAGE_ROWS = 16

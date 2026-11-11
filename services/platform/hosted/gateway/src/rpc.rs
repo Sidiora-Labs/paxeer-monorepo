@@ -2,6 +2,7 @@ use super::{
     json_response, media_type_is, response, Config, IncomingRequest, KernelBackend,
     OutgoingResponse,
 };
+use layerx_platform_gateway::evm;
 use serde_json::{json, Value};
 
 pub(super) fn error(id: &Value, code: i32, message: &str) -> Value {
@@ -31,7 +32,10 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     }
     let id = value.get("id").cloned().unwrap_or(Value::Null);
     let method = value["method"].as_str()?;
-    if !method.starts_with("px_") && method != "pax_sequencerReceipt" {
+    if !method.starts_with("px_")
+        && !evm::is_evm_namespace(method)
+        && method != "pax_sequencerReceipt"
+    {
         return value
             .get("id")
             .map(|_| error(&id, -32601, "Method not found"));
@@ -69,16 +73,31 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
         .map(|_| error(&id, -32601, "Method not found"))
 }
 
+fn schema_document() -> Value {
+    let mut schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
+        .expect("gateway OpenRPC document must be JSON");
+    schema["methods"]
+        .as_array_mut()
+        .expect("gateway OpenRPC methods must be an array")
+        .retain(|method| {
+            !matches!(
+                method["name"].as_str(),
+                Some(
+                    "px_getInferenceRooms"
+                        | "px_getInferenceRoom"
+                        | "px_getInferenceDeal"
+                        | "px_getInferencePeer"
+                        | "px_getInferenceReceipts"
+                )
+            )
+        });
+    schema
+}
+
 pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     if request.path == "/openrpc.json" {
         return if request.method == "GET" {
-            OutgoingResponse {
-                content_type: "application/json".to_owned(),
-                headers: Vec::new(),
-                status: 200,
-                body: include_bytes!("../openrpc.json").to_vec(),
-                retry_after: None,
-            }
+            json_response(200, &schema_document())
         } else {
             response(405, "method_not_allowed", None)
         };
@@ -130,6 +149,7 @@ mod tests {
 
     #[test]
     fn lx_names_answer_method_not_found() {
+        // Keep the complete historical method list to prove refusal without backend I/O.
         use std::collections::BTreeMap;
         use std::net::TcpListener;
         use std::sync::Arc;
@@ -158,6 +178,7 @@ mod tests {
             state_clock: crate::now,
             paxeer: None,
             capabilities: crate::capabilities::Cache::new(Duration::from_secs(1)),
+            read_windows: Default::default(),
             indexer: None,
             registration_token: None,
             trusted_proxies: Vec::new(),
@@ -282,8 +303,7 @@ mod tests {
 
     #[test]
     fn schema_lists_every_public_method() {
-        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
-            .unwrap_or_else(|e| panic!("{e}"));
+        let schema = schema_document();
         let methods = schema["methods"]
             .as_array()
             .unwrap_or_else(|| panic!("methods missing"));

@@ -19,21 +19,21 @@ ON CONFLICT (pool_address) DO NOTHING;
 
 -- name: GetPoolByPoolID :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE pool_id = $1
 LIMIT 1;
 
 -- name: GetPoolByAddress :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE lower(pool_address) = lower(@pool_address::varchar)
 LIMIT 1;
 
 -- name: GetPoolByNftID :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE nft_id = @nft_id::bigint
 LIMIT 1;

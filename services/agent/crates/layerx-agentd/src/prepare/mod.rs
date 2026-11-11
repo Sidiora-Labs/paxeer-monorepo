@@ -88,6 +88,9 @@ pub mod evm {
         }
 
         /// Encodes head offsets relative to the ABI argument block, excluding the selector.
+        ///
+        /// # Errors
+        /// Returns `PrepareError::InvalidDefaults` if ABI head or tail sizing overflows.
         pub fn encode(&self) -> Result<Vec<u8>, PrepareError> {
             let head_length = self
                 .arguments
@@ -173,6 +176,8 @@ pub mod evm {
     }
 
     impl ProductionEvmPreparationBoundary {
+        /// # Errors
+        /// Returns the sequencer endpoint error for invalid URLs or TLS trust roots.
         pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
             let endpoint = SequencerEndpoint::new(url, trust_anchors)?;
             let roots: Vec<_> = trust_anchors
@@ -198,6 +203,9 @@ pub mod evm {
             })
         }
 
+        /// # Errors
+        /// Returns transport, TLS or RPC failures, `Unavailable` for a missing head,
+        /// and `Malformed` when the header fields or verified block hash disagree.
         pub fn preparation_state(
             &self,
             from: &[u8; 20],
@@ -207,7 +215,7 @@ pub mod evm {
                 .post(&self.url)
                 .send_json(json!({"jsonrpc": "2.0", "id": 1,
                     "method": "eth_getBlockByNumber", "params": ["latest", false]}))
-                .map_err(map_transport)?;
+                .map_err(|value| map_transport(&value))?;
             let status = response.status().as_u16();
             match status {
                 200 => {}
@@ -273,7 +281,7 @@ pub mod evm {
         }
     }
 
-    fn map_transport(error: ureq::Error) -> SequencerError {
+    fn map_transport(error: &ureq::Error) -> SequencerError {
         match error {
             ureq::Error::Timeout(_)
             | ureq::Error::Io(_)
@@ -307,6 +315,13 @@ pub mod evm {
         u128::from_str_radix(digits, 16).map_err(|_| SequencerError::Malformed)
     }
 
+    /// # Errors
+    /// Returns sequencer read or gas-estimation failures, invalid fee or payload limits,
+    /// a stale nonce, or a disclosure error when the resulting call cannot be bound.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public preparation API that accepts an owned request."
+    )]
     pub fn prepare_activity(
         boundary: &ProductionEvmPreparationBoundary,
         defaults: PreparationDefaults,
@@ -329,6 +344,14 @@ pub mod evm {
     }
 
     /// Deterministic construction from an observed state and its pending gas estimate.
+    ///
+    /// # Errors
+    /// Returns invalid defaults, a stale nonce, an exceeded payload limit, or a
+    /// disclosure error when the constructed call cannot be bound.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn prepare_bound(
         state: EvmPreparationState,
         defaults: PreparationDefaults,
@@ -368,6 +391,8 @@ pub mod evm {
         SigningHashMismatch,
     }
 
+    /// # Errors
+    /// Returns a binding error when the retained call, disclosure or hashes disagree.
     pub fn verify_call_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
         super::disclose::verify_binding(prepared)
     }
@@ -421,531 +446,21 @@ pub mod evm {
     }
 }
 
+pub use evm::*;
 pub use evm::{
-    prepare_bound, verify_call_binding, AbiArgument, CallBindingError, EvmPreparationState,
-    PrecompileCall, PrecompileTarget, PreparationDefaults as EvmPreparationDefaults,
-    PrepareError as EvmPrepareError, PrepareRequest as EvmPrepareRequest,
-    ProductionEvmPreparationBoundary,
+    PreparationDefaults as EvmPreparationDefaults, PrepareError as EvmPrepareError,
+    PrepareRequest as EvmPrepareRequest,
 };
 
 pub type EvmPrepared = evm::Prepared;
 
-#[path = ""]
-pub mod legacy {
-    use layerx_types::activity::{
-        ActivityBuildError, Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope,
-    };
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ActivityType, ModuleRegistry, Payload, PayloadError};
-    use layerx_types::result::ResultCode;
-    use layerx_wire::activity::encode_unsigned_envelope;
-    use layerx_wire::hash::payload_hash_for;
-    use layerx_wire::limits::PROTOCOL_VERSION;
-    use layerx_wire::sign::preimage_unsigned;
-    use layerx_wire::WireError;
+#[path = "expiry.rs"]
+pub mod lifecycle;
 
-    #[path = "legacy_disclose.rs"]
-    mod disclosure_binding;
-    #[path = "expiry.rs"]
-    mod lifecycle;
-
-    pub use disclosure_binding::{DisclosedPreparation, DisclosureBindingError};
-    pub(crate) use lifecycle::PreparationAuthorization;
-    pub use lifecycle::{
-        DurablePreparation, ExpirationReport, LifecycleError, LifecycleState, PayloadRedaction,
-        PreparationExtension, PreparationInvalidationReport, PreparationLifecycle, RetentionReport,
-        EXTENSION_CALL, EXTENSION_CAPABILITY, EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
-        EXTENSION_TERMINAL_SEQUENCE,
-    };
-
-    /// Domain-separated digest of the validated structured disclosure.
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub struct DisclosureDigest(pub [u8; 32]);
-
-    /// Core-produced inputs required to prepare one activity.
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub struct CorePreparationState {
-        pub network_id: u32,
-        pub account_sequence: u64,
-        pub protocol_timestamp: u64,
-        pub observed_head_sequence: u64,
-        pub module_registry: ModuleRegistry,
-    }
-
-    /// Boundary that obtains preparation state from core without local guessing.
-    pub trait CorePreparationBoundary {
-        /// Obtains the preparation state for one actor directly from core.
-        ///
-        /// # Errors
-        ///
-        /// Returns `Unavailable` when core cannot be reached, `Unverified` when
-        /// returned state cannot be trusted, and `Refused` for an authenticated
-        /// typed core refusal.
-        fn preparation_state(
-            &mut self,
-            actor: &Did,
-        ) -> Result<CorePreparationState, CoreStateError>;
-    }
-
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub enum CoreStateError {
-        Unavailable,
-        Unverified,
-        Refused { class: u8, result: ResultCode },
-    }
-
-    /// Production adapter from the human node and authenticated module registry.
-    pub struct ProductionCorePreparationBoundary<'a> {
-        node: &'a dyn crate::human_node::HumanNode,
-        module_registry: ModuleRegistry,
-        last_state: Option<CorePreparationState>,
-    }
-
-    impl<'a> ProductionCorePreparationBoundary<'a> {
-        #[must_use]
-        pub fn new(
-            node: &'a dyn crate::human_node::HumanNode,
-            module_registry: ModuleRegistry,
-        ) -> Self {
-            Self {
-                node,
-                module_registry,
-                last_state: None,
-            }
-        }
-
-        /// Returns the exact node snapshot consumed by the most recent successful call.
-        #[must_use]
-        pub const fn last_state(&self) -> Option<&CorePreparationState> {
-            self.last_state.as_ref()
-        }
-    }
-
-    impl CorePreparationBoundary for ProductionCorePreparationBoundary<'_> {
-        fn preparation_state(
-            &mut self,
-            actor: &Did,
-        ) -> Result<CorePreparationState, CoreStateError> {
-            self.last_state = None;
-            let chain_id = self.node.chain_id().map_err(map_preparation_state_error)?;
-            let network_id = u32::try_from(chain_id).map_err(|_| CoreStateError::Refused {
-                class: 1,
-                result: layerx_types::result::KnownResult::Overflow.into(),
-            })?;
-            let actor =
-                std::str::from_utf8(actor.as_bytes()).map_err(|_| CoreStateError::Unverified)?;
-            let public = actor
-                .strip_prefix("did:layerx:")
-                .ok_or(CoreStateError::Unverified)?;
-            if public.len() != 64
-                || !public
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-            {
-                return Err(CoreStateError::Unverified);
-            }
-            let mut public_key = [0; 32];
-            for (index, byte) in public_key.iter_mut().enumerate() {
-                *byte = u8::from_str_radix(&public[index * 2..index * 2 + 2], 16)
-                    .map_err(|_| CoreStateError::Unverified)?;
-            }
-            let address = self
-                .node
-                .bound_address(&public_key)
-                .map_err(map_preparation_state_error)?
-                .ok_or(CoreStateError::Refused {
-                    class: 1,
-                    result: layerx_types::result::KnownResult::UnknownDid.into(),
-                })?;
-            let account_sequence = self
-                .node
-                .pending_nonce(&address)
-                .map_err(map_preparation_state_error)?;
-            let head = self.node.head().map_err(map_preparation_state_error)?;
-            let state = CorePreparationState {
-                network_id,
-                account_sequence,
-                protocol_timestamp: head
-                    .timestamp
-                    .checked_mul(1000)
-                    .ok_or(CoreStateError::Unverified)?,
-                observed_head_sequence: head.number,
-                module_registry: self.module_registry.clone(),
-            };
-            self.last_state = Some(state.clone());
-            Ok(state)
-        }
-    }
-
-    fn map_preparation_state_error(error: crate::node_rpc::NodeRpcError) -> CoreStateError {
-        match error {
-            crate::node_rpc::NodeRpcError::Unavailable
-            | crate::node_rpc::NodeRpcError::Sequencer(
-                layerx_client::sequencer::SequencerError::Unavailable
-                | layerx_client::sequencer::SequencerError::Tls,
-            ) => CoreStateError::Unavailable,
-            _ => CoreStateError::Unverified,
-        }
-    }
-
-    /// Explicit configured defaults and hard preparation bounds.
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    pub struct PreparationDefaults {
-        pub timestamp_span: u64,
-        pub fee_limit: Amount,
-        pub maximum_payload_bytes: usize,
-    }
-
-    /// Complete caller input. Every omitted bounded field has one explicit default.
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub struct PrepareRequest {
-        pub actor: Did,
-        pub authority: Authority,
-        pub activity_type: ActivityType,
-        pub expected_account_sequence: Option<u64>,
-        pub timestamp_bound: Option<TimestampBound>,
-        pub fee_limit: Option<Amount>,
-        pub idempotency_key: IdempotencyKey,
-        pub payload: Vec<u8>,
-        pub declared_payload_limit: usize,
-    }
-
-    /// Exact typed envelope plus the only canonical bytes and signer preimage.
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub struct Prepared {
-        pub envelope: UnsignedEnvelope,
-        pub canonical_bytes: Vec<u8>,
-        pub signing_preimage: [u8; 32],
-        pub observed_head_sequence: u64,
-        pub disclosure: layerx_crypto::disclosure::Disclosure,
-        pub disclosure_digest: DisclosureDigest,
-        pub audit: PreparationAuditEntry,
-    }
-
-    impl Prepared {
-        pub(crate) fn lifecycle_facts(&self) -> Result<(u64, [u8; 32]), LifecycleError> {
-            verify_disclosure_binding(self).map_err(|_| LifecycleError::InvalidSignedBytes)?;
-            Ok((
-                self.disclosure.expiry.not_after,
-                self.envelope.payload_hash(),
-            ))
-        }
-    }
-
-    /// Preparation audit evidence emitted with every response.
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub struct PreparationAuditEntry {
-        pub idempotency_key: [u8; 32],
-        pub observed_head_sequence: u64,
-        pub disclosure_digest: DisclosureDigest,
-    }
-
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub enum PrepareError {
-        Core(CoreStateError),
-        StaleSequence { expected: u64, core: u64 },
-        InvalidDefaults,
-        TimestampDoesNotContainCore,
-        TimestampBoundWidened,
-        PayloadLimitExceeded { actual: usize, maximum: usize },
-        Payload(PayloadError),
-        Activity(ActivityBuildError),
-        Wire(WireError),
-        Disclosure(DisclosureBindingError),
-    }
-
-    #[derive(Clone, Debug, Eq, PartialEq)]
-    pub enum RestorePreparationError {
-        MissingAuthority,
-        AuthorityMismatch,
-        Actor(layerx_types::ids::LengthError),
-        Payload(PayloadError),
-        PayloadHashMismatch,
-        Activity(ActivityBuildError),
-        Wire(WireError),
-        Disclosure(DisclosureBindingError),
-        CanonicalMismatch,
-    }
-
-    pub fn restore_canonical(
-        canonical_bytes: &[u8],
-        observed_head_sequence: u64,
-        registry: &ModuleRegistry,
-        retained_authority: Option<&Authority>,
-    ) -> Result<Prepared, RestorePreparationError> {
-        let authority = retained_authority.ok_or(RestorePreparationError::MissingAuthority)?;
-        let activity = layerx_wire::activity::decode_unsigned(canonical_bytes, registry)
-            .map_err(RestorePreparationError::Wire)?;
-        if authority.as_bytes() != activity.authority() {
-            return Err(RestorePreparationError::AuthorityMismatch);
-        }
-        let actor = Did::new(activity.actor_did()).map_err(RestorePreparationError::Actor)?;
-        let payload = Payload::new(registry, activity.activity_type(), activity.payload())
-            .map_err(RestorePreparationError::Payload)?;
-        let payload_hash = payload_hash_for(&payload).map_err(RestorePreparationError::Wire)?;
-        if payload_hash != activity.payload_hash() {
-            return Err(RestorePreparationError::PayloadHashMismatch);
-        }
-        let bound = activity.timestamp_bound();
-        let bound = TimestampBound::new(bound.not_before, bound.not_after)
-            .map_err(RestorePreparationError::Activity)?;
-        let mut builder = EnvelopeBuilder::new();
-        builder
-            .protocol_version(activity.protocol_version())
-            .and_then(|builder| builder.network_id(activity.network_id()))
-            .and_then(|builder| builder.activity_type(activity.activity_type()))
-            .and_then(|builder| builder.actor_did(actor))
-            .and_then(|builder| builder.authority(authority.clone()))
-            .and_then(|builder| builder.account_sequence(activity.account_sequence()))
-            .and_then(|builder| builder.timestamp_bound(bound))
-            .and_then(|builder| {
-                builder.idempotency_key(IdempotencyKey::new(activity.idempotency_key()))
-            })
-            .and_then(|builder| builder.fee_limit(Amount::from_u128(activity.fee_limit())))
-            .and_then(|builder| builder.payload_hash(payload_hash))
-            .and_then(|builder| builder.payload(payload))
-            .map_err(RestorePreparationError::Activity)?;
-        let envelope = builder.build().map_err(RestorePreparationError::Activity)?;
-        let reproduced =
-            encode_unsigned_envelope(&envelope).map_err(RestorePreparationError::Wire)?;
-        if reproduced != canonical_bytes {
-            return Err(RestorePreparationError::CanonicalMismatch);
-        }
-        let disclosed = disclosure_binding::decode_and_bind(canonical_bytes, registry, None)
-            .map_err(RestorePreparationError::Disclosure)?;
-        let signing_preimage = *preimage_unsigned(&envelope)
-            .map_err(RestorePreparationError::Wire)?
-            .as_bytes();
-        let audit = PreparationAuditEntry {
-            idempotency_key: envelope.idempotency_key().bytes(),
-            observed_head_sequence,
-            disclosure_digest: disclosed.digest,
-        };
-        Ok(Prepared {
-            envelope,
-            canonical_bytes: reproduced,
-            signing_preimage,
-            observed_head_sequence,
-            disclosure: disclosed.disclosure,
-            disclosure_digest: disclosed.digest,
-            audit,
-        })
-    }
-
-    /// Decodes a structured disclosure from canonical prepared bytes.
-    ///
-    /// # Errors
-    ///
-    /// Returns the disclosure decode failure, or a mismatch when the decoded disclosure does not
-    /// re-encode to the exact canonical bytes.
-    pub fn disclose(
-        canonical_bytes: &[u8],
-        registry: &ModuleRegistry,
-    ) -> Result<DisclosedPreparation, DisclosureBindingError> {
-        disclosure_binding::decode_and_bind(canonical_bytes, registry, None)
-    }
-
-    /// Revalidates that a held preparation still matches its disclosure.
-    ///
-    /// # Errors
-    ///
-    /// Returns a decode or re-encoding mismatch, or a digest that no longer matches the recorded
-    /// preparation and audit digests.
-    pub fn verify_disclosure_binding(prepared: &Prepared) -> Result<(), DisclosureBindingError> {
-        if encode_unsigned_envelope(&prepared.envelope)
-            .map_err(|_| DisclosureBindingError::CanonicalMismatch)?
-            != prepared.canonical_bytes
-            || *preimage_unsigned(&prepared.envelope)
-                .map_err(|_| DisclosureBindingError::CanonicalMismatch)?
-                .as_bytes()
-                != prepared.signing_preimage
-            || prepared.audit.idempotency_key != prepared.envelope.idempotency_key().bytes()
-            || prepared.audit.observed_head_sequence != prepared.observed_head_sequence
-        {
-            return Err(DisclosureBindingError::CanonicalMismatch);
-        }
-        disclosure_binding::verify_binding(prepared)
-    }
-
-    /// Expires every elapsed unsubmitted preparation and releases its reservations.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Unavailable` when the lifecycle records cannot be locked, or the reservation refusal
-    /// that prevented a release.
-    pub fn expire(
-        lifecycle: &PreparationLifecycle,
-        limiter: &crate::budget::BudgetLimiter,
-        core_batch_time_ms: u64,
-        current_sequence: u64,
-    ) -> Result<ExpirationReport, LifecycleError> {
-        lifecycle::expire_elapsed(lifecycle, limiter, core_batch_time_ms, current_sequence)
-    }
-
-    /// Discards terminal signed bytes while preserving every unresolved submission.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Unavailable` when the lifecycle records cannot be locked.
-    pub fn retention_sweep(
-        lifecycle: &PreparationLifecycle,
-        current_sequence: u64,
-        retention_sequences: u64,
-    ) -> Result<RetentionReport, LifecycleError> {
-        lifecycle::sweep_retention(lifecycle, current_sequence, retention_sequences)
-    }
-
-    /// Constructs and canonically encodes an unsigned activity from core state.
-    ///
-    /// # Errors
-    ///
-    /// Refuses zero-valued defaults, unavailable or unverified core state, a stale account sequence, a
-    /// timestamp bound that excludes core time or widens past the configured span, and an oversized
-    /// payload. Also returns the payload, envelope, wire, or disclosure failure raised while building
-    /// the canonical form.
-    pub fn prepare_activity(
-        boundary: &mut dyn CorePreparationBoundary,
-        defaults: PreparationDefaults,
-        request: PrepareRequest,
-    ) -> Result<Prepared, PrepareError> {
-        prepare_activity_for_protocol(boundary, defaults, request, PROTOCOL_VERSION)
-    }
-
-    /// Prepares an activity for the explicitly selected node protocol.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same preparation errors as `prepare_activity`, including unsupported wire versions.
-    pub fn prepare_activity_for_protocol(
-        boundary: &mut dyn CorePreparationBoundary,
-        defaults: PreparationDefaults,
-        request: PrepareRequest,
-        protocol_version: u16,
-    ) -> Result<Prepared, PrepareError> {
-        prepare_bound(boundary, defaults, request, protocol_version, None)
-    }
-
-    /// Prepares a core budget fund, defund or revoke whose disclosure is bound to the verified
-    /// budget state; the context stays in the cached disclosure, so `verify_disclosure_binding`
-    /// re-derives the same digest at sign and submit.
-    ///
-    /// # Errors
-    ///
-    /// Returns the same preparation errors as `prepare_activity_for_protocol`, and a disclosure
-    /// failure when the payload is not a budget mutation consistent with `context`.
-    pub fn prepare_budget_mutation_for_protocol(
-        boundary: &mut dyn CorePreparationBoundary,
-        defaults: PreparationDefaults,
-        request: PrepareRequest,
-        protocol_version: u16,
-        context: &layerx_crypto::disclosure::BudgetStateContext,
-    ) -> Result<Prepared, PrepareError> {
-        prepare_bound(boundary, defaults, request, protocol_version, Some(context))
-    }
-
-    fn prepare_bound(
-        boundary: &mut dyn CorePreparationBoundary,
-        defaults: PreparationDefaults,
-        request: PrepareRequest,
-        protocol_version: u16,
-        budget_context: Option<&layerx_crypto::disclosure::BudgetStateContext>,
-    ) -> Result<Prepared, PrepareError> {
-        if defaults.timestamp_span == 0 || defaults.maximum_payload_bytes == 0 {
-            return Err(PrepareError::InvalidDefaults);
-        }
-        let state = boundary
-            .preparation_state(&request.actor)
-            .map_err(PrepareError::Core)?;
-        if let Some(expected) = request.expected_account_sequence {
-            if expected != state.account_sequence {
-                return Err(PrepareError::StaleSequence {
-                    expected,
-                    core: state.account_sequence,
-                });
-            }
-        }
-        let timestamp_bound = match request.timestamp_bound {
-            Some(bound) => {
-                if bound.not_before() > state.protocol_timestamp
-                    || bound.not_after() < state.protocol_timestamp
-                {
-                    return Err(PrepareError::TimestampDoesNotContainCore);
-                }
-                if bound.not_after().saturating_sub(bound.not_before()) > defaults.timestamp_span {
-                    return Err(PrepareError::TimestampBoundWidened);
-                }
-                bound
-            }
-            None => TimestampBound::new(
-                state.protocol_timestamp,
-                state
-                    .protocol_timestamp
-                    .saturating_add(defaults.timestamp_span),
-            )
-            .map_err(PrepareError::Activity)?,
-        };
-        let maximum_payload = defaults
-            .maximum_payload_bytes
-            .min(request.declared_payload_limit);
-        if request.payload.len() > maximum_payload {
-            return Err(PrepareError::PayloadLimitExceeded {
-                actual: request.payload.len(),
-                maximum: maximum_payload,
-            });
-        }
-        let payload = Payload::new(
-            &state.module_registry,
-            request.activity_type,
-            &request.payload,
-        )
-        .map_err(PrepareError::Payload)?;
-        let payload_hash = payload_hash_for(&payload).map_err(PrepareError::Wire)?;
-        let mut builder = EnvelopeBuilder::new();
-        builder
-            .protocol_version(protocol_version)
-            .and_then(|builder| builder.network_id(state.network_id))
-            .and_then(|builder| builder.activity_type(request.activity_type))
-            .and_then(|builder| builder.actor_did(request.actor))
-            .and_then(|builder| builder.authority(request.authority))
-            .and_then(|builder| builder.account_sequence(state.account_sequence))
-            .and_then(|builder| builder.timestamp_bound(timestamp_bound))
-            .and_then(|builder| builder.idempotency_key(request.idempotency_key))
-            .and_then(|builder| builder.fee_limit(request.fee_limit.unwrap_or(defaults.fee_limit)))
-            .and_then(|builder| builder.payload_hash(payload_hash))
-            .and_then(|builder| builder.payload(payload))
-            .map_err(PrepareError::Activity)?;
-        let envelope = builder.build().map_err(PrepareError::Activity)?;
-        let canonical_bytes = encode_unsigned_envelope(&envelope).map_err(PrepareError::Wire)?;
-        let signing_preimage = *preimage_unsigned(&envelope)
-            .map_err(PrepareError::Wire)?
-            .as_bytes();
-        let disclosed = disclosure_binding::decode_and_bind(
-            &canonical_bytes,
-            &state.module_registry,
-            budget_context,
-        )
-        .map_err(PrepareError::Disclosure)?;
-        let audit = PreparationAuditEntry {
-            idempotency_key: envelope.idempotency_key().bytes(),
-            observed_head_sequence: state.observed_head_sequence,
-            disclosure_digest: disclosed.digest,
-        };
-        Ok(Prepared {
-            envelope,
-            canonical_bytes,
-            signing_preimage,
-            observed_head_sequence: state.observed_head_sequence,
-            disclosure: disclosed.disclosure,
-            disclosure_digest: disclosed.digest,
-            audit,
-        })
-    }
-
-    #[cfg(test)]
-    #[path = "legacy_restore_tests.rs"]
-    mod restore_tests;
-}
-
-pub(crate) use legacy::PreparationAuthorization;
-pub use legacy::*;
+pub(crate) use lifecycle::PreparationAuthorization;
+pub use lifecycle::{
+    expire_elapsed, sweep_retention, DurablePreparation, ExpirationReport, LifecycleError,
+    LifecycleState, PayloadRedaction, PreparationExtension, PreparationInvalidationReport,
+    PreparationLifecycle, RetentionReport, EXTENSION_CALL, EXTENSION_CAPABILITY,
+    EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME, EXTENSION_TERMINAL_SEQUENCE,
+};

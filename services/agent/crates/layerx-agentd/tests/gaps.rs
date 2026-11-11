@@ -68,7 +68,10 @@ fn text<T, E: std::fmt::Debug>(result: Result<T, E>, label: &str) -> T {
 fn owned_durable(subscriptions: SubscriptionStore) -> Store {
     match subscriptions.into_durable() {
         Ok(durable) => durable,
-        Err(_) => panic!("owned subscription store returned unexpected Err(Self)"),
+        Err(subscriptions) => panic!(
+            "owned subscription store returned unexpected Err(Self): {:?}",
+            subscriptions.durable().err()
+        ),
     }
 }
 
@@ -209,6 +212,7 @@ fn authorized_subscriptions(
     (subscriptions, session_store, sessions, token)
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn history_limits() -> HistoryLimits {
     HistoryLimits {
         maximum_items: 2,
@@ -216,6 +220,7 @@ pub fn history_limits() -> HistoryLimits {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn log(height: u64, tx: u32, index: u32) -> Value {
     json!({"blockNumber": format!("0x{height:x}"), "transactionIndex": format!("0x{tx:x}"),
         "logIndex": format!("0x{index:x}"), "blockHash": format!("0x{}", "ab".repeat(32)),
@@ -223,6 +228,7 @@ pub fn log(height: u64, tx: u32, index: u32) -> Value {
         "data": "0x00ff", "removed": false})
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn attributes() -> EventAttributes {
     EventAttributes {
         agent: "agent-a".to_owned(),
@@ -241,33 +247,40 @@ pub struct HistoryServer {
 }
 
 impl HistoryServer {
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the fixture data, codec, signatures, or required node exchanges fail validation.
     pub fn new(blocks: Vec<(u64, Value)>) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let listener = assert_ok(TcpListener::bind("127.0.0.1:0"), "unexpected error");
+        let url = format!(
+            "http://{}/",
+            assert_ok(listener.local_addr(), "unexpected error")
+        );
         let server = thread::spawn(move || {
             for (height, result) in blocks {
-                let (mut stream, _) = listener.accept().unwrap();
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(3)))
-                    .unwrap();
+                let (mut stream, _) = assert_ok(listener.accept(), "unexpected error");
+                assert_ok(
+                    stream.set_read_timeout(Some(Duration::from_secs(3))),
+                    "unexpected error",
+                );
                 let mut header = Vec::new();
                 while !header.ends_with(b"\r\n\r\n") {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).unwrap();
+                    assert_ok(stream.read_exact(&mut byte), "unexpected error");
                     header.push(byte[0]);
                 }
-                let header = String::from_utf8(header).unwrap();
-                let length: usize = header
-                    .lines()
-                    .find_map(|line| {
+                let header = assert_ok(String::from_utf8(header), "unexpected error");
+                let length: usize = assert_some(
+                    header.lines().find_map(|line| {
                         let (name, value) = line.split_once(':')?;
                         name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse().unwrap())
-                    })
-                    .unwrap();
+                            .then(|| assert_ok(value.trim().parse(), "unexpected error"))
+                    }),
+                    "expected Some value",
+                );
                 let mut body = vec![0; length];
-                stream.read_exact(&mut body).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
+                assert_ok(stream.read_exact(&mut body), "unexpected error");
+                let request: Value = assert_ok(serde_json::from_slice(&body), "unexpected error");
                 assert_eq!(
                     request,
                     json!({"jsonrpc":"2.0", "id":1, "method":"eth_getLogs",
@@ -278,26 +291,33 @@ impl HistoryServer {
                 } else {
                     json!({"jsonrpc":"2.0", "id":1, "error":result})
                 };
-                let bytes = serde_json::to_vec(&response).unwrap();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).unwrap();
-                stream.write_all(&bytes).unwrap();
+                let bytes = assert_ok(serde_json::to_vec(&response), "unexpected error");
+                assert_ok(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()), "unexpected error");
+                assert_ok(stream.write_all(&bytes), "unexpected error");
             }
         });
         Self { url, server }
     }
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the loopback listener or node endpoint cannot be initialized.
     pub fn connect(&self) -> EthLogSource {
-        EthLogSource::new(
-            &self.url,
-            &[],
-            SubscriptionTopic::Logs {
-                address: None,
-                topics: vec![],
-            },
+        assert_ok(
+            EthLogSource::new(
+                &self.url,
+                &[],
+                SubscriptionTopic::Logs {
+                    address: None,
+                    topics: vec![],
+                },
+            ),
+            "unexpected error",
         )
-        .unwrap()
     }
+    /// # Panics
+    /// Panics if the fixture server thread panics.
     pub fn finish(self) {
-        self.server.join().unwrap();
+        assert_ok(self.server.join(), "unexpected error");
     }
 }
 
@@ -334,28 +354,50 @@ fn skipped_sequence_is_backfilled_over_the_real_stream_before_unblocking() {
         Err(error) => panic!("ingestor open failed: {error}"),
     };
     for (event, wire) in recovered.iter().zip(&wire_logs) {
-        assert_eq!(event.canonical_bytes, serde_json::to_vec(wire).unwrap());
+        assert_eq!(
+            event.canonical_bytes,
+            assert_ok(serde_json::to_vec(wire), "unexpected error")
+        );
     }
     let logs_server = SubscriptionServer::new(json!(["logs", {"topics": []}]), wire_logs);
-    let mut logs = subscribe(
-        &logs_server.url,
-        &[],
-        SubscriptionTopic::Logs {
-            address: None,
-            topics: vec![],
-        },
-    )
-    .unwrap();
+    let mut logs = assert_ok(
+        subscribe(
+            &logs_server.url,
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
+            },
+        ),
+        "unexpected error",
+    );
     for _ in &recovered {
-        ingestor.read_log(&mut logs, attributes()).unwrap();
+        assert_ok(
+            ingestor.read_log(&mut logs, attributes()),
+            "unexpected error",
+        );
     }
     logs_server.finish();
     let heads_server = SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0xd"})]);
-    let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
-    ingestor
-        .read_head(&mut heads, &source, history_limits(), 2, attributes())
-        .unwrap();
+    let mut heads = assert_ok(
+        subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads),
+        "unexpected error",
+    );
+    assert_ok(
+        ingestor.read_head(&mut heads, &source, history_limits(), 2, attributes()),
+        "unexpected error",
+    );
     heads_server.finish();
+    // 22.39.171: recovery still records the raw chain position independently of journal ordinals.
+    assert_eq!(
+        ingestor.watermark().last_position,
+        Some(Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0
+        })
+    );
+    assert_eq!(ingestor.watermark().next_expected, 13);
     let mut subscriptions = match SubscriptionStore::open(ingestor.into_store(), durable_tenant()) {
         Ok(value) => value,
         Err(error) => panic!("subscription reopen failed: {error}"),
@@ -371,18 +413,7 @@ fn skipped_sequence_is_backfilled_over_the_real_stream_before_unblocking() {
     assert!(admit(&subscriptions, &target()).is_ok());
 
     drop(subscriptions);
-    let durable = match Store::open(&root) {
-        Ok(value) => value,
-        Err(error) => panic!("store restart failed: {error}"),
-    };
-    let restarted = match SubscriptionStore::open(durable, durable_tenant()) {
-        Ok(value) => value,
-        Err(error) => panic!("subscription restart failed: {error}"),
-    };
-    assert!(matches!(
-        restarted.continuity(&target()),
-        Ok(Continuity::Healthy)
-    ));
+    assert_subscription_restarted(&root);
     let _ = fs::remove_dir_all(root);
 }
 
@@ -396,7 +427,7 @@ fn unrecoverable_core_gap_remains_durably_blocked() {
     };
     let server = HistoryServer::new(vec![(
         11,
-        json!({"code":-32001,"message":"history pruned"}),
+        json!({"code":-32_001,"message":"history pruned"}),
     )]);
     let source = server.connect();
     let report = attempt_backfill(&source, gap, history_limits(), 2);
@@ -735,11 +766,42 @@ fn backfill_accepts_empty_blocks_and_preserves_partial_recovery_on_refusal() {
         if events.len() == 1 && events[0].position.block_height == 12));
     let server = HistoryServer::new(vec![
         (11, json!([log(11, 0, 0)])),
-        (12, json!({"code":-32001,"message":"history pruned"})),
+        (12, json!({"code":-32_001,"message":"history pruned"})),
     ]);
     let report = attempt_backfill(&server.connect(), gap, history_limits(), 2);
     server.finish();
     assert!(matches!(report, BackfillReport::Incomplete { recovered,
         failure: BackfillFailure::History(HistoryReadError::Rpc(error)), ..
-    } if recovered.len() == 1 && error.code == -32001));
+    } if recovered.len() == 1 && error.code == -32_001));
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn assert_subscription_restarted(root: &std::path::Path) {
+    let durable = match Store::open(root) {
+        Ok(value) => value,
+        Err(error) => panic!("store restart failed: {error}"),
+    };
+    let restarted = match SubscriptionStore::open(durable, durable_tenant()) {
+        Ok(value) => value,
+        Err(error) => panic!("subscription restart failed: {error}"),
+    };
+    assert!(matches!(
+        restarted.continuity(&target()),
+        Ok(Continuity::Healthy)
+    ));
 }

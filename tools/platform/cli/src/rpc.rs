@@ -123,6 +123,18 @@ pub enum SubmissionFailure {
     Indeterminate { tx_hash: String, detail: String },
 }
 
+impl std::fmt::Display for SubmissionFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unsent(detail) => write!(formatter, "submission_unsent: {detail}"),
+            Self::Refused(detail) => write!(formatter, "submission_refused: {detail}"),
+            Self::Indeterminate { tx_hash, detail } => {
+                write!(formatter, "submission_indeterminate: {tx_hash}: {detail}")
+            }
+        }
+    }
+}
+
 /// Validated signed bytes and their reconciliation identity, retained before transport.
 pub struct PreparedSubmission {
     command: Value,
@@ -189,15 +201,14 @@ pub fn prepare_submission(
     Ok(PreparedSubmission { command, tx_hash })
 }
 
-/// Public invocations share one recovery result; unsent and refused remain explicit failures.
+/// Recoverable invocations retain unknown submissions; unsent and refused remain failures.
 pub fn submission_outcome(result: Result<Value, SubmissionFailure>) -> Result<Value, String> {
     match result {
         Ok(value) => Ok(value),
         Err(SubmissionFailure::Indeterminate { tx_hash, detail }) => {
             Ok(json!({"txHash":tx_hash,"rung":"unknown","detail":detail}))
         }
-        Err(SubmissionFailure::Unsent(detail)) => Err(format!("submission_unsent: {detail}")),
-        Err(SubmissionFailure::Refused(detail)) => Err(format!("submission_refused: {detail}")),
+        Err(failure) => Err(failure.to_string()),
     }
 }
 
@@ -226,7 +237,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         "eth_estimateGas" => estimate_gas_params(args)?,
         "eth_chainId" | "eth_gasPrice" | "eth_maxPriorityFeePerGas" if args.is_empty() => {}
         "eth_chainId" | "eth_maxPriorityFeePerGas" => {
-            return Err(format!("{method} takes no parameters"))
+            return Err(format!("{method} takes no parameters"));
         }
         "eth_call" => call_params(args)?,
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
@@ -244,7 +255,7 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
         _ => {
             return Err(format!(
                 "rpc_method_unavailable: {method} is absent from the published OpenRPC contract"
-            ))
+            ));
         }
     }
     Ok(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
@@ -631,12 +642,19 @@ mod tests {
                 Some("px_listHolderRecords"),
                 Some("px_getCapabilities"),
                 Some("px_getRouteCatalogue"),
+                Some("px_getInferenceRooms"),
+                Some("px_getInferenceRoom"),
+                Some("px_getInferenceDeal"),
+                Some("px_getInferencePeer"),
+                Some("px_getInferenceReceipts"),
             ]
         );
-        assert!(methods.iter().all(|entry| !entry["name"]
-            .as_str()
-            .unwrap_or_default()
-            .starts_with("lx_")));
+        assert!(methods.iter().all(|entry| {
+            !entry["name"]
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("lx_")
+        }));
         Ok(())
     }
 
@@ -745,7 +763,7 @@ mod tests {
                 Some("rpc_method_unavailable: lx_getProgramEvents is switched off".into())
             );
         }
-        let client = RpcClient::new("http://127.0.0.1:1/rpc", None)?;
+        let client = RpcClient::new("https://api1.mainnet-beta.paxeer.network", None)?;
         for params in [
             json!([]),
             json!({}),
@@ -770,11 +788,15 @@ mod tests {
             json!([{"topic": topic, "from_sequence": 0, "limit": 1}, 1]),
             json!([topic, 0, 1]),
         ] {
-            assert!(request("lx_getProgramEvents", &params).is_err(), "{params}");
             let refused = client
                 .call("lx_getProgramEvents", &params)
                 .err()
                 .ok_or("malformed query reached transport")?;
+            assert_eq!(
+                request("lx_getProgramEvents", &params).err(),
+                Some(refused.clone()),
+                "{params}"
+            );
             assert!(
                 refused == "rpc_method_unavailable: lx_getProgramEvents is switched off",
                 "{refused}"
@@ -930,7 +952,7 @@ mod tests {
 
     #[test]
     fn subscriptions_require_authenticated_websocket_and_string_ack() -> Result<(), String> {
-        let client = RpcClient::new("http://127.0.0.1:1/rpc", None)?;
+        let client = RpcClient::new("https://api1.mainnet-beta.paxeer.network", None)?;
         assert!(client.call("eth_subscribe", &json!(["receipts"])).is_err());
         assert!(client.call("eth_unsubscribe", &json!(["1"])).is_err());
         assert!(client

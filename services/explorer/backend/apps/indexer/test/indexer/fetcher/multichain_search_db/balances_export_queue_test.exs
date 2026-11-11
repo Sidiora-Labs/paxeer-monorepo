@@ -116,6 +116,14 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
       {:ok, bypass: bypass}
     end
 
+    test "running balances export retries HTTP 503 without a queue process restart", %{bypass: bypass} do
+      assert_running_recovery(bypass, 503, ~s({"code":0,"message":"Unavailable"}))
+    end
+
+    test "running balances export retries malformed HTTP 200 without a queue process restart", %{bypass: bypass} do
+      assert_running_recovery(bypass, 200, "<html>invalid successful response</html>")
+    end
+
     test "successfully processes multichain search db export retry queue data", %{bypass: bypass} do
       {:ok, address_hash} =
         Chain.string_to_address_hash("0x66A9B160F6a06f53f23785F069882Ee7337180E8")
@@ -251,36 +259,47 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
 
       log =
         capture_log(fn ->
-          assert {:retry,
-                  %{
-                    address_coin_balances: [
-                      %{
-                        address_hash: ^address_1_hash_string,
-                        token_contract_address_hash_or_native: "native",
-                        value: ^val0
-                      }
-                    ],
-                    address_token_balances: [
-                      %{
-                        address_hash: ^address_5_hash_string,
-                        token_address_hash: ^token_address_1_hash_string,
-                        value: ^val4,
-                        token_id: nil
-                      },
-                      %{
-                        address_hash: ^address_3_hash_string,
-                        token_address_hash: ^token_address_2_hash_string,
-                        value: ^val2,
-                        token_id: nil
-                      },
-                      %{
-                        address_hash: ^address_2_hash_string,
-                        token_address_hash: ^token_address_1_hash_string,
-                        value: ^val1,
-                        token_id: nil
-                      }
-                    ]
-                  }} = MultichainSearchDbExportBalancesExportQueue.run(export_data, nil)
+          assert {:retry, retry_entries} = MultichainSearchDbExportBalancesExportQueue.run(export_data, nil)
+          assert retry_entries == Enum.reject(export_data, &(&1.address_hash == address_4.hash))
+
+          retry_chunks =
+            retry_entries
+            |> MultichainSearchDbExportBalancesExportQueue.prepare_export_data()
+            |> MultichainSearch.extract_batch_import_params_into_chunks()
+
+          expected_retry_payload = %{
+            address_coin_balances: [
+              %{
+                address_hash: address_1_hash_string,
+                token_contract_address_hash_or_native: "native",
+                value: val0
+              }
+            ],
+            address_token_balances: [
+              %{
+                address_hash: address_5_hash_string,
+                token_address_hash: token_address_1_hash_string,
+                value: val4,
+                token_id: nil
+              },
+              %{
+                address_hash: address_3_hash_string,
+                token_address_hash: token_address_2_hash_string,
+                value: val2,
+                token_id: nil
+              },
+              %{
+                address_hash: address_2_hash_string,
+                token_address_hash: token_address_1_hash_string,
+                value: val1,
+                token_id: nil
+              }
+            ]
+          }
+
+          for {key, expected} <- expected_retry_payload do
+            assert Enum.sort(Enum.flat_map(retry_chunks, & &1[key])) == Enum.sort(expected)
+          end
         end)
 
       assert Repo.aggregate(BalancesExportQueue, :count, :id) == 4
@@ -350,6 +369,156 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
 
       assert Repo.aggregate(BalancesExportQueue, :count, :id) == 0
     end
+  end
+
+  defp assert_running_recovery(bypass, failure_status, failure_body) do
+    alias Explorer.Chain.Cache.ChainId
+    previous_chain_id = ConCache.get(ChainId.cache_name(), :id)
+
+    on_exit(fn ->
+      ChainId.set_id(previous_chain_id)
+      assert ConCache.get(ChainId.cache_name(), :id) == previous_chain_id
+    end)
+
+    ChainId.set_id(125)
+    Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
+
+    address = insert(:address)
+    token = insert(:address)
+    native_value = Decimal.new("123456789012345678901234567890123456789")
+    token_value = Decimal.new("987654321098765432109876543210987654321")
+    token_id = Decimal.new("123456789012345678901234567890")
+
+    entries = [
+      %{
+        address_hash: address.hash,
+        token_contract_address_hash_or_native: "native",
+        value: %Wei{value: native_value},
+        token_id: nil
+      },
+      %{
+        address_hash: address.hash,
+        token_contract_address_hash_or_native: token.hash.bytes,
+        value: %Wei{value: token_value},
+        token_id: nil
+      },
+      %{
+        address_hash: address.hash,
+        token_contract_address_hash_or_native: token.hash.bytes,
+        value: nil,
+        token_id: token_id
+      }
+    ]
+
+    rows = Enum.map(entries, &insert(:multichain_search_db_export_balances_queue, &1))
+
+    expected =
+      Map.merge(ExportQueueContract.empty_batch("125", "12345"), %{
+        "address_coin_balances" => [
+          %{
+            "address_hash" => to_string(address.hash),
+            "token_contract_address_hash_or_native" => "native",
+            "value" => Decimal.to_string(native_value, :normal)
+          }
+        ],
+        "address_token_balances" => [
+          %{
+            "address_hash" => to_string(address.hash),
+            "token_address_hash" => to_string(token.hash),
+            "value" => Decimal.to_string(token_value, :normal),
+            "token_id" => nil
+          },
+          %{
+            "address_hash" => to_string(address.hash),
+            "token_address_hash" => to_string(token.hash),
+            "value" => nil,
+            "token_id" => Decimal.to_string(token_id, :normal)
+          }
+        ]
+      })
+
+    owner = self()
+
+    Bypass.expect(bypass, "POST", "/api/v1/import:batch", fn conn ->
+      assert Plug.Conn.get_req_header(conn, "content-type") == ["application/json"]
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      payload = Jason.decode!(body)
+      send(owner, {:export_waiting, self(), payload})
+
+      receive do
+        {:respond, status, response} -> Plug.Conn.resp(conn, status, response)
+      after
+        5_000 -> flunk("Timed out waiting for upstream recovery response")
+      end
+    end)
+
+    supervisor = MultichainSearchDbExportBalancesExportQueue.Supervisor
+
+    supervisor_pid =
+      start_supervised!({supervisor, [[poll: false, flush_interval: 1_000, max_concurrency: 1, max_batch_size: 100]]})
+
+    queue = Process.whereis(MultichainSearchDbExportBalancesExportQueue)
+    assert is_pid(queue)
+    monitor = Process.monitor(queue)
+    assert_receive {:export_waiting, first_request, first_payload}, 5_000
+    assert canonical_batch(first_payload) == canonical_batch(expected)
+    first_state = GenServer.call(queue, :state)
+    assert first_state.max_concurrency == 1
+    [first_ref] = Map.keys(first_state.task_ref_to_batch)
+    assert Enum.sort(first_state.task_ref_to_batch[first_ref]) == Enum.sort(entries)
+    send(first_request, {:respond, failure_status, failure_body})
+
+    ExportQueueContract.eventually(fn ->
+      state = GenServer.call(queue, :state)
+      map_size(state.task_ref_to_batch) == 0 and state.bound_queue.size == length(entries)
+    end)
+
+    state = GenServer.call(queue, :state)
+    assert Enum.sort(Enum.to_list(state.bound_queue)) == Enum.sort(entries)
+    persisted = Repo.all(BalancesExportQueue)
+    fields = Map.keys(hd(entries))
+    assert Enum.sort(Enum.map(persisted, &Map.take(&1, fields))) == Enum.sort(entries)
+    assert Enum.all?(persisted, &(&1.retries_number == 1))
+
+    assert Enum.sort(Enum.map(persisted, &Map.drop(Map.from_struct(&1), [:id, :updated_at, :retries_number]))) ==
+             Enum.sort(Enum.map(rows, &Map.drop(Map.from_struct(&1), [:id, :updated_at, :retries_number])))
+
+    assert Process.whereis(MultichainSearchDbExportBalancesExportQueue) == queue
+    refute_receive {:DOWN, ^monitor, :process, ^queue, _}, 0
+
+    assert_receive {:export_waiting, retry_request, retry_payload}, 5_000
+    assert canonical_batch(retry_payload) == canonical_batch(expected)
+    retry_state = GenServer.call(queue, :state)
+    refute Map.has_key?(retry_state.task_ref_to_batch, first_ref)
+    [retry_entries] = Map.values(retry_state.task_ref_to_batch)
+    assert Enum.sort(retry_entries) == Enum.sort(entries)
+    assert Repo.all(BalancesExportQueue) == persisted
+    assert Process.whereis(MultichainSearchDbExportBalancesExportQueue) == queue
+    send(retry_request, {:respond, 200, ~s({"status":"ok"})})
+
+    ExportQueueContract.eventually(fn ->
+      Repo.aggregate(BalancesExportQueue, :count) == 0 and
+        map_size(GenServer.call(queue, :state).task_ref_to_batch) == 0
+    end)
+
+    assert Process.alive?(queue)
+    assert Process.whereis(MultichainSearchDbExportBalancesExportQueue) == queue
+
+    assert {MultichainSearchDbExportBalancesExportQueue, ^queue, :worker, _} =
+             Enum.find(Supervisor.which_children(supervisor_pid), fn {id, _, _, _} ->
+               id == MultichainSearchDbExportBalancesExportQueue
+             end)
+
+    refute_receive {:DOWN, ^monitor, :process, ^queue, _}, 0
+    assert :ok = stop_supervised(supervisor)
+    Process.demonitor(monitor, [:flush])
+  end
+
+  defp canonical_batch(batch) do
+    Map.new(batch, fn
+      {key, records} when is_list(records) -> {key, Enum.sort(records)}
+      entry -> entry
+    end)
   end
 
   defp tesla_expectations(address_hash_string) do

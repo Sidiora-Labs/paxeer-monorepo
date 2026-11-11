@@ -358,7 +358,7 @@ func registerDevelopmentProfileWrites(r chi.Router, cfg config.Config, pool *pgx
 		Reads:    account.DevelopmentProfileReads{Queries: sqlcdb.New(pool), Clock: time.Now},
 		Identity: identity,
 		Invalidate: func(ctx context.Context, wallet string) error {
-			return sharedredis.CacheInvalidate(ctx, rdb, "user:json:"+wallet)
+			return sharedredis.CacheInvalidate(ctx, rdb, user.ProfileCacheKey(cfg.PublicURL, wallet))
 		},
 		Clock: time.Now,
 	}

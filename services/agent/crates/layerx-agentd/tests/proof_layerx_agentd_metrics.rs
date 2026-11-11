@@ -1,12 +1,12 @@
-//! Proves: degraded::Controller::record_metric and tenant::normalize_error -> Metrics::observe_named / BoundedMetrics::scrape_errors -> Metrics::snapshot.
+//! Proves: `degraded::Controller::record_metric` and `tenant::normalize_error` -> `Metrics::observe_named` / `BoundedMetrics::scrape_errors` -> `Metrics::snapshot`.
 //!
 //! Repairs the split error vocabulary in src/obs/metrics.rs: the real tenant
-//! MetricLabel::BoundaryFailure produces `node_failure`, which the shared registry
+//! `MetricLabel::BoundaryFailure` produces `node_failure`, which the shared registry
 //! could not represent. Named decoding now rejects malformed or misplaced labels
 //! before they can change a scrape. The declared degraded interface names remain
 //! compatibility constants for the merge's node and chain labels.
 //!
-//! Outside touches, tests/metrics_rungs.rs::degraded_state_labels_name_node_conditions
+//! Outside touches, `tests/metrics_rungs.rs::degraded_state_labels_name_node_conditions`
 //! requires Halted and Emergency to share `chain_halted`; this proof asserts that
 //! current behavior rather than inventing a distinction in the metric transport.
 //! There is no durable metrics anchor: each consumer reads fresh in-memory state,
@@ -36,59 +36,7 @@ fn real_degraded_producers_cross_named_metrics_into_fresh_tenant_scrapes() {
         checkpoint: [4; 32],
     };
     let mut controller = Controller::default();
-    let cases = [
-        (
-            Observation::Unreachable,
-            Mode::Unreachable,
-            MetricLabel::NodeUnavailable,
-            "node_unavailable",
-        ),
-        (
-            Observation::Ready {
-                reference,
-                maximum_rung: Rung::Committed,
-            },
-            Mode::Healthy,
-            MetricLabel::BoundaryReady,
-            "boundary_ready",
-        ),
-        (
-            Observation::Ready {
-                reference,
-                maximum_rung: Rung::Receipted,
-            },
-            Mode::Behind,
-            MetricLabel::BoundaryBehind,
-            "node_behind",
-        ),
-        (
-            Observation::Halted {
-                reference,
-                maximum_rung: Rung::Receipted,
-            },
-            Mode::Halted,
-            MetricLabel::CoreHalted,
-            "chain_halted",
-        ),
-        (
-            Observation::Emergency {
-                reference,
-                maximum_rung: Rung::Submitted,
-            },
-            Mode::Emergency,
-            MetricLabel::CoreEmergency,
-            "chain_halted",
-        ),
-        (
-            Observation::DataUnavailable {
-                reference,
-                maximum_rung: Rung::Submitted,
-            },
-            Mode::DataUnavailable,
-            MetricLabel::DataUnavailable,
-            "block_unavailable",
-        ),
-    ];
+    let cases = degraded_cases(reference);
     for (observation, mode, label, name) in cases {
         let status = enter(&mut controller, observation);
         assert_eq!(status.mode, mode);
@@ -240,4 +188,60 @@ fn malformed_producer_labels_are_refused_at_the_real_consumer_decoder() {
         producer.scrape_errors(&alpha),
         Err(MetricsError::InvalidLabel)
     );
+}
+
+fn degraded_cases(reference: Reference) -> [(Observation, Mode, MetricLabel, &'static str); 6] {
+    [
+        (
+            Observation::Unreachable,
+            Mode::Unreachable,
+            MetricLabel::NodeUnavailable,
+            "node_unavailable",
+        ),
+        (
+            Observation::Ready {
+                reference,
+                maximum_rung: Rung::Committed,
+            },
+            Mode::Healthy,
+            MetricLabel::BoundaryReady,
+            "boundary_ready",
+        ),
+        (
+            Observation::Ready {
+                reference,
+                maximum_rung: Rung::Receipted,
+            },
+            Mode::Behind,
+            MetricLabel::BoundaryBehind,
+            "node_behind",
+        ),
+        (
+            Observation::Halted {
+                reference,
+                maximum_rung: Rung::Receipted,
+            },
+            Mode::Halted,
+            MetricLabel::CoreHalted,
+            "chain_halted",
+        ),
+        (
+            Observation::Emergency {
+                reference,
+                maximum_rung: Rung::Submitted,
+            },
+            Mode::Emergency,
+            MetricLabel::CoreEmergency,
+            "chain_halted",
+        ),
+        (
+            Observation::DataUnavailable {
+                reference,
+                maximum_rung: Rung::Submitted,
+            },
+            Mode::DataUnavailable,
+            MetricLabel::DataUnavailable,
+            "block_unavailable",
+        ),
+    ]
 }

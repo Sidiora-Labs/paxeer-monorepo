@@ -629,6 +629,8 @@ func selectRequiredStateCases(tests map[string]*harness.StateTestJSON, selection
 	if selection.Directory == "" || selection.Name == "" || selection.Fork != "Cancun" || selection.Count <= 0 {
 		return nil, fmt.Errorf("required selection needs directory, name, Cancun fork and positive expected count")
 	}
+	lastSlash := strings.LastIndex(selection.Name, "/")
+	indexed := lastSlash >= 0 && lastSlash+1 < len(selection.Name) && strings.Trim(selection.Name[lastSlash+1:], "0123456789") == ""
 	names := make([]string, 0, len(tests))
 	for name := range tests {
 		names = append(names, name)
@@ -645,7 +647,11 @@ func selectRequiredStateCases(tests map[string]*harness.StateTestJSON, selection
 			if len(posts) > 1 {
 				caseName = fmt.Sprintf("%s/%d", name, index)
 			}
-			if !strings.Contains(caseName, selection.Name) {
+			matches := strings.Contains(caseName, selection.Name)
+			if indexed {
+				matches = caseName == selection.Name
+			}
+			if !matches {
 				continue
 			}
 			selected = append(selected, selectedStateCase{Name: caseName, Test: tests[name], Post: post})

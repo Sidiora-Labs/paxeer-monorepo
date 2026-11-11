@@ -1,6 +1,6 @@
-# LayerX Network for developers
+# Paxeer X Network for developers
 
-LayerX Network moves money between software at machine speed and hands you evidence you can check without trusting the people who ran the transaction. This site is the developer surface: how to add payments to something you already have, what each guarantee is actually worth, and which layer is holding it up.
+Paxeer X Network moves money between software at machine speed and hands you evidence you can check without trusting the people who ran the transaction. LayerX is the kernel domain inside Paxeer X Network. This site is the developer surface: how to add payments to something you already have, what each guarantee is actually worth, and which layer is holding it up.
 
 ## Beta status
 

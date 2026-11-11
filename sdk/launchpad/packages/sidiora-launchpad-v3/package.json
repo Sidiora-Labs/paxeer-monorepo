@@ -1,11 +1,19 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "sidiora-launchpad-v3",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./abis": "./src/abis.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./abis": {
+      "types": "./src/abis.ts",
+      "default": "./src/abis.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

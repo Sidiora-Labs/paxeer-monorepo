@@ -15,8 +15,8 @@ PostgreSQL tracks event changes by connection in the internal
 `platform.__hyperfide_changes` table, so timeline caches detect writes from other
 connections without discarding incremental work after their own appends.
 
-The SQLite migration history remains in `packages/db/drizzle`. PostgreSQL has a
-baseline and append-only journal in `packages/db/drizzle-postgres`. Generate both
+The SQLite migration history remains in `core/runtime-db/drizzle`. PostgreSQL has a
+baseline and append-only journal in `core/runtime-db/drizzle-postgres`. Generate both
 with `pnpm -C core/runtime-db db:generate`; review both outputs together.
 `dialect-parity.test.ts` compares every declared table and column and checks the
 migrated database against that declaration on both engines. Existing SQLite data

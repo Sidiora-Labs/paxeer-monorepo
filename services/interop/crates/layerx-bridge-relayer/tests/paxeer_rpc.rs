@@ -84,12 +84,22 @@ fn emulator(answers: Vec<Value>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
     (endpoint, worker)
 }
 
+fn independent_rpc(endpoints: Vec<PaxeerEndpoint>) -> Result<PaxeerRpc, RpcFault> {
+    PaxeerRpc::with_backends(
+        endpoints
+            .into_iter()
+            .enumerate()
+            .map(|(index, endpoint)| (format!("test-backend-{index}"), endpoint))
+            .collect(),
+    )
+}
+
 fn quorum_call(answers: Vec<Value>, params: Value) -> Result<Value, RpcFault> {
     let (endpoints, workers): (Vec<_>, Vec<_>) = answers
         .into_iter()
         .map(|answer| emulator(vec![result(json!("0x7d")), answer]))
         .unzip();
-    let rpc = PaxeerRpc::new(endpoints).unwrap();
+    let rpc = independent_rpc(endpoints).unwrap();
     let outcome = rpc.call("eth_blockNumber", params.clone());
     for worker in workers {
         let requests = worker.join().unwrap();
@@ -202,7 +212,11 @@ fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
         vec![endpoint.clone(), other_chain],
     ] {
         assert!(matches!(
-            PaxeerRpc::new(endpoints),
+            PaxeerRpc::new(endpoints.clone()),
+            Err(RpcFault::Configuration)
+        ));
+        assert!(matches!(
+            independent_rpc(endpoints),
             Err(RpcFault::Configuration)
         ));
     }
@@ -227,9 +241,13 @@ fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
             .unwrap()
         })
         .collect();
-    assert!(PaxeerRpc::new(independent[..8].to_vec()).is_ok());
     assert!(matches!(
-        PaxeerRpc::new(independent),
+        PaxeerRpc::new(independent[..8].to_vec()),
+        Err(RpcFault::Configuration)
+    ));
+    assert!(independent_rpc(independent[..8].to_vec()).is_ok());
+    assert!(matches!(
+        independent_rpc(independent),
         Err(RpcFault::Configuration)
     ));
     listener.set_nonblocking(true).unwrap();
@@ -254,7 +272,7 @@ fn a_sequencer_receipt_read_uses_pax_sequencer_receipt() {
             ])
         })
         .unzip();
-    let rpc = PaxeerRpc::new(endpoints).unwrap();
+    let rpc = independent_rpc(endpoints).unwrap();
     let rpc: &dyn JsonRpc = &rpc;
     assert_eq!(rpc.sequencer_receipt(&[0xab; 32]), Ok(None));
     assert_eq!(rpc.sequencer_receipt(&[0xab; 32]), Ok(Some(receipt)));
@@ -296,12 +314,12 @@ fn duplicate_and_alias_endpoints_cannot_outvote_an_independent_backend() {
         let mut alias = first.clone();
         alias.url = url;
         assert!(matches!(
-            PaxeerRpc::new(vec![first.clone(), alias, second.clone()]),
+            independent_rpc(vec![first.clone(), alias, second.clone()]),
             Err(RpcFault::Configuration)
         ));
     }
     assert_eq!(
-        PaxeerRpc::new(vec![first, second])
+        independent_rpc(vec![first, second])
             .unwrap()
             .call("eth_blockNumber", json!([])),
         Err(RpcFault::Divergence)

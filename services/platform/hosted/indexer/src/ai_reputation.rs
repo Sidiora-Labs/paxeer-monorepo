@@ -8,7 +8,9 @@
 
 use std::path::Path;
 
-use crate::ai_market::{verify_program_state, BlockCommitProof, FinalityAuthority};
+use crate::ai_market::{
+    verify_block_commit, verify_program_state, BlockCommitProof, FinalityAuthority,
+};
 use layerx_committed_proof::ProofError;
 use layerx_programs_ai_market::{
     errors::{
@@ -410,6 +412,10 @@ impl ReputationProjector {
             capture.accept(&read.proof, chunk)?;
         }
         let (state_bytes, facts) = capture.finish()?;
+        if read.commit.header.chain_id != self.authority.chain_id {
+            verify_block_commit(&read.commit, &self.authority).map_err(ReputationError::Commit)?;
+            return Err(ReputationError::Refused(WRONG_DOMAIN));
+        }
         let authenticated = verify_program_state(
             &read.commit,
             &self.authority,
@@ -428,6 +434,7 @@ impl ReputationProjector {
         {
             return Err(ReputationError::Refused(F07_BINDING_MISMATCH));
         }
+        // The retained binding rank is earned by the authenticated block and store proof.
         let checkpoint_id = verified.store_proof_digest;
         let binding = bind_snapshot(
             authenticated.state(),

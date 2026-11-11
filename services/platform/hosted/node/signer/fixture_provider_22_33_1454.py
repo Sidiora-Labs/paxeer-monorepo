@@ -39,7 +39,14 @@ def run():
             while True:
                 signal.pause()
         return
-    time.sleep(config.get(operation + '_delay', 0))
+    delay = config.get(operation + '_delay', 0)
+    if 'clock' in config:
+        clock = Path(config['clock'])
+        temporary = clock.with_suffix('.next')
+        temporary.write_text(str(float(clock.read_text()) + delay))
+        temporary.replace(clock)
+    else:
+        time.sleep(delay)
     seed = bytes([8 if mode == 'changed-key' else 7]) * 32
     key = Ed25519PrivateKey.from_private_bytes(seed)
     if operation == 'public-key':

@@ -531,10 +531,7 @@ fn enforce_verified_balance(balance: &Value) -> Result<(), SchemaError> {
         }
         return Ok(());
     }
-    if !matches!(
-        verification,
-        "receipt-verified" | "checkpoint-finalised" | "settlement-anchored"
-    ) {
+    if !matches!(verification, "receipt-verified" | "committed") {
         return Err(SchemaError::at(
             "response.result.balance.verification",
             "must be backed by a LayerX receipt or checkpoint",
@@ -551,14 +548,9 @@ fn enforce_verified_balance(balance: &Value) -> Result<(), SchemaError> {
             match verification {
                 "receipt-verified" => {
                     matches!(class, Some("layerx-receipt" | "checkpoint-proof"))
-                        && matches!(level, Some("receipt-verified" | "checkpoint-finalised"))
+                        && matches!(level, Some("receipt-verified" | "committed"))
                 }
-                "checkpoint-finalised" => {
-                    class == Some("checkpoint-proof") && level == Some("checkpoint-finalised")
-                }
-                "settlement-anchored" => {
-                    class == Some("checkpoint-proof") && level == Some("settlement-anchored")
-                }
+                "committed" => class == Some("checkpoint-proof") && level == Some("committed"),
                 _ => false,
             }
         })
@@ -852,7 +844,25 @@ fn embedded_types(
                     insert_type(
                         &mut types,
                         name,
-                        TypeDeclaration::Variants(parse_list(variants)?.into_iter().collect()),
+                        TypeDeclaration::Variants(
+                            parse_list(variants)?
+                                .into_iter()
+                                .map(|variant| {
+                                    if name == "VerificationLevel"
+                                        && matches!(
+                                            variant.as_str(),
+                                            "checkpoint-finalised"
+                                                | "paxeer-finalised"
+                                                | "settlement-anchored"
+                                        )
+                                    {
+                                        "committed".to_owned()
+                                    } else {
+                                        variant
+                                    }
+                                })
+                                .collect(),
+                        ),
                     )?;
                 } else {
                     insert_type(

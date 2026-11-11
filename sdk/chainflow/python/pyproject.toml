@@ -5,9 +5,9 @@ description = "API-key-protected SDK contract for the Chainflow public data gate
 readme = "README.md"
 license = "Apache-2.0"
 authors = [
-  { name = "Chainflow Data Gateway" },
+  { name = "Sidiora Labs" },
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.11"
 dependencies = [
   "httpx>=0.23.0, <1",
   "pydantic>=1.9.0, <3",

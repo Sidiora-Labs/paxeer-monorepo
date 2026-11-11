@@ -33,8 +33,8 @@ use layerx_programs_ai_market::{
         OPEN_SCRATCH_BYTES, RESET_SUFFIX_BYTES, STATUS_SUFFIX_BYTES,
     },
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_SCORE_RANGE,
-        F03_UNKNOWN_WORKER, F07_BINDING_MISMATCH, F07_GENERATION_MISMATCH,
+        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_NONCANONICAL_VECTOR,
+        F03_SCORE_RANGE, F03_UNKNOWN_WORKER, F07_BINDING_MISMATCH, F07_GENERATION_MISMATCH,
         F07_IDEMPOTENCY_CONFLICT, F07_IDENTITY_FROZEN, F07_SEGMENT_MISMATCH, F07_UNKNOWN_WORKER,
         NON_CANONICAL, NOT_FOUND, RETENTION_FULL, ROLE_CONFLICT, UNAUTHORIZED, WRONG_CONFIG,
         WRONG_EPOCH,
@@ -826,10 +826,18 @@ impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`; a refusal leaves
     /// the committed bytes unchanged.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
-        repair::refresh_workers(&mut self.bytes, at)?;
+        let mut candidate = self.clone();
+        repair::refresh_workers_with(&mut candidate.bytes, at, |record| {
+            let n = record.owner.bytes()[0];
+            if record.key_version == 1 {
+                delegate_key(n)
+            } else {
+                replacement_key(n)
+            }
+        })?;
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&self.bytes, at, &mut next, &mut scratch)?;
+        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
         let call = Req {
             epoch: preview.epoch,
             config: preview.config.get(),
@@ -844,7 +852,7 @@ impl World {
         } = epoch::open_epoch(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
-            &self.bytes,
+            &candidate.bytes,
             &mut next,
             &mut scratch,
             &mut event,
@@ -853,7 +861,8 @@ impl World {
             return Err(NON_CANONICAL);
         };
         next.truncate(state_len);
-        self.bytes = next;
+        candidate.bytes = next;
+        *self = candidate;
         Ok(frozen)
     }
     /// Permissionless object-local `ADVANCE_ACTIVATION`; the lifecycle becomes ACTIVE.
@@ -2092,7 +2101,7 @@ fn f07_a05_coverage_and_quorum() -> TestResult {
         payload: raw_reveal(&body, &dup.signature.0, &SALT)?,
         ..m.reveal_request(6, &dup)?
     };
-    assert_eq!(call.encode().map(|_| ()), Err(NON_CANONICAL));
+    assert_eq!(call.encode().map(|_| ()), Err(F03_NONCANONICAL_VECTOR));
     m.settle(SETTLE_AT)?;
     assert_eq!(
         standing(&m.record(LOW)?),
@@ -2105,7 +2114,7 @@ fn f07_a05_coverage_and_quorum() -> TestResult {
     c.score(&plan(&[2, 3, 4], &[(LOW, 800_000)])?)?;
     assert_eq!(
         standing(&c.record(LOW)?),
-        (100_000, 1, Some(375_000), Some(m.frozen.epoch))
+        (100_000, 1, Some(375_000), Some(c.frozen.epoch))
     );
     c.epoch(7, &plan(&[2, 3], &[(LOW, 800_000)])?)?;
     assert_eq!(
@@ -2473,7 +2482,7 @@ fn f07_a11_capacity_and_sizes() -> TestResult {
     let before = m.world.bytes.clone();
     assert_eq!(m.world.enroll(0x60, 1000), Err(CAPACITY));
     assert_eq!(m.world.bytes, before);
-    println!("AI.F07-A11 PASS 32 records scored, 33rd worker CAPACITY, 32 current + 32 history within 9088, joint within 24576, common within 196608");
+    println!("AI.F07-A11 PASS 32 records scored, 33rd worker CAPACITY, 32 current + 32 history within 9088, joint within 24576, common within {}", layerx_programs_ai_market::MAX_STATE_BYTES);
     Ok(())
 }
 

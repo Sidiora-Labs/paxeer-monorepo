@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 // Loopback transcript peers for the production TLS authority and runtime clock clients.
-#[path = "send_authorization.rs"]
-mod send_authorization;
+use super::support::send_authorization;
 
 use layerx_agentd::human::HumanPeer;
 use layerx_agentd::human_runtime::{HumanAuthorityBoundary, RemoteHumanAuthority};
@@ -194,16 +193,18 @@ pub fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
                     thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
                     let reading = ClockReading {
                         generation,
-                        unix_milliseconds: must(SystemTime::now().duration_since(UNIX_EPOCH))
-                            .as_millis()
-                            .try_into()
-                            .expect("wall time"),
+                        unix_milliseconds: assert_ok(
+                            must(SystemTime::now().duration_since(UNIX_EPOCH))
+                                .as_millis()
+                                .try_into(),
+                            "wall time",
+                        ),
                         monotonic_nanoseconds: must(start.elapsed().as_nanos().try_into()),
                     };
                     must(stream.write_all(&clock_protocol::response(request.counter, Ok(reading))));
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(2))
+                    thread::sleep(Duration::from_millis(2));
                 }
                 Err(error) => panic!("clock accept: {error}"),
             }
@@ -229,7 +230,7 @@ pub fn peer() -> HumanPeer {
 pub fn identity_document(head: u64, frozen: bool, authorities: &[ProtocolAuthority]) -> Value {
     json!({"canonical_core_bytes":hex::encode(format!("verified-identity-at-{head}")),
         "head_sequence":head,"revocation_sequence":1,"frozen":frozen,
-        "verification_level":"checkpoint_finalised", "authorities":authorities.iter().map(|authority| {
+        "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "authorities":authorities.iter().map(|authority| {
             let (kind,id) = match authority { ProtocolAuthority::PrimaryKey(id)=>("primary_key",id),
                 ProtocolAuthority::SessionKey(id)=>("session_key",id), ProtocolAuthority::CapabilityGrant(id)=>("capability_grant",id) };
             json!({"kind":kind,"id":hex::encode(id)})
@@ -316,92 +317,9 @@ pub fn cumulative_window(
 ) {
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_agentd::protocol_evidence::{RawActivityReceiptEvidence, RawReceiptEvidence};
-    use layerx_crypto::SignatureMessage;
     use layerx_proof::merkle::build_proof;
-    use layerx_types::{
-        activity::{Authority, EnvelopeBuilder, Signature, TimestampBound},
-        amount::Amount,
-        ids::IdempotencyKey,
-        payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload},
-    };
-    use layerx_wire::{
-        activity::{encode_signed_envelope, encode_unsigned_envelope},
-        encode::Encoder,
-        hash::{activity_id, batch_header_digest, payload_hash_for, Domain},
-        limits::PROTOCOL_VERSION,
-    };
-    let owner = SigningKey::from_bytes(&[0x45; 32]);
-    let kind = must(ActivityType::new(ModuleId::Asset, 5));
-    let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
-        ModuleId::Asset,
-        &[kind],
-    ))]));
-    let mut activities = Vec::new();
-    let mut receipts = Vec::new();
-    for index in 0..99u64 {
-        let mut payload = Encoder::new(1024);
-        must(payload.u16(0x5301));
-        must(payload.u16(10));
-        for value in [[0x11; 32], [0x22; 32], [0x33; 32]] {
-            must(payload.fixed(&value));
-        }
-        must(payload.u128(25));
-        must(payload.u64(index + 1));
-        let mut action = [0x44; 32];
-        action[..8].copy_from_slice(&index.to_be_bytes());
-        must(payload.fixed(&action));
-        must(payload.u64(1_010));
-        must(payload.fixed(&[0x55; 32]));
-        must(payload.u8(0));
-        must(payload.u8(1));
-        must(payload.fixed(&[0x11; 32]));
-        must(payload.fixed(&[0x66; 32]));
-        must(payload.fixed(&[0x77; 64]));
-        must(payload.fixed(&[0x55; 32]));
-        must(payload.u32(17));
-        must(payload.u16(PROTOCOL_VERSION));
-        let payload = must(Payload::new(
-            &registry,
-            kind,
-            &send_authorization::sign(payload.finish()),
-        ));
-        let mut builder = EnvelopeBuilder::new();
-        must(builder.protocol_version(PROTOCOL_VERSION));
-        must(builder.network_id(42));
-        must(builder.activity_type(kind));
-        must(builder.actor_did(if index == 0 {
-            actor.clone()
-        } else {
-            must(Did::new(b"did:layerx:other-window-actor"))
-        }));
-        must(builder.authority(must(Authority::owner(&owner.verifying_key().to_bytes()))));
-        must(builder.account_sequence(index + 1));
-        must(builder.timestamp_bound(must(TimestampBound::new(995, 1_010))));
-        must(builder.idempotency_key(IdempotencyKey::new(action)));
-        must(builder.fee_limit(Amount::from_u128(7)));
-        must(builder.payload_hash(must(payload_hash_for(&payload))));
-        must(builder.payload(payload));
-        let envelope = must(builder.build());
-        let unsigned = must(encode_unsigned_envelope(&envelope));
-        let digest = must(SignatureMessage::new(
-            Domain::SignaturePreimage,
-            PROTOCOL_VERSION,
-            42,
-            &unsigned,
-        ))
-        .digest();
-        let signed =
-            envelope.attach_signature(must(Signature::new(&owner.sign(&digest).to_bytes())));
-        let canonical = must(encode_signed_envelope(&signed));
-        let decoded = must(layerx_wire::activity::decode_signed(&canonical, &registry));
-        let id = must(activity_id(&decoded));
-        activities.push(canonical);
-        receipts.push(
-            super::support::raw_receipt_at(id, 0, 25, 20 + index)
-                .canonical_receipt()
-                .to_vec(),
-        );
-    }
+    use layerx_wire::{encode::Encoder, hash::batch_header_digest};
+    let (activities, mut receipts) = window_activities(actor);
     receipts.push(
         super::support::raw_receipt_at([0xfe; 32], 0, 0, 119)
             .canonical_receipt()
@@ -667,4 +585,117 @@ pub fn signed_node_receipt(
         "signingKey": rpc_hex(&key.public_key)
     });
     (view, key)
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+fn window_activities(actor: &Did) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_crypto::SignatureMessage;
+    use layerx_types::{
+        activity::{Authority, EnvelopeBuilder, Signature, TimestampBound},
+        amount::Amount,
+        ids::IdempotencyKey,
+        payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry},
+    };
+    use layerx_wire::{
+        hash::{payload_hash_for, Domain},
+        historical::{
+            activity::{encode_signed_envelope, encode_unsigned_envelope},
+            hash::activity_id,
+        },
+        limits::PROTOCOL_VERSION,
+    };
+    let owner = SigningKey::from_bytes(&[0x45; 32]);
+    let kind = must(ActivityType::new(ModuleId::Asset, 5));
+    let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
+        ModuleId::Asset,
+        &[kind],
+    ))]));
+    let mut activities = Vec::new();
+    let mut receipts = Vec::new();
+    for index in 0..99u64 {
+        let (payload, action) = window_payload(index, &registry, kind);
+        let mut builder = EnvelopeBuilder::new();
+        must(builder.protocol_version(PROTOCOL_VERSION));
+        must(builder.network_id(42));
+        must(builder.activity_type(kind));
+        must(builder.actor_did(if index == 0 {
+            actor.clone()
+        } else {
+            must(Did::new(b"did:layerx:other-window-actor"))
+        }));
+        must(builder.authority(must(Authority::owner(&owner.verifying_key().to_bytes()))));
+        must(builder.account_sequence(index + 1));
+        must(builder.timestamp_bound(must(TimestampBound::new(995, 1_010))));
+        must(builder.idempotency_key(IdempotencyKey::new(action)));
+        must(builder.fee_limit(Amount::from_u128(7)));
+        must(builder.payload_hash(must(payload_hash_for(&payload))));
+        must(builder.payload(payload));
+        let envelope = must(builder.build());
+        let unsigned = must(encode_unsigned_envelope(&envelope));
+        let digest = must(SignatureMessage::new(
+            Domain::SignaturePreimage,
+            PROTOCOL_VERSION,
+            42,
+            &unsigned,
+        ))
+        .digest();
+        let signed =
+            envelope.attach_signature(must(Signature::new(&owner.sign(&digest).to_bytes())));
+        let canonical = must(encode_signed_envelope(&signed));
+        let decoded = must(layerx_wire::historical::activity::decode_signed(
+            &canonical, &registry,
+        ));
+        let id = must(activity_id(&decoded));
+        activities.push(canonical);
+        receipts.push(
+            super::support::raw_receipt_at(id, 0, 25, 20 + index)
+                .canonical_receipt()
+                .to_vec(),
+        );
+    }
+    (activities, receipts)
+}
+
+fn window_payload(
+    index: u64,
+    registry: &layerx_types::payload::ModuleRegistry,
+    kind: layerx_types::payload::ActivityType,
+) -> (layerx_types::payload::Payload, [u8; 32]) {
+    use layerx_types::payload::Payload;
+    use layerx_wire::{encode::Encoder, limits::PROTOCOL_VERSION};
+    let mut payload = Encoder::new(1024);
+    must(payload.u16(0x5301));
+    must(payload.u16(10));
+    for value in [[0x11; 32], [0x22; 32], [0x33; 32]] {
+        must(payload.fixed(&value));
+    }
+    must(payload.u128(25));
+    must(payload.u64(index + 1));
+    let mut action = [0x44; 32];
+    action[..8].copy_from_slice(&index.to_be_bytes());
+    must(payload.fixed(&action));
+    must(payload.u64(1_010));
+    must(payload.fixed(&[0x55; 32]));
+    must(payload.u8(0));
+    must(payload.u8(1));
+    must(payload.fixed(&[0x11; 32]));
+    must(payload.fixed(&[0x66; 32]));
+    must(payload.fixed(&[0x77; 64]));
+    must(payload.fixed(&[0x55; 32]));
+    must(payload.u32(17));
+    must(payload.u16(PROTOCOL_VERSION));
+    let payload = must(Payload::new(
+        registry,
+        kind,
+        &send_authorization::sign(payload.finish()),
+    ));
+    (payload, action)
 }

@@ -48,6 +48,7 @@ const { runMerchantServiceScenarios, runAgentServiceScenarios, servicePayee, SER
 const { ConformanceSequencer, buildSignedReceipt, fixedBytes, toHex } = await import("../src/receipts.ts");
 const { FixedReceiptKeys, Suite } = await import("../src/support.ts");
 const { HostedGatewayRpc, PaymentRpc } = await import("../../seller/src/rpc.ts");
+const { keccak256, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
 
 async function conformance_node_router_fixture_uses_root_and_separate_hosted_identity() {
   const sequencer = await ConformanceSequencer.generate();
@@ -63,11 +64,11 @@ async function conformance_node_router_fixture_uses_root_and_separate_hosted_ide
   assert.equal(suite.results().length, 3, "checkout, verified payment/restart and tampering must all execute");
   assert.deepEqual(suite.results().filter((result) => !result.ok), []);
   assert.equal(new URL(observed.nodeUrl).pathname, "/");
-  assert.equal(new URL(observed.hostedGatewayUrl).pathname, "/rpc");
+  assert.equal(new URL(observed.hostedGatewayUrl).pathname, "/");
   assert.notEqual(new URL(observed.nodeUrl).origin, new URL(observed.hostedGatewayUrl).origin);
   assert.equal(observed.hosted.length, 1);
   const identity = observed.hosted[0];
-  assert.equal(identity.path, "/rpc");
+  assert.equal(identity.path, "/");
   assert.equal(identity.authorization, "Bearer identity-conformance-token");
   assert.deepEqual(identity.request.params, [toHex(facts.payTo)]);
   assert.equal(identity.request.method, "px_resolveAccount");
@@ -116,7 +117,7 @@ async function conformance_node_router_fixture_uses_root_and_separate_hosted_ide
   assert.ok(paidReceiptCalls.length > 0);
   for (const call of paidReceiptCalls) assert.equal(call.response.body.result.receipt, payment.signedReceipt);
   assert.throws(() => new PaymentRpc(`${new URL(observed.nodeUrl).origin}/rpc`), /invalid-rpc-endpoint/u);
-  assert.throws(() => new HostedGatewayRpc(`${new URL(observed.hostedGatewayUrl).origin}/`), /invalid-rpc-endpoint/u);
+  assert.throws(() => new HostedGatewayRpc(`${new URL(observed.hostedGatewayUrl).origin}/rpc`), /invalid-rpc-endpoint/u);
   assert.throws(() => new PaymentRpc(observed.nodeUrl).call("px_resolveAccount", [SERVICE_PAYEE_ACCOUNT]), /invalid-node-method/u);
   assert.throws(() => new HostedGatewayRpc(observed.hostedGatewayUrl).call("pax_sequencerReceipt", [receipt.txHash]), /invalid-gateway-method/u);
 }
@@ -127,11 +128,26 @@ async function conformance_daemon_fixture_tracks_and_recovers_real_serializer_ou
   const recorded = dispatch.match(/const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"([\s\S]*?)"#;/u);
   assert.ok(recorded, "the Rust dispatch producer must retain its shared serializer transcript");
   assert.deepEqual(transcript, JSON.parse(recorded[1]), "peer messages must equal the producer's exact committed output");
+  const receiptKeys = [{ keyId: Buffer.from(transcript.receipt_key.keyId.slice(2), "hex"),
+    publicKey: Buffer.from(transcript.receipt_key.publicKey.slice(2), "hex"),
+    first_height: BigInt(transcript.receipt_key.firstHeight), last_height: BigInt(transcript.receipt_key.lastHeight) }];
+  const signedReceipt = Buffer.from(transcript.submit.signed_receipt, "hex");
+  const authenticated = await verifySequencerReceipt(signedReceipt, Buffer.from(transcript.raw_transaction, "hex"), receiptKeys);
+  const receiptDigest = toHex(authenticated.receiptDigest);
+  assert.notEqual(receiptDigest, toHex(keccak256(signedReceipt)));
   const suite = new Suite();
   const observed = await runAgentServiceScenarios(suite);
   assert.equal(suite.results().length, 6, "verified spend, approval, rate limit, unknown outcome, recovery and terminal refusal must execute");
   assert.deepEqual(suite.results().filter((result) => !result.ok), []);
   assert.deepEqual(observed.errors, []);
+  const proofs = observed.services.filter((call) => call.path === "/receipt");
+  assert.ok(proofs.length > 0);
+  for (const call of proofs) {
+    assert.equal(call.response.receiptDigest, `0x${receiptDigest}`);
+    assert.equal(call.response.signedReceipt, `0x${transcript.submit.signed_receipt}`);
+    assert.equal(call.response.rawTransaction, `0x${transcript.raw_transaction}`);
+    assert.deepEqual(call.response.receiptKey, transcript.receipt_key);
+  }
   const submit = observed.calls.filter((call) => call.request.operation === "submit" && call.response);
   assert.equal(submit.length, 1);
   assert.deepEqual(submit[0].response.value, transcript.submit);
@@ -167,10 +183,13 @@ async function conformance_daemon_fixture_tracks_and_recovers_real_serializer_ou
   assert.equal(recovery.resumed.submission.receiptEvidence.verificationLevel, "receipted");
   assert.equal(recovery.resumed.submission.receiptEvidence.signedReceipt, `0x${transcript.submit.signed_receipt}`);
   assert.equal(recovery.resumed.submission.receiptEvidence.rawTransaction, `0x${transcript.raw_transaction}`);
+  assert.equal(recovery.resumed.submission.receiptEvidence.receiptDigest, `0x${receiptDigest}`);
+  assert.equal(toHex(recovery.resumed.verification.receiptDigest), receiptDigest);
   assert.equal(recovery.resumed.verification.txHash, `0x${transcript.submit.tx_hash}`);
   assert.equal(recovery.resumed.verification.rung, "receipted", "observation state must not replace a cryptographic commitment proof");
   assert.equal(recovery.resumed.reservation.state, "committed");
   assert.deepEqual(recovery.replay.reservation, recovery.resumed.reservation);
+  assert.equal(toHex(recovery.replay.verification.receiptDigest), receiptDigest);
   const key = Object.keys(recovery.before.records).find((key) => recovery.before.records[key].reservationId === recovery.pending.reservation.reservationId);
   assert.ok(key);
   const before = recovery.before.records[key];
@@ -179,6 +198,7 @@ async function conformance_daemon_fixture_tracks_and_recovers_real_serializer_ou
   assert.equal(after.state, "committed");
   for (const field of ["reservationId", "requestDigest", "amount", "asset"]) assert.equal(after[field], before[field]);
   assert.equal(after.receiptDigest, Buffer.from(recovery.resumed.verification.receiptDigest).toString("hex"));
+  assert.equal(after.receiptDigest, receiptDigest);
   const commits = observed.services.filter((call) => call.path === "/budget" && call.request.action === "commit"
     && call.request.transition.reservation_id === after.reservationId);
   assert.equal(commits.length, 1, "reopening and replay must not commit the reservation twice");

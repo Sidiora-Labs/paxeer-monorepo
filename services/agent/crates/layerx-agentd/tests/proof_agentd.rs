@@ -1,9 +1,10 @@
-//! Proves ledger_payment_call -> call-bound daemon preparation/signing -> durable
-//! Outbox, idempotency and ApprovalEvents consumers used by Human. The tests reopen
+//! Proves `ledger_payment_call` -> call-bound daemon preparation/signing -> durable
+//! Outbox, idempotency and `ApprovalEvents` consumers used by Human. The tests reopen
 //! production stores and require exact EVM bytes, signature and disclosure binding.
 
 use std::fmt::Debug;
 use std::future::Future;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::PathBuf;
 use std::pin::pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,7 +15,7 @@ use layerx_agentd::audit::{Coverage, Log};
 use layerx_agentd::events::{ingest_local_restriction, CoreEvent, EventIngestor, IngestError};
 use layerx_agentd::idempotency::{EconomicResult, IdempotencyError, Outcome, RetentionPolicy};
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState};
-use layerx_agentd::prepare::{evm, verify_call_binding, CallBindingError, DisclosureBindingError};
+use layerx_agentd::prepare::{evm, verify_call_binding, CallBindingError};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::sign::{
     attach_external_signature, external, verify_before_submit, SigningError, SigningPreparation,
@@ -51,13 +52,13 @@ impl Directory {
     fn new() -> Self {
         let mut random = [0; 16];
         checked(getrandom::fill(&mut random));
-        let path = std::env::temp_dir().join(format!(
+        let path = checked(std::fs::canonicalize(std::env::temp_dir())).join(format!(
             "proof-agentd-{}-{}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed),
             hex::encode(random)
         ));
-        checked(std::fs::create_dir(&path));
+        checked(std::fs::DirBuilder::new().mode(0o700).create(&path));
         Self(path)
     }
 }
@@ -137,6 +138,13 @@ fn producer() -> (SigningPreparation, ModuleRegistry) {
     ));
     assert_eq!(transaction.call, produced.call);
     assert_eq!(transaction.disclosure, produced.disclosure);
+    assert_eq!(
+        checked(layerx_crypto::disclosure::call::bind_call(
+            &transaction.call,
+            actor
+        )),
+        transaction.disclosure
+    );
     checked(verify_call_binding(&transaction));
     (
         SigningPreparation {
@@ -145,6 +153,40 @@ fn producer() -> (SigningPreparation, ModuleRegistry) {
         },
         checked(ModuleRegistry::new(&[])),
     )
+}
+
+fn human_enqueue(
+    store: &mut Store,
+    outbox: &mut Outbox,
+    prepared: &SigningPreparation,
+    registry: &ModuleRegistry,
+    raw: &[u8],
+) -> [u8; 32] {
+    let request = serde_json::json!({"raw_transaction": format!("0x{}", hex::encode(raw))});
+    let (answer, rung) = checked(layerx_agentd::agent_rpc_dispatch::dispatch_raw_submit(
+        lint_present(request.as_object(), "submit request"),
+        layerx_agent_api::error::RequestId(7),
+        |bytes| {
+            assert_eq!(bytes, raw);
+            let verified =
+                verify_before_submit(&bytes, prepared, &prepared.actor_address, registry)
+                    .map_err(|_| layerx_agentd::human::HumanOperationError::Refused)?;
+            let hash = outbox
+                .enqueue(store, tenant(), verified.into_exact_bytes())
+                .map_err(|_| layerx_agentd::human::HumanOperationError::Unavailable)?;
+            layerx_agentd::human_runtime::write_submission(
+                lint_present(outbox.status(hash), "durable submission"),
+                None,
+            )
+        },
+    ));
+    let hash = transaction_hash(raw);
+    assert_eq!(answer["tx_hash"], hex::encode(hash));
+    assert_eq!(answer["submission_ref"], hex::encode(hash));
+    assert_eq!(answer["state"], "Queued");
+    assert_eq!(rung, layerx_types::rung::Rung::Submitted);
+    assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    hash
 }
 
 #[test]
@@ -159,7 +201,7 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         prepared.transaction.call.signing_hash()
     );
     assert_eq!(
-        package.disclosure_digest.0,
+        package.disclosure_digest,
         prepared.transaction.disclosure_digest
     );
     {
@@ -176,7 +218,7 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
     }
     let expected = prepared.clone();
     drop(prepared);
-    let mut store = checked(Store::open(&root.0));
+    let store = checked(Store::open(&root.0));
     let signing = checked(SigningPreparation::restore(&store, tenant(), KEY));
     assert_eq!(signing, expected);
     assert_eq!(signing.transaction.call.encode_unsigned(), canonical);
@@ -225,6 +267,280 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         Err(SigningError::SignatureInvalid)
     );
 
+    enqueue_and_recover_signature(
+        &root,
+        store,
+        &signing,
+        &registry,
+        (&raw, &canonical),
+        malformed,
+        &verified,
+    );
+}
+
+#[test]
+fn inconsistent_prepared_call_and_disclosure_are_refused() {
+    let (signing, registry) = producer();
+    let raw = checked(signing.transaction.call.sign(&SEED));
+    checked(verify_before_submit(
+        &raw,
+        &signing,
+        &signing.actor_address,
+        &registry,
+    ));
+    let mut stale_digest = signing.clone();
+    stale_digest.transaction.disclosure_digest[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(&raw, &stale_digest, &stale_digest.actor_address, &registry),
+        Err(SigningError::CallBinding(CallBindingError::DigestMismatch))
+    ));
+    let mut stale_call = signing.clone();
+    stale_call.transaction.call.data[68 + 4 + 32] ^= 1;
+    assert_eq!(
+        verify_before_submit(&raw, &stale_call, &stale_call.actor_address, &registry),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    let mut stale_disclosure = signing.clone();
+    stale_disclosure.transaction.disclosure.idempotency_key[0] ^= 1;
+    assert!(matches!(
+        verify_before_submit(
+            &raw,
+            &stale_disclosure,
+            &stale_disclosure.actor_address,
+            &registry
+        ),
+        Err(SigningError::CallBinding(_))
+    ));
+    let mut stale_actor = signing.clone();
+    stale_actor.actor_address[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&raw, &stale_actor, &stale_actor.actor_address, &registry),
+        Err(SigningError::SignerMismatch)
+    );
+    // Check the current equivalents of the retired envelope/preimage/audit bindings.
+    let mut stale_hash = signing.clone();
+    stale_hash.transaction.signing_hash[0] ^= 1;
+    assert_eq!(
+        verify_call_binding(&stale_hash.transaction),
+        Err(CallBindingError::SigningHashMismatch)
+    );
+    assert_eq!(
+        external(&stale_hash),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    assert_eq!(
+        attach_external_signature(&stale_hash, [0; 65]),
+        Err(SigningError::PreparedBytesChanged)
+    );
+    let mut stale_sender = signing.clone();
+    stale_sender.transaction.from[0] ^= 1;
+    assert!(matches!(
+        verify_call_binding(&stale_sender.transaction),
+        Err(CallBindingError::Disclosure(_))
+    ));
+    assert!(matches!(
+        external(&stale_disclosure),
+        Err(SigningError::CallBinding(_))
+    ));
+    let mut changed_call = signing.clone();
+    changed_call.transaction.call.nonce += 1;
+    changed_call.transaction.signing_hash = changed_call.transaction.call.signing_hash();
+    assert!(matches!(
+        verify_call_binding(&changed_call.transaction),
+        Err(CallBindingError::Disclosure(_))
+    ));
+    assert!(matches!(
+        external(&changed_call),
+        Err(SigningError::CallBinding(_))
+    ));
+    assert_eq!(
+        verify_before_submit(&raw, &changed_call, &changed_call.actor_address, &registry),
+        Err(SigningError::PreparedBytesChanged)
+    );
+}
+
+#[test]
+fn pending_attempt_recovers_original_hash_height_and_exact_request() {
+    let root = Directory::new();
+    let idempotency_root = Directory::new();
+    let (signing, registry) = producer();
+    let raw = checked(signing.transaction.call.sign(&SEED));
+    let hash = transaction_hash(&raw);
+    {
+        let mut durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        assert_eq!(
+            human_enqueue(&mut durable, &mut outbox, &signing, &registry, &raw),
+            hash
+        );
+    }
+    {
+        let durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        checked(outbox.restore(&durable, tenant(), hash));
+        assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    }
+    {
+        let store = checked(layerx_agentd::idempotency::Store::open(
+            &idempotency_root.0,
+            tenant(),
+            retention(),
+        ));
+        checked(store.record_attempt(KEY, &raw, 88, hash));
+    }
+    let store = checked(layerx_agentd::idempotency::Store::open(
+        &idempotency_root.0,
+        tenant(),
+        retention(),
+    ));
+    let result = EconomicResult {
+        response_bytes: hash.to_vec(),
+        receipt_ref: None,
+    };
+    assert_eq!(
+        checked(store.execute(KEY, &raw, 99, |attempt| {
+            assert!(attempt.retry);
+            assert_eq!(attempt.head_height, 88);
+            assert_eq!(attempt.transaction_hash, Some(hash));
+            assert_eq!(attempt.exact_request_bytes, raw);
+            assert_eq!(transaction_hash(attempt.exact_request_bytes), hash);
+            checked(decode_signed(attempt.exact_request_bytes));
+            Ok(result.clone())
+        })),
+        Outcome::RepeatedOriginal(result.clone())
+    );
+    drop(store);
+    let store = checked(layerx_agentd::idempotency::Store::open(
+        &idempotency_root.0,
+        tenant(),
+        retention(),
+    ));
+    assert_eq!(
+        checked(store.execute(KEY, &raw, 100, |_| panic!("pending retry settled twice"))),
+        Outcome::RepeatedOriginal(result)
+    );
+}
+
+#[test]
+fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
+    let root = Directory::new();
+    let (prepared, registry) = producer();
+    let raw = checked(prepared.transaction.call.sign(&SEED));
+    let hash = {
+        let mut durable = checked(Store::open(&root.0));
+        human_enqueue(
+            &mut durable,
+            &mut Outbox::default(),
+            &prepared,
+            &registry,
+            &raw,
+        )
+    };
+    {
+        let durable = checked(Store::open(&root.0));
+        let mut outbox = Outbox::default();
+        checked(outbox.restore(&durable, tenant(), hash));
+        assert_eq!(hash, transaction_hash(&raw));
+        assert_eq!(checked(outbox.exact_signed_bytes(hash)), raw);
+    }
+    let lifecycle = ApprovalLifecycle {
+        tenant: tenant(),
+        agent: checked(Did::new(b"did:layerx:human-proof")),
+        session: SessionId([2; 32]),
+        capability: [3; 32],
+        policy_version: "policy-v1".into(),
+        approval_id: KEY,
+        canonical_digest: prepared.transaction.disclosure_digest,
+        activity_type: prepared.transaction.disclosure.activity_type.ordinal(),
+        asset: "LXP".into(),
+        kind: ApprovalEventKind::Created,
+        principal: None,
+        observed_at_ms: 1_000,
+    };
+    let mut ingestor = checked(EventIngestor::open(
+        checked(Store::open(&root.0)),
+        tenant(),
+        2,
+        0,
+    ));
+    let mut audit = checked(Log::open(&root.0, &tenant()));
+    let mut coverage = Coverage::default();
+    let emission = checked(ApprovalEvents::emit(
+        &mut ingestor,
+        &mut audit,
+        &mut coverage,
+        &lifecycle,
+    ));
+    let emitted: CoreEvent = lint_present(ingestor.take_next(), "real producer event");
+    assert_eq!(emitted.canonical_bytes, emission.canonical_event_bytes);
+    assert_eq!(emitted.receipt_reference, None);
+    assert_eq!(
+        emitted.receipt_verification_level,
+        VerificationLevel::UNVERIFIED
+    );
+    let watermark = ingestor.watermark();
+    drop(audit);
+    drop(ingestor);
+
+    let mut ingestor = checked(EventIngestor::open(
+        checked(Store::open(&root.0)),
+        tenant(),
+        2,
+        77,
+    ));
+    assert_eq!(ingestor.watermark(), watermark);
+    assert_eq!(
+        checked(ingestor.retained_event(emission.global_sequence)),
+        emitted
+    );
+    assert_eq!(emitted.attributes.agent, "did:layerx:human-proof");
+    assert_eq!(emitted.attributes.module, "approval");
+    assert_eq!(emitted.attributes.counterparty, "human-approval");
+    let key = storage_key(
+        ObjectKind::Event,
+        emission.global_sequence.to_be_bytes().to_vec(),
+    );
+    let stored = lint_present(ingestor.store().get(&key), "Human durable event consumer");
+    assert_eq!(stored.class(), StorageClass::LocalOnly);
+    assert_eq!(stored.bytes(), emission.canonical_event_bytes);
+    assert!(matches!(
+        ingest_local_restriction(&mut ingestor, emitted.clone()),
+        Err(IngestError::Repeated { sequence: 0 })
+    ));
+    assert_eq!(ingestor.watermark(), watermark);
+    assert_eq!(checked(ingestor.retained_event(0)), emitted);
+    assert!(matches!(
+        ingestor.retained_event(1),
+        Err(IngestError::CorruptEvent)
+    ));
+    let mut forged_evidence = emitted;
+    forged_evidence.global_sequence = watermark.next_expected;
+    forged_evidence.receipt_reference = Some([1; 32]);
+    assert!(matches!(
+        ingest_local_restriction(&mut ingestor, forged_evidence),
+        Err(IngestError::ReceiptEvidenceMismatch)
+    ));
+    assert_eq!(ingestor.watermark(), watermark);
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
+    }
+}
+
+fn enqueue_and_recover_signature(
+    root: &Directory,
+    mut store: Store,
+    signing: &SigningPreparation,
+    registry: &ModuleRegistry,
+    (raw, canonical): (&[u8], &[u8]),
+    malformed: Vec<u8>,
+    verified: &layerx_agentd::sign::VerifiedSubmission,
+) {
+    let hash = verified.activity_id();
     let id_root = Directory::new();
     let idempotency = checked(layerx_agentd::idempotency::Store::open(
         &id_root.0,
@@ -236,17 +552,21 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         response_bytes: hash.to_vec(),
         receipt_ref: None,
     };
-    let first = checked(idempotency.execute(KEY, &canonical, 88, |attempt| {
+    let first = checked(idempotency.execute(KEY, raw, 88, |attempt| {
         assert!(!attempt.retry);
-        assert_eq!(attempt.exact_request_bytes, canonical);
-        let id = outbox
-            .enqueue(&mut store, tenant(), verified.into_exact_bytes())
-            .map_err(|e| format!("{e:?}"))?;
+        assert_eq!(attempt.exact_request_bytes, raw);
+        let id = human_enqueue(
+            &mut store,
+            &mut outbox,
+            signing,
+            registry,
+            verified.exact_bytes(),
+        );
         assert_eq!(id, hash);
         Ok(result.clone())
     }));
     assert_eq!(first, Outcome::First(result.clone()));
-    let queued = outbox.status(hash).expect("queued consumer result").clone();
+    let queued = lint_present(outbox.status(hash), "queued consumer result").clone();
     assert_eq!(queued.state, SubmissionState::Queued);
     assert!(!queued.state.terminal());
     assert_eq!(queued.activity_id, hash);
@@ -255,13 +575,26 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
     drop(store);
     drop(idempotency);
 
+    recover_queued_signature(root, &id_root, &queued, raw, canonical, result, malformed);
+}
+
+fn recover_queued_signature(
+    root: &Directory,
+    id_root: &Directory,
+    queued: &layerx_agentd::outbox::SubmissionStatus,
+    raw: &[u8],
+    canonical: &[u8],
+    result: EconomicResult,
+    malformed: Vec<u8>,
+) {
+    let hash = queued.activity_id;
     let mut store = checked(Store::open(&root.0));
     let mut outbox = Outbox::default();
     checked(outbox.restore(&store, tenant(), hash));
-    assert_eq!(outbox.status(hash), Some(&queued));
+    assert_eq!(outbox.status(hash), Some(queued));
     assert_eq!(checked(outbox.bytes_for_transmission(hash)), raw);
     assert!(matches!(
-        outbox.enqueue(&mut store, tenant(), raw.clone()),
+        outbox.enqueue(&mut store, tenant(), raw.to_vec()),
         Err(OutboxError::Duplicate)
     ));
     assert!(matches!(
@@ -278,13 +611,15 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         retention(),
     ));
     assert_eq!(
-        checked(idempotency.execute(KEY, &canonical, 89, |_| panic!(
+        checked(idempotency.execute(KEY, raw, 89, |_| panic!(
             "settled effect repeated after restart"
         ))),
         Outcome::RepeatedOriginal(result)
     );
     assert!(matches!(
-        idempotency.execute(KEY, &raw, 89, |_| panic!("conflicting effect executed")),
+        idempotency.execute(KEY, canonical, 89, |_| panic!(
+            "conflicting effect executed"
+        )),
         Err(IdempotencyError::Conflict(_))
     ));
     let submitted = checked(outbox.transition(
@@ -318,221 +653,4 @@ fn prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes() {
         Err(OutboxError::Corrupt)
     ));
     assert!(corrupt_restore.status(hash).is_none());
-}
-
-#[test]
-fn inconsistent_prepared_call_and_disclosure_are_refused() {
-    let (signing, registry) = producer();
-    let raw = checked(signing.transaction.call.sign(&SEED));
-    checked(verify_before_submit(
-        &raw,
-        &signing,
-        &signing.actor_address,
-        &registry,
-    ));
-    let mut stale_digest = signing.clone();
-    stale_digest.transaction.disclosure_digest[0] ^= 1;
-    assert!(matches!(
-        verify_before_submit(&raw, &stale_digest, &stale_digest.actor_address, &registry),
-        Err(SigningError::Disclosure(
-            DisclosureBindingError::DigestMismatch
-        ))
-    ));
-    let mut stale_call = signing.clone();
-    stale_call.transaction.call.data[68 + 4 + 32] ^= 1;
-    assert_eq!(
-        verify_before_submit(&raw, &stale_call, &stale_call.actor_address, &registry),
-        Err(SigningError::PreparedBytesChanged)
-    );
-    let mut stale_disclosure = signing.clone();
-    stale_disclosure.transaction.disclosure.idempotency_key[0] ^= 1;
-    assert!(matches!(
-        verify_before_submit(
-            &raw,
-            &stale_disclosure,
-            &stale_disclosure.actor_address,
-            &registry
-        ),
-        Err(SigningError::Disclosure(_))
-    ));
-    let mut stale_actor = signing.clone();
-    stale_actor.actor_address[0] ^= 1;
-    assert_eq!(
-        verify_before_submit(&raw, &stale_actor, &stale_actor.actor_address, &registry),
-        Err(SigningError::SignerMismatch)
-    );
-    // Check the current equivalents of the retired envelope/preimage/audit bindings.
-    let mut stale_hash = signing.clone();
-    stale_hash.transaction.signing_hash[0] ^= 1;
-    assert_eq!(
-        verify_call_binding(&stale_hash.transaction),
-        Err(CallBindingError::SigningHashMismatch)
-    );
-    assert_eq!(
-        external(&stale_hash),
-        Err(SigningError::PreparedBytesChanged)
-    );
-    assert_eq!(
-        attach_external_signature(&stale_hash, [0; 65]),
-        Err(SigningError::PreparedBytesChanged)
-    );
-    let mut stale_sender = signing.clone();
-    stale_sender.transaction.from[0] ^= 1;
-    assert!(matches!(
-        verify_call_binding(&stale_sender.transaction),
-        Err(CallBindingError::Disclosure(_))
-    ));
-    assert!(matches!(
-        external(&stale_disclosure),
-        Err(SigningError::Disclosure(_))
-    ));
-    let mut changed_call = signing.clone();
-    changed_call.transaction.call.nonce += 1;
-    changed_call.transaction.signing_hash = changed_call.transaction.call.signing_hash();
-    assert!(matches!(
-        verify_call_binding(&changed_call.transaction),
-        Err(CallBindingError::Disclosure(_))
-    ));
-    assert!(matches!(
-        external(&changed_call),
-        Err(SigningError::Disclosure(_))
-    ));
-    assert_eq!(
-        verify_before_submit(&raw, &changed_call, &changed_call.actor_address, &registry),
-        Err(SigningError::PreparedBytesChanged)
-    );
-}
-
-#[test]
-fn pending_attempt_recovers_original_hash_height_and_exact_request() {
-    let root = Directory::new();
-    let (signing, _) = producer();
-    let raw = checked(signing.transaction.call.sign(&SEED));
-    let hash = transaction_hash(&raw);
-    {
-        let store = checked(layerx_agentd::idempotency::Store::open(
-            &root.0,
-            tenant(),
-            retention(),
-        ));
-        checked(store.record_attempt(KEY, &raw, 88, hash));
-    }
-    let store = checked(layerx_agentd::idempotency::Store::open(
-        &root.0,
-        tenant(),
-        retention(),
-    ));
-    let result = EconomicResult {
-        response_bytes: hash.to_vec(),
-        receipt_ref: None,
-    };
-    assert_eq!(
-        checked(store.execute(KEY, &raw, 99, |attempt| {
-            assert!(attempt.retry);
-            assert_eq!(attempt.head_height, 88);
-            assert_eq!(attempt.transaction_hash, Some(hash));
-            assert_eq!(attempt.exact_request_bytes, raw);
-            assert_eq!(transaction_hash(attempt.exact_request_bytes), hash);
-            checked(decode_signed(attempt.exact_request_bytes));
-            Ok(result.clone())
-        })),
-        Outcome::RepeatedOriginal(result.clone())
-    );
-    drop(store);
-    let store = checked(layerx_agentd::idempotency::Store::open(
-        &root.0,
-        tenant(),
-        retention(),
-    ));
-    assert_eq!(
-        checked(store.execute(KEY, &raw, 100, |_| panic!("pending retry settled twice"))),
-        Outcome::RepeatedOriginal(result)
-    );
-}
-
-#[test]
-fn real_approval_event_survives_restart_with_evidence_and_rejects_duplicate() {
-    let root = Directory::new();
-    let (prepared, _) = producer();
-    let lifecycle = ApprovalLifecycle {
-        tenant: tenant(),
-        agent: checked(Did::new(b"did:layerx:human-proof")),
-        session: SessionId([2; 32]),
-        capability: [3; 32],
-        policy_version: "policy-v1".into(),
-        approval_id: KEY,
-        canonical_digest: prepared.transaction.disclosure_digest,
-        activity_type: prepared.transaction.disclosure.activity_type.ordinal(),
-        asset: "LXP".into(),
-        kind: ApprovalEventKind::Created,
-        principal: None,
-        observed_at_ms: 1_000,
-    };
-    let mut ingestor = checked(EventIngestor::open(
-        checked(Store::open(&root.0)),
-        tenant(),
-        2,
-        0,
-    ));
-    let mut audit = checked(Log::open(&root.0, &tenant()));
-    let mut coverage = Coverage::default();
-    let emission = checked(ApprovalEvents::emit(
-        &mut ingestor,
-        &mut audit,
-        &mut coverage,
-        &lifecycle,
-    ));
-    let emitted: CoreEvent = ingestor.take_next().expect("real producer event");
-    assert_eq!(emitted.canonical_bytes, emission.canonical_event_bytes);
-    assert_eq!(emitted.receipt_reference, None);
-    assert_eq!(
-        emitted.receipt_verification_level,
-        VerificationLevel::UNVERIFIED
-    );
-    let watermark = ingestor.watermark();
-    drop(audit);
-    drop(ingestor);
-
-    let mut ingestor = checked(EventIngestor::open(
-        checked(Store::open(&root.0)),
-        tenant(),
-        2,
-        77,
-    ));
-    assert_eq!(ingestor.watermark(), watermark);
-    assert_eq!(
-        checked(ingestor.retained_event(emission.global_sequence)),
-        emitted
-    );
-    assert_eq!(emitted.attributes.agent, "did:layerx:human-proof");
-    assert_eq!(emitted.attributes.module, "approval");
-    assert_eq!(emitted.attributes.counterparty, "human-approval");
-    let key = storage_key(
-        ObjectKind::Event,
-        emission.global_sequence.to_be_bytes().to_vec(),
-    );
-    let stored = ingestor
-        .store()
-        .get(&key)
-        .expect("Human durable event consumer");
-    assert_eq!(stored.class(), StorageClass::LocalOnly);
-    assert_eq!(stored.bytes(), emission.canonical_event_bytes);
-    assert!(matches!(
-        ingest_local_restriction(&mut ingestor, emitted.clone()),
-        Err(IngestError::Repeated { sequence: 0 })
-    ));
-    assert_eq!(ingestor.watermark(), watermark);
-    assert_eq!(checked(ingestor.retained_event(0)), emitted);
-    assert!(matches!(
-        ingestor.retained_event(1),
-        Err(IngestError::CorruptEvent)
-    ));
-    let mut forged_evidence = emitted;
-    forged_evidence.global_sequence = watermark.next_expected;
-    forged_evidence.receipt_reference = Some([1; 32]);
-    assert!(matches!(
-        ingest_local_restriction(&mut ingestor, forged_evidence),
-        Err(IngestError::ReceiptEvidenceMismatch)
-    ));
-    assert_eq!(ingestor.watermark(), watermark);
 }

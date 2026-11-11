@@ -1,10 +1,13 @@
-//! Task 22.33.1556 repair record, finding doc_crate.
-//! Proofs: doc_crate_examples, doc_crate_receipt_keys, doc_crate_readiness,
-//! and doc_crate_catalogue exercise the producer shape and production MCP consumers.
+//! Task 22.33.1556 repair record, finding `doc_crate`.
+//! Proofs: `doc_crate_examples`, `doc_crate_receipt_keys`, `doc_crate_readiness`,
+//! and `doc_crate_catalogue` exercise the producer shape and production MCP consumers.
 //! Baseline: no prior gate ledger or repair target existed; the implementation-first,
 //! wrapper-only gate order prohibits an extra unchanged-tree verify. No baseline
-//! failure is claimed. No out-of-path wiring is needed; hf-build/hf-done record
+//! failure is claimed. No out-of-path wiring is needed; hf-`build/hf-done` record
 //! the exact qualified revision, command, exit and private evidence location.
+
+use layerx_mcp_test_support::option_assertion;
+use layerx_mcp_test_support::result_assertion;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -32,24 +35,34 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create private fixture directory");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-            .expect("protect fixture directory");
-        Self(fs::canonicalize(path).expect("canonical fixture directory"))
+        result_assertion::required(fs::create_dir(&path), "create private fixture directory");
+        result_assertion::required(
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)),
+            "protect fixture directory",
+        );
+        Self(result_assertion::required(
+            fs::canonicalize(path),
+            "canonical fixture directory",
+        ))
     }
 
     fn secret(&self, name: &str, contents: &str) -> PathBuf {
         let path = self.0.join(name);
-        fs::write(&path, contents).expect("write fixture credential");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-            .expect("protect fixture credential");
+        result_assertion::required(fs::write(&path, contents), "write fixture credential");
+        result_assertion::required(
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)),
+            "protect fixture credential",
+        );
         path
     }
 }
 
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove private fixture directory");
+        result_assertion::required(
+            fs::remove_dir_all(&self.0),
+            "remove private fixture directory",
+        );
     }
 }
 
@@ -58,8 +71,12 @@ fn examples() -> Vec<Value> {
         .split("```json\n")
         .skip(1)
         .map(|block| {
-            serde_json::from_str(block.split_once("```").expect("closed JSON fence").0)
-                .expect("README JSON example")
+            result_assertion::required(
+                serde_json::from_str(
+                    option_assertion::required(block.split_once("```"), "closed JSON fence").0,
+                ),
+                "README JSON example",
+            )
         })
         .collect();
     assert_eq!(blocks.len(), 3, "base, optional listener and optional web");
@@ -69,12 +86,23 @@ fn examples() -> Vec<Value> {
 // Serialize with the exact shape the daemon publisher uses before handing the
 // bytes to the MCP parser. No replacement parser or parallel binding is used.
 fn produced(document: &Value) -> Binding {
-    let producer: BindingDocument =
-        serde_json::from_value(document.clone()).expect("current daemon producer shape");
-    let bytes = serde_json::to_vec(&producer).expect("serialize daemon producer");
-    assert_eq!(serde_json::from_slice::<Value>(&bytes).unwrap(), *document);
-    let binding = Binding::parse(std::str::from_utf8(&bytes).expect("JSON transport"))
-        .expect("production MCP binding consumer");
+    let producer: BindingDocument = result_assertion::required(
+        serde_json::from_value(document.clone()),
+        "current daemon producer shape",
+    );
+    let bytes =
+        result_assertion::required(serde_json::to_vec(&producer), "serialize daemon producer");
+    assert_eq!(
+        result_assertion::required(serde_json::from_slice::<Value>(&bytes), "required success"),
+        *document
+    );
+    let binding = result_assertion::required(
+        Binding::parse(result_assertion::required(
+            std::str::from_utf8(&bytes),
+            "JSON transport",
+        )),
+        "production MCP binding consumer",
+    );
     assert_eq!(binding.core_height(), producer.core_height);
     assert_eq!(binding.agent_endpoint(), producer.agent.endpoint);
     assert_eq!(binding.session_generation(), producer.session_generation);
@@ -102,7 +130,10 @@ fn doc_crate_examples() {
 
     let mut socket_document = base.clone();
     socket_document["listener"] = blocks[1]["listener"].clone();
-    let config = produced(&socket_document).listener().cloned().unwrap();
+    let config = option_assertion::required(
+        produced(&socket_document).listener().cloned(),
+        "required success",
+    );
     assert_eq!(config.endpoint, PathBuf::from("/run/layerx/mcp.sock"));
     assert_eq!(config.mode, 0o660);
     assert_eq!(config.admitted_uids, vec![0]);
@@ -110,17 +141,20 @@ fn doc_crate_examples() {
     // Substitute only deployment-specific ownership and path, then exercise the
     // real listener with the configuration decoded from the documented example.
     let directory = Directory::new();
-    let owner = fs::metadata(&directory.0).unwrap();
+    let owner = result_assertion::required(fs::metadata(&directory.0), "required success");
     socket_document["listener"]["socket"] = json!(directory.0.join("mcp.sock"));
     socket_document["listener"]["owner_uid"] = json!(owner.uid());
     socket_document["listener"]["owner_gid"] = json!(owner.gid());
     socket_document["listener"]["admitted_uids"] = json!([owner.uid()]);
     socket_document["web"] = blocks[2]["web"].clone();
     let socket_binding = produced(&socket_document);
-    let config = socket_binding.listener().unwrap().clone();
+    let config = option_assertion::required(socket_binding.listener(), "required success").clone();
     let endpoint = config.endpoint.clone();
-    let listener = Listener::bind(config).expect("documented listener binds");
-    assert_eq!(fs::metadata(&endpoint).unwrap().mode() & 0o777, 0o660);
+    let listener = result_assertion::required(Listener::bind(config), "documented listener binds");
+    assert_eq!(
+        result_assertion::required(fs::metadata(&endpoint), "required success").mode() & 0o777,
+        0o660
+    );
     drop(listener);
     assert!(
         !endpoint.exists(),
@@ -132,12 +166,13 @@ fn doc_crate_examples() {
 fn doc_crate_receipt_keys() {
     let valid = web_document();
     assert!(valid["web"].get("sequencer_public_key").is_none());
-    let fields: BTreeSet<_> = valid["web"]["receipt_key_index"][0]
-        .as_object()
-        .unwrap()
-        .keys()
-        .map(String::as_str)
-        .collect();
+    let fields: BTreeSet<_> = option_assertion::required(
+        valid["web"]["receipt_key_index"][0].as_object(),
+        "required success",
+    )
+    .keys()
+    .map(String::as_str)
+    .collect();
     assert_eq!(
         fields,
         BTreeSet::from(["keyId", "publicKey", "firstHeight", "lastHeight"])
@@ -145,10 +180,11 @@ fn doc_crate_receipt_keys() {
 
     for field in fields {
         let mut invalid = valid.clone();
-        invalid["web"]["receipt_key_index"][0]
-            .as_object_mut()
-            .unwrap()
-            .remove(field);
+        option_assertion::required(
+            invalid["web"]["receipt_key_index"][0].as_object_mut(),
+            "required success",
+        )
+        .remove(field);
         assert!(
             Binding::parse(&invalid.to_string()).is_err(),
             "missing {field}"
@@ -169,24 +205,31 @@ fn doc_crate_receipt_keys() {
     }
     let mut uncovered = valid.clone();
     uncovered["web"]["receipt_key_index"][0]["lastHeight"] = json!(119);
-    assert!(Binding::parse(&uncovered.to_string())
-        .unwrap_err()
-        .detail()
-        .contains("cover"));
+    assert!(layerx_mcp_test_support::refusal_assertion::refused(
+        Binding::parse(&uncovered.to_string()),
+        "binding refusal"
+    )
+    .detail()
+    .contains("cover"));
     let mut retired = valid.clone();
     retired["web"]["sequencer_public_key"] = json!("5e".repeat(32));
-    assert!(Binding::parse(&retired.to_string())
-        .unwrap_err()
-        .detail()
-        .contains("retired"));
+    assert!(layerx_mcp_test_support::refusal_assertion::refused(
+        Binding::parse(&retired.to_string()),
+        "binding refusal"
+    )
+    .detail()
+    .contains("retired"));
     let mut retired = valid;
-    retired["core_sequence"] = retired
-        .as_object_mut()
-        .unwrap()
-        .remove("core_height")
-        .unwrap();
+    retired["core_sequence"] = option_assertion::required(
+        option_assertion::required(retired.as_object_mut(), "required success")
+            .remove("core_height"),
+        "required success",
+    );
     assert_eq!(
-        Binding::parse(&retired.to_string()).unwrap_err(),
+        layerx_mcp_test_support::refusal_assertion::refused(
+            Binding::parse(&retired.to_string()),
+            "binding refusal"
+        ),
         BindingError::Refused("mcp.binding_retired_key".to_owned())
     );
 }
@@ -201,26 +244,24 @@ fn doc_crate_readiness() {
     let binding = produced(&document);
     // This constructs the real authenticated HTTPS transport without sending a
     // request to the illustrative origin or requiring a live gateway.
-    binding
-        .daemon_transport()
-        .expect("documented authenticated HTTPS configuration");
-    let credential = binding
-        .daemon_credential()
-        .expect("protected session credential");
+    result_assertion::required(
+        binding.daemon_transport(),
+        "documented authenticated HTTPS configuration",
+    );
+    let credential =
+        result_assertion::required(binding.daemon_credential(), "protected session credential");
     assert_eq!(credential.tenant().as_str(), "beta");
     assert!(binding.matches_session(&credential));
 
     let mut missing = document.clone();
-    missing["agent"]
-        .as_object_mut()
-        .unwrap()
+    option_assertion::required(missing["agent"].as_object_mut(), "required success")
         .remove("readiness");
-    assert!(produced(&missing)
-        .daemon_transport()
-        .err()
-        .unwrap()
-        .detail()
-        .contains("authenticated unified gateway"));
+    assert!(option_assertion::required(
+        produced(&missing).daemon_transport().err(),
+        "required success"
+    )
+    .detail()
+    .contains("authenticated unified gateway"));
     let mut insecure = document.clone();
     insecure["agent"]["readiness"]["endpoint"] = json!("http://127.0.0.1:8090");
     assert!(produced(&insecure).daemon_transport().is_err());
@@ -228,8 +269,14 @@ fn doc_crate_readiness() {
     malformed["agent"]["readiness"]["gateway_key_file"] =
         json!(directory.secret("invalid", "invalid"));
     assert!(produced(&malformed).daemon_transport().is_err());
-    let token_path = PathBuf::from(document["session_token_file"].as_str().unwrap());
-    fs::set_permissions(token_path, fs::Permissions::from_mode(0o644)).unwrap();
+    let token_path = PathBuf::from(option_assertion::required(
+        document["session_token_file"].as_str(),
+        "required success",
+    ));
+    result_assertion::required(
+        fs::set_permissions(token_path, fs::Permissions::from_mode(0o644)),
+        "required success",
+    );
     assert!(
         binding.daemon_transport().is_err(),
         "world-readable credentials are refused"
@@ -273,9 +320,11 @@ fn doc_crate_catalogue() {
             "{}",
             tool.name
         );
-        let listing = catalogue::listing(tool).expect("production tools/list encoder");
-        let wire = serde_json::to_vec(&listing).unwrap();
-        let received: Value = serde_json::from_slice(&wire).unwrap();
+        let listing =
+            option_assertion::required(catalogue::listing(tool), "production tools/list encoder");
+        let wire = result_assertion::required(serde_json::to_vec(&listing), "required success");
+        let received: Value =
+            result_assertion::required(serde_json::from_slice(&wire), "required success");
         assert_eq!(received["name"], tool.name);
         assert_eq!(received["_meta"]["layerx/scope"], tool.required_scope);
         assert_eq!(

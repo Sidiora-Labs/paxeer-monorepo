@@ -1,10 +1,10 @@
 use layerx_types::account::AccountId;
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::{self, Activity};
 use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{self, Domain};
+use layerx_wire::historical::activity::{self, Activity};
 
 use crate::{ed25519, SignatureMessage};
 
@@ -30,6 +30,10 @@ pub struct OnboardingConsent {
     pub expires_at: u64,
 }
 
+#[allow(
+    deprecated,
+    reason = "Implements retained historical onboarding consent compatibility"
+)]
 impl OnboardingConsent {
     /// # Errors
     /// Refuses invalid target ownership, native asset, sponsor or consent bounds.
@@ -116,6 +120,10 @@ impl OnboardingConsent {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[deprecated(note = "Use binding::BindAuthorization in an EVM bindLayerX registration transaction")]
+#[allow(
+    deprecated,
+    reason = "Retains the consent inside the historical registration compatibility type"
+)]
 pub struct SponsoredRegistration {
     pub consent: OnboardingConsent,
     pub network_id: u32,
@@ -123,6 +131,10 @@ pub struct SponsoredRegistration {
     signed_consent: Vec<u8>,
 }
 
+#[allow(
+    deprecated,
+    reason = "Implements retained historical signed registration compatibility"
+)]
 impl SponsoredRegistration {
     /// # Errors
     /// Refuses anything other than the original owner-signed, signing-only native consent.
@@ -136,7 +148,8 @@ impl SponsoredRegistration {
             || activity.network_id() == 0
             || activity.account_sequence() != 0
             || activity.fee_limit() != 0
-            || hash::payload_hash(&activity).map_err(encoding)? != activity.payload_hash()
+            || layerx_wire::historical::hash::payload_hash(&activity).map_err(encoding)?
+                != activity.payload_hash()
         {
             return Err(OnboardingError::Binding);
         }

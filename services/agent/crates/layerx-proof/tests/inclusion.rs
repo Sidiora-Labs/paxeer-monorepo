@@ -125,6 +125,154 @@ fn raises_only_the_level_each_proof_establishes() {
 }
 
 #[test]
+fn proof_evidence_never_reaches_the_committed_rung() {
+    use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
+    use layerx_wire::receipt::{decode, decode_batch_header, decode_merkle_proof};
+
+    let receipt_bytes =
+        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
+    let activity_bytes =
+        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/activity.lxa");
+    let header_bytes =
+        include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
+    let signature = include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
+    );
+    let public_key = *include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public"
+    );
+    let header = decode_batch_header(header_bytes)
+        .unwrap_or_else(|error| panic!("native header: {error:?}"));
+    let authorization = SequencerAuthorization::new(
+        header.sequencer_id(),
+        public_key,
+        header.batch_number(),
+        header.batch_number(),
+    );
+    let decoded = decode(receipt_bytes).unwrap_or_else(|error| panic!("native receipt: {error:?}"));
+    let Some(protocol) = decoded.protocol() else {
+        panic!("native protocol receipt");
+    };
+    let batch = AuthorizedBatch::new(
+        protocol.batch_id(),
+        protocol.asset(),
+        protocol.previous_state_root(),
+        protocol.resulting_state_root(),
+        public_key,
+    );
+    let receipt = verify_outcome(receipt_bytes, &batch)
+        .unwrap_or_else(|error| panic!("receipt verification: {error:?}"));
+    assert_eq!(receipt.canonical_bytes(), receipt_bytes);
+    assert_eq!(receipt.rung(), Rung::Submitted);
+
+    let (activity_proof, activity_root) = build_proof(&[activity_bytes.as_slice()], 0)
+        .unwrap_or_else(|error| panic!("activity proof: {error:?}"));
+    assert_eq!(activity_root, header.activity_merkle_root());
+    let activity = verify_activity(
+        activity_bytes,
+        &activity_proof,
+        header_bytes,
+        signature,
+        &authorization,
+    )
+    .unwrap_or_else(|error| panic!("native activity inclusion: {error:?}"));
+    let captured_proof = decode_merkle_proof(include_bytes!(
+        "../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
+    ))
+    .unwrap_or_else(|error| panic!("native receipt path: {error:?}"));
+    let receipt_proof = Proof::new(
+        captured_proof.leaf_index(),
+        captured_proof.leaf_count(),
+        captured_proof.siblings().to_vec(),
+    )
+    .unwrap_or_else(|error| panic!("native receipt proof: {error:?}"));
+    let included_receipt = verify_receipt(
+        receipt_bytes,
+        &receipt_proof,
+        header_bytes,
+        signature,
+        &authorization,
+    )
+    .unwrap_or_else(|error| panic!("native receipt inclusion: {error:?}"));
+
+    let (state, state_root) =
+        verified_state_for_roots(header.activity_merkle_root(), header.receipt_merkle_root());
+    assert_uncommitted_proof_rungs(
+        receipt.evidence(),
+        activity.evidence(),
+        included_receipt.evidence(),
+        state.evidence(),
+    );
+    for included in [&activity, &included_receipt, &state] {
+        assert_eq!(included.rung(), Rung::Receipted);
+        assert_ne!(included.rung(), Rung::Committed);
+    }
+    assert_eq!(activity.evidence().proof_root(), Some(activity_root));
+    assert_eq!(
+        included_receipt.evidence().proof_root(),
+        Some(header.receipt_merkle_root())
+    );
+    assert_eq!(state.evidence().proof_root(), Some(state_root));
+}
+
+fn verified_state_for_roots(
+    activity_root: [u8; 32],
+    receipt_root: [u8; 32],
+) -> (layerx_proof::inclusion::InclusionEvidence, [u8; 32]) {
+    let key = SigningKey::from_bytes(&[7; 32]);
+    let sequencer_id = key.verifying_key().to_bytes();
+    let states: [&[u8]; 2] = [b"state-a", b"state-b"];
+    let (state_proof, state_root) =
+        build_proof(&states, 0).unwrap_or_else(|error| panic!("state proof: {error:?}"));
+    let state_header =
+        header_bytes_with_receipt_root(7, state_root, activity_root, receipt_root, sequencer_id);
+    let state_signature = sign_header(&state_header, &key);
+    let state_authorization = SequencerAuthorization::new(sequencer_id, sequencer_id, 7, 7);
+    let state = verify_state(
+        states[0],
+        &state_proof,
+        &state_root,
+        &state_header,
+        &state_signature,
+        &state_authorization,
+    )
+    .unwrap_or_else(|error| panic!("state inclusion: {error:?}"));
+
+    (state, state_root)
+}
+
+fn assert_uncommitted_proof_rungs(
+    receipt: &layerx_proof::evidence::Evidence,
+    activity: &layerx_proof::evidence::Evidence,
+    included_receipt: &layerx_proof::evidence::Evidence,
+    state: &layerx_proof::evidence::Evidence,
+) {
+    use layerx_proof::level::achieved;
+
+    for (evidence, level, rung) in [
+        (
+            receipt,
+            VerificationLevel::SEQUENCER_SIGNED,
+            Rung::Submitted,
+        ),
+        (activity, VerificationLevel::BATCH_INCLUDED, Rung::Receipted),
+        (
+            included_receipt,
+            VerificationLevel::BATCH_INCLUDED,
+            Rung::Receipted,
+        ),
+        (state, VerificationLevel::STATE_PROVEN, Rung::Receipted),
+    ] {
+        assert_eq!(evidence.level(), level);
+        assert_eq!(achieved(evidence), level);
+        assert_eq!(evidence.rung(), rung);
+        assert_eq!(achieved_rung(evidence), rung);
+        assert!(evidence.rung() < Rung::Committed);
+        assert!(achieved_rung(evidence) < Rung::Committed);
+    }
+}
+
+#[test]
 fn rejects_truncated_swapped_and_unauthorised_evidence() {
     let key = SigningKey::from_bytes(&[7; 32]);
     let sequencer_id = key.verifying_key().to_bytes();

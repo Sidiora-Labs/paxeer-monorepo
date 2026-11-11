@@ -221,14 +221,16 @@ def test_evidence_route_producer_and_portable_consumer_remain_connected():
     require(execute, '"evidence.get" => super::ProductionComponents::evidence_get(scope, request)')
     route = source(path).split("fn evidence_get(\n", 2)[2]
     require(route, 'journey_receipt(scope, expected)?', 'receipt_label(',
-            'if verification != "receipt-verified"',
+            'match (evidence.rung, verification)',
+            '(Rung::Receipted, "receipt-verified") | (Rung::Committed, "committed") => {}',
+            '_ => return Err(ApiFailure::upstream_degraded())',
             'super::ProductionComponents::managed_receipt_material(id, &evidence)?')
     producer = function(path, "managed_receipt_material")
     require(producer, 'Some(evidence.receipt_digest)',
             'Sha256::digest(&evidence.canonical_receipt)',
             'evidence.canonical_receipt != evidence.signed_receipt',
             'Rung::Submitted => return Err(ApiFailure::upstream_degraded())',
-            'Rung::Receipted => "receipt-verified"', 'Rung::Committed => "checkpoint-finalised"',
+            'Rung::Receipted => "receipt-verified"', 'Rung::Committed => "committed"',
             'PortableReceiptV2::export(&evidence.signed_receipt, &key_entry, evidence.inclusion_height,)',
             '"bytes_base64":STANDARD.encode(portable)', '"rung":evidence.rung.name()',
             '"inclusion_height":evidence.inclusion_height')
@@ -268,11 +270,14 @@ def test_activity_entry_uses_verified_current_receipt_facts():
     producer = function(SERVER / "production_reads.rs", "activity_detail_json")
     require(producer, '"state": activity_status(detail.status())',
             '"state_copy_key": activity_state_key(detail.status())',
-            '"class":"layerx-receipt","verification":verification',
+            'EvidenceKind::Receipt => "layerx-receipt"', '"verification":verification',
             '"amount": actual.amount().to_string()', '"amount": actual.fee().to_string()',
             '"copy_key": activity_stage_key(stage.label())?')
-    route = function(SERVER / "production_reads.rs", "activity_entry_json")
-    require(route, 'Feed::entry(scope, id)', 'receipt_label(scope, row, digest)?',
+    entry_route = function(SERVER / "production_reads.rs", "activity_entry_json")
+    require(entry_route, "activity_entry_json_with(scope, id, receipt_keys,",
+            "GatewayEndpoint::from_environment()", "gateway.list_assets()")
+    route = function(SERVER / "production_reads.rs", "activity_entry_json_with")
+    require(route, 'Feed::entry(scope, id)', 'receipt_label_with_keys(scope, row, digest, &keys()?)?',
             'ReceiptActual::from_verified_journey_bytes(', 'EntryDetail::assemble(', 'activity_detail_json(')
     require(function(SERVER / "production_components.rs", "execute_activity_entry"),
             'super::production_reads::activity_entry(scope, request)')

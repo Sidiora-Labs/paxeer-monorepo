@@ -5,6 +5,7 @@ use std::future::Future;
 use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
+use support::assertions;
 
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::authority_grant::{authority_grant_call, AuthorityGrant, GrantKind};
@@ -14,13 +15,10 @@ use layerx_crypto::disclosure::call::{
 use layerx_crypto::disclosure::AmountRole;
 use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, Eip1559Call};
 use layerx_crypto::keystore::{Keystore, KeystoreEntropy};
-use layerx_crypto::send::{
-    encode_send_envelope, ledger_payment_call, send_context_hash, CallOptions, EnvelopeOptions,
-    SendDebit,
-};
+use layerx_crypto::send::{ledger_payment_call, send_context_hash, CallOptions, SendDebit};
 use layerx_crypto::signer::{
-    sign_disclosed, sign_disclosed_call, BindMessage, BindSigner, KeystoreSigner, LocalSigner,
-    SignError, Signer, SigningRequest,
+    sign_disclosed_call, BindMessage, BindSigner, KeystoreSigner, LocalSigner, SignError, Signer,
+    SigningRequest,
 };
 use layerx_types::intent::ProgramId;
 use layerx_types::program_call::{NativeProgramCall, Resources};
@@ -81,34 +79,19 @@ fn options(from: [u8; 20]) -> CallOptions {
     }
 }
 
-fn old_envelope(public_key: [u8; 32]) -> layerx_crypto::send::DisclosedEnvelope {
-    let payer = LocalSigner::new([5; 32]);
-    let payload = ready(debit(123).sign(&payer)).expect("real payer authorization");
-    encode_send_envelope(
-        &payload,
-        &EnvelopeOptions {
-            actor: "did:layerx:crypto-repair",
-            public_key,
-            protocol_version: 3,
-            network_id: 17,
-            identity_sequence: 7,
-            idempotency_key: [4; 32],
-            fee_limit: 20,
-            not_before: 10,
-            not_after: 100,
-        },
-    )
-    .expect("production legacy producer for refusal coverage")
-}
-
 #[test]
-fn disclosure_activity_success_tests_use_sender_bound_evm_calls() {
-    let account = derive_from_seed(&[7; 64], 0).expect("derived account");
+fn disclosure_activity_success_tests_use_sender_bound_evm_calls(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let account =
+        derive_from_seed(&[7; 64], 0).map_err(|error| format!("derived account: {error:?}"))?;
     let signer = LocalSigner::from_derived_account(&account);
-    let from = signer.evm_address().expect("transaction key");
-    let payload = ready(debit(123).sign(&signer)).expect("real signed debit");
-    let produced = ledger_payment_call(&payload, &options(from)).expect("real ledger producer");
-    let consumed = bind_call(&produced.call, from).expect("production call consumer");
+    let from = signer.evm_address().ok_or("transaction key")?;
+    let payload =
+        ready(debit(123).sign(&signer)).map_err(|error| format!("real signed debit: {error:?}"))?;
+    let produced = ledger_payment_call(&payload, &options(from))
+        .map_err(|error| format!("real ledger producer: {error:?}"))?;
+    let consumed = bind_call(&produced.call, from)
+        .map_err(|error| format!("production call consumer: {error:?}"))?;
     assert_eq!(consumed, produced.disclosure);
     assert_eq!(consumed.actor, from);
     assert_eq!(consumed.authority, from);
@@ -124,13 +107,14 @@ fn disclosure_activity_success_tests_use_sender_bound_evm_calls() {
         &consumed,
         from,
     ))
-    .expect("sender-bound transaction signature");
+    .map_err(|error| format!("sender-bound transaction signature: {error:?}"))?;
     let (call, signature) = decode_signed(&assemble(&produced.call, &signature))
-        .expect("transaction transport round trip");
+        .map_err(|error| format!("transaction transport round trip: {error:?}"))?;
     assert_eq!(recover_sender(&call, &signature), Ok(from));
     assert_eq!(bind_call(&call, from), Ok(consumed.clone()));
-    let wrong =
-        LocalSigner::from_derived_account(&derive_from_seed(&[8; 64], 0).expect("other key"));
+    let wrong = LocalSigner::from_derived_account(
+        &derive_from_seed(&[8; 64], 0).map_err(|error| format!("other key: {error:?}"))?,
+    );
     assert_eq!(
         ready(sign_disclosed_call(&wrong, &call, &consumed, from)),
         Err(SignError::DisclosureMismatch("signer"))
@@ -152,34 +136,36 @@ fn disclosure_activity_success_tests_use_sender_bound_evm_calls() {
     let mut malformed = call;
     malformed.data.push(0);
     assert!(bind_call(&malformed, from).is_err());
+
+    Ok(())
 }
 
 #[test]
-fn disclosure_activity_success_tests_refuse_retired_activity_signing() {
+fn disclosure_activity_success_tests_refuse_retired_activity_signing(
+) -> Result<(), Box<dyn std::error::Error>> {
     let signer = LocalSigner::new([5; 32]);
-    let old = old_envelope(signer.public_key());
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
     let message =
-        layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 17, &old.canonical)
-            .expect("legacy scope");
+        layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, 17, &canonical)
+            .map_err(|error| format!("legacy scope: {error:?}"))?;
+    let validated = SigningRequest::new(message, &produced.disclosure)
+        .map_err(|error| format!("request carrying a validated call disclosure: {error:?}"))?;
+    assert_eq!(validated.signing_bytes(), Err(SignError::InvalidDisclosure));
+    assert!(BindMessage::decode(&canonical).is_err());
     assert_eq!(
-        SigningRequest::new(message, &old.disclosure).err(),
-        Some(SignError::InvalidDisclosure)
-    );
-    assert!(BindMessage::decode(&old.canonical).is_err());
-    assert_eq!(
-        ready(sign_disclosed(
-            &signer,
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure),
         "req.9341: the real local signer must refuse the retired activity preimage"
     );
+
+    Ok(())
 }
 
 #[test]
-fn authority_fixture_old_wrapper_preserves_native_grant_scope() {
+fn authority_fixture_old_wrapper_preserves_native_grant_scope(
+) -> Result<(), Box<dyn std::error::Error>> {
     for (bytes, kind) in [
         (
             include_bytes!("fixtures/authority-grant-capability.bin").as_slice(),
@@ -190,7 +176,8 @@ fn authority_fixture_old_wrapper_preserves_native_grant_scope() {
             GrantKind::BudgetAllowance,
         ),
     ] {
-        let grant = AuthorityGrant::decode(bytes).expect("native grant vector");
+        let grant = AuthorityGrant::decode(bytes)
+            .map_err(|error| format!("native grant vector: {error:?}"))?;
         assert_eq!(grant.kind, kind);
         assert_eq!(grant.encode(), Ok(bytes.to_vec()));
         assert_eq!(grant.grantee, grant.grantor);
@@ -200,8 +187,8 @@ fn authority_fixture_old_wrapper_preserves_native_grant_scope() {
         assert_eq!(grant.scope.maximum_total, 30);
         assert_eq!(grant.revocation_sequence, 7);
         let options = options(support::call_options(7).from);
-        let produced =
-            authority_grant_call(&grant, &options).expect("merged authorization producer");
+        let produced = authority_grant_call(&grant, &options)
+            .map_err(|error| format!("merged authorization producer: {error:?}"))?;
         let signer = support::signer();
         let signature = ready(sign_disclosed_call(
             &signer,
@@ -209,15 +196,18 @@ fn authority_fixture_old_wrapper_preserves_native_grant_scope() {
             &produced.disclosure,
             options.from,
         ))
-        .expect("owner transaction");
+        .map_err(|error| format!("owner transaction: {error:?}"))?;
         let (received, signature) = decode_signed(&assemble(&produced.call, &signature))
-            .expect("real transaction transport");
+            .map_err(|error| format!("real transaction transport: {error:?}"))?;
         assert_eq!(recover_sender(&received, &signature), Ok(options.from));
-        let bound = bind_call(&received, options.from).expect("authorization consumer");
+        let bound = bind_call(&received, options.from)
+            .map_err(|error| format!("authorization consumer: {error:?}"))?;
         assert_eq!(bound.authority_grant, Some(grant));
         assert_eq!(bound.authority, options.from);
         assert_eq!(bound.expiry.payload_expires_at, grant.not_after);
-        let payload = grant.payload().expect("native authorization payload");
+        let payload = grant
+            .payload()
+            .map_err(|error| format!("native authorization payload: {error:?}"))?;
         assert_eq!(AuthorityGrant::from_payload(&payload), Ok(grant));
         for length in 0..payload.len() {
             assert!(AuthorityGrant::from_payload(&payload[..length]).is_err());
@@ -226,10 +216,13 @@ fn authority_fixture_old_wrapper_preserves_native_grant_scope() {
         extended.push(0);
         assert!(AuthorityGrant::from_payload(&extended).is_err());
     }
+
+    Ok(())
 }
 
 #[test]
-fn native_fee_grant_activity_test_preserves_raw_grant_identity() {
+fn native_fee_grant_activity_test_preserves_raw_grant_identity(
+) -> Result<(), Box<dyn std::error::Error>> {
     macro_rules! vector {
         ($name:literal) => {
             (
@@ -254,7 +247,8 @@ fn native_fee_grant_activity_test_preserves_raw_grant_identity() {
         vector!("total-bound"),
         vector!("period-bound"),
     ] {
-        let grant = AuthorityGrant::decode(bytes).expect("native fee grant");
+        let grant = AuthorityGrant::decode(bytes)
+            .map_err(|error| format!("native fee grant: {error:?}"))?;
         assert_eq!(grant.encode(), Ok(bytes.to_vec()));
         assert_eq!(bytes[4], 2);
         let mut hasher = Sha256::new();
@@ -262,18 +256,20 @@ fn native_fee_grant_activity_test_preserves_raw_grant_identity() {
         hasher.update(bytes);
         assert_eq!(hasher.finalize().as_slice(), id);
         let options = support::call_options(7);
-        let produced = authority_grant_call(&grant, &options).expect("native fee grant producer");
+        let produced = authority_grant_call(&grant, &options)
+            .map_err(|error| format!("native fee grant producer: {error:?}"))?;
         let signature = ready(sign_disclosed_call(
             &support::signer(),
             &produced.call,
             &produced.disclosure,
             options.from,
         ))
-        .expect("grant transaction");
+        .map_err(|error| format!("grant transaction: {error:?}"))?;
         let (received, signature) = decode_signed(&assemble(&produced.call, &signature))
-            .expect("grant transaction transport");
+            .map_err(|error| format!("grant transaction transport: {error:?}"))?;
         assert_eq!(recover_sender(&received, &signature), Ok(options.from));
-        let bound = bind_call(&received, options.from).expect("grant consumer");
+        let bound = bind_call(&received, options.from)
+            .map_err(|error| format!("grant consumer: {error:?}"))?;
         assert_eq!(bound.authority_grant, Some(grant));
         assert_eq!(bound.authority, options.from);
         let mut pin = Sha256::new();
@@ -281,9 +277,9 @@ fn native_fee_grant_activity_test_preserves_raw_grant_identity() {
         pin.update(
             bound
                 .authority_grant
-                .expect("native identity")
+                .ok_or("native identity")?
                 .encode()
-                .expect("body"),
+                .map_err(|error| format!("body: {error:?}"))?,
         );
         assert_eq!(pin.finalize().as_slice(), id);
         assert!(grant.fee_budget.is_some());
@@ -291,10 +287,13 @@ fn native_fee_grant_activity_test_preserves_raw_grant_identity() {
             assert!(AuthorityGrant::decode(&bytes[..length]).is_err());
         }
     }
+
+    Ok(())
 }
 
 #[test]
-fn monetary_call_tests_miss_common_view_program_execution_fee() {
+fn monetary_call_tests_miss_common_view_program_execution_fee(
+) -> Result<(), Box<dyn std::error::Error>> {
     let native = NativeProgramCall {
         program_id: ProgramId::new([0x31; 32]),
         guest_abi: 5,
@@ -317,16 +316,17 @@ fn monetary_call_tests_miss_common_view_program_execution_fee() {
         to,
         data: encode_program_call(&native, execution_fee),
     };
-    let disclosure = bind_call(&call, [0xa1; 20]).expect("real program producer to call binder");
+    let disclosure = bind_call(&call, [0xa1; 20])
+        .map_err(|error| format!("real program producer to call binder: {error:?}"))?;
     disclosure
         .validate()
-        .expect("monetary consumer validation boundary");
+        .map_err(|error| format!("monetary consumer validation boundary: {error:?}"))?;
     assert_eq!(disclosure.fee_limit, 3_000_000);
     let view = disclosure
         .call_monetary(CallFeeContext::ProgramExecution {
             fee_asset: [0x72; 32],
         })
-        .expect("complete monetary consumer");
+        .map_err(|error| format!("complete monetary consumer: {error:?}"))?;
     assert_eq!(
         view.gas_fee_bound,
         GasFeeBound {
@@ -343,84 +343,84 @@ fn monetary_call_tests_miss_common_view_program_execution_fee() {
     );
     assert!(view.to_string().contains(&execution_fee.to_string()));
     assert!(disclosure.call_monetary(CallFeeContext::GasOnly).is_err());
+
+    Ok(())
 }
 
 #[test]
-fn ssh_agent_test_expects_old_signature_refuses_before_contact() {
+fn ssh_agent_test_expects_old_signature_refuses_before_contact(
+) -> Result<(), Box<dyn std::error::Error>> {
     let key = LocalSigner::new([5; 32]).public_key();
     // No peer is listening: only a refusal before transport contact is valid.
     let signer = KeystoreSigner::new("/nonexistent/layerx-repair-22-33-1560.sock", key)
-        .expect("external public key");
-    let old = old_envelope(key);
+        .map_err(|error| format!("external public key: {error:?}"))?;
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
     assert_eq!(
-        ready(signer.sign_bind_bytes(&old.canonical)),
+        ready(signer.sign_bind_bytes(&canonical)),
         Err(SignError::InvalidDisclosure)
     );
     assert_eq!(
-        ready(sign_disclosed(
-            &signer,
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure),
         "activity refusal must precede SSH-agent connection or signing"
     );
+
+    Ok(())
 }
 
 #[test]
-fn reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery() {
+fn reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery(
+) -> Result<(), Box<dyn std::error::Error>> {
     let store = Keystore::seal(
         &[5; 32],
         b"fixture operator secret",
         b"repair-key",
         17,
-        KeystoreEntropy::new([1; 16], [2; 24]).expect("fixture entropy"),
+        KeystoreEntropy::new([1; 16], [2; 24])
+            .map_err(|error| format!("fixture entropy: {error:?}"))?,
     )
-    .expect("production encrypted store");
-    let persisted = store.to_bytes().expect("persisted state");
+    .map_err(|error| format!("production encrypted store: {error:?}"))?;
+    let persisted = store
+        .to_bytes()
+        .map_err(|error| format!("persisted state: {error:?}"))?;
     let first = store
         .open_with(b"fixture operator secret", b"repair-key", 17, |seed| {
             LocalSigner::new(*seed)
         })
-        .expect("initial key opening");
+        .map_err(|error| format!("initial key opening: {error:?}"))?;
     let binding = support::signing::binding();
-    let first_signature = ready(first.sign_bind(&binding)).expect("bind before key recovery");
+    let first_signature = ready(first.sign_bind(&binding))
+        .map_err(|error| format!("bind before key recovery: {error:?}"))?;
     assert_eq!(
         binding.verify(&first.public_key(), first_signature.as_bytes()),
         Ok(())
     );
     let public_key = first.public_key();
-    let old = old_envelope(public_key);
-    let before = ready(sign_disclosed(
-        &first,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
+    let before = ready(first.sign(request));
     drop(first);
     drop(store);
-    let reopened = Keystore::from_bytes(&persisted).expect("reopen production state");
+    let reopened = Keystore::from_bytes(&persisted)
+        .map_err(|error| format!("reopen production state: {error:?}"))?;
     assert_eq!(reopened.to_bytes(), Ok(persisted));
     let recovered = reopened
         .open_with(b"fixture operator secret", b"repair-key", 17, |seed| {
             LocalSigner::new(*seed)
         })
-        .expect("recover key after reopening");
+        .map_err(|error| format!("recover key after reopening: {error:?}"))?;
     assert_eq!(recovered.public_key(), public_key);
-    let recovered_signature =
-        ready(recovered.sign_bind(&binding)).expect("bind after key recovery");
+    let recovered_signature = ready(recovered.sign_bind(&binding))
+        .map_err(|error| format!("bind after key recovery: {error:?}"))?;
     assert_eq!(recovered_signature, first_signature);
     assert_eq!(
         binding.verify(&recovered.public_key(), recovered_signature.as_bytes()),
         Ok(())
     );
-    let after = ready(sign_disclosed(
-        &recovered,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    let after = ready(recovered.sign(request));
     assert_eq!(
         (before, after),
         (
@@ -429,10 +429,13 @@ fn reopened_agent_signs_old_activity_refuses_before_and_after_key_recovery() {
         ),
         "retired activity signing must remain refused across recovery"
     );
+
+    Ok(())
 }
 
 #[test]
-fn remote_success_fixture_is_activity_refuses_before_remote_transport() {
+fn remote_success_fixture_is_activity_refuses_before_remote_transport(
+) -> Result<(), Box<dyn std::error::Error>> {
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_crypto::remote::{decode_bind_request, RemoteSigner};
     use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
@@ -441,22 +444,27 @@ fn remote_success_fixture_is_activity_refuses_before_remote_transport() {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
     let certificates = support::signing::Certificates::create();
-    let mut acceptor =
-        SslAcceptor::mozilla_intermediate(SslMethod::tls_server()).expect("TLS acceptor");
+    let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls_server())
+        .map_err(|error| format!("TLS acceptor: {error:?}"))?;
     acceptor
         .set_certificate_chain_file(certificates.path("server.pem"))
-        .expect("server cert");
+        .map_err(|error| format!("server cert: {error:?}"))?;
     acceptor
         .set_private_key_file(certificates.path("server.key"), SslFiletype::PEM)
-        .expect("server key");
+        .map_err(|error| format!("server key: {error:?}"))?;
     acceptor
         .set_ca_file(certificates.path("ca.pem"))
-        .expect("client pin");
+        .map_err(|error| format!("client pin: {error:?}"))?;
     acceptor.set_verify(SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT);
     let acceptor = acceptor.build();
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback TLS peer");
-    listener.set_nonblocking(true).expect("bounded accept");
-    let address = listener.local_addr().expect("peer endpoint");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|error| format!("loopback TLS peer: {error:?}"))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| format!("bounded accept: {error:?}"))?;
+    let address = listener
+        .local_addr()
+        .map_err(|error| format!("peer endpoint: {error:?}"))?;
     let requests = Arc::new(AtomicUsize::new(0));
     let observed = Arc::clone(&requests);
     let peer = std::thread::spawn(move || {
@@ -472,25 +480,27 @@ fn remote_success_fixture_is_activity_refuses_before_remote_transport() {
             }
         };
         observed.fetch_add(1, Ordering::SeqCst);
-        stream
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("read deadline");
-        stream
-            .set_write_timeout(Some(Duration::from_secs(2)))
-            .expect("write deadline");
-        let mut stream = acceptor.accept(stream).expect("mutual TLS");
+        assertions::require(
+            stream.set_read_timeout(Some(Duration::from_secs(2))),
+            "read deadline",
+        );
+        assertions::require(
+            stream.set_write_timeout(Some(Duration::from_secs(2))),
+            "write deadline",
+        );
+        let mut stream = assertions::require(acceptor.accept(stream), "mutual TLS");
         let mut length = [0; 4];
-        stream.read_exact(&mut length).expect("request frame");
+        assertions::require(stream.read_exact(&mut length), "request frame");
         assert_eq!(u32::from_be_bytes(length), 84);
         let mut body = [0; 84];
-        stream.read_exact(&mut body).expect("bind request");
-        let message = decode_bind_request(&body).expect("production server decoder");
+        assertions::require(stream.read_exact(&mut body), "bind request");
+        let message = assertions::require(decode_bind_request(&body), "production server decoder");
         assert_eq!(message, support::signing::binding());
         let signature = SigningKey::from_bytes(&[0x67; 32]).sign(message.as_bytes());
         let mut response = vec![0, 0, 0, 65, 0];
         response.extend_from_slice(&signature.to_bytes());
-        stream.write_all(&response).expect("signature frame");
-        stream.flush().expect("TLS flush");
+        assertions::require(stream.write_all(&response), "signature frame");
+        assertions::require(stream.flush(), "TLS flush");
     });
     let key = ed25519_dalek::SigningKey::from_bytes(&[0x67; 32])
         .verifying_key()
@@ -504,32 +514,36 @@ fn remote_success_fixture_is_activity_refuses_before_remote_transport() {
         certificates.path("client.key"),
         Duration::from_secs(2),
     )
-    .expect("remote signer");
-    let old = old_envelope(key);
-    let result = ready(sign_disclosed(
-        &signer,
-        &old.canonical,
-        &old.disclosure,
-        &old.registry,
-    ));
+    .map_err(|error| format!("remote signer: {error:?}"))?;
+    let produced = support::send_call(123, 7);
+    let canonical = produced.call.encode_unsigned();
+    let request = support::signing::activity_request(&canonical, &produced.disclosure);
+    let result = ready(signer.sign(request));
     assert_eq!(
         (result, requests.load(Ordering::SeqCst)),
         (Err(SignError::InvalidDisclosure), 0),
         "activity refusal precedes TLS contact"
     );
     let binding = support::signing::binding();
-    let signature = ready(signer.sign_bind(&binding)).expect("retained bind over mutual TLS");
+    let signature = ready(signer.sign_bind(&binding))
+        .map_err(|error| format!("retained bind over mutual TLS: {error:?}"))?;
     assert_eq!(binding.verify(&key, signature.as_bytes()), Ok(()));
-    peer.join().expect("TLS peer stopped");
+    peer.join()
+        .map_err(|error| format!("TLS peer stopped: {error:?}"))?;
     assert_eq!(requests.load(Ordering::SeqCst), 1);
+
+    Ok(())
 }
 
 #[test]
-fn retained_bind_signing_preserves_raw_chain_address_nonce_scope() {
+fn retained_bind_signing_preserves_raw_chain_address_nonce_scope(
+) -> Result<(), Box<dyn std::error::Error>> {
     let signer = LocalSigner::new([0x61; 32]);
     let consent = support::paxeer_binding::Binding::new(713_714, [0xa1; 20], 7);
-    let binding = BindMessage::decode(&consent.message()).expect("real bind producer");
-    let signature = ready(signer.sign_bind(&binding)).expect("raw bind signature");
+    let binding = BindMessage::decode(&consent.message())
+        .map_err(|error| format!("real bind producer: {error:?}"))?;
+    let signature = ready(signer.sign_bind(&binding))
+        .map_err(|error| format!("raw bind signature: {error:?}"))?;
     assert_eq!(*signature.as_bytes(), consent.sign(&[0x61; 32]).signature());
     assert_eq!(
         consent.verify(&signer.public_key(), signature.as_bytes()),
@@ -539,7 +553,7 @@ fn retained_bind_signing_preserves_raw_chain_address_nonce_scope() {
         let mut changed = *binding.as_bytes();
         changed[index] ^= 1;
         assert!(BindMessage::decode(&changed)
-            .expect("different scoped message")
+            .map_err(|error| format!("different scoped message: {error:?}"))?
             .verify(&signer.public_key(), signature.as_bytes())
             .is_err());
     }
@@ -560,6 +574,8 @@ fn retained_bind_signing_preserves_raw_chain_address_nonce_scope() {
         wide.as_bytes(),
         &support::paxeer_binding::Binding::with_chain_word(chain, [0xa1; 20], 7).message()
     );
+
+    Ok(())
 }
 
 #[test]
@@ -585,40 +601,41 @@ fn remote_bind_codec_refuses_retired_domains_and_malformed_frames() {
 
 #[cfg(unix)]
 #[test]
-fn retained_bind_external_key_recovers_across_agent_restart() {
+fn retained_bind_external_key_recovers_across_agent_restart(
+) -> Result<(), Box<dyn std::error::Error>> {
     use std::sync::atomic::Ordering;
     let store = Keystore::seal(
         &[0x67; 32],
         b"fixture secret",
         b"repair-key",
         17,
-        KeystoreEntropy::new([1; 16], [2; 24]).expect("entropy"),
+        KeystoreEntropy::new([1; 16], [2; 24]).map_err(|error| format!("entropy: {error:?}"))?,
     )
-    .expect("real persisted external key");
-    let persisted = store.to_bytes().expect("persisted key bytes");
+    .map_err(|error| format!("real persisted external key: {error:?}"))?;
+    let persisted = store
+        .to_bytes()
+        .map_err(|error| format!("persisted key bytes: {error:?}"))?;
     drop(store);
     let binding = support::signing::binding();
     let mut previous = None;
     for _ in 0..2 {
         let peer = support::signing::AgentPeer::open(&persisted);
         let signer = KeystoreSigner::new(peer.socket_path(), peer.public_key)
-            .expect("recovered external identity");
-        let old = old_envelope(peer.public_key);
+            .map_err(|error| format!("recovered external identity: {error:?}"))?;
+        let produced = support::send_call(123, 7);
+        let canonical = produced.call.encode_unsigned();
+        let request = support::signing::activity_request(&canonical, &produced.disclosure);
         assert_eq!(
-            ready(sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            ready(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(
-            ready(signer.sign_bind_bytes(&old.canonical)),
+            ready(signer.sign_bind_bytes(&canonical)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(peer.attempts.load(Ordering::SeqCst), 0);
-        let signature = ready(signer.sign_bind(&binding)).expect("bind via real SSH codec");
+        let signature = ready(signer.sign_bind(&binding))
+            .map_err(|error| format!("bind via real SSH codec: {error:?}"))?;
         assert_eq!(
             binding.verify(&peer.public_key, signature.as_bytes()),
             Ok(())
@@ -629,7 +646,7 @@ fn retained_bind_external_key_recovers_across_agent_restart() {
         previous = Some(signature);
         let unknown =
             KeystoreSigner::new(peer.socket_path(), LocalSigner::new([8; 32]).public_key())
-                .expect("unknown key request");
+                .map_err(|error| format!("unknown key request: {error:?}"))?;
         assert_eq!(
             ready(unknown.sign_bind(&binding)),
             Err(SignError::KeystoreRefused)
@@ -637,12 +654,7 @@ fn retained_bind_external_key_recovers_across_agent_restart() {
         assert_eq!(peer.attempts.load(Ordering::SeqCst), 2);
         drop(peer);
         assert_eq!(
-            ready(sign_disclosed(
-                &signer,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
+            ready(signer.sign(request)),
             Err(SignError::InvalidDisclosure)
         );
         assert_eq!(
@@ -650,4 +662,6 @@ fn retained_bind_external_key_recovers_across_agent_restart() {
             Err(SignError::KeystoreUnavailable)
         );
     }
+
+    Ok(())
 }

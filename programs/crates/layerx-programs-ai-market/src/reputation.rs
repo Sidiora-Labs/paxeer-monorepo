@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     errors::{
         CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F07_BINDING_MISMATCH, F07_GENERATION_MISMATCH,
@@ -11,9 +12,19 @@ pub const CURRENT_BYTES: usize = 184;
 pub const HISTORY_BYTES: usize = 92;
 pub const HEADER_BYTES: usize = 64;
 pub const LIMIT: usize = 32;
+pub const PARTICIPANTS_PER_CHUNK: usize = 6;
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub const fn participant_chunk_size(count: usize) -> usize {
+    if count == LIMIT {
+        PARTICIPANTS_PER_CHUNK
+    } else {
+        8
+    }
+}
 pub const SECTION_CAP: usize = 9088;
 pub const JOINT_CAP: usize = 24576;
-pub const COMMON_CAP: usize = 196_608;
+pub const COMMON_CAP: usize = crate::MAX_STATE_BYTES;
 pub const UNIT: u32 = 1_000_000;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -102,6 +113,7 @@ impl ReputationCurrent {
     ///
     /// # Errors
     /// Returns `F07_GENERATION_MISMATCH` when the key's reset generation is not 1; propagates `segment_digest`'s `NON_CANONICAL` refusal.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn bootstrap(key: SegmentKey, owner: PrincipalId, height: u64) -> CodecResult<Self> {
         if key.reset_generation.get() != 1 {
             return Err(F07_GENERATION_MISMATCH);
@@ -248,6 +260,7 @@ impl Clone for ReputationState {
 
 impl ReputationState {
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn new(market: MarketId) -> Self {
         Self {
             market,
@@ -292,6 +305,33 @@ impl ReputationState {
             .ok_or(F07_UNKNOWN_WORKER)?;
         r.matches_segment(key)?;
         Ok(r)
+    }
+    // A cursor over the validated worker ordering. Ordered callers visit each record
+    // once; an out-of-order lookup restarts without changing the public lookup behavior.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn ordered_position(&self, worker: WorkerId, cursor: &mut usize) -> usize {
+        let n = usize::from(self.current_len);
+        let mut at = (*cursor).min(n);
+        if at > 0
+            && self
+                .current
+                .guest_index(at - 1)
+                .as_ref()
+                .is_some_and(|r| r.worker >= worker)
+        {
+            at = 0;
+        }
+        while at < n
+            && self
+                .current
+                .guest_index(at)
+                .as_ref()
+                .is_some_and(|r| r.worker < worker)
+        {
+            at += 1;
+        }
+        *cursor = at;
+        at
     }
     /// Checks the section's slot, ordering and completion invariants.
     ///
@@ -349,12 +389,21 @@ impl ReputationState {
     ///
     /// # Errors
     /// Propagates `validate`'s `CAPACITY`/`NON_CANONICAL` refusals; returns `CONFLICT` when the retained row for `epoch` has another result; `WRONG_EPOCH` when `epoch` is not retained and not after the latest completed epoch.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn assess_completion(
         &self,
         epoch: u64,
         result: Digest32,
     ) -> CodecResult<CompletionIdentity> {
         self.validate()?;
+        self.assess_committed_completion(epoch, result)
+    }
+
+    pub(crate) fn assess_committed_completion(
+        &self,
+        epoch: u64,
+        result: Digest32,
+    ) -> CodecResult<CompletionIdentity> {
         if let Ok(r) = self.lookup_epoch(epoch) {
             if r.result != result {
                 return Err(CONFLICT);
@@ -375,6 +424,12 @@ impl ReputationState {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         self.validate()?;
+        self.encoded_size()
+    }
+    pub(crate) fn encoded_size(&self) -> CodecResult<usize> {
+        if usize::from(self.current_len) > LIMIT || usize::from(self.history_len) > LIMIT {
+            return Err(CAPACITY);
+        }
         let n = HEADER_BYTES
             + usize::from(self.current_len) * CURRENT_BYTES
             + usize::from(self.history_len) * HISTORY_BYTES;
@@ -387,37 +442,23 @@ impl ReputationState {
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn insert(&mut self, record: ReputationCurrent) -> CodecResult<()> {
+        self.edit()?.insert(record)
+    }
+    pub(crate) fn edit(&mut self) -> CodecResult<ReputationEditor<'_>> {
         self.validate()?;
-        record.validate()?;
-        if let Presence::Present(epoch) = record.last_applied {
-            match self.completed_through {
-                Presence::Present(last) if epoch <= last => (),
-                _ => return Err(WRONG_EPOCH),
-            }
-        }
-        if self.current_len as usize == LIMIT {
-            return Err(CAPACITY);
-        }
-        if self.records().any(|r| r.worker == record.worker) {
-            return Err(CONFLICT);
-        }
-        let n = self.current_len as usize;
-        let index = self
-            .records()
-            .position(|r| r.worker > record.worker)
-            .unwrap_or(n);
-        for i in (index..n).rev() {
-            self.current[i + 1] = self.current[i];
-        }
-        self.current[index] = Some(record);
-        self.current_len += 1;
-        Ok(())
+        self.edit_produced()
+    }
+    pub(crate) fn edit_produced(&mut self) -> CodecResult<ReputationEditor<'_>> {
+        self.encoded_size()?;
+        Ok(ReputationEditor { state: self })
     }
     #[allow(
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn append(&mut self, record: CompletedHistory) -> CodecResult<()> {
         record.validate()?;
         if self.assess_completion(record.epoch, record.result)? != CompletionIdentity::New {
@@ -431,7 +472,7 @@ impl ReputationState {
                 return Err(NON_CANONICAL);
             }
         }
-        self.history[self.history_len as usize] = Some(record);
+        *self.history.guest_index_mut(self.history_len as usize) = Some(record);
         self.history_len += 1;
         self.completed_through = Presence::Present(record.epoch);
         Ok(())
@@ -441,17 +482,18 @@ impl ReputationState {
         dead_code,
         reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
     )]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn prune_oldest(&mut self, epoch: u64) -> CodecResult<()> {
         self.validate()?;
-        let first = self.history[0].ok_or(NOT_FOUND)?;
+        let first = self.history.guest_index(0).ok_or(NOT_FOUND)?;
         if first.epoch != epoch {
             return Err(WRONG_EPOCH);
         }
         let n = self.history_len as usize;
         for i in 1..n {
-            self.history[i - 1] = self.history[i];
+            *self.history.guest_index_mut(i - 1) = *self.history.guest_index(i);
         }
-        self.history[n - 1] = None;
+        *self.history.guest_index_mut(n - 1) = None;
         self.history_len -= 1;
         Ok(())
     }
@@ -504,6 +546,7 @@ pub fn confidence(count: u32) -> CodecResult<Score> {
 ///
 /// # Errors
 /// Returns `F07_BINDING_MISMATCH` when `eligible` exceeds 8 or `support` exceeds `eligible`; `ARITHMETIC` when the product overflows; propagates `Score::new`'s `F03_SCORE_RANGE` refusal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn evidence_coverage(eligible: u8, support: u8) -> CodecResult<Presence<Score>> {
     if eligible > 8 || support > eligible {
         return Err(F07_BINDING_MISMATCH);
@@ -535,4 +578,63 @@ pub fn check_storage_budget(
         return Err(F07_RESOURCE_LIMIT);
     }
     Ok(())
+}
+
+/// A checked, exclusively borrowed reputation state. No caller can mutate its
+/// fields while the editor preserves ordering, completion and record invariants.
+pub(crate) struct ReputationEditor<'a> {
+    state: &'a mut ReputationState,
+}
+impl ReputationEditor<'_> {
+    pub(crate) fn records(&self) -> impl Iterator<Item = &ReputationCurrent> {
+        self.state.records()
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn ordered_record(
+        &self,
+        worker: WorkerId,
+        cursor: &mut usize,
+    ) -> Option<&ReputationCurrent> {
+        let index = self.state.ordered_position(worker, cursor);
+        self.state
+            .current
+            .get(index)
+            .and_then(Option::as_ref)
+            .filter(|r| r.worker == worker)
+    }
+    pub(crate) fn insert(&mut self, record: ReputationCurrent) -> CodecResult<()> {
+        self.insert_ordered(record, &mut 0)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn insert_ordered(
+        &mut self,
+        record: ReputationCurrent,
+        cursor: &mut usize,
+    ) -> CodecResult<()> {
+        let index = self.state.ordered_position(record.worker, cursor);
+        record.validate()?;
+        if let Presence::Present(epoch) = record.last_applied {
+            match self.state.completed_through {
+                Presence::Present(last) if epoch <= last => (),
+                _ => return Err(WRONG_EPOCH),
+            }
+        }
+        if self.state.current_len as usize == LIMIT {
+            return Err(CAPACITY);
+        }
+        let n = self.state.current_len as usize;
+        if self
+            .state
+            .current
+            .get(index)
+            .and_then(Option::as_ref)
+            .is_some_and(|r| r.worker == record.worker)
+        {
+            return Err(CONFLICT);
+        }
+        self.state.current.guest_copy_within(index..n, index + 1);
+        *self.state.current.guest_index_mut(index) = Some(record);
+        self.state.current_len += 1;
+        Ok(())
+    }
 }

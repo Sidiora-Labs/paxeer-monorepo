@@ -132,6 +132,12 @@ func liveFill(t *testing.T, s liveSwap, header chainread.Block, decimals uint8) 
 // is bootstrapped from its own creation, and both real trades become exact
 // candles through a real JetStream broker and the production schema.
 func TestSourceVerifiedBootstrapFromPoolCreationLive(t *testing.T) {
+	for _, name := range []string{"NETWORK_RPC_URL"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	rpcURL := os.Getenv("NETWORK_RPC_URL")
 	if rpcURL == "" {
 		t.Fatal("NETWORK_RPC_URL must name the Paxeer RPC")

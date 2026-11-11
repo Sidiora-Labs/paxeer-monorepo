@@ -21,7 +21,8 @@ use layerx_programs_ai_market::{
     epoch::{self, Frozen, Outcome as Opening, ADVANCE_SCRATCH_BYTES, OPEN_SCRATCH_BYTES},
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, BAD_SIGNATURE, CAPACITY, CONFLICT, EXPIRED,
-        F03_SCORE_RANGE, F03_UNKNOWN_WORKER, F04_COMMIT_MISMATCH, F04_NO_SCORES, F04_SALT_INVALID,
+        F03_NONCANONICAL_VECTOR, F03_NO_SCORES, F03_REPORT_ALREADY_FINAL, F03_SCORE_RANGE,
+        F03_UNKNOWN_WORKER, F04_COMMIT_MISMATCH, F04_NO_SCORES, F04_SALT_INVALID,
         F08_MARKET_PAUSED, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REPLAY_CONFLICT, REVOKED,
         UNAUTHORIZED, WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE,
         WRONG_PROGRAM, WRONG_ROSTER,
@@ -301,6 +302,7 @@ struct Parts {
     reports: Vec<u8>,
     rewards: Vec<u8>,
     admission: AdmissionTable,
+    reputation: Vec<u8>,
     replay: ReplayTable,
     features: Vec<u8>,
 }
@@ -308,6 +310,8 @@ impl Parts {
     fn load(bytes: &[u8]) -> CodecResult<Self> {
         let state = decode_shared_state(bytes)?;
         let [policy, identity, reports, rewards, admission] = state.feature_sections;
+        let (_, table) = layerx_programs_ai_market::reputation_transition::split_joint(admission)?;
+        let reputation = admission[..admission.len() - table.len()].to_vec();
         let (workers, region) = split_identity_section(identity)?;
         Ok(Self {
             revision: state.revision,
@@ -316,7 +320,8 @@ impl Parts {
             region: region.to_vec(),
             reports: reports.to_vec(),
             rewards: rewards.to_vec(),
-            admission: AdmissionTable::decode(admission)?,
+            admission: AdmissionTable::decode(table)?,
+            reputation,
             replay: state.control.replay,
             features: state.control.feature_bytes.to_vec(),
         })
@@ -336,15 +341,11 @@ impl Parts {
         identity.extend_from_slice(&self.region);
         let mut admission = vec![0; TABLE_MAX_BYTES];
         let admission_len = self.admission.encode(&mut admission)?;
+        admission.truncate(admission_len);
+        let admission = [self.reputation.as_slice(), admission.as_slice()].concat();
         encode(&SharedState {
             revision: self.revision,
-            feature_sections: [
-                &policy,
-                &identity,
-                &self.reports,
-                &self.rewards,
-                &admission[..admission_len],
-            ],
+            feature_sections: [&policy, &identity, &self.reports, &self.rewards, &admission],
             control: Control {
                 replay: self.replay.clone(),
                 feature_bytes: &self.features,
@@ -713,10 +714,11 @@ impl World {
 impl World {
     /// Permissionless object-local `OPEN_EPOCH` of the clock epoch of `at`.
     fn open(&mut self, at: u64) -> CodecResult<Frozen> {
-        repair::refresh_workers(&mut self.bytes, at)?;
+        let mut candidate = self.clone();
+        repair::refresh_workers(&mut candidate.bytes, at)?;
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; OPEN_SCRATCH_BYTES];
-        let preview = epoch::preview_open(&self.bytes, at, &mut next, &mut scratch)?;
+        let preview = epoch::preview_open(&candidate.bytes, at, &mut next, &mut scratch)?;
         let call = Req {
             epoch: preview.epoch,
             config: preview.config.get(),
@@ -731,7 +733,7 @@ impl World {
         } = epoch::open_epoch(
             &call.context(at)?,
             &decode_envelope(&encoded)?,
-            &self.bytes,
+            &candidate.bytes,
             &mut next,
             &mut scratch,
             &mut event,
@@ -740,7 +742,8 @@ impl World {
             return Err(NON_CANONICAL);
         };
         next.truncate(state_len);
-        self.bytes = next;
+        candidate.bytes = next;
+        *self = candidate;
         Ok(frozen)
     }
     /// Permissionless object-local `ADVANCE_ACTIVATION`; the lifecycle becomes ACTIVE.
@@ -872,8 +875,8 @@ fn unsealed_market(origin: u64) -> CodecResult<Market> {
     );
     Ok(m)
 }
-/// Epoch 6 (T = 896) of a market at both identity bounds: 32 frozen workers and evaluators
-/// 2..=9 frozen, the empty task set sealed and every evidence root sealed at 960.
+/// A market whose opening height and epoch derive from admission, with 32 workers and
+/// evaluators 2..=9 frozen; the empty task set and every evidence root seal at opening + 64.
 fn crowded() -> CodecResult<Market> {
     let mut world = World::create(ORIGIN)?;
     let first = world.enroll(LOW, 130)?;
@@ -1674,7 +1677,7 @@ fn a02_reveal_boundaries_use_sequenced_execution_height() -> TestResult {
             };
             assert_eq!(
                 (receipt.height, receipt.activity, revision),
-                (height, 3, base.world.revision()? + 1)
+                (height, call.sequence, base.world.revision()? + 1)
             );
             assert_eq!(
                 m.slot(2, height)?,
@@ -1781,11 +1784,11 @@ fn a03_malformed_vectors_refuse_before_admission() -> TestResult {
     let variants = [
         (
             raw_body(&report.body, 2, &entries(&[(b, 750_000), (a, 250_000)]))?,
-            NON_CANONICAL,
+            F03_NONCANONICAL_VECTOR,
         ),
         (
             raw_body(&report.body, 2, &entries(&[(a, 250_000), (a, 250_000)]))?,
-            NON_CANONICAL,
+            F03_NONCANONICAL_VECTOR,
         ),
         (trailing, NON_CANONICAL),
         (raw_body(&report.body, 3, &scores)?, NON_CANONICAL),
@@ -2042,10 +2045,10 @@ fn a06_missing_commit_and_partial_reveals() -> TestResult {
     }
     c.reveal(2, &reports[0], start + 80)?;
     c.reveal(3, &reports[1], start + 95)?;
-    let late = m.reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
+    let late = c.reveal_call(4, &reports[2], SALT, 3, ROLE_EXPIRY)?;
     assert_eq!(c.refused(&late, start + 96)?, WRONG_PHASE);
     let state = decode_shared_state(&c.world.bytes)?;
-    assert_eq!(split_reports(&state)?.1.rows(6).count(), 2);
+    assert_eq!(split_reports(&state)?.1.rows(c.frozen.epoch).count(), 2);
     for n in 2..=9 {
         let slot = c.slot(n, start + 96)?;
         let expected = if n <= 3 {
@@ -2082,7 +2085,7 @@ fn a07_empty_vectors_refuse_and_explicit_zero_is_admitted() -> TestResult {
         payload,
         ..m.reveal_call(2, &report, SALT, 3, ROLE_EXPIRY)?
     };
-    assert_eq!(call.encode().map(|_| ()), Err(NON_CANONICAL));
+    assert_eq!(call.encode().map(|_| ()), Err(F03_NO_SCORES));
     let zero = entries(&[(a, 0)]);
     let explicit = m.signed(2, &zero)?;
     let mut body = vec![0; REPORT_MAX_BYTES];
@@ -2151,7 +2154,7 @@ fn a08_concurrent_and_repeated_requests_settle_once() -> TestResult {
     let conflicting = m.reveal_call(2, &changed, SALT, 3, REVEAL_END)?;
     assert_eq!(m.refused(&conflicting, REVEAL_AT + 3)?, REPLAY_CONFLICT);
     let again = m.reveal_call(2, &changed, SALT, 4, REVEAL_END)?;
-    assert_eq!(m.refused(&again, REVEAL_AT + 3)?, CONFLICT);
+    assert_eq!(m.refused(&again, REVEAL_AT + 3)?, F03_REPORT_ALREADY_FINAL);
     assert_eq!(m.world.bytes, revealed);
     let slot = m.slot(2, REVEAL_END)?;
     assert_eq!((slot.commit, slot.reveal), (Some(record), Some(receipt)));

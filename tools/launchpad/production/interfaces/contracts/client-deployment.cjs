@@ -8,7 +8,7 @@ function deriveDeployment(contractRoot) {
   assert.equal(m._meta.network, '125', 'Accepted manifest must be chain125');
   const data = { chainId: 125, manifestSha256: crypto.createHash('sha256').update(bytes).digest('hex'), recordedStatus: m._meta.status };
   const roleIdentity = {};
-  for (const [key, role] of Object.entries(ROLE_KEYS)) {
+  function addRole(key, role) {
     assert.match(m[role], /^0x[0-9a-fA-F]{40}$/, `Missing manifest role ${role}`);
     assert.notEqual(m[role].toLowerCase(), '0x' + '0'.repeat(40));
     const record = m._deployment.records[role];
@@ -17,19 +17,29 @@ function deriveDeployment(contractRoot) {
     const identity = current.roles[role.replace(/_proxy$/, '')];
     assert.equal(identity?.address?.toLowerCase(), m[role].toLowerCase(), `${role}:current deployment role address mismatch`);
     assert.ok(['surface', 'erc1967', 'beacon'].includes(identity.kind), `${role}:unsupported role kind`);
+    const expectedKind = role === 'PoolBeacon' ? 'beacon' :
+      ['EventEmitter_proxy', 'OpticalRegistry_proxy'].includes(role) ? 'erc1967' : 'surface';
+    assert.equal(identity.kind, expectedKind, `${role}:role kind mismatch`);
     assert.match(identity.runtimeHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing runtime hash`);
     if (identity.kind === 'surface') {
       assert.equal(identity.runtimeHash, '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f', `${role}:surface runtime hash mismatch`);
+    } else {
+      assert.equal(identity.runtimeHash, record.runtimeHash, `${role}:runtime hash mismatch`);
     }
     roleIdentity[key] = { kind: identity.kind, runtimeHash: identity.runtimeHash };
     if (identity.kind === 'erc1967' || identity.kind === 'beacon') {
       assert.match(identity.implementationAddress, /^0x[0-9a-fA-F]{40}$/, `${role}:missing implementation address`);
       assert.match(identity.implementationHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing implementation hash`);
+      const implementation = m._deployment.records[role === 'PoolBeacon' ? 'SidioraPool_impl' : role.replace(/_proxy$/, '_impl')];
+      assert.equal(implementation?.status, 'confirmed', `${role}:implementation record not confirmed`);
+      assert.equal(identity.implementationAddress.toLowerCase(), implementation.address.toLowerCase(), `${role}:implementation address mismatch`);
+      assert.equal(identity.implementationHash, implementation.runtimeHash, `${role}:implementation hash mismatch`);
       roleIdentity[key].implementationAddress = identity.implementationAddress;
       roleIdentity[key].implementationHash = identity.implementationHash;
     }
     data[key] = m[role];
   }
+  for (const [key, role] of Object.entries(ROLE_KEYS)) addRole(key, role);
   data.roleIdentity = roleIdentity;
   assert.match(m._meta.usdl, /^0x[0-9a-fA-F]{40}$/);
   data.usdl = m._meta.usdl;
@@ -37,9 +47,25 @@ function deriveDeployment(contractRoot) {
   data.nativeDecimals = 18;
   data.usdlDecimals = 6;
   data.creationFeeRaw = '1000000';
+  addRole('treasury', 'Treasury_proxy');
+  assert.equal(data.manifestSha256, current.sourceManifestSha256, 'Reviewed manifest digest mismatch');
+  const usdl = current.roles.USDL;
+  assert.equal(usdl.kind, 'direct', 'USDL:role kind mismatch');
+  assert.equal(usdl.address.toLowerCase(), data.usdl.toLowerCase(), 'USDL:current deployment role address mismatch');
+  assert.equal(m._deployment.config.usdl.toLowerCase(), data.usdl.toLowerCase(), 'USDL:configuration address mismatch');
+  assert.match(usdl.runtimeHash, /^0x[0-9a-fA-F]{64}$/, 'USDL:missing runtime hash');
+  assert.equal(usdl.runtimeHash, m._deployment.config.usdlCodeHash, 'USDL:runtime hash mismatch');
+  roleIdentity.usdl = { kind: usdl.kind, runtimeHash: usdl.runtimeHash };
+  const precompile = current.roles.LaunchpadPrecompile;
+  assert.equal(precompile.kind, 'precompile', 'LaunchpadPrecompile:role kind mismatch');
+  assert.equal(precompile.address.toLowerCase(), '0x0000000000000000000000000000000000001017', 'LaunchpadPrecompile:address mismatch');
+  assert.equal(precompile.runtimeHash, undefined, 'LaunchpadPrecompile:unexpected runtime hash');
+  roleIdentity.launchpadPrecompile = { kind: precompile.kind };
+  data.launchpadPrecompile = precompile.address;
+  assert.equal(Object.keys(roleIdentity).length, Object.keys(current.roles).length, 'Current deployment role inventory mismatch');
   return data;
 }
-function renderHelper(data){return `// Generated from the reviewed chain125 deployment manifest by client-deployment.cjs.\n// Code identity is attested separately; pending governance acceptance remains a release gate.\nexport const CORE_DEPLOYMENT = Object.freeze(${JSON.stringify(data,null,2)} as const);\n\nexport const OPTIONAL_CONTRACT_CAPABILITIES = Object.freeze({ metaAg: false, pecorOrders: false } as const);\nexport type OptionalContractCapability = keyof typeof OPTIONAL_CONTRACT_CAPABILITIES;\n\nexport function isActiveApprovalSpender(spender: string): boolean {\n  return typeof spender === 'string' && /^0x[0-9a-fA-F]{40}$/.test(spender) && spender.toLowerCase() === CORE_DEPLOYMENT.router.toLowerCase();\n}\n\nexport function assertActiveApprovalSpender(spender: string): void {\n  if (!isActiveApprovalSpender(spender)) throw new Error('Approval spender is unavailable: no verified active deployment for chain 125.');\n}\n\nexport function assertOptionalContractCapability(capability: OptionalContractCapability): never {\n  throw new Error('Optional contract capability ' + capability + ' is unavailable: no verified active deployment for chain 125.');\n}\n`;}
+function renderHelper(data){return `// Generated from the reviewed chain125 deployment manifest by client-deployment.cjs.\n// Code identity is attested separately; pending governance acceptance remains a release gate.\nexport const CORE_DEPLOYMENT = Object.freeze(${JSON.stringify(data,null,2)} as const);\n\nexport const OPTIONAL_CONTRACT_CAPABILITIES = Object.freeze({ metaAg: false, pecorOrders: false } as const);\nexport type OptionalContractCapability = keyof typeof OPTIONAL_CONTRACT_CAPABILITIES;\n\nexport function isActiveApprovalSpender(spender: string): boolean {\n  return typeof spender === 'string' && /^0x[0-9a-fA-F]{40}$/.test(spender) && spender.toLowerCase() === CORE_DEPLOYMENT.router.toLowerCase();\n}\n\nexport function assertActiveApprovalSpender(spender: string): void {\n  if (!isActiveApprovalSpender(spender)) throw new Error('Approval spender is unavailable: no verified active deployment for chain 125.');\n}\n\nexport function assertOptionalContractCapability(capability: OptionalContractCapability): never {\n  throw new Error('Optional contract capability ' + capability + ' is unavailable: no verified active deployment for chain 125.');\n}\n\nexport const CORE_TRADE_EXECUTION_ROLES = Object.freeze(['router', 'quoter', 'poolRegistry', 'eventEmitter'] as const);\nexport const PRIVATE_FIXTURE_WAGMI_STORAGE_KEY = 'kindle-private-qualification-v1';\n`;}
 function checkClient(clientRoot,data,helper){const helperFile=path.join(clientRoot,'core/network/deployment.ts');assert.equal(fs.readFileSync(helperFile,'utf8'),helper,'Client deployment helper drift from accepted manifest');const file=path.join(clientRoot,'core/network/contracts.ts'),source=fs.readFileSync(file,'utf8');const constants={ROUTER_ADDRESS:'router',QUOTER_ADDRESS:'quoter',FEES_ROUTER_ADDRESS:'feesRouter',OPTICAL_REGISTRY_ADDRESS:'opticalRegistry',PROTOCOL_CONFIG_ADDRESS:'protocolConfig',USDL_ADDRESS:'usdl'};for(const[name,key]of Object.entries(constants)){const pattern=new RegExp('export\\s+const\\s+'+name+'\\s*=\\s*(?:[\"\'](0x[0-9a-fA-F]{40})[\"\']|CORE_DEPLOYMENT\\.'+key+'\\b)');const match=source.match(pattern);assert.ok(match,`${name}:missing recognized frozen binding`);if(match[1])assert.equal(match[1].toLowerCase(),data[key].toLowerCase(),`${name}:stale deployment address`);}assert.match(source,/assertActiveApprovalSpender\s*\(/,'Generic approval must enforce accepted spender');return {checked:true,constants:Object.keys(constants).length,manifestSha256:data.manifestSha256};}
 function main(){const root=process.env.CONTRACT_SOURCE_ROOT;assert.ok(root,'CONTRACT_SOURCE_ROOT required');const data=deriveDeployment(root),helper=renderHelper(data),out=process.env.CONTRACT_FREEZE_OUTPUT;const mode=process.argv[2];if(mode==='generate'||mode==='--generate'){assert.ok(out,'CONTRACT_FREEZE_OUTPUT required');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'client-deployment.json'),JSON.stringify({schemaVersion:1,core:data,optionalCapabilities:{metaAg:false,pecorOrders:false},optionalBlocker:'No verified active optional deployment manifest'},null,2)+'\n');if(process.env.CLIENT_DEPLOYMENT_HELPER_OUTPUT)fs.writeFileSync(process.env.CLIENT_DEPLOYMENT_HELPER_OUTPUT,helper);console.log(JSON.stringify({generated:true,manifestSha256:data.manifestSha256,addresses:data}));}else if(mode==='check'||mode==='--check'){const clientRoot=process.env.CLIENT_SOURCE_ROOT||path.resolve(__dirname,'../../../../../apps/launchpad/web/src');console.log(JSON.stringify(checkClient(clientRoot,data,helper)));}else throw new Error('Use generate or check');}
 if(require.main===module)main();

@@ -1,0 +1,7 @@
+[issue.1584]
+number = 1584
+title = "[P2] Align native program constructor with HTTP transaction binding"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "not-relevant"
+evidence = "Commit 4e29e49379f6135c72afb2ffda5f8de68c70c281 superseded the reviewed constructor and REST dispatch: services/agent/crates/layerx-sdk/src/programs.rs:117 delegates to the HTTP rebinding constructor at services/agent/crates/layerx-sdk/src/program_http.rs:208, services/agent/crates/layerx-sdk/src/program_node.rs:181 submits the retained signed transaction through eth_sendRawTransaction and :195 simulates through eth_call, and the transaction-hash HTTP header rule still present at services/agent/schema/agent-api/programs.kvx:147 describes the REST surface retired by decision 808 at spec/layerx-merge/spec.kvx:2516, with constructor equality, distinct bound idempotency, submission and recovery covered by services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs:1152."
+close_comment = "Native program construction and transport rebinding now share the same signed ABI calldata and fee validation, preserving transaction identity and rejecting altered calls. Programs use node JSON-RPC; the former Programs REST routes and their HTTP Idempotency-Key contract are retired, so the old schema wording does not describe the supported transport."

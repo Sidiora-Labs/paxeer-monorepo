@@ -38,8 +38,8 @@ impl WriteStage {
         match self {
             Self::Preparing | Self::Signing => None,
             Self::Queued => Some(crate::outbox::SubmissionState::Queued),
-            Self::Submitted => Some(crate::outbox::SubmissionState::Submitted),
-            Self::Acknowledged => Some(crate::outbox::SubmissionState::Submitted),
+
+            Self::Submitted | Self::Acknowledged => Some(crate::outbox::SubmissionState::Submitted),
             Self::Unknown => Some(crate::outbox::SubmissionState::Unknown),
         }
     }

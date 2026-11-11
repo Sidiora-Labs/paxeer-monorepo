@@ -1,0 +1,100 @@
+[repair.22.39.328]
+task = "22.39.328"
+decision = "3177; 3119; 3160"
+gotcha = "4099"
+base_revision = "d5614dd88e548d183376cb26eefb979a56b77018"
+verified_revision = "The final hf-done receipt in /out/run/gates.jsonl names the exact qualified candidate revision; the matching /out/logs/verify-N.log header is authoritative. No qualification is claimed before that receipt passes."
+qualification = "Only hf-build and hf-done qualify the unchanged candidate. Their ledger records revision, exact command, exit and private evidence location. No manual verification, commit or push."
+initial_state = "No earlier gate ledger exists; builds_used=0 and verify_runs_used=0. Runner-prepared workflow and task-status edits are preserved without changes."
+
+[proof.catalogue]
+source = "contracts/launchpad/deployments/paxeer-x-network-addresses.json"
+reviewed_manifest_blob = "dd845c4ecc0802bef5548e086ef431ec99fe1f12"
+former_manifest_sha256 = "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a"
+current_manifest_sha256 = "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b"
+semantic_proof = "Before editing, parsed the checkout and git show dd845c4ecc0802bef5548e086ef431ec99fe1f12 with Python json.loads and confirmed full deep equality, independently reproducing repair_22_39_313.kvx. SHA-256 of each byte stream equals the former and current manifest digests above."
+producer_audit = "tools/launchpad/production/interfaces/contracts/export.cjs derives only manifestSha256 from manifest bytes, and manifestRecordedStatus from parsed _meta.status; schemaVersion and chainId are literals. sourceProvenance and every contract ABI, event, function, error, immutable reference, optional-family flag and source/artifact/build/compiler digest derive from Solidity/compiler inputs, never manifest bytes. Parsed manifest equality therefore preserves every other catalogue field, including recorded status."
+review_producer = "No repository producer writes protocol/catalog/reviewed.json: export.cjs emits the separate contracts/v1/chain/abi-catalog.json compiler freeze; generator-inputs/export.py consumes the selected reviewed snapshot. Applied the authorized one-field rebind to the reviewed snapshot rather than rebuilding unrelated compiler provenance. The current and historical reviews are deeply equal after replacing only manifestSha256; the regression asserts this equality."
+former_catalogue_sha256 = "fee302f74c970e71d9eec27f704341bd007e80e36e99f6a9855dee731b912716"
+current_catalogue_sha256 = "47f8cbd0465b4c12ba425d00b02596b9e85dac82cbb3df073b50ccbc2160fe72"
+search = "A repository-wide rg search, including hidden files and excluding .git, found no initial occurrences of the former raw catalogue SHA-256. The named generator-input pin instead held the raw digest of the different frozen contracts/v1/chain/abi-catalog.json, not the reviewed file or canonical JSON. Searched that value too and classified every reader below."
+
+[pin.generator_inputs]
+path = "sdk/launchpad/protocol/generator-inputs/phase2-inputs.json:currentReviewedCatalogSHA256"
+former = "8ac70f904a048bca6fbc193c0667fea65b3f5e3d51446c0d5a434ccbbb79103f"
+current = "47f8cbd0465b4c12ba425d00b02596b9e85dac82cbb3df073b50ccbc2160fe72"
+action = "Bind the producer's currentReviewedCatalog path to the SHA-256 of its actual file bytes. The runtimedocs regression checks that pin against the repository file."
+
+[pin.check_registry]
+path = "tools/launchpad/production/bootstrap/check-registry.json"
+action = "All four L02 check input lists that name protocol/catalog/reviewed.json now also consume protocol/generator-inputs/phase2-inputs.json, binding the checks to the live digest producer. The registry had no pin of the former raw reviewed catalogue digest. Its retained_inputs inventory describes a separate frozen protocol snapshot and remains unchanged, including the inventory digest. No signed historical policy or approval digest is rewritten."
+sites = ["tasks.1.02.accepted_candidate_policy.required_checks.L02-abi-authority-primitives", "tasks.1.02.accepted_candidate_policy.required_checks.L02-reviewed-artifact-generator", "tasks.1.99.serial_gate_policy.staged_checks.L02-abi-authority-primitives", "tasks.1.99.serial_gate_policy.staged_checks.L02-reviewed-artifact-generator"]
+
+[pin.tracker]
+path = "services/launchpad/pnl-tracker/internal/production/l18/domain.go:ManifestDigest"
+action = "Move the active fee/reward authority and capability version to deployment.Current().SourceManifestSHA256. A search of the whole l18 package found no literal former digest outside this constant, so no recorded fee/reward digest requires a separate historical constant. Existing recorded RPC and database evidence remains unchanged."
+
+[reader.packet]
+path = "services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+initial_sha256 = "86dd2896f9095d41e0113a4e61c9287f4f583edcbab7b3acd18f308c47618890"
+policy = "Keep byte for byte for initial qualification. Only a real qualification refusal of the approved historical source digest authorizes rebinding Options.Manifest.sourceManifestSha256 and Options.CatalogJSON.manifestSha256 and re-deriving dependent provenance through the real qualifier over the recorded RPC responses."
+current_sha256 = "33456190c6d12d94bb32e5e4d2cb70bc1fd5651330141ed7f0e40a0dd172d7c1"
+action = "Initial hf-done actually refused the old source digest for activation 37220320, triggering decision 3177's conditional re-recording. Replayed only the original captured replies through the real RPCQualification and ABI catalogue producers, then serialized the packet only after qualification succeeded. The sole semantic change is Options.Manifest.sourceManifestSha256, now derived from Current."
+embedded_catalogue = "Regenerated Options.CatalogJSON, including manifestSha256, from catalog.Bundles and the Approved manifest for the packet's historical generation. The result is byte-identical (SHA-256 b3d88970e96650567dfd3b7f8bcc46c1944b531aff0c26aefc1aa71cea956729); its digest remains a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a as explicitly allowed by decision 3177. This mixed-generation packet must retain that binding: historicalAuthority reuses Options.CatalogJSON, and historicalEmitterEpochs requires its digest to equal the approved historical source. No production check was bypassed or changed."
+rederived_fields = ["Markets[0].Creation.TransactionHash", "Markets[0].Creation.BlockHash", "Markets[0].Creation.LogIndex", "Markets[0].Creation.Provenance.deploymentId", "Markets[0].Creation.Provenance.abiRevision", "Markets[0].Creation.Provenance.emitterCodeEpoch", "Markets[0].Creation.Provenance.poolCodeEpoch", "Markets[0].Creation.Provenance.receiptSHA256", "Markets[0].Creation.Provenance.headerSHA256"]
+provenance = "Fetched and qualified the original signed creation at 33963716 using Approved(32226215), the packet's recorded history epochs/discovery and the original reported anchor hash. Selected its actual SidioraFactory MarketCreated envelope and reissued every stored creation/provenance field through SourceProvenance; all are exactly equal to the previous record because their historical manifest and source bytes did not change. Rehydrated those markets through the current qualifier and qualified native, tenant and post-activation historical-market swaps, including ValidateBindings and Fills. Current derived code epochs are emitted in the private replay log; the packet stores no current fill provenance that requires replacement."
+unchanged = "All recorded Responses, endpoint, signed transaction identities, headers, receipts, markets, historical epochs/discovery, runtime identities and embedded catalogue bytes are unchanged; a recursive before/after comparison found only Options.Manifest.sourceManifestSha256 changed."
+producer_command = "cd /tmp/repair328-recorder && GOWORK=off go run -mod=mod . /work/paxeer-monorepo/services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json"
+producer_exit = 0
+producer_log = "/out/logs/repair328-rerecord.log"
+producer_source = "/out/logs/repair328-recorder.go (SHA-256 2c5c1fb696110b4866363a702f3e07b056b0cf9fff4323da7fcea8ba4b2d7247); module identity /out/logs/repair328-recorder.mod; original packet /out/logs/repair328-original-packet.json. The temporary in-process recorder is evidence, not a published runtime or additional verification gate."
+
+[reader.comparisons]
+paths = ["services/launchpad/indexer/internal/config/repair_m999_test.go", "services/launchpad/indexer/internal/decode/repair_m995_test.go", "services/launchpad/indexer/internal/receipt/repair_53_test.go"]
+action = "Each helper admits exactly Current's source digest or a source digest returned by deployment.Approved while traversing the approved activation history. Validate both recorded manifest and embedded catalogue independently; normalize only a manifest copy for the existing complete comparison. Role maps are copied before clearing RuntimeHash as decision 3119 requires. All remaining fields, role address/kind, ABI revisions, epoch revisions and discovery revisions retain their comparisons. The repository review must match Current exactly. Each site names decision 3177 and post-upgrade packet re-recording."
+negative_cases = "Each package's TestRepair_22_39_328 exercises Current and all Approved digests, requires a real historical entry, and refuses empty, zero, unknown and truncated digests."
+
+[reader.historical_review]
+path = "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json"
+sha256 = "fee302f74c970e71d9eec27f704341bd007e80e36e99f6a9855dee731b912716"
+action = "Preserve the original reviewed file byte for byte for historical runtime-document tests. runtimedocs/paxeer_test.go reads this review with Approved(32226215); runtimedocs/precompile_test.go explicitly reads the live review when switching to Current. The config packet document helper explicitly selects the approved historical review for an historical packet digest, and the live review for Current, without changing packet bytes or production code."
+
+[reader.frozen_protocol]
+paths = ["sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json", "sdk/launchpad/shared/config/capabilities/contract-support.json:abiCatalogSha256", "services/launchpad/stats-workers/internal/projectionstats/authority.go:abi-catalog.json", "tools/launchpad/production/bootstrap/check-registry.json:retained_inputs.files.sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json"]
+action = "Retain the separate frozen protocol catalogue and its exact raw-byte pins (8ac70f904a048bca6fbc193c0667fea65b3f5e3d51446c0d5a434ccbbb79103f). They do not name the live reviewed catalogue."
+
+[reader.frozen_manifest]
+paths = ["sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json", "services/launchpad/indexer/internal/receipt/deployment_source.json", "apps/launchpad/web/src/core/network/repair_22_39_313.kvx"]
+action = "Preserve the approved history source, historical receipt source and prior repair evidence. Other historical manifest readers classified by repair_22_39_313.kvx remain with their owning tasks; capabilities evidence and mobile proof pins are assigned to 22.39.329 and 22.39.95 by decision 3177."
+
+[case.runtime_catalogue]
+test = "services/launchpad/indexer/internal/runtimedocs/repair_22_39_328_test.go:TestRepair_22_39_328"
+assertion = "Read the real reviewed catalogue and Current, run production TrimCatalog, require the exact sorted 13 decoding families and reviewed ABI/source/compiler provenance with immutable ranges, and pass its JSON to the real decoder registry. Assert the live raw-byte pin, historical review byte identity and one-field semantic change, historical/current mismatch refusal and historical trimming."
+
+[case.tracker]
+test = "services/launchpad/pnl-tracker/internal/production/l18/repair_22_39_328_test.go:TestRepair_22_39_328"
+assertion = "Compare ManifestDigest with Current's source digest and check the strategy, sharing and reward capability consumers expose that same digest."
+
+[case.existing]
+tests = ["TestRepairM_999_ProductionBackfillDefault", "TestRepairM_999_ReceiptQualifiedBackfill", "TestRepairM_995_NativeReceiptAttribution", "TestRepairM_995_NativeRoleProvenance", "TestRepairM_995_ConservativeEvidence", "TestRepairM_995_ReceiptIdentity", "TestRepair_53_native_swap_qualification", "TestRepair_53_tenant_transaction_qualification", "TestRepair_53_migrated_role_epochs", "TestRepair_53_approved_history_rehydration"]
+assertion = "Keep every existing production qualification, conservative evidence, receipt identity, native/tenant accounting, migrated role epoch, history rehydration and restart assertion. No indexer production source changes."
+
+[gotcha.catalogue_pin]
+observed = "currentReviewedCatalogSHA256 named the raw bytes of a different frozen catalogue, while the registry's same-valued pin correctly names that frozen file."
+action = "Hash the actual named file and update only its live producer pin; retain the distinct frozen inventory and digest."
+
+[gotcha.historical_inputs]
+observed = "Historical runtime-document tests previously read the live reviewed catalogue, so rebinding that file would pair an old manifest with a new digest."
+action = "Keep the original review byte-identical under catalogue history and explicitly select the matching review in test inputs; keep the production TrimCatalog mismatch refusal intact."
+
+[qualification.first_pass]
+revision = "14e73f13442bd31c50f5d41b47167f3dbbf1bd62"
+command = "cg spec done 22.39.328 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at the same revision (/out/logs/build-1.log); the catalogue package and runtimedocs regression passed, while six receipt-authority cases refused the unchanged packet's old source digest at its current activation height."
+repair = "Performed the conditional producer re-recording documented above; rerun hf-build and hf-done at one unchanged repaired candidate, with the final ledger naming the exact verified revision."
+
+[gotcha.recording_envelopes]
+observed = "QualifiedEvents returns DecodedEnvelope values: emitter role belongs to the envelope, while Args and LogIndex belong to envelope.Event."
+action = "The temporary recorder selects the qualified factory envelope by its role and actual emitter address, then uses its Event for the original creation coordinates. No packet was written before the real replay and all provenance checks succeeded."

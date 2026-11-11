@@ -1,0 +1,24 @@
+[repair.22.39.175]
+requirement = "22998.1"
+decisions = ["3006", "3007"]
+gotcha = "3704"
+consumer = "services/agent/fuzz/tests/repair_22_33_1567.rs"
+import_before = "use layerx_wire::{activity, encode::Encoder};"
+import_after = ["use layerx_wire::encode::Encoder;", "use layerx_wire::historical::activity;"]
+producer = "services/agent/crates/layerx-wire/src/lib.rs declares historical::activity over the retained activity codec, as decision 3006 requires for archived envelopes."
+preserved = "Encoder remains at encode::Encoder; every test assertion and every fuzz target is unchanged."
+retired_path_check = "The declared verify_cmd checks both direct root paths and grouped use lists for activity and sign, excluding the producer crate and retired-name sweep tests."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+build = "The final kind=build row records the exact candidate revision, command, exit and private log; its revision must equal the final kind=verify row."
+verification = "The final kind=verify row records the verified revision, cg spec done command, exit and private log, including the unchanged repair_22_33_1567 tests and widened retired-path grep."
+result = "Qualification is established only by exit=0 for both referenced rows at the same revision; the ledger and referenced logs are the authoritative results."
+
+[repair_cycle.1]
+revision = "feea52c6ccd1587c84bcd8126ebb942375580801"
+command = "cg spec done 22.39.175 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All seven tests passed, but the grouped-use grep also matched historical::activity inside the repaired grouped import; its only reported file was services/agent/fuzz/tests/repair_22_33_1567.rs."
+correction = "Use separate Encoder and historical::activity imports so the declared grep passes without weakening its pattern or any assertion."

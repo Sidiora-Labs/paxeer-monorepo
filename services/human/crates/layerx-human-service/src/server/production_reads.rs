@@ -94,7 +94,7 @@ pub(super) fn activity_entry_json_with(
             let checkpoint = proof
                 .checkpoint_id()
                 .map_err(|_| ApiFailure::upstream_degraded())?;
-            labels.insert(hex(&checkpoint), "checkpoint-finalised");
+            labels.insert(hex(&checkpoint), "committed");
             finality = Some(
                 crate::activity::detail::FinalityReference::new(checkpoint, Rung::Committed)
                     .map_err(|_| ApiFailure::upstream_degraded())?,
@@ -797,7 +797,7 @@ impl super::ProductionComponents {
         }
         let verification = match evidence.rung {
             Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
+            Rung::Committed => "committed",
             Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
         };
         let key_entry = layerx_proof::inclusion::SequencerAuthorization::new(
@@ -913,8 +913,9 @@ fn evidence_get(
             }),
             expected,
         )?;
-        if verification != "receipt-verified" {
-            return Err(ApiFailure::upstream_degraded());
+        match (evidence.rung, verification) {
+            (Rung::Receipted, "receipt-verified") | (Rung::Committed, "committed") => {}
+            _ => return Err(ApiFailure::upstream_degraded()),
         }
         return Ok(response(
             super::ProductionComponents::managed_receipt_material(id, &evidence)?,
@@ -1024,7 +1025,7 @@ fn intent_evm_receipt(
         };
         let verification = match rung {
             Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
+            Rung::Committed => "committed",
             Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
         };
         let portable = PortableReceiptV2::export_with_transaction(
@@ -1333,7 +1334,7 @@ fn receipt_label_with_keys(
             committed_proof(scope, digest)?
                 .verify_retained(receipt, keys)
                 .map_err(|_| ApiFailure::upstream_degraded())?;
-            return Ok("checkpoint-finalised");
+            return Ok("committed");
         }
     }
     let status = match row {
@@ -1517,7 +1518,7 @@ fn cached_balance_verification(
     match super::production_components::AccountBalance::material_rung(bytes)? {
         None | Some(Rung::Submitted) => Ok(("submission-record", "unverified")),
         Some(Rung::Receipted) => Ok(("layerx-receipt", "receipt-verified")),
-        Some(Rung::Committed) => Ok(("checkpoint-proof", "checkpoint-finalised")),
+        Some(Rung::Committed) => Ok(("checkpoint-proof", "committed")),
     }
 }
 
@@ -1636,11 +1637,7 @@ mod balance_evidence_tests {
             (None, "submission-record", "unverified"),
             (Some(Rung::Submitted), "submission-record", "unverified"),
             (Some(Rung::Receipted), "layerx-receipt", "receipt-verified"),
-            (
-                Some(Rung::Committed),
-                "checkpoint-proof",
-                "checkpoint-finalised",
-            ),
+            (Some(Rung::Committed), "checkpoint-proof", "committed"),
         ] {
             let balance = AccountBalance::from_agent(VerifiedBalance {
                 account: [1; 32],

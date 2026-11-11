@@ -14,8 +14,7 @@ pub use crate::binding::BindMessage;
 use crate::disclosure::call::validate_call;
 use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
-use crate::{ct, ed25519, SignatureMessage, VerifyError};
-use layerx_types::payload::ModuleRegistry;
+use crate::{ed25519, SignatureMessage, VerifyError};
 
 pub use crate::local::LocalSigner;
 
@@ -53,16 +52,28 @@ impl<'a> SigningRequest<'a> {
         }
     }
 
+    /// Validates a retained activity disclosure for compatibility and auditing.
+    ///
+    /// # Errors
+    /// Refuses a different signature domain or disclosure inconsistent with the canonical bytes.
+    #[allow(
+        deprecated,
+        reason = "Retains the audit-only Activity request; key boundaries refuse signing it"
+    )]
     pub fn new(
         message: SignatureMessage<'a>,
         disclosure: &'a Disclosure,
     ) -> Result<Self, SignError> {
-        let digest = disclosure.validated_digest().map_err(SignError::from)?;
-        if !ct::eq_fixed(&digest, &message.digest()) {
-            return Err(SignError::DisclosureMismatch("canonical_bytes"));
+        if message.domain != layerx_wire::hash::Domain::SignaturePreimage {
+            return Err(SignError::InvalidDisclosure);
         }
-        // A matching legacy disclosure is evidence for audit, never signing authority.
-        Err(SignError::InvalidDisclosure)
+        disclosure
+            .validate_canonical(message.canonical())
+            .map_err(SignError::from)?;
+        Ok(Self {
+            message: Some(message),
+            disclosure: SigningDisclosure::Activity(disclosure),
+        })
     }
 
     pub(crate) const fn send_debit(
@@ -88,6 +99,10 @@ impl<'a> SigningRequest<'a> {
     ///
     /// # Errors
     /// Refuses a payer authorization that differs from its canonical message.
+    #[allow(
+        deprecated,
+        reason = "Explicitly refuses the retained Activity compatibility variant"
+    )]
     pub fn signing_bytes(self) -> Result<Vec<u8>, SignError> {
         match self.disclosure {
             SigningDisclosure::Activity(_) => Err(SignError::InvalidDisclosure),
@@ -112,6 +127,10 @@ impl<'a> SigningRequest<'a> {
 
 impl SigningRequest<'_> {
     /// External custody accepts only typed bind consent and native payer authorization.
+    #[allow(
+        deprecated,
+        reason = "Refuses retained Activity compatibility requests before external transport"
+    )]
     pub(crate) fn external_signing_bytes(self) -> Result<Vec<u8>, SignError> {
         if matches!(self.disclosure, SigningDisclosure::Activity(_)) {
             return Err(SignError::InvalidDisclosure);
@@ -121,6 +140,10 @@ impl SigningRequest<'_> {
 }
 
 impl SigningDisclosure<'_> {
+    #[allow(
+        deprecated,
+        reason = "Serializes retained Activity disclosures for audit compatibility"
+    )]
     pub(crate) fn transport_bytes(self) -> Result<Vec<u8>, DisclosureError> {
         match self {
             Self::Activity(disclosure) => disclosure.transport_bytes(),
@@ -324,6 +347,11 @@ pub trait BindSigner: Signer {
     }
 }
 
+/// Signs a disclosed EIP-1559 call with the sender's secp256k1 key.
+///
+/// # Errors
+/// Refuses mismatched disclosure or sender, unavailable transaction keys and
+/// signatures that do not recover to the requested sender.
 #[must_use]
 pub fn sign_disclosed_call<'a>(
     signer: &'a dyn Signer,
@@ -348,26 +376,9 @@ pub fn sign_disclosed_call<'a>(
     })
 }
 
-/// Validates legacy evidence and refuses retired activity signing before key or transport access.
-#[deprecated(
-    note = "Use sign_disclosed_call for transactions or SigningRequest::bind for DID consent"
-)]
-#[must_use]
-pub fn sign_disclosed<'a>(
-    _signer: &'a dyn Signer,
-    canonical: &'a [u8],
-    disclosure: &'a Disclosure,
-    registry: &'a ModuleRegistry,
-) -> SignFuture<'a> {
-    Box::pin(async move {
-        disclosure
-            .validate_bytes(canonical, registry)
-            .map_err(SignError::from)?;
-        Err(SignError::InvalidDisclosure)
-    })
-}
-
-/// Ed25519 signer backed by an external OpenSSH-compatible OS key agent.
+/// Ed25519 custodian for bind consent and native payer authorization backed by
+/// an external OpenSSH-compatible OS key agent. Activity signing is refused
+/// before agent I/O; EVM transactions require a separate secp256k1 key.
 pub struct KeystoreSigner {
     socket: PathBuf,
     key_blob: Vec<u8>,
@@ -401,6 +412,7 @@ impl KeystoreSigner {
     ///
     /// # Errors
     /// Refuses activity preimages and malformed bind messages before agent I/O.
+    #[must_use]
     pub fn sign_bind_bytes<'a>(&'a self, bytes: &'a [u8]) -> SignFuture<'a> {
         Box::pin(async move {
             let binding = BindMessage::decode(bytes)?;

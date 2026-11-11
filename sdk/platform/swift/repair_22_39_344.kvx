@@ -1,0 +1,27 @@
+[repair]
+task = "22.39.344"
+decision = "3209"
+base_revision = "00af874880f4448f88311d4ece767c58b77d7f58"
+inherited_revision = "4247e57acebcf5cbdfdbee914bedc15a46f90dd3"
+verified_revision = "/out/run/gates.jsonl: matching revision fields of the final build and verify rows"
+build_command = "swift build --package-path sdk/platform/swift"
+verify_command = "test -s sdk/platform/swift/repair_22_39_344.kvx && swift test --package-path sdk/platform/swift --filter 'ReceiptFixtureTests'"
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+
+[change.readers]
+file = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+lines = "1421-1422, 1424-1425, 1454-1457, 1459-1460, 1463-1465, 1523, 1549-1557, 1568"
+symbols = ["authorizationV2", "decodeAuthorizationRoot", "ProgramsWireTestSupport"]
+behavior = "Recognize both account-bound domains; read source and destination names per version 2 leg; validate destination identity and asset with principalPaymentAccount before computing the root; reject nested wrappers, trailing bytes and version 2 without a named destination; retain version 1 decoding."
+
+[change.vectors]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"
+lines = "26-45"
+test = "testNativeDestinationAuthorizationVectors"
+fixture = "programs/fixtures/pay5/destination-authorization-vectors.json"
+vector_count = 1271
+accepted_count = 2
+refused_count = 1269
+rule = "Accepted vectors reconstruct the recorded root; refused vectors throw or reconstruct a different root."
+existing_case = "testNativeAccountAuthorizationVectors is unchanged."

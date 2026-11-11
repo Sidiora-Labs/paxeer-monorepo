@@ -1,0 +1,48 @@
+[issue.1692]
+number = 1692
+title = "[Coherence] The new generated-output allowlist misses the dist output of nine of the eleven launchpad SDK packages, so routine SDK builds now enter provenance and fail ownership checks"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "Commit e7cdf8d59e311401abd24579c93092a4b0f48da1 introduced the still-current root-relative exclusions at tools/launchpad/production/bootstrap/snapshot/snapshot.py:12 and :28, which omit ten package dist directories despite sdk/launchpad/packages/sdk/tsconfig.json:1, sdk/launchpad/packages/sdk-v2/package.json:26 and sdk/launchpad/packages/production-contracts-v2/package.json:26 declaring dist outputs, and omit nested web build/dist/logs directories ignored at apps/launchpad/web/.gitignore:2, :11 and :13; these outputs enter inventory at snapshot.py:54 and trigger source drift at :165 or ownership refusal at :125, while tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py:21 covers only the two listed SDK output paths."
+close_comment = "Generated output from ten launchpad SDK packages and nested web build directories still enters source provenance and can fail drift and ownership checks. A focused repair is required to exclude those outputs while retaining bootstrap build sources, protocol coverage sources and the existing security checks."
+
+[task.18.1692.1]
+title = "Issue #1692: Exclude every launchpad SDK dist output and nested web build output from provenance"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181692.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend the generated-output policy in tools/launchpad/production/bootstrap/snapshot/snapshot.py:12 and excluded at :24 to cover dist under sdk, sdk-v2, stats-sdk, candles-sdk, indexer-sdk, metadata-sdk, ranking-algo-sdk, users-sdk, production-contracts and production-contracts-v2 within sdk/launchpad/packages, retaining sidiora-launchpad-v3/dist; sdk/launchpad/packages/.gitignore:1 and the package compiler configurations establish all eleven outputs as generated. Cover build, dist and logs directories at any depth strictly within apps/launchpad/web as apps/launchpad/web/.gitignore:2, :11 and :13 prescribe, without restoring repository-wide directory-name exclusions or excluding bootstrap/build, protocol/coverage or other source directories. Keep inventory and manifest validation on the shared policy and preserve all secret and symlink defenses."
+do_2 = "Add test_issue_1692_generated_outputs_keep_provenance_stable to tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py alongside the existing generated-output cases at :152: use the real create, verify and diff CLI paths and their emitted manifests to prove additions, modifications and deletions of output files across all eleven package dist locations and nested web build/dist/logs leave the baseline unchanged, verification successful and an unrelated owned-path diff empty. Retain the existing source-mutation, other-source-directory, secret, symlink and manifest-tampering assertions unchanged, and prove bootstrap/build and protocol/coverage source mutations still cause drift and fail unrelated ownership checks."
+symbols = ["GENERATED_OUTPUT_PATHS", "excluded", "test_issue_1692_generated_outputs_keep_provenance_stable"]
+touches = ["tools/launchpad/production/bootstrap/snapshot/snapshot.py", "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"]
+tests = ["tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py::test_issue_1692_generated_outputs_keep_provenance_stable", "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py::test_provenance_excludes_owned_source_mutations", "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py::test_output_names_in_other_source_locations_are_inventoried"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/launchpad/production/bootstrap/snapshot/snapshot.py tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181692]
+title = "Launchpad generated build outputs do not alter source provenance"
+ac_1 = "Given the eleven SDK dist outputs declared by sdk/launchpad/packages/sdk/tsconfig.json:1 and the sibling compiler configurations, and nested web build/dist/logs outputs ignored at apps/launchpad/web/.gitignore:2, :11 and :13, adding, changing or deleting those outputs leaves create manifests identical, verify successful and unrelated owned-path diffs empty, while bootstrap/build and protocol/coverage source mutations remain inventoried and rejected by verify and unrelated ownership checks through tools/launchpad/production/bootstrap/snapshot/snapshot.py:43, :107 and :164."
+
+[acceptance.18.1692.1]
+feature = "18"
+req = "181692.1"
+scenario = "Given a source baseline containing bootstrap build and protocol coverage sources, when generated outputs change in any of the eleven launchpad SDK dist directories or nested web build/dist/logs directories, then source provenance stays identical, verification passes and an unrelated owned-path diff is empty, while source mutations still fail drift and ownership checks."
+contract = "contracts/launchpad.md#scripts-under-toolslaunchpad"
+test = "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py::test_issue_1692_generated_outputs_keep_provenance_stable (planned)"
+qualification = "UNRUN"

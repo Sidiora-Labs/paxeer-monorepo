@@ -106,8 +106,13 @@ def test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress():
         r'return response\(404, "not_found", None\);', ingress, re.S,
     )
     assert ingress.index('if path == "/rpc"') < ingress.index("routes::route(")
-    assert 'if request.path == "/" && request.method == "POST"' in ingress
-    assert "return rpc::route(config, request);" in ingress
+    assert "public_reads::route(config, request)" in ingress
+    public = rust_function("public_reads.rs", "route")
+    assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in public
+    assert "return Some(super::rpc::route(config, request));" in public
+    rpc = rust_function("rpc.rs", "route")
+    assert 'if request.path != "/"' in rpc
+    assert 'if request.method != "POST"' in rpc
     description = method("px_getRouteCatalogue")["description"]
     assert "unified /rpc interface and its subtree are retired" in description
 
@@ -125,7 +130,7 @@ def test_catalogue_source_path_preserves_authentication_readiness_and_json_trans
     assert 'json!({"jsonrpc":"2.0", "id":id, "result":document})' in rpc
     dispatch = rust_function("rpc.rs", "dispatch")
     assert 'if method == "px_getRouteCatalogue"' in dispatch
-    assert 'crate::routes::rpc_catalogue(config, request, &id, value.get("params"))' in dispatch
+    assert 'super::routes::rpc_catalogue(config, request, &id, value.get("params"))' in dispatch
     transport = rust_function("rpc.rs", "route")
     assert "serde_json::from_slice::<Value>(&request.body)" in transport
     assert "dispatch(config, request, &value)" in transport
@@ -176,7 +181,12 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
     assert "resolved_at_height(config, id, params)" in bank
     assert "node_at_height(" in bank
     assert "evm::SELECTOR_BANK_ALL_BALANCES" in bank
-    assert '"balances": balances' in bank
+    # Task 22.39.240 removed the shared constructor call from this producer.
+    assert "wallet_contract::balances(" not in bank
+    assert '"result": {"account": resolution.document(), "height": height, "balances": balances}' in bank
+    assert "let balances = match decode_coins(&answer)" in bank
+    contract = (ROOT / "tools/platform/cli/src/wallet_gateway.rs").read_text()
+    assert '"balances":balances' in contract
     assert "evm::uint256_decimal(&amount)" in rust_function("paxeer.rs", "decode_coins")
     assert "word: &[u8; 32]" in rust_function("evm.rs", "uint256_decimal")
 
@@ -205,8 +215,9 @@ def test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved(
 
 
 def test_all_unrelated_openrpc_contracts_match_the_recorded_base():
-    snapshot = read_json(GATEWAY / "tests/fixtures/repair_22_33_64_openrpc.json")
+    snapshot = read_json(Path(__file__).with_name("fixtures") / "repair_22_33_64_openrpc.json")
     assert snapshot["base_revision"] == "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa"
+    assert snapshot["pin_source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
     document = copy.deepcopy(read_json(GATEWAY / "openrpc.json"))
     document["methods"] = [
         item for item in document["methods"] if item["name"] != "px_getRouteCatalogue"

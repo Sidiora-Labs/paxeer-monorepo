@@ -1,11 +1,9 @@
-//! The Paxeer half of the single network endpoint: byte-faithful EVM JSON-RPC
-//! relay and the unified `px_*` reads that join a Paxeer account, asset or
-//! head with its `LayerX` counterpart.
+//! Native Paxeer JSON-RPC relay and hosted `px_*` chain reads.
 //!
-//! The relay target is the Paxeer boundary's JSON-RPC service, which fronts
-//! the chain's `paxd` RPC. Reads here are the same public tier that answers
-//! `lx_*` reads: no key, one public read budget, and every answer is either
-//! the node's own or an explicit refusal.
+//! Account selectors resolve through the native address-binding precompile;
+//! balances and assets come from the bank and ledger on that same chain.
+//! Public reads share one budget and return node evidence or an explicit
+//! refusal. Retired `lx_*` methods have no backend dispatch path.
 
 use super::{public_reads, Config};
 use layerx_platform_gateway::evm;
@@ -86,7 +84,7 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
     if config.paxeer.is_none() {
         return Err("paxeer_rpc_not_configured");
     }
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(&config.read_windows) {
         return Err("public_read_rate_limit");
     }
     node_unmetered(config, request)
@@ -679,7 +677,7 @@ fn layerx_assets(
         .indexer
         .as_ref()
         .ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(&config.read_windows) {
         return Err(unavailable(id, "public_read_rate_limit"));
     }
     // The indexer's keyset contract is registration order, not lexical asset order.
@@ -773,7 +771,11 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
                 &evm::LEDGER_PRECOMPILE,
                 &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
             )?;
-            return wallet_contract::ledger_asset_metadata(&answer, id);
+            let asset = evm::decode_ledger_asset(&answer).map_err(|_| "invalid_ledger_asset")?;
+            if asset.asset_id != id {
+                return Err("invalid_ledger_asset");
+            }
+            return Ok(layerx_asset_metadata(&asset));
         }
         let denom = record["denom"]
             .as_str()
@@ -822,7 +824,7 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(&config.read_windows) {
         return unavailable(id, "public_read_rate_limit");
     }
     let mut node = |request: &Value| {
@@ -840,15 +842,8 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Err(code) => return unavailable(id, code),
     };
     // Page before joining: a small requested page bounds native metadata reads.
-    let page = match wallet_contract::assets_page(records, height, cursor, limit, next_cursor) {
-        Ok(page) => page,
-        Err(code) => return unavailable(id, code),
-    };
-    let mut result = page;
-    let Some(records) = result["assets"].as_array_mut() else {
-        return unavailable(id, "invalid_asset_page");
-    };
-    for record in records {
+    let mut records = records;
+    for record in &mut records {
         let metadata = match custody_asset(&mut node, record, height) {
             Ok(value) => value,
             Err(code) => return unavailable(id, code),
@@ -863,7 +858,10 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
                     .clone(),
             );
     }
-    json!({"jsonrpc":"2.0","id":id,"result":result})
+    json!({"jsonrpc":"2.0","id":id,"result": {
+        "height": height, "assets": records, "joined_limit": MAX_JOINED_ASSETS,
+        "next_cursor": next_cursor.map(|cursor| cursor.to_string()), "order": "registration"
+    }})
 }
 
 fn decode_coins(answer: &[u8]) -> Result<Vec<Value>, &'static str> {
@@ -902,7 +900,7 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": wallet_contract::balances(resolution.document(), height, balances)
+        "result": {"account": resolution.document(), "height": height, "balances": balances}
     })
 }
 

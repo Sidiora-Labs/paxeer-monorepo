@@ -193,6 +193,9 @@ pub struct HumanPrepare {
 }
 
 impl HumanPrepare {
+    /// # Errors
+    /// Returns an error if the prepared nonce differs from the pending nonce observed at
+    /// admission.
     pub fn validate_pending_nonce(&self, pending: u64) -> Result<(), HumanRefusal> {
         if self.nonce != pending {
             return Err(HumanRefusal::StaleNonce {
@@ -705,6 +708,9 @@ impl HumanResponse {
         Self(height.to_be_bytes().to_vec())
     }
 
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn evidence(
         tx_hash: [u8; 32],
         receipt_hash: [u8; 32],
@@ -724,6 +730,9 @@ impl HumanResponse {
 /// Narrow adapter over the existing daemon operation owners. It deliberately
 /// has no sign method: Human custody supplies the public signature to submit.
 pub trait HumanOperations {
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_owner_context_v1(
         &mut self,
         _peer: &HumanPeer,
@@ -732,6 +741,9 @@ pub trait HumanOperations {
         Err(HumanOperationError::Refused)
     }
 
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_send_preview_v1(
         &mut self,
         _peer: &HumanPeer,
@@ -740,6 +752,9 @@ pub trait HumanOperations {
         Err(HumanOperationError::Refused)
     }
 
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_send_owner_preview_v1(
         &mut self,
         _peer: &HumanPeer,
@@ -748,6 +763,9 @@ pub trait HumanOperations {
         Err(HumanOperationError::Refused)
     }
 
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_journey_envelope_v1(
         &mut self,
         _peer: &HumanPeer,
@@ -755,6 +773,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_send_envelope_v1(
         &mut self,
         _peer: &HumanPeer,
@@ -762,6 +783,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_program_approval_list(
         &mut self,
         _peer: &HumanPeer,
@@ -770,6 +794,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_program_approval_get(
         &mut self,
         _peer: &HumanPeer,
@@ -777,6 +804,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_program_approval_material(
         &mut self,
         _peer: &HumanPeer,
@@ -785,6 +815,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_program_approval_budget(
         &mut self,
         _peer: &HumanPeer,
@@ -794,6 +827,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn native_program_approval_decide(
         &mut self,
         _peer: &HumanPeer,
@@ -805,6 +841,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Refused)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Refused`; this default implementation does not
+    /// provide the operation.
     fn agent_budget_proof(
         &mut self,
         _peer: &HumanPeer,
@@ -878,6 +917,9 @@ pub trait HumanOperations {
         approval_id: [u8; 32],
         current_sequence: u64,
     ) -> Result<HumanResponse, HumanOperationError>;
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn approval_list_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -887,6 +929,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn approval_get_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -895,6 +940,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_approval_list_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -903,6 +951,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_approval_get_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -910,6 +961,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_effect_approval_list_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -918,6 +972,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_effect_approval_get_facts(
         &mut self,
         _peer: &HumanPeer,
@@ -925,6 +982,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_effect_approval_decide(
         &mut self,
         _peer: &HumanPeer,
@@ -936,6 +996,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_effect_approval_material(
         &mut self,
         _peer: &HumanPeer,
@@ -944,6 +1007,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn native_effect_approval_budget(
         &mut self,
         _peer: &HumanPeer,
@@ -953,6 +1019,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn approval_budget_after(
         &mut self,
         _peer: &HumanPeer,
@@ -962,6 +1031,9 @@ pub trait HumanOperations {
     ) -> Result<HumanResponse, HumanOperationError> {
         Err(HumanOperationError::Unavailable)
     }
+    /// # Errors
+    /// Always returns `HumanOperationError::Unavailable`; this default implementation does not
+    /// provide the operation.
     fn managed_evidence(
         &mut self,
         _peer: &HumanPeer,
@@ -1429,19 +1501,6 @@ pub trait HumanOperations {
         request: layerx_agent_api::policy::PolicyDryRunRequest,
     ) -> Result<HumanResponse, HumanOperationError>;
     /// # Errors
-    /// Returns an error if authorization fails, an asserted context field disagrees with the
-    /// authenticated session, the session capability binding or purpose is absent, or the intent
-    /// is malformed.
-    fn policy_dry_run_legacy(
-        &mut self,
-        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-        control: &crate::session_control::SessionControl,
-        request: layerx_agent_api::identity::LegacyPolicyDryRun,
-    ) -> Result<
-        layerx_agent_api::budget::AuthorityResponse<layerx_agent_api::policy::PolicyDryRunResult>,
-        HumanOperationError,
-    >;
-    /// # Errors
     /// Returns an error if authorization or operation validation fails, or required state is unavailable.
     fn wait(
         &mut self,
@@ -1501,6 +1560,7 @@ pub enum HumanRefusal {
     ExportResponseTooLarge,
     ExportLevelUnattainable,
     Policy(crate::policy::PolicyDryRunRefusal),
+    ManagedAgent(crate::managed_agent::ManagedAgentCheck),
     BudgetCodec,
     BudgetExpired,
     BudgetStaleRevocation,
@@ -1534,6 +1594,7 @@ impl HumanRefusal {
             Self::ExportResponseTooLarge => "export.response_too_large",
             Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
+            Self::ManagedAgent(check) => check.reason(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
             Self::BudgetStaleRevocation => "budget.stale_revocation",
@@ -1578,6 +1639,7 @@ impl HumanRefusal {
             | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
+            | Self::ManagedAgent(_)
             | Self::PolicyContextMismatch(_)
             | Self::SessionBindingMissing
             | Self::SessionExpiryBindingMissing
@@ -1708,6 +1770,9 @@ impl<O> HumanUnixServer<O> {
     }
 
     /// Runs the authenticated production boundary until shutdown is requested.
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn serve_with(
         mut self,
         stop: &AtomicBool,
@@ -1797,9 +1862,15 @@ impl<O> HumanUnixServer<O> {
 }
 
 impl<O: HumanOperations + Send> HumanUnixServer<O> {
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn serve(self) -> Result<(), HumanProtocolError> {
         self.serve_until(&AtomicBool::new(false))
     }
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn serve_until(self, stop: &AtomicBool) -> Result<(), HumanProtocolError> {
         self.serve_with(stop, |owner, peer, request| {
             dispatch_request(request, peer, owner)
@@ -1860,6 +1931,9 @@ pub struct AcceptedTransport {
     maximum_queued_bytes: usize,
 }
 impl AcceptedTransport {
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn new(
         stream: UnixStream,
         maximum: usize,
@@ -1966,6 +2040,9 @@ pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
 }
 
 /// A peer-authenticated transport adapter for a concrete operation owner.
+/// # Errors
+/// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+/// transport fails.
 pub fn serve_one_with<T: HumanFrameTransport>(
     transport: &mut T,
     peer: &HumanPeer,
@@ -1999,6 +2076,7 @@ pub fn serve_one_with<T: HumanFrameTransport>(
         .map_err(HumanProtocolError::Transport)
 }
 
+#[must_use]
 pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Vec<u8> {
     let mut response = MAGIC.to_vec();
     match result {
@@ -2009,7 +2087,12 @@ pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Ve
         Err(HumanOperationError::Typed(HumanRefusal::StaleNonce { expected, pending })) => {
             response.push(1);
             let reason = b"prepare.stale_nonce";
-            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "The fixed prepare.stale_nonce reason is 19 bytes, below u32::MAX."
+            )]
+            let reason_length = reason.len() as u32;
+            response.extend_from_slice(&reason_length.to_be_bytes());
             response.extend_from_slice(reason);
             response.extend_from_slice(&expected.to_be_bytes());
             response.extend_from_slice(&pending.to_be_bytes());
@@ -2027,13 +2110,21 @@ pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Ve
                     return response;
                 }
             };
-            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "Every refusal reason is a fixed protocol literal shorter than u32::MAX; no caller-supplied text is encoded here."
+            )]
+            let reason_length = reason.len() as u32;
+            response.extend_from_slice(&reason_length.to_be_bytes());
             response.extend_from_slice(reason.as_bytes());
         }
     }
     response
 }
 
+/// # Errors
+/// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+/// transport fails.
 pub fn decode_request(bytes: Vec<u8>) -> Result<HumanRequest, HumanProtocolError> {
     let mut reader = Reader::new(bytes);
     if reader.fixed::<8>()? != *MAGIC {
@@ -2424,6 +2515,16 @@ fn dispatch_request<O: HumanOperations>(
             expected_activity_id,
         } => operations.receipt_by_idempotency_key(peer, idempotency_key, expected_activity_id),
         HumanRequest::Registry => operations.registry(peer),
+        request => dispatch_approval_request(request, peer, operations),
+    }
+}
+
+fn dispatch_approval_request<O: HumanOperations>(
+    request: HumanRequest,
+    peer: &HumanPeer,
+    operations: &mut O,
+) -> Result<HumanResponse, HumanOperationError> {
+    match request {
         HumanRequest::ApprovalList {
             current_sequence,
             cursor,
@@ -2492,6 +2593,16 @@ fn dispatch_request<O: HumanOperations>(
             approval_id,
             held_digest,
         } => operations.native_program_approval_material(peer, approval_id, held_digest),
+        request => dispatch_program_approval_request(request, peer, operations),
+    }
+}
+
+fn dispatch_program_approval_request<O: HumanOperations>(
+    request: HumanRequest,
+    peer: &HumanPeer,
+    operations: &mut O,
+) -> Result<HumanResponse, HumanOperationError> {
+    match request {
         HumanRequest::NativeProgramApprovalBudgetV5 {
             approval_id,
             held_digest,
@@ -2561,6 +2672,16 @@ fn dispatch_request<O: HumanOperations>(
             request_digest,
         } => operations.session_seed_prepare(peer, &agent, action_key, request_digest),
         HumanRequest::Head => operations.head(peer),
+        request => dispatch_account_request(request, peer, operations),
+    }
+}
+
+fn dispatch_account_request<O: HumanOperations>(
+    request: HumanRequest,
+    peer: &HumanPeer,
+    operations: &mut O,
+) -> Result<HumanResponse, HumanOperationError> {
+    match request {
         HumanRequest::Evidence {
             idempotency_key,
             tx_hash,
@@ -2749,6 +2870,15 @@ fn decode_operation(
                 local_grant,
             })
         }
+        _ => return decode_native_send_request(operation, reader),
+    })
+}
+
+fn decode_native_send_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         NATIVE_SEND_OWNER_PREVIEW_V1 => {
             if reader.u16()? != 1 {
                 return Err(HumanProtocolError::Malformed);
@@ -2811,6 +2941,15 @@ fn decode_operation(
                 HumanRequest::NativeSendEnvelopeV1(HumanNativeSendEnvelopeV1 { envelope })
             }
         }
+        _ => return decode_native_effect_request(operation, reader),
+    })
+}
+
+fn decode_native_effect_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         PREPARE => {
             let envelope = mutation_header(reader)?;
             HumanRequest::Prepare(MutationEnvelope {
@@ -2880,6 +3019,15 @@ fn decode_operation(
             },
             limit: reader.u8()?,
         },
+        _ => return decode_approval_request(operation, reader),
+    })
+}
+
+fn decode_approval_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         APPROVAL_GET_FACTS_V2 => HumanRequest::ApprovalGetFactsV2 {
             approval_id: reader.fixed()?,
             current_sequence: reader.u64()?,
@@ -2903,6 +3051,15 @@ fn decode_operation(
             }
             HumanRequest::NativeApprovalGetFactsV2 { approval_id }
         }
+        _ => return decode_program_approval_request(operation, reader),
+    })
+}
+
+fn decode_program_approval_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         NATIVE_PROGRAM_APPROVAL_LIST_V5
         | NATIVE_PROGRAM_APPROVAL_GET_V5
         | NATIVE_PROGRAM_APPROVAL_MATERIAL_V5
@@ -2977,6 +3134,15 @@ fn decode_operation(
                 }
             }
         }
+        _ => return decode_owner_request(operation, reader),
+    })
+}
+
+fn decode_owner_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         NATIVE_EFFECT_APPROVAL_LIST_V3 => {
             let cursor = match reader.u8()? {
                 0 => None,
@@ -2986,14 +3152,14 @@ fn decode_operation(
             let limit = reader.u8()?;
             if !(1..=100).contains(&limit) || cursor == Some([0; 32]) {
                 return Err(HumanProtocolError::Malformed);
-            };
+            }
             HumanRequest::NativeEffectApprovalListV3 { cursor, limit }
         }
         NATIVE_EFFECT_APPROVAL_GET_V3 => {
             let approval_id = reader.fixed()?;
             if approval_id == [0; 32] {
                 return Err(HumanProtocolError::Malformed);
-            };
+            }
             HumanRequest::NativeEffectApprovalGetV3 { approval_id }
         }
         NATIVE_EFFECT_APPROVAL_DECIDE_V3 => {
@@ -3008,7 +3174,7 @@ fn decode_operation(
             let current_sequence = reader.u64()?;
             if approval_id == [0; 32] || held_digest == [0; 32] || current_sequence == 0 {
                 return Err(HumanProtocolError::Malformed);
-            };
+            }
             HumanRequest::NativeEffectApprovalDecideV3 {
                 approval_id,
                 held_digest,
@@ -3032,7 +3198,7 @@ fn decode_operation(
                 let current_sequence = reader.u64()?;
                 if current_sequence == 0 {
                     return Err(HumanProtocolError::Malformed);
-                };
+                }
                 HumanRequest::NativeEffectApprovalBudgetV4 {
                     approval_id,
                     held_digest,
@@ -3049,6 +3215,15 @@ fn decode_operation(
             agent_id: reader.text()?,
             digest: reader.fixed()?,
         },
+        _ => return decode_session_request(operation, reader),
+    })
+}
+
+fn decode_session_request(
+    operation: u8,
+    reader: &mut Reader,
+) -> Result<HumanRequest, HumanProtocolError> {
+    Ok(match operation {
         APPROVAL_APPROVE | APPROVAL_REJECT => {
             let approval_id = reader.fixed()?;
             let held_digest = reader.fixed()?;
@@ -3631,6 +3806,9 @@ impl HumanJourneyRequestV1 {
             _ => Err(HumanProtocolError::Malformed),
         }
     }
+    /// # Errors
+    /// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+    /// transport fails.
     pub fn encode(&self) -> Result<Vec<u8>, HumanProtocolError> {
         self.validate()?;
         let mut out = MAGIC.to_vec();
@@ -3640,17 +3818,21 @@ impl HumanJourneyRequestV1 {
             HumanAgentJourneyKind::Reclaim { .. } => 0,
             HumanAgentJourneyKind::Rotate { .. } => 1,
             HumanAgentJourneyKind::Recover { .. } => 2,
-            _ => return Err(HumanProtocolError::Malformed),
+            HumanAgentJourneyKind::OwnerRotated { .. } => {
+                return Err(HumanProtocolError::Malformed)
+            }
         });
-        let text = |out: &mut Vec<u8>, value: &str| {
-            out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+        let text = |out: &mut Vec<u8>, value: &str| -> Result<(), HumanProtocolError> {
+            let length = u32::try_from(value.len()).map_err(|_| HumanProtocolError::Malformed)?;
+            out.extend_from_slice(&length.to_be_bytes());
             out.extend_from_slice(value.as_bytes());
+            Ok(())
         };
-        text(&mut out, &self.agent_id);
+        text(&mut out, &self.agent_id)?;
         match &self.kind {
             HumanAgentJourneyKind::Reclaim { amount, currency } => {
                 out.extend_from_slice(&amount.to_be_bytes());
-                text(&mut out, currency);
+                text(&mut out, currency)?;
             }
             HumanAgentJourneyKind::Rotate {
                 challenge_delay_seconds,
@@ -3663,7 +3845,9 @@ impl HumanJourneyRequestV1 {
                 out.extend_from_slice(&challenge_delay_seconds.to_be_bytes());
                 out.extend_from_slice(&ready_at.to_be_bytes());
             }
-            _ => return Err(HumanProtocolError::Malformed),
+            HumanAgentJourneyKind::OwnerRotated { .. } => {
+                return Err(HumanProtocolError::Malformed)
+            }
         }
         out.extend_from_slice(&self.pre_observation);
         out.extend_from_slice(&self.post_observation);
@@ -3678,6 +3862,7 @@ impl HumanJourneyRequestV1 {
     }
 }
 
+#[must_use]
 pub const fn capability_refusal_reason(dimension: crate::capability::Dimension) -> &'static str {
     use crate::capability::Dimension;
     match dimension {
@@ -3704,6 +3889,9 @@ pub enum HumanWireResponse {
     Unavailable,
 }
 /// Lossless consumer; rejects unknown status, oversized fields and trailing refusal details.
+/// # Errors
+/// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+/// transport fails.
 pub fn decode_response(bytes: Vec<u8>) -> Result<HumanWireResponse, HumanProtocolError> {
     if bytes.len() > MAX_BYTES {
         return Err(HumanProtocolError::Malformed);
@@ -3741,6 +3929,9 @@ pub fn decode_response(bytes: Vec<u8>) -> Result<HumanWireResponse, HumanProtoco
 }
 
 /// Producer for lifecycle requests whose finalization fields share one wire codec.
+/// # Errors
+/// Returns an error if the frame is malformed, the peer is unauthenticated, or protocol
+/// transport fails.
 pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, HumanProtocolError> {
     if let HumanRequest::AgentJourney {
         agent_id,
@@ -3764,7 +3955,9 @@ pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, Human
         if value.is_empty() || value.len() > MAX_TEXT {
             return Err(HumanProtocolError::Malformed);
         }
-        out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+        out.extend_from_slice(
+            &(u32::try_from(value.len()).map_err(|_| HumanProtocolError::Malformed)?).to_be_bytes(),
+        );
         out.extend_from_slice(value.as_bytes());
         Ok(())
     };
@@ -3824,6 +4017,8 @@ pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, Human
 }
 
 /// Explicitly refuses removed Human startup controls instead of accepting inert settings.
+/// # Errors
+/// Returns an error when a retired configuration or input is present.
 pub fn refuse_retired_human_inputs(
     names: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> Result<(), String> {
@@ -3845,6 +4040,9 @@ pub fn refuse_retired_human_inputs(
     Ok(())
 }
 
+/// # Errors
+/// Returns an error if the environment or protected configuration is missing, malformed,
+/// unsupported or unreadable.
 pub fn human_frame_limits(
     deadline: Duration,
     mut required: impl FnMut(&str) -> Result<String, String>,

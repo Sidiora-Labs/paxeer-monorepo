@@ -27,7 +27,7 @@ use sha2::{Digest as _, Sha256};
 use std::time::Duration;
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 
 fn base64(bytes: &[u8]) -> String {
@@ -41,7 +41,11 @@ fn base64(bytes: &[u8]) -> String {
             encoded.push(if index > chunk.len() {
                 '='
             } else {
-                char::from(ALPHABET[((word >> (18 - 6 * index)) & 63) as usize])
+                char::from(
+                    ALPHABET[usize::try_from((word >> (18 - 6 * index)) & 63).unwrap_or_else(
+                        |error| panic!("fixture integer must fit usize: {error:?}"),
+                    )],
+                )
             });
         }
     }
@@ -60,7 +64,7 @@ fn authority() -> NodeCommitAuthority {
         1000,
         1001,
     )
-    .expect("independently pinned Comet authority")
+    .unwrap_or_else(|error| panic!("independently pinned Comet authority: {error:?}"))
 }
 
 fn wallet<'a>(
@@ -78,25 +82,32 @@ fn wallet<'a>(
 
 fn payment(node: &Node) -> VerifiedRpcReceipt {
     let rpc = node.rpc();
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("wallet owner");
+    let owner =
+        derive_from_seed(&[0x41; 32], 0).unwrap_or_else(|error| panic!("wallet owner: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     run(wallet(&rpc, &signer, &policy).payment(Payment::OpenAccount { asset: [3; 32] }, &options()))
-        .expect("signed payment through production SDK transport and receipt verifier")
+        .unwrap_or_else(|error| {
+            panic!(
+                "signed payment through production SDK transport and receipt verifier: {error:?}"
+            )
+        })
 }
 
 fn activity(receipt: &VerifiedRpcReceipt) -> [u8; 32] {
     receipt
         .receipt()
         .protocol()
-        .expect("protocol receipt")
+        .unwrap_or_else(|| panic!("protocol receipt"))
         .activity_id()
 }
 
 fn batch_requests(node: &Node) -> Vec<Value> {
-    node.state.lock().expect("node store")["requests"]
+    node.state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["requests"]
         .as_array()
-        .expect("request journal")
+        .unwrap_or_else(|| panic!("request journal"))
         .iter()
         .filter(|request| request["method"] == "px_getSequenceBatch")
         .map(|request| request["params"].clone())
@@ -117,69 +128,14 @@ struct CommitFixture {
     block_hash: [u8; 32],
 }
 impl CommitFixture {
-    fn publish(node: &Node, receipt: &VerifiedRpcReceipt, height: u64) -> Self {
-        let protocol = receipt.receipt().protocol().expect("protocol receipt");
-        let activity = protocol.activity_id();
-        let receipt_key = SigningKey::from_bytes(&[0x5e; 32]);
-        let validator_key = SigningKey::from_bytes(&[0x72; 32]);
-        let validator = TrustedValidator::new(validator_key.verifying_key().to_bytes(), 10);
-        let verifier = ChainProofVerifier {
-            chain_id: "served-batch-wait".into(),
-            validators: ValidatorSet::new(vec![validator.clone()]).expect("pinned validator set"),
-        };
-        let mut batch = SequenceBatch {
-            height,
-            from_sequence: protocol.global_sequence(),
-            to_sequence: protocol.global_sequence(),
-            previous_root: protocol.previous_state_root(),
-            resulting_root: protocol.resulting_state_root(),
-            activity_root: Sha256::digest(activity).into(),
-            key_id: Sha256::digest(receipt_key.verifying_key().as_bytes()).into(),
-            signature: [0; 64],
-        };
-        batch.signature = receipt_key
-            .sign(
-                &batch
-                    .signing_digest(&verifier.chain_id)
-                    .expect("batch digest"),
-            )
-            .to_bytes();
-        let batch_transaction = batch.encode().expect("production sequence-batch encoder");
-        let leaf_hash: [u8; 32] = Sha256::new()
-            .chain_update([0])
-            .chain_update(Sha256::digest(&batch_transaction))
-            .finalize()
-            .into();
-        let proof = SimpleProof {
-            total: 1,
-            index: 0,
-            leaf_hash,
-            aunts: vec![],
-        };
-        let header = ChainHeader {
-            version: HeaderVersion { block: 11, app: 1 },
-            chain_id: verifier.chain_id.clone(),
-            height: height as i64,
-            time: HeaderTime {
-                seconds: 1000,
-                nanos: 0,
-            },
-            last_block_id: HeaderBlockId {
-                hash: vec![0x33; 32],
-                part_set_total: 1,
-                part_set_hash: vec![0x33; 32],
-            },
-            last_commit_hash: vec![0x33; 32],
-            data_hash: leaf_hash.to_vec(),
-            validators_hash: verifier.validators.hash().to_vec(),
-            next_validators_hash: verifier.validators.hash().to_vec(),
-            consensus_hash: vec![0x33; 32],
-            app_hash: protocol.resulting_state_root().to_vec(),
-            last_results_hash: vec![0x33; 32],
-            evidence_hash: vec![0x33; 32],
-            proposer_address: validator.address.to_vec(),
-        };
-        let block_hash = header.hash().expect("production Comet header hash");
+    fn signed_header(
+        verifier: &ChainProofVerifier,
+        header: &ChainHeader,
+        block_hash: [u8; 32],
+        validator: &TrustedValidator,
+        validator_key: &SigningKey,
+        height: u64,
+    ) -> Value {
         let block_id = BlockId {
             hash: block_hash.to_vec(),
             part_set_header: PartSetHeader {
@@ -191,7 +147,8 @@ impl CommitFixture {
             .sign(
                 &vote_sign_bytes(
                     &verifier.chain_id,
-                    height as i64,
+                    i64::try_from(height)
+                        .unwrap_or_else(|error| panic!("fixture integer must fit i64: {error:?}")),
                     0,
                     Some(&block_id),
                     Timestamp {
@@ -199,12 +156,12 @@ impl CommitFixture {
                         nanos: 0,
                     },
                 )
-                .expect("production Comet vote encoder"),
+                .unwrap_or_else(|error| panic!("production Comet vote encoder: {error:?}")),
             )
             .to_bytes();
         let id_json = json!({"hash":hex(&block_hash),
             "parts":{"total":1,"hash":hex(&[0x33; 32])}});
-        let signed = json!({
+        json!({
             "header":{
                 "version":{"block":"11","app":"1"}, "chain_id":verifier.chain_id,
                 "height":height.to_string(), "time":"1970-01-01T00:16:40Z",
@@ -220,15 +177,116 @@ impl CommitFixture {
             "commit":{"height":height.to_string(),"round":0,"block_id":id_json,
                 "signatures":[{"block_id_flag":2,"validator_address":hex(&validator.address),
                     "timestamp":"1970-01-01T00:16:40Z","signature":base64(&signature)}]}
-        });
-        let mut state = node.state.lock().expect("node store");
+        })
+    }
+
+    fn header(
+        verifier: &ChainProofVerifier,
+        validator: &TrustedValidator,
+        leaf_hash: [u8; 32],
+        resulting_root: [u8; 32],
+        height: u64,
+    ) -> ChainHeader {
+        ChainHeader {
+            version: HeaderVersion { block: 11, app: 1 },
+            chain_id: verifier.chain_id.clone(),
+            height: i64::try_from(height)
+                .unwrap_or_else(|error| panic!("fixture integer must fit i64: {error:?}")),
+            time: HeaderTime {
+                seconds: 1000,
+                nanos: 0,
+            },
+            last_block_id: HeaderBlockId {
+                hash: vec![0x33; 32],
+                part_set_total: 1,
+                part_set_hash: vec![0x33; 32],
+            },
+            last_commit_hash: vec![0x33; 32],
+            data_hash: leaf_hash.to_vec(),
+            validators_hash: verifier.validators.hash().to_vec(),
+            next_validators_hash: verifier.validators.hash().to_vec(),
+            consensus_hash: vec![0x33; 32],
+            app_hash: resulting_root.to_vec(),
+            last_results_hash: vec![0x33; 32],
+            evidence_hash: vec![0x33; 32],
+            proposer_address: validator.address.to_vec(),
+        }
+    }
+
+    fn publish(node: &Node, receipt: &VerifiedRpcReceipt, height: u64) -> Self {
+        let protocol = receipt
+            .receipt()
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt"));
+        let activity = protocol.activity_id();
+        let receipt_key = SigningKey::from_bytes(&[0x5e; 32]);
+        let validator_key = SigningKey::from_bytes(&[0x72; 32]);
+        let validator = TrustedValidator::new(validator_key.verifying_key().to_bytes(), 10);
+        let verifier = ChainProofVerifier {
+            chain_id: "served-batch-wait".into(),
+            validators: ValidatorSet::new(vec![validator.clone()])
+                .unwrap_or_else(|error| panic!("pinned validator set: {error:?}")),
+        };
+        let mut batch = SequenceBatch {
+            height,
+            from_sequence: protocol.global_sequence(),
+            to_sequence: protocol.global_sequence(),
+            previous_root: protocol.previous_state_root(),
+            resulting_root: protocol.resulting_state_root(),
+            activity_root: Sha256::digest(activity).into(),
+            key_id: Sha256::digest(receipt_key.verifying_key().as_bytes()).into(),
+            signature: [0; 64],
+        };
+        batch.signature = receipt_key
+            .sign(
+                &batch
+                    .signing_digest(&verifier.chain_id)
+                    .unwrap_or_else(|error| panic!("batch digest: {error:?}")),
+            )
+            .to_bytes();
+        let batch_transaction = batch
+            .encode()
+            .unwrap_or_else(|error| panic!("production sequence-batch encoder: {error:?}"));
+        let leaf_hash: [u8; 32] = Sha256::new()
+            .chain_update([0])
+            .chain_update(Sha256::digest(&batch_transaction))
+            .finalize()
+            .into();
+        let proof = SimpleProof {
+            total: 1,
+            index: 0,
+            leaf_hash,
+            aunts: vec![],
+        };
+        let header = Self::header(
+            &verifier,
+            &validator,
+            leaf_hash,
+            protocol.resulting_state_root(),
+            height,
+        );
+        let block_hash = header
+            .hash()
+            .unwrap_or_else(|error| panic!("production Comet header hash: {error:?}"));
+        let signed = Self::signed_header(
+            &verifier,
+            &header,
+            block_hash,
+            &validator,
+            &validator_key,
+            height,
+        );
+        let mut state = node
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("node store: {error:?}"));
         let summary = &mut state["receipts"][format!("0x{}", hex(&activity))];
         summary["rung"] = json!("committed");
         summary["blockNumber"] = json!(format!("0x{height:x}"));
         summary["blockHash"] = json!(format!("0x{}", hex(&block_hash)));
         let record = json!({"receiptJson":summary.clone(), "activityIds":[format!("0x{}", hex(&activity))],
             "commit":{"signed_header":signed},
-            "batch":{"height":height.to_string(), "tx":format!("0x{}",hex(&batch_transaction)),
+            "batch":{"height":height.to_string(), "activityIds":[format!("0x{}", hex(&activity))], "tx":format!("0x{}",hex(&batch_transaction)),
                 "proof":{"total":proof.total, "index":proof.index,
                     "leafHash":format!("0x{}",hex(&proof.leaf_hash)), "aunts":[]}}});
         if !state["committed_by_height"].is_object() {
@@ -267,8 +325,8 @@ fn px_getSequenceBatch() {
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority");
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("owner");
+        .unwrap_or_else(|error| panic!("authority: {error:?}"));
+    let owner = derive_from_seed(&[0x41; 32], 0).unwrap_or_else(|error| panic!("owner: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     let wallet = wallet(&rpc, &signer, &policy);
@@ -279,7 +337,7 @@ fn px_getSequenceBatch() {
     ] {
         let committed = wallet
             .wait_for_submitted(submitted, Commitment::Committed, Duration::from_secs(5))
-            .expect("coverage of this wait's height");
+            .unwrap_or_else(|error| panic!("coverage of this wait's height: {error:?}"));
         assert_eq!(committed.committed_block(), Some(expected));
         assert_eq!(committed.rung(), Rung::Committed);
         assert_eq!(
@@ -302,7 +360,10 @@ fn batch_not_covering_the_receipt_is_refused() {
     let second = payment(&node);
     let different_batch = CommitFixture::publish(&node, &second, 1000);
     {
-        let mut state = node.state.lock().expect("node store");
+        let mut state = node
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("node store: {error:?}"));
         // A genuine signed block and valid batch proof at the requested height,
         // but this batch covers the other submitted activity and sequence.
         state["receipts"][format!("0x{}", hex(&activity(&first)))]["blockHash"] =
@@ -311,7 +372,7 @@ fn batch_not_covering_the_receipt_is_refused() {
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority");
+        .unwrap_or_else(|error| panic!("authority: {error:?}"));
     assert!(matches!(wait(&rpc, &first), Err(RpcError::Verification)));
     assert_eq!(batch_requests(&node), vec![json!(["1000"])]);
 }
@@ -321,11 +382,15 @@ fn malformed_or_unbound_served_proofs_are_refused() {
     let node = Node::start(false);
     let receipt = payment(&node);
     CommitFixture::publish(&node, &receipt, 1000);
-    let original = node.state.lock().expect("node store")["committed_by_height"]["1000"].clone();
+    let original = node
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["committed_by_height"]["1000"]
+        .clone();
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority");
+        .unwrap_or_else(|error| panic!("authority: {error:?}"));
     for (path, replacement) in [
         ("/batch/height", json!("1001")),
         (
@@ -339,12 +404,20 @@ fn malformed_or_unbound_served_proofs_are_refused() {
             json!([format!("0x{}", hex(&[0; 32]))]),
         ),
         ("/batch/tx", json!("0x00")),
-        ("/activityIds/0", json!(format!("0x{}", hex(&[0x88; 32])))),
-        ("/activityIds", json!([])),
+        (
+            "/batch/activityIds/0",
+            json!(format!("0x{}", hex(&[0x88; 32]))),
+        ),
+        ("/batch/activityIds", json!([])),
     ] {
         let mut changed = original.clone();
-        *changed.pointer_mut(path).expect("served field") = replacement;
-        node.state.lock().expect("node store")["committed_by_height"]["1000"] = changed;
+        *changed
+            .pointer_mut(path)
+            .unwrap_or_else(|| panic!("served field")) = replacement;
+        node.state
+            .lock()
+            .unwrap_or_else(|error| panic!("node store: {error:?}"))["committed_by_height"]
+            ["1000"] = changed;
         assert!(
             matches!(wait(&rpc, &receipt), Err(RpcError::Verification)),
             "accepted {path}"
@@ -358,13 +431,15 @@ fn no_sequence_batch_is_a_verification_refusal() {
     let node = Node::start(false);
     let receipt = payment(&node);
     CommitFixture::publish(&node, &receipt, 1000);
-    node.state.lock().expect("node store")["batch_error"] = json!({
-        "code":-32602, "message":"Invalid params", "data":{"code":"no_sequence_batch"}
+    node.state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["batch_error"] = json!({
+        "code":-32_602, "message":"Invalid params", "data":{"code":"no_sequence_batch"}
     });
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority");
+        .unwrap_or_else(|error| panic!("authority: {error:?}"));
     assert!(matches!(wait(&rpc, &receipt), Err(RpcError::Verification)));
     assert_eq!(batch_requests(&node), vec![json!(["1000"])]);
 }
@@ -374,8 +449,10 @@ fn coverage_override_is_explicit_and_never_replaces_verification() {
     let node = Node::start(false);
     let receipt = payment(&node);
     let committed = CommitFixture::publish(&node, &receipt, 1000);
-    node.state.lock().expect("node store")["batch_error"] = json!({
-        "code":-32602, "message":"Invalid params", "data":{"code":"no_sequence_batch"}
+    node.state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["batch_error"] = json!({
+        "code":-32_602, "message":"Invalid params", "data":{"code":"no_sequence_batch"}
     });
     assert!(matches!(
         node.rpc()
@@ -385,15 +462,17 @@ fn coverage_override_is_explicit_and_never_replaces_verification() {
     let live = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority");
+        .unwrap_or_else(|error| panic!("authority: {error:?}"));
     assert!(matches!(wait(&live, &receipt), Err(RpcError::Verification)));
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority")
+        .unwrap_or_else(|error| panic!("authority: {error:?}"))
         .with_node_commit_coverage_override(committed.coverage.clone())
-        .expect("explicit fixture override");
-    let result = wait(&rpc, &receipt).expect("explicit coverage still verifies Comet and batch");
+        .unwrap_or_else(|error| panic!("explicit fixture override: {error:?}"));
+    let result = wait(&rpc, &receipt).unwrap_or_else(|error| {
+        panic!("explicit coverage still verifies Comet and batch: {error:?}")
+    });
     assert_eq!(result.committed_block(), Some((1000, committed.block_hash)));
     assert_eq!(batch_requests(&node).len(), 1);
     let mut invalid = committed.coverage.clone();
@@ -401,9 +480,9 @@ fn coverage_override_is_explicit_and_never_replaces_verification() {
     let invalid_rpc = node
         .rpc()
         .with_node_commit_authority(authority())
-        .expect("authority")
+        .unwrap_or_else(|error| panic!("authority: {error:?}"))
         .with_node_commit_coverage_override(invalid)
-        .expect("well-shaped override");
+        .unwrap_or_else(|error| panic!("well-shaped override: {error:?}"));
     assert!(matches!(
         wait(&invalid_rpc, &receipt),
         Err(RpcError::Verification)
@@ -411,7 +490,7 @@ fn coverage_override_is_explicit_and_never_replaces_verification() {
     assert_eq!(batch_requests(&node).len(), 1);
     let reset = rpc
         .with_node_commit_authority(authority())
-        .expect("replace trust and clear override");
+        .unwrap_or_else(|error| panic!("replace trust and clear override: {error:?}"));
     assert!(matches!(
         wait(&reset, &receipt),
         Err(RpcError::Verification)

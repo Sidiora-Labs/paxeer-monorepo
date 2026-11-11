@@ -1,19 +1,290 @@
 //! Checked common identities, immutable bindings, and bounded records.
 use crate::errors::{CodecResult, ARITHMETIC, F03_SCORE_RANGE, NON_CANONICAL};
 
+/// Bounds-checked access to internal storage, trapping guest invariant failures
+/// without constructing a formatted panic. Native callers retain Rust indexing.
+#[doc(hidden)]
+pub trait GuestIndex<T> {
+    fn guest_index<I: core::slice::SliceIndex<[T]>>(&self, index: I) -> &I::Output;
+    fn guest_index_mut<I: core::slice::SliceIndex<[T]>>(&mut self, index: I) -> &mut I::Output;
+    fn guest_split_at(&self, mid: usize) -> (&[T], &[T]);
+    fn guest_split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]);
+    fn guest_copy_from_slice(&mut self, source: &[T])
+    where
+        T: Copy;
+    fn guest_copy_within<R: core::ops::RangeBounds<usize>>(&mut self, source: R, dest: usize)
+    where
+        T: Copy;
+    fn guest_swap(&mut self, a: usize, b: usize);
+    fn guest_chunks_exact(&self, size: usize) -> core::slice::ChunksExact<'_, T>;
+}
+
+impl<T> GuestIndex<T> for [T] {
+    #[inline(always)]
+    fn guest_index<I: core::slice::SliceIndex<[T]>>(&self, index: I) -> &I::Output {
+        #[cfg(target_arch = "wasm32")]
+        {
+            match self.get(index) {
+                Some(value) => value,
+                None => core::arch::wasm32::unreachable(),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        &self[index]
+    }
+
+    #[inline(always)]
+    fn guest_index_mut<I: core::slice::SliceIndex<[T]>>(&mut self, index: I) -> &mut I::Output {
+        #[cfg(target_arch = "wasm32")]
+        {
+            match self.get_mut(index) {
+                Some(value) => value,
+                None => core::arch::wasm32::unreachable(),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        &mut self[index]
+    }
+
+    #[inline(always)]
+    fn guest_split_at(&self, mid: usize) -> (&[T], &[T]) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            match self.split_at_checked(mid) {
+                Some(value) => value,
+                None => core::arch::wasm32::unreachable(),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.split_at(mid)
+    }
+
+    #[inline(always)]
+    fn guest_split_at_mut(&mut self, mid: usize) -> (&mut [T], &mut [T]) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            match self.split_at_mut_checked(mid) {
+                Some(value) => value,
+                None => core::arch::wasm32::unreachable(),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.split_at_mut(mid)
+    }
+
+    #[inline(always)]
+    fn guest_copy_from_slice(&mut self, source: &[T])
+    where
+        T: Copy,
+    {
+        #[cfg(target_arch = "wasm32")]
+        crate::guest_cell::copy_slice(self, source);
+        #[cfg(not(target_arch = "wasm32"))]
+        self.copy_from_slice(source);
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    #[cfg_attr(not(target_arch = "wasm32"), inline(always))]
+    fn guest_copy_within<R: core::ops::RangeBounds<usize>>(&mut self, source: R, dest: usize)
+    where
+        T: Copy,
+    {
+        #[cfg(target_arch = "wasm32")]
+        {
+            use core::ops::Bound;
+            let start = match source.start_bound() {
+                Bound::Included(n) => *n,
+                Bound::Excluded(n) => n
+                    .checked_add(1)
+                    .unwrap_or_else(|| core::arch::wasm32::unreachable()),
+                Bound::Unbounded => 0,
+            };
+            let end = match source.end_bound() {
+                Bound::Excluded(n) => *n,
+                Bound::Included(n) => n
+                    .checked_add(1)
+                    .unwrap_or_else(|| core::arch::wasm32::unreachable()),
+                Bound::Unbounded => self.len(),
+            };
+            crate::guest_cell::copy_within(self, start, end, dest);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.copy_within(source, dest);
+    }
+
+    #[inline(always)]
+    fn guest_swap(&mut self, a: usize, b: usize) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if a == b {
+                self.guest_index(a);
+                return;
+            }
+            let (a, b) = if a < b { (a, b) } else { (b, a) };
+            let (left, right) = self.guest_split_at_mut(b);
+            core::mem::swap(left.guest_index_mut(a), right.guest_index_mut(0));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.swap(a, b);
+    }
+
+    #[inline(always)]
+    fn guest_chunks_exact(&self, size: usize) -> core::slice::ChunksExact<'_, T> {
+        #[cfg(target_arch = "wasm32")]
+        if size == 0 {
+            core::arch::wasm32::unreachable();
+        }
+        self.chunks_exact(size)
+    }
+}
+
+/// Borrowed identity bytes whose nonzero invariant has already been checked.
+/// Only this constructor can create the proof; typed identities copy directly
+/// from the wire after the shared reader validates it.
+#[derive(Clone, Copy)]
+pub(crate) struct CheckedIdentityBytes<'a>(&'a [u8; 32]);
+impl<'a> CheckedIdentityBytes<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn new(bytes: &'a [u8; 32]) -> CodecResult<Self> {
+        Self::new_inline(bytes)
+    }
+    #[inline(always)]
+    pub(crate) fn new_inline(bytes: &'a [u8; 32]) -> CodecResult<Self> {
+        if identity_is_zero(bytes) {
+            Err(NON_CANONICAL)
+        } else {
+            Ok(Self(bytes))
+        }
+    }
+    pub(crate) fn bytes(self) -> &'a [u8; 32] {
+        self.0
+    }
+}
+
+/// Private initialization for a fully overwritten decoder destination. Identity
+/// scratch uses the valid nonzero constant [1; 32]; the ordered reader overwrites
+/// every field before exposing a record. Malformed input returns an error without
+/// exposing the partially written destination.
+pub(crate) trait InitialField {
+    fn initial(seed: CheckedIdentityBytes<'_>) -> Self;
+}
+pub(crate) trait CheckedIdentity {
+    fn seed(&self) -> CheckedIdentityBytes<'_>;
+}
+macro_rules! initial_scalar {
+    ($($ty:ty => $value:expr),+ $(,)?) => {$(
+        impl InitialField for $ty {
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { $value }
+        }
+    )+};
+}
+initial_scalar! {
+    u8 => 0, u16 => 0, u32 => 0, u64 => 0, u128 => 0, bool => false,
+    Version => Version(core::num::NonZeroU64::MIN), Score => Score(0),
+    PublicKey32 => PublicKey32([0; 32]), Signature64 => Signature64([0; 64]),
+}
+impl<const N: usize> InitialField for [u8; N] {
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
+        [0; N]
+    }
+}
+impl<T> InitialField for Presence<T> {
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
+        Self::Absent
+    }
+}
+
+#[inline(never)]
+pub(crate) fn identity_equal(left: &[u8; 32], right: &[u8; 32]) -> bool {
+    identity_equal_inline(left, right)
+}
+
+#[inline(always)]
+pub(crate) fn identity_equal_inline(left: &[u8; 32], right: &[u8; 32]) -> bool {
+    let left = left.as_chunks::<8>().0;
+    let right = right.as_chunks::<8>().0;
+    (u64::from_ne_bytes(left[0]) ^ u64::from_ne_bytes(right[0]))
+        | (u64::from_ne_bytes(left[1]) ^ u64::from_ne_bytes(right[1]))
+        | (u64::from_ne_bytes(left[2]) ^ u64::from_ne_bytes(right[2]))
+        | (u64::from_ne_bytes(left[3]) ^ u64::from_ne_bytes(right[3]))
+        == 0
+}
+
+/// Lexicographic byte order, comparing equal eight-byte words in one step.
+/// Only the first different word needs a byte comparison.
+#[inline(never)]
+pub(crate) fn identity_order(left: &[u8; 32], right: &[u8; 32]) -> core::cmp::Ordering {
+    for (left, right) in left.as_chunks::<8>().0.iter().zip(right.as_chunks::<8>().0) {
+        let left = u64::from_le_bytes(*left);
+        let right = u64::from_le_bytes(*right);
+        let different = left ^ right;
+        if different != 0 {
+            // Select the first differing byte without swapping both words.
+            let shift = different.trailing_zeros() & !7;
+            return ((left >> shift) as u8).cmp(&((right >> shift) as u8));
+        }
+    }
+    core::cmp::Ordering::Equal
+}
+
+#[inline(always)]
+fn identity_is_zero(bytes: &[u8; 32]) -> bool {
+    let words = bytes.as_chunks::<8>().0;
+    u64::from_ne_bytes(words[0])
+        | u64::from_ne_bytes(words[1])
+        | u64::from_ne_bytes(words[2])
+        | u64::from_ne_bytes(words[3])
+        == 0
+}
+
+macro_rules! identity_comparison {
+    ($name:ident) => {
+        impl Ord for $name {
+            #[inline]
+            fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+                identity_order(self.as_bytes(), other.as_bytes())
+            }
+        }
+        impl PartialOrd for $name {
+            #[inline]
+            fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+        impl PartialEq for $name {
+            #[inline]
+            fn eq(&self, other: &Self) -> bool {
+                identity_equal(self.as_bytes(), other.as_bytes())
+            }
+        }
+    };
+}
+
 macro_rules! id32 {
     ($($name:ident),+ $(,)?) => {$ (
-        #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[derive(Clone, Copy, Eq, Hash)]
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name([u8; 32]);
+        identity_comparison!($name);
+        impl InitialField for $name {
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            #[cfg_attr(not(target_arch = "wasm32"), inline)]
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { Self([1; 32]) }
+        }
+        impl CheckedIdentity for $name {
+            fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
+        }
         impl $name {
+            #[inline]
+            pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(*bytes.bytes()) }
+            pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0 }
             /// Builds the identity from its 32 bytes.
             ///
             /// # Errors
             /// Returns `NON_CANONICAL` when the bytes are all zero.
             #[cfg_attr(target_arch = "wasm32", inline(never))]
             pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-                if bytes == [0; 32] { Err(NON_CANONICAL) } else { Ok(Self(bytes)) }
+                if identity_is_zero(&bytes) { Err(NON_CANONICAL) } else { Ok(Self(bytes)) }
             }
             pub const fn bytes(self) -> [u8; 32] { self.0 }
             pub const fn as_bytes(&self) -> &[u8; 32] { &self.0 }
@@ -32,17 +303,36 @@ id32!(
     TaskId
 );
 
-#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Copy, Eq, Hash)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Digest32([u8; 32]);
+identity_comparison!(Digest32);
+impl InitialField for Digest32 {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn initial(_: CheckedIdentityBytes<'_>) -> Self {
+        Self([1; 32])
+    }
+}
+impl CheckedIdentity for Digest32 {
+    fn seed(&self) -> CheckedIdentityBytes<'_> {
+        CheckedIdentityBytes(self.as_bytes())
+    }
+}
 impl Digest32 {
+    #[inline]
+    pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self {
+        Self(*bytes.bytes())
+    }
+    pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] {
+        &mut self.0
+    }
     /// Builds the digest from its 32 bytes.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the bytes are all zero.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-        if bytes == [0; 32] {
+        if identity_is_zero(&bytes) {
             Err(NON_CANONICAL)
         } else {
             Ok(Self(bytes))
@@ -62,12 +352,26 @@ macro_rules! digest {
         #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
         #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
         pub struct $name(Digest32);
+        impl InitialField for $name {
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            #[cfg_attr(not(target_arch = "wasm32"), inline)]
+            fn initial(_: CheckedIdentityBytes<'_>) -> Self { Self(Digest32([1; 32])) }
+        }
+        impl CheckedIdentity for $name {
+            fn seed(&self) -> CheckedIdentityBytes<'_> { CheckedIdentityBytes(self.as_bytes()) }
+        }
         impl $name {
+            #[inline]
+            pub(crate) fn from_checked(bytes: CheckedIdentityBytes<'_>) -> Self { Self(Digest32(*bytes.bytes())) }
+            pub(crate) fn decode_destination(&mut self) -> &mut [u8; 32] { &mut self.0.0 }
             /// Builds the typed digest from its 32 bytes.
             ///
             /// # Errors
             /// Returns `NON_CANONICAL` when the bytes are all zero.
-            pub fn new(bytes: [u8; 32]) -> CodecResult<Self> { Ok(Self(Digest32::new(bytes)?)) }
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
+                if identity_is_zero(&bytes) { Err(NON_CANONICAL) } else { Ok(Self(Digest32(bytes))) }
+            }
             pub const fn bytes(self) -> [u8; 32] { self.0.bytes() }
             pub const fn as_bytes(&self) -> &[u8; 32] { self.0.as_bytes() }
         }
@@ -109,7 +413,7 @@ impl Salt32 {
     /// # Errors
     /// Returns `F04_SALT_INVALID` when the bytes are all zero.
     pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
-        if bytes == [0; 32] {
+        if identity_is_zero(&bytes) {
             Err(crate::errors::F04_SALT_INVALID)
         } else {
             Ok(Self(bytes))
@@ -122,29 +426,29 @@ impl Salt32 {
 }
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
-pub struct Version(u64);
+pub struct Version(core::num::NonZeroU64);
 impl Version {
     /// Builds a version from its value.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the value is zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(value: u64) -> CodecResult<Self> {
-        if value == 0 {
-            Err(NON_CANONICAL)
-        } else {
-            Ok(Self(value))
-        }
+        core::num::NonZeroU64::new(value)
+            .map(Self)
+            .ok_or(NON_CANONICAL)
     }
     #[must_use]
     pub const fn get(self) -> u64 {
-        self.0
+        self.0.get()
     }
     /// Returns the following version.
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the value is `u64::MAX`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn next(self) -> CodecResult<Self> {
-        Self::new(self.0.checked_add(1).ok_or(ARITHMETIC)?)
+        Self::new(self.get().checked_add(1).ok_or(ARITHMETIC)?)
     }
 }
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
@@ -155,6 +459,7 @@ impl Score {
     ///
     /// # Errors
     /// Returns `F03_SCORE_RANGE` when the value exceeds 1,000,000.
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
     pub fn new(value: u32) -> CodecResult<Self> {
         if value > 1_000_000 {
             Err(F03_SCORE_RANGE)

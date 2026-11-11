@@ -119,7 +119,12 @@ async function verify_committed_receipt_recorded_inclusion(): Promise<void> {
   const committed = await verifyCommittedReceipt(receipt, evidence);
   assert.equal(committed.level, "committed");
   assert.equal(committed.landingHeight, 11n);
-  assert.equal(committed.signedPower, committed.totalPower);
+  const recordedSignedPower = evidence.validators
+    .filter((validator) => evidence.commit.signatures.some((signature) => signature.blockIdFlag === 2
+      && Buffer.from(signature.validatorAddress).equals(validator.address)))
+    .reduce((sum, validator) => sum + validator.votingPower, 0n);
+  assert.equal(committed.signedPower, recordedSignedPower);
+  assert(committed.signedPower * 3n >= committed.totalPower * 2n);
   assert.deepEqual(committed.blockHash, evidence.blockId.hash);
   assert.deepEqual(committed.receipt.canonicalBytes, bytes(committedVector.signedReceipt));
   for (const changed of [

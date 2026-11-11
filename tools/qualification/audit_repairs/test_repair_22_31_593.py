@@ -170,16 +170,12 @@ def test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order
         handler = re.search(
             rf"SetUpgradeHandler\({re.escape(symbol)}, app\.(\w+)\)", source
         )
+        assert handler is not None, symbol
         if symbol == "AnchorStoreDeleteUpgrade":
-            assert re.search(
-                r"SetUpgradeHandler\(AnchorStoreDeleteUpgrade, func\([^\n]+\{\s*"
-                r"return app\.mm\.RunMigrations\(ctx, app\.configurator, fromVM\)",
-                source,
-            )
-            assert row[1] == "inline: app.mm.RunMigrations"
-        else:
-            assert handler is not None, symbol
-            assert row[1] == handler.group(1)
+            body = go_function(source, handler.group(1))
+            assert "mergeHeight <= 0 || mergeHeight >= ctx.BlockHeight()" in body
+            assert "app.mm.RunMigrations(ctx, app.configurator, fromVM)" in body
+        assert row[1] == handler.group(1)
         pending = "done_height == 0"
         if symbol == "ActivationUpgrade":
             pending += " and not activation_modules_present"

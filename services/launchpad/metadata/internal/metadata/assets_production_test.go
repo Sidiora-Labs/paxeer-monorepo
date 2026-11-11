@@ -136,6 +136,12 @@ func TestProductionAssetLifecycle(t *testing.T) {
 }
 
 func TestProductionAdversarialActualStorageRecovery(t *testing.T) {
+	for _, name := range []string{"KINDLE_RASTER_CGROUP_PARENT"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	dsn := os.Getenv("KINDLE_PRODUCTION_TEST_DATABASE_URL")

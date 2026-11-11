@@ -381,7 +381,7 @@ fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
             "SettlementDomain",
             "GuarantorKey",
             "layerx_proof::checkpoint",
-            "layerx_wire::activity",
+            concat!("layerx_wire::", "activity"),
             "verify_checkpoint",
             "decode_signed",
         ] {
@@ -394,17 +394,11 @@ fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
     let token = wallet_account("did:layerx:alice", [0x11; 32], [0; 32])
         .unwrap_or_else(|error| panic!("token wallet account: {error:?}"));
     assert_eq!(
-        native
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>(),
+        hex::encode(native),
         "575498fd80da9b17115311af107ab11639acf474a69f944c9c9b1d0ea28ed205"
     );
     assert_eq!(
-        token
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>(),
+        hex::encode(token),
         "c25ada37deae26ed54923dab01b56e9dded08b4ca710b0fd0b1d172f44404324"
     );
     assert_ne!(native, token);
@@ -432,13 +426,14 @@ fn production_verifies_mirror_receipts_from_committed_sources() {
     };
     use layerx_wire::receipt::Receipt;
 
-    let _: fn(
+    type VerifyMirrorReceipt = fn(
         &MirrorSources,
         u64,
         &MirrorReadPolicy,
         usize,
         &[SequencerAuthorization],
-    ) -> Result<MirrorVerification<Receipt>, MirrorSdkError> = verify_mirror_receipt_from_sources;
+    ) -> Result<MirrorVerification<Receipt>, MirrorSdkError>;
+    let _: VerifyMirrorReceipt = verify_mirror_receipt_from_sources;
 
     let source = include_str!("../src/production.rs");
     for retired in [

@@ -203,7 +203,7 @@ def test_f028_build_and_start_target_the_linked_paxd_binary():
     ):
         assert fact in build, fact
     rules = dict(re.findall(r"^([\w-]+): ([^\n]*)$", source("Makefile"), re.M))
-    assert rules["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build"]
+    assert rules["paxd-native-libs"].split() == ["$(LIBRARY)", "programs-release-build", "evmone-lib"]
     assert rules["paxd-build"].split() == ["paxd-native-libs"]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

@@ -289,6 +289,14 @@ export function checkedWalletParentOrigin(value: string): string {
  * error and opens no backend connection.
  */
 export function browserConnectOrigins(): string[] {
+  let rpcUrls: string[];
+  try {
+    walletParentOrigins();
+    rpcUrls = getPaxeerRpcUrls();
+  } catch (error) {
+    if (error instanceof BackendOriginError || error instanceof RpcConfigurationError) return [];
+    throw error;
+  }
   const out = new Set<string>();
   const add = (url: string | null | undefined) => {
     if (url) out.add(originOf(url));
@@ -309,10 +317,12 @@ export function browserConnectOrigins(): string[] {
     add(wsFormOf(originOf(origins.gateway)));
     add(origins.privateStream);
   }
-  for (const url of getPaxeerRpcUrls()) add(url);
+  for (const url of rpcUrls) add(url);
   try {
     add(explorerApiBase());
-  } catch {}
+  } catch (error) {
+    if (!(error instanceof BackendOriginError)) throw error;
+  }
   try {
     const wallet = embeddedWalletEndpoints();
     if (wallet) {
@@ -320,7 +330,9 @@ export function browserConnectOrigins(): string[] {
       add(wallet.supabaseUrl);
       add(wsFormOf(originOf(wallet.supabaseUrl)));
     }
-  } catch {}
+  } catch (error) {
+    if (!(error instanceof BackendOriginError)) throw error;
+  }
   if (walletConnectProjectId()) for (const origin of WALLETCONNECT_ORIGINS) out.add(origin);
   return [...out];
 }

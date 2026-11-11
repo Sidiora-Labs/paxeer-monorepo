@@ -11,6 +11,7 @@ use layerx_agentd::outbox::{Outbox, SubmissionState, SubmissionStatus};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_crypto::evm_transaction::{decode_signed, transaction_hash, Eip1559Call};
 use layerx_types::rung::Rung;
+use std::os::unix::fs::DirBuilderExt;
 
 struct DurableWrite {
     root: std::path::PathBuf,
@@ -21,10 +22,15 @@ struct DurableWrite {
 
 impl DurableWrite {
     fn queued(name: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("write-path-evm-{}-{name}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
-        let mut store = Store::open(&root).unwrap();
+        let root = std::fs::canonicalize(std::env::temp_dir())
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
+            .join(format!("write-path-evm-{}-{name}", std::process::id()));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+        let mut store =
+            Store::open(&root).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         let mut outbox = Outbox::default();
         let call = Eip1559Call {
             chain_id: 125,
@@ -35,13 +41,21 @@ impl DurableWrite {
             to: [0x1a; 20],
             data: vec![1, 2, 3, 4],
         };
-        let raw = call.sign(&[0xa5; 32]).unwrap();
-        let (_, signature) = decode_signed(&raw).unwrap();
+        let raw = call
+            .sign(&[0xa5; 32])
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+        let (_, signature) =
+            decode_signed(&raw).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         assert_eq!(signature.as_bytes().len(), 65);
         let expected = transaction_hash(&raw);
         let hash = outbox
-            .enqueue(&mut store, TenantId::new("write-tenant").unwrap(), raw)
-            .unwrap();
+            .enqueue(
+                &mut store,
+                TenantId::new("write-tenant")
+                    .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+                raw,
+            )
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
         assert_eq!(hash, expected);
         Self {
             root,
@@ -54,108 +68,51 @@ impl DurableWrite {
 
 impl Drop for DurableWrite {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.root).unwrap();
+        std::fs::remove_dir_all(&self.root)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     }
 }
 
 #[test]
 fn raw_transaction_submit_sends_eth_send_raw_transaction() {
-    use serde_json::{json, Value};
-    use std::io::{BufRead, BufReader, Read, Write};
+    use serde_json::json;
     use std::net::TcpListener;
     use std::sync::mpsc;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
-    let raw = Eip1559Call {
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100_000,
-        to: [0x1a; 20],
-        data: vec![1, 2, 3, 4],
-    }
-    .sign(&[0xa5; 32])
-    .unwrap();
+    let raw = raw_submit_bytes();
     let hash = transaction_hash(&raw);
     let signed_hex = format!("0x{}", hex::encode(&raw));
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let config = NodeRpcConfig {
-        url: format!("http://{}/", listener.local_addr().unwrap()),
+        url: format!(
+            "http://{}/",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
+        ),
         chain_id: 125,
         deadline: Duration::from_secs(2),
     };
     let (finished, stop) = mpsc::channel();
     let expected_hex = signed_hex.clone();
-    let server = std::thread::spawn(move || {
-        let expires = Instant::now() + Duration::from_secs(5);
-        let mut submissions = Vec::new();
-        let mut chain_checks = 0;
-        loop {
-            let stream = match listener.accept() {
-                Ok((stream, _)) => stream,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    if stop.try_recv().is_ok() {
-                        break;
-                    }
-                    assert!(Instant::now() < expires, "JSON-RPC exchange timed out");
-                    std::thread::sleep(Duration::from_millis(1));
-                    continue;
-                }
-                Err(error) => panic!("accept: {error}"),
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .unwrap();
-            stream
-                .set_write_timeout(Some(Duration::from_secs(2)))
-                .unwrap();
-            let mut reader = BufReader::new(stream);
-            let mut length = None;
-            loop {
-                let mut line = String::new();
-                assert_ne!(reader.read_line(&mut line).unwrap(), 0);
-                if line == "\r\n" {
-                    break;
-                }
-                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(value.trim().parse::<usize>().unwrap());
-                }
-            }
-            let length = length.expect("content length required");
-            assert!(length <= 64 * 1024);
-            let mut body = vec![0; length];
-            reader.read_exact(&mut body).unwrap();
-            let request: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(request["jsonrpc"], "2.0");
-            let result = match request["method"].as_str().unwrap() {
-                "eth_chainId" => {
-                    chain_checks += 1;
-                    assert_eq!(request["params"], json!([]));
-                    json!("0x7d")
-                }
-                "eth_sendRawTransaction" => {
-                    assert_eq!(request["params"], json!([expected_hex]));
-                    submissions.push(request.clone());
-                    json!(format!("0x{}", hex::encode(hash)))
-                }
-                method => panic!("unexpected node method: {method}"),
-            };
-            let answer = json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
-            let mut stream = reader.into_inner();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
-            stream.flush().unwrap();
-        }
-        assert_eq!(chain_checks, 1);
-        assert_eq!(submissions.len(), 1);
-        submissions
-    });
-    let node = NodeRpc::connect(&config).unwrap();
-    let root =
-        std::env::temp_dir().join(format!("write-path-evm-{}-raw-submit", std::process::id()));
-    std::fs::create_dir(&root).unwrap();
-    let store = Store::open(&root).unwrap();
+    let server =
+        std::thread::spawn(move || raw_submit_server(&listener, &stop, &expected_hex, hash));
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let root = std::fs::canonicalize(std::env::temp_dir())
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
+        .join(format!("write-path-evm-{}-raw-submit", std::process::id()));
+    std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let store =
+        Store::open(&root).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let mut write = DurableWrite {
         root,
         store,
@@ -167,49 +124,58 @@ fn raw_transaction_submit_sends_eth_send_raw_transaction() {
         submit_raw_write(
             &mut write.outbox,
             &mut write.store,
-            TenantId::new("write-tenant").unwrap(),
+            TenantId::new("write-tenant")
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
             raw,
             &node,
         )
     };
-    let (answer, rung) =
-        dispatch_raw_submit(request.as_object().unwrap(), RequestId(7), &mut submit).unwrap();
+    let (answer, rung) = dispatch_raw_submit(
+        request
+            .as_object()
+            .unwrap_or_else(|| panic!("test value missing")),
+        RequestId(7),
+        &mut submit,
+    )
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(answer["tx_hash"], hex::encode(hash));
     assert_eq!(answer["submission_ref"], hex::encode(hash));
     assert_eq!(answer["state"], "Submitted");
     assert_eq!(answer["rung"], "submitted");
     assert_eq!(rung, Rung::Submitted);
-    assert!(dispatch_raw_submit(request.as_object().unwrap(), RequestId(8), &mut submit).is_err());
+    assert!(dispatch_raw_submit(
+        request
+            .as_object()
+            .unwrap_or_else(|| panic!("test value missing")),
+        RequestId(8),
+        &mut submit
+    )
+    .is_err());
     let mixed = json!({"raw_transaction": signed_hex, "preparation_ref": "00".repeat(32)});
-    assert!(dispatch_raw_submit(mixed.as_object().unwrap(), RequestId(9), &mut submit).is_err());
+    assert!(dispatch_raw_submit(
+        mixed
+            .as_object()
+            .unwrap_or_else(|| panic!("test value missing")),
+        RequestId(9),
+        &mut submit
+    )
+    .is_err());
     let unknown = json!({"raw_transaction": signed_hex, "unexpected": true});
-    assert!(dispatch_raw_submit(unknown.as_object().unwrap(), RequestId(10), &mut submit).is_err());
-    finished.send(()).unwrap();
-    let received = server.join().unwrap();
-    assert_eq!(received.len(), 1);
-    assert_eq!(
-        hex::decode(
-            received[0]["params"][0]
-                .as_str()
-                .unwrap()
-                .strip_prefix("0x")
-                .unwrap()
-        )
-        .unwrap(),
-        raw
-    );
-    assert_eq!(
-        write.outbox.status(hash).unwrap().state,
-        SubmissionState::Submitted
-    );
-    let mut restored = Outbox::default();
-    restored
-        .restore(&write.store, TenantId::new("write-tenant").unwrap(), hash)
-        .unwrap();
-    let (tracked, tracked_rung) =
-        track_write_answer(RequestId(11), &restored, &hex::encode(hash)).unwrap();
-    assert_eq!(tracked, answer);
-    assert_eq!(tracked_rung, Rung::Submitted);
+    assert!(dispatch_raw_submit(
+        unknown
+            .as_object()
+            .unwrap_or_else(|| panic!("test value missing")),
+        RequestId(10),
+        &mut submit
+    )
+    .is_err());
+    finished
+        .send(())
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let received = server
+        .join()
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    assert_raw_submit_persistence(&write, hash, &raw, &received, &answer);
 }
 
 #[test]
@@ -217,19 +183,33 @@ fn submit_returns_the_transaction_hash_and_submitted_state() {
     let mut write = DurableWrite::queued("submit");
     assert!(accept_raw_write(&mut write.outbox, &mut write.store, write.hash, [0x55; 32]).is_err());
     assert_eq!(
-        write.outbox.status(write.hash).unwrap().state,
+        write
+            .outbox
+            .status(write.hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .state,
         SubmissionState::Queued
     );
-    let status =
-        accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash).unwrap();
-    let (answer, rung) =
-        decode_write_answer(RequestId(1), write_submission(&status, None).unwrap()).unwrap();
+    let status = accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (answer, rung) = decode_write_answer(
+        RequestId(1),
+        write_submission(&status, None)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(answer["tx_hash"], hex::encode(write.hash));
     assert_eq!(answer["submission_ref"], hex::encode(write.hash));
     assert_eq!(answer["state"], "Submitted");
     assert_eq!(answer["rung"], "submitted");
     assert_eq!(rung, Rung::Submitted);
-    assert_eq!(write.outbox.status(write.hash).unwrap(), &status);
+    assert_eq!(
+        write
+            .outbox
+            .status(write.hash)
+            .unwrap_or_else(|| panic!("test value missing")),
+        &status
+    );
     assert_eq!(answer["evidence"], serde_json::json!([]));
     assert_eq!(answer["transitions"], serde_json::json!([]));
 }
@@ -237,7 +217,8 @@ fn submit_returns_the_transaction_hash_and_submitted_state() {
 #[test]
 fn wait_for_committed_reports_the_achieved_rung() {
     let (receipt, key) = fixtures::receipt();
-    let verified = VerifiedReceipt::verify(fixtures::TX_HASH, &receipt, &[key]).unwrap();
+    let verified = VerifiedReceipt::verify(fixtures::TX_HASH, &receipt, &[key])
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let status = SubmissionStatus {
         submission_id: fixtures::TX_HASH,
         activity_id: fixtures::TX_HASH,
@@ -247,13 +228,16 @@ fn wait_for_committed_reports_the_achieved_rung() {
     };
     let (submission, rung) = decode_write_answer(
         RequestId(2),
-        write_submission(&status, Some(&verified)).unwrap(),
+        write_submission(&status, Some(&verified))
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(rung, Rung::Receipted);
     assert_eq!(submission["state"], "Executed");
     let mut progress = SubmissionProgress::accepted(fixtures::IDEMPOTENCY_KEY, fixtures::TX_HASH);
-    progress.observe_receipt(&receipt, &[key]).unwrap();
+    progress
+        .observe_receipt(&receipt, &[key])
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let waited = wait_for_rung(
         &mut progress,
         fixtures::IDEMPOTENCY_KEY,
@@ -262,8 +246,9 @@ fn wait_for_committed_reports_the_achieved_rung() {
         105,
         1,
     )
-    .unwrap();
-    let (answer, verification) = wait_write_answer(submission, waited, RequestId(2)).unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (answer, verification) = wait_write_answer(submission, waited, RequestId(2))
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(answer["actual_rung"], "receipted");
     assert_eq!(answer["deadline_elapsed"], true);
     assert_eq!(
@@ -279,20 +264,26 @@ fn wait_for_committed_reports_the_achieved_rung() {
         }
     ));
     let mut corrupt = receipt;
-    *corrupt.last_mut().unwrap() ^= 1;
+    *corrupt
+        .last_mut()
+        .unwrap_or_else(|| panic!("test value missing")) ^= 1;
     assert!(VerifiedReceipt::verify(fixtures::TX_HASH, &corrupt, &[key]).is_err());
 }
 
 #[test]
 fn track_reports_state_by_transaction_hash() {
     let mut write = DurableWrite::queued("track");
-    accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash).unwrap();
+    accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let reference = hex::encode(write.hash);
-    let (answer, rung) = track_write_answer(RequestId(3), &write.outbox, &reference).unwrap();
+    let (answer, rung) = track_write_answer(RequestId(3), &write.outbox, &reference)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(answer["tx_hash"], reference);
     assert_eq!(answer["state"], "Submitted");
     assert_eq!(rung, Rung::Submitted);
-    let refusal = track_write_answer(RequestId(4), &write.outbox, &"ab".repeat(31)).unwrap_err();
+    let refusal = track_write_answer(RequestId(4), &write.outbox, &"ab".repeat(31))
+        .err()
+        .unwrap_or_else(|| panic!("test operation failed"));
     assert_eq!(refusal.reason, "invalid_request");
     assert_eq!(refusal.request_id, RequestId(4));
     assert!(track_write_answer(RequestId(5), &write.outbox, &"ab".repeat(32)).is_err());
@@ -300,18 +291,21 @@ fn track_reports_state_by_transaction_hash() {
     restored
         .restore(
             &write.store,
-            TenantId::new("write-tenant").unwrap(),
+            TenantId::new("write-tenant")
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
             write.hash,
         )
-        .unwrap();
-    let (restored_answer, _) = track_write_answer(RequestId(6), &restored, &reference).unwrap();
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (restored_answer, _) = track_write_answer(RequestId(6), &restored, &reference)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(restored_answer, answer);
 }
 
 #[test]
 fn approval_get_reports_the_tracked_tx_hash_and_rung() {
     let mut write = DurableWrite::queued("approval-get");
-    accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash).unwrap();
+    accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     let id = RequestId(7);
     let reference = hex::encode(write.hash);
     let approval = serde_json::json!({
@@ -319,10 +313,12 @@ fn approval_get_reports_the_tracked_tx_hash_and_rung() {
         "state": "Approved",
         "submission_ref": reference,
     });
-    let (tracked, rung) = track_write_answer(id, &write.outbox, &reference).unwrap();
+    let (tracked, rung) = track_write_answer(id, &write.outbox, &reference)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(rung, Rung::Submitted);
     assert_eq!(tracked["state"], "Submitted");
-    let answer = merge_tracked_approval(id, approval.clone(), tracked.clone()).unwrap();
+    let answer = merge_tracked_approval(id, approval.clone(), tracked.clone())
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(answer["tx_hash"], tracked["tx_hash"]);
     assert_eq!(answer["rung"], tracked["rung"]);
     assert_eq!(answer["tx_hash"], reference);
@@ -335,18 +331,28 @@ fn approval_get_reports_the_tracked_tx_hash_and_rung() {
     restored
         .restore(
             &write.store,
-            TenantId::new("write-tenant").unwrap(),
+            TenantId::new("write-tenant")
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
             write.hash,
         )
-        .unwrap();
-    let (restored_tracked, _) = track_write_answer(id, &restored, &reference).unwrap();
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (restored_tracked, _) = track_write_answer(id, &restored, &reference)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(
-        merge_tracked_approval(id, approval.clone(), restored_tracked).unwrap(),
+        merge_tracked_approval(id, approval.clone(), restored_tracked)
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
         answer
     );
 
     let missing = track_write_answer(id, &write.outbox, &hex::encode([0x72; 32]));
-    assert_eq!(missing.as_ref().unwrap_err().request_id, id);
+    assert_eq!(
+        missing
+            .as_ref()
+            .err()
+            .unwrap_or_else(|| panic!("test operation failed"))
+            .request_id,
+        id
+    );
     assert!(missing
         .and_then(|(tracked, _)| merge_tracked_approval(id, approval.clone(), tracked))
         .is_err());
@@ -357,7 +363,9 @@ fn approval_get_reports_the_tracked_tx_hash_and_rung() {
         serde_json::json!({"submission_ref": hex::encode([0x72; 32]), "tx_hash": reference, "rung": "submitted"}),
         serde_json::json!({"submission_ref": reference, "tx_hash": reference, "rung": "unknown"}),
     ] {
-        let refusal = merge_tracked_approval(id, approval.clone(), invalid_tracked).unwrap_err();
+        let refusal = merge_tracked_approval(id, approval.clone(), invalid_tracked)
+            .err()
+            .unwrap_or_else(|| panic!("test operation failed"));
         assert_eq!(refusal.request_id, id);
         assert_eq!(refusal.class, ErrorClass::InternalFault);
         assert_eq!(refusal.reason, "owner.response_malformed");
@@ -365,7 +373,7 @@ fn approval_get_reports_the_tracked_tx_hash_and_rung() {
     let mut missing_reference = approval.clone();
     missing_reference
         .as_object_mut()
-        .unwrap()
+        .unwrap_or_else(|| panic!("test value missing"))
         .remove("submission_ref");
     assert!(merge_tracked_approval(id, missing_reference, tracked.clone()).is_err());
     let mut unapproved = approval;
@@ -387,6 +395,8 @@ pub mod fixtures {
     pub const IDEMPOTENCY_KEY: [u8; 32] = [9; 32];
     pub const CHAIN_ID: &str = "paxeer-test-125";
 
+    /// # Panics
+    /// Panics with the fixture error when the supplied operation fails.
     pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
         result.unwrap_or_else(|error| panic!("{error:?}"))
     }
@@ -500,6 +510,9 @@ pub mod fixtures {
         encode_fields(fields, Some(key.sign(&digest).to_bytes()))
     }
 
+    /// # Panics
+    /// Panics if the fixture receipt cannot be encoded or signed.
+    #[must_use]
     pub fn receipt() -> (Vec<u8>, ReceiptKeyEntry) {
         let signer = SigningKey::from_bytes(&[8; 32]);
         let fields = fields(7, [1; 32]);
@@ -514,6 +527,7 @@ pub mod fixtures {
         )
     }
 
+    #[must_use]
     pub fn block() -> SequencerBlock {
         SequencerBlock {
             number: 7,
@@ -526,6 +540,10 @@ pub mod fixtures {
         }
     }
 
+    /// # Panics
+    /// Panics if a signer index is out of bounds, cannot fit its fixture key or
+    /// timestamp, or the fixture vote cannot be encoded.
+    #[must_use]
     pub fn commit(powers: &[u64], signers: &[usize]) -> (BlockCommit, Vec<Validator>) {
         let keys: Vec<_> = powers
             .iter()
@@ -565,4 +583,159 @@ pub mod fixtures {
         }
         (commit, validators)
     }
+}
+
+fn raw_submit_server(
+    listener: &std::net::TcpListener,
+    stop: &std::sync::mpsc::Receiver<()>,
+    expected_hex: &str,
+    hash: [u8; 32],
+) -> Vec<serde_json::Value> {
+    use serde_json::json;
+    use std::io::Write as _;
+    use std::time::{Duration, Instant};
+    let expires = Instant::now() + Duration::from_secs(5);
+    let mut submissions = Vec::new();
+    let mut chain_checks = 0;
+    loop {
+        let stream = match listener.accept() {
+            Ok((stream, _)) => stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if stop.try_recv().is_ok() {
+                    break;
+                }
+                assert!(Instant::now() < expires, "JSON-RPC exchange timed out");
+                std::thread::sleep(Duration::from_millis(1));
+                continue;
+            }
+            Err(error) => panic!("accept: {error}"),
+        };
+        let (reader, request) = read_submit_request(stream);
+        assert_eq!(request["jsonrpc"], "2.0");
+        let result = match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("test value missing"))
+        {
+            "eth_chainId" => {
+                chain_checks += 1;
+                assert_eq!(request["params"], json!([]));
+                json!("0x7d")
+            }
+            "eth_sendRawTransaction" => {
+                assert_eq!(request["params"], json!([expected_hex]));
+                submissions.push(request.clone());
+                json!(format!("0x{}", hex::encode(hash)))
+            }
+            method => panic!("unexpected node method: {method}"),
+        };
+        let answer = json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+        let mut stream = reader.into_inner();
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+        stream
+            .flush()
+            .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    }
+    assert_eq!(chain_checks, 1);
+    assert_eq!(submissions.len(), 1);
+    submissions
+}
+
+fn read_submit_request(
+    stream: std::net::TcpStream,
+) -> (std::io::BufReader<std::net::TcpStream>, serde_json::Value) {
+    use std::io::{BufRead as _, Read as _};
+    use std::time::Duration;
+    stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    stream
+        .set_write_timeout(Some(Duration::from_secs(2)))
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let mut reader = std::io::BufReader::new(stream);
+    let mut length = None;
+    loop {
+        let mut line = String::new();
+        assert_ne!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+            0
+        );
+        if line == "\r\n" {
+            break;
+        }
+        if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+            );
+        }
+    }
+    let length = length.unwrap_or_else(|| panic!("content length required"));
+    assert!(length <= 64 * 1024);
+    let mut body = vec![0; length];
+    reader
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let request: serde_json::Value = serde_json::from_slice(&body)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    (reader, request)
+}
+
+fn assert_raw_submit_persistence(
+    write: &DurableWrite,
+    hash: [u8; 32],
+    raw: &[u8],
+    received: &[serde_json::Value],
+    answer: &serde_json::Value,
+) {
+    assert_eq!(received.len(), 1);
+    assert_eq!(
+        hex::decode(
+            received[0]["params"][0]
+                .as_str()
+                .unwrap_or_else(|| panic!("test value missing"))
+                .strip_prefix("0x")
+                .unwrap_or_else(|| panic!("test value missing"))
+        )
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+        raw
+    );
+    assert_eq!(
+        write
+            .outbox
+            .status(hash)
+            .unwrap_or_else(|| panic!("test value missing"))
+            .state,
+        SubmissionState::Submitted
+    );
+    let mut restored = Outbox::default();
+    restored
+        .restore(
+            &write.store,
+            TenantId::new("write-tenant")
+                .unwrap_or_else(|error| panic!("test operation failed: {error:?}")),
+            hash,
+        )
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (tracked, tracked_rung) = track_write_answer(RequestId(11), &restored, &hex::encode(hash))
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    assert_eq!(&tracked, answer);
+    assert_eq!(tracked_rung, Rung::Submitted);
+}
+
+fn raw_submit_bytes() -> Vec<u8> {
+    Eip1559Call {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: [0x1a; 20],
+        data: vec![1, 2, 3, 4],
+    }
+    .sign(&[0xa5; 32])
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"))
 }

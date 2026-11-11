@@ -4,7 +4,9 @@ import ast
 from fnmatch import fnmatch
 from hashlib import sha256
 from importlib.util import module_from_spec, spec_from_file_location
+import json
 from pathlib import Path
+import re
 import tomllib
 
 
@@ -15,6 +17,14 @@ RECORD = ROOT / "tools/qualification/audit_repairs/repair_22_33_19.kvx"
 
 def record():
     return tomllib.loads(RECORD.read_text(encoding="utf-8"))
+
+
+def source_baseline():
+    pins = json.loads(
+        (Path(__file__).with_name("fixtures") / "repair_22_39_293_source_pins.json").read_text()
+    )
+    assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
+    return pins["python_sdk"]
 
 
 def test_manifest_includes_both_suites_without_filtering():
@@ -43,7 +53,7 @@ def test_pytest_consumes_the_owning_sdk_collection_contract(monkeypatch):
 
 
 def test_existing_receipt_restart_and_rejection_suites_are_preserved():
-    baseline = record()["baseline"]
+    baseline = source_baseline()
     local = SDK / "tests"
     for name, digest in baseline["local_sha256"].items():
         source = (local / name).read_bytes()
@@ -83,8 +93,13 @@ def test_documented_gate_covers_the_complete_discovery_inventory():
         for path in (SDK / root).rglob("*.py")
         if fnmatch(path.name, "test_*.py") or fnmatch(path.name, "*_test.py")
     }
-    for name in record()["baseline"]["local_sha256"]:
-        assert f"`{name}`" in documentation
+    baseline = source_baseline()
+    documented = set(re.findall(r"^- `([^`]+\.py)`$", documentation, re.M))
+    extensions = set(baseline["discovery_extensions"])
+    assert extensions == {"test_x402_rpc_surface.py"}
+    assert not documented & extensions
+    assert documented | extensions == set(baseline["local_sha256"])
+    for name in baseline["local_sha256"]:
         assert (SDK / "tests" / name).resolve() in inventory
     assert inventory >= {
         path.resolve()

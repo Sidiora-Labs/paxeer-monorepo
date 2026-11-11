@@ -94,29 +94,30 @@ func TestRoleABIGolden(t *testing.T) {
 		require.Equal(t, counts[role], [3]int{len(parsed.Methods), len(parsed.Events), len(parsed.Errors)}, role)
 		if role == "Treasury" {
 			direct := pcommon.MustGetABI(f, "abi.json")
-			require.Len(t, direct.Events, 12)
+			require.Len(t, direct.Events, 16)
 			want = append(want, selectorLines(t, "EventEmitter", abi.ABI{Events: direct.Events})...)
-			require.Len(t, want, 549)
+			require.Len(t, want, 553)
 		}
 		want = append(want, selectorLines(t, role, parsed)...)
 	}
-	require.Len(t, want, 593)
+	require.Len(t, want, 597)
 	for _, err := range []error{types.ErrAccessControlUnauthorizedAccount, types.ErrRetired} {
 		contractErr, ok := types.ContractErrorOf(err)
 		require.True(t, ok)
 		want = append(want, fmt.Sprintf("Chain %s 0x%x", contractErr.Signature(), contractErr.Selector))
 	}
+	want = append(want, selectorLines(t, chainLaunchRole, chainLaunchABI)...)
 
 	golden := readGolden(t)
-	require.Len(t, golden, 595)
+	require.Len(t, golden, 612)
 	require.Equal(t, want, golden)
-	require.Equal(t, "Chain AccessControlUnauthorizedAccount(address,bytes32) 0xe2517d3f", golden[593])
-	require.Equal(t, "Chain Retired(address) 0xda9d2e31", golden[594])
+	require.Equal(t, "Chain AccessControlUnauthorizedAccount(address,bytes32) 0xe2517d3f", golden[597])
+	require.Equal(t, "Chain Retired(address) 0xda9d2e31", golden[598])
 }
 
 func TestDirectABIResolution(t *testing.T) {
 	direct := pcommon.MustGetABI(f, "abi.json")
-	require.Len(t, direct.Methods, 113)
+	require.Len(t, direct.Methods, 126)
 
 	servedBy := map[string]string{}
 	servedMethod := map[string]abi.Method{}
@@ -130,7 +131,12 @@ func TestDirectABIResolution(t *testing.T) {
 			}
 		}
 	}
-	require.Len(t, servedBy, 113)
+	for _, m := range chainLaunchABI.Methods {
+		declaredBy[m.Sig] = append(declaredBy[m.Sig], chainLaunchRole)
+		servedBy[m.Sig] = chainLaunchRole
+		servedMethod[m.Sig] = m
+	}
+	require.Len(t, servedBy, 126)
 
 	selectors := map[[4]byte]string{}
 	for _, m := range direct.Methods {

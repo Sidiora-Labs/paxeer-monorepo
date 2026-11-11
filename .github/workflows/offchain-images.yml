@@ -1,5 +1,6 @@
 name: Publish off-chain images
 
+# SDK and application tests run in launchpad-test.yml on pull requests and main pushes.
 # Every push to main that touches an off-chain service builds each row of tools/deploy/offchain-images.sh,
 # pushes it to GHCR as :<12-hex sha> and :<git describe>, and records every pushed digest in one
 # digests.json artifact for the rollout tool. A row that fails its check is reported with an error annotation,
@@ -29,7 +30,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     outputs:
       images: ${{ steps.plan.outputs.images }}
@@ -64,7 +65,7 @@ jobs:
 
   images:
     needs: [plan]
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 180
     permissions:
       contents: read
@@ -108,7 +109,7 @@ jobs:
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "no digest for $NAME" >&2; exit 1; }
           mkdir -p digests
           printf '%s=%s\n' "$NAME" "$DIGEST" > "digests/$NAME"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: digest-${{ matrix.image.name }}
           path: digests/${{ matrix.image.name }}
@@ -117,7 +118,7 @@ jobs:
   digests:
     needs: [plan, images]
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10
     outputs:
       unbuilt: ${{ steps.merge.outputs.unbuilt }}
@@ -147,7 +148,7 @@ jobs:
           jq -r '.[] | "- \(.) was planned but its build or push failed: no digest in digests.json, so the rollout tool refuses it"' <<<"$failed" >> "$GITHUB_STEP_SUMMARY"
           cat digests.json
           jq -e 'length > 0' digests.json >/dev/null || { echo "no image was pushed, digests.json is empty" >&2; exit 1; }
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: digests.json
           path: digests.json

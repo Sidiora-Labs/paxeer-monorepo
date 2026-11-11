@@ -4,6 +4,7 @@
 //! authoritative state before using these commitments. No request flag supplies
 //! that provenance. `ReportBody` binds generations through the frozen roster and
 //! authenticated evidence admission; it has no invented per-cell generation.
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{
         decode_report, domain_hash, report_digest, roster_digest, Reader, ReportBody, Roster,
@@ -15,8 +16,8 @@ use crate::{
         WRONG_PROGRAM, WRONG_ROSTER,
     },
     types::{
-        ChainDomain, Digest32, EpochWindows, EvaluatorId, FrozenBinding, MarketId, Presence,
-        ProgramId, ReportDigest, RosterDigest, Score, Version, WorkerId, WorkerRosterEntry,
+        Digest32, EpochWindows, EvaluatorId, FrozenBinding, Presence, ReportDigest, RosterDigest,
+        Score, Version, WorkerId, WorkerRosterEntry,
     },
     SCHEMA_VERSION,
 };
@@ -134,11 +135,13 @@ impl WorkerAggregate {
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_worker(w: &mut Writer<'_>, v: WorkerAggregate) -> CodecResult<()> {
-    w.put(v.worker.as_bytes())?;
-    w.u64(v.generation.get())?;
-    w.u8(v.support)?;
-    w.u8(v.status as u8)?;
-    w.u32(v.score.get())?;
+    crate::codec::write_fields!(w;
+        id32: v.worker.as_bytes();
+        u64: v.generation.get();
+        u8: v.support;
+        u8: v.status as u8;
+        u32: v.score.get();
+    )?;
     w.u32(v.weight)
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -185,12 +188,7 @@ pub fn decode_worker_aggregate(bytes: &[u8]) -> CodecResult<WorkerAggregate> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn write_binding(w: &mut Writer<'_>, b: FrozenBinding) -> CodecResult<()> {
     w.u16(SCHEMA_VERSION)?;
-    w.put(b.chain.as_bytes())?;
-    w.put(b.program.as_bytes())?;
-    w.put(b.market.as_bytes())?;
-    w.u64(b.epoch)?;
-    w.u64(b.config.get())?;
-    w.put(b.roster.as_bytes())
+    crate::codec::write_frozen_binding(w, &b)
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_binding(r: &mut Reader<'_>) -> CodecResult<FrozenBinding> {
@@ -232,7 +230,10 @@ fn check_reports(rows: &[ReportCommitment]) -> CodecResult<()> {
     if rows.len() > 8 {
         return Err(CAPACITY);
     }
-    if rows.windows(2).any(|p| p[0].evaluator >= p[1].evaluator) {
+    if rows
+        .windows(2)
+        .any(|p| p.guest_index(0).evaluator >= p.guest_index(1).evaluator)
+    {
         return Err(NON_CANONICAL);
     }
     Ok(())
@@ -247,9 +248,10 @@ pub fn canonicalize_arrivals(rows: &mut [ReportCommitment]) -> CodecResult<()> {
         return Err(CAPACITY);
     }
     for i in 0..rows.len() {
-        if rows[i + 1..]
+        if rows
+            .guest_index(i + 1..)
             .iter()
-            .any(|r| r.evaluator == rows[i].evaluator)
+            .any(|r| r.evaluator == rows.guest_index(i).evaluator)
         {
             return Err(NON_CANONICAL);
         }
@@ -292,7 +294,47 @@ pub fn input_digest(
 ) -> CodecResult<Digest32> {
     let mut bytes = [0; INPUT_PREIMAGE_MAX_BYTES];
     let n = encode_input_preimage(binding, seal_height, rows, &mut bytes)?;
-    domain_hash("PAXAI/aggregation-input/v1", &bytes[..n])
+    domain_hash("PAXAI/aggregation-input/v1", bytes.guest_index(..n))
+}
+
+/// Hash the canonical sealed bytes without reconstructing the same report
+/// commitments into another table. Preserve identity and strict-order checks.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encoded_input_digest(
+    binding: FrozenBinding,
+    seal_height: u64,
+    rows: &[u8],
+) -> CodecResult<Digest32> {
+    let (cells, remainder) = rows.as_chunks::<64>();
+    if !remainder.is_empty() {
+        return Err(NON_CANONICAL);
+    }
+    if cells.len() > 8 {
+        return Err(CAPACITY);
+    }
+    let mut previous = None;
+    for cell in cells {
+        let evaluator = crate::types::CheckedIdentityBytes::new_inline(
+            cell[..32].try_into().map_err(|_| NON_CANONICAL)?,
+        )?;
+        crate::types::CheckedIdentityBytes::new_inline(
+            cell[32..].try_into().map_err(|_| NON_CANONICAL)?,
+        )?;
+        if previous.is_some_and(|id| {
+            crate::types::identity_order(id, evaluator.bytes()) != core::cmp::Ordering::Less
+        }) {
+            return Err(NON_CANONICAL);
+        }
+        previous = Some(evaluator.bytes());
+    }
+    let mut bytes = [0; INPUT_PREIMAGE_MAX_BYTES];
+    let mut w = Writer::new(&mut bytes);
+    write_binding(&mut w, binding)?;
+    w.u64(seal_height)?;
+    w.u16(u16::try_from(cells.len()).map_err(|_| CAPACITY)?)?;
+    w.put(rows)?;
+    let n = w.len();
+    domain_hash("PAXAI/aggregation-input/v1", bytes.guest_index(..n))
 }
 
 /// Structurally validated actual producer reports. This is deliberately NOT an
@@ -306,6 +348,71 @@ pub struct AggregationInputView<'a> {
     reports: &'a [ReportBody<'a>],
 }
 impl<'a> AggregationInputView<'a> {
+    pub(crate) fn committed_chunk(
+        binding: FrozenBinding,
+        workers: &'a [WorkerRosterEntry],
+        reports: &'a [ReportBody<'a>],
+    ) -> CodecResult<Self> {
+        if workers.len() > crate::aggregation::WORKERS_PER_CHUNK || reports.len() > 8 {
+            return Err(CAPACITY);
+        }
+        let mut previous = None;
+        for report in reports {
+            check_binding(report.binding.frozen, binding)?;
+            if previous.is_some_and(|id| id >= report.binding.evaluator) {
+                return Err(F05_REPORT_INVARIANT);
+            }
+            previous = Some(report.binding.evaluator);
+        }
+        Ok(Self {
+            binding,
+            roster: Roster {
+                market: binding.market,
+                epoch: binding.epoch,
+                config: binding.config,
+                workers,
+                evaluators: &[],
+            },
+            reports,
+        })
+    }
+    /// Consume reports already admitted against this captured opening. Their
+    /// vectors were checked by admission; aggregation reads votes for its chunk.
+    pub(crate) fn from_committed(
+        captured: &'a crate::epoch::CapturedRoster,
+        reports: &'a [ReportBody<'a>],
+    ) -> CodecResult<Self> {
+        if reports.len() > crate::MAX_EVALUATORS {
+            return Err(CAPACITY);
+        }
+        let binding = captured.binding;
+        let roster = captured.view();
+        let mut previous = None;
+        let mut evaluators = roster.evaluators.iter();
+        for report in reports {
+            check_binding(report.binding.frozen, binding)?;
+            let evaluator = loop {
+                let entry = evaluators.next().ok_or(F05_REPORT_INVARIANT)?;
+                if entry.evaluator >= report.binding.evaluator {
+                    break entry;
+                }
+            };
+            if evaluator.evaluator != report.binding.evaluator
+                || previous.is_some_and(|id| id >= evaluator.evaluator)
+                || evaluator.grant != report.binding.grant
+                || evaluator.key_version != report.binding.key_version
+            {
+                return Err(F05_REPORT_INVARIANT);
+            }
+            previous = Some(evaluator.evaluator);
+        }
+        Ok(Self {
+            binding,
+            roster,
+            reports,
+        })
+    }
+
     /// Validates reports structurally against the frozen roster and binding.
     ///
     /// # Errors
@@ -313,6 +420,7 @@ impl<'a> AggregationInputView<'a> {
     /// `WRONG_MARKET`, `WRONG_EPOCH`, `WRONG_CONFIG` or `WRONG_ROSTER` for a roster/binding
     /// mismatch, `CAPACITY` for more than eight reports and `F05_REPORT_INVARIANT` for an invalid,
     /// unordered, unrostered or self-scoring report.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn structural(
         binding: FrozenBinding,
         roster: Roster<'a>,
@@ -355,11 +463,9 @@ impl<'a> AggregationInputView<'a> {
             }
             for cell in report.scores.entries() {
                 let cell = cell.map_err(|_| F05_REPORT_INVARIANT)?;
-                let worker = roster
-                    .workers
-                    .iter()
-                    .find(|w| w.worker == cell.worker)
+                let index = crate::codec::frozen_worker_index(roster.workers, cell.worker)
                     .ok_or(F05_REPORT_INVARIANT)?;
+                let worker = roster.workers.guest_index(index);
                 if worker.owner == evaluator.owner || worker.worker.bytes() == id.bytes() {
                     return Err(F05_REPORT_INVARIANT);
                 }
@@ -388,6 +494,7 @@ impl<'a> AggregationInputView<'a> {
     /// # Errors
     /// Returns `CAPACITY` when `out` is shorter than the report list; propagates `report_digest`
     /// refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn commitments(&self, out: &mut [ReportCommitment]) -> CodecResult<usize> {
         if out.len() < self.reports.len() {
             return Err(CAPACITY);
@@ -412,21 +519,21 @@ impl<'a> AggregationInputView<'a> {
     /// # Errors
     /// Returns `F05_REPORT_INVARIANT` for a worker outside the roster and `ARITHMETIC` on count
     /// overflow; propagates score-cell decode refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn support(&self, worker: WorkerId) -> CodecResult<u8> {
         if !self.roster.workers.iter().any(|w| w.worker == worker) {
             return Err(F05_REPORT_INVARIANT);
         }
         let mut count = 0u8;
         for report in self.reports {
-            for cell in report.scores.entries() {
-                if cell?.worker == worker {
-                    count = count.checked_add(1).ok_or(ARITHMETIC)?;
-                }
+            if score_cell(report.scores, worker)?.is_some() {
+                count = count.checked_add(1).ok_or(ARITHMETIC)?;
             }
         }
         Ok(count)
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_outputs(
     workers: &[WorkerRosterEntry],
     outputs: &[WorkerAggregate],
@@ -438,7 +545,10 @@ fn check_outputs(
     if outputs.len() > workers.len() || (complete && outputs.len() != workers.len()) {
         return Err(NON_CANONICAL);
     }
-    if workers.windows(2).any(|p| p[0].worker >= p[1].worker) {
+    if workers
+        .windows(2)
+        .any(|p| p.guest_index(0).worker >= p.guest_index(1).worker)
+    {
         return Err(NON_CANONICAL);
     }
     let mut sum = 0u64;
@@ -472,6 +582,7 @@ impl<'a> EpochAggregation<'a> {
     /// # Errors
     /// Propagates `check_outputs` refusals (`CAPACITY`, `NON_CANONICAL`, `F05_REPORT_INVARIANT`,
     /// `ARITHMETIC`) and preimage `CAPACITY`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn structural(
         binding: FrozenBinding,
         input: Digest32,
@@ -481,7 +592,7 @@ impl<'a> EpochAggregation<'a> {
         let total = check_outputs(workers, outputs, true)?;
         let mut bytes = [0; OUTPUT_PREIMAGE_MAX_BYTES];
         let n = write_output_preimage(binding, input, outputs, total, &mut bytes)?;
-        let root = domain_hash("PAXAI/aggregation-output/v1", &bytes[..n])?;
+        let root = domain_hash("PAXAI/aggregation-output/v1", bytes.guest_index(..n))?;
         Ok(Self {
             binding,
             input,
@@ -621,6 +732,7 @@ impl CurrentAggregation<'_> {
     /// # Errors
     /// Propagates `validate` and `report_digest` refusals; returns `F05_REPORT_INVARIANT` when
     /// reports, digests or support differ from the view.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_inputs(&self, view: &AggregationInputView<'_>) -> CodecResult<()> {
         self.validate(view.binding, view.workers())?;
         if self.phase == AggregationPhase::Unsealed {
@@ -655,6 +767,86 @@ pub fn encode_current(
     out: &mut [u8],
 ) -> CodecResult<usize> {
     v.validate(binding, workers)?;
+    encode_checked_current(v, out)
+}
+
+// The private checked wrapper carries the validation across encoding and history
+// checks of the same immutable record, so neither hashes its outputs again.
+pub(crate) struct CheckedCurrent<'a> {
+    value: CurrentAggregation<'a>,
+    binding: FrozenBinding,
+}
+impl<'a> CheckedCurrent<'a> {
+    pub(crate) fn begin(
+        binding: FrozenBinding,
+        height: u64,
+        reports: &'a [ReportCommitment],
+    ) -> CodecResult<Self> {
+        let input = input_digest(binding, height, reports)?;
+        Ok(Self {
+            value: CurrentAggregation {
+                phase: AggregationPhase::Processing,
+                seal_height: height,
+                input: Presence::Present(input),
+                cursor: 0,
+                reports,
+                outputs: &[],
+                running_weight: 0,
+                root: Presence::Absent,
+            },
+            binding,
+        })
+    }
+    pub(crate) fn input(&self) -> Presence<Digest32> {
+        self.value.input
+    }
+    /// Terminal record from the decoded running section and the very same
+    /// checked output projection used for allocation and reputation completion.
+    pub(crate) fn terminal(
+        current: &DecodedCurrent,
+        reports: &'a [ReportCommitment],
+        aggregation: &EpochAggregation<'a>,
+    ) -> CodecResult<Self> {
+        if current.phase != AggregationPhase::Processing
+            || current.input != Presence::Present(aggregation.input)
+            || usize::from(current.cursor) != aggregation.outputs.len()
+            || current.running_weight != aggregation.total
+        {
+            return Err(F05_REPORT_INVARIANT);
+        }
+        current.check_committed_reports(reports)?;
+        Ok(Self {
+            value: CurrentAggregation {
+                phase: AggregationPhase::Terminal,
+                seal_height: current.seal_height,
+                input: current.input,
+                cursor: current.cursor,
+                reports,
+                outputs: aggregation.outputs,
+                running_weight: aggregation.total,
+                root: Presence::Present(aggregation.root),
+            },
+            binding: aggregation.binding,
+        })
+    }
+    pub(crate) fn new(
+        value: CurrentAggregation<'a>,
+        binding: FrozenBinding,
+        workers: &[WorkerRosterEntry],
+    ) -> CodecResult<Self> {
+        value.validate(binding, workers)?;
+        Ok(Self { value, binding })
+    }
+    pub(crate) fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
+        encode_checked_current(&self.value, out)
+    }
+    pub(crate) fn check_history(&self, history: &[HistorySummary]) -> CodecResult<()> {
+        check_current_history(&self.value, self.binding, history)
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn encode_checked_current(v: &CurrentAggregation<'_>, out: &mut [u8]) -> CodecResult<usize> {
     let n = 56
         + v.reports.len() * 64
         + v.outputs.len() * 50
@@ -701,6 +893,20 @@ pub struct DecodedCurrent {
     root: Presence<Digest32>,
 }
 impl DecodedCurrent {
+    /// The record decoder already checked its input digest and persisted output
+    /// bindings. Compare sealed receipts without re-hashing immutable report bodies.
+    pub(crate) fn check_committed_reports(&self, reports: &[ReportCommitment]) -> CodecResult<()> {
+        if reports.len() != self.report_count {
+            return Err(F05_REPORT_INVARIANT);
+        }
+        for (index, report) in reports.iter().enumerate() {
+            if self.report(index)? != *report {
+                return Err(F05_REPORT_INVARIANT);
+            }
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn phase(&self) -> AggregationPhase {
         self.phase
@@ -801,11 +1007,49 @@ fn encode_decoded(
     }
     w.u64(v.running_weight)?;
     w.presence(&v.root, |w, d| w.put(d.as_bytes()))?;
-    decode_current(&scratch[..n], binding, workers)?;
+    decode_current(scratch.guest_index(..n), binding, workers)?;
     capacity(out, n, CURRENT_MAX_BYTES)?;
-    out[..n].copy_from_slice(&scratch[..n]);
+    out.guest_index_mut(..n)
+        .guest_copy_from_slice(scratch.guest_index(..n));
     Ok(n)
 }
+pub(crate) struct CurrentPrefix {
+    pub phase: AggregationPhase,
+    pub seal_height: u64,
+    pub input: Presence<Digest32>,
+    pub cursor: u16,
+    pub report_count: usize,
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn read_current_prefix(r: &mut Reader<'_>) -> CodecResult<CurrentPrefix> {
+    let phase = match r.u8()? {
+        0 => AggregationPhase::Unsealed,
+        1 => AggregationPhase::Processing,
+        2 => AggregationPhase::Terminal,
+        _ => return Err(NON_CANONICAL),
+    };
+    let seal_height = r.u64()?;
+    let raw = r.fixed()?;
+    let input = if raw == [0; 32] {
+        Presence::Absent
+    } else {
+        Presence::Present(Digest32::new(raw)?)
+    };
+    let cursor = r.u16()?;
+    let report_count = usize::from(r.u16()?);
+    if report_count > crate::aggregation::MAX_VOTES {
+        return Err(CAPACITY);
+    }
+    Ok(CurrentPrefix {
+        phase,
+        seal_height,
+        input,
+        cursor,
+        report_count,
+    })
+}
+
 /// Strictly decodes and validates the current aggregation record.
 ///
 /// # Errors
@@ -823,27 +1067,16 @@ pub fn decode_current(
         return Err(CAPACITY);
     }
     let mut r = Reader::new(bytes);
-    let phase = match r.u8()? {
-        0 => AggregationPhase::Unsealed,
-        1 => AggregationPhase::Processing,
-        2 => AggregationPhase::Terminal,
-        _ => return Err(NON_CANONICAL),
-    };
-    let seal_height = r.u64()?;
-    let raw = r.fixed()?;
-    let input = if raw == [0; 32] {
-        Presence::Absent
-    } else {
-        Presence::Present(Digest32::new(raw)?)
-    };
-    let cursor = r.u16()?;
-    let report_count = usize::from(r.u16()?);
-    if report_count > 8 {
-        return Err(CAPACITY);
-    }
+    let CurrentPrefix {
+        phase,
+        seal_height,
+        input,
+        cursor,
+        report_count,
+    } = read_current_prefix(&mut r)?;
     let mut reports = [None; 8];
     let mut last = None;
-    for slot in &mut reports[..report_count] {
+    for slot in reports.guest_index_mut(..report_count) {
         let row = ReportCommitment {
             evaluator: r.evaluator_id()?,
             report: r.report_digest()?,
@@ -863,13 +1096,20 @@ pub fn decode_current(
     }
     let mut outputs = [None; 32];
     let mut sum = 0u64;
-    if workers.windows(2).any(|p| p[0].worker >= p[1].worker) {
+    if workers
+        .windows(2)
+        .any(|p| p.guest_index(0).worker >= p.guest_index(1).worker)
+    {
         return Err(NON_CANONICAL);
     }
-    for (i, slot) in outputs[..output_count].iter_mut().enumerate() {
+    for (i, slot) in outputs
+        .guest_index_mut(..output_count)
+        .iter_mut()
+        .enumerate()
+    {
         let output = read_worker(&mut r)?;
-        if output.worker != workers[i].worker
-            || output.generation != workers[i].generation
+        if output.worker != workers.guest_index(i).worker
+            || output.generation != workers.guest_index(i).generation
             || usize::from(output.support) > report_count
         {
             return Err(F05_REPORT_INVARIANT);
@@ -900,6 +1140,7 @@ pub fn decode_current(
     check_decoded_phase(&decoded, binding, workers)?;
     Ok(decoded)
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_decoded_phase(
     v: &DecodedCurrent,
     binding: FrozenBinding,
@@ -922,12 +1163,16 @@ fn check_decoded_phase(
         write_binding(&mut w, binding)?;
         w.u64(v.seal_height)?;
         w.u16(u16::try_from(v.report_count).map_err(|_| CAPACITY)?)?;
-        for row in v.reports[..v.report_count].iter().flatten() {
+        for row in v.reports.guest_index(..v.report_count).iter().flatten() {
             w.put(row.evaluator.as_bytes())?;
             w.put(row.report.as_bytes())?;
         }
         let n = w.len();
-        if v.input != Presence::Present(domain_hash("PAXAI/aggregation-input/v1", &preimage[..n])?)
+        if v.input
+            != Presence::Present(domain_hash(
+                "PAXAI/aggregation-input/v1",
+                preimage.guest_index(..n),
+            )?)
         {
             return Err(CONFLICT);
         }
@@ -946,13 +1191,16 @@ fn check_decoded_phase(
             write_binding(&mut w, binding)?;
             w.put(digest.as_bytes())?;
             w.u16(u16::try_from(v.output_count).map_err(|_| CAPACITY)?)?;
-            for output in v.outputs[..v.output_count].iter().flatten() {
+            for output in v.outputs.guest_index(..v.output_count).iter().flatten() {
                 write_worker(&mut w, *output)?;
             }
             w.u64(v.running_weight)?;
             let n = w.len();
             if v.root
-                != Presence::Present(domain_hash("PAXAI/aggregation-output/v1", &preimage[..n])?)
+                != Presence::Present(domain_hash(
+                    "PAXAI/aggregation-output/v1",
+                    preimage.guest_index(..n),
+                )?)
             {
                 return Err(CONFLICT);
             }
@@ -973,7 +1221,10 @@ fn check_history(history: &[HistorySummary]) -> CodecResult<()> {
     if history.len() > 32 {
         return Err(CAPACITY);
     }
-    if history.windows(2).any(|p| p[0].epoch >= p[1].epoch) {
+    if history
+        .windows(2)
+        .any(|p| p.guest_index(0).epoch >= p.guest_index(1).epoch)
+    {
         return Err(NON_CANONICAL);
     }
     Ok(())
@@ -990,11 +1241,13 @@ pub fn encode_history(history: &[HistorySummary], out: &mut [u8]) -> CodecResult
     let mut w = Writer::new(out);
     w.u16(u16::try_from(history.len()).map_err(|_| CAPACITY)?)?;
     for row in history {
-        w.u64(row.epoch)?;
-        w.u64(row.config.get())?;
-        w.put(row.roster.as_bytes())?;
-        w.put(row.input.as_bytes())?;
-        w.put(row.root.as_bytes())?;
+        crate::codec::write_fields!(w;
+            u64: row.epoch;
+            u64: row.config.get();
+            id32: row.roster.as_bytes();
+            id32: row.input.as_bytes();
+            id32: row.root.as_bytes();
+        )?;
     }
     Ok(w.len())
 }
@@ -1042,7 +1295,7 @@ pub fn decode_history(bytes: &[u8]) -> CodecResult<DecodedHistory> {
     }
     let mut entries = [None; 32];
     let mut last = None;
-    for slot in &mut entries[..count] {
+    for slot in entries.guest_index_mut(..count) {
         let row = HistorySummary {
             epoch: r.u64()?,
             config: r.version()?,
@@ -1127,7 +1380,10 @@ pub fn decode_epoch_preimage(
     if bytes.len() > OUTPUT_PREIMAGE_MAX_BYTES || workers.len() > 32 {
         return Err(CAPACITY);
     }
-    if workers.windows(2).any(|p| p[0].worker >= p[1].worker) {
+    if workers
+        .windows(2)
+        .any(|p| p.guest_index(0).worker >= p.guest_index(1).worker)
+    {
         return Err(NON_CANONICAL);
     }
     let mut r = Reader::new(bytes);
@@ -1143,9 +1399,11 @@ pub fn decode_epoch_preimage(
     }
     let mut outputs = [None; 32];
     let mut sum = 0u64;
-    for (i, slot) in outputs[..count].iter_mut().enumerate() {
+    for (i, slot) in outputs.guest_index_mut(..count).iter_mut().enumerate() {
         let output = read_worker(&mut r)?;
-        if output.worker != workers[i].worker || output.generation != workers[i].generation {
+        if output.worker != workers.guest_index(i).worker
+            || output.generation != workers.guest_index(i).generation
+        {
             return Err(F05_REPORT_INVARIANT);
         }
         sum = sum
@@ -1194,6 +1452,7 @@ impl CurrentAggregation<'_> {
 /// Propagates `validate` and history `CAPACITY`/`NON_CANONICAL` refusals; returns `WRONG_EPOCH`
 /// for a future history row and `F05_REPORT_INVARIANT` when the terminal row is missing or
 /// differs, or a non-terminal epoch already has one.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn validate_current_history(
     current: &CurrentAggregation<'_>,
     binding: FrozenBinding,
@@ -1201,6 +1460,15 @@ pub fn validate_current_history(
     history: &[HistorySummary],
 ) -> CodecResult<()> {
     current.validate(binding, workers)?;
+    check_current_history(current, binding, history)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn check_current_history(
+    current: &CurrentAggregation<'_>,
+    binding: FrozenBinding,
+    history: &[HistorySummary],
+) -> CodecResult<()> {
     check_history(history)?;
     if history.iter().any(|r| r.epoch > binding.epoch) {
         return Err(WRONG_EPOCH);
@@ -1284,7 +1552,7 @@ pub fn decode_input_preimage(
     }
     let mut rows = [None; 8];
     let mut last = None;
-    for slot in &mut rows[..count] {
+    for slot in rows.guest_index_mut(..count) {
         let row = ReportCommitment {
             evaluator: r.evaluator_id()?,
             report: r.report_digest()?,
@@ -1340,6 +1608,7 @@ impl DecodedCurrent {
     /// Returns `F05_REPORT_INVARIANT` when counts, reports, outputs or support differ from the view,
     /// `NON_CANONICAL` for a missing decoded row and `CONFLICT` when the input digest differs;
     /// propagates `report_digest` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_inputs(&self, view: &AggregationInputView<'_>) -> CodecResult<()> {
         if self.phase == AggregationPhase::Unsealed {
             return Ok(());
@@ -1362,13 +1631,16 @@ impl DecodedCurrent {
         }
         let n = w.len();
         if self.input
-            != Presence::Present(domain_hash("PAXAI/aggregation-input/v1", &preimage[..n])?)
+            != Presence::Present(domain_hash(
+                "PAXAI/aggregation-input/v1",
+                preimage.guest_index(..n),
+            )?)
         {
             return Err(CONFLICT);
         }
         for i in 0..self.output_count {
             let output = self.output(i)?;
-            let worker = view.workers()[i];
+            let worker = *view.workers().guest_index(i);
             if output.worker != worker.worker
                 || output.generation != worker.generation
                 || output.support != view.support(worker.worker)?
@@ -1425,37 +1697,195 @@ impl WorkerVotes {
             .ok_or(NON_CANONICAL)
     }
 }
+/// A single chunk's votes. Reports are merged as borrowed score slices, so
+/// processing never materializes or copies a roster-wide report body array.
+/// Evaluator order is checked once at the report boundary; every worker column
+/// inherits that order and stores only its scores, including measured zeroes.
+pub(crate) struct ChunkVotes<'a> {
+    workers: &'a [WorkerRosterEntry],
+    columns: [crate::aggregation::ScoreMedian; crate::aggregation::WORKERS_PER_CHUNK],
+    previous: Option<&'a [u8; 32]>,
+    reports: u8,
+    checked_cells: Option<&'a [u8]>,
+    checked_scores: [Score; crate::aggregation::WORKERS_PER_CHUNK],
+}
+impl<'a> ChunkVotes<'a> {
+    pub(crate) fn new(workers: &'a [WorkerRosterEntry]) -> CodecResult<Self> {
+        if workers.len() > crate::aggregation::WORKERS_PER_CHUNK {
+            return Err(CAPACITY);
+        }
+        Ok(Self {
+            workers,
+            columns: [crate::aggregation::ScoreMedian::new()?;
+                crate::aggregation::WORKERS_PER_CHUNK],
+            previous: None,
+            reports: 0,
+            checked_cells: None,
+            checked_scores: [Score::new(0)?; crate::aggregation::WORKERS_PER_CHUNK],
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
+    pub(crate) fn add_report(
+        &mut self,
+        evaluator: &'a [u8; 32],
+        scores: crate::codec::ScoreVector<'a>,
+        start: usize,
+        roster_count: usize,
+    ) -> CodecResult<()> {
+        if self.reports == 8 {
+            return Err(CAPACITY);
+        }
+        if self.previous.is_some_and(|previous| {
+            crate::types::identity_order(previous, evaluator) != core::cmp::Ordering::Less
+        }) {
+            return Err(F05_REPORT_INVARIANT);
+        }
+        self.previous = Some(evaluator);
+        self.reports += 1;
+        let workers = self.workers;
+        if let crate::codec::ScoreVector::Encoded(bytes) = scores {
+            if scores.len() == roster_count {
+                let end = start.checked_add(self.workers.len()).ok_or(ARITHMETIC)?;
+                let cells = bytes
+                    .get(
+                        start.checked_mul(36).ok_or(ARITHMETIC)?
+                            ..end.checked_mul(36).ok_or(ARITHMETIC)?,
+                    )
+                    .ok_or(NON_CANONICAL)?;
+                // Equality includes every identity and score byte in this chunk.
+                // Reuse only cells checked against these same workers; differing
+                // bytes always take the complete checked projection below.
+                if self
+                    .checked_cells
+                    .is_some_and(|previous| crate::codec::equal_bytes(previous, cells))
+                {
+                    for (column, score) in self
+                        .columns
+                        .iter_mut()
+                        .zip(&self.checked_scores)
+                        .take(workers.len())
+                    {
+                        column.push(*score)?;
+                    }
+                    return Ok(());
+                }
+                for (at, ((worker, cell), column)) in workers
+                    .iter()
+                    .zip(cells.as_chunks::<36>().0)
+                    .zip(&mut self.columns)
+                    .enumerate()
+                {
+                    let identity = crate::types::CheckedIdentityBytes::new_inline(
+                        cell.guest_index(..32)
+                            .try_into()
+                            .map_err(|_| NON_CANONICAL)?,
+                    )?;
+                    let score = Score::new(u32::from_be_bytes(
+                        cell.guest_index(32..)
+                            .try_into()
+                            .map_err(|_| NON_CANONICAL)?,
+                    ))?;
+                    if !crate::types::identity_equal_inline(
+                        worker.worker.as_bytes(),
+                        identity.bytes(),
+                    ) {
+                        return Err(F05_REPORT_INVARIANT);
+                    }
+                    column.push(score)?;
+                    *self.checked_scores.get_mut(at).ok_or(CAPACITY)? = score;
+                }
+                self.checked_cells = Some(cells);
+                return Ok(());
+            }
+        }
+        // Admission proves canonical ordering and roster membership. A complete
+        // report therefore has the roster's exact offsets; project only this
+        // chunk's assignments and still compare each assigned identity.
+        for (at, worker) in workers.iter().enumerate() {
+            let score = if scores.len() == roster_count {
+                let (identity, score) =
+                    scores.checked_cell(start.checked_add(at).ok_or(ARITHMETIC)?)?;
+                if !crate::types::identity_equal_inline(worker.worker.as_bytes(), identity) {
+                    return Err(F05_REPORT_INVARIANT);
+                }
+                Some(score)
+            } else {
+                score_cell(scores, worker.worker)?.map(|cell| cell.score)
+            };
+            if let Some(score) = score {
+                self.record_score(at, score)?;
+            }
+        }
+        Ok(())
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(always))]
+    fn record_score(&mut self, at: usize, score: Score) -> CodecResult<()> {
+        self.columns.get_mut(at).ok_or(CAPACITY)?.push(score)
+    }
+    pub(crate) fn worker_median(
+        &self,
+        index: usize,
+    ) -> CodecResult<(WorkerRosterEntry, crate::aggregation::Median)> {
+        let worker = *self.workers.get(index).ok_or(F05_REPORT_INVARIANT)?;
+        let median = self
+            .columns
+            .get(index)
+            .ok_or(F05_REPORT_INVARIANT)?
+            .median()?;
+        Ok((worker, median))
+    }
+}
+
 impl AggregationInputView<'_> {
+    /// Merge each canonical report vector with this contiguous frozen chunk.
+    /// Every report cell and chunk member is visited at most once per report.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn chunk_votes(&self, start: usize, end: usize) -> CodecResult<ChunkVotes<'_>> {
+        let workers = self
+            .roster
+            .workers
+            .get(start..end)
+            .ok_or(F05_REPORT_INVARIANT)?;
+        if workers.len() > crate::aggregation::WORKERS_PER_CHUNK {
+            return Err(CAPACITY);
+        }
+        let mut votes = ChunkVotes::new(workers)?;
+        for report in self.reports {
+            votes.add_report(
+                report.binding.evaluator.as_bytes(),
+                report.scores,
+                start,
+                self.roster.workers.len(),
+            )?;
+        }
+        Ok(votes)
+    }
+
     /// Canonical vote projection for one frozen worker generation.
     ///
     /// # Errors
     /// Returns `F05_REPORT_INVARIANT` for an unrostered worker or a generation mismatch and
     /// `CAPACITY` for more than eight votes; propagates score-cell decode refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn worker_votes(&self, worker: WorkerId, generation: Version) -> CodecResult<WorkerVotes> {
-        let frozen = self
-            .roster
-            .workers
-            .iter()
-            .find(|w| w.worker == worker)
+        let index = crate::codec::frozen_worker_index(self.roster.workers, worker)
             .ok_or(F05_REPORT_INVARIANT)?;
+        let frozen = self.roster.workers.guest_index(index);
         if frozen.generation != generation {
             return Err(F05_REPORT_INVARIANT);
         }
         let mut entries = [None; 8];
         let mut count = 0usize;
         for report in self.reports {
-            for cell in report.scores.entries() {
-                let cell = cell?;
-                if cell.worker == worker {
-                    if count >= 8 {
-                        return Err(CAPACITY);
-                    }
-                    entries[count] = Some(EvaluatorVote {
-                        evaluator: report.binding.evaluator,
-                        score: cell.score,
-                    });
-                    count += 1;
+            if let Some(cell) = score_cell(report.scores, worker)? {
+                if count >= 8 {
+                    return Err(CAPACITY);
                 }
+                entries[count] = Some(EvaluatorVote {
+                    evaluator: report.binding.evaluator,
+                    score: cell.score,
+                });
+                count += 1;
             }
         }
         Ok(WorkerVotes {
@@ -1465,4 +1895,26 @@ impl AggregationInputView<'_> {
             count,
         })
     }
+}
+
+// Called only through a structurally validated AggregationInputView.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn score_cell(
+    scores: crate::codec::ScoreVector<'_>,
+    worker: WorkerId,
+) -> CodecResult<Option<crate::types::ScoreEntry>> {
+    let mut left = 0;
+    let mut right = scores.len();
+    while left < right {
+        let mid = left + (right - left) / 2;
+        let (identity, score) = scores.checked_cell(mid)?;
+        match crate::types::identity_order(identity, worker.as_bytes()) {
+            core::cmp::Ordering::Less => left = mid + 1,
+            core::cmp::Ordering::Greater => right = mid,
+            core::cmp::Ordering::Equal => {
+                return Ok(Some(crate::types::ScoreEntry { worker, score }))
+            }
+        }
+    }
+    Ok(None)
 }

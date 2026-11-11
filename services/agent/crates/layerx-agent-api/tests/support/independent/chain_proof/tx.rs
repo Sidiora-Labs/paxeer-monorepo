@@ -8,7 +8,7 @@ pub fn verify_tx(
     tx: &[u8],
     proof: &SimpleProof,
 ) -> Result<[u8; 32], ChainProofError> {
-    let hash: [u8; 32] = Sha256::digest(tx).into();
+    let hash: [u8; 32] = Sha256::digest(tx);
     proof.verify(&head.data_hash(), &hash)?;
     Ok(hash)
 }

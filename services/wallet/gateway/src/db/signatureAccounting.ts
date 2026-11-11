@@ -65,7 +65,12 @@ async function lockAccounting(client: PoolClient, userId: string): Promise<void>
   ]);
 }
 
-function matchesAccounting(row: ReservationRow, input: SignatureLogInput): boolean {
+type AccountingFields = Pick<
+  ReservationRow,
+  'user_id' | 'address' | 'to_address' | 'value_wei' | 'chain_id' | 'principal_did'
+>;
+
+function matchesAccounting(row: AccountingFields, input: SignatureLogInput): boolean {
   return (
     row.user_id === input.user_id &&
     row.address.toLowerCase() === input.address.toLowerCase() &&
@@ -80,6 +85,68 @@ const RESERVATION_PROJECTION = `r.signature_id::text, r.operation_hash, r.signed
   s.user_id, s.address, s.to_address, s.value_wei::text, s.chain_id, s.principal_did,
   s.created_at < now() - interval '24 hours' as expired`;
 
+async function findReservation(
+  client: PoolClient,
+  input: SignatureLogInput,
+  operationHash: string
+): Promise<ReservationRow | undefined> {
+  const existing = await client.query<ReservationRow>(
+    `select ${RESERVATION_PROJECTION}
+    from wallet_signature_reservations r join wallet_signatures s on s.id = r.signature_id
+    where r.wallet_id = $1 and r.kind = $2
+      and (r.request_hash = $3 or ($2 = 'transaction' and r.operation_hash = $4))
+    for update of r`,
+    [input.wallet_id, input.kind, input.request_hash, operationHash]
+  );
+  if (existing.rows.length > 1)
+    throw new Error('signature accounting request conflicts with another transaction');
+  const row = existing.rows[0];
+  if (row) {
+    if (row.operation_hash !== operationHash || !matchesAccounting(row, input)) {
+      throw new Error('signature accounting reservation cannot be retargeted');
+    }
+    if (row.expired && row.signed_evidence === null)
+      throw new Error('unresolved signature accounting reservation expired');
+    return row;
+  }
+  return undefined;
+}
+
+export async function bindHumanSignatureReservation(
+  input: SignatureLogInput,
+  operationHash: string,
+  dailyReservationId: string,
+  connection: PoolClient
+): Promise<string> {
+  return withTransaction(async (client) => {
+    await lockAccounting(client, input.user_id);
+    const existing = await findReservation(client, input, operationHash);
+    if (existing) {
+      const provisional = await client.query<AccountingFields>(
+        `select s.user_id, s.address, s.to_address, s.value_wei::text, s.chain_id, s.principal_did
+         from wallet_signatures s
+         where s.id = $1 and s.wallet_id = $2 and s.kind = $3 and s.request_hash = $4
+           and s.tx_hash is null
+           and not exists (select 1 from wallet_signature_reservations r where r.signature_id = s.id)
+         for update of s`,
+        [dailyReservationId, input.wallet_id, input.kind, input.request_hash]
+      );
+      if (provisional.rows.length !== 1 || !matchesAccounting(provisional.rows[0]!, input))
+        throw new Error('daily signature accounting reservation cannot be retargeted');
+      // Only the redundant, unsigned policy charge is removed. The retained
+      // operation keeps its original signature, accounting fields and daily window.
+      await client.query('delete from wallet_signatures where id = $1', [dailyReservationId]);
+      return existing.signature_id;
+    }
+    await client.query(
+      `insert into wallet_signature_reservations
+       (wallet_id, kind, request_hash, operation_hash, signature_id) values ($1, $2, $3, $4, $5)`,
+      [input.wallet_id, input.kind, input.request_hash, operationHash, dailyReservationId]
+    );
+    return dailyReservationId;
+  }, connection);
+}
+
 async function reserveSignature(
   input: SignatureLogInput,
   operationHash: string,
@@ -87,25 +154,8 @@ async function reserveSignature(
 ): Promise<ReservationRow> {
   return withTransaction(async (client) => {
     await lockAccounting(client, input.user_id);
-    const existing = await client.query<ReservationRow>(
-      `select ${RESERVATION_PROJECTION}
-      from wallet_signature_reservations r join wallet_signatures s on s.id = r.signature_id
-      where r.wallet_id = $1 and r.kind = $2
-        and (r.request_hash = $3 or ($2 = 'transaction' and r.operation_hash = $4))
-      for update of r`,
-      [input.wallet_id, input.kind, input.request_hash, operationHash]
-    );
-    if (existing.rows.length > 1)
-      throw new Error('signature accounting request conflicts with another transaction');
-    const row = existing.rows[0];
-    if (row) {
-      if (row.operation_hash !== operationHash || !matchesAccounting(row, input)) {
-        throw new Error('signature accounting reservation cannot be retargeted');
-      }
-      if (row.expired && row.signed_evidence === null)
-        throw new Error('unresolved signature accounting reservation expired');
-      return row;
-    }
+    const existing = await findReservation(client, input, operationHash);
+    if (existing) return existing;
     // Signing callers can hold a SHARE lock on wallets. A reservation must commit
     // independently without the last-used trigger trying to upgrade that lock.
     await client.query("select set_config('wallet.accounting_reservation', 'on', true)");

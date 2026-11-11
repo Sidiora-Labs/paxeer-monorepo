@@ -30,7 +30,7 @@ fn no_retired_layerx_client_module_paths() {
             "src/server/component.rs",
             include_str!("../src/server/component.rs"),
         ),
-        ("src/server/mod.rs", include_str!("../src/server/mod.rs")),
+        ("src/server.rs", include_str!("../src/server.rs")),
     ];
     let retired_modules = [
         "lni",

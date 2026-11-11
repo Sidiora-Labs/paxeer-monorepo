@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod assertions;
 pub mod kernel_payloads;
 pub mod signing;
 
@@ -20,13 +21,17 @@ pub const NOT_BEFORE: u64 = 10;
 pub const EXPIRES_AT: u64 = 100;
 pub const IDEMPOTENCY_KEY: [u8; 32] = [0x71; 32];
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn signer() -> LocalSigner {
-    let account = derive_from_seed(&[0x07; 64], 0).expect("fixture account");
+    let account = assertions::require(derive_from_seed(&[0x07; 64], 0), "fixture account");
     LocalSigner::from_derived_account(&account)
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn call_options(nonce: u64) -> CallOptions {
-    let account = derive_from_seed(&[0x07; 64], 0).expect("fixture account");
+    let account = assertions::require(derive_from_seed(&[0x07; 64], 0), "fixture account");
     CallOptions {
         from: account.evm_address(),
         chain_id: CHAIN_ID,
@@ -37,9 +42,14 @@ pub fn call_options(nonce: u64) -> CallOptions {
     }
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn send_call(amount: u128, nonce: u64) -> DisclosedCall {
     let (payload, _) = kernel_payloads::send(amount);
-    ledger_payment_call(&payload, &call_options(nonce)).expect("ledger send call")
+    assertions::require(
+        ledger_payment_call(&payload, &call_options(nonce)),
+        "ledger send call",
+    )
 }
 
 pub fn scoped_binding(
@@ -58,25 +68,29 @@ pub fn canonical_send_sequences(amount: u128, transaction_nonce: u64) -> Vec<u8>
     send_call(amount, transaction_nonce).call.encode_unsigned()
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn canonical_send_with_payload(
     payload: &[u8],
     authority: &[u8],
     transaction_nonce: u64,
 ) -> Vec<u8> {
     assert_eq!(authority.len(), 32, "kernel authorization key width");
-    let key_start = payload
-        .len()
-        .checked_sub(134)
-        .expect("complete kernel send payload");
+    let key_start = assertions::require(
+        payload.len().checked_sub(134),
+        "complete kernel send payload",
+    );
     assert_eq!(
         &payload[key_start..key_start + 32],
         authority,
         "kernel authorization key"
     );
-    ledger_payment_call(payload, &call_options(transaction_nonce))
-        .expect("validated ledger send payload")
-        .call
-        .encode_unsigned()
+    assertions::require(
+        ledger_payment_call(payload, &call_options(transaction_nonce)),
+        "validated ledger send payload",
+    )
+    .call
+    .encode_unsigned()
 }
 
 #[deprecated(
@@ -94,11 +108,15 @@ pub fn canonical_bridge_credit(amount: u128) -> Vec<u8> {
 }
 
 #[deprecated(note = "raw kernel payload only; native withdrawal activity ingress is retired")]
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn canonical_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
     assert_eq!(activity_type >> 16, ModuleId::Asset as u32);
     payload.to_vec()
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn registry() -> ModuleRegistry {
     let Ok(send) = ActivityType::new(ModuleId::Asset, 5) else {
         panic!("asset send activity type rejected");
@@ -112,6 +130,8 @@ pub fn registry() -> ModuleRegistry {
     registry
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn bridge_registry() -> ModuleRegistry {
     let Ok(credit) = ActivityType::new(ModuleId::Bridge, 1) else {
         panic!("bridge credit activity type rejected");
@@ -125,6 +145,8 @@ pub fn bridge_registry() -> ModuleRegistry {
     registry
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn bridge_withdraw_registry() -> ModuleRegistry {
     let Ok(withdraw) = ActivityType::new(ModuleId::Bridge, 2) else {
         panic!("bridge withdrawal activity type rejected");
@@ -140,24 +162,15 @@ pub fn bridge_withdraw_registry() -> ModuleRegistry {
 
 // Archive fixtures have explicit names so the current transaction fixtures
 // remain unchanged for consumers migrated by other tasks.
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn archived_send(amount: u128) -> Vec<u8> {
-    let (payload, key) = kernel_payloads::send(amount);
-    layerx_crypto::send::encode_send_envelope(
+    let (payload, _) = kernel_payloads::send(amount);
+    archived_activity(
         &payload,
-        &layerx_crypto::send::EnvelopeOptions {
-            actor: "did:layerx:alice",
-            public_key: key,
-            protocol_version: PROTOCOL_VERSION,
-            network_id: NETWORK_ID,
-            identity_sequence: SEQUENCE,
-            idempotency_key: IDEMPOTENCY_KEY,
-            fee_limit: 20,
-            not_before: NOT_BEFORE,
-            not_after: EXPIRES_AT,
-        },
+        assertions::require(ActivityType::new(ModuleId::Asset, 5), "archived send kind"),
+        IDEMPOTENCY_KEY,
     )
-    .expect("legacy producer compatibility")
-    .canonical
 }
 
 fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -> Vec<u8> {
@@ -167,41 +180,58 @@ fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -
     use layerx_types::payload::Payload;
     use layerx_wire::hash::Domain;
     use sha2::{Digest as _, Sha256};
-    let module = ModuleRegistration::new(kind.module(), &[kind]).expect("archive module");
-    let registry = ModuleRegistry::new(&[module]).expect("archive registry");
+    let module = assertions::require(
+        ModuleRegistration::new(kind.module(), &[kind]),
+        "archive module",
+    );
+    let registry = assertions::require(ModuleRegistry::new(&[module]), "archive registry");
     let mut hash = Sha256::new();
     hash.update(Domain::PayloadHash.tag());
     hash.update(payload);
     let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(PROTOCOL_VERSION)
-        .expect("protocol");
-    builder.network_id(NETWORK_ID).expect("network");
-    builder.activity_type(kind).expect("kind");
-    builder
-        .actor_did(Did::new(b"did:layerx:alice").expect("DID"))
-        .expect("actor");
-    builder
-        .authority(Authority::owner(&[0x55; 32]).expect("key"))
-        .expect("authority");
-    builder.account_sequence(SEQUENCE).expect("sequence");
-    builder
-        .timestamp_bound(TimestampBound::new(NOT_BEFORE, EXPIRES_AT).expect("bounds"))
-        .expect("time");
-    builder
-        .idempotency_key(IdempotencyKey::new(action_key))
-        .expect("retry identity");
-    builder.fee_limit(Amount::from_u128(20)).expect("fee");
-    builder
-        .payload_hash(hash.finalize().into())
-        .expect("commitment");
-    builder
-        .payload(Payload::new(&registry, kind, payload).expect("payload"))
-        .expect("payload field");
-    layerx_wire::activity::encode_unsigned_envelope(&builder.build().expect("archive envelope"))
-        .expect("archive bytes")
+    assertions::require(builder.protocol_version(PROTOCOL_VERSION), "protocol");
+    assertions::require(builder.network_id(NETWORK_ID), "network");
+    assertions::require(builder.activity_type(kind), "kind");
+    assertions::require(
+        builder.actor_did(assertions::require(Did::new(b"did:layerx:alice"), "DID")),
+        "actor",
+    );
+    assertions::require(
+        builder.authority(assertions::require(Authority::owner(&[0x55; 32]), "key")),
+        "authority",
+    );
+    assertions::require(builder.account_sequence(SEQUENCE), "sequence");
+    assertions::require(
+        builder.timestamp_bound(assertions::require(
+            TimestampBound::new(NOT_BEFORE, EXPIRES_AT),
+            "bounds",
+        )),
+        "time",
+    );
+    assertions::require(
+        builder.idempotency_key(IdempotencyKey::new(action_key)),
+        "retry identity",
+    );
+    assertions::require(builder.fee_limit(Amount::from_u128(20)), "fee");
+    assertions::require(builder.payload_hash(hash.finalize().into()), "commitment");
+    assertions::require(
+        builder.payload(assertions::require(
+            Payload::new(&registry, kind, payload),
+            "payload",
+        )),
+        "payload field",
+    );
+    assertions::require(
+        layerx_wire::historical::activity::encode_unsigned_envelope(&assertions::require(
+            builder.build(),
+            "archive envelope",
+        )),
+        "archive bytes",
+    )
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {
     use sha2::{Digest as _, Sha256};
     let payload = kernel_payloads::bridge_credit(amount);
@@ -210,24 +240,36 @@ pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {
     nullifier.update(&payload[43..75]);
     archived_activity(
         &payload,
-        ActivityType::new(ModuleId::Bridge, 1).expect("credit"),
+        assertions::require(ActivityType::new(ModuleId::Bridge, 1), "credit"),
         nullifier.finalize().into(),
     )
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn archived_bridge_withdraw(amount: u128) -> Vec<u8> {
     archived_activity(
         &kernel_payloads::bridge_withdraw(amount),
-        ActivityType::new(ModuleId::Bridge, 2).expect("withdraw"),
+        assertions::require(ActivityType::new(ModuleId::Bridge, 2), "withdraw"),
         IDEMPOTENCY_KEY,
     )
 }
 
+/// # Panics
+/// Panics if the retained protocol fixture, local peer or test environment is invalid.
 pub fn archived_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
     assert_eq!(activity_type >> 16, ModuleId::Asset as u32);
     archived_activity(
         payload,
-        ActivityType::new(ModuleId::Asset, activity_type as u16).expect("native withdraw"),
+        assertions::require(
+            ActivityType::new(ModuleId::Asset, {
+                let Ok(ordinal) = u16::try_from(activity_type & 0xffff) else {
+                    panic!("ordinal exceeds u16");
+                };
+                ordinal
+            }),
+            "native withdraw",
+        ),
         IDEMPOTENCY_KEY,
     )
 }

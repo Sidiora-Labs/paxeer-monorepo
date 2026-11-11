@@ -55,7 +55,7 @@ For an already prepared home, the primary container in
 `services/platform/hosted/paxeer/deployment.yaml` runs:
 
 ```bash
-paxd start --home /var/lib/paxeer
+python3 /opt/layerx/kernel_runtime.py --home /data/layerx/node
 ```
 
 The merged network replaces the pre-merge independent execution and settlement
@@ -117,8 +117,9 @@ a readiness test for the merged chain.
 
 ## Primary node and observer node
 
-The Paxeer StatefulSet declares one primary replica and a 40Gi `data` PVC at
-`/var/lib/paxeer`. `paxeer_observer_render` appends an observer with its own
+The Paxeer StatefulSet declares one primary replica and a 40Gi `data` PVC mounted at `/data`.
+
+`paxeer_observer_render` appends an observer with its own
 `observer-data` PVC and home `/var/lib/paxeer-observer`. Its init container copies
 and compares the primary genesis, sets mode `full`, and connects to the primary
 node ID at `127.0.0.1:26656` as a persistent peer.

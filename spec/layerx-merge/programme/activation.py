@@ -15,7 +15,17 @@ PLAN_PATH = Path(__file__).resolve().parent / "data/activation-plan.kvx"
 GOLDEN_PATH = PLAN_PATH.parent / "goldens/merge-bringup.kvx"
 RUNBOOK_PATH = PLAN_PATH.parents[2] / "docs/activation-runbook.md"
 ANCHOR_STORE_DELETE = "v7.0-anchor-store-delete"
-KNOWN_UPGRADE_PLANS = ("v6.9", "v6.10", "v6.12.0", "v7.0")
+KNOWN_UPGRADE_PLANS = ("v6.9", "v6.10", "v6.12.0", "v7.0", ANCHOR_STORE_DELETE)
+MERGE_STORE_KEYS = {
+    "sequencer": "SequencerStoreKey",
+    "layerxledger": "LayerXLedgerStoreKey",
+    "layerxauth": "LayerXAuthStoreKey",
+    "layerxpay": "LayerXPayStoreKey",
+    "layerxchains": "LayerXChainsStoreKey",
+    "layerxprograms": "LayerXProgramsStoreKey",
+    "layerxagent": "LayerXAgentStoreKey",
+    "lxphost": "LayerXHostStoreKey",
+}
 PRECOMPILE_GATES = {
     "v6.9": "activationPrecompileGate",
     "v7.0": "mergePrecompileGate",
@@ -243,9 +253,11 @@ def render_runbook(
         "",
         "## Plans",
         "",
-        "Apply the four plans recognized by `node/upgrades.go:knownUpgradePlans`",
-        "in the data order below. The upgrade info file names the plan and its",
-        "activation height; the store loader and handler must use that same plan.",
+        "Apply the five explicit plans recognized by `node/upgrades.go:knownUpgradePlans`",
+        "in the order below when pending for the starting chain state. Do not replay",
+        "plans already applied. Historical tag-based handlers remain registered separately.",
+        "The upgrade info file names the plan and its activation height; the store loader",
+        "and handler must use that same plan.",
         "The file height must equal the last committed height plus one at startup.",
         "",
         "| Plan | Handler | Stores added | Stores deleted | Precompile gate | Pending rule |",
@@ -274,6 +286,34 @@ def render_runbook(
                 f"stores deleted: {_runbook_value(plan['store_deleted']) or 'none'}; "
                 f"pending rule: {rules[plan['name']]}."
             )
+    lines.extend(
+        [
+            "",
+            "## Merge stores",
+            "",
+            "The merge adds these stores without deleting or renaming any store:",
+            "",
+            "| Store-key constant | On-disk store |",
+            "| --- | --- |",
+        ]
+    )
+    for plan in plans:
+        if plan["name"] == "v7.0":
+            for store in plan["store_added"]:
+                lines.append(f"| `storekeys.{MERGE_STORE_KEYS[store]}` | `{store}` |")
+    lines.extend(
+        [
+            "",
+            "At `v7.0`, `mergeUpgradePlan` retires anchor writes, returns guarantor bonds",
+            "and releases retired custody balances. Historical anchor reads remain served.",
+            "Only the later `v7.0-anchor-store-delete` store loader deletes `layerxanchor`;",
+            "its registered `runAnchorStoreDeleteUpgrade` handler requires `v7.0` to have",
+            "completed at a positive height below the deletion height before running module",
+            "migrations. Schedule that plan after merge acceptance with a separate height,",
+            "backup and evidence record. The anchor address stays registered and all its",
+            "methods then refuse.",
+        ]
+    )
     lines.extend(
         [
             "",

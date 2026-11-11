@@ -1,0 +1,49 @@
+[issue.1590]
+number = 1590
+title = "[Coherence] Audit finding 12 and doc.13 say contracts/services.md is missing, but the launchpad-api and launchpad-metadata contract sections exist under the spec's contracts directory"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "The unchanged audit from commit 39d64711b272ce1e761a23abf2fbee9528863301 still falsely declares the contract absent at spec/layerx-merge/programme/audit/records/22.30.35.kvx:725 and :935, although spec/layerx-merge/interfaces.kvx:149556 links the existing launchpad-api section at spec/layerx-merge/contracts/services.md:3046 and launchpad-metadata also exists at :3218."
+close_comment = "The launchpad API and metadata contract anchors already resolve under spec/layerx-merge/contracts/services.md. A focused audit-record correction will remove the false missing-contract finding and classify the existing page by its content."
+
+[task.18.1590.1]
+title = "Issue #1590: Correct the launchpad audit contract-page inventory"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181590.1"]
+capabilities = []
+interfaces = []
+do_1 = "Correct spec/layerx-merge/programme/audit/records/22.30.35.kvx:721-730 by removing finding.12, whose absent-page premise is false; change the header findings count at :8 from 26 to 25 and remove the missing-authority clause from file.32 at :203 while retaining its independent finding 1 and all other findings, severities and blocking decisions."
+do_2 = "Correct doc.13 at spec/layerx-merge/programme/audit/records/22.30.35.kvx:933-936: use the existing repository-relative path spec/layerx-merge/contracts/services.md, review its launchpad-api (:3046) and launchpad-metadata (:3218) sections against their registry rows, and set accurate or stale with content-specific evidence, never missing; include the sentence Registry contract anchors resolve: launchpad-api and launchpad-metadata. in its notes and cite both current heading locations; create no duplicate contract page and change no registry link."
+do_3 = "Use the focused documentation verification to assert the 25-finding count, absence of finding.12 and all three false absence claims, a present-page doc.13 status and repository-relative path, corrected anchor notes and both real contract headings; no service behavior or existing test changes are needed."
+symbols = []
+touches = ["spec/layerx-merge/programme/audit/records/22.30.35.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "true"
+verify_cmd = "grep -Fxq 'findings = 25' spec/layerx-merge/programme/audit/records/22.30.35.kvx && ! grep -Fxq '[finding.12]' spec/layerx-merge/programme/audit/records/22.30.35.kvx && ! grep -Eq 'contracts/services.md does not exist|registry contract authority is missing|Missing registry authority' spec/layerx-merge/programme/audit/records/22.30.35.kvx && grep -A 2 '^\\[doc.13\\]$' spec/layerx-merge/programme/audit/records/22.30.35.kvx | grep -Eq '^status = .(accurate|stale).$' && grep -A 1 '^\\[doc.13\\]$' spec/layerx-merge/programme/audit/records/22.30.35.kvx | grep -Fq 'spec/layerx-merge/contracts/services.md' && grep -Fq 'Registry contract anchors resolve: launchpad-api and launchpad-metadata.' spec/layerx-merge/programme/audit/records/22.30.35.kvx && grep -Fxq '### launchpad-api' spec/layerx-merge/contracts/services.md && grep -Fxq '### launchpad-metadata' spec/layerx-merge/contracts/services.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181590]
+title = "Launchpad audit distinguishes existing contract pages from content drift"
+ac_1 = "The audit record no longer reports the existing services.md contract as absent: finding.12 at spec/layerx-merge/programme/audit/records/22.30.35.kvx:721 is removed, its header counts remain consistent, file.32 loses only the false missing-authority clause, and doc.13 at :933 names the existing spec-relative authority with accurate or stale status justified by its content and the actual headings at spec/layerx-merge/contracts/services.md:3046 and :3218."
+
+[acceptance.18.1590.1]
+feature = "18"
+req = "181590.1"
+scenario = "Given the existing launchpad-api and launchpad-metadata contract sections, when the launchpad audit is corrected and its focused documentation verification runs, then the record contains 25 findings, no finding.12 or missing-authority claims, and doc.13 identifies the existing contract page with a content-based status and resolving anchors."
+contract = "contracts/services.md#launchpad-api"
+test = "spec/layerx-merge/programme/audit/records/22.30.35.kvx::focused contract-inventory grep verification (planned)"
+qualification = "UNRUN"

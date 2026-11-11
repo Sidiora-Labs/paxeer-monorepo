@@ -19,7 +19,9 @@ Required environment:
 The on-ramp send reads its pending nonce from the merged node.
 Off-ramp inputs bind customer_budget_id and customer_budget_purpose plus the
 customer-signed raw_transaction (canonical hex EIP-1559 bytes, no 0x prefix).
+The off-ramp nonce is bound inside raw_transaction; no separate sequence is accepted.
 The service verifies the payer, purpose, nonce and exact payment before broadcast.
+Both journeys verify by --transaction-hash and require authenticated committed receipts.
 PAXEER_X_RAMP_FULL_CONTRACT=1 selects the protected full-contract journey inputs.
 HELP
   exit 0
@@ -496,7 +498,7 @@ try:
         started = request("operator", "operator", "POST", "/internal/v1/rebalances",
                           {"action": "reconcile", "idempotency_key": list(key)}, (202,))[0]
     custody(started)
-    require(started.get("settlement_domain") == "paxeer", "rebalance_domain")
+    require(type(started.get("chain_id")) is int and started["chain_id"] == 125, "rebalance_chain")
     operation = started["operation_id"]
     transaction = started["transaction_hash"]
     require(isinstance(operation, str) and operation and isinstance(transaction, str)
@@ -509,7 +511,7 @@ try:
         observed = request("operator", "operator", "POST", "/internal/v1/rebalances", poll)[0]
         custody(observed)
         require(observed["operation_id"] == operation and observed["transaction_hash"] == transaction
-                and observed["settlement_domain"] == "paxeer", "rebalance_identity_changed")
+                and observed["chain_id"] == started["chain_id"], "rebalance_identity_changed")
         committed = observe_rebalance(observed, rebalance, previous)
         if not committed:
             cases["no_credit_before_commit"] = True
@@ -557,7 +559,7 @@ try:
     report["rebalance"] = {"idempotency_key": key.hex(), "operation_id": operation,
                             "transaction_hash": transaction, "block_hash": final["block_hash"],
                             "rung": final["rung"], "block_height": final["block_height"],
-                            "settlement_domain": "paxeer"}
+                            "chain_id": final["chain_id"]}
     require(all(cases.values()), "incomplete_cases")
     report["qualified"] = True
     save("ramp-sandbox-result.json", report)

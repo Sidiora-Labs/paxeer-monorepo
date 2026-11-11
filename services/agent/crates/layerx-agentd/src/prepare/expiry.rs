@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use crate::budget::{release, BudgetLimiter, LimitRefusal, ReleaseKind};
 use crate::session::SessionRef;
 
-use super::Prepared;
+use crate::prepare::EvmPrepared;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LifecycleState {
@@ -73,7 +73,7 @@ impl PreparationLifecycle {
     pub fn register(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
     ) -> Result<(), LifecycleError> {
         self.register_inner(preparation_id, prepared, reservation_ids, None)
@@ -83,7 +83,7 @@ impl PreparationLifecycle {
     pub(crate) fn register_authorized(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
         authorization: PreparationAuthorization,
     ) -> Result<(), LifecycleError> {
@@ -101,11 +101,12 @@ impl PreparationLifecycle {
     fn register_inner(
         &self,
         preparation_id: [u8; 32],
-        prepared: &Prepared,
+        prepared: &EvmPrepared,
         reservation_ids: Vec<[u8; 32]>,
         authorization: Option<PreparationAuthorization>,
     ) -> Result<(), LifecycleError> {
-        let (not_after, payload_hash) = prepared.lifecycle_facts()?;
+        crate::prepare::verify_call_binding(prepared)
+            .map_err(|_| LifecycleError::InvalidSignedBytes)?;
         let mut records = self
             .records
             .lock()
@@ -120,11 +121,15 @@ impl PreparationLifecycle {
                 call_bound: false,
                 durable_terminal: false,
                 state: LifecycleState::Prepared,
-                not_after,
+                not_after: prepared
+                    .disclosure
+                    .expiry
+                    .not_after
+                    .min(prepared.disclosure.expiry.payload_expires_at),
                 reservation_ids,
                 signed_bytes: None,
                 activity_id: None,
-                payload_hash,
+                payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
                 terminal_at_sequence: None,
             },
         );
@@ -483,36 +488,6 @@ impl PreparationLifecycle {
             .ok_or(LifecycleError::InvalidSignedBytes)
     }
 
-    /// Returns the retained activity id and signed bytes only for the exact owning generation.
-    pub(crate) fn signed_activity_authorized(
-        &self,
-        preparation_id: [u8; 32],
-        authorization: &PreparationAuthorization,
-    ) -> Result<([u8; 32], Vec<u8>), LifecycleError> {
-        let records = self
-            .records
-            .lock()
-            .map_err(|_| LifecycleError::Unavailable)?;
-        let record = records
-            .get(&preparation_id)
-            .ok_or(LifecycleError::NotFound)?;
-        require_authorization(record, Some(authorization))?;
-        if record.state != LifecycleState::Signed {
-            return Err(LifecycleError::InvalidTransition {
-                from: record.state,
-                to: LifecycleState::Signed,
-            });
-        }
-        let activity_id = record
-            .activity_id
-            .ok_or(LifecycleError::ActivityIdUnavailable)?;
-        let signed_bytes = record
-            .signed_bytes
-            .clone()
-            .ok_or(LifecycleError::InvalidSignedBytes)?;
-        Ok((activity_id, signed_bytes))
-    }
-
     /// Renders one log line carrying the activity id and never the payload bytes.
     ///
     /// # Errors
@@ -783,7 +758,10 @@ fn require_authorization(
     }
 }
 
-pub(crate) fn expire_elapsed(
+/// # Errors
+/// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+/// or required state, reservations or transport are unavailable.
+pub fn expire_elapsed(
     lifecycle: &PreparationLifecycle,
     limiter: &BudgetLimiter,
     core_batch_time_ms: u64,
@@ -832,7 +810,10 @@ pub(crate) fn expire_elapsed(
     Ok(report)
 }
 
-pub(crate) fn sweep_retention(
+/// # Errors
+/// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+/// or required state, reservations or transport are unavailable.
+pub fn sweep_retention(
     lifecycle: &PreparationLifecycle,
     current_sequence: u64,
     retention_sequences: u64,
@@ -1152,112 +1133,68 @@ impl DurablePreparation {
     ///
     /// Returns `InvalidSignedBytes` for any malformed, non-canonical or trailing byte.
     pub fn decode(tenant: crate::store::TenantId, bytes: &[u8]) -> Result<Self, LifecycleError> {
-        use crate::budget::{CoreTimestampMs, DurableBudgetReservation, LimitId, LimitScope};
         let invalid = |_| LifecycleError::InvalidSignedBytes;
         let mut decoder = layerx_wire::decode::Decoder::new(bytes, 0);
-        fn fixed<const N: usize>(
-            decoder: &mut layerx_wire::decode::Decoder<'_>,
-        ) -> Result<[u8; N], LifecycleError> {
-            decoder
-                .fixed(N)
-                .map_err(|_| LifecycleError::InvalidSignedBytes)?
-                .try_into()
-                .map_err(|_| LifecycleError::InvalidSignedBytes)
-        }
-        if fixed::<4>(&mut decoder)? != *PREPARATION_MAGIC {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
+
+        crate::reject_if(
+            preparation_fixed::<4>(&mut decoder)? != *PREPARATION_MAGIC,
+            || LifecycleError::InvalidSignedBytes,
+        )?;
         let version = decoder.u8().map_err(invalid)?;
-        if ![
-            PREPARATION_VERSION,
-            PREPARATION_VERSION_SIGNED,
-            PREPARATION_VERSION_CALL,
-        ]
-        .contains(&version)
-        {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
-        let preparation_id = fixed::<32>(&mut decoder)?;
-        let session_id = fixed::<32>(&mut decoder)?;
+        crate::reject_if(
+            ![
+                PREPARATION_VERSION,
+                PREPARATION_VERSION_SIGNED,
+                PREPARATION_VERSION_CALL,
+            ]
+            .contains(&version),
+            || LifecycleError::InvalidSignedBytes,
+        )?;
+        let preparation_id = preparation_fixed::<32>(&mut decoder)?;
+        let session_id = preparation_fixed::<32>(&mut decoder)?;
         let generation = decoder.u64().map_err(invalid)?;
         let not_after = decoder.u64().map_err(invalid)?;
-        let payload_hash = fixed::<32>(&mut decoder)?;
+        let payload_hash = preparation_fixed::<32>(&mut decoder)?;
         let state = *STATES
             .get(usize::from(decoder.u8().map_err(invalid)?))
             .ok_or(LifecycleError::InvalidSignedBytes)?;
         let activity_id = match decoder.u8().map_err(invalid)? {
             0 => None,
-            1 => Some(fixed::<32>(&mut decoder)?),
+            1 => Some(preparation_fixed::<32>(&mut decoder)?),
             _ => return Err(LifecycleError::InvalidSignedBytes),
         };
-        let hold_count = usize::from(decoder.u16().map_err(invalid)?);
-        if hold_count > MAX_HOLDS {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
-        let mut holds = Vec::with_capacity(hold_count);
-        for _ in 0..hold_count {
-            let reservation_id = fixed::<32>(&mut decoder)?;
-            let limit_id = LimitId(fixed::<16>(&mut decoder)?);
-            let tag = decoder.u8().map_err(invalid)?;
-            let identity = fixed::<32>(&mut decoder)?;
-            let scope = match tag {
-                0 => LimitScope::Tenant(identity),
-                1 => LimitScope::Agent(identity),
-                2 => LimitScope::Session(identity),
-                3 => LimitScope::Capability(identity),
-                4 => LimitScope::Counterparty(identity),
-                _ => return Err(LifecycleError::InvalidSignedBytes),
-            };
-            let hold = DurableBudgetReservation {
-                reservation_id,
-                limit_id,
-                scope,
-                amount: decoder.u128().map_err(invalid)?,
-                ceiling: decoder.u128().map_err(invalid)?,
-                expiry_sequence: decoder.u64().map_err(invalid)?,
-                digest: fixed::<32>(&mut decoder)?,
-            };
-            let deadline = match decoder.u8().map_err(invalid)? {
-                0 => None,
-                1 => Some(CoreTimestampMs(decoder.u64().map_err(invalid)?)),
-                _ => return Err(LifecycleError::InvalidSignedBytes),
-            };
-            if hold.reservation_id != preparation_id || hold.digest != hold.canonical_digest() {
-                return Err(LifecycleError::InvalidSignedBytes);
-            }
-            holds.push((hold, deadline));
-        }
+        let holds = decode_preparation_holds(&mut decoder, preparation_id)?;
         let extension_count = usize::from(decoder.u16().map_err(invalid)?);
-        if extension_count > MAX_EXTENSIONS {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
+        crate::reject_if(extension_count > MAX_EXTENSIONS, || {
+            LifecycleError::InvalidSignedBytes
+        })?;
         let mut extensions = BTreeMap::new();
         let mut previous: Option<u16> = None;
         for _ in 0..extension_count {
             let tag = decoder.u16().map_err(invalid)?;
             let length = usize::try_from(decoder.u32().map_err(invalid)?)
                 .map_err(|_| LifecycleError::InvalidSignedBytes)?;
-            if previous.is_some_and(|previous| tag <= previous)
-                || length > extension_bound(version, tag)
-            {
-                return Err(LifecycleError::InvalidSignedBytes);
-            }
+            crate::reject_if(
+                previous.is_some_and(|previous| tag <= previous)
+                    || length > extension_bound(version, tag),
+                || LifecycleError::InvalidSignedBytes,
+            )?;
             extensions.insert(tag, decoder.fixed(length).map_err(invalid)?.to_vec());
             previous = Some(tag);
         }
         decoder.finish().map_err(invalid)?;
-        if version == PREPARATION_VERSION_SIGNED
-            && !extensions
-                .get(&EXTENSION_SIGNED_BYTES)
-                .is_some_and(|bytes| bytes.len() > MAX_EXTENSION_BYTES)
-        {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
+        crate::reject_if(
+            version == PREPARATION_VERSION_SIGNED
+                && extensions
+                    .get(&EXTENSION_SIGNED_BYTES)
+                    .is_none_or(|bytes| bytes.len() <= MAX_EXTENSION_BYTES),
+            || LifecycleError::InvalidSignedBytes,
+        )?;
         let call_record = extensions.contains_key(&EXTENSION_CALL)
             || extensions.contains_key(&EXTENSION_CALL_TOMBSTONE);
-        if call_record != (version == PREPARATION_VERSION_CALL) {
-            return Err(LifecycleError::InvalidSignedBytes);
-        }
+        crate::reject_if(call_record != (version == PREPARATION_VERSION_CALL), || {
+            LifecycleError::InvalidSignedBytes
+        })?;
         Ok(Self {
             tenant,
             preparation_id,
@@ -1323,11 +1260,15 @@ impl DurablePreparation {
 }
 
 impl DurablePreparation {
+    #[must_use]
     pub fn is_call_record(&self) -> bool {
         self.extensions.contains_key(&EXTENSION_CALL)
             || self.extensions.contains_key(&EXTENSION_CALL_TOMBSTONE)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn from_call(
         session: &SessionRef,
         generation: u64,
@@ -1393,11 +1334,24 @@ impl DurablePreparation {
         Ok(record)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn restore_call(
         &self,
         session: &SessionRef,
         generation: u64,
     ) -> Result<crate::prepare::EvmPrepared, LifecycleError> {
+        fn fixed<const N: usize>(
+            input: &mut layerx_wire::decode::Decoder<'_>,
+        ) -> Result<[u8; N], LifecycleError> {
+            input
+                .fixed(N)
+                .map_err(|_| LifecycleError::InvalidSignedBytes)?
+                .try_into()
+                .map_err(|_| LifecycleError::InvalidSignedBytes)
+        }
+
         use sha2::{Digest, Sha256};
         self.require_call_owner(session, generation)?;
         let encoded = self
@@ -1414,15 +1368,7 @@ impl DurablePreparation {
         }
         let invalid = |_| LifecycleError::InvalidSignedBytes;
         let mut input = layerx_wire::decode::Decoder::new(encoded, 0);
-        fn fixed<const N: usize>(
-            input: &mut layerx_wire::decode::Decoder<'_>,
-        ) -> Result<[u8; N], LifecycleError> {
-            input
-                .fixed(N)
-                .map_err(|_| LifecycleError::InvalidSignedBytes)?
-                .try_into()
-                .map_err(|_| LifecycleError::InvalidSignedBytes)
-        }
+
         if input.u8().map_err(invalid)? != 1
             || input.bytes(255).map_err(invalid)? != session.tenant.as_str().as_bytes()
             || fixed::<32>(&mut input)? != session.session_id.0
@@ -1573,6 +1519,9 @@ impl DurablePreparation {
 }
 
 impl PreparationLifecycle {
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn retained_count(&self) -> Result<usize, LifecycleError> {
         self.records
             .lock()
@@ -1580,6 +1529,9 @@ impl PreparationLifecycle {
             .map_err(|_| LifecycleError::Unavailable)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn register_call(
         &self,
         store: &mut crate::store::Store,
@@ -1619,6 +1571,9 @@ impl PreparationLifecycle {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn restore_calls(
         &self,
         store: &crate::store::Store,
@@ -1642,7 +1597,11 @@ impl PreparationLifecycle {
             let prepared = record.restore_call(&session, record.generation)?;
             let identity = record.call_idempotency_key(&prepared)?;
             let expected = [record.preparation_id.as_slice(), &prepared.signing_hash].concat();
-            if store.get(&identity).map(|value| value.bytes()) != Some(expected.as_slice()) {
+            if store
+                .get(&identity)
+                .map(super::super::store::StoredValue::bytes)
+                != Some(expected.as_slice())
+            {
                 return Err(LifecycleError::InvalidSignedBytes);
             }
             if records.contains_key(&record.preparation_id)
@@ -1657,6 +1616,13 @@ impl PreparationLifecycle {
         Ok(count)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn prepared_call(
         &self,
         store: &crate::store::Store,
@@ -1668,6 +1634,9 @@ impl PreparationLifecycle {
         Ok(prepared)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn transition_call(
         &self,
         store: &mut crate::store::Store,
@@ -1704,6 +1673,9 @@ impl PreparationLifecycle {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn retain_signed_call(
         &self,
         store: &mut crate::store::Store,
@@ -1736,6 +1708,9 @@ impl PreparationLifecycle {
         Ok(hash)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn admit_call_submission(
         &self,
         store: &mut crate::store::Store,
@@ -1775,6 +1750,13 @@ impl PreparationLifecycle {
         Ok(raw)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
+    #[allow(
+        clippy::unused_self,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn recovered_signed_call(
         &self,
         store: &crate::store::Store,
@@ -1788,6 +1770,9 @@ impl PreparationLifecycle {
             .ok_or(LifecycleError::InvalidSignedBytes)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn expire_calls(
         &self,
         store: &mut crate::store::Store,
@@ -1847,6 +1832,9 @@ impl PreparationLifecycle {
         Ok(report)
     }
 
+    /// # Errors
+    /// Returns an error if the request, ownership, deadline or lifecycle transition is invalid,
+    /// or required state, reservations or transport are unavailable.
     pub fn sweep_call_retention(
         &self,
         store: &mut crate::store::Store,
@@ -1892,7 +1880,11 @@ impl PreparationLifecycle {
             let prepared = durable.restore_call(&session, durable.generation)?;
             let identity = durable.call_idempotency_key(&prepared)?;
             let expected = [durable.preparation_id.as_slice(), &prepared.signing_hash].concat();
-            if store.get(&identity).map(|value| value.bytes()) != Some(expected.as_slice()) {
+            if store
+                .get(&identity)
+                .map(super::super::store::StoredValue::bytes)
+                != Some(expected.as_slice())
+            {
                 return Err(LifecycleError::InvalidSignedBytes);
             }
             if records.contains_key(&durable.preparation_id) {
@@ -1931,3 +1923,64 @@ fn require_cached_call(
     }
     Ok(())
 }
+
+fn preparation_fixed<const N: usize>(
+    decoder: &mut layerx_wire::decode::Decoder<'_>,
+) -> Result<[u8; N], LifecycleError> {
+    decoder
+        .fixed(N)
+        .map_err(|_| LifecycleError::InvalidSignedBytes)?
+        .try_into()
+        .map_err(|_| LifecycleError::InvalidSignedBytes)
+}
+fn decode_preparation_holds(
+    decoder: &mut layerx_wire::decode::Decoder<'_>,
+    preparation_id: [u8; 32],
+) -> Result<Vec<BoundPreparationHold>, LifecycleError> {
+    use crate::budget::{CoreTimestampMs, DurableBudgetReservation, LimitId, LimitScope};
+    let invalid = |_| LifecycleError::InvalidSignedBytes;
+    let hold_count = usize::from(decoder.u16().map_err(invalid)?);
+    crate::reject_if(hold_count > MAX_HOLDS, || {
+        LifecycleError::InvalidSignedBytes
+    })?;
+    let mut holds = Vec::with_capacity(hold_count);
+    for _ in 0..hold_count {
+        let reservation_id = preparation_fixed::<32>(decoder)?;
+        let limit_id = LimitId(preparation_fixed::<16>(decoder)?);
+        let tag = decoder.u8().map_err(invalid)?;
+        let identity = preparation_fixed::<32>(decoder)?;
+        let scope = match tag {
+            0 => LimitScope::Tenant(identity),
+            1 => LimitScope::Agent(identity),
+            2 => LimitScope::Session(identity),
+            3 => LimitScope::Capability(identity),
+            4 => LimitScope::Counterparty(identity),
+            _ => return Err(LifecycleError::InvalidSignedBytes),
+        };
+        let hold = DurableBudgetReservation {
+            reservation_id,
+            limit_id,
+            scope,
+            amount: decoder.u128().map_err(invalid)?,
+            ceiling: decoder.u128().map_err(invalid)?,
+            expiry_sequence: decoder.u64().map_err(invalid)?,
+            digest: preparation_fixed::<32>(decoder)?,
+        };
+        let deadline = match decoder.u8().map_err(invalid)? {
+            0 => None,
+            1 => Some(CoreTimestampMs(decoder.u64().map_err(invalid)?)),
+            _ => return Err(LifecycleError::InvalidSignedBytes),
+        };
+        crate::reject_if(
+            hold.reservation_id != preparation_id || hold.digest != hold.canonical_digest(),
+            || LifecycleError::InvalidSignedBytes,
+        )?;
+        holds.push((hold, deadline));
+    }
+    Ok(holds)
+}
+
+type BoundPreparationHold = (
+    crate::budget::DurableBudgetReservation,
+    Option<crate::budget::CoreTimestampMs>,
+);

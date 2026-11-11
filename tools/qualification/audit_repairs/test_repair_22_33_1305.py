@@ -206,7 +206,7 @@ def test_doc_root_architecture_build_and_activation_guidance():
     dependencies = re.findall(r"^paxd-build:\s*([^\n]+)$", makefile, re.M)
     assert dependencies == ["paxd-native-libs"]
     assert re.findall(r"^paxd-native-libs:\s*([^\n]+)$", makefile, re.M) == [
-        "$(LIBRARY) programs-release-build"
+        "$(LIBRARY) programs-release-build evmone-lib"
     ]
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")

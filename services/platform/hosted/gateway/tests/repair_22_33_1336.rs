@@ -50,6 +50,7 @@ mod repair_22_33_1336 {
             state_clock: now,
             paxeer: None,
             capabilities: capabilities::Cache::new(Duration::from_secs(1)),
+            read_windows: Default::default(),
             indexer: None,
             registration_token: None,
             trusted_proxies: Vec::new(),

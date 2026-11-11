@@ -388,7 +388,16 @@ fn a01_registers_at_origin(payload: &[u8]) -> Checked<(Vec<u8>, Vec<u8>)> {
     assert_eq!(s.task_region, &EMPTY_TASK_REGION);
     let shared = decode_shared_state(&state)?;
     assert_eq!(shared.revision, 1);
-    assert_eq!(shared.feature_sections[1..], [&[] as &[u8]; 4]);
+    assert_eq!(shared.feature_sections[1..4], [&[] as &[u8]; 3]);
+    let (region, table) =
+        layerx_programs_ai_market::reputation_transition::split_joint(shared.feature_sections[4])?;
+    assert!(table.is_empty());
+    let region = region.ok_or(Failure::Unexpected("CREATE reputation region"))?;
+    assert_eq!(
+        region.state,
+        layerx_programs_ai_market::reputation::ReputationState::new(s.header.market_id)
+    );
+    assert_eq!(region.seal, Presence::Absent);
     let owner = shared
         .control
         .replay

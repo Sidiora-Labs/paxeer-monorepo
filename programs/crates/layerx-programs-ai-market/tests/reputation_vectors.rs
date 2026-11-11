@@ -1,5 +1,5 @@
 // Pure source vectors; these do not qualify unavailable F05/F06 or native wiring.
-pub use layerx_programs_ai_market::{codec, errors, types};
+pub use layerx_programs_ai_market::{codec, errors, types, MAX_STATE_BYTES};
 #[path = "../src/reputation.rs"]
 pub mod reputation;
 #[path = "../src/reputation_codec.rs"]
@@ -443,14 +443,14 @@ fn a11_capacity_budgets_and_synchronised_retention_primitive() -> Checked {
     let mut bytes = vec![0; size];
     assert_eq!(encode_section(&state, &mut bytes)?, size);
     assert_eq!(decode_section(&bytes)?, state);
-    check_storage_budget(size, 15_488, 172_032)?;
+    check_storage_budget(size, 15_488, COMMON_CAP - JOINT_CAP)?;
     assert_eq!(check_storage_budget(9089, 0, 0), Err(F07_RESOURCE_LIMIT));
     assert_eq!(
         check_storage_budget(9088, 15_489, 0),
         Err(F07_RESOURCE_LIMIT)
     );
     assert_eq!(
-        check_storage_budget(9088, 15_488, 172_033),
+        check_storage_budget(9088, 15_488, COMMON_CAP - JOINT_CAP + 1),
         Err(F07_RESOURCE_LIMIT)
     );
     assert_eq!(check_storage_budget(1, usize::MAX, 0), Err(ARITHMETIC));
@@ -627,4 +627,66 @@ fn canonical_digest_inputs_domain_status_and_order() -> Checked {
     assert!(ClosureReason::decode(0).is_err());
     assert!(ClosureReason::decode(5).is_err());
     Ok(())
+}
+
+#[test]
+fn borrowed_joint_reader_preserves_all_reputation_and_seal_checks() -> Checked {
+    let mut state = ReputationState::new(key(2)?.market);
+    for n in 2..34 {
+        state.insert(fresh(n)?)?;
+    }
+    let (state, _) = complete(&state, 7, digest(50)?, score(500_000)?, 4)?;
+    let mut bytes = vec![0; SECTION_CAP];
+    let length = encode_section(&state, &mut bytes)?;
+    bytes.truncate(length);
+    assert_eq!(validate_section(&bytes)?, state.latest_completed());
+    for offset in 0..bytes.len() {
+        for mask in [1, 0x80] {
+            let mut changed = bytes.clone();
+            changed[offset] ^= mask;
+            assert_eq!(
+                validate_section(&changed).is_ok(),
+                decode_section(&changed).is_ok(),
+                "offset {offset}, mask {mask}"
+            );
+        }
+    }
+    let region = Region {
+        state,
+        seal: Presence::Present(HistorySeal {
+            epoch: 8,
+            allowed: 0xffff_ffff,
+            eligible: 8,
+        }),
+    };
+    let table = [0, 1, 0, 0];
+    let mut joint = vec![0; SECTION_CAP + 64];
+    let length = encode_joint(&region, &table, &mut joint)?;
+    joint.truncate(length);
+    assert_eq!(joint_table(&joint)?, table);
+    for end in 4..joint.len() - table.len() {
+        assert_eq!(
+            joint_table(&joint[..end]).is_ok(),
+            split_joint(&joint[..end]).is_ok(),
+            "truncated at {end}"
+        );
+    }
+    for offset in 0..joint.len() - table.len() {
+        let mut changed = joint.clone();
+        changed[offset] ^= 0x80;
+        assert_eq!(
+            joint_table(&changed),
+            split_joint(&changed).map(|(_, table)| table),
+            "joint offset {offset}"
+        );
+    }
+    Ok(())
+}
+
+fn validate_section(input: &[u8]) -> CodecResult<Presence<u64>> {
+    decode_section(input).map(|state| state.latest_completed())
+}
+
+fn joint_table(input: &[u8]) -> CodecResult<&[u8]> {
+    reputation_transition::joint_table(input)
 }

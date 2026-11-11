@@ -61,7 +61,13 @@ impl Server {
                         length = Some(must(value.trim().parse::<usize>()));
                     }
                 }
-                let mut body = vec![0; length.expect("HTTP body length")];
+                let mut body = vec![
+                    0;
+                    match length {
+                        Some(required_value) => required_value,
+                        None => panic!("HTTP body length"),
+                    }
+                ];
                 must(reader.read_exact(&mut body));
                 let request: Value = must(serde_json::from_slice(&body));
                 assert_eq!(request["jsonrpc"], "2.0");
@@ -96,19 +102,27 @@ impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(join) = self.join.take() {
-            if !std::thread::panicking() {
-                must(join.join());
-            } else {
+            if std::thread::panicking() {
                 let _ = join.join();
+            } else {
+                must(join.join());
             }
         }
     }
 }
 
 fn assert_assets(table: &layerx_client::px::PxAssetTable, expected: &Value) {
-    assert_eq!(table.height, expected["height"].as_u64().expect("height"));
+    assert_eq!(
+        table.height,
+        match expected["height"].as_u64() {
+            Some(required_value) => required_value,
+            None => panic!("height"),
+        }
+    );
     assert_eq!(table.joined_limit, 16);
-    let rows = expected["assets"].as_array().expect("rows");
+    let Some(rows) = expected["assets"].as_array() else {
+        panic!("rows")
+    };
     assert_eq!(table.assets.len(), rows.len());
     for (asset, row) in table.assets.iter().zip(rows) {
         assert_eq!(asset.asset_id, row["asset_id"]);
@@ -118,7 +132,7 @@ fn assert_assets(table: &layerx_client::px::PxAssetTable, expected: &Value) {
         assert_eq!(asset.symbol.as_deref(), row["symbol"].as_str());
         assert_eq!(asset.decimals.map(u64::from), row["decimals"].as_u64());
         assert_eq!(
-            asset.supply.map(|v| v.decimal()),
+            asset.supply.map(Uint256::decimal),
             row["supply"].as_str().map(str::to_owned)
         );
         assert_eq!(asset.paused, row.get("paused").and_then(Value::as_bool));
@@ -130,11 +144,11 @@ fn assert_assets(table: &layerx_client::px::PxAssetTable, expected: &Value) {
 }
 pub fn assets() {
     let expected = records()["assets"].clone();
-    let served = expected.clone();
+    let response_body = expected.clone();
     let server = Server::start(move |r| {
         assert_eq!(r["method"], "px_listAssets");
         assert_eq!(r["params"], json!([]));
-        json!({"result":served})
+        json!({"result":response_body})
     });
     let endpoint = server.px();
     let table = must(payments::list_assets(&endpoint));
@@ -152,18 +166,21 @@ pub fn assets() {
     assert_eq!(server.count(), 18);
     let rows = table.assets;
     assert_eq!(
-        rows.iter()
-            .find(|v| v.asset_id == "denom:ubank")
-            .expect("bank")
-            .supply
-            .expect("supply")
-            .decimal(),
+        (match (match rows.iter().find(|v| v.asset_id == "denom:ubank") {
+            Some(required_value) => required_value,
+            None => panic!("bank"),
+        })
+        .supply
+        {
+            Some(required_value) => required_value,
+            None => panic!("supply"),
+        })
+        .decimal(),
         "115792089237316195423570985008687907853269984665640564039457584007913129639935"
     );
-    let broken = rows
-        .iter()
-        .find(|v| v.asset_id == "denom:ubroken")
-        .expect("missing metadata");
+    let Some(broken) = rows.iter().find(|v| v.asset_id == "denom:ubroken") else {
+        panic!("missing metadata")
+    };
     assert_eq!(
         (
             broken.name.as_ref(),
@@ -197,10 +214,10 @@ pub fn assets() {
         );
     }
     let server = Server::start(
-        |_| json!({"error":{"code":-32004,"message":"assets unavailable","data":{"reason":"unavailable"}}}),
+        |_| json!({"error":{"code":-32_004,"message":"assets unavailable","data":{"reason":"unavailable"}}}),
     );
     assert!(
-        matches!(payments::list_assets(&server.px()),Err(SequencerError::Rpc(e)) if e.code==-32004 && e.data==Some(json!({"reason":"unavailable"})))
+        matches!(payments::list_assets(&server.px()),Err(SequencerError::Rpc(e)) if e.code==-32_004 && e.data==Some(json!({"reason":"unavailable"})))
     );
 }
 
@@ -208,12 +225,12 @@ pub fn balances() {
     let recorded = records();
     let account = text(&recorded["account"]["account"]["evm_address"]).to_owned();
     let selector = account.clone();
-    let served = recorded["balances"].clone();
-    let expected = served.clone();
+    let response_body = recorded["balances"].clone();
+    let expected = response_body.clone();
     let server = Server::start(move |r| {
         assert_eq!(r["method"], "px_getBalances");
         assert_eq!(r["params"], json!([selector]));
-        json!({"result":served})
+        json!({"result":response_body})
     });
     for _ in 0..2 {
         let result = must(server.px().balances(&account));
@@ -235,7 +252,9 @@ pub fn balances() {
             result.account.layerx_account,
             Some(hex_bytes::<32>(&expected["account"]["layerx_account"]))
         );
-        let rows = expected["balances"].as_array().expect("coins");
+        let Some(rows) = expected["balances"].as_array() else {
+            panic!("coins")
+        };
         assert_eq!(result.balances.len(), rows.len());
         for (coin, row) in result.balances.iter().zip(rows) {
             assert_eq!(coin.denom, row["denom"]);
@@ -270,7 +289,11 @@ pub fn balances() {
     }
     for key in ["account", "height", "balances"] {
         let mut bad = expected.clone();
-        bad.as_object_mut().expect("object").remove(key);
+        (match bad.as_object_mut() {
+            Some(required_value) => required_value,
+            None => panic!("object"),
+        })
+        .remove(key);
         let server = Server::start(move |_| json!({"result":bad}));
         assert_eq!(
             server.px().balances(&account),
@@ -278,7 +301,7 @@ pub fn balances() {
         );
     }
     let server = Server::start(
-        |_| json!({"error":{"code":-32001,"message":"Paxeer read unavailable","data":{"code":"unbound_did"}}}),
+        |_| json!({"error":{"code":-32_001,"message":"Paxeer read unavailable","data":{"code":"unbound_did"}}}),
     );
     assert!(
         matches!(server.px().balances(&account),Err(SequencerError::Rpc(e)) if e.data==Some(json!({"code":"unbound_did"})))
@@ -294,14 +317,14 @@ fn hex_bytes<const N: usize>(value: &Value) -> [u8; N] {
     must(bytes.try_into())
 }
 pub fn history() {
-    let served = records()["history"].clone();
-    let expected = served.clone();
-    let account = text(&served["account"]).to_owned();
+    let response_body = records()["history"].clone();
+    let expected = response_body.clone();
+    let account = text(&response_body["account"]).to_owned();
     let selector = account.clone();
     let server = Server::start(move |r| {
         assert_eq!(r["method"], "px_getHistory");
         assert_eq!(r["params"], json!([selector, null, 50]));
-        json!({"result":served})
+        json!({"result":response_body})
     });
     let page = must(history::history(&server.sequencer(), &account, None, None));
     assert_eq!(page.account, account);
@@ -309,7 +332,13 @@ pub fn history() {
     assert_eq!(page.indexed_height, Some(12));
     assert_eq!(page.next_cursor, None);
     assert_eq!(page.freshness, expected["freshness"]);
-    assert_eq!(page.items, *expected["items"].as_array().expect("items"));
+    assert_eq!(
+        page.items,
+        *match expected["items"].as_array() {
+            Some(required_value) => required_value,
+            None => panic!("items"),
+        }
+    );
     assert_eq!(page.items.len(), 4);
     // Producer metadata and nested row coordinates are retained, including null metadata.
     assert_eq!(page.items[1]["asset_metadata"]["decimals"], 6);
@@ -331,8 +360,8 @@ pub fn history() {
     let mut paged = expected.clone();
     paged["next_cursor"] = json!(next);
     let selector = account.clone();
-    let pages = Arc::new(Mutex::new(0));
-    let seen = pages.clone();
+    let request_count = Arc::new(Mutex::new(0));
+    let seen = request_count.clone();
     let server = Server::start(move |r| {
         let mut count = must(seen.lock());
         assert_eq!(r["method"], "px_getHistory");
@@ -380,16 +409,16 @@ pub fn history() {
         );
     }
     let server = Server::start(
-        |_| json!({"error":{"code":-32001,"message":"History unavailable","data":{"code":"indexer_not_configured"}}}),
+        |_| json!({"error":{"code":-32_001,"message":"History unavailable","data":{"code":"indexer_not_configured"}}}),
     );
     assert!(
-        matches!(history::history(&server.sequencer(),&account,None,None),Err(SequencerError::Rpc(e)) if e.code==-32001 && e.data==Some(json!({"code":"indexer_not_configured"})))
+        matches!(history::history(&server.sequencer(),&account,None,None),Err(SequencerError::Rpc(e)) if e.code==-32_001 && e.data==Some(json!({"code":"indexer_not_configured"})))
     );
 }
 
 pub fn repeated_reads() {
     let recorded = records();
-    let served = recorded.clone();
+    let response_body = recorded.clone();
     let server = Server::start(move |r| {
         let field = match text(&r["method"]) {
             "px_getAccount" => "account",
@@ -400,13 +429,16 @@ pub fn repeated_reads() {
         };
         match field {
             "assets" => assert_eq!(r["params"], json!([])),
-            "history" => assert_eq!(r["params"], json!([served["history"]["account"], null, 50])),
+            "history" => assert_eq!(
+                r["params"],
+                json!([response_body["history"]["account"], null, 50])
+            ),
             _ => assert_eq!(
                 r["params"],
-                json!([served["account"]["account"]["evm_address"]])
+                json!([response_body["account"]["account"]["evm_address"]])
             ),
-        };
-        json!({"result":served[field]})
+        }
+        json!({"result":response_body[field]})
     });
     let account = text(&recorded["account"]["account"]["evm_address"]);
     for _ in 0..2 {
@@ -417,7 +449,9 @@ pub fn repeated_reads() {
         );
         assert!(joined.account.bound);
         assert_eq!(joined.layerx, None);
-        let pax = joined.paxeer.expect("Paxeer");
+        let Some(pax) = joined.paxeer else {
+            panic!("Paxeer")
+        };
         assert_eq!(pax.height, 16);
         assert_eq!(pax.nonce, 42);
         assert_eq!(pax.balance.decimal(), "81985529216486895");
@@ -433,7 +467,10 @@ pub fn repeated_reads() {
         ));
         assert_eq!(
             page.items,
-            *recorded["history"]["items"].as_array().expect("items")
+            *match recorded["history"]["items"].as_array() {
+                Some(required_value) => required_value,
+                None => panic!("items"),
+            }
         );
         assert_eq!(page.freshness, recorded["history"]["freshness"]);
     }

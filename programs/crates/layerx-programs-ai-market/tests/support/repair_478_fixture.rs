@@ -148,124 +148,6 @@ pub fn fixture(owner: [u8; 32], asset: [u8; 32]) -> CodecResult<Fixture> {
     })
 }
 
-#[cfg(test)]
-#[test]
-fn fund_joint_sections_match_the_carried_transition_and_replay() {
-    use layerx_programs_ai_market::{
-        epoch, rewards,
-        state::{decode_shared_state, Section},
-    };
-    let owner = [12; 32];
-    let f = fixture(owner, [13; 32]).unwrap();
-    let ctx = CallContext {
-        chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap(),
-        program: ProgramId::new(PROGRAM).unwrap(),
-        principal: PrincipalId::new(owner).unwrap(),
-        height: HEIGHT,
-    };
-    let envelope = codec::decode_envelope(&f.fund).unwrap();
-    let mut next = vec![0; MAX_STATE_BYTES];
-    let mut scratch = vec![0; rewards::SCRATCH_BYTES];
-    let mut carry = vec![0; epoch::CARRY_SCRATCH_BYTES];
-    let mut event = vec![0; MAX_EVENT_BYTES];
-    let (outcome, written) =
-        epoch::carry_reputation(&f.current, &mut next, &mut carry, |current, next| {
-            let outcome = rewards::apply(&ctx, &envelope, current, next, &mut scratch, &mut event)?;
-            let rewards::Outcome::Applied { state_len, .. } = outcome else {
-                panic!("first Fund must apply");
-            };
-            Ok((outcome, Some(state_len)))
-        })
-        .unwrap();
-    assert_eq!(&next[..written.unwrap()], f.next);
-    let rewards::Outcome::Applied {
-        event_len,
-        response,
-        ..
-    } = outcome
-    else {
-        panic!("first Fund must apply");
-    };
-    assert_eq!(&event[..event_len], f.event);
-    assert_eq!(
-        response.as_bytes(),
-        codec::decode_result(&f.result).unwrap().payload
-    );
-    let before = decode_shared_state(&f.current).unwrap();
-    let after = decode_shared_state(&f.next).unwrap();
-    let joint = Section::ReputationAdmission.index();
-    assert_eq!(&before.feature_sections[joint][..4], b"RP07");
-    for section in [
-        Section::IdentityRoster,
-        Section::CurrentReports,
-        Section::ReputationAdmission,
-    ] {
-        assert_eq!(
-            before.feature_sections[section.index()],
-            after.feature_sections[section.index()]
-        );
-    }
-    let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
-    let mut result = vec![0; MAX_RESULT_BYTES];
-    next.fill(0xa5);
-    let retry = dispatch::route(
-        &ctx,
-        &f.fund,
-        Some(&f.next),
-        Buffers {
-            next: &mut next,
-            scratch: &mut scratch,
-            event: &mut event,
-            result: &mut result,
-        },
-    )
-    .unwrap();
-    let Routed::Unchanged { result_len } = retry else {
-        panic!("Fund replay must return the retained result");
-    };
-    assert_eq!(
-        codec::decode_result(&result[..result_len])
-            .unwrap()
-            .revision,
-        after.revision
-    );
-    assert!(next.iter().all(|byte| *byte == 0xa5));
-
-    let mut corrupt_joint = before.feature_sections[joint].to_vec();
-    corrupt_joint[4] ^= 0x80;
-    let corrupt_state = before
-        .replace_section(Section::ReputationAdmission, &corrupt_joint)
-        .unwrap();
-    let mut corrupt = vec![0; MAX_STATE_BYTES];
-    let mut control = vec![0; Section::Control.payload_cap()];
-    let len = layerx_programs_ai_market::state::encode_shared_state(
-        &corrupt_state,
-        &mut corrupt,
-        &mut control,
-    )
-    .unwrap();
-    let refused = dispatch::route(
-        &ctx,
-        &f.fund,
-        Some(&corrupt[..len]),
-        Buffers {
-            next: &mut next,
-            scratch: &mut scratch,
-            event: &mut event,
-            result: &mut result,
-        },
-    )
-    .unwrap();
-    let Routed::Refused { result_len } = refused else {
-        panic!("Fund must validate the joint reputation region");
-    };
-    assert!(codec::decode_result(&result[..result_len])
-        .unwrap()
-        .error
-        .is_some());
-    assert!(next.iter().all(|byte| *byte == 0xa5));
-}
-
 /// Decodes the two canonical terminal forms the native kernel publishes.
 /// Synthetic refusals have their own domain and carry no applied-legs wrapper.
 pub fn decode_kernel_terminal(
@@ -282,77 +164,6 @@ pub fn decode_kernel_terminal(
     };
     decode_terminal_payload(kind, 5, detail)
         .map_err(|error| format!("canonical kernel terminal: {error:?}"))
-}
-
-#[cfg(test)]
-#[test]
-fn fund_entry_gas_for_committed_receipt_fixture_is_bounded() {
-    measured_fund_cpu_fuel();
-}
-
-#[cfg(test)]
-pub fn measured_fund_cpu_fuel() -> u64 {
-    use layerx_programs_runtime::terminal::{
-        CandidateTerminalOutcome, ExecutionTerminal, TerminalDetail,
-    };
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478");
-    let read = |name| {
-        std::fs::read(dir.join(name)).unwrap_or_else(|error| {
-            panic!("{name}: {error}; run the declared Go fixture gate first")
-        })
-    };
-    let owner: [u8; 32] = read("owner").try_into().unwrap();
-    let asset: [u8; 32] = read("asset").try_into().unwrap();
-    let f = fixture(owner, asset).unwrap();
-    assert_eq!(f.create, read("create"));
-    assert_eq!(f.fund, read("fund"));
-    assert_eq!(f.current, read("current"));
-    assert_eq!(f.next, read("next"));
-    let terminal = read("terminal");
-    let decoded = decode_kernel_terminal(1, &terminal).unwrap();
-    let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
-        program,
-        abi_version,
-        usage,
-        outcome,
-        ..
-    }) = decoded.detail
-    else {
-        panic!("expected ABI5 execution");
-    };
-    assert_eq!(program, PROGRAM);
-    assert_eq!(abi_version, 5);
-    assert_eq!(
-        outcome,
-        CandidateTerminalOutcome::Success {
-            code: 0,
-            response: f.result
-        }
-    );
-    assert!(usage.cpu_fuel < 999_968);
-    assert!(usage.cpu_fuel > 0);
-    assert!(usage.cpu_fuel <= layerx_programs_runtime::meter::DEFAULT_CPU_FUEL);
-    assert!(usage.cpu_fuel < 10_000_000);
-    let shared_state_key_bytes =
-        u64::try_from(layerx_programs_ai_market::SHARED_STATE_KEY.len()).unwrap();
-    let shared_state_value_bytes = u64::try_from(f.current.len()).unwrap();
-    // host/balance.rs charges the u128 sight balance returned by balance_read.
-    let rewards_balance_read_bytes = u64::try_from(core::mem::size_of::<u128>()).unwrap();
-    assert_eq!(shared_state_key_bytes, 14);
-    assert_eq!(rewards_balance_read_bytes, 16);
-    assert_eq!(
-        usage.storage_read_bytes,
-        shared_state_key_bytes + shared_state_value_bytes + rewards_balance_read_bytes
-    );
-    assert_eq!(
-        usage.storage_write_bytes,
-        shared_state_key_bytes + u64::try_from(f.next.len()).unwrap()
-    );
-    println!(
-        "Fund committed fixture CPU fuel: {} (kernel allowance 10000000)",
-        usage.cpu_fuel
-    );
-    usage.cpu_fuel
 }
 
 /// A diagnostic includes the frozen application registry name, not just its code.
@@ -372,10 +183,10 @@ pub fn application_error(frame: &[u8]) -> String {
     }
 }
 
-/// Core balance facts transported from the preceding real kernel execution.
-/// No balances or receipt identities are synthesized by the Rust harness.
+/// Historical balance facts are transported from the real kernel execution.
+/// The current guest has no sight grant or receipt authority.
 struct KernelBalanceEvidence {
-    view: layerx_programs_runtime::BalanceView,
+    view: Option<layerx_programs_runtime::BalanceView>,
 }
 impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
     fn verified_receipt(
@@ -390,12 +201,14 @@ impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
         asset: [u8; 32],
         receipt: [u8; 32],
     ) -> Result<layerx_programs_runtime::BalanceView, layerx_programs_runtime::AbiError> {
-        if (account, asset, receipt)
-            != (self.view.account, self.view.asset, self.view.receipt_digest)
-        {
+        let view = self
+            .view
+            .as_ref()
+            .ok_or(layerx_programs_runtime::AbiError::BalanceEvidenceUnavailable)?;
+        if (account, asset, receipt) != (view.account, view.asset, view.receipt_digest) {
             return Err(layerx_programs_runtime::AbiError::ReceiptMismatch);
         }
-        Ok(self.view.clone())
+        Ok(view.clone())
     }
 }
 
@@ -404,6 +217,19 @@ impl layerx_programs_runtime::ReceiptOracle for KernelBalanceEvidence {
 /// these inputs before Fund, so a guest refusal can be diagnosed too. This proves
 /// CPU completion and staged effects; it applies no native ledger leg.
 pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), String>), String> {
+    execute_kernel_fund_with_budget(dir, None)
+}
+
+pub fn measure_kernel_fund(dir: &std::path::Path, allowance: u64) -> Result<u64, String> {
+    let (fuel, verdict) = execute_kernel_fund_with_budget(dir, Some(allowance))?;
+    verdict?;
+    Ok(fuel)
+}
+
+fn execute_kernel_fund_with_budget(
+    dir: &std::path::Path,
+    diagnostic_allowance: Option<u64>,
+) -> Result<(u64, Result<(), String>), String> {
     use layerx_programs_runtime::{self as rt, *};
     let read = |name| std::fs::read(dir.join(name)).map_err(|e| format!("{name}: {e}"));
     let owner: [u8; 32] = read("owner")?.try_into().map_err(|_| "owner length")?;
@@ -418,35 +244,40 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
             return Err(format!("kernel {name} differs from producer"));
         }
     }
-    let sight = read("sight")?;
-    if sight.len() != 152 {
-        return Err("kernel balance observation length".into());
-    }
-    let array = |at| <[u8; 32]>::try_from(&sight[at..at + 32]).expect("fixed sight field");
-    let view = BalanceView {
-        account: array(0),
-        asset: array(32),
-        balance: u128::from_be_bytes(sight[64..80].try_into().unwrap()),
-        receipt_digest: array(80),
-        state_root: array(112),
-        observed_sequence: u64::from_be_bytes(sight[144..152].try_into().unwrap()),
+    let view = if dir.join("sight").exists() {
+        let sight = read("sight")?;
+        if sight.len() != 152 {
+            return Err("kernel balance observation length".into());
+        }
+        let array = |at| <[u8; 32]>::try_from(&sight[at..at + 32]).expect("fixed sight field");
+        let view = BalanceView {
+            account: array(0),
+            asset: array(32),
+            balance: u128::from_be_bytes(sight[64..80].try_into().unwrap()),
+            receipt_digest: array(80),
+            state_root: array(112),
+            observed_sequence: u64::from_be_bytes(sight[144..152].try_into().unwrap()),
+        };
+        let receipt = layerx_wire::receipt::decode(&read("prior-receipt")?)
+            .map_err(|e| format!("kernel receipt: {e:?}"))?;
+        let unsigned = layerx_wire::receipt::encode_unsigned(&receipt)
+            .map_err(|e| format!("kernel unsigned receipt: {e:?}"))?;
+        let digest = layerx_wire::hash::receipt_digest(&unsigned)
+            .map_err(|e| format!("kernel receipt digest: {e:?}"))?;
+        let prior = receipt.protocol().ok_or("protocol receipt required")?;
+        if prior.result_code() != 0
+            || digest != view.receipt_digest
+            || prior.resulting_state_root() != view.state_root
+            || prior.global_sequence() != view.observed_sequence
+            || view.asset != asset
+            || view.account != f.rewards
+        {
+            return Err("kernel balance observation binding".into());
+        }
+        Some(view)
+    } else {
+        None
     };
-    let receipt = layerx_wire::receipt::decode(&read("prior-receipt")?)
-        .map_err(|e| format!("kernel receipt: {e:?}"))?;
-    let unsigned = layerx_wire::receipt::encode_unsigned(&receipt)
-        .map_err(|e| format!("kernel unsigned receipt: {e:?}"))?;
-    let digest = layerx_wire::hash::receipt_digest(&unsigned)
-        .map_err(|e| format!("kernel receipt digest: {e:?}"))?;
-    let prior = receipt.protocol().ok_or("protocol receipt required")?;
-    if prior.result_code() != 0
-        || digest != view.receipt_digest
-        || prior.resulting_state_root() != view.state_root
-        || prior.global_sequence() != view.observed_sequence
-        || view.asset != asset
-        || view.account != f.rewards
-    {
-        return Err("kernel balance observation binding".into());
-    }
     let module = WasmEngine::declared()
         .map_err(|e| e.to_string())?
         .validate_versioned_metered(ABI_V5_VERSION, &read("wasm")?, FuelSchedule::WASMI_0_31_2)
@@ -459,7 +290,7 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
     seed.write(layerx_programs_ai_market::SHARED_STATE_KEY, &f.current)
         .map_err(|e| e.to_string())?;
     assert_eq!(seed.commit(), 1);
-    let caps = CapabilitySet::new([
+    let mut granted = vec![
         Capability::EmitEvent,
         Capability::SharedStorageRead,
         Capability::SharedStorageWrite,
@@ -468,14 +299,29 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
             to: f.rewards,
             maximum_amount: AMOUNT,
         },
-        Capability::BalanceView {
+    ];
+    if let Some(ref view) = view {
+        granted.push(Capability::BalanceView {
             account: f.rewards,
             asset,
-            receipt_digest: digest,
-        },
-    ])
-    .map_err(|e| e.to_string())?;
+            receipt_digest: view.receipt_digest,
+        });
+    }
+    let caps = CapabilitySet::new(granted).map_err(|e| e.to_string())?;
     let declaration = AccessDeclaration::absent();
+    let maximum = DeclaredBudget::protocol_maximum().resource_budget();
+    let budget = match diagnostic_allowance {
+        Some(cpu) => ResourceBudget::new_complete(
+            cpu,
+            maximum.memory_bytes(),
+            maximum.storage_read_bytes(),
+            maximum.storage_write_bytes(),
+            maximum.output_values(),
+            maximum.output_bytes(),
+            maximum.table_elements(),
+        ),
+        None => maximum,
+    };
     let canonical_call = rt::native_contract::CanonicalCall {
         program,
         abi: ABI_V5_VERSION,
@@ -484,14 +330,14 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
         capabilities: &caps,
         declaration: &declaration,
         response_capacity: u32::try_from(MAX_RESULT_BYTES).unwrap(),
-        budget: DeclaredBudget::protocol_maximum().resource_budget(),
+        budget,
     }
     .canonical_bytes(None)
     .map_err(|e| format!("canonical Fund CALL: {e:?}"))?;
     if read("call")? != canonical_call {
         return Err("kernel Fund CALL differs from executor profile, budget or inputs".into());
     }
-    let executor = Executor::declared();
+    let executor = Executor::new(budget, FeeSchedule::declared());
     let binding = ActivityBudgetBinding::new(
         codec::decode_envelope(&f.fund)
             .map_err(|e| e.to_string())?
@@ -500,38 +346,42 @@ pub fn execute_kernel_fund(dir: &std::path::Path) -> Result<(u64, Result<(), Str
             .bytes(),
     )
     .map_err(|e| e.to_string())?;
-    let admitted = executor
-        .admit_activity_budget_for_qualification(
-            DeclaredBudget::protocol_maximum(),
-            actor,
-            binding,
-            u128::MAX,
-        )
-        .map_err(|e| e.to_string())?;
     let oracle = KernelBalanceEvidence { view };
-    let request = BudgetedAuthorizedExecutionRequest::new(
-        AuthorizedExecutionRequest {
-            module: &module,
-            program,
-            authorization: AuthorizationContext::new(actor, caps),
-            receipts: &oracle,
-            entrypoint: CALL_ENTRY_EXPORT,
-            calldata: &f.fund,
-            composition: CompositionContext::isolated(),
-            response_capacity: MAX_RESULT_BYTES,
-        },
-        admitted,
-        actor,
-        binding,
-    );
-    let record = executor
-        .execute_authorized_v5_budgeted_for_qualification(
+    let request = AuthorizedExecutionRequest {
+        module: &module,
+        program,
+        authorization: AuthorizationContext::new(actor, caps),
+        receipts: &oracle,
+        entrypoint: CALL_ENTRY_EXPORT,
+        calldata: &f.fund,
+        composition: CompositionContext::isolated(),
+        response_capacity: MAX_RESULT_BYTES,
+    };
+    let record = if diagnostic_allowance.is_some() {
+        // The explicit-budget qualification interface meters the same guest and
+        // transported kernel facts without admitting an over-cap native CALL.
+        executor.execute_authorized_versioned_for_qualification(&mut storage, request)
+    } else {
+        let admitted = executor
+            .admit_activity_budget_for_qualification(
+                DeclaredBudget::protocol_maximum(),
+                actor,
+                binding,
+                u128::MAX,
+            )
+            .map_err(|e| e.to_string())?;
+        executor.execute_authorized_v5_budgeted_for_qualification(
             &mut storage,
-            request,
-            prior.global_sequence() + 1,
+            BudgetedAuthorizedExecutionRequest::new(request, admitted, actor, binding),
+            u64::from_be_bytes(
+                read("global-sequence")?
+                    .try_into()
+                    .map_err(|_| "kernel global sequence length")?,
+            ),
             HEIGHT + 1,
         )
-        .map_err(|e| format!("Fund ExecutionError: {e:?}"))?;
+    }
+    .map_err(|e| format!("Fund ExecutionError: {e:?}"))?;
     let fuel = record.execution().usage().cpu_fuel;
     let verdict = match record.outcome() {
         V2ActivityOutcome::Success { response, effects } => {

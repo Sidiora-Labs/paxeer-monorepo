@@ -1,6 +1,6 @@
 module github.com/Sidiora-Technologies/KindleLaunch/core/notifications
 
-go 1.25.0
+go 1.27.0
 
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/core/discovery v0.0.0
@@ -39,7 +39,8 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.6 // indirect
-	github.com/ethereum/go-ethereum v1.17.3 // indirect
+	github.com/ethereum/go-ethereum v1.17.4 // indirect
+	github.com/fjl/jsonw v0.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

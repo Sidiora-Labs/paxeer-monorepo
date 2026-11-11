@@ -86,14 +86,10 @@ fn budget_state_is_decoded_from_get_budget() {
     assert!(!record.revoked);
     assert_eq!(record.delegates, vec![[0x66; 32], [0x77; 32]]);
     assert_eq!(record.source_account, Some([0x55; 32]));
-    let mut local = LocalAccounting {
-        consumed: 400,
-        window_start_sequence: 0,
-        last_receipt: None,
-    };
+    let mut local = LocalAccounting::at_period_start(400, 0, None);
     let reconciled = must(state.reconcile(&mut local, &[]));
     assert_eq!(local.consumed, 350);
-    assert_eq!(local.window_start_sequence, 1_000);
+    assert_eq!(local.window_start_ms(), 1_000);
     assert_eq!(reconciled.remaining(), 650);
     let alert = divergence_alert(&reconciled, 1_000)
         .unwrap_or_else(|| panic!("local overspend must flag divergence"));
@@ -239,12 +235,21 @@ fn pending_fee_counts_against_the_daemon_limit() {
     ));
     drop(store);
     drop(limiter);
-    let store = must(Store::open(&directory.0));
+    assert_reopened_daemon_limit(&directory.0, &record, &second, tenant);
+}
+
+fn assert_reopened_daemon_limit(
+    directory: &std::path::Path,
+    record: &layerx_agentd::budget::DaemonLimitRecord,
+    second: &ReservationRequest,
+    tenant: TenantId,
+) {
+    let store = must(Store::open(directory));
     let restarted = must(BudgetLimiter::new(Vec::new()));
     must(load_daemon_limits(&store, &restarted));
     assert_eq!(restarted.consumed(record.limit_id), Ok(800));
     assert!(matches!(
-        reserve(&restarted, &second),
+        reserve(&restarted, second),
         Err(LimitRefusal::Exceeded { consumed: 800, .. })
     ));
     let key = must(TenantKey::new(

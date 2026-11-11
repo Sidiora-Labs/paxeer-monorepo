@@ -234,4 +234,4 @@ response-body deadline.
 
 ## Requirements
 
-- Go 1.22 or newer
+- Go 1.25 or newer

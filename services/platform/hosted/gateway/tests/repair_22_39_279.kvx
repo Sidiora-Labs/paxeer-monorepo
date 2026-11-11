@@ -1,0 +1,13 @@
+[repair]
+task = "22.39.279"
+acceptance = "22998.1"
+decision = "3111"
+gotcha = "3952"
+base = "efbdeaf855094bdf5d6b417a0749d6caf281a7c2"
+field = "Config.read_windows"
+change = "Add read_windows: Default::default() to the Config literal in services/platform/hosted/gateway/tests/repair_22_33_1336.rs; preserve every other line and assertion."
+production_initializer = "services/platform/hosted/gateway/src/rpc.rs:180 uses read_windows: Default::default(); the test mirrors that initializer."
+test_target = "repair_22_33_1336"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1336"
+verify_cmd = "test -s services/platform/hosted/gateway/tests/repair_22_39_279.kvx && cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1336 -- --skip real_core_and_identity_readiness_contract --skip real_gateway_readiness_capabilities_contract --skip explorer_query_and_finite_routes --skip capabilities_schema_declares_every_surface --skip unified_history_answer_reads_the_paxeer_node_over_http"
+revision_evidence = "The runner's private gates.jsonl and final hf-done JSON name the exact built and verified candidate revision containing this repair record; no verification is claimed before hf-done passes."

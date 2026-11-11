@@ -1,3 +1,4 @@
+# Generated through services/explorer/swagger.yaml; stored here for frontend container packaging.
 openapi: 3.0.3
 info:
   title: Paxeer Explorer API
@@ -15,8 +16,7 @@ servers:
   description: Same origin as the explorer
 tags:
 - name: paxeer-x
-  description: 'Paxeer X Network surfaces: capabilities, anchors, kernel receipts, price feed, settlement status and sequencer
-    signatures'
+  description: 'Paxeer X explorer surfaces: node-backed capabilities, price feed, native activity and committed chain receipts'
 - name: search
 - name: config
 - name: stats
@@ -52,84 +52,161 @@ tags:
 - name: api-v2
   description: Catch-all for unknown API v2 paths
 paths:
-  /api/v2/paxeer-x/anchors:
+  /api/v2/paxeer-x/archive/anchors:
     get:
-      callbacks: {}
-      description: 'Retrieves a paginated list of anchor checkpoints, newest batch first, one row per batch: a checkpoint
-        is logged again every time it climbs a rung of the anchor ladder, and the newest row of the batch is the one the page
-        carries.'
-      operationId: BlockScoutWeb.API.V2.PaxeerX.AnchorController.anchors
+      tags:
+      - paxeer-x
+      summary: List frozen anchor checkpoints
+      operationId: V2_PaxeerX_ArchiveController_anchors
       parameters:
-      - description: API key for rate limiting or for sensitive endpoints
+      - name: apikey
         in: query
-        name: apikey
         required: false
         schema:
           type: string
-          x-struct: null
-          x-validate: null
-      - description: Secret key for getting access to restricted resources
+        description: API key for rate limiting or for sensitive endpoints
+      - name: key
         in: query
-        name: key
         required: false
         schema:
           type: string
-          x-struct: null
-          x-validate: null
-      - description: Anchor batch number for paging
+        description: Secret key for getting access to restricted resources
+      - name: batch_number
         in: query
-        name: batch_number
         required: false
         schema:
+          type: integer
           minimum: 0
-          type: integer
-          x-struct: null
-          x-validate: null
-      - description: Number of items returned per page
+        description: Anchor batch number for paging
+      - name: items_count
         in: query
-        name: items_count
         required: false
         schema:
-          maximum: 50
-          minimum: 1
-          type: integer
-          x-struct: null
-          x-validate: null
+          type: string
+        description: items_count for paging
       responses:
         '200':
+          description: Frozen anchors with pagination.
           content:
             application/json:
               schema:
-                additionalProperties: false
-                nullable: false
-                properties:
-                  items:
-                    items:
-                      $ref: '#/components/schemas/PaxeerXAnchor'
-                    nullable: false
-                    type: array
-                    x-struct: null
-                    x-validate: null
-                  next_page_params:
-                    example:
-                      batch_number: 2
-                      items_count: 50
-                    nullable: true
-                    type: object
-                    x-struct: null
-                    x-validate: null
+                type: object
                 required:
                 - items
                 - next_page_params
-                type: object
-                x-struct: null
-                x-validate: null
-          description: Anchor checkpoints with pagination.
-      summary: List the anchor checkpoints of Paxeer X Network
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      description: Backend schema module BlockScoutWeb.Schemas.PaxeerX.ArchiveAnchor
+                  next_page_params:
+                    type: object
+                    nullable: true
+                    description: Pass these keys as query parameters to fetch the next page
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-controller: BlockScoutWeb.V2.PaxeerX.ArchiveController.anchors
+  /api/v2/paxeer-x/archive/receipts:
+    get:
       tags:
       - paxeer-x
-      x-controller: BlockScoutWeb.V2.PaxeerX.AnchorController.anchors
-      x-source: OpenApiSpex export
+      summary: List frozen receipts
+      operationId: V2_PaxeerX_ArchiveController_receipts
+      parameters:
+      - name: apikey
+        in: query
+        required: false
+        schema:
+          type: string
+        description: API key for rate limiting or for sensitive endpoints
+      - name: key
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Secret key for getting access to restricted resources
+      - name: id
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^0x[0-9a-fA-F]{64}$
+        description: Kernel receipt id for paging
+      - name: items_count
+        in: query
+        required: false
+        schema:
+          type: string
+        description: items_count for paging
+      responses:
+        '200':
+          description: Frozen receipts with pagination.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - next_page_params
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      description: Backend schema module BlockScoutWeb.Schemas.PaxeerX.ArchiveReceipt
+                  next_page_params:
+                    type: object
+                    nullable: true
+                    description: Pass these keys as query parameters to fetch the next page
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-controller: BlockScoutWeb.V2.PaxeerX.ArchiveController.receipts
+  /api/v2/paxeer-x/archive/receipts/{id}:
+    get:
+      tags:
+      - paxeer-x
+      summary: Retrieve a frozen receipt
+      operationId: V2_PaxeerX_ArchiveController_receipt
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^0x[0-9a-fA-F]{64}$
+        description: Kernel receipt id in the path
+      - name: apikey
+        in: query
+        required: false
+        schema:
+          type: string
+        description: API key for rate limiting or for sensitive endpoints
+      - name: key
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Secret key for getting access to restricted resources
+      responses:
+        '200':
+          description: The frozen receipt.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Backend schema module BlockScoutWeb.Schemas.PaxeerX.ArchiveReceipt
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+        '422':
+          $ref: '#/components/responses/InvalidParameter'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+      x-controller: BlockScoutWeb.V2.PaxeerX.ArchiveController.receipt
   /api/v2/paxeer-x/capabilities:
     get:
       callbacks: {}
@@ -444,129 +521,6 @@ paths:
       tags:
       - paxeer-x
       x-controller: BlockScoutWeb.V2.PaxeerX.FeedController.update
-      x-source: OpenApiSpex export
-  /api/v2/paxeer-x/receipts:
-    get:
-      callbacks: {}
-      description: 'Retrieves a paginated list of kernel receipts, newest receipt id first, one row per receipt. Each item
-        carries its origin: `kernel` receipts were verified from a LayerX relay/archive batch and carry its batch, sequence,
-        activity and proof provenance; `evm` receipts were decoded from receipt logs and carry the transaction, log and block
-        that recorded them.'
-      operationId: BlockScoutWeb.API.V2.PaxeerX.ReceiptController.receipts
-      parameters:
-      - description: API key for rate limiting or for sensitive endpoints
-        in: query
-        name: apikey
-        required: false
-        schema:
-          type: string
-          x-struct: null
-          x-validate: null
-      - description: Secret key for getting access to restricted resources
-        in: query
-        name: key
-        required: false
-        schema:
-          type: string
-          x-struct: null
-          x-validate: null
-      - description: Kernel receipt id for paging
-        in: query
-        name: id
-        required: false
-        schema:
-          $ref: '#/components/schemas/FullHash'
-      - description: Number of items returned per page
-        in: query
-        name: items_count
-        required: false
-        schema:
-          maximum: 50
-          minimum: 1
-          type: integer
-          x-struct: null
-          x-validate: null
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                additionalProperties: false
-                nullable: false
-                properties:
-                  items:
-                    items:
-                      $ref: '#/components/schemas/PaxeerXReceipt'
-                    nullable: false
-                    type: array
-                    x-struct: null
-                    x-validate: null
-                  next_page_params:
-                    example:
-                      id: '0x0000000000000000000000000000000000000000000000000000000000000065'
-                      items_count: 50
-                    nullable: true
-                    type: object
-                    x-struct: null
-                    x-validate: null
-                required:
-                - items
-                - next_page_params
-                type: object
-                x-struct: null
-                x-validate: null
-          description: Kernel receipts with pagination.
-      summary: List the kernel receipts of Paxeer X Network
-      tags:
-      - paxeer-x
-      x-controller: BlockScoutWeb.V2.PaxeerX.ReceiptController.receipts
-      x-source: OpenApiSpex export
-  /api/v2/paxeer-x/receipts/{id}:
-    get:
-      callbacks: {}
-      description: Retrieves one kernel receipt by its id, as its newest row reports it, with its origin, the verification
-        it carries, its provenance and the rung it has reached on the kernel verification lattice.
-      operationId: BlockScoutWeb.API.V2.PaxeerX.ReceiptController.receipt
-      parameters:
-      - description: Kernel receipt id in the path
-        in: path
-        name: id
-        required: true
-        schema:
-          $ref: '#/components/schemas/FullHash'
-      - description: API key for rate limiting or for sensitive endpoints
-        in: query
-        name: apikey
-        required: false
-        schema:
-          type: string
-          x-struct: null
-          x-validate: null
-      - description: Secret key for getting access to restricted resources
-        in: query
-        name: key
-        required: false
-        schema:
-          type: string
-          x-struct: null
-          x-validate: null
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PaxeerXReceiptDetails'
-          description: The kernel receipt.
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotFoundResponse'
-          description: Not Found
-      summary: Retrieve one kernel receipt of Paxeer X Network
-      tags:
-      - paxeer-x
-      x-controller: BlockScoutWeb.V2.PaxeerX.ReceiptController.receipt
       x-source: OpenApiSpex export
   /api/v2/search:
     get:
@@ -7676,6 +7630,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.VerificationController.config
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash_param}:
     get:
       callbacks: {}
@@ -7934,6 +7889,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_flattened_code
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/multi-part:
     post:
       tags:
@@ -7977,6 +7933,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_multi_part
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/sourcify:
     post:
       tags:
@@ -8020,6 +7977,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_sourcify
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/standard-input:
     post:
       tags:
@@ -8061,6 +8019,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_standard_input
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/vyper-code:
     post:
       tags:
@@ -8104,6 +8063,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_vyper_code
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/vyper-multi-part:
     post:
       tags:
@@ -8147,6 +8107,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_vyper_multipart
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /api/v2/smart-contracts/{address_hash}/verification/via/vyper-standard-input:
     post:
       tags:
@@ -8190,6 +8151,7 @@ paths:
       x-controller: BlockScoutWeb.V2.VerificationController.verification_via_vyper_standard_input
       x-compile-time-conditions:
       - if @chain_type !== :zksync
+      x-source: OpenApiSpex export
   /verify_smart_contract/contract_verifications:
     post:
       tags:
@@ -8217,6 +8179,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.AddressContractVerificationController.create
+      x-source: OpenApiSpex export
   /api/v2/withdrawals:
     get:
       callbacks: {}
@@ -8355,6 +8318,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AdvancedFilterController.list
+      x-source: OpenApiSpex export
   /api/v2/advanced-filters/csv:
     get:
       tags:
@@ -8371,6 +8335,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AdvancedFilterController.list_csv
+      x-source: OpenApiSpex export
   /api/v2/advanced-filters/methods:
     get:
       tags:
@@ -8388,6 +8353,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AdvancedFilterController.list_methods
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/noves-fi/addresses/{address_hash_param}/transactions:
     get:
       tags:
@@ -8417,6 +8383,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.NovesFiController.address_transactions
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/noves-fi/transaction-descriptions:
     get:
       tags:
@@ -8434,6 +8401,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.NovesFiController.describe_transactions
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/noves-fi/transactions/{transaction_hash_param}:
     get:
       tags:
@@ -8462,6 +8430,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.NovesFiController.transaction
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/solidityscan/smart-contracts/{address_hash}/report:
     get:
       tags:
@@ -8491,6 +8460,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.SolidityScanController.solidityscan_report
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/xname/addresses/{address_hash_param}:
     get:
       tags:
@@ -8520,6 +8490,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.XnameController.address
+      x-source: OpenApiSpex export
   /api/v2/proxy/3rdparty/{platform_id}:
     get:
       tags:
@@ -8547,6 +8518,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.UniversalProxyController.index
+      x-source: OpenApiSpex export
   /api/v2/proxy/account-abstraction/accounts:
     get:
       callbacks: {}
@@ -9558,6 +9530,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.Proxy.MetadataController.addresses
+      x-source: OpenApiSpex export
   /api/v2/import/smart-contracts/{address_hash_param}:
     get:
       tags:
@@ -9587,6 +9560,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.ImportController.try_to_search_contract
+      x-source: OpenApiSpex export
   /api/v2/import/smart-contracts/{address_hash_param}/audit-reports:
     post:
       tags:
@@ -9628,6 +9602,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.ImportController.import_audit_report
+      x-source: OpenApiSpex export
   /api/v2/import/token-info:
     post:
       tags:
@@ -9657,6 +9632,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.ImportController.import_token_info
+      x-source: OpenApiSpex export
     delete:
       tags:
       - import
@@ -9685,6 +9661,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.ImportController.delete_token_info
+      x-source: OpenApiSpex export
   /api/v2/key:
     post:
       tags:
@@ -9709,6 +9686,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.APIKeyController.get_key
+      x-source: OpenApiSpex export
   /api/v2/utils/decode-calldata:
     get:
       tags:
@@ -9726,6 +9704,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.UtilsController.decode_calldata
+      x-source: OpenApiSpex export
     post:
       tags:
       - utils
@@ -9749,6 +9728,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.UtilsController.decode_calldata
+      x-source: OpenApiSpex export
   /api/v2/scam-badge-addresses:
     post:
       tags:
@@ -9773,6 +9753,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AddressBadgeController.assign_badge_to_address
+      x-source: OpenApiSpex export
     delete:
       tags:
       - scam-badge-addresses
@@ -9796,6 +9777,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AddressBadgeController.unassign_badge_from_address
+      x-source: OpenApiSpex export
     get:
       tags:
       - scam-badge-addresses
@@ -9812,6 +9794,7 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-controller: BlockScoutWeb.V2.AddressBadgeController.show_badge_addresses
+      x-source: OpenApiSpex export
   /api/account/api_key:
     post:
       tags:
@@ -9833,6 +9816,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.create
+      x-source: OpenApiSpex export
     get:
       tags:
       - account
@@ -9846,6 +9830,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.index
+      x-source: OpenApiSpex export
   /api/account/api_key/new:
     get:
       tags:
@@ -9860,6 +9845,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.new
+      x-source: OpenApiSpex export
   /api/account/api_key/{id}:
     put:
       tags:
@@ -9887,6 +9873,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.update
+      x-source: OpenApiSpex export
     patch:
       tags:
       - account
@@ -9913,6 +9900,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.update
+      x-source: OpenApiSpex export
     delete:
       tags:
       - account
@@ -9939,6 +9927,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.delete
+      x-source: OpenApiSpex export
   /api/account/api_key/{id}/edit:
     get:
       tags:
@@ -9959,6 +9948,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.ApiKeyController.edit
+      x-source: OpenApiSpex export
   /api/account/auth/logout:
     get:
       tags:
@@ -9973,6 +9963,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.AuthController.logout
+      x-source: OpenApiSpex export
   /api/account/auth/profile:
     get:
       tags:
@@ -9987,6 +9978,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.AuthController.profile
+      x-source: OpenApiSpex export
   /api/account/auth/{provider}:
     get:
       tags:
@@ -10008,6 +10000,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.AuthController.request
+      x-source: OpenApiSpex export
   /api/account/auth/{provider}/callback:
     get:
       tags:
@@ -10029,6 +10022,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.AuthController.callback
+      x-source: OpenApiSpex export
   /api/account/custom_abi:
     post:
       tags:
@@ -10050,6 +10044,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.create
+      x-source: OpenApiSpex export
     get:
       tags:
       - account
@@ -10063,6 +10058,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.index
+      x-source: OpenApiSpex export
   /api/account/custom_abi/new:
     get:
       tags:
@@ -10077,6 +10073,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.new
+      x-source: OpenApiSpex export
   /api/account/custom_abi/{id}:
     put:
       tags:
@@ -10104,6 +10101,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.update
+      x-source: OpenApiSpex export
     patch:
       tags:
       - account
@@ -10130,6 +10128,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.update
+      x-source: OpenApiSpex export
     delete:
       tags:
       - account
@@ -10156,6 +10155,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.delete
+      x-source: OpenApiSpex export
   /api/account/custom_abi/{id}/edit:
     get:
       tags:
@@ -10176,6 +10176,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.CustomABIController.edit
+      x-source: OpenApiSpex export
   /api/account/tag_address:
     get:
       tags:
@@ -10190,6 +10191,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagAddressController.index
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -10210,6 +10212,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagAddressController.create
+      x-source: OpenApiSpex export
   /api/account/tag_address/new:
     get:
       tags:
@@ -10224,6 +10227,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagAddressController.new
+      x-source: OpenApiSpex export
   /api/account/tag_address/{id}:
     delete:
       tags:
@@ -10251,6 +10255,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagAddressController.delete
+      x-source: OpenApiSpex export
   /api/account/tag_transaction:
     get:
       tags:
@@ -10265,6 +10270,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagTransactionController.index
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -10285,6 +10291,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagTransactionController.create
+      x-source: OpenApiSpex export
   /api/account/tag_transaction/new:
     get:
       tags:
@@ -10299,6 +10306,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagTransactionController.new
+      x-source: OpenApiSpex export
   /api/account/tag_transaction/{id}:
     delete:
       tags:
@@ -10326,6 +10334,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.TagTransactionController.delete
+      x-source: OpenApiSpex export
   /api/account/v2/address/link:
     post:
       tags:
@@ -10355,6 +10364,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.AddressController.link_address
+      x-source: OpenApiSpex export
   /api/account/v2/authenticate:
     get:
       callbacks: {}
@@ -10656,6 +10666,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.EmailController.link_email
+      x-source: OpenApiSpex export
   /api/account/v2/email/resend:
     get:
       tags:
@@ -10678,6 +10689,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.EmailController.resend_email
+      x-source: OpenApiSpex export
   /api/account/v2/get_csrf:
     get:
       tags:
@@ -10700,6 +10712,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.get_csrf
+      x-source: OpenApiSpex export
   /api/account/v2/send_otp:
     post:
       callbacks: {}
@@ -10871,6 +10884,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.TagsController.tags_address
+      x-source: OpenApiSpex export
   /api/account/v2/tags/transaction/{transaction_hash}:
     get:
       tags:
@@ -10900,6 +10914,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.TagsController.tags_transaction
+      x-source: OpenApiSpex export
   /api/account/v2/user/api_keys:
     get:
       tags:
@@ -10922,6 +10937,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.api_keys
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -10950,6 +10966,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.create_api_key
+      x-source: OpenApiSpex export
   /api/account/v2/user/api_keys/{api_key}:
     delete:
       tags:
@@ -10985,6 +11002,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.delete_api_key
+      x-source: OpenApiSpex export
     put:
       tags:
       - account
@@ -11019,6 +11037,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.update_api_key
+      x-source: OpenApiSpex export
   /api/account/v2/user/custom_abis:
     get:
       tags:
@@ -11041,6 +11060,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.custom_abis
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -11069,6 +11089,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.create_custom_abi
+      x-source: OpenApiSpex export
   /api/account/v2/user/custom_abis/{id}:
     delete:
       tags:
@@ -11104,6 +11125,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.delete_custom_abi
+      x-source: OpenApiSpex export
     put:
       tags:
       - account
@@ -11138,6 +11160,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.update_custom_abi
+      x-source: OpenApiSpex export
   /api/account/v2/user/info:
     get:
       tags:
@@ -11160,6 +11183,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.info
+      x-source: OpenApiSpex export
   /api/account/v2/user/tags/address:
     get:
       tags:
@@ -11182,6 +11206,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.tags_address
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -11210,6 +11235,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.create_tag_address
+      x-source: OpenApiSpex export
   /api/account/v2/user/tags/address/{id}:
     get:
       tags:
@@ -11238,6 +11264,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.tags_address
+      x-source: OpenApiSpex export
     delete:
       tags:
       - account
@@ -11272,6 +11299,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.delete_tag_address
+      x-source: OpenApiSpex export
     put:
       tags:
       - account
@@ -11306,6 +11334,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.update_tag_address
+      x-source: OpenApiSpex export
   /api/account/v2/user/tags/transaction:
     get:
       tags:
@@ -11328,6 +11357,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.tags_transaction
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -11356,6 +11386,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.create_tag_transaction
+      x-source: OpenApiSpex export
   /api/account/v2/user/tags/transaction/{id}:
     get:
       tags:
@@ -11384,6 +11415,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.tags_transaction
+      x-source: OpenApiSpex export
     delete:
       tags:
       - account
@@ -11418,6 +11450,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.delete_tag_transaction
+      x-source: OpenApiSpex export
     put:
       tags:
       - account
@@ -11452,6 +11485,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.update_tag_transaction
+      x-source: OpenApiSpex export
   /api/account/v2/user/watchlist:
     get:
       tags:
@@ -11474,6 +11508,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.watchlist
+      x-source: OpenApiSpex export
     post:
       tags:
       - account
@@ -11502,6 +11537,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.create_watchlist
+      x-source: OpenApiSpex export
   /api/account/v2/user/watchlist/{id}:
     delete:
       tags:
@@ -11537,6 +11573,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.delete_watchlist
+      x-source: OpenApiSpex export
     put:
       tags:
       - account
@@ -11571,6 +11608,7 @@ paths:
       - sessionCookie: []
       - apiKey: []
       x-controller: BlockScoutWeb.UserController.update_watchlist
+      x-source: OpenApiSpex export
   /api/account/watchlist:
     get:
       tags:
@@ -11585,6 +11623,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistController.show
+      x-source: OpenApiSpex export
   /api/account/watchlist_address:
     post:
       tags:
@@ -11606,6 +11645,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.create
+      x-source: OpenApiSpex export
   /api/account/watchlist_address/new:
     get:
       tags:
@@ -11620,6 +11660,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.new
+      x-source: OpenApiSpex export
   /api/account/watchlist_address/{id}:
     put:
       tags:
@@ -11647,6 +11688,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.update
+      x-source: OpenApiSpex export
     patch:
       tags:
       - account
@@ -11673,6 +11715,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.update
+      x-source: OpenApiSpex export
     delete:
       tags:
       - account
@@ -11699,6 +11742,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.delete
+      x-source: OpenApiSpex export
   /api/account/watchlist_address/{id}/edit:
     get:
       tags:
@@ -11719,6 +11763,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.Account.WatchlistAddressController.edit
+      x-source: OpenApiSpex export
   /auth/logout:
     get:
       tags:
@@ -11735,6 +11780,7 @@ paths:
         '302':
           description: Redirect to the identity provider or back to the explorer
       x-controller: BlockScoutWeb.Account.AuthController.logout
+      x-source: OpenApiSpex export
   /auth/profile:
     get:
       tags:
@@ -11751,6 +11797,7 @@ paths:
         '302':
           description: Redirect to the identity provider or back to the explorer
       x-controller: BlockScoutWeb.Account.AuthController.profile
+      x-source: OpenApiSpex export
   /auth/{provider}:
     get:
       tags:
@@ -11774,6 +11821,7 @@ paths:
         '302':
           description: Redirect to the identity provider or back to the explorer
       x-controller: BlockScoutWeb.Account.AuthController.request
+      x-source: OpenApiSpex export
   /auth/{provider}/callback:
     get:
       tags:
@@ -11797,6 +11845,7 @@ paths:
         '302':
           description: Redirect to the identity provider or back to the explorer
       x-controller: BlockScoutWeb.Account.AuthController.callback
+      x-source: OpenApiSpex export
   /api/health:
     get:
       tags:
@@ -11812,6 +11861,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.API.HealthController.health
+      x-source: OpenApiSpex export
   /api/health/liveness:
     get:
       tags:
@@ -11827,6 +11877,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.API.HealthController.liveness
+      x-source: OpenApiSpex export
   /api/health/multichain-search-export:
     get:
       tags:
@@ -11842,6 +11893,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.API.HealthController.multichain_search_db_export
+      x-source: OpenApiSpex export
   /api/health/readiness:
     get:
       tags:
@@ -11857,6 +11909,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.API.HealthController.readiness
+      x-source: OpenApiSpex export
   /api/v1:
     get:
       tags:
@@ -13509,6 +13562,8 @@ paths:
             status: '1'
       x-compile-time-conditions: &id004
       - if @reading_enabled
+      x-controller: null
+      x-source: OpenApiSpex export
     post:
       tags:
       - rpc
@@ -13535,6 +13590,8 @@ paths:
               additionalProperties: true
               description: Same keys as the query parameters
       x-compile-time-conditions: *id004
+      x-controller: null
+      x-source: OpenApiSpex export
   /api/v1/gas-price-oracle:
     get:
       tags:
@@ -13550,6 +13607,7 @@ paths:
                 type: object
                 additionalProperties: true
       x-controller: BlockScoutWeb.GasPriceOracleController.gas_price_oracle
+      x-source: OpenApiSpex export
   /api/v1/search:
     get:
       callbacks: {}
@@ -13707,6 +13765,7 @@ paths:
       x-controller: BlockScoutWeb.V1.SupplyController.supply
       x-compile-time-conditions:
       - if @reading_enabled
+      x-source: OpenApiSpex export
   /api/v1/verified_smart_contracts:
     post:
       tags:
@@ -13731,6 +13790,7 @@ paths:
       x-controller: BlockScoutWeb.V1.VerifiedSmartContractController.create
       x-compile-time-conditions:
       - if @writing_enabled
+      x-source: OpenApiSpex export
   /api:
     get:
       tags:
@@ -14704,6 +14764,8 @@ paths:
         example: *id138
       x-compile-time-conditions: &id142
       - if @reading_enabled
+      x-controller: null
+      x-source: OpenApiSpex export
     post:
       tags:
       - rpc
@@ -14730,6 +14792,8 @@ paths:
               additionalProperties: true
               description: Same keys as the query parameters
       x-compile-time-conditions: *id142
+      x-controller: null
+      x-source: OpenApiSpex export
   /api/eth-rpc:
     post:
       tags:
@@ -14778,6 +14842,8 @@ paths:
       - eth_getTransactionReceipt
       - eth_maxPriorityFeePerGas
       - eth_sendRawTransaction
+      x-controller: null
+      x-source: OpenApiSpex export
   /api/v1/eth-rpc:
     post:
       tags:
@@ -14810,6 +14876,8 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
       x-supported-methods: *id143
+      x-controller: null
+      x-source: OpenApiSpex export
   /api/v1/graphql:
     post:
       tags:
@@ -14836,6 +14904,8 @@ paths:
                 $ref: '#/components/schemas/GraphQLResponse'
         '429':
           $ref: '#/components/responses/RateLimited'
+      x-controller: null
+      x-source: OpenApiSpex export
     get:
       tags:
       - graphql
@@ -14859,6 +14929,8 @@ paths:
         schema:
           type: string
       responses: *id144
+      x-controller: null
+      x-source: OpenApiSpex export
   /graphiql:
     get:
       tags:
@@ -14872,6 +14944,8 @@ paths:
             text/html:
               schema:
                 type: string
+      x-controller: null
+      x-source: OpenApiSpex export
   /schema.graphql:
     get:
       tags:
@@ -14889,6 +14963,7 @@ paths:
       x-controller: BlockScoutWeb.GraphQL.SchemaController.index
       x-compile-time-conditions:
       - if @graphql_enabled
+      x-source: OpenApiSpex export
   /api-docs:
     get:
       tags:
@@ -14905,6 +14980,7 @@ paths:
       x-controller: BlockScoutWeb.APIDocsController.index
       x-compile-time-conditions:
       - if @api_router_reading_enabled
+      x-source: OpenApiSpex export
   /eth-rpc-api-docs:
     get:
       tags:
@@ -14921,6 +14997,7 @@ paths:
       x-controller: BlockScoutWeb.APIDocsController.eth_rpc
       x-compile-time-conditions:
       - if @api_router_reading_enabled
+      x-source: OpenApiSpex export
   /robots.txt:
     get:
       tags:
@@ -14935,6 +15012,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.RobotsController.robots
+      x-source: OpenApiSpex export
   /sitemap.xml:
     get:
       tags:
@@ -14949,6 +15027,7 @@ paths:
               schema:
                 type: string
       x-controller: BlockScoutWeb.RobotsController.sitemap
+      x-source: OpenApiSpex export
   /api/v2/{path}:
     get:
       tags:
@@ -14966,6 +15045,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
       x-controller: BlockScoutWeb.API.V2.FallbackController.unknown_action
+      x-source: OpenApiSpex export
 components:
   securitySchemes:
     sessionCookie:
@@ -15354,160 +15434,6 @@ components:
       title: EmptyString
       type: string
       x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.General.EmptyString
-      x-validate: null
-    PaxeerXReceipt:
-      additionalProperties: false
-      description: 'One kernel receipt as the newest log of its id reports it: the receipt id, the kernel account it belongs
-        to and the settlement rung of the block it was last seen in.'
-      nullable: false
-      properties:
-        account:
-          $ref: '#/components/schemas/FullHashNullable'
-        block_number:
-          description: EVM block, absent for kernel provenance
-          nullable: true
-          type: integer
-          x-struct: null
-          x-validate: null
-        id:
-          $ref: '#/components/schemas/FullHash'
-        origin:
-          enum:
-          - kernel
-          - evm
-          type: string
-          x-struct: null
-          x-validate: null
-        provenance:
-          oneOf:
-          - additionalProperties: false
-            properties:
-              kernel:
-                additionalProperties: false
-                properties:
-                  activity_id:
-                    $ref: '#/components/schemas/FullHash'
-                  batch_id:
-                    $ref: '#/components/schemas/FullHash'
-                  batch_number:
-                    pattern: ^(0|[1-9][0-9]*)$
-                    type: string
-                    x-struct: null
-                    x-validate: null
-                  batch_raw_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  canonical_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  proof:
-                    additionalProperties: false
-                    properties:
-                      header_hex:
-                        pattern: ^[0-9a-f]+$
-                        type: string
-                        x-struct: null
-                        x-validate: null
-                      signature_hex:
-                        pattern: ^[0-9a-f]{128}$
-                        type: string
-                        x-struct: null
-                        x-validate: null
-                    required:
-                    - header_hex
-                    - signature_hex
-                    type: object
-                    x-struct: null
-                    x-validate: null
-                  receipt_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  result_code:
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  sequence:
-                    pattern: ^(0|[1-9][0-9]*)$
-                    type: string
-                    x-struct: null
-                    x-validate: null
-                  state_root:
-                    $ref: '#/components/schemas/FullHash'
-                required:
-                - batch_number
-                - batch_id
-                - sequence
-                - activity_id
-                - result_code
-                - receipt_sha256
-                - canonical_sha256
-                - batch_raw_sha256
-                - state_root
-                - proof
-                type: object
-                x-struct: null
-                x-validate: null
-            required:
-            - kernel
-            type: object
-            x-struct: null
-            x-validate: null
-          - additionalProperties: false
-            properties:
-              evm:
-                additionalProperties: false
-                properties:
-                  block_hash:
-                    $ref: '#/components/schemas/FullHash'
-                  block_number:
-                    minimum: 0
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  log_index:
-                    minimum: 0
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  transaction_hash:
-                    $ref: '#/components/schemas/FullHash'
-                required:
-                - transaction_hash
-                - log_index
-                - block_hash
-                - block_number
-                type: object
-                x-struct: null
-                x-validate: null
-            required:
-            - evm
-            type: object
-            x-struct: null
-            x-validate: null
-          x-struct: null
-          x-validate: null
-        status:
-          $ref: '#/components/schemas/PaxeerXSettlementRung'
-        verification:
-          enum:
-          - sequencer_verified
-          - unverified
-          - sequencer_signed
-          - batch_included
-          - state_proven
-          - checkpoint_finalised
-          - settlement_anchored
-          type: string
-          x-struct: null
-          x-validate: null
-      required:
-      - id
-      - account
-      - status
-      - block_number
-      - origin
-      - verification
-      - provenance
-      title: PaxeerXReceipt
-      type: object
-      x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.PaxeerX.Receipt
       x-validate: null
     Type:
       enum:
@@ -16979,20 +16905,6 @@ components:
       type: string
       x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.General.URLNullable
       x-validate: null
-    PaxeerXVerificationStatus:
-      description: The rung the receipt has reached on the LayerX kernel verification lattice.
-      enum:
-      - unverified
-      - sequencer_signed
-      - batch_included
-      - state_proven
-      - checkpoint_finalised
-      - settlement_anchored
-      nullable: false
-      title: PaxeerXVerificationStatus
-      type: string
-      x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.PaxeerX.VerificationStatus
-      x-validate: null
     FloatString:
       pattern: ^([1-9][0-9]*|0)(\.[0-9]+)?$
       title: FloatString
@@ -17062,8 +16974,7 @@ components:
         parent_hash:
           $ref: '#/components/schemas/FullHash'
         price_update_count:
-          description: Native price-feed submissions the block carries, included in
-            transactions_count
+          description: Native price-feed submissions the block carries, included in transactions_count
           minimum: 0
           nullable: false
           type: integer
@@ -17106,8 +17017,7 @@ components:
         transaction_fees:
           $ref: '#/components/schemas/IntegerString'
         transactions_count:
-          description: 'Transactions in the block: EVM transactions and native price-feed
-            submissions'
+          description: 'Transactions in the block: EVM transactions and native price-feed submissions'
           nullable: false
           type: integer
           x-struct: null
@@ -17928,8 +17838,7 @@ components:
         parent_hash:
           $ref: '#/components/schemas/FullHash'
         price_update_count:
-          description: Native price-feed submissions the block carries, included in
-            transactions_count
+          description: Native price-feed submissions the block carries, included in transactions_count
           minimum: 0
           nullable: false
           type: integer
@@ -17972,8 +17881,7 @@ components:
         transaction_fees:
           $ref: '#/components/schemas/IntegerString'
         transactions_count:
-          description: 'Transactions in the block: EVM transactions and native price-feed
-            submissions'
+          description: 'Transactions in the block: EVM transactions and native price-feed submissions'
           nullable: false
           type: integer
           x-struct: null
@@ -18111,176 +18019,6 @@ components:
       title: JsonErrorResponse
       type: object
       x-struct: Elixir.OpenApiSpex.JsonErrorResponse
-      x-validate: null
-    PaxeerXReceiptDetails:
-      additionalProperties: false
-      description: One kernel receipt with, on top of what a list item carries, the rung it has reached on the kernel verification
-        lattice and the log that recorded it.
-      nullable: false
-      properties:
-        account:
-          $ref: '#/components/schemas/FullHashNullable'
-        block_number:
-          description: EVM block, absent for kernel provenance
-          nullable: true
-          type: integer
-          x-struct: null
-          x-validate: null
-        id:
-          $ref: '#/components/schemas/FullHash'
-        origin:
-          enum:
-          - kernel
-          - evm
-          type: string
-          x-struct: null
-          x-validate: null
-        payload_hash:
-          $ref: '#/components/schemas/FullHashNullable'
-        provenance:
-          oneOf:
-          - additionalProperties: false
-            properties:
-              kernel:
-                additionalProperties: false
-                properties:
-                  activity_id:
-                    $ref: '#/components/schemas/FullHash'
-                  batch_id:
-                    $ref: '#/components/schemas/FullHash'
-                  batch_number:
-                    pattern: ^(0|[1-9][0-9]*)$
-                    type: string
-                    x-struct: null
-                    x-validate: null
-                  batch_raw_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  canonical_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  proof:
-                    additionalProperties: false
-                    properties:
-                      header_hex:
-                        pattern: ^[0-9a-f]+$
-                        type: string
-                        x-struct: null
-                        x-validate: null
-                      signature_hex:
-                        pattern: ^[0-9a-f]{128}$
-                        type: string
-                        x-struct: null
-                        x-validate: null
-                    required:
-                    - header_hex
-                    - signature_hex
-                    type: object
-                    x-struct: null
-                    x-validate: null
-                  receipt_sha256:
-                    $ref: '#/components/schemas/FullHash'
-                  result_code:
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  sequence:
-                    pattern: ^(0|[1-9][0-9]*)$
-                    type: string
-                    x-struct: null
-                    x-validate: null
-                  state_root:
-                    $ref: '#/components/schemas/FullHash'
-                required:
-                - batch_number
-                - batch_id
-                - sequence
-                - activity_id
-                - result_code
-                - receipt_sha256
-                - canonical_sha256
-                - batch_raw_sha256
-                - state_root
-                - proof
-                type: object
-                x-struct: null
-                x-validate: null
-            required:
-            - kernel
-            type: object
-            x-struct: null
-            x-validate: null
-          - additionalProperties: false
-            properties:
-              evm:
-                additionalProperties: false
-                properties:
-                  block_hash:
-                    $ref: '#/components/schemas/FullHash'
-                  block_number:
-                    minimum: 0
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  log_index:
-                    minimum: 0
-                    type: integer
-                    x-struct: null
-                    x-validate: null
-                  transaction_hash:
-                    $ref: '#/components/schemas/FullHash'
-                required:
-                - transaction_hash
-                - log_index
-                - block_hash
-                - block_number
-                type: object
-                x-struct: null
-                x-validate: null
-            required:
-            - evm
-            type: object
-            x-struct: null
-            x-validate: null
-          x-struct: null
-          x-validate: null
-        status:
-          $ref: '#/components/schemas/PaxeerXSettlementRung'
-        timestamp:
-          format: date-time
-          nullable: true
-          type: string
-          x-struct: null
-          x-validate: null
-        transaction_hash:
-          $ref: '#/components/schemas/FullHashNullable'
-        verification:
-          enum:
-          - sequencer_verified
-          - unverified
-          - sequencer_signed
-          - batch_included
-          - state_proven
-          - checkpoint_finalised
-          - settlement_anchored
-          type: string
-          x-struct: null
-          x-validate: null
-        verification_status:
-          $ref: '#/components/schemas/PaxeerXVerificationStatus'
-      required:
-      - id
-      - account
-      - status
-      - block_number
-      - origin
-      - verification
-      - provenance
-      - verification_status
-      - payload_hash
-      - transaction_hash
-      - timestamp
-      title: PaxeerXReceiptDetails
-      type: object
-      x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.PaxeerX.Receipt
       x-validate: null
     MetadataTag:
       additionalProperties: false
@@ -19766,54 +19504,6 @@ components:
       title: Transaction
       type: object
       x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.Transaction
-      x-validate: null
-    PaxeerXAnchor:
-      additionalProperties: false
-      description: 'One anchor checkpoint as the newest log of its batch reports it: the heights it records and seals, the
-        state root it commits to and the block it was observed in.'
-      nullable: false
-      properties:
-        batch_number:
-          description: Batch the checkpoint records
-          nullable: false
-          type: integer
-          x-struct: null
-          x-validate: null
-        block_number:
-          description: Block the checkpoint was observed in
-          nullable: false
-          type: integer
-          x-struct: null
-          x-validate: null
-        checkpoint_height:
-          description: Kernel height the checkpoint itself records, null while the log carries none
-          nullable: true
-          type: integer
-          x-struct: null
-          x-validate: null
-        checkpoint_id:
-          $ref: '#/components/schemas/FullHash'
-        sealed_height:
-          description: Highest chain height the checkpoint seals, null while the log carries none
-          nullable: true
-          type: integer
-          x-struct: null
-          x-validate: null
-        state_root:
-          $ref: '#/components/schemas/FullHashNullable'
-        timestamp:
-          $ref: '#/components/schemas/Timestamp'
-      required:
-      - batch_number
-      - checkpoint_id
-      - checkpoint_height
-      - sealed_height
-      - state_root
-      - block_number
-      - timestamp
-      title: PaxeerXAnchor
-      type: object
-      x-struct: Elixir.BlockScoutWeb.Schemas.API.V2.PaxeerX.Anchor
       x-validate: null
     SignedAuthorization:
       additionalProperties: false

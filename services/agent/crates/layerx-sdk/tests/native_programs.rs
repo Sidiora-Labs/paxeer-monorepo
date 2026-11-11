@@ -1,6 +1,14 @@
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use layerx_sdk::programs::NativeProgramCallRequest;
+use layerx_sdk::programs::{
+    HttpProgramTransport, NativeProgramTransport, ProgramOperationError, ProgramSubmission,
+};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
+use sha2::Digest as _;
+use sha2::Sha256;
 
 fn bytes(value: &str) -> Result<Vec<u8>, std::num::ParseIntError> {
     value
@@ -54,7 +62,6 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
     assert_eq!(bound.signed_activity(), signed);
     assert_eq!(bound.bound_activity_id(), transaction_hash(&signed));
     let mut digest = sha2::Sha256::new();
-    use sha2::Digest as _;
     digest.update(b"layerxprograms/idempotency/v1");
     digest.update(transaction_hash(&signed));
     digest.update(0_u32.to_be_bytes());
@@ -78,17 +85,144 @@ fn native_request_binds_real_signed_fixture() -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
+fn assert_native_transaction_rejections(
+    native: NativeProgramCall<'_>,
+    call: &Eip1559Call,
+    raw: &[u8],
+    fixture: &serde_json::Value,
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert_eq!(
+        NativeProgramCallRequest::from_signed_transaction(native, 999, raw),
+        Err(ProgramOperationError::IdentityMismatch)
+    );
+    for changed in [
+        NativeProgramCall {
+            response_capacity: native.response_capacity + 1,
+            ..native
+        },
+        NativeProgramCall {
+            calldata: b"different",
+            ..native
+        },
+        NativeProgramCall {
+            guest_abi: 3,
+            ..native
+        },
+    ] {
+        assert_eq!(
+            NativeProgramCallRequest::from_signed_transaction(changed, 1000, raw),
+            Err(ProgramOperationError::IdentityMismatch)
+        );
+    }
+    let wrong_target = Eip1559Call {
+        to: [0x11; 20],
+        ..call.clone()
+    }
+    .sign(&[0x42; 32])?;
+    assert_eq!(
+        NativeProgramCallRequest::from_signed_transaction(native, 1000, &wrong_target),
+        Err(ProgramOperationError::IdentityMismatch)
+    );
+    let mut malformed = raw.to_vec();
+    malformed.pop();
+    let mut trailing = raw.to_vec();
+    trailing.push(0);
+    let mut wrong_type = raw.to_vec();
+    wrong_type[0] = 1;
+    let legacy = bytes(
+        fixture["signed_activity_hex"]
+            .as_str()
+            .ok_or("missing legacy envelope")?,
+    )?;
+    for rejected in [&malformed, &trailing, &wrong_type, &legacy] {
+        assert_eq!(
+            NativeProgramCallRequest::from_signed_transaction(native, 1000, rejected),
+            Err(ProgramOperationError::Decode)
+        );
+    }
+    for index in [4 + 2 * 32, call.data.len() - 1] {
+        let mut changed = call.clone();
+        changed.data[index] ^= 1;
+        let raw = changed.sign(&[0x42; 32])?;
+        assert_eq!(
+            NativeProgramCallRequest::from_signed_transaction(native, 1000, &raw),
+            Err(ProgramOperationError::Decode)
+        );
+    }
+    let mut changed = call.clone();
+    changed.data.push(0);
+    assert_eq!(
+        NativeProgramCallRequest::from_signed_transaction(
+            native,
+            1000,
+            &changed.sign(&[0x42; 32])?
+        ),
+        Err(ProgramOperationError::Decode)
+    );
+
+    Ok(())
+}
+
+fn assert_native_transport_recovery(
+    request: &NativeProgramCallRequest,
+    call: &Eip1559Call,
+    hash: [u8; 32],
+    raw: &[u8],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let receipt_key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: [0x32; 32],
+        public_key: [0x31; 32],
+        first_height: 1,
+        last_height: 100,
+    };
+    let connect_node = || {
+        HttpProgramTransport::connect_node("http://127.0.0.1:0", &[], &[receipt_key], || Ok(0))
+            .map_err(|error| format!("HTTP transport: {error:?}"))
+    };
+    assert!(matches!(
+        connect_node()?.submit_native(request, request.bound_idempotency_key()),
+        Err(ProgramOperationError::MissingNodeReadAuthority)
+    ));
+    let policy = |protocol_version, network_id| layerx_sdk::rpc_verification::ReceiptPolicy {
+        protocol_version,
+        network_id,
+        sequencer: layerx_proof::inclusion::SequencerAuthorization::new(
+            receipt_key.key_id,
+            receipt_key.public_key,
+            receipt_key.first_height,
+            receipt_key.last_height,
+        ),
+        trusted_checkpoint_context_digest: None,
+    };
+    for invalid in [policy(3, 125), policy(2, 0)] {
+        assert!(matches!(
+            connect_node()?.with_node_receipt_policy(invalid),
+            Err(ProgramOperationError::Verification)
+        ));
+    }
+    let transport = connect_node()?
+        .with_node_receipt_policy(policy(2, u32::try_from(call.chain_id)?))
+        .map_err(|error| format!("node receipt authority: {error:?}"))?;
+    let submission = transport
+        .submit_native(request, request.bound_idempotency_key())
+        .map_err(|error| format!("HTTP submission: {error:?}"))?;
+    let ProgramSubmission::Unknown {
+        activity_id,
+        idempotency_key,
+        retained_signed_activity,
+    } = submission
+    else {
+        return Err("unavailable HTTP endpoint must retain the submitted transaction".into());
+    };
+    assert_eq!(activity_id, hash);
+    assert_eq!(idempotency_key, request.bound_idempotency_key());
+    assert_eq!(retained_signed_activity.as_deref(), Some(raw));
+    Ok(())
+}
+
 #[test]
 fn program_http_decodes_signed_program_calls_as_eip1559() -> Result<(), Box<dyn std::error::Error>>
 {
-    use layerx_crypto::evm_transaction::{
-        decode_signed, recover_sender, transaction_hash, Eip1559Call,
-    };
-    use layerx_sdk::programs::{
-        HttpProgramTransport, NativeProgramTransport, ProgramOperationError, ProgramSubmission,
-    };
-    use sha2::{Digest as _, Sha256};
-
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/native-program-call-v4.json"
     ))?;
@@ -151,91 +285,8 @@ fn program_http_decodes_signed_program_calls_as_eip1559() -> Result<(), Box<dyn 
         )?
     );
 
-    assert_eq!(
-        NativeProgramCallRequest::from_signed_transaction(native, 999, &raw),
-        Err(ProgramOperationError::IdentityMismatch)
-    );
-    for changed in [
-        NativeProgramCall {
-            response_capacity: native.response_capacity + 1,
-            ..native
-        },
-        NativeProgramCall {
-            calldata: b"different",
-            ..native
-        },
-        NativeProgramCall {
-            guest_abi: 3,
-            ..native
-        },
-    ] {
-        assert_eq!(
-            NativeProgramCallRequest::from_signed_transaction(changed, 1000, &raw),
-            Err(ProgramOperationError::IdentityMismatch)
-        );
-    }
-    let wrong_target = Eip1559Call {
-        to: [0x11; 20],
-        ..call.clone()
-    }
-    .sign(&[0x42; 32])?;
-    assert_eq!(
-        NativeProgramCallRequest::from_signed_transaction(native, 1000, &wrong_target),
-        Err(ProgramOperationError::IdentityMismatch)
-    );
-    let mut malformed = raw.clone();
-    malformed.pop();
-    let mut trailing = raw.clone();
-    trailing.push(0);
-    let mut wrong_type = raw.clone();
-    wrong_type[0] = 1;
-    let legacy = bytes(
-        fixture["signed_activity_hex"]
-            .as_str()
-            .ok_or("missing legacy envelope")?,
-    )?;
-    for rejected in [&malformed, &trailing, &wrong_type, &legacy] {
-        assert_eq!(
-            NativeProgramCallRequest::from_signed_transaction(native, 1000, rejected),
-            Err(ProgramOperationError::Decode)
-        );
-    }
-    for index in [4 + 2 * 32, call.data.len() - 1] {
-        let mut changed = call.clone();
-        changed.data[index] ^= 1;
-        let raw = changed.sign(&[0x42; 32])?;
-        assert_eq!(
-            NativeProgramCallRequest::from_signed_transaction(native, 1000, &raw),
-            Err(ProgramOperationError::Decode)
-        );
-    }
-    let mut changed = call.clone();
-    changed.data.push(0);
-    assert_eq!(
-        NativeProgramCallRequest::from_signed_transaction(
-            native,
-            1000,
-            &changed.sign(&[0x42; 32])?
-        ),
-        Err(ProgramOperationError::Decode)
-    );
-
-    let transport = HttpProgramTransport::connect("http://127.0.0.1:0", None, [0x31; 32], || Ok(0))
-        .map_err(|error| format!("HTTP transport: {error:?}"))?;
-    let submission = transport
-        .submit_native(&request, request.bound_idempotency_key())
-        .map_err(|error| format!("HTTP submission: {error:?}"))?;
-    let ProgramSubmission::Unknown {
-        activity_id,
-        idempotency_key,
-        retained_signed_activity,
-    } = submission
-    else {
-        return Err("unavailable HTTP endpoint must retain the submitted transaction".into());
-    };
-    assert_eq!(activity_id, hash);
-    assert_eq!(idempotency_key, request.bound_idempotency_key());
-    assert_eq!(retained_signed_activity.as_deref(), Some(raw.as_slice()));
+    assert_native_transaction_rejections(native, &call, &raw, &fixture)?;
+    assert_native_transport_recovery(&request, &call, hash, &raw)?;
     Ok(())
 }
 

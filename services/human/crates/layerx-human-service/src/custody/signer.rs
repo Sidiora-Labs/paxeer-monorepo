@@ -875,6 +875,7 @@ fn signing_operation(request: &SignRequest<'_>) -> SigningOperation {
         Operation::SecuritySettings => SigningOperation::SecuritySettings,
         Operation::SecretReveal => SigningOperation::SecretReveal,
         Operation::Withdrawal => SigningOperation::BridgeWithdrawRequest,
+        // Preserve the historical tag-4 audit category for wallet rebinding.
         Operation::WalletRebinding => SigningOperation::EvmPayoutBinding,
         Operation::AgentArchive => SigningOperation::AgentArchive,
     }

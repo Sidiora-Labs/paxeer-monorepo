@@ -79,6 +79,9 @@ pub fn daemon_limit_id(budget_id: [u8; 32]) -> LimitId {
 impl DaemonLimitRecord {
     /// Reserves the spend and maximum projected gas fee before a transaction is sent.
     /// Both amounts must use this limit's asset denomination.
+    /// # Errors
+    /// Returns an error if limit configuration, denomination, reservation or persisted accounting
+    /// is invalid, conflicting or unavailable.
     pub fn reserve_pending_transaction(
         &self,
         limiter: &BudgetLimiter,
@@ -269,11 +272,10 @@ pub fn create_daemon_limit(
         return Err(DaemonLimitError::Corrupt);
     }
     let bytes = record.encode()?;
-    store.put_local(index.clone(), record.budget_id.to_vec())?;
-    if let Err(error) = store.put_local(limit_key(&record.tenant, record.budget_id)?, bytes) {
-        store.remove_local(&index)?;
-        return Err(error.into());
-    }
+    store.commit_local_records(vec![
+        (index, record.budget_id.to_vec()),
+        (limit_key(&record.tenant, record.budget_id)?, bytes),
+    ])?;
     limiter.install(record.config())?;
     limiter.bind_program_denominations(
         &[(
@@ -433,12 +435,12 @@ pub fn consumption_updates(
             .bytes()
             .try_into()
             .map_err(|_| DaemonLimitError::Corrupt)?;
-        let position = match records.iter().position(|r| r.budget_id == budget_id) {
-            Some(position) => position,
-            None => {
-                records.push(stored(store, tenant, budget_id)?.ok_or(DaemonLimitError::Corrupt)?);
-                records.len() - 1
-            }
+        let position = if let Some(position) = records.iter().position(|r| r.budget_id == budget_id)
+        {
+            position
+        } else {
+            records.push(stored(store, tenant, budget_id)?.ok_or(DaemonLimitError::Corrupt)?);
+            records.len() - 1
         };
         let record = &mut records[position];
         if hold.scope != LimitScope::Agent(record.agent_digest)

@@ -1,6 +1,6 @@
 # Programs
 
-A LayerX Network program is deterministic WASM that runs against protocol state. It can compute, use principal-scoped and shared storage, call other programs, and request transfers through explicitly granted authority. It never writes a balance.
+A LayerX kernel program is deterministic WASM that runs against protocol state. It can compute, use principal-scoped and shared storage, call other programs, and request transfers through explicitly granted authority. It never writes a balance.
 
 ## The monetary law
 
@@ -78,7 +78,7 @@ Replay is first-class: a recorded execution can be replayed and any divergence r
 ABI 2 is the current frozen guest ABI. ABI 1 remains supported for legacy programs;
 ProgramSpend and BalanceView grants require ABI 2.
 
-**Funding prerequisite:** Ordinary genesis starts with zero balances. Program calls require an authenticated custody-funded actor with the required fee asset. Follow the [custody profile and real-deposit workflow](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/86fa9803386b75d1fea152cb40cacb3f1069cf4a/docs/wiki/Custody.md#reproducible-local-funding), using the genesis/fee asset, and verify the funding receipt before spending. A custody profile does not preallocate balances; do not substitute prefunding or state injection. Local funding qualification does not establish production finality.
+**Funding prerequisite:** Ordinary genesis starts with zero balances. Program calls require an authenticated actor with the required fee asset. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) to fund the actor through a chain transfer, and verify the committed funding outcome before spending. The former [custody-credit funding procedure](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/human/custody.md) is retired; do not substitute prefunding or state injection. Local funding qualification does not establish production finality.
 
 **Escrow account prerequisite:** After deployment and before `OPEN`, register the escrow's derived value account through a real Programs account-registration activity (module 9, ordinal 6). Submit the canonical signed protocol-3 activity to authenticated `POST /v1/activities` as `application/octet-stream`, with its `Idempotency-Key`, and verify the receipt before calling `OPEN`. The payload is `program_id(32) ‖ "LXPA1"(5) ‖ asset_id(32) ‖ seed_length(u32 big-endian) ‖ seed`: exactly `73 + seed_length` bytes, with seed length at most 128. Use the same program, asset and seed as the escrow call, signed by an authorized registration principal. Deployment does not automatically register this account; there is no dedicated registration CLI command.
 
@@ -151,8 +151,8 @@ multiplier is small because memory use of 2 MiB per call dominates the fee, so
 the interpreted route's extra CPU fuel (4x to 8x on these workloads) barely
 moves the price. These observed values are measurements, not a promise: a
 different script, schedule or host can land anywhere up to the 12x ceiling,
-and only the ceiling is gated. The broader cold/warm execution baseline and performance ledger remain
-the qualification-owned task 32.7 component of this aggregate Make entry.
+and only the ceiling is gated. The broader cold/warm execution baseline and
+performance ledger remain qualification components of this aggregate Make entry.
 
 Use interpretation when removing a compiler from an agent's deployment path
 is worth a potentially material execution premium: small policies, bounded

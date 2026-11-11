@@ -1,5 +1,7 @@
 # Hosted faucet
 
+Private-network only.
+
 The hosted faucet is for private or disposable networks only. It has no public
 faucet hostname on Paxeer X Network and is not a mainnet-beta allocation service.
 The private claim routes and deployment templates below do not establish a
@@ -17,9 +19,16 @@ Use the [public node endpoints](../reference/public-rpc.md) at their HTTPS root:
 `https://api-mainnet-beta.paxeer.network` or
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before signing;
-use `eth_getBalance` for an EVM address's native balance. Hosted gateway `px_`
-methods belong to an operator-configured service and are not public node
-methods. On a configured gateway, `px_getBalances` reads chain bank balances
+use `eth_getBalance` for an EVM address's native balance.
+
+The node serves the `px` namespace at its root and answers from node state.
+`px_getBalances` and `px_getCapabilities` are node reads and do not require a
+hosted gateway.
+Only `px_register` and `px_requestFunds` are hosted operations.
+After parameter validation, node calls to either operation return JSON-RPC
+`-32004` with `error.data.code: "hosted_gateway_service_required"`.
+
+On a configured gateway, `px_getBalances` reads chain bank balances
 and returns `account`, `height`, and `balances` entries with `denom` and exact
 decimal-string `amount`; an unbound DID is refused rather than assigned a
 balance (`services/platform/hosted/gateway/src/paxeer.rs`).
@@ -286,13 +295,13 @@ Admission bounds of zero cause admission to fail as
 `503 persistence_unavailable`. The Deployment leaves claim amount and quota
 window unset, using their code defaults.
 
-The supplied private-cluster endpoints are:
+Configure operator-supplied private endpoints; replace the placeholders below:
 
-| Dependency | URL |
-| --- | --- |
-| Identity | `https://layerx-identity.layerx-testnet.svc.cluster.local:9443/v1/introspect` |
-| Funding | `https://layerx-testnet-admin.layerx-testnet.svc.cluster.local/admin/v1/testnet/fund` |
-| Redis | `rediss://layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379` |
+| Dependency | Configuration | Example URL |
+| --- | --- | --- |
+| Identity | `LAYERX_IDENTITY_INTROSPECTION_URL` | `https://OPERATOR-IDENTITY-ORIGIN:9443/v1/introspect` |
+| Funding | `LAYERX_TESTNET_FUNDING_URL` | `https://OPERATOR-CONTROL-ADMIN-ORIGIN/admin/v1/testnet/fund` |
+| Redis | `LAYERX_FAUCET_REDIS_URL` | `rediss://OPERATOR-FAUCET-REDIS:6379` |
 
 The Deployment mounts `layerx-faucet-tls` at `/run/layerx/tls`,
 `layerx-testnet-identity-client` at `/run/layerx/identity`,

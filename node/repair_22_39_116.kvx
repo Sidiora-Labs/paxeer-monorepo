@@ -1,0 +1,35 @@
+[meta]
+task = "22.39.116"
+acceptance = "22998.1"
+base = "690ae464439b4f331ffe871cec5b884be32f510f"
+continuation = "Attempt 3 retains the attempt-2 implementation from 23e73a8366a8053d21bb1f1545e6ef5a8ca3fa6b"
+
+[correction.merge_plan]
+producer = "continueMergeUpgradePlan preserves an already scheduled matching plan and only schedules a missing plan inside its cached transaction"
+assertions = "Guarantor balances gain every returned bond, bonds and unbondings empty, supply is unchanged, custody reaches the configured authority and the retirement event reports the total"
+
+[correction.custody_failure]
+setup = "Use the real blocked evm module address as custody authority and assert BankKeeper.BlockedAddr"
+assertions = "Custody release returns ErrUnauthorized with release custody context; anchor genesis and balance, custody coins and genesis, absent upgrade plan and ABI key, empty events and sequencer leaders, disabled sequencing and zero done height prove rollback"
+
+[correction.abi_upgrade]
+setup = "Rewind before deploying the fixture so the merge no longer removes its hosted program state"
+assertions = "Invalid merge info leaves ABI absent and host at 4; a pre-upgrade ABI-5 call returns VERSION_UNSUPPORTED in an ABI-4 receipt; applying the merge changes host and precompile identity, persists ABI 5, shares the refreshed host with pay and agent, and produces a successful ABI-5 program outcome"
+
+[correction.restart]
+setup = "Finalize and commit real blocks 1 through 42, scheduling the merge at height 41; after every FinalizeBlock read LayerXHost.ReadLastSequence for the fixture DID and finalize occupancy with last+1 before Commit, following rpc/repair_478_test.go"
+assertions = "Every occupancy finalization returns no error and a nonempty receipt; height 42 selects ABI 5 and returns a successful ABI-5 call; committed height, block ID and sequence survive closing and reconstructing the app; persisted and selected ABI are 5 after restart; the unchanged height-43 call succeeds with a nonnil status-zero program outcome and ABI-5 receipt and preserves the merge done height"
+
+[correction.baseline]
+workflow = "The node test step runs go test -timeout 15m -count=1 ./node/... without a skip pattern"
+assertions = "The workflow scope tests still read the baseline file, require its package to be ./node/ and tests to be empty, and require the exact full node command with no skip flag, job or step conditions, error suppression or altered working directory"
+
+[evidence.build]
+reference = "/out/run/gates.jsonl: final build row"
+fields = "revision, command, exit, log"
+
+[evidence.verify]
+reference = "/out/run/gates.jsonl: final verify row"
+fields = "revision, command, exit, log"
+qualification = "Only hf-done passing at the built candidate establishes completion; this record precedes both gates and does not claim an unexecuted result"
+private_logs = "/out/logs/build-*.log and /out/logs/verify-*.log"

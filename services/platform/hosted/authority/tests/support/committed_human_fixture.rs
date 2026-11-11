@@ -526,7 +526,7 @@ impl Node {
                                         hex::encode(
                                             &layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX
                                         ),
-                                        hex::encode(&[0x61; 32])
+                                        fixture.did.strip_prefix("did:layerx:").unwrap()
                                     )
                                 );
                                 let mut answer = vec![0; 32];

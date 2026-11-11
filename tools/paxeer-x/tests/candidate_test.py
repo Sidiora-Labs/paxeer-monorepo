@@ -239,7 +239,7 @@ class CandidateTest(unittest.TestCase):
         routes = json.loads(PROGRAM.with_name('route-catalogue.json').read_text())
         expected = ['api' + str(i) for i in range(1, 15)] + ['api-mainnet-beta']
         self.assertEqual(routes['rpc_records'], expected)
-        self.assertEqual(candidate.FOUNDATION['rpc_records'], expected)
+        self.assertEqual(candidate.foundation()['rpc_records'], expected)
         self.assertEqual(self.manifest['foundation']['rpc_records'], expected)
         for records in (expected[:-1], expected + ['api15'],
                         ['api' + str(i) for i in range(1, 17)]):
@@ -322,7 +322,7 @@ class CandidateTest(unittest.TestCase):
         ]
         candidate.write_private(inventory, {
             'schema': 'paxeer-x.fly-inventory.v1', 'read_only': True, 'apps': apps,
-            'services': [{'service': 'kernel', 'expected_apps_from_source':
+            'services': [{'service': 'sequencer', 'expected_apps_from_source':
                           [app['app'] for app in apps] + ['unlisted-app']}],
         })
         output = self.base / 'collector-candidate.json'
@@ -330,7 +330,7 @@ class CandidateTest(unittest.TestCase):
                           '--inventory', inventory, '--output', output)
         self.assertEqual(result.returncode, 0, result.stderr)
         manifest = candidate.load_private(output)
-        service = next(row for row in manifest['services'] if row['id'] == 'kernel')
+        service = next(row for row in manifest['services'] if row['id'] == 'sequencer')
         rows = {row['identity']: row for row in service['observations']}
         self.assertEqual(rows['absent-app']['state'], 'absent')
         self.assertEqual(rows['pending-app']['state'], 'pending')
@@ -348,11 +348,11 @@ class CandidateTest(unittest.TestCase):
                                             'read_only': True, 'services': []})
         output = self.base / 'selected.json'
         result = subprocess.run(['bash', str(SHELL), '--input', str(inventory),
-                                 '--spec', str(SPEC), '--service', 'kernel',
+                                 '--spec', str(SPEC), '--service', 'sequencer',
                                  '--output', str(output)], capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         selected = candidate.load_private(output)
-        self.assertEqual(selected['services'], [{'id': 'kernel', 'observations': []}])
+        self.assertEqual(selected['services'], [{'id': 'sequencer', 'observations': []}])
         invalid = self.base / 'invalid.json'
         candidate.write_private(invalid, {'schema': 'unrecognized'})
         with self.assertRaises(candidate.Invalid):

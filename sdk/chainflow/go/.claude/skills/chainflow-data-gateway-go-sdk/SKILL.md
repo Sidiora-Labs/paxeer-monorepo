@@ -124,7 +124,7 @@ HTTP 200 feed and UDF responses can contain application-level errors.
 
 ## Requirements
 
-- Go 1.22 or newer.
+- Go 1.25 or newer.
 
 ## Reference files
 

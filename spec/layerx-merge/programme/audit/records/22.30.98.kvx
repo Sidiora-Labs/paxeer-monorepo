@@ -2,7 +2,7 @@
 task = "22.30.98"
 revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
 files_reviewed = 83
-findings = 43
+findings = 42
 docs_reviewed = 13
 upgrade_ready = false
 blocking = ["guarantor-evidence-reaches-committed"]
@@ -819,16 +819,6 @@ proposal = "Correct the ledger-payment-call row in spec/layerx-merge/interfaces.
 owner_domain = 9
 interface = "9.rs-crypto-send-ledger-payment-call-j44"
 
-[finding.api-contract-document-absent]
-file = "services/agent/crates/layerx-crypto/src/lib.rs"
-line = 1
-class = "doc-drift"
-severity = "medium"
-observed = "The reviewed crypto/proof registry rows link to contracts/agent-rust-api.md#crypto or #proof, but contracts/agent-rust-api.md is absent from the tree. Consumers cannot resolve the named contract for signatures, error semantics or trust lifecycle."
-expected = "Brief checks 1 and 9 require the declared API contract and documentation to describe the real producer, transport and consumer behavior, including current retirement dispositions."
-proposal = "Create an owned current crypto/proof API contract or redirect all affected registry contract links to maintained existing pages. Document bind/EVM signing, receipt key pinning, rungs and committed-proof limits, and remove the retired guarantor/activity APIs."
-owner_domain = 9
-
 [finding.overview-zh-cn]
 file = "docs/site/docs/overview/i18n/zh-cn.md"
 line = 14
@@ -1010,6 +1000,6 @@ status = "misleading"
 notes = "Lines 8-9, 131, 278 and 298 require /rpc; wallet availability text is internally inconsistent and receipt tooling retains old trust terminology. Rewrite against current CLI and root node endpoints."
 
 [doc.013]
-path = "contracts/agent-rust-api.md"
-status = "missing"
-notes = "Registry crypto/proof contract links point to this absent page (#crypto and #proof). The lookup found no replacement at that path; publish an owned current contract or redirect the registry links."
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "stale"
+notes = "Existing contract sections: contracts/agent-rust-api.md#crypto and contracts/agent-rust-api.md#proof. Registry contract paths resolve relative to spec/layerx-merge; the sections at spec/layerx-merge/contracts/agent-rust-api.md:3384 and :4191 serve all 480 corresponding registry rows. The contract at spec/layerx-merge/contracts/agent-rust-api.md:4285 still documents verify(export, expected_settlement_domain), while services/agent/crates/layerx-proof/src/export.rs:96 defines verify(export). Update the existing contract signatures to match the implementation, consistent with finding.registry-export-signatures-stale."

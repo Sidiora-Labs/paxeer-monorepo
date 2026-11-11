@@ -49,6 +49,7 @@ mod ffi;
 #[allow(unsafe_code)]
 mod ffi_call;
 #[cfg(feature = "host-ffi")]
+/// Live native V2 CALL receipt projection and sandbox escrow APIs retained by decision 3125.
 pub use ffi_call::{
     read_native_receipt_authority, settle_host_sandbox_escrow_charge,
     settle_reserved_host_sandbox_escrow_charge, NativeReceiptAuthority,

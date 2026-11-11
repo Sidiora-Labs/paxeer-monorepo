@@ -82,7 +82,6 @@ nav:
       - Modules: protocol/modules.md
       - Data availability: protocol/data-availability.md
       - Commitment levels: protocol/commitment-levels.md
-      - Finality: protocol/finality.md
       - Sidiora: protocol/sidiora.md
       - Web search and xweb: protocol/xweb.md
   - Programs:
@@ -92,7 +91,6 @@ nav:
       - Storage scan: programs/storage-scan.md
   - Agents:
       - agents/index.md
-      - LNI: agents/lni.md
       - Agentd: agents/agentd.md
       - Running an agent: agents/running.md
       - SDKs: agents/sdks.md
@@ -143,7 +141,10 @@ nav:
       - reference/index.md
       - Public RPC endpoints: reference/public-rpc.md
 validation:
-  omitted_files: warn
-  absolute_links: info
-  unrecognized_links: warn
-  anchors: warn
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    absolute_links: info
+    unrecognized_links: warn
+    anchors: warn

@@ -18,9 +18,13 @@
     "./engine/*": "./engine/engine/*"
   },
   "scripts": {
-    "test": "node --test test/vendored_engine.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "serve": "node scripts/serve.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
   }
 }

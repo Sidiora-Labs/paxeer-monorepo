@@ -1,24 +1,22 @@
 # Inference market client guide
 
-The SDK, HTTP and UI surfaces below are the planned contract, pending at the
-[documentation base revision](README.md#availability). A missing operation or
+The inference market is not yet available. The SDK, HTTP and UI surfaces below
+describe its [planned interface](README.md#availability). A missing operation or
 unsupported F11 family must be reported to the caller. Check the target release
 and network's availability before preparing market calls.
 
 ## SDK calls and node reads
 
-The planned TypeScript module is
-`services/agent/sdk/typescript/src/inference_market.ts`, exported from the SDK
-index by task 22.38.31. It provides `openRoom`, `postAsk`, `postBid`,
+The planned TypeScript SDK module, `inference_market`, will be exported from the
+SDK index. Its planned helpers include `openRoom`, `postAsk`, `postBid`,
 `recordDeal`, `settleLaps`, `challengeLap`, `resolveChallenge`, `splitPayout`,
 `lockBond`, `slashBond`, `refundBond`, `closeRoom`, view decoders, and `fundAsk`
 for the `streamOpenForAsk` payload. These are encoders/helpers; use the existing
 prepare, disclose, sign, submit and finality path to execute writes.
 Their argument types must come from the landed SDK; no runnable imports or
-object shapes are promised at this revision.
+object shapes are available yet.
 
-Task 22.38.32 defines Rust `InferenceMarket` in
-`services/agent/crates/layerx-sdk/src/inference_market.rs`, including `open_room`,
+The planned Rust SDK `InferenceMarket` interface includes `open_room`,
 `post_ask` and `get_inference_rooms`, with corresponding F11 codecs and reads
 built on the existing ai-market client. Encoders must reproduce producer
 fixture bytes, not infer binary layouts from page descriptions.
@@ -75,8 +73,7 @@ comes from a committed block on the connected network.
 
 ## Wallet and explorer paths
 
-Task 22.38.34 adds the wallet inference surface in
-`apps/wallet/src/surfaces/InferenceView.tsx` and registers it in `routes.ts`.
+The planned wallet inference surface will be registered in the wallet routes.
 Its ask form accepts model, price cap per thousand tokens and total cap, then
 uses `fundAsk` through the existing wallet send path. The ask list shows stream
 reading and remaining cap; earnings combine `px_getInferencePeer` and reward
@@ -84,9 +81,8 @@ ledger credits for the connected key. The route URL is not frozen in the
 contract; use the registered Inference surface when available. CLAIM remains
 the separate signed operation that withdraws credited rewards.
 
-Task 22.38.33 defines explorer page **`/paxeer-x/inference`**, implemented by
-`apps/explorer/pages/paxeer-x/inference.tsx` and `PaxeerXInference.tsx`, with an
-Inference navigation item. The browser calls **`/api/inference`**; its server
+The planned explorer page **`/paxeer-x/inference`** will have an Inference
+navigation item. The browser calls **`/api/inference`**; its server
 calls the five allowed node methods and keeps the configured node address on
 the server. The page presents rooms (model, host, peers, open asks and settled
 tokens), the selected deal's layer split and receipt batches. A page listing

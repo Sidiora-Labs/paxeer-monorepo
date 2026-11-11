@@ -45,6 +45,8 @@ pub struct ExportTrustSource {
 }
 
 impl ExportTrustSource {
+    /// # Errors
+    /// Returns an error if a trust entry has an invalid chain, height range or key.
     pub fn new(
         receipt_keys: Vec<ReceiptKeyEntry>,
         validator_set: Vec<CommitValidator>,
@@ -73,13 +75,22 @@ impl ExportTrustSource {
         })
     }
 
+    #[must_use]
     pub fn receipt_keys(&self) -> &[ReceiptKeyEntry] {
         &self.receipt_keys
     }
+    #[must_use]
     pub fn validator_set(&self) -> &[CommitValidator] {
         &self.validator_set
     }
 
+    /// # Errors
+    /// Returns an error if the requested chain or height does not resolve to trusted receipt
+    /// verification material.
+    #[allow(
+        clippy::unnecessary_wraps,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn trust(&self, _registry: ModuleRegistry) -> Result<Self, OfflineTrustError> {
         Ok(self.clone())
     }
@@ -101,6 +112,7 @@ pub struct VerificationReport {
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
     pub height: u64,
+    pub checkpoint_height: u64,
     pub block_hash: [u8; 32],
     pub achieved_rung: Rung,
 }
@@ -139,6 +151,10 @@ pub enum ExportProduceError {
     Binding {
         fact: usize,
     },
+    BindingAt {
+        fact: usize,
+        stage: &'static str,
+    },
     MaintenanceLink {
         fact: usize,
     },
@@ -160,6 +176,9 @@ pub enum ExportProduceError {
     Contract,
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub const fn require_frame_within_bound(
     serialized_frame_bytes: usize,
 ) -> Result<(), ExportProduceError> {
@@ -170,6 +189,9 @@ pub const fn require_frame_within_bound(
     }
 }
 
+/// # Errors
+/// Returns an error if export construction or verification rejects the supplied facts,
+/// bindings or proof evidence.
 pub fn build(
     artifact: OfflineExport,
     trust: &ExportTrustSource,
@@ -182,6 +204,9 @@ pub fn build(
     })
 }
 
+/// # Errors
+/// Returns an error if export construction or verification rejects the supplied facts,
+/// bindings or proof evidence.
 pub fn verify(
     artifact: &OfflineExport,
     trust: &ExportTrustSource,
@@ -192,143 +217,219 @@ pub fn verify(
         .map_err(|_| ExportProduceError::Contract)?;
     let texts: Vec<_> = artifact.facts.iter().map(FactRef::as_str).collect();
     let selectors = parse_fact_set(&texts).map_err(ExportProduceError::Facts)?;
-    if artifact.height == 0 || selectors.len() != artifact.bundles.len() {
-        return Err(ExportProduceError::Contract);
-    }
+    crate::reject_if(
+        artifact.height == 0 || selectors.len() != artifact.bundles.len(),
+        || ExportProduceError::Contract,
+    )?;
     let mut block = None;
     for (fact, (selector, bundle)) in selectors.iter().zip(&artifact.bundles).enumerate() {
-        let refusal = || ExportProduceError::Binding { fact };
-        if bundle.verification_level != Rung::Committed
-            || !trust.receipt_keys.contains(&bundle.receipt_key)
-        {
-            return Err(refusal());
-        }
-        let keys: Vec<_> = trust
-            .receipt_keys
-            .iter()
-            .map(|key| {
-                SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect();
-        let receipt = verify_sequencer_signature(bundle.signed_receipt.as_bytes(), keys.as_slice())
-            .map_err(|_| refusal())?;
-        let protocol = receipt.protocol().ok_or_else(refusal)?;
-        let mut height = [0; 32];
-        height[24..].copy_from_slice(&artifact.height.to_be_bytes());
-        if protocol.activity_id() != selector.activity_id()
-            || transaction_hash(bundle.raw_transaction.as_bytes()) != protocol.activity_id()
-            || protocol.batch_id() != height
-            || protocol.context_hash() != bundle.receipt_key.key_id
-            || receipt_digest(&encode_unsigned(&receipt).map_err(|_| refusal())?)
-                .map_err(|_| refusal())?
-                != bundle.receipt_digest
-        {
-            return Err(refusal());
-        }
-        let header = decode_header(required(&bundle.block_header)?)?;
-        let validators = decode_validators(required(&bundle.validator_set)?)?;
-        if validators != trust.validator_set {
-            return Err(refusal());
-        }
-        let commit = decode_commit(required(&bundle.commit)?, &validators)?;
-        let checkpoint = checkpoint(
-            artifact.height,
-            &header.chain_id,
-            &header,
-            &commit,
-            &validators,
-        )
-        .map_err(|_| refusal())?;
-        if block.is_some_and(|hash| hash != checkpoint.block_hash) {
-            return Err(ExportProduceError::MixedSnapshot);
-        }
-        block = Some(checkpoint.block_hash);
-        let inclusion = list_items(required(&bundle.receipt_inclusion)?)?;
-        if inclusion.len() != 2 {
-            return Err(refusal());
-        }
-        let evm_receipt = inclusion[0].bytes()?;
-        let proof: Vec<_> = list_items(inclusion[1].raw)?
-            .iter()
-            .map(|item| item.bytes().map(<[u8]>::to_vec))
-            .collect::<Result<_, _>>()?;
-        let summary = decode_summary(&receipt).map_err(|_| refusal())?;
-        let root = header.last_results_hash.ok_or_else(refusal)?;
-        if trie_value(root, &rlp_index(u64::from(summary.tx_index())), &proof)?.as_deref()
-            != Some(evm_receipt)
-        {
-            return Err(refusal());
-        }
-        let payload = match evm_receipt.first() {
-            Some(1..=4) => &evm_receipt[1..],
-            Some(0xc0..=0xff) => evm_receipt,
-            _ => return Err(refusal()),
-        };
-        let fields = list_items(payload)?;
-        if fields.len() != 4
-            || fields[0].bytes()?
-                != if protocol.result_code() == 0 {
-                    &[1][..]
-                } else {
-                    &[][..]
-                }
-            || word(fields[1].bytes()?)? != u64_word(summary.cumulative_gas_used())
-            || fields[2].bytes()?.len() != 256
-        {
-            return Err(refusal());
-        }
-        let mut logs = Vec::new();
-        for (index, log) in list_items(fields[3].raw)?.iter().enumerate() {
-            let fields = list_items(log.raw)?;
-            if fields.len() != 3 {
-                return Err(refusal());
-            }
-            let address = fields[0].bytes()?.try_into().map_err(|_| refusal())?;
-            let topics = list_items(fields[1].raw)?
-                .iter()
-                .map(|topic| topic.bytes()?.try_into().map_err(|_| refusal()))
-                .collect::<Result<_, _>>()?;
-            logs.push(SequencerLog::new(
-                address,
-                topics,
-                fields[2].bytes()?.to_vec(),
-                index as u64,
-            ));
-        }
-        verify_logs(&receipt, logs).map_err(|_| refusal())?;
-        match selector {
-            FactSelector::State { account_id, .. } => {
-                verify_account(
-                    required(&bundle.account_proof)?,
-                    *account_id,
-                    header.app_hash,
-                )?;
-            }
-            _ if bundle.account_proof.is_some() => return Err(refusal()),
-            _ => {}
-        }
+        let coordinate =
+            verify_export_bundle(artifact.height, selector, bundle, trust, fact, block)?;
+        block = Some(coordinate);
     }
+    let (checkpoint_height, block_hash) = block.ok_or(ExportProduceError::Contract)?;
     Ok(VerificationReport {
         verified_receipts: selectors.len(),
         verified_inclusions: selectors.len(),
         height: artifact.height,
-        block_hash: block.ok_or(ExportProduceError::Contract)?,
+        checkpoint_height,
+        block_hash,
         achieved_rung: Rung::Committed,
     })
 }
 
-fn required(value: &Option<CanonicalBytes>) -> Result<&[u8], ExportProduceError> {
+pub(crate) fn committed_checkpoint_height(
+    receipt_height: u64,
+    inclusion: &[u8],
+) -> Result<u64, &'static str> {
+    match inclusion.first() {
+        Some(b'{') => receipt_height.checked_add(1).ok_or("checkpoint_height"),
+        Some(0xc0..=0xff) => Ok(receipt_height),
+        _ => Err("inclusion_encoding"),
+    }
+}
+
+fn verify_native_inclusion(
+    bytes: &[u8],
+    height: u64,
+    checkpoint: &crate::read::ServedCheckpoint,
+    receipt: &layerx_wire::receipt::Receipt,
+) -> Result<Vec<SequencerLog>, &'static str> {
+    use crate::read::abci_result::{fields, ProtoValue};
+    use sha2::{Digest, Sha256};
+    let proof = decode_native_inclusion(bytes, height)?;
+    let summary = decode_summary(receipt).map_err(|_| "receipt_summary")?;
+    proof
+        .verify_committed(
+            height,
+            u64::from(summary.tx_index()),
+            checkpoint,
+            &checkpoint.header.chain_id,
+            &checkpoint.validators,
+        )
+        .map_err(|_| "results_merkle_value")?;
+    let response =
+        crate::read::abci_result::evm_response(&proof.result).map_err(|_| "abci_result")?;
+    let mut gas = 0;
+    let mut vm_error = &[][..];
+    let mut returned = &[][..];
+    let mut tx_hash = None;
+    let mut logs = Vec::new();
+    let mut previous = 0;
+    for (number, value) in fields(response).map_err(|_| "abci_response")? {
+        if number < previous || number == previous && number != 5 {
+            return Err("abci_response_fields");
+        }
+        previous = number;
+        match (number, value) {
+            (1, ProtoValue::Integer(value)) => gas = value,
+            (2, ProtoValue::Bytes(value)) => vm_error = value,
+            (3, ProtoValue::Bytes(value)) => returned = value,
+            (4, ProtoValue::Bytes(value)) => tx_hash = Some(value),
+            (5, ProtoValue::Bytes(value)) => {
+                logs.push(decode_native_export_log(value)?);
+            }
+            _ => return Err("abci_response_fields"),
+        }
+    }
+    let protocol = receipt.protocol().ok_or("protocol")?;
+    let tx_hash =
+        std::str::from_utf8(tx_hash.ok_or("abci_transaction")?).map_err(|_| "abci_transaction")?;
+    if fixed_inclusion_hash(tx_hash.strip_prefix("0x").ok_or("abci_transaction")?)?
+        != protocol.activity_id()
+    {
+        return Err("abci_transaction");
+    }
+    for (matches, stage) in [
+        (gas == summary.gas_used(), "abci_gas"),
+        (
+            vm_error.is_empty() == (protocol.result_code() == 0),
+            "abci_status",
+        ),
+        (
+            <[u8; 32]>::from(Sha256::digest(vm_error)) == summary.vm_error_hash(),
+            "abci_vm_error",
+        ),
+        (
+            u64::try_from(returned.len()).map_err(|_| "abci_return_data")?
+                == u64::from(summary.return_data_len())
+                && <[u8; 32]>::from(Sha256::digest(returned)) == protocol.activity_root(),
+            "abci_return_data",
+        ),
+    ] {
+        if !matches {
+            return Err(stage);
+        }
+    }
+    Ok(logs)
+}
+
+fn decode_native_inclusion(
+    bytes: &[u8],
+    height: u64,
+) -> Result<crate::read::AbciResultProof, &'static str> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Inclusion {
+        algorithm: String,
+        height: u64,
+        total: i64,
+        index: i64,
+        result: String,
+        leaf_hash: String,
+        aunts: Vec<String>,
+    }
+    let inclusion: Inclusion = serde_json::from_slice(bytes).map_err(|_| "inclusion_encoding")?;
+    if inclusion.algorithm != "comet-abci-results-v1" || inclusion.height != height {
+        return Err("inclusion_height_or_algorithm");
+    }
+    if inclusion.total <= 0
+        || inclusion.index < 0
+        || inclusion.index >= inclusion.total
+        || inclusion.aunts.len() > 64
+        || inclusion.result.len() > 524_288
+    {
+        return Err("inclusion_bounds");
+    }
+    Ok(crate::read::AbciResultProof {
+        result: decode_inclusion_hex(&inclusion.result)?,
+        proof: layerx_programs::chain_proof::merkle::SimpleProof {
+            total: inclusion.total,
+            index: inclusion.index,
+            leaf_hash: fixed_inclusion_hash(&inclusion.leaf_hash)?,
+            aunts: inclusion
+                .aunts
+                .iter()
+                .map(|aunt| fixed_inclusion_hash(aunt))
+                .collect::<Result<_, _>>()?,
+        },
+    })
+}
+
+fn decode_inclusion_hex(text: &str) -> Result<Vec<u8>, &'static str> {
+    if !text.len().is_multiple_of(2)
+        || !text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err("inclusion_hex");
+    }
+    layerx_programs::hex::decode(text).map_err(|_| "inclusion_hex")
+}
+
+fn fixed_inclusion_hash(text: &str) -> Result<[u8; 32], &'static str> {
+    decode_inclusion_hex(text)?
+        .try_into()
+        .map_err(|_| "inclusion_hash")
+}
+
+fn decode_native_export_log(bytes: &[u8]) -> Result<SequencerLog, &'static str> {
+    use crate::read::abci_result::{fields, ProtoValue};
+    let mut address = None;
+    let mut topics = Vec::new();
+    let mut data = &[][..];
+    let mut index = 0;
+    let mut previous = 0;
+    let hex = |bytes| -> Result<Vec<u8>, &'static str> {
+        let text = std::str::from_utf8(bytes).map_err(|_| "abci_log_hex")?;
+        layerx_programs::hex::decode(text.strip_prefix("0x").unwrap_or(text))
+            .map_err(|_| "abci_log_hex")
+    };
+    for (number, value) in fields(bytes).map_err(|_| "abci_log")? {
+        if number < previous || number == previous && number != 2 {
+            return Err("abci_log_fields");
+        }
+        previous = number;
+        match (number, value) {
+            (1, ProtoValue::Bytes(value)) => {
+                address = Some(hex(value)?.try_into().map_err(|_| "abci_log_address")?);
+            }
+            (2, ProtoValue::Bytes(value)) => {
+                topics.push(hex(value)?.try_into().map_err(|_| "abci_log_topic")?);
+            }
+            (3, ProtoValue::Bytes(value)) => data = value,
+            (4, ProtoValue::Integer(value)) => index = value,
+            (5, ProtoValue::Integer(0 | 1)) => {}
+            _ => return Err("abci_log_fields"),
+        }
+    }
+    Ok(SequencerLog::new(
+        address.ok_or("abci_log_address")?,
+        topics,
+        data.to_vec(),
+        index,
+    ))
+}
+
+fn required(value: Option<&CanonicalBytes>) -> Result<&[u8], ExportProduceError> {
     value
-        .as_ref()
         .map(CanonicalBytes::as_bytes)
         .ok_or(ExportProduceError::Contract)
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn produce(
     context: &ExportOwnerContext<'_>,
     facts: &[FactRef],
@@ -344,6 +445,9 @@ pub fn produce(
     )
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn produce_retained(
     store: &Mutex<Store>,
     tenant: &TenantId,
@@ -408,15 +512,16 @@ pub fn produce_retained(
             })
         })?;
     let height = built.local_verification.height;
+    let checkpoint_height = built.local_verification.checkpoint_height;
     Ok(ProducedExport {
         response: VerifiedRead::new(
             built.artifact,
             Rung::Committed,
             Freshness {
-                chain_head: height,
+                chain_head: checkpoint_height,
                 value_height: height,
                 relative_to: RelativeTo::Block {
-                    height,
+                    height: checkpoint_height,
                     hash: built.local_verification.block_hash,
                 },
             },
@@ -426,6 +531,9 @@ pub fn produce_retained(
     })
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn retain_bundle(
     store: &mut Store,
     tenant: TenantId,
@@ -466,6 +574,9 @@ fn bundle_key(tenant: TenantId, selector: &FactSelector) -> Result<TenantKey, Ex
     .map_err(|_| ExportProduceError::Store)
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn serialize_export(artifact: &OfflineExport) -> Result<Vec<u8>, ExportProduceError> {
     let text = artifact
         .encode_json()
@@ -474,6 +585,9 @@ pub fn serialize_export(artifact: &OfflineExport) -> Result<Vec<u8>, ExportProdu
     Ok(text.into_bytes())
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn deserialize_export(bytes: &[u8]) -> Result<OfflineExport, ExportProduceError> {
     require_frame_within_bound(bytes.len())?;
     let text = std::str::from_utf8(bytes).map_err(|_| ExportProduceError::Contract)?;
@@ -491,11 +605,14 @@ fn rlp_index(value: u64) -> Vec<u8> {
         return vec![0x80];
     }
     if value < 128 {
-        return vec![value as u8];
+        return vec![value.to_le_bytes()[0]];
     }
     let bytes = value.to_be_bytes();
     let bytes = &bytes[bytes.iter().position(|byte| *byte != 0).unwrap_or(7)..];
-    let mut encoded = vec![0x80 + bytes.len() as u8];
+    let mut encoded = vec![
+        0x80 + u8::try_from(bytes.len())
+            .unwrap_or_else(|_| unreachable!("a u64 has at most eight bytes")),
+    ];
     encoded.extend_from_slice(bytes);
     encoded
 }
@@ -670,6 +787,9 @@ fn trie_value(
     Err(ExportProduceError::Contract)
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn encode_storage_witnesses(
     witnesses: &[StorageWitness],
 ) -> Result<CanonicalBytes, ExportProduceError> {
@@ -702,7 +822,15 @@ pub fn encode_storage_witnesses(
     CanonicalBytes::new(bytes).map_err(|_| ExportProduceError::Contract)
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn decode_storage_witnesses(bytes: &[u8]) -> Result<Vec<StorageWitness>, ExportProduceError> {
+    fn hex(value: &serde_json::Value) -> Result<Vec<u8>, ExportProduceError> {
+        layerx_programs::hex::decode(value.as_str().ok_or(ExportProduceError::Contract)?)
+            .map_err(|_| ExportProduceError::Contract)
+    }
+
     if bytes.len() > layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES {
         return Err(ExportProduceError::Contract);
     }
@@ -712,10 +840,7 @@ pub fn decode_storage_witnesses(bytes: &[u8]) -> Result<Vec<StorageWitness>, Exp
     if rows.is_empty() || rows.len() > 1024 {
         return Err(ExportProduceError::Contract);
     }
-    fn hex(value: &serde_json::Value) -> Result<Vec<u8>, ExportProduceError> {
-        layerx_programs::hex::decode(value.as_str().ok_or(ExportProduceError::Contract)?)
-            .map_err(|_| ExportProduceError::Contract)
-    }
+
     let witnesses = rows
         .iter()
         .map(|row| {
@@ -749,6 +874,9 @@ pub fn decode_storage_witnesses(bytes: &[u8]) -> Result<Vec<StorageWitness>, Exp
     Ok(witnesses)
 }
 
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn verify_storage_witness(
     witness: &StorageWitness,
     app_hash: [u8; 32],
@@ -869,7 +997,7 @@ fn optional_hash(
 fn timestamp(bytes: &[u8]) -> Result<CommitTimestamp, ExportProduceError> {
     let fields = message(bytes, &[1, 2])?;
     Ok(CommitTimestamp {
-        seconds: pint(&fields, 1)? as i64,
+        seconds: i64::from_le_bytes(pint(&fields, 1)?.to_le_bytes()),
         nanos: u32::try_from(pint(&fields, 2)?).map_err(|_| ExportProduceError::Contract)?,
     })
 }
@@ -889,6 +1017,9 @@ fn block_id(bytes: &[u8]) -> Result<Option<BlockId>, ExportProduceError> {
         part_set_hash: fixed(pbytes(&parts, 2)?)?,
     }))
 }
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn decode_header(bytes: &[u8]) -> Result<CheckpointHeader, ExportProduceError> {
     let fields = message(bytes, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])?;
     let version = message(pbytes(&fields, 1)?, &[1, 2])?;
@@ -912,6 +1043,9 @@ pub fn decode_header(bytes: &[u8]) -> Result<CheckpointHeader, ExportProduceErro
         proposer_address: fixed(pbytes(&fields, 14)?)?,
     })
 }
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn decode_validators(bytes: &[u8]) -> Result<Vec<CommitValidator>, ExportProduceError> {
     let fields = proto(bytes)?;
     let mut validators = Vec::new();
@@ -949,6 +1083,9 @@ fn decode_validator(bytes: &[u8]) -> Result<CommitValidator, ExportProduceError>
         voting_power: pint(&fields, 3)?,
     })
 }
+/// # Errors
+/// Returns an error if export fields, proof bindings or retained facts are invalid, the frame
+/// exceeds its bound, or durable storage fails.
 pub fn decode_commit(
     bytes: &[u8],
     validators: &[CommitValidator],
@@ -1005,10 +1142,10 @@ pub fn decode_commit(
 }
 fn put_varint(out: &mut Vec<u8>, mut value: u64) {
     while value >= 128 {
-        out.push((value as u8) | 128);
+        out.push(value.to_le_bytes()[0] | 128);
         value >>= 7;
     }
-    out.push(value as u8);
+    out.push(value.to_le_bytes()[0]);
 }
 fn put_int(out: &mut Vec<u8>, number: u64, value: u64) {
     if value != 0 {
@@ -1023,7 +1160,7 @@ fn put_bytes(out: &mut Vec<u8>, number: u64, value: &[u8]) {
 }
 fn encode_time(time: CommitTimestamp) -> Vec<u8> {
     let mut out = Vec::new();
-    put_int(&mut out, 1, time.seconds as u64);
+    put_int(&mut out, 1, u64::from_le_bytes(time.seconds.to_le_bytes()));
     put_int(&mut out, 2, u64::from(time.nanos));
     out
 }
@@ -1038,6 +1175,7 @@ fn encode_id(id: Option<BlockId>) -> Vec<u8> {
     put_bytes(&mut out, 2, &parts);
     out
 }
+#[must_use]
 pub fn encode_header(header: &CheckpointHeader) -> Vec<u8> {
     let mut out = Vec::new();
     let mut version = Vec::new();
@@ -1065,6 +1203,7 @@ pub fn encode_header(header: &CheckpointHeader) -> Vec<u8> {
     put_bytes(&mut out, 14, &header.proposer_address);
     out
 }
+#[must_use]
 pub fn encode_validators(validators: &[CommitValidator]) -> Vec<u8> {
     let mut out = Vec::new();
     for validator in validators {
@@ -1078,6 +1217,7 @@ pub fn encode_validators(validators: &[CommitValidator]) -> Vec<u8> {
     }
     out
 }
+#[must_use]
 pub fn encode_commit(commit: &BlockCommit, validators: &[CommitValidator]) -> Vec<u8> {
     let mut out = Vec::new();
     put_int(&mut out, 1, commit.height);
@@ -1108,4 +1248,195 @@ pub fn encode_commit(commit: &BlockCommit, validators: &[CommitValidator]) -> Ve
         put_bytes(&mut out, 4, &value);
     }
     out
+}
+
+fn verify_export_bundle(
+    height: u64,
+    selector: &FactSelector,
+    bundle: &layerx_agent_api::proof::ProofBundle,
+    trust: &ExportTrustSource,
+    fact: usize,
+    prior_block: Option<(u64, [u8; 32])>,
+) -> Result<(u64, [u8; 32]), ExportBuildError> {
+    let receipt = verify_export_receipt(height, selector, bundle, trust, fact)?;
+    let at = |stage| ExportProduceError::BindingAt { fact, stage };
+    let refusal = || at("receipt_payload");
+    let protocol = receipt.protocol().ok_or_else(|| at("protocol"))?;
+    let header =
+        decode_header(required(bundle.block_header.as_ref()).map_err(|_| at("block_header"))?)
+            .map_err(|_| at("block_header"))?;
+    let validators = decode_validators(
+        required(bundle.validator_set.as_ref()).map_err(|_| at("validator_set"))?,
+    )
+    .map_err(|_| at("validator_set"))?;
+    if validators != trust.validator_set {
+        return Err(at("validator_set"));
+    }
+    let inclusion_bytes =
+        required(bundle.receipt_inclusion.as_ref()).map_err(|_| at("receipt_inclusion"))?;
+    // Native reader bundles carry tagged JSON; retained Ethereum bundles
+    // carry an RLP list. A malformed native proof never takes the RLP path.
+    let native = inclusion_bytes.first() == Some(&b'{');
+    let commitment_height = committed_checkpoint_height(height, inclusion_bytes).map_err(at)?;
+    let commit = decode_commit(
+        required(bundle.commit.as_ref()).map_err(|_| at("commit"))?,
+        &validators,
+    )
+    .map_err(|_| at("commit"))?;
+    let checkpoint = checkpoint(
+        commitment_height,
+        &header.chain_id,
+        &header,
+        &commit,
+        &validators,
+    )
+    .map_err(|_| at("checkpoint"))?;
+    let coordinate = (checkpoint.height, checkpoint.block_hash);
+    if prior_block.is_some_and(|previous| previous != coordinate) {
+        return Err(ExportProduceError::MixedSnapshot);
+    }
+    let summary = decode_summary(&receipt).map_err(|_| at("receipt_summary"))?;
+    let logs = if native {
+        verify_native_inclusion(inclusion_bytes, height, &checkpoint, &receipt).map_err(at)?
+    } else {
+        verify_legacy_export_inclusion(
+            inclusion_bytes,
+            &header,
+            protocol.result_code(),
+            u64::from(summary.tx_index()),
+            summary.cumulative_gas_used(),
+            fact,
+        )?
+    };
+    verify_logs(&receipt, logs).map_err(|_| at("receipt_logs"))?;
+    match selector {
+        FactSelector::State { account_id, .. } => {
+            verify_account(
+                required(bundle.account_proof.as_ref())?,
+                *account_id,
+                header.app_hash,
+            )?;
+        }
+        _ if bundle.account_proof.is_some() => return Err(refusal()),
+        FactSelector::Receipt { .. } => {}
+    }
+    Ok(coordinate)
+}
+fn verify_export_receipt(
+    height: u64,
+    selector: &FactSelector,
+    bundle: &layerx_agent_api::proof::ProofBundle,
+    trust: &ExportTrustSource,
+    fact: usize,
+) -> Result<layerx_wire::receipt::Receipt, ExportBuildError> {
+    let at = |stage| ExportProduceError::BindingAt { fact, stage };
+    if bundle.verification_level != Rung::Committed {
+        return Err(at("rung"));
+    }
+    if !trust.receipt_keys.contains(&bundle.receipt_key) {
+        return Err(at("receipt_key"));
+    }
+    let keys: Vec<_> = trust
+        .receipt_keys
+        .iter()
+        .map(|key| {
+            SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect();
+    let receipt = verify_sequencer_signature(bundle.signed_receipt.as_bytes(), keys.as_slice())
+        .map_err(|_| at("sequencer_signature"))?;
+    let protocol = receipt.protocol().ok_or_else(|| at("protocol"))?;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
+    for (matches, stage) in [
+        (
+            protocol.activity_id() == selector.activity_id(),
+            "activity_id",
+        ),
+        (
+            transaction_hash(bundle.raw_transaction.as_bytes()) == protocol.activity_id(),
+            "raw_transaction",
+        ),
+        (protocol.batch_id() == batch_id, "receipt_height"),
+        (
+            protocol.context_hash() == bundle.receipt_key.key_id,
+            "context_key",
+        ),
+    ] {
+        if !matches {
+            return Err(at(stage));
+        }
+    }
+    let unsigned = encode_unsigned(&receipt).map_err(|_| at("unsigned_receipt"))?;
+    if receipt_digest(&unsigned).map_err(|_| at("receipt_digest"))? != bundle.receipt_digest {
+        return Err(at("receipt_digest"));
+    }
+    Ok(receipt)
+}
+fn verify_legacy_export_inclusion(
+    inclusion_bytes: &[u8],
+    header: &CheckpointHeader,
+    result_code: i32,
+    tx_index: u64,
+    cumulative_gas_used: u64,
+    fact: usize,
+) -> Result<Vec<SequencerLog>, ExportBuildError> {
+    let at = |stage| ExportProduceError::BindingAt { fact, stage };
+    let refusal = || at("receipt_payload");
+    let inclusion = list_items(inclusion_bytes).map_err(|_| at("inclusion_encoding"))?;
+    if inclusion.len() != 2 {
+        return Err(at("inclusion_item_count"));
+    }
+    let evm_receipt = inclusion[0].bytes()?;
+    let proof: Vec<_> = list_items(inclusion[1].raw)?
+        .iter()
+        .map(|item| item.bytes().map(<[u8]>::to_vec))
+        .collect::<Result<_, _>>()?;
+
+    let root = header.last_results_hash.ok_or_else(refusal)?;
+    if trie_value(root, &rlp_index(tx_index), &proof)?.as_deref() != Some(evm_receipt) {
+        return Err(at("results_trie_value"));
+    }
+    let payload = match evm_receipt.first() {
+        Some(1..=4) => &evm_receipt[1..],
+        Some(0xc0..=0xff) => evm_receipt,
+        _ => return Err(refusal()),
+    };
+    let fields = list_items(payload)?;
+    if fields.len() != 4
+        || fields[0].bytes()? != if result_code == 0 { &[1][..] } else { &[][..] }
+        || word(fields[1].bytes()?)? != u64_word(cumulative_gas_used)
+        || fields[2].bytes()?.len() != 256
+    {
+        return Err(refusal());
+    }
+    export_receipt_logs(fields[3].raw, fact)
+}
+fn export_receipt_logs(raw: &[u8], fact: usize) -> Result<Vec<SequencerLog>, ExportBuildError> {
+    let refusal = || ExportProduceError::BindingAt {
+        fact,
+        stage: "receipt_payload",
+    };
+    let mut logs = Vec::new();
+    for (index, log) in list_items(raw)?.iter().enumerate() {
+        let fields = list_items(log.raw)?;
+        crate::reject_if(fields.len() != 3, refusal)?;
+        let address = fields[0].bytes()?.try_into().map_err(|_| refusal())?;
+        let topics = list_items(fields[1].raw)?
+            .iter()
+            .map(|topic| topic.bytes()?.try_into().map_err(|_| refusal()))
+            .collect::<Result<_, _>>()?;
+        logs.push(SequencerLog::new(
+            address,
+            topics,
+            fields[2].bytes()?.to_vec(),
+            index as u64,
+        ));
+    }
+    Ok(logs)
 }

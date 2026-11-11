@@ -8,7 +8,7 @@ use crate::WireError;
 
 const DOMAIN: &[u8] = b"LXP/programs/occupancy-receipt/v2\0";
 const MAX_PAYERS: usize = 256;
-const MAX_EVIDENCE: usize = 65536;
+const MAX_EVIDENCE: usize = 65_536;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OccupancyPayer {

@@ -130,7 +130,7 @@ fn governance_observations_append_only_effective_versions() {
     assert_eq!(
         governance
             .observe_batch(100)
-            .map(|value| value.resulting_schedule()),
+            .map(layerx_programs_runtime::DemandPriceAdjustment::resulting_schedule),
         Ok(initial)
     );
     assert_eq!(governance.history().schedules(), &[initial]);
@@ -262,7 +262,7 @@ fn full_width_occupancy_and_fractional_rounding_are_exact() {
     assert_eq!(
         widest
             .adjust_occupancy_base_price(u128::MAX, widest_policy, 2)
-            .map(|value| value.resulting_schedule()),
+            .map(layerx_programs_runtime::DemandPriceAdjustment::resulting_schedule),
         Ok(widest)
     );
 }

@@ -5,21 +5,15 @@ use super::{
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
-struct ReadWindows {
+#[derive(Default)]
+pub(super) struct ReadWindows {
     second: u64,
     total: u32,
     per_client: HashMap<String, u32>,
 }
 
-static READ_WINDOWS: LazyLock<Mutex<ReadWindows>> = LazyLock::new(|| {
-    Mutex::new(ReadWindows {
-        second: 0,
-        total: 0,
-        per_client: HashMap::new(),
-    })
-});
 const READS_PER_SECOND: u32 = 120;
 const READS_PER_CLIENT_PER_SECOND: u32 = 30;
 
@@ -55,9 +49,9 @@ fn spend(windows: &mut ReadWindows, second: u64, client: &str) -> bool {
     true
 }
 
-pub(super) fn consume_read() -> bool {
+pub(super) fn consume_read(read_windows: &Mutex<ReadWindows>) -> bool {
     let Ok(second) = now() else { return false };
-    let Ok(mut windows) = READ_WINDOWS.lock() else {
+    let Ok(mut windows) = read_windows.lock() else {
         return false;
     };
     CLIENT.with(|cell| spend(&mut windows, second, &cell.borrow()))
@@ -89,7 +83,7 @@ pub(super) fn read(config: &Config, path: &str) -> OutgoingResponse {
 }
 
 pub(super) fn request(config: &Config, method: &str, path: &str, body: &[u8]) -> OutgoingResponse {
-    if !consume_read() {
+    if !consume_read(&config.read_windows) {
         return response(429, "public_read_rate_limit", Some(1));
     }
     let (endpoint, token) = match config.backend(KernelBackend::PublicCore) {

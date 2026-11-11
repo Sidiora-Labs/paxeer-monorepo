@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod clock_server;
 
@@ -54,7 +62,6 @@ use std::time::Duration;
 
 const DEADLINE: Duration = Duration::from_secs(8);
 const MAXIMUM: usize = 1_048_576;
-const PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 
 mod hex {
     pub use ::hex::{decode, encode};
@@ -83,7 +90,7 @@ fn read_authority_budget_state(
 
     let config = BudgetStateConfig {
         chain_rpc_url: url,
-        protocol_network_id: fixture.chain_id as u32,
+        protocol_network_id: require_ok(u32::try_from(fixture.chain_id), "test value fits u32"),
     };
     let evidence = json!({
         "activity_id": fixture.managed_receipt["activity_id"],
@@ -99,7 +106,7 @@ fn read_authority_budget_state(
         "activities":[], "budgets":[hex::encode(fixture.budget_id)],
         "identities":[{
             "did":fixture.agent_did, "frozen":false, "authorities":[],
-            "revocation_sequence":u64::from_be_bytes(fixture.budget_call[13 * 32 + 24..14 * 32].try_into().expect("canonical budget revocation sequence")),
+            "revocation_sequence":u64::from_be_bytes(require_ok(fixture.budget_call[13 * 32 + 24..14 * 32].try_into(), "canonical budget revocation sequence")),
             "evidence":evidence, "capabilities":[], "rotation":key_policy, "recovery":key_policy,
         }],
         "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
@@ -190,14 +197,14 @@ impl LocalServer {
         let checkpoint_reads: Vec<Value> = must(serde_json::from_str(include_str!(
             "support/human_budget_checkpoint.json"
         )));
-        let height = u64::from_str_radix(
-            fixture.block["number"]
-                .as_str()
-                .unwrap()
-                .trim_start_matches("0x"),
-            16,
-        )
-        .unwrap();
+        let height = require_ok(
+            u64::from_str_radix(
+                require_some(fixture.block["number"].as_str(), "required test value")
+                    .trim_start_matches("0x"),
+                16,
+            ),
+            "required test value",
+        );
         let server = Self::spawn(listener, move |mut stream| {
             let (_, body) = read_http(&mut stream);
             let request: Value = must(serde_json::from_slice(&body));
@@ -206,16 +213,16 @@ impl LocalServer {
                 "pax_address":null,"layerx_did":fixture.agent_did,
                 "layerx_account":hex::encode(&fixture.budget_call[32..64]),"bound":true,
             });
-            let result = match request["method"].as_str().expect("RPC method") {
+            let result = match require_some(request["method"].as_str(), "RPC method") {
                 "px_getCommit" | "px_getValidators" => {
                     assert_eq!(request["params"], json!([height.to_string()]));
-                    let mut recorded = checkpoint_reads
-                        .iter()
-                        .find(|recorded| {
+                    let mut recorded = require_some(
+                        checkpoint_reads.iter().find(|recorded| {
                             recorded["method"] == request["method"]
                                 && recorded["params"] == request["params"]
-                        })
-                        .expect("checkpoint RPC recorded at the requested height")["result"]
+                        }),
+                        "checkpoint RPC recorded at the requested height",
+                    )["result"]
                         .clone();
                     if fault == "header" && request["method"] == "px_getCommit" {
                         recorded["signedHeader"]["header"]["app_hash"] =
@@ -225,23 +232,7 @@ impl LocalServer {
                 }
                 "abci_query" => {
                     assert_eq!(request["params"]["path"], "/store/lxphost/key");
-                    assert_eq!(request["params"]["height"], (height - 1).to_string());
-                    assert_eq!(request["params"]["prove"], true);
-                    let key = request["params"]["data"]
-                        .as_str()
-                        .unwrap()
-                        .strip_prefix("0x")
-                        .unwrap();
-                    let mut proof = native
-                        .queries
-                        .get(key)
-                        .expect("committed native key")
-                        .clone();
-                    proof["height"] = json!((height - 1).to_string());
-                    if fault == "native" {
-                        proof["value"] = json!("AAAAAAAAAAA=");
-                    }
-                    json!({"response":proof})
+                    verify_node_with_fault_1_repair_22_31_570(fault, &native, height, &request)
                 }
                 "eth_chainId" => json!(format!("{:#x}", fixture.chain_id)),
                 "eth_blockNumber" => fixture.block["number"].clone(),
@@ -263,55 +254,9 @@ impl LocalServer {
                         "layerx":{"amount":"77"}
                     }]})
                 }
-                "eth_call" => {
-                    let call = &request["params"][0];
-                    let data = must(hex::decode(
-                        call["data"]
-                            .as_str()
-                            .expect("call data")
-                            .trim_start_matches("0x"),
-                    ));
-                    let mut word = [0; 32];
-                    let answer = if data
-                        .starts_with(&layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX)
-                    {
-                        assert_eq!(
-                            &data[4..],
-                            &must(hex::decode(
-                                fixture.agent_did.strip_prefix("did:layerx:").unwrap()
-                            ))
-                        );
-                        word[12..].copy_from_slice(&fixture.actor_address);
-                        word.to_vec()
-                    } else if data.starts_with(&[0xb1, 0xff, 0xc0, 0x3e]) {
-                        assert_eq!(data.len(), 68);
-                        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
-                        assert!([&fixture.budget_call[32..64], &fixture.budget_call[64..96]]
-                            .contains(&&data[4..36]));
-                        assert_eq!(&data[36..68], &fixture.budget_call[96..128]);
-                        word[31] = 77;
-                        word.to_vec()
-                    } else if data.starts_with(
-                        &layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")
-                            [..4],
-                    ) {
-                        assert_eq!(&data[4..], &fixture.budget_id);
-                        fixture.budget_call.clone()
-                    } else if data.starts_with(
-                        &layerx_crypto::evm_transaction::transaction_hash(
-                            b"budgetRemaining(bytes32)",
-                        )[..4],
-                    ) {
-                        assert_eq!(&data[4..], &fixture.budget_id);
-                        word[31] = 77;
-                        word.to_vec()
-                    } else {
-                        panic!("unexpected committed read: {request}");
-                    };
-                    json!(format!("0x{}", hex::encode(answer)))
-                }
+                "eth_call" => node_contract_call(&fixture, &request, height),
                 "px_getReceiptKeys" => {
-                    json!({"keys":[{"keyId":format!("0x{}",hex::encode([1;32])),"publicKey":format!("0x{}",fixture.balance_context["sequencer_public_key"].as_str().unwrap()),"firstHeight":1,"lastHeight":65535}]})
+                    json!({"keys":[{"keyId":format!("0x{}",hex::encode([1;32])),"publicKey":format!("0x{}",require_some(fixture.balance_context["sequencer_public_key"].as_str(), "required test value")),"firstHeight":1,"lastHeight":65535}]})
                 }
                 other => panic!("unexpected RPC {other}: {request}"),
             };
@@ -366,64 +311,125 @@ impl LocalServer {
         must(certificate.set_subject_name(&name));
         must(certificate.set_issuer_name(ca_certificate.subject_name()));
         must(certificate.set_pubkey(&leaf_key));
-        must(certificate.set_not_before(must(Asn1Time::days_from_now(0)).as_ref()));
-        must(certificate.set_not_after(must(Asn1Time::days_from_now(1)).as_ref()));
-        must(certificate.append_extension(must(BasicConstraints::new().critical().build())));
-        must(
-            certificate.append_extension(must(
-                KeyUsage::new()
-                    .digital_signature()
-                    .key_encipherment()
-                    .build(),
-            )),
-        );
-        let san = must(
-            SubjectAlternativeName::new()
-                .dns("localhost")
-                .build(&certificate.x509v3_context(Some(&ca_certificate), None)),
-        );
-        must(certificate.append_extension(san));
-        must(certificate.sign(&key, MessageDigest::sha256()));
-        let certificate = certificate.build();
-        let identity = must(native_tls::Identity::from_pkcs8(
-            &must(certificate.to_pem()),
-            &must(leaf_key.private_key_to_pem_pkcs8()),
-        ));
-        let acceptor = must(native_tls::TlsAcceptor::new(identity));
-        let listener = must(TcpListener::bind("127.0.0.1:0"));
-        let endpoint = format!("https://localhost:{}", must(listener.local_addr()).port());
-        let registry = fixture.registry.clone();
-        let budget = fixture.budget_state.clone();
-        let balance = fixture.balance_context.clone();
-        let identity = json!({
-            "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
-            "head_sequence":fixture.budget_state["observed_head_sequence"],
-            "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
-            "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
-        });
-        let server = Self::spawn(listener, move |stream| {
-            let mut stream = must(acceptor.accept(stream));
-            let (headers, _) = read_http(&mut stream);
-            assert!(headers.contains("Bearer approval-budget-loopback-authority"));
-            let path = headers
+        complete_authority_1_repair_22_31_570(CompleteAuthority1Repair2231570Context {
+            fixture,
+            key,
+            ca_certificate,
+            ca,
+            leaf_key,
+            certificate,
+        })
+    }
+}
+
+fn verify_node_with_fault_1_repair_22_31_570(
+    fault: &'static str,
+    native: &native_store::NativeStore,
+    height: u64,
+    request: &Value,
+) -> Value {
+    assert_eq!(request["params"]["height"], (height - 1).to_string());
+    assert_eq!(request["params"]["prove"], true);
+    let key = require_some(
+        request["params"]["data"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "required test value"))
+            .strip_prefix("0x"),
+        "required test value",
+    );
+    let mut proof = require_some(native.queries.get(key), "committed native key").clone();
+    proof["height"] = json!((height - 1).to_string());
+    if fault == "native" {
+        proof["value"] = json!("AAAAAAAAAAA=");
+    }
+    json!({"response":proof})
+}
+
+struct CompleteAuthority1Repair2231570Context<'a> {
+    fixture: &'a RecordedAuthority,
+    key: openssl::pkey::PKey<openssl::pkey::Private>,
+    ca_certificate: openssl::x509::X509,
+    ca: Vec<u8>,
+    leaf_key: openssl::pkey::PKey<openssl::pkey::Private>,
+    certificate: openssl::x509::X509Builder,
+}
+
+fn complete_authority_1_repair_22_31_570(
+    context: CompleteAuthority1Repair2231570Context<'_>,
+) -> (String, Vec<u8>, LocalServer) {
+    use openssl::asn1::Asn1Time;
+    use openssl::hash::MessageDigest;
+
+    use openssl::x509::extension::{BasicConstraints, KeyUsage, SubjectAlternativeName};
+
+    let CompleteAuthority1Repair2231570Context {
+        fixture,
+        key,
+        ca_certificate,
+        ca,
+        leaf_key,
+        mut certificate,
+    } = context;
+
+    must(certificate.set_not_before(must(Asn1Time::days_from_now(0)).as_ref()));
+    must(certificate.set_not_after(must(Asn1Time::days_from_now(1)).as_ref()));
+    must(certificate.append_extension(must(BasicConstraints::new().critical().build())));
+    must(
+        certificate.append_extension(must(
+            KeyUsage::new()
+                .digital_signature()
+                .key_encipherment()
+                .build(),
+        )),
+    );
+    let san = must(
+        SubjectAlternativeName::new()
+            .dns("localhost")
+            .build(&certificate.x509v3_context(Some(&ca_certificate), None)),
+    );
+    must(certificate.append_extension(san));
+    must(certificate.sign(&key, MessageDigest::sha256()));
+    let certificate = certificate.build();
+    let identity = must(native_tls::Identity::from_pkcs8(
+        &must(certificate.to_pem()),
+        &must(leaf_key.private_key_to_pem_pkcs8()),
+    ));
+    let acceptor = must(native_tls::TlsAcceptor::new(identity));
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let endpoint = format!("https://localhost:{}", must(listener.local_addr()).port());
+    let registry = fixture.registry.clone();
+    let budget = fixture.budget_state.clone();
+    let balance = fixture.balance_context.clone();
+    let identity = json!({
+        "canonical_core_bytes":require_some(fixture.agent_did.strip_prefix("did:layerx:"), "required test value"),
+        "head_sequence":fixture.budget_state["observed_head_sequence"],
+        "revocation_sequence":fixture.budget_state["revocation_sequence"],
+        "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
+        "authorities":[{"kind":"primary_key","id":require_some(fixture.agent_did.strip_prefix("did:layerx:"), "required test value")}]
+    });
+    let server = LocalServer::spawn(listener, move |stream| {
+        let mut stream = must(acceptor.accept(stream));
+        let (headers, _) = read_http(&mut stream);
+        assert!(headers.contains("Bearer approval-budget-loopback-authority"));
+        let path = require_some(
+            headers
                 .lines()
                 .next()
-                .unwrap()
+                .unwrap_or_else(|| panic!("{}", "required test value"))
                 .split_whitespace()
-                .nth(1)
-                .unwrap();
-            let response = match path.split('?').next().unwrap() {
-                "/v1/agent/registry" => &registry,
-                "/v1/agent/budget-state" => &budget,
-                "/v1/agent/balance-context" => &balance,
-                "/v1/agent/identity" => &identity,
-                other => panic!("unexpected authority route: {other}"),
-            };
-            write_http(&mut stream, response);
-        });
-        (endpoint, ca, server)
-    }
+                .nth(1),
+            "required test value",
+        );
+        let response = match require_some(path.split('?').next(), "required test value") {
+            "/v1/agent/registry" => &registry,
+            "/v1/agent/budget-state" => &budget,
+            "/v1/agent/balance-context" => &balance,
+            "/v1/agent/identity" => &identity,
+            other => panic!("unexpected authority route: {other}"),
+        };
+        write_http(&mut stream, response);
+    });
+    (endpoint, ca, server)
 }
 
 impl LocalServer {
@@ -481,22 +487,37 @@ struct RecordedAuthority {
 }
 
 fn verified_managed_receipt(fixture: &Value) -> [u8; 32] {
-    let bytes = must(hex::decode(fixture["receipt"].as_str().unwrap()));
-    let header_bytes = must(hex::decode(fixture["header"].as_str().unwrap()));
+    let bytes = must(hex::decode(require_some(
+        fixture["receipt"].as_str(),
+        "required test value",
+    )));
+    let header_bytes = must(hex::decode(require_some(
+        fixture["header"].as_str(),
+        "required test value",
+    )));
     let header = must(layerx_wire::receipt::decode_batch_header(&header_bytes));
-    let public = must(hex::decode32(
-        fixture["sequencer_public_key"].as_str().unwrap(),
-    ));
-    let signature =
-        must(must(hex::decode(fixture["header_signature"].as_str().unwrap())).try_into());
-    let stored = must(hex::decode(fixture["receipt_proof"].as_str().unwrap()));
+    let public = must(hex::decode32(require_some(
+        fixture["sequencer_public_key"].as_str(),
+        "required test value",
+    )));
+    let signature = must(
+        must(hex::decode(require_some(
+            fixture["header_signature"].as_str(),
+            "required test value",
+        )))
+        .try_into(),
+    );
+    let stored = must(hex::decode(require_some(
+        fixture["receipt_proof"].as_str(),
+        "required test value",
+    )));
     assert_eq!(stored.len(), 9 + usize::from(stored[0]) * 32);
     let proof = must(layerx_proof::merkle::Proof::new(
-        u32::from_be_bytes(stored[1..5].try_into().unwrap()),
-        u32::from_be_bytes(stored[5..9].try_into().unwrap()),
+        u32::from_be_bytes(require_ok(stored[1..5].try_into(), "required test value")),
+        u32::from_be_bytes(require_ok(stored[5..9].try_into(), "required test value")),
         stored[9..]
             .chunks_exact(32)
-            .map(|bytes| bytes.try_into().unwrap())
+            .map(|bytes| require_ok(bytes.try_into(), "required test value"))
             .collect(),
     ));
     let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
@@ -513,7 +534,7 @@ fn verified_managed_receipt(fixture: &Value) -> [u8; 32] {
         &authorization,
     ));
     let receipt = must(layerx_wire::receipt::decode(&bytes));
-    let protocol = receipt.protocol().expect("managed protocol receipt");
+    let protocol = require_some(receipt.protocol(), "managed protocol receipt");
     assert_eq!(protocol.module_id(), 7);
     assert_eq!(protocol.result_code(), 0);
     Sha256::digest(&bytes).into()
@@ -524,7 +545,7 @@ struct AuthorityFixture {
     authority_endpoint: String,
     authority_ca_der: Vec<u8>,
     node_rpc_url: String,
-    _servers: Vec<LocalServer>,
+    servers: Vec<LocalServer>,
 }
 
 impl std::ops::Deref for AuthorityFixture {
@@ -540,13 +561,15 @@ impl AuthorityFixture {
         let source = must(fs::read_to_string(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/human_approval_budget_actor.rs"),
         ));
-        let start = source
-            .find(concat!("/* RECORDED_", "AUTHORITY\n"))
-            .expect("recorded authority start");
+        let start = require_some(
+            source.find(concat!("/* RECORDED_", "AUTHORITY\n")),
+            "recorded authority start",
+        );
         let data = &source[start + "/* RECORDED_AUTHORITY\n".len()..];
-        let end = data
-            .find(concat!("\nEND_RECORDED_", "AUTHORITY */"))
-            .expect("recorded authority end");
+        let end = require_some(
+            data.find(concat!("\nEND_RECORDED_", "AUTHORITY */")),
+            "recorded authority end",
+        );
         let mut recorded: RecordedAuthority = must(serde_json::from_str(&data[..end]));
         native_store::prepare_authority(&mut recorded);
         let (node_rpc_url, node) = LocalServer::node(&recorded);
@@ -554,9 +577,10 @@ impl AuthorityFixture {
         let checkpoint = must(
             layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
                 &endpoint,
-                recorded.budget_state["observed_head_sequence"]
-                    .as_u64()
-                    .unwrap(),
+                require_some(
+                    recorded.budget_state["observed_head_sequence"].as_u64(),
+                    "required test value",
+                ),
                 None,
                 &recorded.chain_id.to_string(),
             ),
@@ -590,12 +614,12 @@ impl AuthorityFixture {
             node_rpc_url,
             authority_endpoint,
             authority_ca_der,
-            _servers: vec![node, authority],
+            servers: vec![node, authority],
         }
     }
 
     fn shutdown(&mut self) {
-        for server in &mut self._servers {
+        for server in &mut self.servers {
             server.shutdown();
         }
     }
@@ -691,7 +715,7 @@ impl Runtime {
             must(SessionKeyRegistry::open(
                 keys,
                 vec![3; 32],
-                u32::try_from(fixture.chain_id).expect("protocol network"),
+                require_ok(u32::try_from(fixture.chain_id), "protocol network"),
                 must(fs::metadata(&self.root)).uid(),
             )),
         ))
@@ -751,9 +775,9 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         );
         return;
     }
-    let mut fixture = AuthorityFixture::load();
+    let fixture = AuthorityFixture::load();
     let creation_receipt = verified_managed_receipt(&fixture.managed_receipt);
-    let mut runtime = Runtime::start();
+    let runtime = Runtime::start();
     let uid = must(fs::metadata(&runtime.root)).uid();
     let peer = HumanPeer {
         uid,
@@ -773,15 +797,72 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
     );
     let endpoint = must(SequencerEndpoint::new(&fixture.node_rpc_url, &[]));
-    let public_key: [u8; 32] = must(hex::decode(
-        fixture
-            .agent_did
-            .strip_prefix("did:layerx:")
-            .expect("managed DID"),
-    ))
-    .try_into()
-    .expect("managed identity public key");
-    let address = must(endpoint.bound_address(&public_key)).expect("actual bound signing address");
+    let public_key: [u8; 32] = require_ok(
+        must(hex::decode(require_some(
+            fixture.agent_did.strip_prefix("did:layerx:"),
+            "managed DID",
+        )))
+        .try_into(),
+        "managed identity public key",
+    );
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_7_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause7Repair2231570Context {
+            fixture,
+            creation_receipt,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            authority,
+            registry,
+            state,
+            asset,
+            currency,
+            endpoint,
+            public_key,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause7Repair2231570Context {
+    fixture: AuthorityFixture,
+    creation_receipt: [u8; 32],
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    authority: RemoteHumanAuthority,
+    registry: layerx_types::payload::ModuleRegistry,
+    state: layerx_agentd::human_runtime::CoreBudgetState,
+    asset: [u8; 32],
+    currency: String,
+    endpoint: SequencerEndpoint,
+    public_key: [u8; 32],
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_7_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause7Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause7Repair2231570Context {
+        fixture,
+        creation_receipt,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        authority,
+        registry,
+        state,
+        asset,
+        currency,
+        endpoint,
+        public_key,
+    } = context;
+
+    let address = require_some(
+        must(endpoint.bound_address(&public_key)),
+        "actual bound signing address",
+    );
     let actor = hex::encode(address);
     assert_eq!(actor.len(), 40);
     assert_ne!(actor, fixture.agent_did);
@@ -798,12 +879,14 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         observed,
         PreparationDefaults {
             max_priority_fee_per_gas: 0,
-            max_fee_per_gas: observed
-                .base_fee_per_gas
-                .checked_mul(2)
-                .unwrap()
-                .checked_add(0)
-                .unwrap(),
+            max_fee_per_gas: require_some(
+                observed
+                    .base_fee_per_gas
+                    .checked_mul(2)
+                    .unwrap_or_else(|| panic!("{}", "required test value"))
+                    .checked_add(0),
+                "required test value",
+            ),
             maximum_payload_bytes: MAXIMUM,
         },
         PrepareRequest {
@@ -831,37 +914,98 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
     let bytes = evm.call.encode_unsigned();
     let held_digest: [u8; 32] = Sha256::digest(&bytes).into();
     let now = must(runtime.clock.sample(DEADLINE)).unix_seconds();
-    let expiry = now.checked_add(120).expect("held wall deadline");
-    let window = sequence.checked_add(20).expect("held sequence deadline");
-    let approval_id = [5; 32];
-    let counterparty = must(AgentDid::new(hex::encode([4; 32])));
-    let prepared = Prepared {
-        preparation_ref: must(PreparationRef::new(hex::encode(approval_id))),
-        unsigned_canonical_bytes: must(CanonicalBytes::new(bytes)),
-        signing_preimage: must(SigningPreimage::new(evm.signing_hash.to_vec())),
-        disclosure: Disclosure {
-            canonical_digest: held_digest,
-            activity_type: ActivityType(7),
-            actor: must(AgentDid::new(&actor)),
-            authority: must(AuthorityRef::new(hex::encode(public_key))),
-            counterparties: ExplicitSet::allow(vec![counterparty.clone()]),
-            amounts: ExplicitSet::allow(vec![DisclosedAmount {
-                counterparty,
-                amount: Amount(50),
-            }]),
-            asset: must(Asset::new(&currency)),
-            fee_limit: Amount(evm.disclosure.fee_limit),
-            expiry: TimestampSeconds(expiry),
-            idempotency_key: must(IdempotencyRef::new(hex::encode(approval_id))),
+    let expiry = require_some(now.checked_add(120), "held wall deadline");
+    let window = require_some(sequence.checked_add(20), "held sequence deadline");
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_6_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause6Repair2231570Context {
+            fixture,
+            creation_receipt,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            authority,
+            registry,
+            state,
+            asset,
+            currency,
+            public_key,
+            address,
+            actor,
+            sequence,
+            evm,
+            bytes,
+            held_digest,
+            now,
+            expiry,
+            window,
         },
-        expiry: TimestampSeconds(expiry),
-    };
-    let amount = evm
-        .disclosure
-        .fee_limit
-        .checked_add(50)
-        .expect("held charge");
-    let ceiling = amount.checked_add(1_000).expect("daemon ceiling");
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause6Repair2231570Context {
+    fixture: AuthorityFixture,
+    creation_receipt: [u8; 32],
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    authority: RemoteHumanAuthority,
+    registry: layerx_types::payload::ModuleRegistry,
+    state: layerx_agentd::human_runtime::CoreBudgetState,
+    asset: [u8; 32],
+    currency: String,
+    public_key: [u8; 32],
+    address: [u8; 20],
+    actor: String,
+    sequence: u64,
+    evm: layerx_agentd::prepare::Prepared,
+    bytes: Vec<u8>,
+    held_digest: [u8; 32],
+    now: u64,
+    expiry: u64,
+    window: u64,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_6_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause6Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause6Repair2231570Context {
+        fixture,
+        creation_receipt,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        mut authority,
+        registry,
+        state,
+        asset,
+        currency,
+        public_key,
+        address,
+        actor,
+        sequence,
+        evm,
+        bytes,
+        held_digest,
+        now,
+        expiry,
+        window,
+    } = context;
+
+    let approval_id = [5; 32];
+    let prepared = replay_approval_prepared(
+        approval_id,
+        &evm,
+        ReplayApprovalBytes { bytes, held_digest },
+        &actor,
+        public_key,
+        &currency,
+        expiry,
+    );
+    let amount = require_some(evm.disclosure.fee_limit.checked_add(50), "held charge");
+    let ceiling = require_some(amount.checked_add(1_000), "daemon ceiling");
     assert!(state.remaining > amount, "genuine funded budget required");
     let store_path = runtime.root.join("store");
     let mut store = must(Store::open(&store_path));
@@ -895,6 +1039,99 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         },
         sequence,
     ));
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_5_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause5Repair2231570Context {
+            fixture,
+            creation_receipt,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            registry,
+            state,
+            asset,
+            currency,
+            public_key,
+            address,
+            actor,
+            sequence,
+            held_digest,
+            now,
+            expiry,
+            window,
+            approval_id,
+            prepared,
+            amount,
+            ceiling,
+            store_path,
+            store,
+            sessions,
+            token,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause5Repair2231570Context {
+    fixture: AuthorityFixture,
+    creation_receipt: [u8; 32],
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    registry: layerx_types::payload::ModuleRegistry,
+    state: layerx_agentd::human_runtime::CoreBudgetState,
+    asset: [u8; 32],
+    currency: String,
+    public_key: [u8; 32],
+    address: [u8; 20],
+    actor: String,
+    sequence: u64,
+    held_digest: [u8; 32],
+    now: u64,
+    expiry: u64,
+    window: u64,
+    approval_id: [u8; 32],
+    prepared: Prepared,
+    amount: u128,
+    ceiling: u128,
+    store_path: PathBuf,
+    store: Store,
+    sessions: SessionRegistry,
+    token: session::Token,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_5_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause5Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause5Repair2231570Context {
+        fixture,
+        creation_receipt,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        registry,
+        state,
+        asset,
+        currency,
+        public_key,
+        address,
+        actor,
+        sequence,
+        held_digest,
+        now,
+        expiry,
+        window,
+        approval_id,
+        prepared,
+        amount,
+        ceiling,
+        store_path,
+        store,
+        sessions,
+        token,
+    } = context;
+
     assert_eq!(token.credential().generation(), 1);
     let seed = HumanAgentLifecycleSeed {
         agent_id: format!("agt_{}", hex::encode(fixture.budget_id)),
@@ -932,9 +1169,90 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         budget_period_seconds: 120,
         budget_expiry_seconds: expiry,
         initial_funding: state.remaining,
-        network_id: u32::try_from(fixture.chain_id).expect("protocol network"),
+        network_id: require_ok(u32::try_from(fixture.chain_id), "protocol network"),
         creation_receipt_roots: vec![creation_receipt],
     };
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_4_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause4Repair2231570Context {
+            fixture,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            registry,
+            asset,
+            address,
+            actor,
+            sequence,
+            held_digest,
+            now,
+            expiry,
+            window,
+            approval_id,
+            prepared,
+            amount,
+            ceiling,
+            store_path,
+            store,
+            sessions,
+            seed,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause4Repair2231570Context {
+    fixture: AuthorityFixture,
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    registry: layerx_types::payload::ModuleRegistry,
+    asset: [u8; 32],
+    address: [u8; 20],
+    actor: String,
+    sequence: u64,
+    held_digest: [u8; 32],
+    now: u64,
+    expiry: u64,
+    window: u64,
+    approval_id: [u8; 32],
+    prepared: Prepared,
+    amount: u128,
+    ceiling: u128,
+    store_path: PathBuf,
+    store: Store,
+    sessions: SessionRegistry,
+    seed: HumanAgentLifecycleSeed,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_4_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause4Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause4Repair2231570Context {
+        fixture,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        registry,
+        asset,
+        address,
+        actor,
+        sequence,
+        held_digest,
+        now,
+        expiry,
+        window,
+        approval_id,
+        prepared,
+        amount,
+        ceiling,
+        store_path,
+        mut store,
+        sessions,
+        seed,
+    } = context;
+
     let agent = must(ManagedAgent::from_creation(
         &seed,
         &fixture.agent_did,
@@ -949,9 +1267,11 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
     let mut agent_digest = Sha256::new();
     agent_digest.update(b"layerx-agentd/daemon-limit-agent/v1\0");
     agent_digest.update(
-        u32::try_from(fixture.agent_did.len())
-            .unwrap()
-            .to_be_bytes(),
+        require_ok(
+            u32::try_from(fixture.agent_did.len()),
+            "required test value",
+        )
+        .to_be_bytes(),
     );
     agent_digest.update(fixture.agent_did.as_bytes());
     let limit_budget = [9; 32];
@@ -966,14 +1286,86 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
             asset,
             ceiling,
             consumed: 0,
-            expiry_ms: expiry.checked_mul(1_000).unwrap(),
+            expiry_ms: require_some(expiry.checked_mul(1_000), "required test value"),
             revoked: false,
             mutation_key: [10; 32],
             body_digest: [11; 32],
             revoke_key: [0; 32],
         },
-        CoreTimestampMs(now.checked_mul(1_000).unwrap()),
+        CoreTimestampMs(require_some(now.checked_mul(1_000), "required test value")),
     ));
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_3_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause3Repair2231570Context {
+            fixture,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            registry,
+            address,
+            actor,
+            sequence,
+            held_digest,
+            now,
+            expiry,
+            window,
+            approval_id,
+            prepared,
+            amount,
+            store_path,
+            store,
+            limit,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause3Repair2231570Context {
+    fixture: AuthorityFixture,
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    registry: layerx_types::payload::ModuleRegistry,
+    address: [u8; 20],
+    actor: String,
+    sequence: u64,
+    held_digest: [u8; 32],
+    now: u64,
+    expiry: u64,
+    window: u64,
+    approval_id: [u8; 32],
+    prepared: Prepared,
+    amount: u128,
+    store_path: PathBuf,
+    store: Store,
+    limit: DaemonLimitRecord,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_3_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause3Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause3Repair2231570Context {
+        fixture,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        registry,
+        address,
+        actor,
+        sequence,
+        held_digest,
+        now,
+        expiry,
+        window,
+        approval_id,
+        prepared,
+        amount,
+        store_path,
+        store,
+        limit,
+    } = context;
+
     let shared = Arc::new(Mutex::new(store));
     let mut owner = runtime.owner(&fixture, &peers, Arc::clone(&shared));
     let reservation = must(reserve_until_core_time(
@@ -985,8 +1377,11 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
             expiry_sequence: window,
             applicable_limits: vec![limit.limit_id],
         },
-        CoreTimestampMs(expiry.checked_mul(1_000).unwrap()),
-        CoreTimestampMs(now.checked_mul(1_000).unwrap()),
+        CoreTimestampMs(require_some(
+            expiry.checked_mul(1_000),
+            "required test value",
+        )),
+        CoreTimestampMs(require_some(now.checked_mul(1_000), "required test value")),
     ));
     let ticket = must(hold_reserved_at(
         &owner.approvals,
@@ -1014,22 +1409,79 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
         [b"approval-hold-v1:".as_slice(), &approval_id].concat(),
     ));
     assert_eq!(
-        must(shared.lock())
-            .get(&hold_key)
-            .expect("durable held call")
-            .class(),
+        require_some(must(shared.lock()).get(&hold_key), "durable held call").class(),
         StorageClass::LocalOnly
     );
     let awaiting = must(owner.approval_get(&peer, approval_id, sequence));
     assert_eq!(&awaiting.bytes()[..32], &approval_id);
     assert_eq!(awaiting.bytes().last(), Some(&0));
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_2_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause2Repair2231570Context {
+            fixture,
+            runtime,
+            peer,
+            peers,
+            tenant,
+            sequence,
+            held_digest,
+            approval_id,
+            prepared,
+            amount,
+            store_path,
+            limit,
+            shared,
+            owner,
+            hold_key,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause2Repair2231570Context {
+    fixture: AuthorityFixture,
+    runtime: Runtime,
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    tenant: TenantId,
+    sequence: u64,
+    held_digest: [u8; 32],
+    approval_id: [u8; 32],
+    prepared: Prepared,
+    amount: u128,
+    store_path: PathBuf,
+    limit: DaemonLimitRecord,
+    shared: Arc<Mutex<Store>>,
+    owner: UnifiedAgentOwner<RemoteHumanAuthority>,
+    hold_key: TenantKey,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_2_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause2Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause2Repair2231570Context {
+        fixture,
+        runtime,
+        peer,
+        peers,
+        tenant,
+        sequence,
+        held_digest,
+        approval_id,
+        prepared,
+        amount,
+        store_path,
+        limit,
+        shared,
+        mut owner,
+        hold_key,
+    } = context;
+
     let decision_key = "grant-22-31-570";
     let decision =
         must(owner.approval_approve(&peer, approval_id, held_digest, decision_key, sequence));
     assert_eq!(decision.bytes().len(), 35);
     assert_eq!(&decision.bytes()[..2], &[0, 1]);
     assert_eq!(decision.bytes().last(), Some(&0));
-    let reference: [u8; 32] = decision.bytes()[2..34].try_into().unwrap();
+    let reference: [u8; 32] = require_ok(decision.bytes()[2..34].try_into(), "required test value");
     assert_ne!(reference, [0; 32]);
     assert_eq!(owner.approval_queue.len(), 1);
     assert_eq!(
@@ -1049,7 +1501,7 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
     let released_bytes = {
         let store = must(shared.lock());
         assert!(store.get(&hold_key).is_none(), "grant replaces the hold");
-        let released = store.get(&release_key).expect("grant persists its release");
+        let released = require_some(store.get(&release_key), "grant persists its release");
         assert_eq!(released.class(), StorageClass::LocalOnly);
         released.bytes().to_vec()
     };
@@ -1081,6 +1533,81 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
             TimestampSeconds(must(runtime.clock.sample(DEADLINE)).unix_seconds()),
         ),
     );
+    verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_1_repair_22_31_570(
+        VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause1Repair2231570Context {
+            fixture,
+            runtime,
+            peer,
+            tenant,
+            sequence,
+            held_digest,
+            approval_id,
+            prepared,
+            limit,
+            decision_key,
+            decision,
+            reference,
+            release_key,
+            released_bytes,
+            exposure,
+            reservations,
+            shared,
+            owner,
+            restored,
+            record,
+        },
+    );
+}
+
+struct VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause1Repair2231570Context {
+    fixture: AuthorityFixture,
+    runtime: Runtime,
+    peer: HumanPeer,
+    tenant: TenantId,
+    sequence: u64,
+    held_digest: [u8; 32],
+    approval_id: [u8; 32],
+    prepared: Prepared,
+    limit: DaemonLimitRecord,
+    decision_key: &'static str,
+    decision: layerx_agentd::human::HumanResponse,
+    reference: [u8; 32],
+    release_key: TenantKey,
+    released_bytes: Vec<u8>,
+    exposure: u128,
+    reservations: usize,
+    shared: Arc<Mutex<Store>>,
+    owner: UnifiedAgentOwner<RemoteHumanAuthority>,
+    restored: layerx_agentd::human::HumanResponse,
+    record: layerx_agentd::approval::ApprovalRecord,
+}
+
+fn verify_released_terminal_approval_replays_with_its_release_and_refusal_cause_1_repair_22_31_570(
+    context: VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause1Repair2231570Context,
+) {
+    let VerifyReleasedTerminalApprovalReplaysWithItsReleaseAndRefusalCause1Repair2231570Context {
+        mut fixture,
+        mut runtime,
+        peer,
+        tenant,
+        sequence,
+        held_digest,
+        approval_id,
+        prepared,
+        limit,
+        decision_key,
+        decision,
+        reference,
+        release_key,
+        released_bytes,
+        exposure,
+        reservations,
+        shared,
+        mut owner,
+        restored,
+        record,
+    } = context;
+
     assert_eq!(record.approval_id, approval_id);
     assert_eq!(record.canonical_bytes_digest, held_digest);
     assert_eq!(record.state, ApprovalState::Approved);
@@ -1108,7 +1635,7 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
     assert_eq!(must(owner.budgets.held_exposure(limit.limit_id)), exposure);
     assert_eq!(must(owner.budgets.held_reservations()), reservations);
     assert_eq!(
-        must(shared.lock()).get(&release_key).unwrap().bytes(),
+        require_some(must(shared.lock()).get(&release_key), "required test value").bytes(),
         released_bytes
     );
     assert_eq!(
@@ -1133,4 +1660,85 @@ fn released_terminal_approval_replays_with_its_release_and_refusal_cause() {
     drop(shared);
     runtime.shutdown();
     fixture.shutdown();
+}
+
+fn node_contract_call(fixture: &RecordedAuthority, request: &Value, height: u64) -> Value {
+    let call = &request["params"][0];
+    let data = must(hex::decode(
+        require_some(call["data"].as_str(), "call data").trim_start_matches("0x"),
+    ));
+    let mut word = [0; 32];
+    let answer = if data.starts_with(&layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX) {
+        assert_eq!(
+            &data[4..],
+            &must(hex::decode(require_some(
+                fixture.agent_did.strip_prefix("did:layerx:"),
+                "required test value"
+            )))
+        );
+        word[12..].copy_from_slice(&fixture.actor_address);
+        word.to_vec()
+    } else if data.starts_with(&[0xb1, 0xff, 0xc0, 0x3e]) {
+        assert_eq!(data.len(), 68);
+        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
+        assert!(
+            [&fixture.budget_call[32..64], &fixture.budget_call[64..96]].contains(&&data[4..36])
+        );
+        assert_eq!(&data[36..68], &fixture.budget_call[96..128]);
+        word[31] = 77;
+        word.to_vec()
+    } else if data
+        .starts_with(&layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4])
+    {
+        assert_eq!(&data[4..], &fixture.budget_id);
+        fixture.budget_call.clone()
+    } else if data.starts_with(
+        &layerx_crypto::evm_transaction::transaction_hash(b"budgetRemaining(bytes32)")[..4],
+    ) {
+        assert_eq!(&data[4..], &fixture.budget_id);
+        word[31] = 77;
+        word.to_vec()
+    } else {
+        panic!("unexpected committed read: {request}");
+    };
+    json!(format!("0x{}", hex::encode(answer)))
+}
+
+struct ReplayApprovalBytes {
+    bytes: Vec<u8>,
+    held_digest: [u8; 32],
+}
+
+fn replay_approval_prepared(
+    approval_id: [u8; 32],
+    evm: &layerx_agentd::prepare::Prepared,
+    canonical: ReplayApprovalBytes,
+    actor: &str,
+    public_key: [u8; 32],
+    currency: &str,
+    expiry: u64,
+) -> Prepared {
+    let ReplayApprovalBytes { bytes, held_digest } = canonical;
+    let counterparty = must(AgentDid::new(hex::encode([4; 32])));
+    Prepared {
+        preparation_ref: must(PreparationRef::new(hex::encode(approval_id))),
+        unsigned_canonical_bytes: must(CanonicalBytes::new(bytes)),
+        signing_preimage: must(SigningPreimage::new(evm.signing_hash.to_vec())),
+        disclosure: Disclosure {
+            canonical_digest: held_digest,
+            activity_type: ActivityType(7),
+            actor: must(AgentDid::new(actor)),
+            authority: must(AuthorityRef::new(hex::encode(public_key))),
+            counterparties: ExplicitSet::allow(vec![counterparty.clone()]),
+            amounts: ExplicitSet::allow(vec![DisclosedAmount {
+                counterparty,
+                amount: Amount(50),
+            }]),
+            asset: must(Asset::new(currency)),
+            fee_limit: Amount(evm.disclosure.fee_limit),
+            expiry: TimestampSeconds(expiry),
+            idempotency_key: must(IdempotencyRef::new(hex::encode(approval_id))),
+        },
+        expiry: TimestampSeconds(expiry),
+    }
 }

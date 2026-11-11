@@ -111,7 +111,7 @@ lamport mutation and amount-less rent sweeps are refused. Bounded PDA-funded
 payouts are supported through a registered program-derived account and
 `ValueFlow::translate_with_program_account`; knowing the seed does not grant
 authority over somebody else's funds. The
-[`reference`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/programs/porting/solana/src/reference.rs) port emits a
+[`reference`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/programs/porting/solana/src/reference.rs) port emits a
 deterministic module, deploys through the real lifecycle, rebuilds from
 published source, and executes under the real metered executor.
 

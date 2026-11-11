@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
@@ -46,9 +47,35 @@ func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
 }
 
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
-// SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption) and NewEVMWebSocketServer
-// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption).
+// SequencerOption, PendingOption, pxIndexerOption, pxInferenceOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption, pxInferenceOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
+
+// WithPxInferenceProgram selects the deployed ai-market and a bound EVM identity
+// for read-only native program simulation. Supply the same option to both servers.
+func WithPxInferenceProgram(program [32]byte, reader common.Address) ServerOption {
+	return pxInferenceOption{program: program, reader: reader}
+}
+
+type pxInferenceOption struct {
+	program [32]byte
+	reader  common.Address
+}
+
+func (pxInferenceOption) serverOption() {}
+func pxInferenceForServer(opts []ServerOption) (*pxInferenceOption, error) {
+	var configured *pxInferenceOption
+	for _, opt := range opts {
+		if value, ok := opt.(pxInferenceOption); ok {
+			if configured != nil || value.program == ([32]byte{}) || value.reader == (common.Address{}) {
+				return nil, errors.New("inference option requires one nonzero program and reader")
+			}
+			copy := value
+			configured = &copy
+		}
+	}
+	return configured, nil
+}
 
 func (TraceContextProvider) serverOption()   {}
 func (SequencerReceiptOption) serverOption() {}
@@ -153,6 +180,10 @@ func NewEVMHTTPServer(
 ) (EVMServer, error) {
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM HTTP server dependencies are not configured")
+	}
+	inference, err := pxInferenceForServer(opts)
+	if err != nil {
+		return nil, err
 	}
 	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
 	if err != nil {
@@ -293,11 +324,12 @@ func NewEVMHTTPServer(
 	}
 	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable))
 	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks)
-	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
+	pxAPI := &pxAccountAPI{inference: inference, state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
-		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, txConfigProvider: txConfigProvider, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -432,6 +464,10 @@ func NewEVMWebSocketServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
+	inference, err := pxInferenceForServer(opts)
+	if err != nil {
+		return nil, err
+	}
 	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
 	if err != nil {
 		return nil, err
@@ -446,7 +482,7 @@ func NewEVMWebSocketServer(
 	var sequencerReceipts SequencerReceiptOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case domainResolverOption, pxIndexerOption:
+		case domainResolverOption, pxIndexerOption, pxInferenceOption:
 		case SequencerReceiptOption:
 			sequencerReceipts = o
 		case PendingOption:
@@ -555,13 +591,14 @@ func NewEVMWebSocketServer(
 	txAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC)
 	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable))
 	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks)
-	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
+	pxAPI := &pxAccountAPI{inference: inference, state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
 		{Namespace: "pax", Service: sequencerReceiptAPI},
 		{Namespace: "px", Service: &receiptKeysAPI{receipts: sequencerReceiptAPI}},
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
-		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, txConfigProvider: txConfigProvider, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),

@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[3]
 PROJECT = ROOT / "tools/hyperfide"
 DOCS = ROOT / "docs/hyperfide"
 BASE = "2e0a668a793a7b5c0469b44950808547467f017e"
+# Published source-control and issue work has advanced the relocated code.
+LIVE_SOURCE = "2910889b640274b1b6f2bd14a2fba25019093bb2"
 REMOVED = {
     "CHANGELOG.md",
     "CODEMAP.md",
@@ -108,6 +110,12 @@ def test_documentation_keeps_all_104_files():
 
 def test_code_specs_dot_directories_and_assets_are_preserved():
     inventory = git("ls-tree", "-rz", BASE, "--", "addiqate/hyperfide/")
+    live_inventory = git("ls-tree", "-rz", LIVE_SOURCE, "--", "tools/hyperfide/")
+    live = {}
+    for entry in live_inventory.split(b"\0"):
+        if entry:
+            metadata, path = entry.split(b"\t", 1)
+            live[path.decode().removeprefix("tools/hyperfide/")] = metadata.decode().split()
     checked = 0
     for entry in inventory.split(b"\0"):
         if not entry:
@@ -117,6 +125,10 @@ def test_code_specs_dot_directories_and_assets_are_preserved():
         relative = path.decode().removeprefix("addiqate/hyperfide/")
         if relative.startswith("docs/") or relative in REMOVED:
             continue
+        if relative in live:
+            mode, kind, oid = live[relative]
+        # An absent relocation artifact still has to match its original bytes;
+        # the newer source snapshot never authorizes dropping it.
         moved = PROJECT / relative
         assert moved.is_file() or moved.is_symlink(), relative
         if relative in {"README.md", "AGENTS.md"}:
@@ -128,12 +140,27 @@ def test_code_specs_dot_directories_and_assets_are_preserved():
         else:
             content = moved.read_bytes()
             assert bool(moved.stat().st_mode & 0o111) == (mode == "100755"), relative
+        if relative == ".gitignore":
+            assert b".codex\n!.codex/\n.codex/*\n!.codex/hooks.json\n" in content
         actual = hashlib.sha1(
             b"blob " + str(len(content)).encode() + b"\0" + content
         ).hexdigest()
         assert actual == oid, relative
         checked += 1
     assert checked > 10_000
+
+
+def test_restored_codex_hook_is_kept_by_ordinary_adds():
+    path = "tools/hyperfide/.codex/hooks.json"
+    assert (ROOT / path).read_bytes() == git(
+        "show", "ebcb190287:addiqate/hyperfide/.codex/hooks.json"
+    )
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "check-ignore", "--no-index", "--quiet", "--", path],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1, result.stderr
 
 
 @pytest.mark.parametrize(

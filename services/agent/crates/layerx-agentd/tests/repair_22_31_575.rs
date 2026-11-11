@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::protocol_evidence::{
     AuthenticatedCoreTime, CumulativeUseError, CumulativeUseWindow, EvidenceAuthority,
@@ -15,11 +23,12 @@ use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBou
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{decode_signed, encode_signed_envelope, encode_unsigned_envelope};
 use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{
-    activity_id, batch_header_digest, payload_hash_for, receipt_digest, Domain,
+use layerx_wire::hash::{batch_header_digest, payload_hash_for, receipt_digest, Domain};
+use layerx_wire::historical::activity::{
+    decode_signed, encode_signed_envelope, encode_unsigned_envelope,
 };
+use layerx_wire::historical::hash::activity_id;
 use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use layerx_wire::receipt::{
     decode, decode_batch_header, encode, encode_batch_header, encode_unsigned, BatchHeader,
@@ -39,7 +48,7 @@ fn receipt_key() -> SigningKey {
 }
 
 fn actor() -> Did {
-    Did::new(b"did:layerx:evm-cumulative-owner").expect("actor DID")
+    require_ok(Did::new(b"did:layerx:evm-cumulative-owner"), "actor DID")
 }
 
 fn signed_activity() -> (Vec<u8>, [u8; 20]) {
@@ -54,76 +63,114 @@ fn signed_activity() -> (Vec<u8>, [u8; 20]) {
         to,
         data: vec![0x01, 0x02, 0x03, 0x04],
     };
-    let canonical = call
-        .sign(&[0x67; 32])
-        .expect("signed zero-value EIP-1559 call");
-    let (decoded, signature) = evm_transaction::decode_signed(&canonical).expect("canonical call");
+    let canonical = require_ok(call.sign(&[0x67; 32]), "signed zero-value EIP-1559 call");
+    let (decoded, signature) =
+        require_ok(evm_transaction::decode_signed(&canonical), "canonical call");
     assert_eq!(decoded, call);
-    let sender = evm_transaction::recover_sender(&decoded, &signature).expect("recovered sender");
-    let expected = k256::ecdsa::SigningKey::from_bytes((&[0x67; 32]).into()).expect("fixed key");
+    let sender = require_ok(
+        evm_transaction::recover_sender(&decoded, &signature),
+        "recovered sender",
+    );
+    let expected = require_ok(
+        k256::ecdsa::SigningKey::from_bytes((&[0x67; 32]).into()),
+        "fixed key",
+    );
     assert_eq!(
         sender,
-        layerx_crypto::secp256k1::evm_address(
-            expected.verifying_key().to_encoded_point(false).as_bytes(),
+        require_ok(
+            layerx_crypto::secp256k1::evm_address(
+                expected.verifying_key().to_encoded_point(false).as_bytes(),
+            ),
+            "fixed key account"
         )
-        .expect("fixed key account")
     );
     (canonical, sender)
 }
 
 fn signed_envelope(module: ModuleId, actor: &Did) -> (Vec<u8>, [u8; 32]) {
     let signer = SigningKey::from_bytes(&[0x67; 32]);
-    let kind = ActivityType::new(module, 2).expect("activity kind");
-    let registration = ModuleRegistration::new(module, &[kind]).expect("module registration");
-    let registry = ModuleRegistry::new(&[registration]).expect("module registry");
-    let payload = Payload::new(&registry, kind, b"cumulative-use receipt binding")
-        .expect("registered payload");
+    let kind = require_ok(ActivityType::new(module, 2), "activity kind");
+    let registration = require_ok(
+        ModuleRegistration::new(module, &[kind]),
+        "module registration",
+    );
+    let registry = require_ok(ModuleRegistry::new(&[registration]), "module registry");
+    let payload = require_ok(
+        Payload::new(&registry, kind, b"cumulative-use receipt binding"),
+        "registered payload",
+    );
     let mut builder = EnvelopeBuilder::new();
-    builder.protocol_version(PROTOCOL_VERSION).expect("version");
-    builder.network_id(NETWORK).expect("network");
-    builder.activity_type(kind).expect("activity type");
-    builder.actor_did(actor.clone()).expect("actor");
-    builder
-        .authority(Authority::owner(&signer.verifying_key().to_bytes()).expect("owner authority"))
-        .expect("authority");
-    builder.account_sequence(1).expect("account sequence");
-    builder
-        .timestamp_bound(TimestampBound::new(1, 2_000).expect("timestamp interval"))
-        .expect("timestamp");
-    builder
-        .idempotency_key(IdempotencyKey::new([0x78; 32]))
-        .expect("idempotency key");
-    builder.fee_limit(Amount::from_u128(1)).expect("fee limit");
-    builder
-        .payload_hash(payload_hash_for(&payload).expect("payload hash"))
-        .expect("payload commitment");
-    builder.payload(payload).expect("payload");
-    let envelope = builder.build().expect("unsigned envelope");
-    let unsigned = encode_unsigned_envelope(&envelope).expect("unsigned wire envelope");
-    let digest = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        PROTOCOL_VERSION,
-        NETWORK,
-        &unsigned,
+    require_ok(builder.protocol_version(PROTOCOL_VERSION), "version");
+    require_ok(builder.network_id(NETWORK), "network");
+    require_ok(builder.activity_type(kind), "activity type");
+    require_ok(builder.actor_did(actor.clone()), "actor");
+    require_ok(
+        builder.authority(require_ok(
+            Authority::owner(&signer.verifying_key().to_bytes()),
+            "owner authority",
+        )),
+        "authority",
+    );
+    require_ok(builder.account_sequence(1), "account sequence");
+    require_ok(
+        builder.timestamp_bound(require_ok(
+            TimestampBound::new(1, 2_000),
+            "timestamp interval",
+        )),
+        "timestamp",
+    );
+    require_ok(
+        builder.idempotency_key(IdempotencyKey::new([0x78; 32])),
+        "idempotency key",
+    );
+    require_ok(builder.fee_limit(Amount::from_u128(1)), "fee limit");
+    require_ok(
+        builder.payload_hash(require_ok(payload_hash_for(&payload), "payload hash")),
+        "payload commitment",
+    );
+    require_ok(builder.payload(payload), "payload");
+    let envelope = require_ok(builder.build(), "unsigned envelope");
+    let unsigned = require_ok(
+        encode_unsigned_envelope(&envelope),
+        "unsigned wire envelope",
+    );
+    let digest = require_ok(
+        SignatureMessage::new(
+            Domain::SignaturePreimage,
+            PROTOCOL_VERSION,
+            NETWORK,
+            &unsigned,
+        ),
+        "activity signature message",
     )
-    .expect("activity signature message")
     .digest();
-    let signature = Signature::new(&signer.sign(&digest).to_bytes()).expect("activity signature");
-    let canonical = encode_signed_envelope(&envelope.attach_signature(signature))
-        .expect("signed wire envelope");
-    let activity = decode_signed(&canonical, &registry).expect("decoded wire activity");
-    let id = activity_id(&activity).expect("canonical activity identity");
+    let signature = require_ok(
+        Signature::new(&signer.sign(&digest).to_bytes()),
+        "activity signature",
+    );
+    let canonical = require_ok(
+        encode_signed_envelope(&envelope.attach_signature(signature)),
+        "signed wire envelope",
+    );
+    let activity = require_ok(
+        decode_signed(&canonical, &registry),
+        "decoded wire activity",
+    );
+    let id = require_ok(activity_id(&activity), "canonical activity identity");
     (canonical, id)
 }
 
 fn fixture(name: &str) -> Vec<u8> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../../tests/fixtures/custody/daemon-light-credit-receipt");
-    std::fs::read(root.join(name)).expect("real maintained-batch fixture")
+    require_ok(
+        std::fs::read(root.join(name)),
+        "real maintained-batch fixture",
+    )
 }
 
 fn template_header() -> BatchHeader {
-    decode_batch_header(&fixture("header")).expect("fixture header")
+    require_ok(decode_batch_header(&fixture("header")), "fixture header")
 }
 
 fn signed_receipt(
@@ -135,31 +182,34 @@ fn signed_receipt(
 ) -> Vec<u8> {
     let encode_receipt = |signature: Option<[u8; 64]>| {
         let mut encoder = Encoder::new(4_096);
-        encoder
-            .structure_header_version(0x5201, PROTOCOL_VERSION)
-            .expect("receipt header");
-        encoder.u16(PROTOCOL_VERSION).expect("receipt version");
-        encoder.bytes(&id, 32).expect("activity id");
-        encoder.u64(1).expect("global sequence");
+        require_ok(
+            encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
+            "receipt header",
+        );
+        require_ok(encoder.u16(PROTOCOL_VERSION), "receipt version");
+        require_ok(encoder.bytes(&id, 32), "activity id");
+        require_ok(encoder.u64(1), "global sequence");
         let template = template_header();
         for root in [
             template.previous_state_root(),
             template.resulting_state_root(),
             activity_root,
         ] {
-            encoder.bytes(&root, 32).expect("receipt root");
+            require_ok(encoder.bytes(&root, 32), "receipt root");
         }
-        encoder.i32(result_code).expect("successful result");
-        encoder.sequence_length(0, 512).expect("empty effects");
-        encoder.u128(1).expect("fee charged");
-        let batch_id = layerx_wire::hash::program_execution_batch_id(
-            template.previous_state_root(),
-            activity_root,
-            1,
-            1,
-            1,
-        )
-        .expect("maintained execution batch id");
+        require_ok(encoder.i32(result_code), "successful result");
+        require_ok(encoder.sequence_length(0, 512), "empty effects");
+        require_ok(encoder.u128(1), "fee charged");
+        let batch_id = require_ok(
+            layerx_wire::hash::program_execution_batch_id(
+                template.previous_state_root(),
+                activity_root,
+                1,
+                1,
+                1,
+            ),
+            "maintained execution batch id",
+        );
         let batch_id = if module > 11 {
             let mut height = [0; 32];
             height[24..].copy_from_slice(&receipt_height.to_be_bytes());
@@ -167,36 +217,37 @@ fn signed_receipt(
         } else {
             batch_id
         };
-        encoder.bytes(&batch_id, 32).expect("execution batch id");
-        encoder.u16(module).expect("module id");
-        encoder.u32(1).expect("module version");
-        encoder.u32(0).expect("parameter version");
-        encoder.u8(2).expect("operation");
-        encoder.bytes(&[0x81; 32], 32).expect("asset");
-        encoder.u128(AMOUNT).expect("amount");
-        encoder.bytes(&[0x82; 32], 32).expect("debit account");
-        encoder.u128(100).expect("debit before");
-        encoder.u128(74).expect("debit after amount and fee");
-        encoder.u64(1).expect("debit sequence");
-        encoder.bytes(&[0x83; 32], 32).expect("credit account");
-        encoder.u128(0).expect("credit before");
-        encoder.u128(AMOUNT).expect("credit after");
-        encoder.bytes(&[0; 32], 32).expect("transfer set root");
-        encoder.bytes(&[0x84; 32], 32).expect("authorization hash");
-        encoder.bytes(&KEY_ID, 32).expect("receipt key context");
-        encoder.u64(template.timestamp_ms()).expect("timestamp");
-        encoder
-            .u8(u8::from(signature.is_some()))
-            .expect("signature presence");
+        require_ok(encoder.bytes(&batch_id, 32), "execution batch id");
+        require_ok(encoder.u16(module), "module id");
+        require_ok(encoder.u32(1), "module version");
+        require_ok(encoder.u32(0), "parameter version");
+        require_ok(encoder.u8(2), "operation");
+        require_ok(encoder.bytes(&[0x81; 32], 32), "asset");
+        require_ok(encoder.u128(AMOUNT), "amount");
+        require_ok(encoder.bytes(&[0x82; 32], 32), "debit account");
+        require_ok(encoder.u128(100), "debit before");
+        require_ok(encoder.u128(74), "debit after amount and fee");
+        require_ok(encoder.u64(1), "debit sequence");
+        require_ok(encoder.bytes(&[0x83; 32], 32), "credit account");
+        require_ok(encoder.u128(0), "credit before");
+        require_ok(encoder.u128(AMOUNT), "credit after");
+        require_ok(encoder.bytes(&[0; 32], 32), "transfer set root");
+        require_ok(encoder.bytes(&[0x84; 32], 32), "authorization hash");
+        require_ok(encoder.bytes(&KEY_ID, 32), "receipt key context");
+        require_ok(encoder.u64(template.timestamp_ms()), "timestamp");
+        require_ok(
+            encoder.u8(u8::from(signature.is_some())),
+            "signature presence",
+        );
         if let Some(signature) = signature {
-            encoder.bytes(&signature, 64).expect("receipt signature");
+            require_ok(encoder.bytes(&signature, 64), "receipt signature");
         }
         encoder.finish()
     };
     let unsigned = encode_receipt(None);
-    let decoded = decode(&unsigned).expect("unsigned receipt decodes");
+    let decoded = require_ok(decode(&unsigned), "unsigned receipt decodes");
     assert_eq!(
-        encode_unsigned(&decoded).expect("canonical unsigned receipt"),
+        require_ok(encode_unsigned(&decoded), "canonical unsigned receipt"),
         unsigned
     );
     let signer = if module > 11 {
@@ -205,12 +256,12 @@ fn signed_receipt(
         batch_key()
     };
     let signature = signer
-        .sign(&receipt_digest(&unsigned).expect("receipt digest"))
+        .sign(&require_ok(receipt_digest(&unsigned), "receipt digest"))
         .to_bytes();
     let canonical = encode_receipt(Some(signature));
-    let decoded = decode(&canonical).expect("signed receipt decodes");
+    let decoded = require_ok(decode(&canonical), "signed receipt decodes");
     assert_eq!(
-        encode(&decoded).expect("canonical signed receipt"),
+        require_ok(encode(&decoded), "canonical signed receipt"),
         canonical
     );
     canonical
@@ -232,27 +283,31 @@ fn batch_at_height(
     result_code: i32,
     receipt_height: u64,
 ) -> BatchEvidence {
-    let (_, activity_root) = build_proof(&[&activity], 0).expect("activity tree");
+    let (_, activity_root) = require_ok(build_proof(&[&activity], 0), "activity tree");
     let receipt = signed_receipt(module, id, activity_root, result_code, receipt_height);
     let maintenance = fixture("maintenance.receipt");
-    let (proof, receipt_root) = build_proof(&[&receipt, &maintenance], 0).expect("receipt tree");
-    let (maintenance_proof, same_root) =
-        build_proof(&[&receipt, &maintenance], 1).expect("maintenance proof");
+    let (proof, receipt_root) =
+        require_ok(build_proof(&[&receipt, &maintenance], 0), "receipt tree");
+    let (maintenance_proof, same_root) = require_ok(
+        build_proof(&[&receipt, &maintenance], 1),
+        "maintenance proof",
+    );
     assert_eq!(same_root, receipt_root);
     let key = batch_key();
     let template = template_header();
     let mut header = Encoder::new(354);
-    header
-        .structure_header_version(0x1701, PROTOCOL_VERSION)
-        .expect("batch header");
-    header.u8(15).expect("batch fields");
-    header.tag(1, 15).expect("version tag");
-    header.u16(PROTOCOL_VERSION).expect("batch version");
-    header.tag(2, 15).expect("network tag");
-    header.u32(NETWORK).expect("batch network");
+    require_ok(
+        header.structure_header_version(0x1701, PROTOCOL_VERSION),
+        "batch header",
+    );
+    require_ok(header.u8(15), "batch fields");
+    require_ok(header.tag(1, 15), "version tag");
+    require_ok(header.u16(PROTOCOL_VERSION), "batch version");
+    require_ok(header.tag(2, 15), "network tag");
+    require_ok(header.u32(NETWORK), "batch network");
     for (tag, value) in [(3, 1), (4, 1), (5, 1), (6, 2)] {
-        header.tag(tag, 15).expect("integer tag");
-        header.u64(value).expect("batch integer");
+        require_ok(header.tag(tag, 15), "integer tag");
+        require_ok(header.u64(value), "batch integer");
     }
     for (tag, value) in [
         (7, template.previous_state_root()),
@@ -263,25 +318,24 @@ fn batch_at_height(
         (12, [0x42; 32]),
         (13, [0x43; 32]),
     ] {
-        header.tag(tag, 15).expect("commitment tag");
-        header.bytes(&value, 32).expect("batch commitment");
+        require_ok(header.tag(tag, 15), "commitment tag");
+        require_ok(header.bytes(&value, 32), "batch commitment");
     }
-    header.tag(14, 15).expect("timestamp tag");
-    header
-        .u64(template.timestamp_ms())
-        .expect("batch timestamp");
-    header.tag(15, 15).expect("sequencer tag");
-    header
-        .bytes(&key.verifying_key().to_bytes(), 32)
-        .expect("batch sequencer");
+    require_ok(header.tag(14, 15), "timestamp tag");
+    require_ok(header.u64(template.timestamp_ms()), "batch timestamp");
+    require_ok(header.tag(15, 15), "sequencer tag");
+    require_ok(
+        header.bytes(&key.verifying_key().to_bytes(), 32),
+        "batch sequencer",
+    );
     let header = header.finish();
-    let decoded = decode_batch_header(&header).expect("batch header decodes");
+    let decoded = require_ok(decode_batch_header(&header), "batch header decodes");
     assert_eq!(
-        encode_batch_header(&decoded).expect("canonical batch header"),
+        require_ok(encode_batch_header(&decoded), "canonical batch header"),
         header
     );
     let signature = key
-        .sign(&batch_header_digest(&header).expect("batch digest"))
+        .sign(&require_ok(batch_header_digest(&header), "batch digest"))
         .to_bytes();
     let entries = vec![RawActivityReceiptEvidence::from_signed_inclusion(
         activity,
@@ -322,7 +376,7 @@ fn committed_checkpoint(
         chain_id: chain.into(),
         height,
         time: CommitTimestamp {
-            seconds: (milliseconds / 1000) as i64,
+            seconds: require_ok(i64::try_from(milliseconds / 1000), "test value fits i64"),
             nanos: (milliseconds % 1000) as u32 * 1_000_000,
         },
         last_block_id: Some(BlockId {
@@ -360,7 +414,10 @@ fn committed_checkpoint(
                 .to_bytes(),
         });
     }
-    read::checkpoint(height, chain, &header, &commit, &validators).unwrap()
+    require_ok(
+        read::checkpoint(height, chain, &header, &commit, &validators),
+        "required test value",
+    )
 }
 
 fn authority() -> (EvidenceAuthority, AuthenticatedCoreTime) {
@@ -371,27 +428,30 @@ fn authority() -> (EvidenceAuthority, AuthenticatedCoreTime) {
         header.resulting_state_root(),
         &NETWORK.to_string(),
     );
-    let authority = EvidenceAuthority::pinned_to_handshake(
-        PROTOCOL_VERSION,
-        NETWORK,
-        batch_key().verifying_key().to_bytes(),
-    )
-    .expect("batch authority")
-    .with_receipt_keys(vec![ReceiptKeyEntry {
-        key_id: KEY_ID,
-        public_key: receipt_key().verifying_key().to_bytes(),
-        first_height: 1,
-        last_height: u64::MAX,
-    }])
-    .expect("governed receipt key")
-    .pin_committed_validators(
-        checkpoint.header.chain_id.clone(),
-        checkpoint.validators.clone(),
-    )
-    .expect("committed validators");
-    let observed = authority
-        .authenticate_committed_time(&checkpoint)
-        .expect("committed observation");
+    let authority = require_ok(
+        EvidenceAuthority::pinned_to_handshake(
+            PROTOCOL_VERSION,
+            NETWORK,
+            batch_key().verifying_key().to_bytes(),
+        )
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "batch authority"))
+        .with_receipt_keys(vec![ReceiptKeyEntry {
+            key_id: KEY_ID,
+            public_key: receipt_key().verifying_key().to_bytes(),
+            first_height: 1,
+            last_height: u64::MAX,
+        }])
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "governed receipt key"))
+        .pin_committed_validators(
+            checkpoint.header.chain_id.clone(),
+            checkpoint.validators.clone(),
+        ),
+        "committed validators",
+    );
+    let observed = require_ok(
+        authority.authenticate_committed_time(&checkpoint),
+        "committed observation",
+    );
     (authority, observed)
 }
 
@@ -401,8 +461,11 @@ fn recover_sender() {
     let id = evm_transaction::transaction_hash(&activity);
     let batch = batch(activity, id, 12, 0);
     let (authority, observed) = authority();
-    let protocol = decode(batch.entries[0].receipt().canonical_receipt()).expect("node receipt");
-    let protocol = protocol.protocol().expect("protocol receipt");
+    let protocol = require_ok(
+        decode(batch.entries[0].receipt().canonical_receipt()),
+        "node receipt",
+    );
+    let protocol = require_some(protocol.protocol(), "protocol receipt");
     assert_eq!(protocol.module_id(), 12);
     assert_eq!(protocol.operation(), 2);
     assert_eq!(protocol.activity_id(), id);
@@ -411,20 +474,27 @@ fn recover_sender() {
     let mut other = sender;
     other[0] ^= 1;
     for (account, expected_count, expected_amount) in [(sender, 1, AMOUNT), (other, 0, 0)] {
-        let facts = authority
-            .authenticate_account_cumulative_use(&actor(), account, WINDOW, &batch.entries)
-            .expect("account-bound sequence use");
+        let facts = require_ok(
+            authority.authenticate_account_cumulative_use(
+                &actor(),
+                account,
+                WINDOW,
+                &batch.entries,
+            ),
+            "account-bound sequence use",
+        );
         assert_eq!(facts.count(), expected_count);
         assert_eq!(facts.amount(), expected_amount);
-        let facts = authority
-            .authenticate_account_cumulative_time_use(
+        let facts = require_ok(
+            authority.authenticate_account_cumulative_time_use(
                 &actor(),
                 account,
                 1,
                 &observed,
                 std::slice::from_ref(&batch.time),
-            )
-            .expect("account-bound time use");
+            ),
+            "account-bound time use",
+        );
         assert_eq!(facts.count(), expected_count);
         assert_eq!(facts.successful_count(), expected_count);
         assert_eq!(facts.actor(), &actor());
@@ -494,14 +564,22 @@ fn failed_receipts_keep_each_consumers_counting_rules() {
         1,
     );
     let (authority, observed) = authority();
-    let facts = authority
-        .authenticate_account_cumulative_use(&actor(), sender, WINDOW, &batch.entries)
-        .expect("authenticated failed outcome");
+    let facts = require_ok(
+        authority.authenticate_account_cumulative_use(&actor(), sender, WINDOW, &batch.entries),
+        "authenticated failed outcome",
+    );
     assert_eq!(facts.count(), 0);
     assert_eq!(facts.amount(), 0);
-    let facts = authority
-        .authenticate_account_cumulative_time_use(&actor(), sender, 1, &observed, &[batch.time])
-        .expect("authenticated attempted use");
+    let facts = require_ok(
+        authority.authenticate_account_cumulative_time_use(
+            &actor(),
+            sender,
+            1,
+            &observed,
+            &[batch.time],
+        ),
+        "authenticated attempted use",
+    );
     assert_eq!(facts.count(), 1);
     assert_eq!(facts.successful_count(), 0);
     assert!(facts.receipt_amounts().is_empty());
@@ -542,43 +620,52 @@ fn account_consumers_retain_envelope_did_binding() {
         let activity_module = if module > 11 {
             ModuleId::Asset
         } else {
-            ModuleId::from_u16(module).expect("kernel module")
+            require_ok(ModuleId::from_u16(module), "kernel module")
         };
         let (canonical, id) = signed_envelope(activity_module, &actor());
         let batch = batch(canonical, id, module, 0);
         for (did, expected) in [
             (actor(), 1),
-            (Did::new(b"did:layerx:other").expect("other DID"), 0),
+            (require_ok(Did::new(b"did:layerx:other"), "other DID"), 0),
         ] {
-            let facts = authority
-                .authenticate_account_cumulative_use(&did, account, WINDOW, &batch.entries)
-                .expect("DID envelope in account-aware consumer");
+            let facts = require_ok(
+                authority.authenticate_account_cumulative_use(
+                    &did,
+                    account,
+                    WINDOW,
+                    &batch.entries,
+                ),
+                "DID envelope in account-aware consumer",
+            );
             assert_eq!(facts.count(), expected);
             assert_eq!(facts.amount(), if expected == 1 { AMOUNT } else { 0 });
-            let facts = authority
-                .authenticate_account_cumulative_time_use(
+            let facts = require_ok(
+                authority.authenticate_account_cumulative_time_use(
                     &did,
                     account,
                     1,
                     &observed,
                     std::slice::from_ref(&batch.time),
-                )
-                .expect("DID envelope in time consumer");
+                ),
+                "DID envelope in time consumer",
+            );
             assert_eq!(facts.count(), expected);
             assert_eq!(facts.successful_count(), expected);
         }
         assert_eq!(
-            authority
-                .authenticate_cumulative_use(&actor(), WINDOW, &batch.entries)
-                .expect("existing sequence consumer")
-                .count(),
+            require_ok(
+                authority.authenticate_cumulative_use(&actor(), WINDOW, &batch.entries),
+                "existing sequence consumer"
+            )
+            .count(),
             1
         );
         assert_eq!(
-            authority
-                .authenticate_cumulative_time_use(&actor(), 1, &observed, &[batch.time],)
-                .expect("existing time consumer")
-                .count(),
+            require_ok(
+                authority.authenticate_cumulative_time_use(&actor(), 1, &observed, &[batch.time],),
+                "existing time consumer"
+            )
+            .count(),
             1
         );
     }

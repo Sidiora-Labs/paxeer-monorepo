@@ -179,7 +179,7 @@ impl Node {
                 .stderr(Stdio::inherit())
                 .spawn(),
         );
-        let stdout = child.stdout.take().expect("anvil stdout");
+        let stdout = assert_some(child.stdout.take(), "anvil stdout");
         let (sender, receiver) = std::sync::mpsc::sync_channel(1);
         thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
@@ -196,7 +196,7 @@ impl Node {
         node.url = must(receiver.recv_timeout(Duration::from_secs(10)));
         node
     }
-    fn rpc(&self, method: &str, params: Value) -> Value {
+    fn rpc(&self, method: &str, params: &Value) -> Value {
         let value = rpc(
             &self.url,
             &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
@@ -250,14 +250,15 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
             {
                 assert_eq!(request["params"][1], "pending");
                 let call = &request["params"][0];
-                let data = call
-                    .get("data")
-                    .or_else(|| call.get("input"))
-                    .and_then(Value::as_str)
-                    .expect("ABI call data");
+                let data = assert_some(
+                    call.get("data")
+                        .or_else(|| call.get("input"))
+                        .and_then(Value::as_str),
+                    "ABI call data",
+                );
                 let data = must(hex::decode(data.trim_start_matches("0x")));
                 let mut word = [0; 32];
-                match data[..4].try_into().expect("selector") {
+                match assert_ok(data[..4].try_into(), "selector") {
                     layerx_client::account_binding::SELECTOR_LAYERX_BIND_NONCE => {
                         assert_eq!(
                             data,
@@ -342,10 +343,30 @@ impl IdentityResolver for AuthorityIdentity<'_> {
     }
 }
 
-fn authority_peer(
+#[derive(Clone)]
+struct ServedLabels {
+    identity: String,
+    context: String,
+}
+
+impl Default for ServedLabels {
+    fn default() -> Self {
+        Self {
+            identity: layerx_types::verify::VerificationLevel::COMMITTED
+                .wire_label()
+                .to_owned(),
+            context: layerx_types::verify::VerificationLevel::COMMITTED
+                .wire_label()
+                .to_owned(),
+        }
+    }
+}
+
+fn authority_peer_with_labels(
     peer: HumanPeer,
     identity: CoreIdentity,
     activity: ActivityType,
+    labels: Arc<Mutex<ServedLabels>>,
 ) -> (RemoteHumanAuthority, Peer) {
     let (ca, ca_key) = certificate(None);
     let (cert, key) = certificate(Some((&ca, &ca_key)));
@@ -365,7 +386,7 @@ fn authority_peer(
         &must(ca.to_der()),
     ));
     let worker = Peer::spawn(move |stop| {
-        let subject = peer.subject.as_ref().expect("owner subject");
+        let subject = assert_some(peer.subject.as_ref(), "owner subject");
         let account = must(AccountId::parse(&subject.account));
         let account_id = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
         while !stop.load(Ordering::Acquire) {
@@ -378,13 +399,13 @@ fn authority_peer(
             assert!(headers
                 .lines()
                 .any(|line| line.eq_ignore_ascii_case(&format!("authorization: Bearer {bearer}"))));
-            let path = headers
-                .split_whitespace()
-                .nth(1)
-                .expect("authority route")
-                .split('?')
-                .next()
-                .expect("route");
+            let path = assert_some(
+                assert_some(headers.split_whitespace().nth(1), "authority route")
+                    .split('?')
+                    .next(),
+                "route",
+            );
+            let labels = must(labels.lock()).clone();
             let value = match path {
                 "/v1/agent/registry" => {
                     json!({"modules":[{"module_id":activity.module() as u16, "activity_types":[activity.value()]}]})
@@ -392,11 +413,11 @@ fn authority_peer(
                 "/v1/agent/subject-context" => {
                     json!({"subject_principal":peer.principal, "tenant":subject.transport_tenant, "agent_tenant":peer.tenant,
                     "owner_did":subject.owner, "account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
-                    "verification_level":"checkpoint_finalised", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
+                    "verification_level":labels.context, "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":"checkpoint_finalised",
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":labels.identity,
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),
@@ -428,16 +449,18 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
                     thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
                     let reading = ClockReading {
                         generation,
-                        unix_milliseconds: must(SystemTime::now().duration_since(UNIX_EPOCH))
-                            .as_millis()
-                            .try_into()
-                            .expect("wall time"),
+                        unix_milliseconds: assert_ok(
+                            must(SystemTime::now().duration_since(UNIX_EPOCH))
+                                .as_millis()
+                                .try_into(),
+                            "wall time",
+                        ),
                         monotonic_nanoseconds: must(start.elapsed().as_nanos().try_into()),
                     };
                     must(stream.write_all(&clock_protocol::response(request.counter, Ok(reading))));
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(2))
+                    thread::sleep(Duration::from_millis(2));
                 }
                 Err(error) => panic!("clock accept: {error}"),
             }
@@ -452,6 +475,12 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
 }
 
 struct OwnerFixture {
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    peer: HumanPeer,
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    labels: Arc<Mutex<ServedLabels>>,
+    #[allow(dead_code, reason = "read by the including target repair_22_31_549")]
+    credential: layerx_agentd::session::SessionCredential,
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     retained: Arc<Mutex<Store>>,
     document: Value,
@@ -476,32 +505,14 @@ impl OwnerFixture {
         let tenant = must(TenantId::new(must(
             layerx_identity_binding::subject_namespace("bootstrap-service", &principal),
         )));
-        let peer = HumanPeer {
-            uid: 7,
-            principal: principal.clone(),
-            tenant: tenant.as_str().to_owned(),
-            subject: Some(HumanSubject {
-                transport_tenant: "bootstrap-service".to_owned(),
-                transport_principal: "bootstrap-owner".to_owned(),
-                owner: account.did(),
-                account: format!("agent:{}:main", account.did()),
-                asset: random(),
-                registration: None,
-            }),
-        };
-        let peers = BTreeMap::from([(
-            7,
-            ("bootstrap-owner".to_owned(), "bootstrap-service".to_owned()),
-        )]);
-        let identity = CoreIdentity {
-            canonical_bytes: public_key.to_vec(),
-            head_sequence: HEAD,
-            revocation_sequence: 1,
-            verification_level: layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
-            frozen: false,
-            authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
-        };
-        let (mut authority, authority_worker) = authority_peer(peer.clone(), identity, activity);
+        let BootstrapSubject {
+            peer,
+            peers,
+            identity,
+        } = bootstrap_subject(&account, public_key, &principal, &tenant);
+        let labels = Arc::new(Mutex::new(ServedLabels::default()));
+        let (mut authority, authority_worker) =
+            authority_peer_with_labels(peer.clone(), identity, activity, Arc::clone(&labels));
         let mut store = must(Store::open(root.join("store")));
         let identity = must(identity::register(
             &mut store,
@@ -512,64 +523,20 @@ impl OwnerFixture {
                 peer: &peer,
             },
         ));
-        let capability = must(Capability::new(
-            CapabilityId(random()),
-            tenant.clone(),
-            CapabilityDimensions {
-                activity_types: BTreeSet::from([5]),
-                counterparties: BTreeSet::from([random()]),
-                assets: BTreeSet::from([random()]),
-                amount_ceiling: 1000,
-                rate_ceiling: RateCeiling {
-                    maximum_uses: 100,
-                    window_sequences: 10,
-                },
-                purposes: BTreeSet::from(["bootstrap".to_owned()]),
-                expiry_sequence: 1000,
-            },
-        ));
-        must(capability.persist(&mut store));
-        let record = SessionRecord {
-            request: OpenRequest {
-                session_id: SessionId(random()),
-                token_id: random(),
-                tenant: tenant.clone(),
-                agent: did.clone(),
-                authority: ProtocolAuthority::PrimaryKey(public_key),
-                permitted_activity_types: BTreeSet::from([5]),
-                scopes: BTreeSet::from(["prepare".to_owned()]),
-                expiry_sequence: 1000,
-                expiry_seconds: Some(u64::MAX),
-                opening_client: "sdk".to_owned(),
-                policy_version: "v1".to_owned(),
-            },
-            open: true,
-            sequence: 0,
-            budget_reserved: 0,
-            subscription_cursor: 0,
-            generation: 1,
-            retired_token_ids: BTreeSet::new(),
-        };
-        let credential = must(session::open(
-            &mut store,
-            &mut SessionRegistry::default(),
-            &identity,
-            record.request.clone(),
-            HEAD,
-        ))
-        .credential();
+        let credential = register_owner_session(&mut store, &tenant, &did, public_key, &identity);
         let retained = Arc::new(Mutex::new(store));
         let (clock, clock_worker) = clock_peer(&root);
         let node = Node::start();
         let from = account.evm_address();
         node.rpc(
             "anvil_setBalance",
-            json!([format!("0x{}", hex::encode(from)), "0x3635c9adc5dea00000"]),
+            &json!([format!("0x{}", hex::encode(from)), "0x3635c9adc5dea00000"]),
         );
         node.rpc(
             "anvil_setNonce",
-            json!([format!("0x{}", hex::encode(from)), "0x7"]),
+            &json!([format!("0x{}", hex::encode(from)), "0x7"]),
         );
+        node.rpc("anvil_mine", &json!([format!("0x{HEAD:x}")]));
         let binding = Binding::new(125, from, 3).sign(account.layerx_seed());
         let writes = Arc::new(AtomicUsize::new(0));
         let (url, chain_worker) = chain_peer(&node, binding, Arc::clone(&writes));
@@ -580,6 +547,10 @@ impl OwnerFixture {
             deadline: Duration::from_secs(3),
         }));
         let node_head = must(endpoint.block_number());
+        assert_eq!(
+            node_head, HEAD,
+            "identity and committed node head must agree"
+        );
         let mut operations = must(ProductionHumanOperations::new(
             authority,
             must(SequencerEndpoint::new(&url, &[])),
@@ -591,61 +562,8 @@ impl OwnerFixture {
             clock,
         ));
         must(operations.authorize_subject(&peer));
-        let key_root = root.join("keys");
-        must(fs::create_dir(&key_root));
-        must(fs::set_permissions(
-            &key_root,
-            fs::Permissions::from_mode(0o700),
-        ));
-        let registry = must(SessionKeyRegistry::open(
-            key_root,
-            random::<32>().to_vec(),
-            125,
-            must(fs::metadata(&root)).uid(),
-        ));
-        let seed = must(registry.prepare_seed(b"bootstrap", random()));
-        let mut address = [0; 32];
-        address[12..].copy_from_slice(&seed.evm_address());
-        let issued = must(issue_session_key(&SessionKeyRequest {
-            grantor: must(layerx_wire::hash::did_id_for_protocol(&did, 3)),
-            session_public_key: address,
-            not_before: HEAD,
-            expires_at: Some(1000),
-            permitted_activity_types: vec![activity],
-            revocation_sequence: Some(1),
-            fee_budget: None,
-            purpose: SessionPurpose::Activity,
-        }));
-        must(registry.provision(issued.grant_id, seed.secret(), &issued));
-        let limits = vec![LimitConfig {
-            id: LimitId(random()),
-            name: "bootstrap".to_owned(),
-            scope: LimitScope::Tenant(random()),
-            ceiling: 1000,
-            consumed: 0,
-        }];
-        let mut owner = must(UnifiedAgentOwner::new(
-            operations,
-            Arc::clone(&retained),
-            &peers,
-            limits,
-            registry,
-        ));
-        layerx_agentd::degraded::enter(
-            &mut owner.degraded,
-            layerx_agentd::degraded::Observation::Ready {
-                reference: layerx_agentd::degraded::Reference {
-                    head_sequence: node_head,
-                    checkpoint: [0; 32],
-                },
-                maximum_rung: layerx_types::rung::Rung::Submitted,
-            },
-        );
-        let owner = must(SharedAgentOwner::new(owner).with_idempotency(
-            root.join("idempotency"),
-            1000,
-            1000,
-        ));
+        let (registry, issued) = provision_owner_key(&root, &did, activity);
+        let owner = activate_owner(operations, &retained, &peers, registry, node_head, &root);
         let boundary = must(ProductionEvmPreparationBoundary::new(&url, &[]));
         let previous_rpc = std::env::var_os("LAYERX_AGENT_NODE_RPC_URL");
         let previous_chain = std::env::var_os("LAYERX_AGENT_NODE_CHAIN_ID");
@@ -656,6 +574,9 @@ impl OwnerFixture {
             "agent_register": {"tenant":tenant.as_str(), "agent_did":account.did(), "authority_ref":hex::encode(public_key), "client":"sdk", "policy_version":"v1", "owner_address":hex::encode(from), "binding_consent":hex::encode(binding.signature()), "fee_limit":"1000000000000"},
             "session_open": {"context":context, "grant_id":hex::encode(issued.grant_id), "registration_payload":hex::encode(issued.registration_payload), "expiry_sequence":"1000", "purpose":hex::encode(random::<32>()), "fee_limit":"1000000000000"}});
         Self {
+            peer,
+            labels,
+            credential,
             owner,
             retained,
             document,
@@ -669,9 +590,9 @@ impl OwnerFixture {
             previous_chain,
         }
     }
-    fn envelope(&self, operation: &str, request: Value) -> Value {
+    fn envelope(&self, operation: &str, request: &Value) -> Value {
         let mut key = [0; 32];
-        getrandom::fill(&mut key).expect("fresh preparation request key");
+        assert_ok(getrandom::fill(&mut key), "fresh preparation request key");
         json!({"version": 1, "request_id": "1", "operation": operation, "request": request,
             "credential": self.document["credential"], "idempotency_key": hex::encode(key)})
     }
@@ -679,23 +600,20 @@ impl OwnerFixture {
     fn call(&self, envelope: &Value) -> AgentRpcResponse {
         handle_rpc(
             &self.owner,
-            &serde_json::to_vec(envelope).expect("actual RPC envelope"),
+            &assert_ok(serde_json::to_vec(envelope), "actual RPC envelope"),
         )
     }
 
     fn outbox(&self) -> Vec<Vec<u8>> {
-        self.retained
-            .lock()
-            .expect("retained store")
-            .list_object_ids(
-                &TenantId::new(text(&self.document, "tenant")).expect("tenant"),
-                ObjectKind::Outbox,
-            )
+        assert_ok(self.retained.lock(), "retained store").list_object_ids(
+            &assert_ok(TenantId::new(text(&self.document, "tenant")), "tenant"),
+            ObjectKind::Outbox,
+        )
     }
 
     fn assert_prepared(
         &self,
-        response: AgentRpcResponse,
+        response: &AgentRpcResponse,
         from: [u8; 20],
         to: [u8; 20],
         selector: [u8; 4],
@@ -707,8 +625,10 @@ impl OwnerFixture {
             "{}",
             String::from_utf8_lossy(&response.body)
         );
-        let response: Value =
-            serde_json::from_slice(&response.body).expect("AuthorityResponse<Prepared>");
+        let response: Value = assert_ok(
+            serde_json::from_slice(&response.body),
+            "AuthorityResponse<Prepared>",
+        );
         let authority = &response["value"]["authority"];
         assert_eq!(authority["tenant"], self.document["credential"]["tenant"]);
         assert_eq!(
@@ -717,40 +637,36 @@ impl OwnerFixture {
         );
         let prepared = &response["value"]["value"];
         assert_eq!(
-            prepared.as_object().expect("unsigned preparation").len(),
+            assert_some(prepared.as_object(), "unsigned preparation").len(),
             10
         );
         assert_eq!(prepared["value"], "0");
         let call = Eip1559Call {
             chain_id: number(prepared, "chain_id"),
             nonce: number(prepared, "nonce"),
-            max_priority_fee_per_gas: text(prepared, "max_priority_fee_per_gas")
-                .parse()
-                .expect("priority fee"),
-            max_fee_per_gas: text(prepared, "max_fee_per_gas")
-                .parse()
-                .expect("maximum fee"),
+            max_priority_fee_per_gas: assert_ok(
+                text(prepared, "max_priority_fee_per_gas").parse(),
+                "priority fee",
+            ),
+            max_fee_per_gas: assert_ok(text(prepared, "max_fee_per_gas").parse(), "maximum fee"),
             gas_limit: number(prepared, "gas_limit"),
             to: bytes(text(prepared, "to")),
-            data: hex::decode(text(prepared, "data")).expect("unsigned calldata"),
+            data: assert_ok(hex::decode(text(prepared, "data")), "unsigned calldata"),
         };
-        let state = self
-            .boundary
-            .preparation_state(&from)
-            .expect("real node preparation state");
+        let state = assert_ok(
+            self.boundary.preparation_state(&from),
+            "real node preparation state",
+        );
         assert_eq!(call.to, to);
         assert_eq!(call.data[..4], selector);
         assert_eq!(
             call.chain_id,
-            self.endpoint.chain_id().expect("node chain id")
+            assert_ok(self.endpoint.chain_id(), "node chain id")
         );
         assert_eq!(call.nonce, state.pending_nonce);
         assert_eq!(
             call.max_fee_per_gas,
-            state
-                .base_fee_per_gas
-                .checked_mul(2)
-                .expect("base fee bound")
+            assert_some(state.base_fee_per_gas.checked_mul(2), "base fee bound")
         );
         assert_eq!(call.max_priority_fee_per_gas, 0);
         assert!(call.max_fee_per_gas <= fee_limit);
@@ -776,7 +692,7 @@ impl Drop for OwnerFixture {
         assert_eq!(
             self.node.rpc(
                 "eth_getTransactionCount",
-                json!([
+                &json!([
                     format!(
                         "0x{}",
                         text(&self.document["agent_register"], "owner_address")
@@ -800,31 +716,31 @@ impl Drop for OwnerFixture {
     }
 }
 
-fn assert_refused(response: AgentRpcResponse, status: u16, reason: &str) {
+fn assert_refused(response: &AgentRpcResponse, status: u16, reason: &str) {
     assert_eq!(
         response.status,
         status,
         "{}",
         String::from_utf8_lossy(&response.body)
     );
-    let value: Value = serde_json::from_slice(&response.body).expect("typed refusal");
+    let value: Value = assert_ok(serde_json::from_slice(&response.body), "typed refusal");
     assert_eq!(value["reason"], reason);
 }
 
 #[test]
 fn agent_register_prepares_bind_layerx() {
-    let _serial = FIXTURE_LOCK.lock().expect("real fixture lock");
+    let _serial = assert_ok(FIXTURE_LOCK.lock(), "real fixture lock");
     let fixture = OwnerFixture::new();
     let request = fixture.document["agent_register"].clone();
     let from = bytes(text(&request, "owner_address"));
-    let fee_limit = text(&request, "fee_limit").parse().expect("fee limit");
+    let fee_limit = assert_ok(text(&request, "fee_limit").parse(), "fee limit");
     let before = fixture.outbox();
-    let envelope = fixture.envelope("agent.register", request.clone());
+    let envelope = fixture.envelope("agent.register", &request);
     let mut missing = envelope.clone();
     missing["credential"] = Value::Null;
-    assert_refused(fixture.call(&missing), 400, "envelope.credential");
+    assert_refused(&fixture.call(&missing), 400, "envelope.credential");
     let call = fixture.assert_prepared(
-        fixture.call(&envelope),
+        &fixture.call(&envelope),
         from,
         layerx_client::account_binding::ADDR_PRECOMPILE,
         [0xdd, 0x9a, 0xa6, 0x28],
@@ -832,39 +748,38 @@ fn agent_register_prepares_bind_layerx() {
     );
     assert_eq!(
         &call.data[4..36],
-        &bytes::<32>(
-            text(&request, "agent_did")
-                .strip_prefix("did:layerx:")
-                .expect("owner DID")
-        )
+        &bytes::<32>(assert_some(
+            text(&request, "agent_did").strip_prefix("did:layerx:"),
+            "owner DID"
+        ))
     );
     assert_eq!(
         &call.data[100..],
-        &hex::decode(text(&request, "binding_consent")).expect("owner binding consent")
+        &assert_ok(
+            hex::decode(text(&request, "binding_consent")),
+            "owner binding consent"
+        )
     );
     assert_eq!(call.data.len(), 164);
     let mut invalid = request.clone();
-    let mut consent = hex::decode(text(&invalid, "binding_consent")).expect("consent");
+    let mut consent = assert_ok(hex::decode(text(&invalid, "binding_consent")), "consent");
     consent[0] ^= 1;
     invalid["binding_consent"] = json!(hex::encode(consent));
     assert_refused(
-        fixture.call(&fixture.envelope("agent.register", invalid)),
+        &fixture.call(&fixture.envelope("agent.register", &invalid)),
         403,
         "binding.invalid_consent",
     );
     let mut too_expensive = request;
-    let base_fee = fixture
-        .boundary
-        .preparation_state(&from)
-        .expect("node base fee")
-        .base_fee_per_gas;
+    let base_fee =
+        assert_ok(fixture.boundary.preparation_state(&from), "node base fee").base_fee_per_gas;
     assert!(
         base_fee > 0,
         "fee refusal fixture must have a positive node base fee"
     );
     too_expensive["fee_limit"] = json!((base_fee * 2 - 1).to_string());
     assert_refused(
-        fixture.call(&fixture.envelope("agent.register", too_expensive)),
+        &fixture.call(&fixture.envelope("agent.register", &too_expensive)),
         403,
         "preparation.fee_limit",
     );
@@ -877,78 +792,79 @@ fn agent_register_prepares_bind_layerx() {
 
 #[test]
 fn session_open_prepares_grant_session_for_the_session_address() {
-    let _serial = FIXTURE_LOCK.lock().expect("real fixture lock");
+    let _serial = assert_ok(FIXTURE_LOCK.lock(), "real fixture lock");
     let fixture = OwnerFixture::new();
     let request = fixture.document["session_open"].clone();
-    let issued = decode_session_key(
-        &hex::decode(text(&request, "registration_payload")).expect("real grant bytes"),
-    )
-    .expect("real canonical session grant");
-    assert_eq!(issued.grant_id, bytes(text(&request, "grant_id")));
-    let public_key = bytes(
-        text(&request["context"], "agent_did")
-            .strip_prefix("did:layerx:")
-            .expect("owner DID"),
+    let issued = assert_ok(
+        decode_session_key(&assert_ok(
+            hex::decode(text(&request, "registration_payload")),
+            "real grant bytes",
+        )),
+        "real canonical session grant",
     );
-    let from = fixture
-        .endpoint
-        .bound_address(&public_key)
-        .expect("real owner address lookup")
-        .expect("bound owner");
-    let address = fixture
-        .owner
-        .lock()
-        .expect("shared owner")
-        .session_keys
-        .load(issued.grant_id, issued.clone())
-        .expect("real provisioned session key")
-        .evm_address();
+    assert_eq!(issued.grant_id, bytes(text(&request, "grant_id")));
+    let public_key = bytes(assert_some(
+        text(&request["context"], "agent_did").strip_prefix("did:layerx:"),
+        "owner DID",
+    ));
+    let from = assert_some(
+        assert_ok(
+            fixture.endpoint.bound_address(&public_key),
+            "real owner address lookup",
+        ),
+        "bound owner",
+    );
+    let address = assert_ok(
+        assert_ok(fixture.owner.lock(), "shared owner")
+            .session_keys
+            .load(issued.grant_id, issued.clone()),
+        "real provisioned session key",
+    )
+    .evm_address();
     let before = fixture.outbox();
-    let envelope = fixture.envelope("session.open", request.clone());
+    let envelope = fixture.envelope("session.open", &request);
     let mut missing = envelope.clone();
     missing["credential"] = Value::Null;
-    assert_refused(fixture.call(&missing), 400, "envelope.credential");
+    assert_refused(&fixture.call(&missing), 400, "envelope.credential");
     let call = fixture.assert_prepared(
-        fixture.call(&envelope),
+        &fixture.call(&envelope),
         from,
         PrecompileTarget::Auth.address(),
         [0x11, 0x07, 0xb4, 0x9e],
-        text(&request, "fee_limit").parse().expect("fee limit"),
+        assert_ok(text(&request, "fee_limit").parse(), "fee limit"),
     );
-    let actual = decode_session_key(&call.data[132..132 + issued.registration_payload.len()])
-        .expect("grantSession canonical grant");
+    let actual = assert_ok(
+        decode_session_key(&call.data[132..132 + issued.registration_payload.len()]),
+        "grantSession canonical grant",
+    );
     assert_eq!(actual, issued);
     assert_eq!(actual.session_public_key[12..], address);
     assert_eq!(&call.data[68..100], &bytes::<32>(text(&request, "purpose")));
     assert_eq!(
-        u64::from_be_bytes(call.data[60..68].try_into().expect("grant expiry")),
+        u64::from_be_bytes(assert_ok(call.data[60..68].try_into(), "grant expiry")),
         number(&request, "expiry_sequence")
     );
     let mut too_expensive = request.clone();
-    let base_fee = fixture
-        .boundary
-        .preparation_state(&from)
-        .expect("node base fee")
-        .base_fee_per_gas;
+    let base_fee =
+        assert_ok(fixture.boundary.preparation_state(&from), "node base fee").base_fee_per_gas;
     assert!(
         base_fee > 0,
         "fee refusal fixture must have a positive node base fee"
     );
     too_expensive["fee_limit"] = json!((base_fee * 2 - 1).to_string());
     assert_refused(
-        fixture.call(&fixture.envelope("session.open", too_expensive)),
+        &fixture.call(&fixture.envelope("session.open", &too_expensive)),
         403,
         "preparation.fee_limit",
     );
-    fixture
-        .owner
-        .lock()
-        .expect("shared owner")
-        .session_keys
-        .revoke(issued.grant_id)
-        .expect("revoke only the isolated fixture key");
+    assert_ok(
+        assert_ok(fixture.owner.lock(), "shared owner")
+            .session_keys
+            .revoke(issued.grant_id),
+        "revoke only the isolated fixture key",
+    );
     assert_refused(
-        fixture.call(&fixture.envelope("session.open", request)),
+        &fixture.call(&fixture.envelope("session.open", &request)),
         403,
         "session.key_unavailable",
     );
@@ -957,4 +873,187 @@ fn session_open_prepares_grant_session_for_the_session_address() {
         before,
         "preparation queues and broadcasts nothing"
     );
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn register_owner_session(
+    store: &mut Store,
+    tenant: &TenantId,
+    did: &Did,
+    public_key: [u8; 32],
+    identity: &layerx_agentd::identity::IdentityRecord,
+) -> layerx_agentd::session::SessionCredential {
+    let capability = must(Capability::new(
+        CapabilityId(random()),
+        tenant.clone(),
+        CapabilityDimensions {
+            activity_types: BTreeSet::from([5]),
+            counterparties: BTreeSet::from([random()]),
+            assets: BTreeSet::from([random()]),
+            amount_ceiling: 1000,
+            rate_ceiling: RateCeiling {
+                maximum_uses: 100,
+                window_sequences: 10,
+            },
+            purposes: BTreeSet::from(["bootstrap".to_owned()]),
+            expiry_sequence: 1000,
+        },
+    ));
+    must(capability.persist(store));
+    let record = SessionRecord {
+        request: OpenRequest {
+            session_id: SessionId(random()),
+            token_id: random(),
+            tenant: tenant.clone(),
+            agent: did.clone(),
+            authority: ProtocolAuthority::PrimaryKey(public_key),
+            permitted_activity_types: BTreeSet::from([5]),
+            scopes: BTreeSet::from(["prepare".to_owned()]),
+            expiry_sequence: 1000,
+            expiry_seconds: Some(u64::MAX),
+            opening_client: "sdk".to_owned(),
+            policy_version: "v1".to_owned(),
+        },
+        open: true,
+        sequence: 0,
+        budget_reserved: 0,
+        subscription_cursor: 0,
+        generation: 1,
+        retired_token_ids: BTreeSet::new(),
+    };
+    must(session::open(
+        store,
+        &mut SessionRegistry::default(),
+        identity,
+        record.request.clone(),
+        HEAD,
+    ))
+    .credential()
+}
+
+fn provision_owner_key(
+    root: &Path,
+    did: &Did,
+    activity: ActivityType,
+) -> (SessionKeyRegistry, layerx_crypto::session::IssuedSessionKey) {
+    let key_root = root.join("keys");
+    must(fs::create_dir(&key_root));
+    must(fs::set_permissions(
+        &key_root,
+        fs::Permissions::from_mode(0o700),
+    ));
+    let registry = must(SessionKeyRegistry::open(
+        key_root,
+        random::<32>().to_vec(),
+        125,
+        must(fs::metadata(root)).uid(),
+    ));
+    let seed = must(registry.prepare_seed(b"bootstrap", random()));
+    let mut address = [0; 32];
+    address[12..].copy_from_slice(&seed.evm_address());
+    let issued = must(issue_session_key(&SessionKeyRequest {
+        grantor: must(layerx_wire::hash::did_id_for_protocol(did, 3)),
+        session_public_key: address,
+        not_before: HEAD,
+        expires_at: Some(1000),
+        permitted_activity_types: vec![activity],
+        revocation_sequence: Some(1),
+        fee_budget: None,
+        purpose: SessionPurpose::Activity,
+    }));
+    must(registry.provision(issued.grant_id, seed.secret(), &issued));
+    (registry, issued)
+}
+
+fn activate_owner(
+    operations: ProductionHumanOperations<RemoteHumanAuthority>,
+    retained: &Arc<Mutex<Store>>,
+    peers: &BTreeMap<u32, (String, String)>,
+    registry: SessionKeyRegistry,
+    node_head: u64,
+    root: &Path,
+) -> SharedAgentOwner<RemoteHumanAuthority> {
+    let limits = vec![LimitConfig {
+        id: LimitId(random()),
+        name: "bootstrap".to_owned(),
+        scope: LimitScope::Tenant(random()),
+        ceiling: 1000,
+        consumed: 0,
+    }];
+    let mut owner = must(UnifiedAgentOwner::new(
+        operations,
+        Arc::clone(retained),
+        peers,
+        limits,
+        registry,
+    ));
+    layerx_agentd::degraded::enter(
+        &mut owner.degraded,
+        layerx_agentd::degraded::Observation::Ready {
+            reference: layerx_agentd::degraded::Reference {
+                head_sequence: node_head,
+                checkpoint: [0; 32],
+            },
+            maximum_rung: layerx_types::rung::Rung::Submitted,
+        },
+    );
+    must(SharedAgentOwner::new(owner).with_idempotency(root.join("idempotency"), 1000, 1000))
+}
+
+struct BootstrapSubject {
+    peer: HumanPeer,
+    peers: BTreeMap<u32, (String, String)>,
+    identity: CoreIdentity,
+}
+fn bootstrap_subject(
+    account: &layerx_crypto::account_derivation::DerivedAccount,
+    public_key: [u8; 32],
+    principal: &str,
+    tenant: &TenantId,
+) -> BootstrapSubject {
+    let peer = HumanPeer {
+        uid: 7,
+        principal: principal.to_owned(),
+        tenant: tenant.as_str().to_owned(),
+        subject: Some(HumanSubject {
+            transport_tenant: "bootstrap-service".to_owned(),
+            transport_principal: "bootstrap-owner".to_owned(),
+            owner: account.did(),
+            account: format!("agent:{}:main", account.did()),
+            asset: random(),
+            registration: None,
+        }),
+    };
+    let peers = BTreeMap::from([(
+        7,
+        ("bootstrap-owner".to_owned(), "bootstrap-service".to_owned()),
+    )]);
+    let identity = CoreIdentity {
+        canonical_bytes: public_key.to_vec(),
+        head_sequence: HEAD,
+        revocation_sequence: 1,
+        verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
+        frozen: false,
+        authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
+    };
+    BootstrapSubject {
+        peer,
+        peers,
+        identity,
+    }
 }

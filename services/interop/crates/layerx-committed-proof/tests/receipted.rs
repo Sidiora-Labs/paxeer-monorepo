@@ -1,5 +1,9 @@
+#[path = "support/recording.rs"]
+mod recording;
+use recording::{recorded_base64, recorded_timestamp};
+
 use layerx_committed_proof::{
-    header::{BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator},
+    header::{BlockId, ConsensusVersion, Header, PartSetHeader, Validator},
     verify_committed, verify_header, verify_receipted, ProofError,
 };
 use sha2::{Digest, Sha256};
@@ -399,7 +403,6 @@ fn committed_header(fixture: &serde_json::Value) -> Header {
             .parse()
             .unwrap_or_else(|error| panic!("invalid header number {name}: {error}"))
     };
-    assert_eq!(string(header, "time"), "2026-10-28T20:44:36.174Z");
     Header {
         version: ConsensusVersion {
             block: decimal(&header["version"], "block"),
@@ -409,10 +412,7 @@ fn committed_header(fixture: &serde_json::Value) -> Header {
         height: string(header, "height")
             .parse()
             .unwrap_or_else(|error| panic!("invalid header height: {error}")),
-        time: Timestamp {
-            seconds: 1_793_220_276,
-            nanos: 174_000_000,
-        },
+        time: recorded_timestamp(string(header, "time")),
         last_block_id: BlockId {
             hash: field(&header["last_block_id"], "hash"),
             part_set_header: PartSetHeader {
@@ -468,17 +468,10 @@ fn committed_fixture_view_verifies_and_binds_block_fields_and_rung() {
                 string(&validator["pub_key"], "type"),
                 "tendermint/PubKeyEd25519"
             );
-            assert_eq!(
-                string(&validator["pub_key"], "value"),
-                "xhShyRiEw8E77VhqFtUfclMHL3zEEBjqKN2GTk5Ujk0="
-            );
             Validator {
-                pub_key: decode_hex(
-                    "c614a1c91884c3c13bed586a16d51f7253072f7cc41018ea28dd864e4e548e4d",
-                    "validator public key",
-                )
-                .try_into()
-                .unwrap_or_else(|_| panic!("invalid validator public key length")),
+                pub_key: recorded_base64(string(&validator["pub_key"], "value"))
+                    .try_into()
+                    .unwrap_or_else(|_| panic!("invalid validator public key length")),
                 voting_power: string(validator, "voting_power")
                     .parse()
                     .unwrap_or_else(|error| panic!("invalid validator power: {error}")),

@@ -3,9 +3,8 @@ use sha2::{Digest as _, Sha256};
 
 use crate::agent_rpc_peer::RpcOwnerContext;
 use crate::approval::ApprovalSubmissionQueue;
-use crate::policy::approval::{ApprovalSnapshot, ApprovalState};
-use crate::policy::{DecisionReason, EvaluationInput, Outcome, PolicySnapshot};
-use crate::prepare::{DurablePreparation, Prepared};
+use crate::policy::approval::ApprovalSnapshot;
+use crate::prepare::{DurablePreparation, EvmPrepared};
 use crate::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
 
 const PREFIX: &[u8] = b"program-required-approval-v1:";
@@ -107,7 +106,8 @@ fn key(tenant: &TenantId, preparation: [u8; 32]) -> Result<TenantKey, Refusal> {
     .map_err(|_| Refusal::Corrupt)
 }
 
-fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding, Refusal> {
+fn binding(context: &RpcOwnerContext<'_>, prepared: &EvmPrepared) -> Result<Binding, Refusal> {
+    crate::prepare::verify_call_binding(prepared).map_err(|_| Refusal::Binding)?;
     let principal = context.principal();
     let peer = context.peer();
     let origin = context.permit().preparation_authorization();
@@ -118,15 +118,11 @@ fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding
         || origin.session.tenant != principal.tenant
         || origin.session.session_id != principal.session_id
         || origin.generation == 0
-        || prepared.envelope.actor_did() != &principal.agent
-        || prepared.envelope.idempotency_key().bytes() != prepared.audit.idempotency_key
-        || layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
-            .map_err(|_| Refusal::Binding)?
-            != prepared.canonical_bytes
+        || prepared.disclosure.actor.as_slice() != prepared.from
     {
         return Err(Refusal::Binding);
     }
-    let hash = digest(&prepared.canonical_bytes);
+    let hash = digest(&prepared.call.encode_unsigned());
     Ok(Binding {
         tenant: peer.tenant.clone(),
         principal: peer.principal.clone(),
@@ -134,93 +130,16 @@ fn binding(context: &RpcOwnerContext<'_>, prepared: &Prepared) -> Result<Binding
         session: origin.session.session_id.0,
         generation: origin.generation,
         preparation: hash,
-        idempotency: prepared.audit.idempotency_key,
-        canonical_len: u64::try_from(prepared.canonical_bytes.len())
+        idempotency: prepared.disclosure.idempotency_key,
+        canonical_len: u64::try_from(prepared.call.encode_unsigned().len())
             .map_err(|_| Refusal::Corrupt)?,
         canonical_digest: hash,
-        payload_hash: prepared.envelope.payload_hash(),
-        prepared_at: prepared.observed_head_sequence,
+        payload_hash: layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data),
+        prepared_at: prepared.observed_head_height,
     })
 }
 
 impl Record {
-    pub(crate) fn evaluate(
-        context: &RpcOwnerContext<'_>,
-        prepared: &Prepared,
-        snapshot: &PolicySnapshot,
-        input: &EvaluationInput<'_>,
-        approval: Option<&ApprovalSnapshot>,
-    ) -> Result<Self, Refusal> {
-        let source = snapshot.source().ok_or(Refusal::Policy)?;
-        let selected = crate::policy::load_policy_source(source).map_err(|_| Refusal::Policy)?;
-        if &selected != snapshot.policy() || snapshot.generation() == 0 {
-            return Err(Refusal::Policy);
-        }
-        let binding = binding(context, prepared)?;
-        let evidence = input
-            .program_requirement_context(
-                &binding.tenant,
-                &binding.actor,
-                binding.session,
-                binding.generation,
-                snapshot.policy(),
-                approval.map(|hold| hold.context.capability),
-                prepared.observed_head_sequence,
-            )
-            .map_err(|_| Refusal::Binding)?;
-        let decision = crate::policy::evaluate(snapshot.policy(), input);
-        if decision.policy_version != snapshot.version() {
-            return Err(Refusal::Policy);
-        }
-        let requirement = match (decision.outcome, decision.reason) {
-            (Outcome::Allow, DecisionReason::PermittedByRule) if approval.is_none() => {
-                Requirement::NotRequired
-            }
-            (Outcome::Deny, DecisionReason::ApprovalRequired) => {
-                let hold = approval.ok_or(Refusal::Required)?;
-                if hold.context.tenant != context.principal().tenant
-                    || hold.context.agent != context.principal().agent
-                    || hold.context.session.0 != binding.session
-                    || hold.context.policy_version != snapshot.version()
-                    || hold.context.request_id == [0; 32]
-                    || hold.state != ApprovalState::AwaitingApproval
-                    || hold.submission_ref.is_some()
-                    || hold.created_at_sequence != binding.prepared_at
-                    || hold.expires_at_sequence <= hold.created_at_sequence
-                    || hold.prepared.unsigned_canonical_bytes.as_bytes() != prepared.canonical_bytes
-                    || hold.prepared.disclosure.canonical_digest != binding.canonical_digest
-                    || hold.prepared.preparation_ref.as_str()
-                        != preparation_reference(binding.preparation)
-                {
-                    return Err(Refusal::Binding);
-                }
-                Requirement::Required {
-                    approval_id: hold.context.request_id,
-                    expires_at: hold.expires_at_sequence,
-                }
-            }
-            _ => Requirement::Denied,
-        };
-        let record = Self {
-            immutable: Immutable {
-                version: 1,
-                binding,
-                policy_source: std::str::from_utf8(source)
-                    .map_err(|_| Refusal::Policy)?
-                    .to_owned(),
-                policy_generation: snapshot.generation(),
-                policy_version: decision.policy_version,
-                context: evidence,
-                matched_rules: decision.matched_rules,
-                deciding_rule: decision.deciding_rule,
-                requirement,
-            },
-            decision: None,
-        };
-        record.encoded()?;
-        Ok(record)
-    }
-
     pub(crate) fn commitment(&self) -> Result<[u8; 32], Refusal> {
         let bytes = serde_json::to_vec(&self.immutable).map_err(|_| Refusal::Corrupt)?;
         let mut hash = Sha256::new();
@@ -426,9 +345,10 @@ impl Record {
 
 pub(crate) fn read_bound(
     store: &Store,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
 ) -> Result<Record, Refusal> {
+    crate::prepare::verify_call_binding(prepared).map_err(|_| Refusal::Binding)?;
     let durable_key = DurablePreparation::store_key(&durable.tenant, durable.preparation_id)
         .map_err(|_| Refusal::Binding)?;
     let retained = store.get(&durable_key).ok_or(Refusal::Missing)?;
@@ -436,9 +356,6 @@ pub(crate) fn read_bound(
         || DurablePreparation::decode(durable.tenant.clone(), retained.bytes())
             .map_err(|_| Refusal::Corrupt)?
             != *durable
-        || layerx_wire::activity::encode_unsigned_envelope(&prepared.envelope)
-            .map_err(|_| Refusal::Binding)?
-            != prepared.canonical_bytes
     {
         return Err(Refusal::Binding);
     }
@@ -458,14 +375,15 @@ pub(crate) fn read_bound(
         || binding.session != durable.session_id
         || binding.generation != durable.generation
         || binding.payload_hash != durable.payload_hash
-        || binding.payload_hash != prepared.envelope.payload_hash()
-        || binding.actor != prepared.envelope.actor_did().as_bytes()
-        || binding.idempotency != prepared.audit.idempotency_key
-        || binding.idempotency != prepared.envelope.idempotency_key().bytes()
-        || binding.prepared_at != prepared.observed_head_sequence
-        || binding.canonical_digest != digest(&prepared.canonical_bytes)
+        || binding.payload_hash
+            != layerx_crypto::evm_transaction::transaction_hash(&prepared.call.data)
+        || prepared.disclosure.actor.as_slice() != prepared.from
+        || binding.idempotency != prepared.disclosure.idempotency_key
+        || binding.idempotency != prepared.disclosure.idempotency_key
+        || binding.prepared_at != prepared.observed_head_height
+        || binding.canonical_digest != digest(&prepared.call.encode_unsigned())
         || binding.canonical_len
-            != u64::try_from(prepared.canonical_bytes.len()).map_err(|_| Refusal::Binding)?
+            != u64::try_from(prepared.call.encode_unsigned().len()).map_err(|_| Refusal::Binding)?
     {
         return Err(Refusal::Binding);
     }
@@ -484,7 +402,7 @@ pub(crate) fn read_bound(
 pub(crate) fn read(
     store: &Store,
     context: &RpcOwnerContext<'_>,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
 ) -> Result<Record, Refusal> {
     let record = read_bound(store, prepared, durable)?;
@@ -495,16 +413,13 @@ pub(crate) fn read(
 }
 
 fn preparation_reference(preparation: [u8; 32]) -> String {
-    preparation
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    layerx_programs::hex::encode(&preparation)
 }
 
 pub(crate) fn authorize_program(
     store: &Store,
     context: &RpcOwnerContext<'_>,
-    prepared: &Prepared,
+    prepared: &EvmPrepared,
     durable: &DurablePreparation,
     queue: &ApprovalSubmissionQueue,
     current_sequence: u64,
@@ -533,7 +448,7 @@ pub(crate) fn authorize_program(
             hash.update(b"layerx-approved-preparation-v1");
             hash.update(durable.tenant.as_str().as_bytes());
             hash.update(approval_id);
-            hash.update(&prepared.canonical_bytes);
+            hash.update(prepared.call.encode_unsigned());
             let expected: [u8; 32] = hash.finalize().into();
             if decision.submission_ref != Some(expected) {
                 return Err(Refusal::Binding);
@@ -546,7 +461,7 @@ pub(crate) fn authorize_program(
         .authorize_submit(
             &durable.tenant,
             &preparation_reference(durable.preparation_id),
-            &prepared.canonical_bytes,
+            &prepared.call.encode_unsigned(),
             reference,
         )
         .map_err(|_| Refusal::Conflict)?;
@@ -630,9 +545,7 @@ pub(crate) fn read_approval(
 }
 
 impl Record {
-    pub(crate) fn terminal_decision(
-        &self,
-    ) -> Result<Option<(Terminal, &str, Option<[u8; 32]>)>, Refusal> {
+    pub(crate) fn terminal_decision(&self) -> Result<Option<TerminalDecision<'_>>, Refusal> {
         self.validate()?;
         Ok(self.decision.as_ref().map(|decision| {
             (
@@ -763,3 +676,5 @@ pub(crate) fn check_call(
     }
     Ok(())
 }
+
+type TerminalDecision<'a> = (Terminal, &'a str, Option<[u8; 32]>);

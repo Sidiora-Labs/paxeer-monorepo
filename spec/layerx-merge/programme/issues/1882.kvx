@@ -1,0 +1,49 @@
+[issue.1882]
+number = 1882
+title = "[P2] Align compiled gateway schema test with the 22-method publication"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "services/platform/hosted/gateway/src/rpc.rs:288-323 still checks exactly 17 names against the 22-entry publication containing five node inference contracts at services/platform/hosted/gateway/openrpc.json:2718,2987,3261,3367,3554 added by 6ac9c39c3d68a9b8797cc93b76402e538052c4a0, while tools/qualification/paxeer-x/router-authority-schema.py:124-134 requires this compiled test to pass before the combined inventory check aligned by 3740acfa3e25ea3b4aa157330f14dc50a37b0c47 or any node probes, and tools/qualification/paxeer-x/tests/test_repair_22_33_877.py:382-390 exercises only the two helpers separately; the earlier de509f7a10f7358bb75af713696999778efe763e repair covered different omissions."
+close_comment = "The compiled schema test still expects 17 methods although OpenRPC publishes 17 hosted methods and five node inference contracts, preventing the schema qualifier from reaching its node checks. A focused repair will align the compiled inventory, preserve duplicate, missing and unexpected method rejection, and prove the real qualifier succeeds with the compiled test and node probes."
+
+[task.18.1882.1]
+title = "Issue #1882: Align the compiled schema inventory and prove the complete schema qualifier"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181882.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update schema_lists_every_public_method at services/platform/hosted/gateway/src/rpc.rs:288-323 to distinguish the 17 hosted dispatch methods from the five node-only inference contracts px_getInferenceRooms, px_getInferenceRoom, px_getInferenceDeal, px_getInferencePeer and px_getInferenceReceipts published at services/platform/hosted/gateway/openrpc.json:2718,2987,3261,3367,3554; check their combined exact inventory with one occurrence per name and equal total lengths, retaining missing, duplicate and unexpected method rejection without changing routing or removing published methods."
+do_2 = "Add services/platform/hosted/gateway/tests/schema_gate.py with test_compiled_schema_gate invoking the real tools/qualification/paxeer-x/router-authority-schema.py entrypoint at lines 115-146 in a subprocess, using the actual compiled layerx-gateway test artifact and a protected successful-build manifest bound to the current source revision, source tree and artifact digest, plus an authorized real test-node root endpoint; require the inputs explicitly and never skip, substitute an executable or mock the node transport."
+do_3 = "In test_compiled_schema_gate assert exit zero, exactly one passing rpc::tests::schema_lists_every_public_method result and the final PAXEER_X_GATE tests=5 skipped=0 marker so the compiled inventory, combined publication and four node dispatch probes all succeed through the real main path; also assert that the real hosted_schema checker at tools/qualification/paxeer-x/router-authority-schema.py:81-94 rejects missing, duplicate and unexpected names in mutations of the committed publication, and retain its existing guards unchanged."
+symbols = ["schema_lists_every_public_method", "test_compiled_schema_gate"]
+touches = ["services/platform/hosted/gateway/src/rpc.rs", "services/platform/hosted/gateway/tests/schema_gate.py"]
+tests = ["services/platform/hosted/gateway/src/rpc.rs::schema_lists_every_public_method", "services/platform/hosted/gateway/tests/schema_gate.py::test_compiled_schema_gate"]
+planned_paths = ["services/platform/hosted/gateway/tests/schema_gate.py"]
+build_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway --no-run"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/gateway/tests/schema_gate.py::test_compiled_schema_gate"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181882]
+title = "The compiled gateway schema test and complete qualifier agree on the combined publication"
+ac_1 = "Given the 22-method publication at services/platform/hosted/gateway/openrpc.json:10-3622, the compiled schema_lists_every_public_method at services/platform/hosted/gateway/src/rpc.rs:288 validates exactly 17 hosted methods plus five node-only inference contracts with duplicate, missing and unexpected names rejected, and the real qualifier entrypoint at tools/qualification/paxeer-x/router-authority-schema.py:115 executes exactly that passing compiled test before validating the publication and all four real node dispatch probes."
+
+[acceptance.18.1882.1]
+feature = "18"
+req = "181882.1"
+scenario = "Given the combined 22-method OpenRPC publication, its source-bound compiled gateway test artifact and an authorized test-node root endpoint, when the real schema qualifier runs, then exactly one compiled inventory test passes, publication validation and all four node probes succeed with tests=5 skipped=0, and missing, duplicate and unexpected methods remain rejected."
+contract = "contracts/platform-gateway.md#gateway-jsonrpc-methods"
+test = "services/platform/hosted/gateway/tests/schema_gate.py::test_compiled_schema_gate (planned)"
+qualification = "UNRUN"

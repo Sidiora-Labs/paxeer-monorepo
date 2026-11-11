@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
@@ -10,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	programs "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
@@ -69,12 +72,17 @@ func hostedProgramsABIReceiptVersion(t *testing.T, receipt lxphost.Receipt, vers
 	require.Equal(t, version, decoded.ModuleVersion)
 }
 
-func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
+func newHostedProgramsABIFixture(t *testing.T, firstHeight ...int64) *hostedProgramsABIFixture {
 	t.Helper()
 	valPub := secp256k1.GenPrivKey().PubKey()
 	w := NewTestWrapper(t, time.UnixMilli(1700000000000).UTC(), valPub, true)
-	f := &hostedProgramsABIFixture{app: w.App, ctx: w.Ctx.WithBlockHeight(mergeHeight - 1), program: [32]byte{0x76}, proposer: sdk.ConsAddress(valPub.Address())}
+	height := mergeHeight - 1
+	if len(firstHeight) != 0 {
+		height = firstHeight[0]
+	}
+	f := &hostedProgramsABIFixture{app: w.App, ctx: w.Ctx.WithBlockHeight(height), program: [32]byte{0x76}, proposer: sdk.ConsAddress(valPub.Address())}
 	t.Cleanup(func() { require.NoError(t, f.app.Close()) })
+	rewindBeforeMerge(t, f.app, f.ctx)
 	f.private = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x75}, ed25519.SeedSize))
 	copy(f.authority.VerifiedKey[:], f.private.Public().(ed25519.PublicKey))
 	f.did = []byte("did:layerx:" + hex.EncodeToString(f.authority.VerifiedKey[:]))
@@ -83,28 +91,6 @@ func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
 	f.authority.Actor, f.authority.Principal = actor, actor
 	f.authority.AuthorityHash = sha256.Sum256(f.authority.VerifiedKey[:])
 	store := f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey))
-	moduleKey := func(key []byte) []byte { return append([]byte{1, 0, 9}, key...) }
-	metering := binary.BigEndian.AppendUint32([]byte("LXMR1"), 1)
-	for _, coefficient := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8} {
-		metering = binary.BigEndian.AppendUint64(metering, coefficient)
-	}
-	metering = binary.BigEndian.AppendUint64(metering, 1)
-	metering = append(metering, 1)
-	metering = append(metering, actor[:]...)
-	store.Set(moduleKey([]byte("progmet/active/v1")), metering)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1)), metering)
-	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
-	for i := 0; i < 7; i++ {
-		fee = binary.BigEndian.AppendUint64(fee, 1)
-	}
-	fee = append(fee, bytes.Repeat([]byte{0x91}, 32)...)
-	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
-		fee = binary.BigEndian.AppendUint64(fee, value)
-	}
-	fee = append(fee, actor[:]...)
-	fee = append(fee, make([]byte, 16)...)
-	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 
 	register := append([]byte{0x71, 1, 0, 2}, actor[:]...)
 	register = append(register, f.authority.VerifiedKey[:]...)
@@ -122,9 +108,15 @@ func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
 	mint := append(append([]byte{0, 1}, asset[:]...), payer[:]...)
 	mint = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(mint, 0), 500000000)
 	require.Zero(t, f.execute(t, 0x0001000a, mint).ResultCode)
-	copy(fee[65:97], asset[:])
-	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
-	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+	// This chain begins before the merge and needs schedules for its legacy ABI
+	// deployment. The same product installer supplies them without raw rows.
+	installed, err := lxphost.InstallProgramsSchedules(f.ctx, f.app.GetKey(LayerXHostStoreKey), lxphost.ProgramsScheduleParameters{
+		FeePrices: [7]uint64{1, 1, 1, 1, 1, 1, 1}, MeteringCoefficients: [9]uint64{1, 1, 1, 1, 1, 8, 8, 64, 8},
+		OccupancyAssetID: asset, AuthorityKey: f.authority.VerifiedKey, TargetOccupancy: 1000,
+		ResponseDenominator: 8, MaxChangeNumerator: 1, MaxChangeDenominator: 8, MinFee: 1, MaxFee: 100,
+	})
+	require.NoError(t, err)
+	require.Equal(t, lxphost.ProgramsSchedulesInstalled{Fee: true, Metering: true}, installed)
 	treasury, err := codec.DeriveAccountID([]byte("system:fees"))
 	require.NoError(t, err)
 	field := func(out, value []byte) []byte {
@@ -191,11 +183,14 @@ func (f *hostedProgramsABIFixture) call(t *testing.T) lxphost.Receipt {
 	return f.execute(t, 0x00090003, payload)
 }
 
-func (f *hostedProgramsABIFixture) merge(t *testing.T) {
+func (f *hostedProgramsABIFixture) merge(t *testing.T, planInfo ...string) {
 	t.Helper()
 	f.ctx = f.ctx.WithBlockHeight(mergeHeight)
-	rewindBeforeMerge(t, f.app, f.ctx)
-	f.app.UpgradeKeeper.ApplyUpgrade(f.ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)})
+	info := activationInfo(t)
+	if len(planInfo) != 0 {
+		info = planInfo[0]
+	}
+	f.app.UpgradeKeeper.ApplyUpgrade(f.ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: info})
 	require.Equal(t, []byte{0, 5}, f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
 	require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
 	require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
@@ -243,13 +238,53 @@ func TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade(t *testing.T) {
 }
 
 func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
-	f := newHostedProgramsABIFixture(t)
-	f.merge(t)
+	f := newHostedProgramsABIFixture(t, 1)
 	info, err := f.app.UpgradeKeeper.GetUpgradeInfoPath()
 	require.NoError(t, err)
 	home := filepath.Dir(filepath.Dir(info))
-	f.app.SetDeliverStateToCommit()
-	f.app.WriteState().Commit(true)
+	validatorsHash := sha256.Sum256(f.proposer)
+	f.app.DistrKeeper.SetPreviousProposerConsAddr(f.ctx, f.proposer)
+	var blockHash []byte
+	for height := int64(1); height <= mergeHeight; height++ {
+		block := tmtypes.MakeBlock(height, nil, &tmtypes.Commit{}, nil)
+		block.ChainID = f.ctx.ChainID()
+		block.Time = f.ctx.BlockTime()
+		block.ProposerAddress = []byte(f.proposer)
+		block.ValidatorsHash = validatorsHash[:]
+		block.NextValidatorsHash = block.ValidatorsHash
+		block.AppHash = f.app.LastCommitID().Hash
+		block.LastBlockID.Hash = f.app.LastBlockID().Hash
+		blockHash = block.Hash()
+		_, err = f.app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
+			Hash: blockHash, Header: block.Header.ToProto(),
+		})
+		require.NoError(t, err)
+		f.ctx = f.app.GetContextForDeliverTx(nil)
+		if height == mergeHeight-1 {
+			require.NoError(t, f.app.UpgradeKeeper.ScheduleUpgrade(f.ctx, upgradetypes.Plan{
+				Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t),
+			}))
+		}
+		f.app.SetDeliverStateToCommit()
+		_, err = f.app.Commit(context.Background())
+		require.NoError(t, err)
+		if height == mergeHeight {
+			require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
+			require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.app.GetCheckCtx(), MergeUpgrade))
+			probe, _ := f.app.GetCheckCtx().WithBlockHeight(mergeHeight + 1).CacheContext()
+			f.ctx = probe
+			before := f.call(t)
+			require.Zero(t, before.ResultCode, before.ResultCode.Error())
+			require.NotNil(t, before.ProgramOutcome)
+			require.Zero(t, before.ProgramOutcome.Status)
+			hostedProgramsABIReceiptVersion(t, before, 5)
+		}
+	}
+	require.Equal(t, mergeHeight, f.app.LastBlockHeight())
+	committedID := f.app.LastBlockID()
+	require.Equal(t, blockHash, committedID.Hash)
+	committedSequence, err := lxphost.NextSequence(f.app.GetCheckCtx(), f.app.GetKey(LayerXHostStoreKey))
+	require.NoError(t, err)
 	require.NoError(t, f.app.Close())
 
 	f.app = New(dbm.NewMemDB(), nil, true, map[int64]bool{}, home, 1, true, config.TestConfig(),
@@ -257,6 +292,10 @@ func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 	f.ctx = f.app.NewUncachedContext(false, tmproto.Header{
 		Height: mergeHeight + 1, Time: f.ctx.BlockTime(), ChainID: f.ctx.ChainID(),
 	})
+	require.Equal(t, committedID, f.app.LastBlockID())
+	restoredSequence, err := lxphost.NextSequence(f.ctx, f.app.GetKey(LayerXHostStoreKey))
+	require.NoError(t, err)
+	require.Equal(t, committedSequence, restoredSequence)
 	require.Equal(t, []byte{0, 5}, f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
 	require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
 	t.Log("Host construction precedes store loading; the restarted app selects ABI 5 after LoadLatestVersion and before its first block")
@@ -265,6 +304,8 @@ func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 	f.app.BeginBlock(f.ctx, f.ctx.BlockHeight(), nil, nil, false)
 	receipt := f.call(t)
 	require.Zero(t, receipt.ResultCode, receipt.ResultCode.Error())
+	require.NotNil(t, receipt.ProgramOutcome)
+	require.Zero(t, receipt.ProgramOutcome.Status)
 	hostedProgramsABIReceiptVersion(t, receipt, 5)
 	require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
 }

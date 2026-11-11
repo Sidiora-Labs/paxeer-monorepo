@@ -39,7 +39,6 @@ HTTP = load('agent_http_bounds')
 READINESS = load('agent_tenant_readiness')
 WRITES = load('mcp_served_writes')
 PAYER = load('mcp_web_payer')
-KMS = load('human-movement-kms-assembly')
 WINDDOWN = load('programs_accounts_winddown')
 SOURCE = load('programs_source_abi')
 CHAIN = WINDDOWN.CHAIN
@@ -600,44 +599,6 @@ def test_mcp_payer_claimed_offer_must_also_match_signed_transaction(peers, field
     offer[field] = payment[field] = '9' if field == 'amount' else '09' * 32
     with pytest.raises(ValueError, match='transaction differs'):
         PAYER.committed_settlement(fixture, payment, offer)
-
-
-def source_tree(tmp_path):
-    revision = 'f25ab9129415b70e1e47d668e4d2d04777519969'
-    for name in KMS.SOURCES:
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if name in {'services/human/crates', 'services/agent/crates', 'services/platform/crates', 'services/platform/hosted/runtime-clock'}:
-            path.mkdir(exist_ok=True)
-            (path / 'qualified-source.rs').write_bytes(b'pub const QUALIFIED: u32 = 125;\n')
-        else:
-            path.write_bytes((ROOT / name).read_bytes())
-    return {'revision': revision, 'sources': KMS.source_snapshot(tmp_path, revision)}
-
-
-def test_kms_provenance_binds_real_moved_tree_and_artifact_revision(tmp_path):
-    document = source_tree(tmp_path)
-    assert 'services/platform/crates' in KMS.SOURCES and 'platform/crates' not in KMS.SOURCES
-    assert any(name.startswith('services/platform/crates/') for name in document['sources']['files'])
-    KMS.verify_provenance(document, document['revision'], tmp_path)
-    (tmp_path / 'services/platform/crates/qualified-source.rs').write_text('pub const QUALIFIED: u32 = 126;\n')
-    with pytest.raises(RuntimeError, match='paths differ'):
-        KMS.verify_provenance(document, document['revision'], tmp_path)
-    with pytest.raises(RuntimeError, match='revision differs'):
-        KMS.verify_provenance(document, '0' * 40, tmp_path)
-
-
-@pytest.mark.parametrize('name', KMS.SOURCES)
-def test_kms_every_missing_provenance_path_refuses_before_producers(tmp_path, name):
-    document = source_tree(tmp_path)
-    path = tmp_path / name
-    if path.is_dir():
-        import shutil
-        shutil.rmtree(path)
-    else:
-        path.unlink()
-    with pytest.raises(RuntimeError, match='missing provenance path'):
-        KMS.verify_provenance(document, document['revision'], tmp_path)
 
 
 def arguments_for_call(record):

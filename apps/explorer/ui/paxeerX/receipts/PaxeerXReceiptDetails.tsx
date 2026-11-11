@@ -16,7 +16,6 @@ export const VERIFICATION_STATUS_LABELS: Record<PaxeerXArchiveVerificationStatus
   batch_included: 'Batch included',
   state_proven: 'State proven',
   checkpoint_finalised: 'Checkpoint finalised',
-  settlement_anchored: 'Settlement anchored',
 };
 
 interface Props {
@@ -40,7 +39,7 @@ const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
             refreshing: 'Checking for newer indexed evidence.',
             stale: 'Evidence may be stale. Retaining the last accepted response.',
             paused: 'Refresh paused while this page is hidden.',
-            complete: 'Anchored verification reported. Automatic refresh stopped.',
+            complete: 'Recorded archive verification status. This historical evidence is frozen; automatic refresh stopped.',
           }[freshness.state] }</Text>
           { freshness.checkedAt !== undefined ? (
             <Text>Last checked: <time dateTime={ new Date(freshness.checkedAt).toISOString() } data-receipt-checked-at>

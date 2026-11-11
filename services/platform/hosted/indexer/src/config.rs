@@ -318,6 +318,7 @@ mod tests {
             ("LAYERX_INDEXER_SETTLEMENT_POLICY", "invalid\0policy"),
             ("LAYERX_INDEXER_GENESIS_TRUST", "invalid\0trust"),
             ("LAYERX_INDEXER_INITIAL_SEQUENCER_KEY", "not-32-byte-hex"),
+            // An obsolete socket variable must not influence node RPC configuration.
             ("LAYERX_INDEXER_LNI_SOCKET", ""),
         ];
         let mut values: BTreeMap<&str, &str> = [

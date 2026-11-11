@@ -32,6 +32,7 @@ const token = 'profile-repair-access';
 const assets = new Map<string, AccountAsset>();
 const receivedFiles = new Map<string, Buffer>();
 const patches: ExtendedProfileBody[] = [];
+let pendingSaveAcknowledgment: Promise<void> | null = null;
 let profile: ExtendedProfile;
 const originalAvatar = '11111111-1111-4111-8111-111111111111';
 const originalBanner = '22222222-2222-4222-8222-222222222222';
@@ -79,7 +80,9 @@ const server = createServer(async (request, response) => {
         socials: socials ? Object.fromEntries(Object.entries(socials).filter((entry): entry is [string, string] => typeof entry[1] === 'string')) : profile.socials,
         revision: String(BigInt(expectedRevision) + 1n),
       };
-      return reply(200, profileResponse());
+      const acknowledgment = profileResponse();
+      if (pendingSaveAcknowledgment) await pendingSaveAcknowledgment;
+      return reply(200, acknowledgment);
     }
     const match = new RegExp(`^/v2/accounts/${wallet}/assets/([0-9a-f-]+)$`).exec(path);
     if (match && request.headers.authorization === `Bearer ${token}`) {
@@ -321,9 +324,108 @@ async function profile_image_remove_draft_banner() { await imageRemoval('bannerA
 async function profile_image_remove_draft_empty_avatar() { await imageRemoval('avatarAssetId', false); }
 async function profile_image_remove_draft_empty_banner() { await imageRemoval('bannerAssetId', false); }
 
+async function imageRemovalDuringSave(kind: 'avatarAssetId' | 'bannerAssetId') {
+  resetProfile(true);
+  installAccountSession({ accessExpiresAt: new Date(Date.now() + 3_600_000).toISOString(), deviceLabel: 'Repair browser', refreshExpiresAt: new Date(Date.now() + 86_400_000).toISOString(), revokedAt: null, scopes: ['account'], sessionId: 'profile-repair-session', wallet }, token, accountEpoch(), { signMessage: (_wallet, message) => owner.signMessage({ message }) });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let saved = 0;
+  const view = { ...mount(h(WagmiProvider, { config }, h(QueryClientProvider, { client }, h(ProfileEditModal, { open: true, onClose: () => undefined, onSaved: () => { saved++; } })))), dispose: () => client.clear() };
+  for (const registered of mounted) if (registered.root === view.root) mounted.delete(registered);
+  mounted.add(view);
+  await waitFor(() => document.querySelector<HTMLInputElement>('#profile-edit-displayName')?.value === 'Original');
+  const input = document.querySelector<HTMLInputElement>(`#profile-edit-${kind}`)!;
+  const picker = input.parentElement!;
+  const other = kind === 'avatarAssetId' ? 'bannerAssetId' : 'avatarAssetId';
+  const otherBaseline = profile[other];
+  const initialRevision = profile.revision;
+  const imageBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==', 'base64');
+  const file = new File([imageBytes], 'profile.png', { type: 'image/png' });
+  Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+  act(() => input.dispatchEvent(new dom.window.Event('change', { bubbles: true })));
+  await waitFor(() => picker.textContent?.includes('Under review') ?? false);
+  expect(button(document, 'Save changes').disabled).toBe(true);
+  act(() => button(picker, 'Refresh').click());
+  await waitFor(() => picker.textContent?.includes('Approved') ?? false);
+  const uploadedId = Array.from(assets.keys())[0];
+  const publicUrl = assets.get(uploadedId)?.publicUrl;
+  expect(receivedFiles.get(uploadedId)).toEqual(imageBytes);
+  expect(picker.querySelector('img')?.getAttribute('src')).toBe(publicUrl);
+  expect(button(picker, 'Remove').disabled).toBe(false);
+  expect(button(document, 'Save changes').disabled).toBe(false);
+
+  let acknowledge!: () => void;
+  pendingSaveAcknowledgment = new Promise<void>(resolve => { acknowledge = resolve; });
+  try {
+    act(() => button(document, 'Save changes').click());
+    await waitFor(() => patches.length === 1);
+    expect(patches[0].expectedRevision).toBe(initialRevision);
+    expect(patches[0][kind]).toBe(uploadedId);
+    expect(profile[kind]).toBe(uploadedId);
+    expect(profile.revision).toBe(String(BigInt(initialRevision) + 1n));
+    expect(saved).toBe(0);
+    expect(document.body.textContent).not.toContain('Profile saved');
+    expect(button(document, 'Save changes').disabled).toBe(true);
+    expect(input.disabled).toBe(true);
+    expect(button(picker, 'Choose image').disabled).toBe(true);
+    expect(button(picker, 'Refresh').disabled).toBe(true);
+    const remove = button(picker, 'Remove');
+    expect(remove.disabled).toBe(true);
+    act(() => remove.click());
+    expect(picker.textContent).toContain('Approved · profile.png');
+    expect(picker.querySelector('img')?.getAttribute('src')).toBe(publicUrl);
+    expect(saved).toBe(0);
+    expect(patches).toHaveLength(1);
+  } finally {
+    pendingSaveAcknowledgment = null;
+    acknowledge();
+  }
+
+  await waitFor(() => document.body.textContent?.includes('Profile saved') ?? false);
+  expect(saved).toBe(1);
+  expect(picker.textContent).toContain('Current image');
+  expect(picker.textContent).not.toContain('profile.png');
+  expect(picker.querySelector('img')).toBeNull();
+  expect(Array.from(picker.querySelectorAll('button')).map(element => element.textContent)).toEqual(['Choose image']);
+  expect(input.disabled).toBe(false);
+  expect(button(picker, 'Choose image').disabled).toBe(false);
+  expect(button(document, 'Save changes').disabled).toBe(true);
+  const recovered = await editableExtendedProfile(wallet);
+  expect(recovered[kind]).toBe(uploadedId);
+  expect(recovered[other]).toBe(otherBaseline);
+  const acknowledgedRevision = recovered.revision;
+  expect(acknowledgedRevision).toBe(String(BigInt(initialRevision) + 1n));
+
+  const nameInput = document.querySelector<HTMLInputElement>('#profile-edit-displayName')!;
+  expect(nameInput.disabled).toBe(false);
+  act(() => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(nameInput, 'After acknowledgment');
+    nameInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  });
+  expect(button(document, 'Save changes').disabled).toBe(false);
+  act(() => button(document, 'Save changes').click());
+  await waitFor(() => saved === 2);
+  expect(document.body.textContent).toContain('Profile saved');
+  expect(patches).toHaveLength(2);
+  expect(patches[1].expectedRevision).toBe(acknowledgedRevision);
+  expect(patches[1].displayName).toBe('After acknowledgment');
+  expect(patches[1][kind]).toBe(uploadedId);
+  expect(patches[1][other]).toBe(otherBaseline);
+  const subsequent = await editableExtendedProfile(wallet);
+  expect(subsequent.revision).toBe(String(BigInt(acknowledgedRevision) + 1n));
+  expect(subsequent.displayName).toBe('After acknowledgment');
+  expect(subsequent[kind]).toBe(uploadedId);
+  expect(subsequent[other]).toBe(otherBaseline);
+  expect(button(document, 'Save changes').disabled).toBe(true);
+  unmount(view);
+}
+async function profile_image_remove_during_save_avatar() { await imageRemovalDuringSave('avatarAssetId'); }
+async function profile_image_remove_during_save_banner() { await imageRemovalDuringSave('bannerAssetId'); }
+
 test(balance_mask_first_render.name, balance_mask_first_render);
 test(portfolio_hover_range.name, portfolio_hover_range);
 test(profile_image_remove_draft_avatar.name, profile_image_remove_draft_avatar);
 test(profile_image_remove_draft_banner.name, profile_image_remove_draft_banner);
 test(profile_image_remove_draft_empty_avatar.name, profile_image_remove_draft_empty_avatar);
 test(profile_image_remove_draft_empty_banner.name, profile_image_remove_draft_empty_banner);
+test(profile_image_remove_during_save_avatar.name, profile_image_remove_during_save_avatar);
+test(profile_image_remove_during_save_banner.name, profile_image_remove_during_save_banner);

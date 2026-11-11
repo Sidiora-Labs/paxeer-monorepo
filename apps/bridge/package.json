@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "bridge",
   "version": "0.1.0",
   "private": true,
@@ -110,7 +112,7 @@
     "viem/**/@noble/hashes": "1.8.0",
     "@walletconnect/ethereum-provider/**/@reown/appkit/**/@noble/hashes": "1.8.0"
   },
-  "packageManager": "pnpm@12.15.0",
+  "packageManager": "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32",
   "overrides": {
     "ws@>=8.0.0 <8.21.0": "8.21.0",
     "uuid@<11.1.1": "11.1.1",

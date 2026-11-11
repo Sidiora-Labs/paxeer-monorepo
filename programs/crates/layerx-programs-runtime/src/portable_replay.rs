@@ -301,7 +301,7 @@ fn trap_code(tag: u8) -> Result<Option<wasmi::core::TrapCode>, ReplayWitnessErro
     })
 }
 
-pub(crate) fn trap_tag(code: &Option<wasmi::core::TrapCode>) -> u8 {
+pub(crate) fn trap_tag(code: Option<wasmi::core::TrapCode>) -> u8 {
     use wasmi::core::TrapCode;
     match code {
         None => 0,
@@ -319,22 +319,138 @@ pub(crate) fn trap_tag(code: &Option<wasmi::core::TrapCode>) -> u8 {
     }
 }
 
+struct PortableSnapshotMetadata {
+    canonical_instruction: Vec<u8>,
+    instruction_fuel: u64,
+    memory_expansion_bytes: u64,
+    canonical_state_bytes: u64,
+    commitment_fuel: u64,
+    arbitration_engine_canonical_bytes: u64,
+    arbitration_instance_retained_bytes: u64,
+    arbitration_canonical_state_bytes: u64,
+    arbitration_commitment_fuel: u64,
+}
+
+fn restore_portable_snapshot(
+    arbitration: &crate::ArbitrationExecutionState,
+    metadata: PortableSnapshotMetadata,
+) -> Result<wasmi::ExecutionSnapshot, ReplayWitnessError> {
+    let legacy = &arbitration.legacy;
+    let usage = legacy.metered_usage;
+    let mut control_stack = reserve(legacy.control_stack.len())?;
+    for frame in &legacy.control_stack {
+        control_stack.push(wasmi::ExecutionControlFrame {
+            kind: match frame.kind {
+                0 => wasmi::ExecutionControlKind::Block,
+                1 => wasmi::ExecutionControlKind::If,
+                2 => wasmi::ExecutionControlKind::Else,
+                3 => wasmi::ExecutionControlKind::Loop,
+                _ => return Err(ReplayWitnessError::Encoding),
+            },
+            operand_stack_height: frame.operand_stack_height,
+            unreachable: frame.unreachable,
+        });
+    }
+    let mut call_frames = reserve(legacy.call_frames.len())?;
+    for frame in &legacy.call_frames {
+        call_frames.push(wasmi::ExecutionTraceFrame {
+            function_index: frame.function_index,
+            return_program_counter: frame.return_program_counter,
+            locals: wasmi_values(&frame.locals)?,
+        });
+    }
+    let mut globals = reserve(legacy.globals.len())?;
+    for global in &legacy.globals {
+        globals.push(wasmi::ExecutionTraceGlobal {
+            global_index: global.global_index,
+            mutable: global.mutable,
+            value: wasmi_value(global.value),
+        });
+    }
+    let mut storage_overlay = reserve(legacy.storage_overlay.len())?;
+    for entry in &legacy.storage_overlay {
+        storage_overlay.push(match entry {
+            crate::StorageOverlayEntry::Write { key, value } => (copy(key)?, Some(copy(value)?)),
+            crate::StorageOverlayEntry::Delete { key } => (copy(key)?, None),
+        });
+    }
+    let snapshot = wasmi::ExecutionSnapshot {
+        step_index: legacy.step_index,
+        program_counter: legacy.program_counter,
+        value_stack: wasmi_values(&legacy.value_stack)?,
+        call_frames,
+        linear_memory: copy(&legacy.linear_memory)?,
+        globals,
+        arbitration_instances: instances(&arbitration.engine_state)?,
+        control_stack,
+        canonical_instruction: metadata.canonical_instruction,
+        instruction_fuel: metadata.instruction_fuel,
+        memory_expansion_bytes: metadata.memory_expansion_bytes,
+        supplement: wasmi::ExecutionSupplement {
+            storage_overlay,
+            authoritative_fuel: legacy.fuel_remaining,
+            authoritative_usage: wasmi::ExecutionMeteredUsage {
+                cpu_fuel: usage.cpu_fuel,
+                memory_bytes: usage.memory_bytes,
+                storage_read_bytes: usage.storage_read_bytes,
+                storage_write_bytes: usage.storage_write_bytes,
+                output_values: usage.output_values,
+                output_bytes: usage.output_bytes,
+                occupancy_byte_batches: usage.occupancy_byte_batches,
+                occupancy_fee_units: usage.occupancy_fee_units,
+                fee_units: usage.fee_units,
+            },
+            canonical_state_bytes: metadata.canonical_state_bytes,
+            commitment_fuel: metadata.commitment_fuel,
+            arbitration_host_state_root: arbitration.host_state_root,
+            arbitration_host_state_bytes: arbitration.host_state_bytes,
+            arbitration_base_state_root: arbitration.identity.host_base_state_root,
+            arbitration_receipt_oracle_root: arbitration.identity.receipt_oracle_root,
+            arbitration_balance_oracle_root: arbitration.identity.balance_oracle_root,
+            arbitration_engine_canonical_bytes: metadata.arbitration_engine_canonical_bytes,
+            arbitration_instance_retained_bytes: metadata.arbitration_instance_retained_bytes,
+            arbitration_canonical_state_bytes: metadata.arbitration_canonical_state_bytes,
+            arbitration_commitment_fuel: metadata.arbitration_commitment_fuel,
+        },
+    };
+    Ok(snapshot)
+}
+
 impl PortableBoundary {
     /// Decodes a self-contained boundary transport envelope. Raw record leaves require
     /// `decode_with_header`, since their immutable inputs are stored once per record.
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn decode_untrusted(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
+        let (header, leaf) = Self::split_envelope(bytes, maximum)?;
+        Self::decode_with_header(leaf, maximum, &header)
+    }
+
+    /// Extracts the record header and the raw Merkle leaf from the producer's
+    /// self-contained transport without changing either encoding.
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
+    pub fn split_envelope(
+        bytes: &[u8],
+        maximum: usize,
+    ) -> Result<(crate::replay_record::ReplayRecordHeader, &[u8]), ReplayWitnessError> {
         bounded(bytes, maximum)?;
         let mut cursor = ReplayCursor::new(bytes);
         let domain = b"LXP/program-replay-boundary-context/v2\0";
         if cursor.take(domain.len())? != domain {
             return Err(ReplayWitnessError::Encoding);
         }
-        let header = crate::replay_record::ReplayRecordHeader::decode(cursor.field()?, maximum)?;
-        let leaf =
-            cursor.take(bytes.len() - domain.len() - 4 - header.canonical_bytes(maximum)?.len())?;
-        Self::decode_with_header(leaf, maximum, &header)
+        let header_bytes = cursor.field()?;
+        let header = crate::replay_record::ReplayRecordHeader::decode(header_bytes, maximum)?;
+        let leaf = cursor.take(bytes.len() - domain.len() - 4 - header_bytes.len())?;
+        Ok((header, leaf))
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn decode_with_header(
         bytes: &[u8],
         maximum: usize,
@@ -369,15 +485,17 @@ impl PortableBoundary {
                 operand_types,
             });
         }
-        let canonical_instruction = cursor.owned_field(crate::MAX_STEP_INSTRUCTION_BYTES)?;
-        let instruction_fuel = cursor.u64()?;
-        let memory_expansion_bytes = cursor.u64()?;
-        let canonical_state_bytes = cursor.u64()?;
-        let commitment_fuel = cursor.u64()?;
-        let arbitration_engine_canonical_bytes = cursor.u64()?;
-        let arbitration_instance_retained_bytes = cursor.u64()?;
-        let arbitration_canonical_state_bytes = cursor.u64()?;
-        let arbitration_commitment_fuel = cursor.u64()?;
+        let metadata = PortableSnapshotMetadata {
+            canonical_instruction: cursor.owned_field(crate::MAX_STEP_INSTRUCTION_BYTES)?,
+            instruction_fuel: cursor.u64()?,
+            memory_expansion_bytes: cursor.u64()?,
+            canonical_state_bytes: cursor.u64()?,
+            commitment_fuel: cursor.u64()?,
+            arbitration_engine_canonical_bytes: cursor.u64()?,
+            arbitration_instance_retained_bytes: cursor.u64()?,
+            arbitration_canonical_state_bytes: cursor.u64()?,
+            arbitration_commitment_fuel: cursor.u64()?,
+        };
         let (semantic_bytes, composition_digest) =
             crate::replay::expand_semantic(cursor.field()?, header, maximum)?;
         if crate::replay::semantic_composition_digest(&semantic_bytes, maximum)?
@@ -399,86 +517,7 @@ impl PortableBoundary {
         if !cursor.done() {
             return Err(ReplayWitnessError::Encoding);
         }
-        let legacy = &arbitration.legacy;
-        let usage = legacy.metered_usage;
-        let mut control_stack = reserve(legacy.control_stack.len())?;
-        for frame in &legacy.control_stack {
-            control_stack.push(wasmi::ExecutionControlFrame {
-                kind: match frame.kind {
-                    0 => wasmi::ExecutionControlKind::Block,
-                    1 => wasmi::ExecutionControlKind::If,
-                    2 => wasmi::ExecutionControlKind::Else,
-                    3 => wasmi::ExecutionControlKind::Loop,
-                    _ => return Err(ReplayWitnessError::Encoding),
-                },
-                operand_stack_height: frame.operand_stack_height,
-                unreachable: frame.unreachable,
-            });
-        }
-        let mut call_frames = reserve(legacy.call_frames.len())?;
-        for frame in &legacy.call_frames {
-            call_frames.push(wasmi::ExecutionTraceFrame {
-                function_index: frame.function_index,
-                return_program_counter: frame.return_program_counter,
-                locals: wasmi_values(&frame.locals)?,
-            });
-        }
-        let mut globals = reserve(legacy.globals.len())?;
-        for global in &legacy.globals {
-            globals.push(wasmi::ExecutionTraceGlobal {
-                global_index: global.global_index,
-                mutable: global.mutable,
-                value: wasmi_value(global.value),
-            });
-        }
-        let mut storage_overlay = reserve(legacy.storage_overlay.len())?;
-        for entry in &legacy.storage_overlay {
-            storage_overlay.push(match entry {
-                crate::StorageOverlayEntry::Write { key, value } => {
-                    (copy(key)?, Some(copy(value)?))
-                }
-                crate::StorageOverlayEntry::Delete { key } => (copy(key)?, None),
-            });
-        }
-        let snapshot = wasmi::ExecutionSnapshot {
-            step_index: legacy.step_index,
-            program_counter: legacy.program_counter,
-            value_stack: wasmi_values(&legacy.value_stack)?,
-            call_frames,
-            linear_memory: copy(&legacy.linear_memory)?,
-            globals,
-            arbitration_instances: instances(&arbitration.engine_state)?,
-            control_stack,
-            canonical_instruction,
-            instruction_fuel,
-            memory_expansion_bytes,
-            supplement: wasmi::ExecutionSupplement {
-                storage_overlay,
-                authoritative_fuel: legacy.fuel_remaining,
-                authoritative_usage: wasmi::ExecutionMeteredUsage {
-                    cpu_fuel: usage.cpu_fuel,
-                    memory_bytes: usage.memory_bytes,
-                    storage_read_bytes: usage.storage_read_bytes,
-                    storage_write_bytes: usage.storage_write_bytes,
-                    output_values: usage.output_values,
-                    output_bytes: usage.output_bytes,
-                    occupancy_byte_batches: usage.occupancy_byte_batches,
-                    occupancy_fee_units: usage.occupancy_fee_units,
-                    fee_units: usage.fee_units,
-                },
-                canonical_state_bytes,
-                commitment_fuel,
-                arbitration_host_state_root: arbitration.host_state_root,
-                arbitration_host_state_bytes: arbitration.host_state_bytes,
-                arbitration_base_state_root: arbitration.identity.host_base_state_root,
-                arbitration_receipt_oracle_root: arbitration.identity.receipt_oracle_root,
-                arbitration_balance_oracle_root: arbitration.identity.balance_oracle_root,
-                arbitration_engine_canonical_bytes,
-                arbitration_instance_retained_bytes,
-                arbitration_canonical_state_bytes,
-                arbitration_commitment_fuel,
-            },
-        };
+        let snapshot = restore_portable_snapshot(&arbitration, metadata)?;
         if crate::execute::arbitration_engine_state_bytes(&snapshot)
             .map_err(|_| ReplayWitnessError::Binding)?
             != arbitration.engine_state
@@ -502,21 +541,28 @@ impl PortableBoundary {
         Ok(result)
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn rebuild_memory(&mut self, previous: &[u8]) -> Result<Vec<u8>, ReplayWitnessError> {
         let memory = self.memory.rebuild(previous)?;
         self.set_rebuilt_memory(memory.clone())?;
         Ok(memory)
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn set_rebuilt_memory(&mut self, memory: Vec<u8>) -> Result<(), ReplayWitnessError> {
         if memory.len() != self.memory.length as usize
             || crate::replay::replay_memory_root(&memory)? != self.memory.root
         {
             return Err(ReplayWitnessError::Binding);
         }
-        Arc::make_mut(&mut self.arbitration.legacy).linear_memory = memory.clone();
+        Arc::make_mut(&mut self.arbitration.legacy)
+            .linear_memory
+            .clone_from(&memory);
         let snapshot = Arc::make_mut(&mut self.replay.snapshot);
-        snapshot.linear_memory = memory.clone();
         for instance in &mut snapshot.arbitration_instances {
             if instance.instance_index == 0 {
                 for engine_memory in &mut instance.memories {
@@ -526,11 +572,15 @@ impl PortableBoundary {
                 }
             }
         }
+        snapshot.linear_memory = memory;
         self.arbitration.engine_state = crate::execute::arbitration_engine_state_bytes(snapshot)
             .map_err(|_| ReplayWitnessError::Binding)?;
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn reencode_untrusted(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
         bounded(&[], maximum)?;
         if crate::replay_record::ReplayRecordHeader::from_boundary(
@@ -552,7 +602,7 @@ impl PortableBoundary {
             None => append(&mut bytes, &[0], maximum)?,
             Some(trap) => append(
                 &mut bytes,
-                &[1, trap_tag(&trap.code), u8::from(trap.host_trap)],
+                &[1, trap_tag(trap.code), u8::from(trap.host_trap)],
                 maximum,
             )?,
         }
@@ -569,6 +619,9 @@ pub struct PortableReplayRecord {
 }
 
 impl PortableReplayRecord {
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn decode_untrusted(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
         bounded(bytes, maximum)?;
         let mut cursor = ReplayCursor::new(bytes);
@@ -597,6 +650,9 @@ impl PortableReplayRecord {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
     pub fn merkle_path_untrusted(&self, index: u32) -> Result<Vec<[u8; 32]>, ReplayWitnessError> {
         let mut position = usize::try_from(index).map_err(|_| ReplayWitnessError::Bounds)?;
         if position >= self.leaves.len() {
@@ -633,6 +689,9 @@ impl PortableReplayRecord {
     }
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
 pub fn replay_leaf_hash(index: u32, leaf: &[u8]) -> Result<[u8; 32], ReplayWitnessError> {
     if leaf.is_empty() || leaf.len() > MAX_PROGRAM_REPLAY_BYTES as usize {
         return Err(ReplayWitnessError::Bounds);
@@ -649,6 +708,7 @@ pub fn replay_leaf_hash(index: u32, leaf: &[u8]) -> Result<[u8; 32], ReplayWitne
     Ok(hash.finalize().into())
 }
 
+#[must_use]
 pub fn replay_node_hash(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
     let mut hash = Sha256::new();
     hash.update(b"LXP/program-replay-node/v1\0");
@@ -657,6 +717,9 @@ pub fn replay_node_hash(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
     hash.finalize().into()
 }
 
+/// # Errors
+///
+/// Returns a replay refusal for malformed or oversized canonical bytes, inconsistent boundary bindings, or allocation failure.
 pub fn decode_record(
     bytes: &[u8],
     maximum: usize,
@@ -720,15 +783,17 @@ pub fn decode_record(
         record_leaves.push(copy(leaf)?);
     }
     let record = ProgramReplayRecord::from_captured(
-        profile,
-        code_hash,
-        input_digest,
-        runtime_version,
-        abi_version,
-        fee_schedule_version,
-        metering_schedule_version,
-        terminal_status,
-        record_leaves,
+        crate::replay_record::CapturedRecordParameters {
+            profile,
+            code_hash,
+            input_digest,
+            runtime_version,
+            abi_version,
+            fee_schedule_version,
+            metering_schedule_version,
+            terminal_status,
+        },
+        &record_leaves,
         header,
     )?;
     if record.boundary_root() != boundary_root || record.canonical_bytes() != bytes {

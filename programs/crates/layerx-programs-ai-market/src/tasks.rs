@@ -21,6 +21,7 @@
 //!   opening resets the region with [`region_after_open`], a sealed region of an earlier epoch
 //!   reads as the empty set of the opened epoch and an unsealed nonempty one refuses
 //!   `WRONG_PHASE`.
+use crate::types::GuestIndex as _;
 use core::cmp::Ordering;
 
 use crate::{
@@ -40,15 +41,15 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{check_f01_capacity, market_clock, MarketHeader},
+    registry::{market_clock, MarketHeader},
     registry_ops::{
         CallContext, PolicySection, ACTIVE, CLOSED, EMPTY_TASK_REGION, RECEIPT_MAX_BYTES,
         WINDING_DOWN,
     },
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ActorSlot, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ActorSlot, ReplayDecision, ReplayRequest,
+        RetainedResult, Section, SharedState,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -91,6 +92,7 @@ impl TaskStatus {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` outside 1..=4.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn from_u8(value: u8) -> CodecResult<Self> {
         Ok(match value {
             1 => Self::Admitted,
@@ -145,12 +147,14 @@ impl TaskBinding {
         self.validate()?;
         let mut out = [0; TASK_BINDING_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.task.as_bytes())?;
-        w.put(self.requester.as_bytes())?;
-        w.put(self.worker.as_bytes())?;
-        w.put(self.input.as_bytes())?;
-        w.u64(self.deadline)?;
-        w.u8(self.status as u8)?;
+        crate::codec::write_fields!(w;
+            id32: self.task.as_bytes();
+            id32: self.requester.as_bytes();
+            id32: self.worker.as_bytes();
+            id32: self.input.as_bytes();
+            u64: self.deadline;
+            u8: self.status as u8;
+        )?;
         w.put(&self.acknowledgement.map_or([0; 32], Digest32::bytes))?;
         w.put(&self.result.map_or([0; 32], Digest32::bytes))?;
         w.put(self.admission.as_bytes())?;
@@ -163,6 +167,31 @@ impl TaskBinding {
     /// digest, an unknown status or a status/digest mismatch.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(input) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<[Option<(&'static [u8], TaskBinding)>; MAX_TASKS]>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if !decoded.is_some() {
+                *decoded = crate::guest_cell::Cached::Value([None; MAX_TASKS]);
+            }
+            let crate::guest_cell::Cached::Value(rows) = &mut *decoded else {
+                return Err(NON_CANONICAL);
+            };
+            let slot = (input.as_ptr() as usize / TASK_BINDING_BYTES) % MAX_TASKS;
+            if let Some((bytes, row)) = rows[slot] {
+                if core::ptr::eq(bytes, input) {
+                    return Ok(row);
+                }
+            }
+            let row = Self::decode_uncached(input)?;
+            rows[slot] = Some((frozen, row));
+            return Ok(row);
+        }
+        Self::decode_uncached(input)
+    }
+    fn decode_uncached(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
             task: r.task_id()?,
@@ -200,6 +229,25 @@ impl<'a> TaskSet<'a> {
     /// short or trailing bytes, an invalid record or records not strictly ascending by `TaskId`.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(region: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(region) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<(&'static [u8], TaskSet<'static>)>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if let Some((bytes, set)) = decoded.as_ref() {
+                if core::ptr::eq(*bytes, region) {
+                    return Ok(*set);
+                }
+            }
+            let set = TaskSet::decode_uncached(frozen)?;
+            *decoded = crate::guest_cell::Cached::Value((frozen, set));
+            return Ok(set);
+        }
+        Self::decode_uncached(region)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(region: &'a [u8]) -> CodecResult<Self> {
         let mut r = Reader::new(region);
         let count = usize::from(r.u16()?);
         let seal = match r.u8()? {
@@ -240,23 +288,31 @@ impl<'a> TaskSet<'a> {
     pub fn bindings(&self) -> impl Iterator<Item = CodecResult<TaskBinding>> + 'a {
         let records = self.records;
         records
-            .chunks_exact(TASK_BINDING_BYTES)
+            .as_chunks::<{ TASK_BINDING_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
             .map(TaskBinding::decode)
     }
     /// Index of `task`, or of its ordered insertion point, and the record when present.
     ///
     /// # Errors
     /// Propagates record decode refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn position(&self, task: TaskId) -> CodecResult<(usize, Option<TaskBinding>)> {
-        for (index, binding) in self.bindings().enumerate() {
-            let binding = binding?;
+        let mut left = 0;
+        let mut right = self.len();
+        while left < right {
+            let mid = left + (right - left) / 2;
+            let start = mid * TASK_BINDING_BYTES;
+            let binding = TaskBinding::decode(&self.records[start..start + TASK_BINDING_BYTES])?;
             match binding.task.cmp(&task) {
-                Ordering::Less => {}
-                Ordering::Equal => return Ok((index, Some(binding))),
-                Ordering::Greater => return Ok((index, None)),
+                Ordering::Less => left = mid + 1,
+                Ordering::Equal => return Ok((mid, Some(binding))),
+                Ordering::Greater => right = mid,
             }
         }
-        Ok((self.len(), None))
+        Ok((left, None))
     }
 }
 
@@ -275,7 +331,27 @@ pub struct SetBinding {
 ///
 /// # Errors
 /// Returns `ARITHMETIC` when the count does not fit `u16`; `NON_CANONICAL` for a zero digest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn task_set_digest(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Digest32> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(frozen) = crate::state::current_slice(set.records) {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<(&'static [u8], SetBinding, Digest32)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((bytes, bound, digest)) = decoded.as_ref() {
+            if core::ptr::eq(*bytes, set.records) && bound == binding {
+                return Ok(*digest);
+            }
+        }
+        let digest = task_set_digest_uncached(binding, set)?;
+        *decoded = crate::guest_cell::Cached::Value((frozen, *binding, digest));
+        return Ok(digest);
+    }
+    task_set_digest_uncached(binding, set)
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn task_set_digest_uncached(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Digest32> {
     let count = u16::try_from(set.len()).map_err(|_| ARITHMETIC)?;
     Digest32::new(codec::sha256([
         TASK_SET_DOMAIN,
@@ -298,6 +374,7 @@ pub struct Receipt {
     pub digest: ResultDigest,
 }
 impl Receipt {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn new(
         binding: &SetBinding,
         revision: u64,
@@ -306,9 +383,11 @@ impl Receipt {
     ) -> CodecResult<Self> {
         let mut bytes = [0; RECEIPT_MAX_BYTES];
         let mut w = Writer::new(&mut bytes);
-        w.put(binding.market.as_bytes())?;
-        w.u64(revision)?;
-        w.put(request.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: binding.market.as_bytes();
+            u64: revision;
+            id32: request.as_bytes();
+        )?;
         w.u16(operation.selector())?;
         w.u64(binding.config.get())?;
         w.presence(&Presence::Present(binding.policy), |out, policy| {
@@ -346,8 +425,13 @@ pub enum Outcome {
 }
 
 /// Committed F01 section of `state`; its header revision must equal the shared revision.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -356,19 +440,19 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 
 /// Binding of the currently opened epoch and the validated reward state recording its roster,
 /// reusing `known` when it is that state.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn set_binding<'a>(
     state: &SharedState<'a>,
     section: &PolicySection<'_>,
-    known: Option<RewardState<'a>>,
-) -> CodecResult<(SetBinding, RewardState<'a>)> {
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    _known: Option<RewardState<'a>>,
+) -> CodecResult<SetBinding> {
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
+    )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
+        .row;
     let binding = SetBinding {
         market: section.header.market_id,
         epoch,
@@ -376,14 +460,37 @@ fn set_binding<'a>(
         policy: section.current.digest()?,
         roster: row.roster,
     };
-    Ok((binding, rewards))
+    Ok(binding)
 }
 
 /// Clock epoch of the records of `set`, which must all agree.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn records_epoch(set: &TaskSet<'_>, origin: u64) -> CodecResult<Option<u64>> {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(frozen) = crate::state::current_slice(set.records) {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<(&'static [u8], u64, Option<u64>)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((bytes, height, epoch)) = decoded.as_ref() {
+            if core::ptr::eq(*bytes, set.records) && *height == origin {
+                return Ok(*epoch);
+            }
+        }
+        let epoch = records_epoch_uncached(set, origin)?;
+        *decoded = crate::guest_cell::Cached::Value((frozen, origin, epoch));
+        return Ok(epoch);
+    }
+    records_epoch_uncached(set, origin)
+}
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn records_epoch_uncached(set: &TaskSet<'_>, origin: u64) -> CodecResult<Option<u64>> {
     let mut epoch = None;
-    for binding in set.bindings() {
-        let last = binding?.deadline.checked_sub(1).ok_or(NON_CANONICAL)?;
+    for bytes in set.records.chunks_exact(TASK_BINDING_BYTES) {
+        // TaskSet::decode already checked every record; read only the deadline here.
+        let mut reader = Reader::new(bytes);
+        reader.take(4 * 32)?;
+        let last = reader.u64()?.checked_sub(1).ok_or(NON_CANONICAL)?;
         let clock = market_clock(origin, last)?.epoch;
         if epoch.is_some_and(|e| e != clock) {
             return Err(NON_CANONICAL);
@@ -394,6 +501,7 @@ fn records_epoch(set: &TaskSet<'_>, origin: u64) -> CodecResult<Option<u64>> {
 }
 
 /// The task set of the opened epoch over the stored region.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn current_view<'a>(
     region: &'a [u8],
     origin: u64,
@@ -420,6 +528,7 @@ fn current_view<'a>(
 ///
 /// # Errors
 /// Propagates region decode refusals; returns `WRONG_PHASE` for an unsealed nonempty set.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn region_after_open(region: &[u8]) -> CodecResult<&'static [u8]> {
     let set = TaskSet::decode(region)?;
     if set.is_empty() || set.seal.is_some() {
@@ -430,13 +539,14 @@ pub fn region_after_open(region: &[u8]) -> CodecResult<&'static [u8]> {
 }
 
 /// Binding and task set of `epoch`, which must be the currently opened epoch.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn epoch_view<'a>(
     state: &SharedState<'a>,
     epoch: u64,
     known: Option<RewardState<'a>>,
 ) -> CodecResult<(SetBinding, Option<TaskSet<'a>>)> {
     let section = committed(state)?;
-    let (binding, _) = set_binding(state, &section, known)?;
+    let binding = set_binding(state, &section, known)?;
     if binding.epoch != epoch {
         return Err(WRONG_EPOCH);
     }
@@ -446,6 +556,7 @@ fn epoch_view<'a>(
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn verified_seal(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Option<Digest32>> {
     match set.seal {
         Some(seal) if task_set_digest(binding, set)? != seal => Err(NON_CANONICAL),
@@ -460,11 +571,13 @@ fn verified_seal(binding: &SetBinding, set: &TaskSet<'_>) -> CodecResult<Option<
 /// Returns `F09_EVIDENCE_TASK_SET_UNSEALED` when the set of `epoch` has not been sealed;
 /// `WRONG_EPOCH` for another epoch; `NON_CANONICAL` for an inconsistent state or a stored seal
 /// that does not match its records.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn sealed_task_set(state: &SharedState<'_>, epoch: u64) -> CodecResult<Digest32> {
     sealed_task_set_with(state, epoch, None)
 }
 
 /// [`sealed_task_set`] reusing the reward state `known` the caller already validated.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn sealed_task_set_with<'a>(
     state: &SharedState<'a>,
     epoch: u64,
@@ -481,6 +594,7 @@ pub(crate) fn sealed_task_set_with<'a>(
 /// # Errors
 /// Returns `WRONG_PHASE` for a nonempty unsealed set; `WRONG_EPOCH` for another epoch;
 /// `NON_CANONICAL` for an inconsistent state or a stored seal that does not match its records.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn terminal_task_set(state: &SharedState<'_>, epoch: u64) -> CodecResult<Digest32> {
     let (binding, set) = epoch_view(state, epoch, None)?;
     let set = set.ok_or(WRONG_PHASE)?;
@@ -494,7 +608,8 @@ pub fn terminal_task_set(state: &SharedState<'_>, epoch: u64) -> CodecResult<Dig
 struct Opened<'a> {
     state: SharedState<'a>,
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
+    admission: AdmissionTable,
+    row: crate::rewards::CommittedRow<'a>,
     binding: SetBinding,
     set: TaskSet<'a>,
 }
@@ -504,15 +619,30 @@ impl Opened<'_> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
-    let (binding, rewards) = set_binding(&state, &section, None)?;
+    let table = crate::reputation_transition::framed_admission_table(
+        state.section(Section::ReputationAdmission)?,
+    )?;
+    let admission = AdmissionTable::decode(table)?;
+    let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
+    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let binding = SetBinding {
+        market: section.header.market_id,
+        epoch,
+        config: Version::new(section.header.active_config_version)?,
+        policy: section.current.digest()?,
+        roster: row.row.roster,
+    };
     let set = current_view(section.task_region, section.header.origin_height, &binding)?;
     Ok(Opened {
         state,
         section,
-        rewards,
+        admission,
+        row,
         binding,
         set,
     })
@@ -550,6 +680,7 @@ impl Call<'_> {
         Ok(())
     }
     /// Execution height inside the opened epoch's Work window.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_work(&self) -> CodecResult<EpochWindows> {
         let clock = market_clock(self.opened.header().origin_height, self.ctx.height)?;
         if clock.epoch != self.opened.binding.epoch {
@@ -560,6 +691,7 @@ impl Call<'_> {
         }
         Ok(clock.windows)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_open_lifecycle(&self) -> CodecResult<()> {
         if self.opened.header().lifecycle == CLOSED {
             Err(F01_LIFECYCLE_CLOSED)
@@ -620,6 +752,7 @@ fn write_binding(
 
 /// Commits the region in `buffers.region[..region_len]` at the next revision, records a role
 /// request when present, and emits the event.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn finish(
     call: &Call<'_>,
     region_len: usize,
@@ -639,28 +772,18 @@ fn finish(
     let revision = opened.state.revision.checked_add(1).ok_or(ARITHMETIC)?;
     let mut section = opened.section;
     section.task_region = region.get(..region_len).ok_or(CAPACITY)?;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
-    let mut candidate = opened
-        .state
-        .replace_section(Section::PolicyLifecycle, policy)?;
     let receipt = Receipt::new(&opened.binding, revision, e.request, e.operation)?;
-    match replay {
-        Some(request) => {
-            if candidate.record_success(request, call.ctx.height, receipt.digest)?
-                != ReplayDecision::Apply
-            {
-                return Err(NON_CANONICAL);
-            }
-        }
-        None => candidate.revision = revision,
-    }
-    if candidate.revision != revision {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (_, state_len) = crate::rewards::finish_feature_transition(
+        opened.state.clone(),
+        section,
+        replay,
+        call.ctx.height,
+        receipt.digest,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
         e.operation,
         &EventCommon {
@@ -696,6 +819,7 @@ struct AdmitBody {
     digest: Digest32,
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
     let mut r = Reader::new(payload);
     let body = AdmitBody {
@@ -717,14 +841,19 @@ fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
 
 /// R041 frozen-worker binding: the worker is frozen in the opened epoch, its operating
 /// authority is current and unrevoked, and the claimed metadata reproduces the frozen roster.
-fn check_frozen_worker(
-    state: &SharedState<'_>,
-    rewards: &RewardState<'_>,
-    binding: &SetBinding,
-    body: &AdmitBody,
-    height: u64,
-) -> CodecResult<()> {
-    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn check_frozen_worker(opened: &Opened<'_>, body: &AdmitBody, height: u64) -> CodecResult<()> {
+    let state = &opened.state;
+    let binding = &opened.binding;
+    let region =
+        crate::evaluators::authority::evaluator_region(state.section(Section::IdentityRoster)?)?;
+    let captured = crate::epoch::captured_roster_row(
+        &opened.admission,
+        &opened.section,
+        &region,
+        opened.row.row,
+        opened.row.dictionary,
+    )?;
     if captured.binding.epoch != binding.epoch
         || captured.binding.roster != binding.roster
         || captured.binding.config != binding.config
@@ -732,8 +861,6 @@ fn check_frozen_worker(
     {
         return Err(WRONG_ROSTER);
     }
-    // The reserve and captured roster were cross-checked together by captured_roster.
-    rewards.row(binding.epoch)?;
     let target = captured
         .workers()
         .iter()
@@ -742,15 +869,14 @@ fn check_frozen_worker(
     if body.metadata != target.metadata {
         return Err(WRONG_ROSTER);
     }
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let record = live.get(body.worker).ok_or(NON_CANONICAL)?;
     crate::workers::check_opened_admission(&record, target, binding.epoch, height)?;
-    let (_, table) = crate::reputation_transition::split_joint(
-        state.feature_sections[Section::ReputationAdmission.index()],
-    )?;
-    let admission = AdmissionTable::decode(table)?;
-    if admission
+    if opened
+        .admission
         .get(Participant::Worker(body.worker))
         .is_none_or(|m| m.revoked())
     {
@@ -760,6 +886,7 @@ fn check_frozen_worker(
 }
 
 /// `ADMIT_TASK` (0x010C): object-local by the requester principal.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let body = parse_admit(e.payload)?;
@@ -797,11 +924,8 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     }
     let windows = call.check_work()?;
     let height = call.ctx.height;
-    check_frozen_worker(&opened.state, &opened.rewards, binding, &body, height)?;
-    let (_, table) = crate::reputation_transition::split_joint(
-        opened.state.feature_sections[Section::ReputationAdmission.index()],
-    )?;
-    crate::roster::require_quorum(&AdmissionTable::decode(table)?)?;
+    check_frozen_worker(opened, &body, height)?;
+    crate::roster::require_quorum(&opened.admission)?;
     let policy = &opened.section.current;
     if opened.set.len() >= usize::from(policy.max_tasks_per_epoch) {
         return Err(F01_NO_TASK_CAPACITY);
@@ -833,6 +957,7 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     finish(call, region_len, None, &suffix, buffers)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn task_id(payload: &[u8]) -> CodecResult<TaskId> {
     let mut r = Reader::new(payload);
     let task = r.task_id()?;
@@ -841,6 +966,7 @@ fn task_id(payload: &[u8]) -> CodecResult<TaskId> {
 }
 
 /// The opened epoch's record of `task`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn find(call: &Call<'_>, task: TaskId) -> CodecResult<(usize, TaskBinding)> {
     match call.opened.set.position(task)? {
         (index, Some(binding)) => Ok((index, binding)),
@@ -849,6 +975,7 @@ fn find(call: &Call<'_>, task: TaskId) -> CodecResult<(usize, TaskBinding)> {
 }
 
 /// `CANCEL_TASK` (0x010E): object-local by the task's requester.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn cancel(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let task = task_id(e.payload)?;
@@ -888,6 +1015,7 @@ fn cancel(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     finish(call, region_len, None, &record, buffers)
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecResult<()> {
     verify_digest(key, signature, digest.bytes()).map_err(|e| match e {
         VerificationError::Application(a) => a,
@@ -897,9 +1025,14 @@ fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecRe
 }
 
 /// The task's worker principal natively, or its current enrolled signing delegate.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authenticate_worker(call: &Call<'_>, worker: WorkerId) -> CodecResult<WorkerCurrent> {
     let e = call.e();
-    let identity = call.opened.state.feature_sections[Section::IdentityRoster.index()];
+    let identity = *call
+        .opened
+        .state
+        .feature_sections
+        .guest_index(Section::IdentityRoster.index());
     let record = WorkerTable::decode(split_identity_section(identity)?.0)?
         .get(worker)
         .ok_or(F01_WRONG_WORKER)?;
@@ -931,6 +1064,7 @@ fn authenticate_worker(call: &Call<'_>, worker: WorkerId) -> CodecResult<WorkerC
 }
 
 /// Role replay request under the worker's actor slot.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn worker_request(call: &Call<'_>, record: &WorkerCurrent) -> CodecResult<ReplayRequest> {
     let slot = ActorSlot::worker(usize::from(record.slot))?;
     let actor = call
@@ -947,6 +1081,7 @@ fn worker_request(call: &Call<'_>, record: &WorkerCurrent) -> CodecResult<Replay
 }
 
 /// R042/R043 status step of an accepted or committed result.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn advance_status(
     operation: Operation,
     record: &TaskBinding,
@@ -972,6 +1107,7 @@ fn advance_status(
 
 /// `ACCEPT_TASK` (0x010D) and `COMMIT_TASK_RESULT` (0x010F): role-sequenced by the task's
 /// worker or its delegate.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn worker_step(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let mut r = Reader::new(e.payload);
@@ -1001,6 +1137,7 @@ fn worker_step(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
 }
 
 /// `SEAL_TASK_SET` (0x0110): permissionless, object-local, at or after Work end.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn seal(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let e = call.e();
     let mut r = Reader::new(e.payload);
@@ -1061,6 +1198,7 @@ fn seal(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
 /// replay refusals; `F01_STALE_REVISION`; `F01_TASK_ALREADY_ACCEPTED`; `CONFLICT` for a seal
 /// whose expected digest differs; `F01_CAPACITY_UNAVAILABLE` and `CAPACITY`. On any error
 /// `current` is unchanged and the outputs must be discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

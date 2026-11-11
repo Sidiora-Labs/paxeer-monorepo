@@ -13,10 +13,16 @@ pub mod fixtures {
     use sha2::{Digest as _, Sha256};
     const SEQUENCER_MODULE_ID: u16 = 12;
 
-    pub const TX_HASH: [u8; 32] = [3; 32];
+    pub const TX_HASH: [u8; 32] = [
+        0xe4, 0xdd, 0x02, 0x96, 0x01, 0x28, 0xef, 0x55, 0x00, 0x3e, 0x3e, 0x04, 0xe7, 0x8e, 0x49,
+        0x3c, 0x66, 0xc6, 0x93, 0x5e, 0x17, 0x8a, 0xb4, 0xe8, 0xf4, 0x7d, 0xaa, 0x23, 0x33, 0x45,
+        0x9e, 0x38,
+    ];
     pub const IDEMPOTENCY_KEY: [u8; 32] = [9; 32];
     pub const CHAIN_ID: &str = "paxeer-test-125";
 
+    /// # Panics
+    /// Panics if the supplied result is an error.
     pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
         result.unwrap_or_else(|error| panic!("{error:?}"))
     }
@@ -35,7 +41,7 @@ pub mod fixtures {
         batch_id[24..].copy_from_slice(&height.to_be_bytes());
         Fields {
             version: PROTOCOL_VERSION,
-            activity_id: [3; 32],
+            activity_id: TX_HASH,
             batch_id,
             key_id,
             module_id: SEQUENCER_MODULE_ID,
@@ -57,7 +63,8 @@ pub mod fixtures {
         )
         .into();
         let empty_digest: [u8; 32] = Sha256::digest([]).into();
-        let fee_asset: [u8; 32] = Sha256::digest(b"upax").into();
+        let payment_denom = "upax";
+        let fee_asset: [u8; 32] = Sha256::digest(payment_denom.as_bytes()).into();
         let mut from = [0; 32];
         from[12..].fill(6);
         let mut to = [0; 32];
@@ -130,6 +137,7 @@ pub mod fixtures {
         encode_fields(fields, Some(key.sign(&digest).to_bytes()))
     }
 
+    #[must_use = "use the constructed fixture value"]
     pub fn receipt() -> (Vec<u8>, ReceiptKeyEntry) {
         let signer = SigningKey::from_bytes(&[8; 32]);
         let fields = fields(7, [1; 32]);
@@ -144,18 +152,223 @@ pub mod fixtures {
         )
     }
 
-    pub fn block() -> SequencerBlock {
-        SequencerBlock {
-            number: 7,
-            hash: [17; 32],
-            parent_hash: [16; 32],
-            timestamp: 1_000,
-            transactions_root: [18; 32],
-            receipts_root: [20; 32],
-            transactions: Vec::new(),
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
+    pub fn transaction() -> Vec<u8> {
+        let raw = must(
+            layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: 125,
+                nonce: 7,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                gas_limit: 21_000,
+                to: [7; 20],
+                data: Vec::new(),
+            }
+            .sign(&[6; 32]),
+        );
+        assert_eq!(
+            layerx_crypto::evm_transaction::transaction_hash(&raw),
+            TX_HASH
+        );
+        raw
+    }
+
+    #[must_use = "use the constructed fixture value"]
+    pub fn header(validators: &[Validator]) -> layerx_agentd::read::CheckpointHeader {
+        use layerx_agentd::read::{
+            validator_set_hash, CheckpointHeader, CommitTimestamp, CommitValidator,
+        };
+        let validators: Vec<_> = validators
+            .iter()
+            .map(|validator| CommitValidator {
+                address: validator_address(&validator.public_key),
+                public_key: validator.public_key,
+                voting_power: validator.voting_power,
+            })
+            .collect();
+        CheckpointHeader {
+            version_block: 11,
+            version_app: 1,
+            chain_id: CHAIN_ID.to_owned(),
+            height: 7,
+            time: CommitTimestamp {
+                seconds: 1000,
+                nanos: 0,
+            },
+            last_block_id: None,
+            last_commit_hash: None,
+            data_hash: Some(layerx_programs::chain_proof::merkle::hash_from_byte_slices(
+                &[&Sha256::digest(transaction())],
+            )),
+            validators_hash: validator_set_hash(&validators),
+            next_validators_hash: validator_set_hash(&validators),
+            consensus_hash: [2; 32],
+            app_hash: [18; 32],
+            last_results_hash: Some([20; 32]),
+            evidence_hash: None,
+            proposer_address: validators[0].address,
         }
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
+    pub fn block_for(validators: &[Validator]) -> SequencerBlock {
+        use layerx_client::sequencer::SequencerEndpoint;
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+        use serde_json::{json, Value};
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::net::TcpListener;
+        use std::time::Duration;
+
+        let header = header(validators);
+        let hash = header.block_hash();
+        let raw = transaction();
+        let (call, signature) = must(decode_signed(&raw));
+        let quantity = |bytes: &[u8]| {
+            let text = hex::encode(bytes);
+            format!("0x{}", text.trim_start_matches('0'))
+        };
+        let parity = signature.as_bytes()[64] - 27;
+        let response = json!({
+            "number": "0x7", "hash": format!("0x{}", hex::encode(hash)),
+            "parentHash": format!("0x{}", hex::encode([16; 32])), "timestamp": "0x3e8",
+            "transactionsRoot": format!("0x{}", hex::encode(assert_some(header.data_hash, "expected Some value"))),
+            "receiptsRoot": format!("0x{}", hex::encode([20; 32])),
+            "transactions": [{
+                "blockHash": format!("0x{}", hex::encode(hash)), "blockNumber": "0x7",
+                "from": format!("0x{}", hex::encode(must(recover_sender(&call, &signature)))),
+                "gas": format!("{:#x}", call.gas_limit), "gasPrice": "0x1",
+                "hash": format!("0x{}", hex::encode(TX_HASH)), "input": "0x",
+                "nonce": format!("{:#x}", call.nonce), "to": format!("0x{}", hex::encode(call.to)),
+                "transactionIndex": "0x0", "value": "0x0", "type": "0x2",
+                "v": format!("{parity:#x}"), "yParity": format!("{parity:#x}"),
+                "r": quantity(&signature.as_bytes()[..32]), "s": quantity(&signature.as_bytes()[32..64]),
+                "accessList": [], "chainId": format!("{:#x}", call.chain_id),
+                "maxFeePerGas": format!("{:#x}", call.max_fee_per_gas),
+                "maxPriorityFeePerGas": format!("{:#x}", call.max_priority_fee_per_gas)
+            }]
+        });
+        let listener = must(TcpListener::bind("127.0.0.1:0"));
+        let endpoint = must(SequencerEndpoint::new(
+            &format!("http://{}/", must(listener.local_addr())),
+            &[],
+        ));
+        let server = std::thread::spawn(move || {
+            let (stream, _) = must(listener.accept());
+            must(stream.set_read_timeout(Some(Duration::from_secs(5))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(5))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(must(value.trim().parse::<usize>()));
+                }
+            }
+            let length = assert_some(length, "expected Some value");
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body));
+            let request: Value = must(serde_json::from_slice(&body));
+            assert_eq!(request["method"], "eth_getBlockByNumber");
+            assert_eq!(request["params"], json!(["0x7", true]));
+            let body =
+                json!({"jsonrpc":"2.0", "id": request["id"], "result": response}).to_string();
+            let mut stream = reader.into_inner();
+            must(write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            ));
+            must(stream.flush());
+        });
+        let block = assert_some(
+            must(endpoint.block_by_number(header.height)),
+            "expected Some value",
+        );
+        must(server.join());
+        assert_eq!(block.number, header.height);
+        assert_eq!(block.hash, hash);
+        assert_eq!(block.transactions, vec![raw]);
+        block
+    }
+
+    /// # Panics
+    /// Panics if the fixture block, commit, or validator set disagrees with its authenticated header.
+    pub fn assert_fixture_binding(
+        header: &layerx_agentd::read::CheckpointHeader,
+        commit: &BlockCommit,
+        block: &SequencerBlock,
+        validators: &[Validator],
+    ) {
+        use layerx_agentd::read::{validator_set_hash, CommitTimestamp, CommitValidator};
+        assert_eq!(header.height, block.number);
+        assert_eq!(commit.height, block.number);
+        assert_eq!(header.chain_id, CHAIN_ID);
+        assert_eq!(header.version_block, 11);
+        let trusted: Vec<_> = validators
+            .iter()
+            .map(|validator| CommitValidator {
+                address: validator_address(&validator.public_key),
+                public_key: validator.public_key,
+                voting_power: validator.voting_power,
+            })
+            .collect();
+        assert_eq!(header.validators_hash, validator_set_hash(&trusted));
+        assert_eq!(header.block_hash(), commit.block_hash);
+        assert_eq!(block.hash, commit.block_hash);
+        assert!(!block.transactions.is_empty());
+        assert_eq!(block.transactions, vec![transaction()]);
+        let leaves: Vec<_> = block
+            .transactions
+            .iter()
+            .map(|raw| Sha256::digest(raw).to_vec())
+            .collect();
+        let leaves: Vec<_> = leaves.iter().map(Vec::as_slice).collect();
+        assert_eq!(
+            header.data_hash,
+            Some(layerx_programs::chain_proof::merkle::hash_from_byte_slices(
+                &leaves
+            ))
+        );
+        let native = layerx_agentd::read::BlockCommit {
+            height: commit.height,
+            round: commit.round,
+            block_id: layerx_agentd::read::BlockId {
+                hash: commit.block_hash,
+                part_set_total: commit.part_set_total,
+                part_set_hash: commit.part_set_hash,
+            },
+            votes: Vec::new(),
+        };
+        for signature in &commit.signatures {
+            let timestamp = CommitTimestamp {
+                seconds: signature.timestamp_seconds,
+                nanos: signature.timestamp_nanos,
+            };
+            assert_eq!(
+                must(commit.vote_sign_bytes(CHAIN_ID, timestamp.seconds, timestamp.nanos)),
+                native.vote_sign_bytes(CHAIN_ID, timestamp),
+            );
+        }
+    }
+
+    #[must_use = "use the constructed fixture value"]
+    pub fn block() -> SequencerBlock {
+        let (_, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
+        block_for(&validators)
+    }
+
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn commit(powers: &[u64], signers: &[usize]) -> (BlockCommit, Vec<Validator>) {
         let keys: Vec<_> = powers
             .iter()
@@ -166,7 +379,7 @@ pub mod fixtures {
                 )
             })
             .collect();
-        let validators = keys
+        let validators: Vec<Validator> = keys
             .iter()
             .zip(powers)
             .map(|(key, power)| Validator {
@@ -177,7 +390,7 @@ pub mod fixtures {
         let mut commit = BlockCommit {
             height: 7,
             round: 0,
-            block_hash: block().hash,
+            block_hash: header(&validators).block_hash(),
             part_set_total: 1,
             part_set_hash: [19; 32],
             signatures: Vec::new(),
@@ -194,6 +407,14 @@ pub mod fixtures {
             });
         }
         (commit, validators)
+    }
+
+    #[track_caller]
+    fn assert_some<T>(value: Option<T>, message: &str) -> T {
+        match value {
+            Some(value) => value,
+            None => panic!("{message}"),
+        }
     }
 }
 
@@ -296,6 +517,111 @@ fn receipt_signed_by_unpublished_key_does_not_reach_receipted() {
 #[test]
 fn committed_requires_more_than_two_thirds_voting_power() {
     let (receipt, key) = receipt();
+    assert_quorum_thresholds(&receipt, key);
+    let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
+    must(submission.observe_receipt(&receipt, &[key]));
+    let (mut forged, validators) = commit(&[1, 1, 1], &[0, 1]);
+    forged.signatures.push(forged.signatures[0].clone());
+    assert!(matches!(
+        submission.observe_block_with_header(
+            &block_for(&validators),
+            &forged,
+            &header(&validators),
+            CHAIN_ID,
+            &validators
+        ),
+        Err(FinalityError::InvalidCommit)
+    ));
+    let (mut forged, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
+    forged.signatures[0].signature[0] ^= 1;
+    assert!(matches!(
+        submission.observe_block_with_header(
+            &block_for(&validators),
+            &forged,
+            &header(&validators),
+            CHAIN_ID,
+            &validators
+        ),
+        Err(FinalityError::InvalidCommit)
+    ));
+    let (valid, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
+    assert!(matches!(
+        submission.observe_block_with_header(
+            &block_for(&validators),
+            &valid,
+            &header(&validators),
+            "other-chain",
+            &validators
+        ),
+        Err(FinalityError::InvalidCommit)
+    ));
+    let mut wrong_block = block();
+    wrong_block.number = 6;
+    assert!(matches!(
+        submission.observe_block_with_header(
+            &wrong_block,
+            &valid,
+            &header(&validators),
+            CHAIN_ID,
+            &validators
+        ),
+        Err(FinalityError::InvalidCommit)
+    ));
+    wrong_block = block();
+    wrong_block.hash[0] ^= 1;
+    assert!(matches!(
+        submission.observe_block_with_header(
+            &wrong_block,
+            &valid,
+            &header(&validators),
+            CHAIN_ID,
+            &validators
+        ),
+        Err(FinalityError::InvalidCommit)
+    ));
+    assert_eq!(
+        must(submission.rung_at(IDEMPOTENCY_KEY, 0)),
+        Rung::Receipted
+    );
+}
+
+#[test]
+fn empty_or_unrelated_block_cannot_promote_a_receipt() {
+    let (receipt, key) = receipt();
+    let (commit, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
+    let header = header(&validators);
+    for mutation in ["empty", "foreign", "missing-header"] {
+        let mut progress = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
+        must(progress.observe_receipt(&receipt, &[key]));
+        let mut block = block_for(&validators);
+        let result = match mutation {
+            "empty" => {
+                block.transactions.clear();
+                progress.observe_block_with_header(&block, &commit, &header, CHAIN_ID, &validators)
+            }
+            "foreign" => {
+                block.transactions[0] = must(
+                    layerx_crypto::evm_transaction::Eip1559Call {
+                        chain_id: 125,
+                        nonce: 8,
+                        max_priority_fee_per_gas: 1,
+                        max_fee_per_gas: 2,
+                        gas_limit: 21_000,
+                        to: [7; 20],
+                        data: vec![],
+                    }
+                    .sign(&[6; 32]),
+                );
+                progress.observe_block_with_header(&block, &commit, &header, CHAIN_ID, &validators)
+            }
+            _ => progress.observe_block(&block, &commit, CHAIN_ID, &validators),
+        };
+        assert!(matches!(result, Err(FinalityError::InvalidCommit)));
+        assert_eq!(must(progress.rung_at(IDEMPOTENCY_KEY, 0)), Rung::Receipted);
+    }
+}
+
+fn assert_quorum_thresholds(receipt: &[u8], key: layerx_client::sequencer::ReceiptKeyEntry) {
     for (powers, signers, accepted) in [
         (vec![1, 1, 1], vec![0, 1], false),
         (vec![1, 1, 1, 1], vec![0, 1, 2], true),
@@ -305,15 +631,19 @@ fn committed_requires_more_than_two_thirds_voting_power() {
         (
             vec![u64::MAX, u64::MAX, u64::MAX, u64::MAX],
             vec![0, 1, 2],
-            true,
+            false,
         ),
     ] {
         let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
-        must(submission.observe_receipt(&receipt, &[key]));
+        must(submission.observe_receipt(receipt, &[key]));
         let (commit, validators) = commit(&powers, &signers);
-        let result = submission.observe_block(&block(), &commit, CHAIN_ID, &validators);
+        let block = block_for(&validators);
+        let header = header(&validators);
+        assert_fixture_binding(&header, &commit, &block, &validators);
+        let result =
+            submission.observe_block_with_header(&block, &commit, &header, CHAIN_ID, &validators);
         if accepted {
-            must(result);
+            result.unwrap_or_else(|error| panic!("quorum powers {powers:?}: {error:?}"));
         } else {
             assert!(matches!(result, Err(FinalityError::InvalidCommit)));
         }
@@ -335,39 +665,28 @@ fn committed_requires_more_than_two_thirds_voting_power() {
         );
         assert_eq!(result.deadline_elapsed, !accepted);
     }
-    let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
-    must(submission.observe_receipt(&receipt, &[key]));
-    let (mut forged, validators) = commit(&[1, 1, 1], &[0, 1]);
-    forged.signatures.push(forged.signatures[0].clone());
-    assert!(matches!(
-        submission.observe_block(&block(), &forged, CHAIN_ID, &validators),
-        Err(FinalityError::InvalidCommit)
-    ));
-    let (mut forged, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
-    forged.signatures[0].signature[0] ^= 1;
-    assert!(matches!(
-        submission.observe_block(&block(), &forged, CHAIN_ID, &validators),
-        Err(FinalityError::InvalidCommit)
-    ));
-    let (valid, validators) = commit(&[1, 1, 1, 1], &[0, 1, 2]);
-    assert!(matches!(
-        submission.observe_block(&block(), &valid, "other-chain", &validators),
-        Err(FinalityError::InvalidCommit)
-    ));
-    let mut wrong_block = block();
-    wrong_block.number = 6;
-    assert!(matches!(
-        submission.observe_block(&wrong_block, &valid, CHAIN_ID, &validators),
-        Err(FinalityError::InvalidCommit)
-    ));
-    wrong_block = block();
-    wrong_block.hash[0] ^= 1;
-    assert!(matches!(
-        submission.observe_block(&wrong_block, &valid, CHAIN_ID, &validators),
-        Err(FinalityError::InvalidCommit)
-    ));
-    assert_eq!(
-        must(submission.rung_at(IDEMPOTENCY_KEY, 0)),
-        Rung::Receipted
-    );
+    for (powers, signers, quorum) in [
+        (vec![u64::MAX; 3], vec![0, 1], false),
+        (vec![u64::MAX; 4], vec![0, 1, 2], true),
+    ] {
+        let (commit, validators) = commit(&powers, &signers);
+        let block = block_for(&validators);
+        let verified =
+            layerx_agentd::finality::VerifiedBlock::verify(&block, &commit, CHAIN_ID, &validators);
+        if quorum {
+            must(verified);
+        } else {
+            assert!(matches!(verified, Err(FinalityError::InvalidCommit)));
+        }
+        let mut submission = SubmissionProgress::accepted(IDEMPOTENCY_KEY, TX_HASH);
+        must(submission.observe_receipt(receipt, &[key]));
+        assert!(matches!(
+            submission.observe_block(&block, &commit, CHAIN_ID, &validators),
+            Err(FinalityError::InvalidCommit),
+        ));
+        assert_eq!(
+            must(submission.rung_at(IDEMPOTENCY_KEY, 0)),
+            Rung::Receipted
+        );
+    }
 }

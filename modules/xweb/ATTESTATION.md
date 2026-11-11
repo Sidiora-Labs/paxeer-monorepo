@@ -178,10 +178,13 @@ Vector `evm-api-single` (origin 1):
 
 The shared
 [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
-still contains the historical origin-1 compatibility corpus. Its legacy
-digests and signatures below identify those archived bytes; they are not
-chain-125 signing examples. Updating that corpus and its cross-language
-consumers requires a separate scope.
+contains frozen compatibility vectors for the historical origin-1 test chain;
+origin-2 network id `1` is a fixture value. The M-1251 repair preserves this
+corpus byte for byte. Keeper compatibility tests explicitly configure that
+historical test chain, while live origin-1 signing reads the EVM chain id from
+chain state. The legacy digests and signatures below identify those archived
+bytes; they are not chain-125 signing examples. Updating that corpus and its
+cross-language consumers requires a separate scope.
 
 - `evm-fetch`: digest `0x21e2a70f243f13f7e2b72d14cc842c5f6b1779b532144b01c1d61d47b886a0be`, signature `0x1e95bb99402e2ae4b06e98eb3ce29a00973ce759afeac27c3d0253ebba3211a7555a8954e3d0d46bce57952e7648f08acbb3f84f2a1741056974a3e96c7961611b`.
 - `evm-api-single`: digest `0x18ef556323e81c5d30bff202abbf20910cc82809cf280e08279e658441ac865e`, signature `0x9144452b00ca7e3d2ff7909a87bc504d45409126175bee22aacf06eb64e8470e0ad0adf0f3c1b1c2ebb9887ae5fb5b293bdb0cbea5462f9bc54500064f7bbd9f1c`.

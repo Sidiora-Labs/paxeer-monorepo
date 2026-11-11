@@ -13,6 +13,10 @@
 | `gateway` | `gateway`, `services/platform/hosted/gateway/deployment.yaml` |
 | `paxeer` | `paxeer-boundary` (9443), tracked boundary workload `paxeer` in `services/platform/hosted/paxeer/deployment.yaml` |
 
+The hosted receipt service remains a readiness dependency for payment and receipt
+inspection; proof verification still uses the node receipt and independently
+trusted receipt keys described below.
+
 The tracked Paxeer manifest also declares `paxeer-observer-boundary:9443`, targeting the `observer-https` listener on 9444. Both boundary listeners use the same local native node at `http://127.0.0.1:8545`; the observer endpoint does not represent an independent chain. The deployment command validates and emits this boundary manifest; `node/deployment.yaml` remains the source of native node facts.
 
 `GET /readyz` reports those dependencies and exactly three journeys. Each journey is ready only when every dependency in its row is reachable. Its admission endpoint returns HTTP 200 with `admitted: true` when ready, or HTTP 503 with `admitted: false` and the failing dependency names otherwise.
@@ -31,7 +35,10 @@ The Redis StatefulSet uses TLS, ACL authentication, an AOF with `appendfsync alw
 
 The reset CronJob runs each Tuesday at 09:00 UTC, while `reset-testnet.sh` executes only on days 1 through 7 and uses one idempotency key per calendar month. The status CronJob publishes only the redacted four-component document from `/v1/status`. Use `platform-hosted-smoke` from scheduled CI to fund an account, commit a payment, fetch its receipt and verify it independently; this requires real hosted credentials and is not a deployment health probe.
 
-The smoke entry point is `tests/hosted-smoke.sh`. Supply HTTPS origins in `LAYERX_TESTNET_URL`, `LAYERX_GATEWAY_URL` and `LAYERX_FAUCET_URL`, and the trusted CA PEM in `LAYERX_TEST_CA_FILE`. Supply separate identity sessions in `LAYERX_TEST_AUTH_TOKEN_FILE` and `LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE`, the corresponding `LAYERX_TEST_SOURCE_DID`, `LAYERX_TEST_SOURCE_PUBLIC_KEY`, `LAYERX_TEST_DESTINATION_DID` and `LAYERX_TEST_DESTINATION_PUBLIC_KEY`, and the source secp256k1 signer in `LAYERX_TEST_SOURCE_KEY_FILE`. The signer must match the source identity's bound EVM address. Secret files must be owned by the caller, mode 0600, regular files with one link. The credential step writes separate source/destination session curl configurations and a signer-bound gateway key configuration.
+The smoke entry point is `tests/hosted-smoke.sh`. Supply HTTPS origins in `LAYERX_TESTNET_URL`, `LAYERX_GATEWAY_URL` and `LAYERX_FAUCET_URL`, and the trusted CA PEM in `LAYERX_TEST_CA_FILE`. Supply separate identity sessions in `LAYERX_TEST_AUTH_TOKEN_FILE` and `LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE`, the corresponding `LAYERX_TEST_SOURCE_DID`, `LAYERX_TEST_SOURCE_PUBLIC_KEY`, `LAYERX_TEST_DESTINATION_DID` and `LAYERX_TEST_DESTINATION_PUBLIC_KEY`, and the source secp256k1 signer in `LAYERX_TEST_SOURCE_KEY_FILE`. The signer must match the source identity's bound EVM address.
+Supply `LAYERX_TEST_ACCOUNTS_FILE` with the explicit DID to EVM smoke account bindings in `smoke-accounts.json`, written by `tests/smoke_accounts.py`.
+Supply `LAYERX_TEST_SOURCE_EVM_KEY_FILE` with the paying EVM signer's PEM key file, `test-source-evm.key`, written by the same helper.
+Secret files must be owned by the caller, mode 0600, regular files with one link. The credential step writes separate source/destination session curl configurations and a signer-bound gateway key configuration.
 
 Set `LAYERX_TEST_ASSET=uhpx` and `LAYERX_TEST_AMOUNT` to a positive canonical integer in native micro-units. `tests/payment-journey.py` accepts `--evm-chain-id 125`, checks `eth_chainId`, funds both bound identities through `px_requestFunds` and reads `px_getBalances`. It signs an EIP-1559 transaction to the native bank at `0x0000000000000000000000000000000000001001`, calling `sendNative(string)` with the destination Pax address and converting each `uhpx` to `10^12` EVM value units. Submission uses `eth_sendRawTransaction`; completion requires `pax_sequencerReceipt` at the `committed` rung, exact balance/fee and nonce checks, and replay refusal with `already known`. Supply `LAYERX_TEST_SEQUENCER_PUBLIC_KEY` independently for the payment verifier. The smoke caller takes `--evm-chain-id` from `.evm_chain_id` in the parameters response.
 

@@ -780,8 +780,10 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
+ "layerx-program-sdk",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
+ "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -915,6 +917,7 @@ dependencies = [
 name = "layerx-sdk"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-client",
  "layerx-crypto",

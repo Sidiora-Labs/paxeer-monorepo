@@ -1,3 +1,5 @@
+use layerx_mcp_test_support::result_assertion;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -329,18 +331,20 @@ fn receipt_rung() {
         } else {
             SubmissionState::Executed { receipt_ref }
         };
-        let outcome = track(
-            &mut server,
-            50,
-            b"submission-1".to_vec(),
-            |_| WriteTranscript {
-                stages: vec![WriteStage::Track],
-                submission: Ok(submission(state, rung)),
-                receipt: Some(VerifiedReceipt { rung, ..receipt() }),
-            },
-            0,
-        )
-        .expect("matching daemon and receipt rungs");
+        let outcome = result_assertion::required(
+            track(
+                &mut server,
+                50,
+                b"submission-1".to_vec(),
+                |_| WriteTranscript {
+                    stages: vec![WriteStage::Track],
+                    submission: Ok(submission(state, rung)),
+                    receipt: Some(VerifiedReceipt { rung, ..receipt() }),
+                },
+                0,
+            ),
+            "matching daemon and receipt rungs",
+        );
         assert!(matches!(
             outcome,
             WriteOutcome::Executed { rung: found, receipt, .. }
@@ -348,18 +352,20 @@ fn receipt_rung() {
         ));
     }
     for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
-        let outcome = track(
-            &mut server,
-            50,
-            b"submission-1".to_vec(),
-            |_| WriteTranscript {
-                stages: vec![WriteStage::Track],
-                submission: Ok(submission(SubmissionState::Submitted, rung)),
-                receipt: None,
-            },
-            0,
-        )
-        .expect("pending daemon rung");
+        let outcome = result_assertion::required(
+            track(
+                &mut server,
+                50,
+                b"submission-1".to_vec(),
+                |_| WriteTranscript {
+                    stages: vec![WriteStage::Track],
+                    submission: Ok(submission(SubmissionState::Submitted, rung)),
+                    receipt: None,
+                },
+                0,
+            ),
+            "pending daemon rung",
+        );
         assert!(matches!(outcome, WriteOutcome::Pending { rung: found, .. } if found == rung));
     }
     let _ = fs::remove_dir_all(root);

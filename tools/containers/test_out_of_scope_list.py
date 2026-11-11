@@ -33,10 +33,12 @@ def assert_reviewed_out_of_scope(script: str) -> None:
         "core/deps/geth/Dockerfile.alltools",
         "core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile",
         "sdk/contrib/devtools/dockerfile",
-        "sdk/contrib/images/simd-dlv/Dockerfile",
         "sdk/contrib/images/simd-env/Dockerfile",
-        "sdk/contrib/rosetta/node/Dockerfile",
+        "sdk/contrib/rosetta/node/Dockerfile.historical",
+        "sdk/contrib/rosetta/node/Dockerfile.paxd",
         "sdk/contrib/rosetta/rosetta-cli/Dockerfile",
+        "tools/hyperfide/deploy/hyperfide/fleet-control/Dockerfile",
+        "tools/hyperfide/plugins/environment-modal-sandbox/Dockerfile",
         "wasm-runtime/builders/Dockerfile.alpine",
         "wasm-runtime/builders/Dockerfile.centos7",
         "wasm-runtime/builders/Dockerfile.cross",
@@ -49,8 +51,6 @@ def assert_reviewed_out_of_scope(script: str) -> None:
         "consensus/spec/ivy-proofs/Dockerfile",
         "consensus/test/e2e/docker/Dockerfile",
         "services/explorer/backend/.devcontainer/Dockerfile",
-        "storage/db_engine/litt/util/testdata/ssh-test.Dockerfile",
-        "docker/platform-node/Dockerfile",
         "docker/redis/Dockerfile",
     ]
 
@@ -58,3 +58,16 @@ def assert_reviewed_out_of_scope(script: str) -> None:
 def test_out_of_scope_omits_consensus_test_dockerfile():
     script_path = Path(__file__).resolve().with_name("check.sh")
     assert_reviewed_out_of_scope(script_path.read_text(encoding="utf-8"))
+
+
+def test_orphaned_ssh_image_fixtures_removed():
+    script_path = Path(__file__).resolve().with_name("check.sh")
+    repo_root = script_path.parents[2]
+    fixture_dir = repo_root / "storage/db_engine/litt/util/testdata"
+    for name in ("ssh-test.Dockerfile", "start.sh"):
+        fixture_path = fixture_dir / name
+        assert not fixture_path.exists()
+        assert not fixture_path.is_symlink()
+    assert "storage/db_engine/litt/util/testdata/ssh-test.Dockerfile" not in (
+        parse_out_of_scope(script_path.read_text(encoding="utf-8"))
+    )

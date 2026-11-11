@@ -24,6 +24,12 @@ use url::Url;
 use crate::programs::LayerXKeyCredential;
 use crate::{Call, Deployment, Operation};
 
+/// HTTP evidence and the decoded outcome of one recorded operation.
+pub type RecordedEnvelopeResponse = (
+    Option<(u16, Value)>,
+    Result<ApiSuccess<Value>, EnvelopeError>,
+);
+
 /// External unified-gateway route rewritten by the gateway to the daemon's `POST /rpc`.
 pub const AGENT_RPC_ROUTE: &str = "/v1/agent/rpc";
 /// The only envelope version this client produces and accepts.
@@ -107,6 +113,7 @@ pub enum EnvelopeOutcome {
     },
 }
 
+#[must_use]
 pub fn decode_response_status(
     status: u16,
     document: &Value,
@@ -305,6 +312,9 @@ pub struct AgentEnvelopeTransport {
 pub const DAEMON_RPC_ROUTE: &str = "/rpc";
 
 impl AgentEnvelopeTransport {
+    /// # Errors
+    ///
+    /// Returns `Decode` for invalid tool names or non-object arguments, and preserves envelope transport, refusal and unknown-outcome errors.
     pub fn mcp_invoke(
         &self,
         request_id: RequestId,
@@ -331,6 +341,9 @@ impl AgentEnvelopeTransport {
         )
     }
 
+    /// # Errors
+    ///
+    /// Preserves operation errors and returns `Decode` for invalid readiness fields, recovery reasons or verification status.
     pub fn tenant_readiness(
         &self,
         request_id: RequestId,
@@ -470,6 +483,9 @@ impl AgentEnvelopeTransport {
 
     /// Pins the owner's independently resolved EVM signer address for unsigned preparation.
     /// An unsigned transaction cannot authenticate its own sender.
+    /// # Errors
+    ///
+    /// Returns `InvalidCredential` for an all-zero owner or sender.
     pub fn with_native_authority(
         mut self,
         owner: [u8; 32],
@@ -483,6 +499,9 @@ impl AgentEnvelopeTransport {
     }
 
     /// Preserves successful pending and absent lookups as typed outcomes.
+    /// # Errors
+    ///
+    /// Preserves request, credential, transport, refusal and unknown-outcome errors from the operation.
     pub fn send_operation_status(
         &self,
         operation: Operation,
@@ -603,6 +622,7 @@ impl AgentEnvelopeTransport {
 
     /// Same as [`Self::send_operation`], also returning the HTTP status and parsed JSON
     /// body when a JSON response was received, for evidence retention.
+    #[must_use = "inspect the recorded HTTP evidence and operation outcome"]
     pub fn send_operation_recorded(
         &self,
         operation: Operation,
@@ -610,10 +630,7 @@ impl AgentEnvelopeTransport {
         request: &Value,
         credential: Option<&EnvelopeCredential>,
         idempotency_key: Option<Key>,
-    ) -> (
-        Option<(u16, Value)>,
-        Result<ApiSuccess<Value>, EnvelopeError>,
-    ) {
+    ) -> RecordedEnvelopeResponse {
         let mut received = None;
         let outcome = self.exchange(
             operation,
@@ -626,6 +643,9 @@ impl AgentEnvelopeTransport {
         (received, outcome)
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid request or session coordinates, owner consent or signer pins; preserves operation errors and returns `Unknown` for an inconsistent preparation response.
     pub fn prepare_native(
         &self,
         request_id: RequestId,
@@ -698,6 +718,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Refuses missing signer authority or invalid disclosure requests; preserves operation errors and returns `Unknown` for a response that fails disclosure binding.
     pub fn disclose_native_preparation(
         &self,
         request_id: RequestId,
@@ -726,6 +749,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid effect requests, credentials, idempotency or owner-purpose bindings; preserves operation errors and refuses inconsistent preparation responses.
     pub fn prepare_native_effect(
         &self,
         request_id: RequestId,
@@ -738,6 +764,9 @@ impl AgentEnvelopeTransport {
         self.prepare_native_effect_body(request_id, key, request, &body, credential, registry)
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid registration requests or consent bindings and preserves native preparation operation errors.
     pub fn prepare_native_registration(
         &self,
         request_id: RequestId,
@@ -821,6 +850,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid Send requests, credentials, idempotency or consent signatures and preserves native preparation operation errors.
     pub fn prepare_native_send(
         &self,
         request_id: RequestId,
@@ -832,6 +864,9 @@ impl AgentEnvelopeTransport {
         self.prepare_native_send_surface(request_id, key, request, credential, registry, false)
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid Send request or consent bindings and preserves MCP operation and preparation response validation errors.
     pub fn prepare_native_send_mcp(
         &self,
         request_id: RequestId,
@@ -917,6 +952,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Preserves operation errors and returns `Decode` for an invalid native approval list.
     pub fn approval_list_native(
         &self,
         request_id: RequestId,
@@ -936,6 +974,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Preserves operation errors and returns `Decode` for an invalid native approval record.
     pub fn approval_get_native(
         &self,
         request_id: RequestId,
@@ -957,6 +998,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid decision requests and preserves operation and approval response decoding errors.
     pub fn approval_decide_native(
         &self,
         request_id: RequestId,
@@ -982,6 +1026,9 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
+    /// # Errors
+    ///
+    /// Refuses invalid proof bundle requests and preserves operation and verified response decoding errors.
     pub fn read_proof_bundle(
         &self,
         request_id: RequestId,
@@ -1003,26 +1050,11 @@ impl AgentEnvelopeTransport {
         Ok(native_success(response, value))
     }
 
-    fn exchange(
+    fn send_envelope(
         &self,
         operation: Operation,
-        request_id: RequestId,
-        request: &Value,
-        credential: Option<&EnvelopeCredential>,
-        idempotency_key: Option<Key>,
-        received: &mut Option<(u16, Value)>,
-    ) -> Result<ApiSuccess<Value>, EnvelopeError> {
-        let proof_request = if operation == Operation::ReadProofBundle {
-            Some(decode_proof_bundle_request(request).ok_or(EnvelopeError::InvalidRequest)?)
-        } else {
-            None
-        };
-        let envelope =
-            encode_envelope(operation, request_id, request, credential, idempotency_key)?;
-        let body = serde_json::to_vec(&envelope).map_err(|_| EnvelopeError::InvalidRequest)?;
-        if body.len() > MAX_ENVELOPE_BYTES {
-            return Err(EnvelopeError::Bounds);
-        }
+        body: &[u8],
+    ) -> Result<ureq::http::Response<ureq::Body>, EnvelopeError> {
         let authorization = self
             .gateway_key
             .as_ref()
@@ -1049,9 +1081,37 @@ impl AgentEnvelopeTransport {
         if let Some(value) = authorization.as_deref() {
             request_builder = request_builder.header("Authorization", value);
         }
-        let mut response = request_builder
-            .send(body.as_slice())
-            .map_err(|_| ambiguous())?;
+        request_builder.send(body).map_err(|_| ambiguous())
+    }
+
+    fn exchange(
+        &self,
+        operation: Operation,
+        request_id: RequestId,
+        request: &Value,
+        credential: Option<&EnvelopeCredential>,
+        idempotency_key: Option<Key>,
+        received: &mut Option<(u16, Value)>,
+    ) -> Result<ApiSuccess<Value>, EnvelopeError> {
+        let proof_request = if operation == Operation::ReadProofBundle {
+            Some(decode_proof_bundle_request(request).ok_or(EnvelopeError::InvalidRequest)?)
+        } else {
+            None
+        };
+        let envelope =
+            encode_envelope(operation, request_id, request, credential, idempotency_key)?;
+        let body = serde_json::to_vec(&envelope).map_err(|_| EnvelopeError::InvalidRequest)?;
+        if body.len() > MAX_ENVELOPE_BYTES {
+            return Err(EnvelopeError::Bounds);
+        }
+        let mut response = self.send_envelope(operation, &body)?;
+        let ambiguous = || {
+            if operation.mutating() {
+                EnvelopeError::Unknown { operation }
+            } else {
+                EnvelopeError::Transport { operation }
+            }
+        };
         let malformed = || {
             if operation.mutating() {
                 EnvelopeError::Unknown { operation }
@@ -1108,27 +1168,54 @@ impl AgentEnvelopeTransport {
                 status,
             });
         }
-        let decoded = decode_response(status, &document).ok_or_else(schema_violation)?;
-        let received = match &decoded {
-            Ok(success) => success.request_id,
-            // "0" is the daemon's request_id for an envelope it could not parse.
-            Err(error) if error.request_id == RequestId(0) => request_id,
-            Err(error) => error.request_id,
-        };
-        if received != request_id {
-            return Err(if operation.mutating() {
-                EnvelopeError::Unknown { operation }
-            } else {
-                EnvelopeError::Decode { operation }
-            });
-        }
-        let success = decoded.map_err(EnvelopeError::Refused)?;
-        if let Some(request) = proof_request.as_ref() {
-            decode_proof_bundle_response(request, &success)
-                .ok_or(EnvelopeError::Decode { operation })?;
-        }
-        Ok(success)
+        validate_operation_response(
+            operation,
+            request_id,
+            status,
+            &document,
+            proof_request.as_ref(),
+            edge,
+        )
     }
+}
+
+fn validate_operation_response(
+    operation: Operation,
+    request_id: RequestId,
+    status: u16,
+    document: &Value,
+    proof_request: Option<&ReadRequest<CanonicalBytes>>,
+    edge: bool,
+) -> Result<ApiSuccess<Value>, EnvelopeError> {
+    let schema_violation = || {
+        if operation.mutating() {
+            EnvelopeError::Unknown { operation }
+        } else if edge {
+            EnvelopeError::Transport { operation }
+        } else {
+            EnvelopeError::Decode { operation }
+        }
+    };
+    let decoded = decode_response(status, document).ok_or_else(schema_violation)?;
+    let received = match &decoded {
+        Ok(success) => success.request_id,
+        // "0" is the daemon's request_id for an envelope it could not parse.
+        Err(error) if error.request_id == RequestId(0) => request_id,
+        Err(error) => error.request_id,
+    };
+    if received != request_id {
+        return Err(if operation.mutating() {
+            EnvelopeError::Unknown { operation }
+        } else {
+            EnvelopeError::Decode { operation }
+        });
+    }
+    let success = decoded.map_err(EnvelopeError::Refused)?;
+    if let Some(request) = proof_request {
+        decode_proof_bundle_response(request, &success)
+            .ok_or(EnvelopeError::Decode { operation })?;
+    }
+    Ok(success)
 }
 
 fn daemon_call<T>(call: &Call<T>) -> Result<(), EnvelopeError> {
@@ -1296,6 +1383,9 @@ fn hex(bytes: &[u8]) -> String {
         })
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the native preparation request fails validation.
 pub fn encode_native_prepare(
     request: &layerx_agent_api::identity::NativePrepareRequestV1,
 ) -> Result<Value, EnvelopeError> {
@@ -1369,14 +1459,15 @@ fn native_id(value: &Value) -> Option<[u8; 32]> {
     native_hex(value, 32)?.try_into().ok()
 }
 
-fn native_optional_id(value: &Value) -> Option<Option<[u8; 32]>> {
+fn native_optional_id(value: &Value) -> Result<Option<[u8; 32]>, ()> {
     if value.is_null() {
-        Some(None)
+        Ok(None)
     } else {
-        native_id(value).map(Some)
+        native_id(value).map(Some).ok_or(())
     }
 }
 
+#[must_use]
 pub fn decode_native_disclosure(
     value: &Value,
 ) -> Option<layerx_agent_api::identity::NativeDisclosureResultV1> {
@@ -1434,6 +1525,9 @@ pub fn decode_native_disclosure(
 
 /// Validates the producer's canonical unsigned call, preparation identity and signing hash.
 /// The owner purpose is authenticated separately, and the sender is pinned by the caller.
+/// # Errors
+///
+/// Returns `InvalidRequest` when the canonical unsigned transaction cannot be decoded or its preparation ID, digest or signing preimage differs.
 pub fn validate_unsigned_preparation(
     value: &layerx_agent_api::identity::NativePrepareResultV1,
     preparation_id: [u8; 32],
@@ -1465,6 +1559,9 @@ fn verify_owner_purpose(
 }
 
 /// Checks the unsigned call and disclosure against the sender selected by the external signer.
+/// # Errors
+///
+/// Refuses a malformed canonical transaction, signer or preparation mismatch, invalid disclosure, or a disclosure that does not match the requested call.
 pub fn validate_call_disclosure(
     request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
     value: &layerx_agent_api::identity::NativeDisclosureResultV1,
@@ -1479,7 +1576,7 @@ pub fn validate_call_disclosure(
         || value.preparation_id != <[u8; 32]>::from(Sha256::digest(&request.canonical_bytes))
         || value.disclosure_digest
             != disclosure
-                .audit_digest()
+                .signing_digest()
                 .map_err(|_| EnvelopeError::InvalidRequest)?
         || value.activity_type != disclosure.activity_type.value()
         || value.actor != disclosure.actor
@@ -1544,7 +1641,10 @@ fn raw_call_matches_request(
 ) -> bool {
     use layerx_types::payload::ModuleId;
     use sha2::{Digest, Sha256};
-    let target = match activity.activity_type().map(|kind| kind.module()) {
+    let target = match activity
+        .activity_type()
+        .map(layerx_types::payload::ActivityType::module)
+    {
         Ok(ModuleId::Programs) => [0x10, 0x1d],
         Ok(ModuleId::Asset) => [0x10, 0x1a],
         Ok(ModuleId::Budget | ModuleId::Escrow | ModuleId::Stream) => [0x10, 0x1b],
@@ -1608,6 +1708,7 @@ fn raw_call_matches_request(
         && payload_hash == expected_hash
 }
 
+#[must_use]
 pub fn decode_native_preparation(
     value: &Value,
 ) -> Option<layerx_agent_api::identity::NativePrepareResultV1> {
@@ -1628,7 +1729,7 @@ pub fn decode_native_preparation(
         return None;
     }
     let approval_required = value.get("approval_required")?.as_bool()?;
-    let approval_id = native_optional_id(value.get("approval_id")?)?;
+    let approval_id = native_optional_id(value.get("approval_id")?).ok()?;
     if approval_required != approval_id.is_some() {
         return None;
     }
@@ -1645,6 +1746,7 @@ pub fn decode_native_preparation(
     })
 }
 
+#[must_use]
 pub fn decode_native_approval(
     value: &Value,
 ) -> Option<layerx_agent_api::identity::NativeApprovalResultV1> {
@@ -1675,10 +1777,11 @@ pub fn decode_native_approval(
         held_digest: native_id(value.get("held_digest")?)?,
         activity: native_activity(value.get("activity")?)?,
         state: state.to_owned(),
-        submission_ref: native_optional_id(value.get("submission_ref")?)?,
+        submission_ref: native_optional_id(value.get("submission_ref")?).ok()?,
     })
 }
 
+#[must_use]
 pub fn decode_native_approval_list(
     value: &Value,
 ) -> Option<layerx_agent_api::identity::NativeApprovalListResultV1> {
@@ -1706,6 +1809,9 @@ fn native_success<T>(response: ApiSuccess<Value>, value: T) -> ApiSuccess<T> {
     }
 }
 
+/// # Errors
+///
+/// Returns `InvalidRequest` when the proof-bundle request does not use a valid block selector or canonical identifier.
 pub fn encode_proof_bundle_request(
     request: &ReadRequest<CanonicalBytes>,
 ) -> Result<Value, EnvelopeError> {
@@ -1717,6 +1823,7 @@ pub fn encode_proof_bundle_request(
     }))
 }
 
+#[must_use]
 pub fn decode_proof_bundle_request(value: &Value) -> Option<ReadRequest<CanonicalBytes>> {
     let request = value.as_object()?;
     if !exact_fields(request, &["target", "requested_rung"]) {
@@ -1730,6 +1837,7 @@ pub fn decode_proof_bundle_request(value: &Value) -> Option<ReadRequest<Canonica
     })
 }
 
+#[must_use]
 pub fn decode_proof_bundle_response(
     request: &ReadRequest<CanonicalBytes>,
     response: &ApiSuccess<Value>,
@@ -1787,5 +1895,129 @@ mod rung_contract_tests {
         assert_eq!(expected.retriability, Retriability::Terminal);
         assert_eq!(expected.reason.as_str(), "idempotent_replay");
         assert_ne!(expected.class, ErrorClass::IdempotencyConflict);
+    }
+}
+
+#[cfg(test)]
+mod native_disclosure_tests {
+    use super::*;
+    use layerx_agent_api::identity::{NativeDisclosureRequestV1, NativeDisclosureResultV1};
+    use layerx_agentd::prepare::evm;
+    use sha2::{Digest, Sha256};
+
+    fn served_call() -> (NativeDisclosureRequestV1, NativeDisclosureResultV1) {
+        let payload = hex::decode(
+            include_str!("../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim(),
+        )
+        .unwrap_or_else(|error| panic!("Ledger transfer payload: {error:?}"));
+        let prepared = evm::prepare_bound(
+            evm::EvmPreparationState {
+                chain_id: 125,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 50,
+            },
+            evm::PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 5,
+                maximum_payload_bytes: 65_536,
+            },
+            evm::PrepareRequest {
+                from: [0x11; 20],
+                call: evm::PrecompileCall::ledger_transfer(payload),
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 65_536,
+            },
+            100_000,
+        )
+        .unwrap_or_else(|error| panic!("daemon Ledger call producer: {error:?}"));
+        assert_eq!(&prepared.call.data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
+        let canonical_bytes = prepared.call.encode_unsigned();
+        let d = prepared.disclosure;
+        let value = NativeDisclosureResultV1 {
+            preparation_id: Sha256::digest(&canonical_bytes).into(),
+            canonical_bytes: canonical_bytes.clone(),
+            disclosure_digest: prepared.disclosure_digest,
+            activity_type: d.activity_type.value(),
+            actor: d.actor,
+            authority: d.authority,
+            asset: d.asset,
+            fee_limit: d.fee_limit,
+            not_before: d.expiry.not_before,
+            not_after: d.expiry.not_after,
+            payload_expires_at: d.expiry.payload_expires_at,
+            idempotency_key: d.idempotency_key,
+        };
+        (NativeDisclosureRequestV1 { canonical_bytes }, value)
+    }
+
+    #[test]
+    fn native_disclosure_binds_unsigned_ledger_call_and_signer() {
+        let (request, value) = served_call();
+        let disclosure = validate_call_disclosure(&request, &value, [0x11; 20])
+            .unwrap_or_else(|error| panic!("served unsigned call and signer agree: {error:?}"));
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&request.canonical_bytes)
+            .unwrap_or_else(|error| panic!("unsigned EIP-1559: {error:?}"));
+        assert_eq!(
+            disclosure
+                .signing_digest()
+                .unwrap_or_else(|error| panic!("expected a successful fixture result: {error:?}")),
+            call.signing_hash()
+        );
+        assert_eq!(value.disclosure_digest, call.signing_hash());
+        assert!(validate_call_disclosure(&request, &value, [0x22; 20]).is_err());
+        let mut audit = value.clone();
+        audit.disclosure_digest = disclosure
+            .audit_digest()
+            .unwrap_or_else(|error| panic!("expected a successful fixture result: {error:?}"));
+        assert_ne!(audit.disclosure_digest, value.disclosure_digest);
+        assert!(validate_call_disclosure(&request, &audit, [0x11; 20]).is_err());
+        let mut signed = request.clone();
+        signed.canonical_bytes = call
+            .sign(&[3; 32])
+            .unwrap_or_else(|error| panic!("signed transaction: {error:?}"));
+        assert!(validate_call_disclosure(&signed, &value, [0x11; 20]).is_err());
+    }
+
+    #[test]
+    fn native_disclosure_rejects_every_changed_answer_field() {
+        let (request, value) = served_call();
+        for field in [
+            "preparation_id",
+            "canonical_bytes",
+            "disclosure_digest",
+            "activity_type",
+            "actor",
+            "authority",
+            "asset",
+            "fee_limit",
+            "not_before",
+            "not_after",
+            "payload_expires_at",
+            "idempotency_key",
+        ] {
+            let mut changed = value.clone();
+            match field {
+                "preparation_id" => changed.preparation_id[0] ^= 1,
+                "canonical_bytes" => changed.canonical_bytes[0] ^= 1,
+                "disclosure_digest" => changed.disclosure_digest[0] ^= 1,
+                "activity_type" => changed.activity_type ^= 1,
+                "actor" => changed.actor[0] ^= 1,
+                "authority" => changed.authority[0] ^= 1,
+                "asset" => changed.asset[0] ^= 1,
+                "fee_limit" => changed.fee_limit ^= 1,
+                "not_before" => changed.not_before ^= 1,
+                "not_after" => changed.not_after ^= 1,
+                "payload_expires_at" => changed.payload_expires_at ^= 1,
+                "idempotency_key" => changed.idempotency_key[0] ^= 1,
+                _ => unreachable!(),
+            }
+            assert!(
+                validate_call_disclosure(&request, &changed, [0x11; 20]).is_err(),
+                "{field}"
+            );
+        }
     }
 }

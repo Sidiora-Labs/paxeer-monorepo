@@ -25,6 +25,7 @@
 //!   digest of a frozen evaluator of the opened epoch, else `NOT_FOUND`.
 //! - The evaluator replay slot is supplied by the reveal caller; no producer binds
 //!   `ActorSlot::evaluator(i)` yet (F08 evaluator acceptance must).
+use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self, compare_native_principal, derive_market, EventCommon, Reader, Writer},
@@ -36,18 +37,17 @@ use crate::{
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{evaluator_region, FrozenEvaluator},
+        authority::{evaluator_region, EvaluatorRegion, FrozenEvaluator},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
         model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
     },
-    evidence::{sealed_evidence_with, SealRegion},
-    registry::check_f01_capacity,
+    evidence::SealRegion,
     registry_ops::{CallContext, PolicySection},
     rewards::{RewardEpoch, RewardState},
     state::{
-        decode_shared_state, encode_shared_state, settlement_rewards, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards, ReplayDecision, ReplayRequest, RetainedResult,
+        Section, SharedState,
     },
     types::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
@@ -104,14 +104,17 @@ impl AdmissionReceipt {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the payload does not fill exactly 81 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn payload(&self) -> CodecResult<[u8; REVEAL_RESULT_BYTES]> {
         let mut out = [0; REVEAL_RESULT_BYTES];
         let mut w = Writer::new(&mut out);
-        w.u8(REVEAL_RESULT_KIND)?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u64(self.height)?;
-        w.u64(self.activity)?;
+        crate::codec::write_fields!(w;
+            u8: REVEAL_RESULT_KIND;
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u64: self.height;
+            u64: self.activity;
+        )?;
         if w.len() != REVEAL_RESULT_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -146,43 +149,191 @@ impl<'a> AdmittedReport<'a> {
     pub fn signed(&self) -> CodecResult<SignedReport<'a>> {
         decode_signed_report(self.signed)
     }
+    pub(crate) fn committed_body(&self) -> CodecResult<crate::codec::ReportBody<'a>> {
+        let end = self.signed.len().checked_sub(64).ok_or(NON_CANONICAL)?;
+        crate::codec::decode_report_frame(&self.signed[..end])
+    }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>, epoch: u64) -> CodecResult<Self> {
-        let receipt = AdmissionReceipt {
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            height: r.u64()?,
-            activity: r.u64()?,
-        };
+        let row = Self::read_validated(r)?;
+        let body = decode_signed_report(row.signed)?.body;
+        if body.binding.evaluator != row.receipt.evaluator
+            || body.binding.frozen.epoch != epoch
+            || codec::report_digest(&body)? != row.receipt.report
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(row)
+    }
+    /// Parses only rows whose body and receipt were checked by ReportRegion::decode.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read_validated(r: &mut Reader<'a>) -> CodecResult<Self> {
+        let receipt = crate::codec::read_record!(r, AdmissionReceipt {  }; evaluator = r.evaluator_id()?;
+            report: ReportDigest,
+            height: U64,
+            activity: U64
+        );
         let length = usize::from(r.u16()?);
         if !(SIGNED_REPORT_MIN_BYTES..=SIGNED_REPORT_MAX_BYTES).contains(&length) {
             return Err(NON_CANONICAL);
         }
         let signed = r.take(length)?;
-        let body = decode_signed_report(signed)?.body;
-        if body.binding.evaluator != receipt.evaluator
-            || body.binding.frozen.epoch != epoch
-            || codec::report_digest(&body)? != receipt.report
-        {
-            return Err(NON_CANONICAL);
-        }
         Ok(Self { receipt, signed })
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
-        w.put(self.receipt.evaluator.as_bytes())?;
-        w.put(self.receipt.report.as_bytes())?;
-        w.u64(self.receipt.height)?;
-        w.u64(self.receipt.activity)?;
+        crate::codec::write_fields!(w;
+            id32: self.receipt.evaluator.as_bytes();
+            id32: self.receipt.report.as_bytes();
+            u64: self.receipt.height;
+            u64: self.receipt.activity;
+        )?;
         w.u16(u16::try_from(self.signed.len()).map_err(|_| ARITHMETIC)?)?;
         w.put(self.signed)
+    }
+}
+
+/// Borrow only the receipt identities and signed bytes needed by a chunk.
+/// The fixed receipt's height/activity remain stored verbatim and are not
+/// materialized by this read-only projection.
+#[derive(Clone, Copy)]
+pub(crate) struct ChunkReport<'a> {
+    pub evaluator: crate::types::CheckedIdentityBytes<'a>,
+    pub report: crate::types::CheckedIdentityBytes<'a>,
+    signed: &'a [u8],
+}
+impl<'a> ChunkReport<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(r: &mut Reader<'a>) -> CodecResult<Self> {
+        let header = r.take(82)?;
+        let evaluator = crate::types::CheckedIdentityBytes::new_inline(
+            header
+                .guest_index(..32)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?,
+        )?;
+        let report = crate::types::CheckedIdentityBytes::new_inline(
+            header
+                .guest_index(32..64)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?,
+        )?;
+        let length = usize::from(u16::from_be_bytes([header[80], header[81]]));
+        if !(SIGNED_REPORT_MIN_BYTES..=SIGNED_REPORT_MAX_BYTES).contains(&length) {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            evaluator,
+            report,
+            signed: r.take(length)?,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn chunk_scores(
+        &self,
+        frozen: &crate::types::FrozenBinding,
+        encoded_binding: &[u8],
+    ) -> CodecResult<crate::codec::ScoreVector<'a>> {
+        let end = self.signed.len().checked_sub(64).ok_or(NON_CANONICAL)?;
+        let bytes = self.signed.get(..end).ok_or(NON_CANONICAL)?;
+        if bytes.len() > crate::codec::REPORT_MAX_BYTES {
+            return Err(crate::errors::CAPACITY);
+        }
+        let schema: [u8; 2] = bytes
+            .get(..2)
+            .ok_or(NON_CANONICAL)?
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?;
+        if u16::from_be_bytes(schema) != crate::SCHEMA_VERSION {
+            return Err(crate::errors::BAD_VERSION);
+        }
+        let header: &[u8; 228] = bytes
+            .get(..228)
+            .ok_or(NON_CANONICAL)?
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?;
+        if !crate::codec::equal_bytes(&header[2..146], encoded_binding) {
+            let body = crate::codec::decode_report_frame(bytes)?;
+            crate::aggregation_codec::check_binding(body.binding.frozen, *frozen)?;
+        }
+        let evaluator = header[146..178].try_into().map_err(|_| NON_CANONICAL)?;
+        if !crate::types::identity_equal_inline(evaluator, self.evaluator.bytes()) {
+            return Err(crate::errors::F05_REPORT_INVARIANT);
+        }
+        // Keep both nonzero version and evidence identity checks even though
+        // admission already validated this immutable signed report.
+        for version in header[178..194].as_chunks::<8>().0 {
+            if u64::from_ne_bytes(*version) == 0 {
+                return Err(NON_CANONICAL);
+            }
+        }
+        crate::types::CheckedIdentityBytes::new_inline(
+            header[194..226].try_into().map_err(|_| NON_CANONICAL)?,
+        )?;
+        let count = usize::from(u16::from_be_bytes([header[226], header[227]]));
+        if count == 0 {
+            return Err(crate::errors::F03_NO_SCORES);
+        }
+        if count > crate::MAX_WORKERS {
+            return Err(crate::errors::CAPACITY);
+        }
+        let scores = bytes.get(228..).ok_or(NON_CANONICAL)?;
+        if scores.len() != count * 36 {
+            return Err(NON_CANONICAL);
+        }
+        Ok(crate::codec::ScoreVector::Encoded(scores))
+    }
+}
+/// Receipt index for one chunk call. Row framing and canonical evaluator order
+/// are checked once, including rows excluded by the seal; score cells remain borrowed.
+pub(crate) struct ChunkReports<'a> {
+    epoch: u64,
+    rows: [Option<ChunkReport<'a>>; MAX_EVALUATORS],
+}
+impl<'a> ChunkReports<'a> {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed(section: &'a [u8]) -> CodecResult<Self> {
+        let mut index = Self {
+            epoch: 0,
+            rows: [None; MAX_EVALUATORS],
+        };
+        if section.is_empty() {
+            return Ok(index);
+        }
+        let mut reader = Reader::new(section);
+        index.epoch = reader.u64()?;
+        let count = usize::from(reader.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let mut previous = None;
+        for slot in index.rows.iter_mut().take(count) {
+            let row = ChunkReport::read(&mut reader)?;
+            if previous.is_some_and(|previous| {
+                crate::types::identity_order(previous, row.evaluator.bytes())
+                    != core::cmp::Ordering::Less
+            }) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(row.evaluator.bytes());
+            *slot = Some(row);
+        }
+        if count == 0 && reader.remaining() == 0 {
+            return Err(NON_CANONICAL);
+        }
+        Ok(index)
+    }
+    pub(crate) fn rows(&self, epoch: u64) -> impl Iterator<Item = &ChunkReport<'a>> {
+        self.rows
+            .iter()
+            .flatten()
+            .filter(move |_| self.epoch == epoch)
     }
 }
 
 /// Rows of one admitted-report region, already validated by [`ReportRegion::decode`].
 pub struct Rows<'a> {
     reader: Reader<'a>,
-    epoch: u64,
 }
 impl<'a> Iterator for Rows<'a> {
     type Item = CodecResult<AdmittedReport<'a>>;
@@ -190,7 +341,7 @@ impl<'a> Iterator for Rows<'a> {
         if self.reader.remaining() == 0 {
             return None;
         }
-        Some(AdmittedReport::read(&mut self.reader, self.epoch))
+        Some(AdmittedReport::read_validated(&mut self.reader))
     }
 }
 
@@ -205,6 +356,48 @@ pub struct ReportRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> ReportRegion<'a> {
+    /// Index the immutable rows of a committed section without re-hashing reports
+    /// admitted by its producer. A consumer still decodes each report it uses.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn committed(section: &'a [u8]) -> CodecResult<Self> {
+        if section.is_empty() {
+            return Ok(Self {
+                epoch: 0,
+                count: 0,
+                rows: &[],
+                rest: &[],
+            });
+        }
+        let mut r = Reader::new(section);
+        let epoch = r.u64()?;
+        let count = usize::from(r.u8()?);
+        if count > MAX_EVALUATORS {
+            return Err(NON_CANONICAL);
+        }
+        let start = r.offset();
+        let mut previous = None;
+        for _ in 0..count {
+            let evaluator = ChunkReport::read(&mut r)?.evaluator;
+            if previous.is_some_and(|id| {
+                crate::types::identity_order(id, evaluator.bytes()) != core::cmp::Ordering::Less
+            }) {
+                return Err(NON_CANONICAL);
+            }
+            previous = Some(evaluator.bytes());
+        }
+        let rows = section.get(start..r.offset()).ok_or(NON_CANONICAL)?;
+        let rest = section.get(r.offset()..).ok_or(NON_CANONICAL)?;
+        if count == 0 && rest.is_empty() {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            epoch,
+            count,
+            rows,
+            rest,
+        })
+    }
+
     /// Strictly decodes the region prefix of the current-reports section.
     ///
     /// # Errors
@@ -213,6 +406,24 @@ impl<'a> ReportRegion<'a> {
     /// nothing after it.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(section: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        if let Some(frozen) = crate::state::current_slice(section) {
+            static DECODED: crate::guest_cell::GuestCell<
+                crate::guest_cell::Cached<(&'static [u8], ReportRegion<'static>)>,
+            > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+            let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+            if let Some((bytes, region)) = decoded.as_ref() {
+                if core::ptr::eq(*bytes, section) {
+                    return Ok(*region);
+                }
+            }
+            let region = ReportRegion::decode_uncached(frozen)?;
+            *decoded = crate::guest_cell::Cached::Value((frozen, region));
+            return Ok(region);
+        }
+        Self::decode_uncached(section)
+    }
+    fn decode_uncached(section: &'a [u8]) -> CodecResult<Self> {
         if section.is_empty() {
             return Ok(Self {
                 epoch: 0,
@@ -260,7 +471,6 @@ impl<'a> ReportRegion<'a> {
     pub const fn rows(&self, epoch: u64) -> Rows<'a> {
         Rows {
             reader: Reader::new(self.of(epoch).1),
-            epoch,
         }
     }
     /// The admitted row of `evaluator` in `epoch`.
@@ -301,7 +511,11 @@ impl<'a> ReportRegion<'a> {
         let mut reader = Reader::new(current);
         while reader.remaining() > 0 {
             let offset = reader.offset();
-            if AdmittedReport::read(&mut reader, epoch)?.receipt.evaluator > row.receipt.evaluator {
+            if AdmittedReport::read_validated(&mut reader)?
+                .receipt
+                .evaluator
+                > row.receipt.evaluator
+            {
                 at = offset;
                 break;
             }
@@ -337,7 +551,11 @@ pub fn admitted_report<'a>(
 
 /// Committed F01 section of `state`; its header revision must equal the shared revision.
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
-    let section = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let section = PolicySection::decode(
+        *state
+            .feature_sections
+            .guest_index(Section::PolicyLifecycle.index()),
+    )?;
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
@@ -347,7 +565,7 @@ fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
 /// Committed views of the currently opened epoch.
 struct Opened<'a> {
     section: PolicySection<'a>,
-    rewards: RewardState<'a>,
+    dictionary: crate::rewards::RecipientDictionary<'a>,
     frozen: FrozenBinding,
     row: RewardEpoch,
     reports: ReportRegion<'a>,
@@ -355,16 +573,28 @@ struct Opened<'a> {
 
 /// The opened epoch: F08 epoch presence, F01 domain and config and the F06 frozen roster row,
 /// reusing the reward state `known` when it is the one `state` holds.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecResult<Opened<'a>> {
     let section = committed(state)?;
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+        *state
+            .feature_sections
+            .guest_index(Section::ReputationAdmission.index()),
+    )?)?;
+    view_in_state(state, section, known, &admission, None)
+}
+
+fn view_in_state<'a>(
+    state: &SharedState<'a>,
+    section: PolicySection<'a>,
+    _known: Option<RewardState<'a>>,
+    admission: &AdmissionTable,
+    known_reports: Option<ReportRegion<'a>>,
+) -> CodecResult<Opened<'a>> {
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = settlement_rewards(state, known)?;
-    let row = match rewards.row(epoch) {
-        Err(NOT_FOUND) => return Err(WRONG_EPOCH),
-        row => row?,
-    };
+    let rewards = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let row = rewards.row;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,
@@ -374,37 +604,24 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
         config: Version::new(header.active_config_version)?,
         roster: row.roster,
     };
-    let reports = ReportRegion::decode(state.feature_sections[Section::CurrentReports.index()])?;
+    let reports = match known_reports {
+        Some(reports) => reports,
+        None => ReportRegion::decode(
+            *state
+                .feature_sections
+                .guest_index(Section::CurrentReports.index()),
+        )?,
+    };
     if reports.epoch > epoch && reports.count > 0 {
         return Err(NON_CANONICAL);
     }
     Ok(Opened {
         section,
-        rewards,
+        dictionary: rewards.dictionary,
         frozen,
         row,
         reports,
     })
-}
-
-/// The complete immutable worker set shared by report admission and settlement.
-fn frozen_workers(
-    state: &SharedState<'_>,
-    rewards: &RewardState<'_>,
-    row: &RewardEpoch,
-) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
-    if captured.binding.epoch != row.epoch
-        || captured.binding.roster != row.roster
-        || rewards.row(row.epoch)?.roster != row.roster
-    {
-        return Err(WRONG_ROSTER);
-    }
-    let entries = captured.workers();
-    let first = *entries.first().ok_or(WRONG_ROSTER)?;
-    let mut workers = [first; MAX_WORKERS];
-    workers[..entries.len()].copy_from_slice(entries);
-    Ok((workers, entries.len()))
 }
 
 /// One reveal-admission request supplied by the F04 `RevealScore` operation.
@@ -440,9 +657,7 @@ pub enum Admission {
 }
 
 /// F08 membership of the frozen evaluator remains admitted under its owner.
-fn check_membership(state: &SharedState<'_>, frozen: &FrozenEvaluator) -> CodecResult<()> {
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+fn check_membership(admission: &AdmissionTable, frozen: &FrozenEvaluator) -> CodecResult<()> {
     match admission.get(Participant::Evaluator(frozen.entry.evaluator)) {
         Some(meta) if meta.revoked() => Err(REVOKED),
         Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
@@ -452,6 +667,7 @@ fn check_membership(state: &SharedState<'_>, frozen: &FrozenEvaluator) -> CodecR
 
 /// The frozen evaluator of `binding` in the opened epoch, after the frozen domain, epoch,
 /// config and roster comparison.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn frozen_evaluator(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -464,26 +680,54 @@ fn frozen_evaluator(
             ..*binding
         },
     )?;
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
-    let snapshot = region.snapshot().ok_or(crate::errors::F03_NO_GRANT)?;
-    if snapshot.epoch != opened.frozen.epoch {
-        return Err(NON_CANONICAL);
-    }
-    snapshot
-        .get(binding.evaluator)
-        .ok_or(crate::errors::F03_NO_GRANT)
+    EvaluatorRegion::with_decoded(
+        crate::evaluators::authority::split_identity_section(
+            state.section(Section::IdentityRoster)?,
+        )?
+        .1,
+        |region| {
+            let snapshot = region.snapshot().ok_or(crate::errors::F03_NO_GRANT)?;
+            if snapshot.epoch != opened.frozen.epoch {
+                return Err(NON_CANONICAL);
+            }
+            snapshot
+                .get(binding.evaluator)
+                .ok_or(crate::errors::F03_NO_GRANT)
+        },
+    )
 }
 
 /// Verifies the report against the complete frozen context and the evaluator signature.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn verify(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
     frozen: &FrozenEvaluator,
     report: &SignedReport<'_>,
+    admission: &AdmissionTable,
+    known_digest: Option<ReportDigest>,
 ) -> Result<ReportDigest, VerificationError> {
     let evaluator = frozen.entry.evaluator;
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
-    let (workers, count) = frozen_workers(state, &opened.rewards, &opened.row)?;
+    let (captured, frozen_grant, live_grant) = EvaluatorRegion::with_decoded(
+        crate::evaluators::authority::split_identity_section(
+            state.section(Section::IdentityRoster)?,
+        )?
+        .1,
+        |region| {
+            let captured = crate::epoch::committed_roster_row(
+                admission,
+                &opened.section,
+                region,
+                opened.row,
+                opened.dictionary,
+            )?;
+            Ok((
+                captured,
+                region.frozen_grant(evaluator)?,
+                region.stored_grant(evaluator)?,
+            ))
+        },
+    )?;
     let context = ReportContext {
         binding: EvaluatorBinding {
             frozen: opened.frozen,
@@ -491,22 +735,34 @@ fn verify(
             grant: frozen.entry.grant,
             key_version: frozen.entry.key_version,
         },
-        frozen_grant: region.frozen_grant(evaluator)?,
-        live_grant: region.stored_grant(evaluator)?,
+        frozen_grant,
+        live_grant,
         approved_rubric: opened.section.current.commitments.rubric,
         market_owner: opened.section.header.owner_principal,
-        workers: workers.get(..count).ok_or(CAPACITY)?,
-        evidence: sealed_evidence_with(
-            state,
-            opened.frozen.epoch,
-            evaluator,
-            Some(opened.rewards),
-        )?,
+        workers: captured.workers(),
+        evidence: crate::evidence::sealed_evidence_for_binding(state, opened.frozen, evaluator)?,
     };
-    verify_signed_report(report, &context)
+    let digest = match known_digest {
+        Some(digest) => {
+            crate::evaluators::codec::verify_report_with_digest(report, &context, digest)?
+        }
+        None => verify_signed_report(report, &context)?,
+    };
+    // Worker ownership is also a live role constraint; the captured roster
+    // remains the immutable source of report keys and metadata.
+    let (workers, _) = crate::evaluators::authority::split_identity_section(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
+    if crate::workers::committed_has_owner(workers, frozen.entry.owner)? {
+        return Err(crate::errors::ROLE_CONFLICT.into());
+    }
+    Ok(digest)
 }
 
 /// Commits `row` at the next revision under the reveal request.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn commit_report(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -517,26 +773,26 @@ fn commit_report(
 ) -> CodecResult<(u64, usize)> {
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (reports, control) = rest.split_at_mut_checked(REPORTS_CAP).ok_or(CAPACITY)?;
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
     let reports_len = opened
         .reports
         .write_with(opened.frozen.epoch, row, reports)?;
-    let policy = policy.get(..policy_len).ok_or(CAPACITY)?;
     let reports = reports.get(..reports_len).ok_or(CAPACITY)?;
-    let with_policy = state.replace_section(Section::PolicyLifecycle, policy)?;
-    let mut candidate = with_policy.replace_section(Section::CurrentReports, reports)?;
+    let mut candidate = state.clone();
+    *candidate
+        .feature_sections
+        .guest_index_mut(Section::CurrentReports.index()) = reports;
     let result = row.receipt.result()?;
-    if candidate.record_success(&reveal.request, reveal.height, result)? != ReplayDecision::Apply
-        || candidate.revision != revision
-    {
-        return Err(NON_CANONICAL);
-    }
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
-    Ok((revision, state_len))
+    crate::rewards::finish_feature_transition(
+        candidate,
+        opened.section,
+        Some(&reveal.request),
+        reveal.height,
+        result,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )
 }
 
 /// `ValidateReportAdmission`: admits one canonical signed report of a frozen evaluator into
@@ -569,6 +825,7 @@ pub fn admit_report(
 
 /// [`admit_report`] reusing the reward state `known` the caller already validated in
 /// `current`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn admit_report_with<'a>(
     current: &'a [u8],
     reveal: &RevealAdmission<'_>,
@@ -580,10 +837,67 @@ pub(crate) fn admit_report_with<'a>(
     let mut signed = [0; SIGNED_REPORT_MAX_BYTES];
     let signed_len = encode_signed_report(&reveal.report, &mut signed)?;
     let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
-    let body = &reveal.report.body;
     let state = decode_shared_state(current)?;
-    let opened = view(&state, known)?;
-    let frozen = frozen_evaluator(&state, &opened, &body.binding)?;
+    admit_encoded_report(
+        &state, reveal, signed, next, scratch, event, known, None, None, None,
+    )
+}
+
+pub(crate) fn admit_report_in_state<'a>(
+    state: &SharedState<'a>,
+    admission: &AdmissionTable,
+    reports: ReportRegion<'a>,
+    reveal: &RevealAdmission<'_>,
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+    known: Option<RewardState<'a>>,
+    report: ReportDigest,
+    signed: &[u8],
+) -> Result<Admission, VerificationError> {
+    admit_encoded_report(
+        state,
+        reveal,
+        signed,
+        next,
+        scratch,
+        event,
+        known,
+        Some(admission),
+        Some(reports),
+        Some(report),
+    )
+}
+
+fn admit_encoded_report<'a>(
+    state: &SharedState<'a>,
+    reveal: &RevealAdmission<'_>,
+    signed: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+    known: Option<RewardState<'a>>,
+    known_admission: Option<&AdmissionTable>,
+    known_reports: Option<ReportRegion<'a>>,
+    known_digest: Option<ReportDigest>,
+) -> Result<Admission, VerificationError> {
+    let body = &reveal.report.body;
+    let section = committed(state)?;
+    let decoded;
+    let admission = match known_admission {
+        Some(admission) => admission,
+        None => {
+            decoded =
+                AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+                    *state
+                        .feature_sections
+                        .guest_index(Section::ReputationAdmission.index()),
+                )?)?;
+            &decoded
+        }
+    };
+    let opened = view_in_state(state, section, known, admission, known_reports)?;
+    let frozen = frozen_evaluator(state, &opened, &body.binding)?;
     if reveal.request.principal != frozen.entry.owner {
         return Err(UNAUTHORIZED.into());
     }
@@ -600,8 +914,15 @@ pub(crate) fn admit_report_with<'a>(
             Err(F03_REPORT_ALREADY_FINAL.into())
         };
     }
-    check_membership(&state, &frozen)?;
-    let report = verify(&state, &opened, &frozen, &reveal.report)?;
+    check_membership(admission, &frozen)?;
+    let report = verify(
+        &state,
+        &opened,
+        &frozen,
+        &reveal.report,
+        admission,
+        known_digest,
+    )?;
     let row = AdmittedReport {
         receipt: AdmissionReceipt {
             evaluator: frozen.entry.evaluator,
@@ -684,14 +1005,16 @@ impl ChallengeRecord {
     pub fn encode(&self) -> CodecResult<[u8; CHALLENGE_RECORD_BYTES]> {
         let mut out = [0; CHALLENGE_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
-        w.put(self.id.as_bytes())?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u8(self.category as u8)?;
-        w.put(self.evidence.as_bytes())?;
-        w.put(self.requester.as_bytes())?;
-        w.u64(self.height)?;
-        w.u8(RECORDED)?;
+        crate::codec::write_fields!(w;
+            id32: self.id.as_bytes();
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u8: self.category as u8;
+            id32: self.evidence.as_bytes();
+            id32: self.requester.as_bytes();
+            u64: self.height;
+            u8: RECORDED;
+        )?;
         if w.len() != CHALLENGE_RECORD_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -705,15 +1028,14 @@ impl ChallengeRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
-        let record = Self {
-            id: r.digest32()?,
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: r.digest32()?,
-            requester: r.principal_id()?,
-            height: r.u64()?,
-        };
+        let record = crate::codec::read_record!(&mut r, Self {  }; id = r.digest32()?;
+            evaluator: EvaluatorId,
+            report: ReportDigest,
+            category: ChallengeCategory,
+            evidence: Digest32,
+            requester: PrincipalId,
+            height: U64
+        );
         if r.u8()? != RECORDED {
             return Err(NON_CANONICAL);
         }
@@ -765,12 +1087,23 @@ impl<'a> ChallengeRegion<'a> {
         if count == 0 && rest.is_empty() {
             return Err(NON_CANONICAL);
         }
-        for (index, record) in records.chunks_exact(CHALLENGE_RECORD_BYTES).enumerate() {
+        for (index, record) in records
+            .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
+            .enumerate()
+        {
             let id = ChallengeRecord::decode(record)?.id;
             let earlier = records
                 .get(..index * CHALLENGE_RECORD_BYTES)
                 .ok_or(NON_CANONICAL)?;
-            for other in earlier.chunks_exact(CHALLENGE_RECORD_BYTES) {
+            for other in earlier
+                .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+            {
                 if ChallengeRecord::decode(other)?.id == id {
                     return Err(NON_CANONICAL);
                 }
@@ -795,7 +1128,10 @@ impl<'a> ChallengeRegion<'a> {
         epoch: u64,
     ) -> impl Iterator<Item = CodecResult<ChallengeRecord>> + 'a {
         self.of(epoch)
-            .chunks_exact(CHALLENGE_RECORD_BYTES)
+            .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(|chunk| chunk.as_slice())
             .map(ChallengeRecord::decode)
     }
     /// The challenge `id` recorded in `epoch`.
@@ -855,34 +1191,37 @@ struct Allegation {
     evidence: Digest32,
 }
 impl Allegation {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         if payload.len() != CHALLENGE_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
         }
         let mut r = Reader::new(payload);
-        let value = Self {
-            evaluator: r.evaluator_id()?,
-            report: r.report_digest()?,
-            category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: r.digest32()?,
-        };
+        let value = crate::codec::read_record!(&mut r, Self {  }; evaluator = r.evaluator_id()?;
+            report: ReportDigest,
+            category: ChallengeCategory,
+            evidence: Digest32
+        );
         r.finish()?;
         Ok(value)
     }
     /// `H('PAXAI/evaluator-challenge/v1', chain || program || market || epoch || evaluator ||
     /// report || category || evidence || requester)`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn identity(&self, frozen: &FrozenBinding, requester: PrincipalId) -> CodecResult<Digest32> {
         let mut bytes = [0; CHALLENGE_PREIMAGE_BYTES];
         let mut w = Writer::new(&mut bytes);
-        w.put(frozen.chain.as_bytes())?;
-        w.put(frozen.program.as_bytes())?;
-        w.put(frozen.market.as_bytes())?;
-        w.u64(frozen.epoch)?;
-        w.put(self.evaluator.as_bytes())?;
-        w.put(self.report.as_bytes())?;
-        w.u8(self.category as u8)?;
-        w.put(self.evidence.as_bytes())?;
-        w.put(requester.as_bytes())?;
+        crate::codec::write_fields!(w;
+            id32: frozen.chain.as_bytes();
+            id32: frozen.program.as_bytes();
+            id32: frozen.market.as_bytes();
+            u64: frozen.epoch;
+            id32: self.evaluator.as_bytes();
+            id32: self.report.as_bytes();
+            u8: self.category as u8;
+            id32: self.evidence.as_bytes();
+            id32: requester.as_bytes();
+        )?;
         if w.len() != CHALLENGE_PREIMAGE_BYTES {
             return Err(NON_CANONICAL);
         }
@@ -907,6 +1246,7 @@ pub enum ChallengeOutcome {
 }
 
 /// Domain, expiry, market and the exact frozen epoch, config and roster of the envelope.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_envelope(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -932,12 +1272,17 @@ fn check_envelope(
 }
 
 /// The allegation must name the admitted report of a frozen evaluator of the opened epoch.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_reference(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
     allegation: &Allegation,
 ) -> CodecResult<()> {
-    let region = evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let region = evaluator_region(
+        *state
+            .feature_sections
+            .guest_index(Section::IdentityRoster.index()),
+    )?;
     let snapshot = region.snapshot().ok_or(NOT_FOUND)?;
     if snapshot.epoch != opened.frozen.epoch {
         return Err(NON_CANONICAL);
@@ -953,6 +1298,7 @@ fn check_reference(
 }
 
 /// Commits `record` at the next revision (object-local; no role sequence) and emits it.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn commit_challenge(
     state: &SharedState<'_>,
     opened: &Opened<'_>,
@@ -986,18 +1332,19 @@ fn commit_challenge(
     };
     let record_bytes = record.encode()?;
     let result = codec::result_digest(&record_bytes)?;
-    let revision = state.revision.checked_add(1).ok_or(ARITHMETIC)?;
-    let mut section = opened.section;
-    section.header.state_revision = revision;
-    let policy_len = section.encode(policy)?;
-    let mut candidate = state.replace_section(
-        Section::PolicyLifecycle,
-        policy.get(..policy_len).ok_or(CAPACITY)?,
-    )?;
+    let mut candidate = state.clone();
     candidate.control.feature_bytes = features.get(..features_len).ok_or(CAPACITY)?;
-    candidate.revision = revision;
-    check_f01_capacity(policy_len, candidate.encoded_len()?)?;
-    let state_len = encode_shared_state(&candidate, next, control)?;
+    let (revision, state_len) = crate::rewards::finish_feature_transition(
+        candidate,
+        opened.section,
+        None,
+        0,
+        result,
+        NON_CANONICAL,
+        policy,
+        control,
+        next,
+    )?;
     let event_len = codec::encode_event_frame(
         dispatch::ChallengeAssessment,
         &EventCommon {
@@ -1039,6 +1386,7 @@ fn commit_challenge(
 /// `F03_CHALLENGE_CAPACITY` for a ninth distinct challenge; `CAPACITY`, `ARITHMETIC` and
 /// `F01_CAPACITY_UNAVAILABLE`. On any error `current` is unchanged and the outputs must be
 /// discarded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn apply_challenge(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

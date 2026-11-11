@@ -9,7 +9,8 @@ mod support;
 
 use layerx_crypto::ed25519;
 use layerx_crypto::signer::{
-    sign_disclosed, BindSigner, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
+    sign_disclosed_call, BindSigner, DidSignature, KeystoreSigner, LocalSigner, SignError, Signer,
+    SigningRequest,
 };
 use layerx_crypto::SignatureMessage;
 use layerx_wire::hash::Domain;
@@ -32,17 +33,20 @@ fn ready<F: Future>(future: F) -> F::Output {
 }
 
 #[test]
-fn local_signer_is_object_safe_and_never_renders_key_material() {
+fn local_signer_is_object_safe_and_never_renders_key_material(
+) -> Result<(), Box<dyn std::error::Error>> {
     let seed = [0x53; 32];
     let signer: Box<dyn BindSigner> = Box::new(LocalSigner::new(seed));
     let rendered = format!("{signer:?}");
     assert_eq!(rendered, "LocalSigner([redacted key])");
     assert!(!rendered.contains("53535353"));
     let debit = support::debit(25);
-    let canonical = debit.authorization_message().expect("native payer message");
+    let canonical = debit
+        .authorization_message()
+        .map_err(|error| format!("native payer message: {error:?}"))?;
     let request = debit
         .signing_request(&canonical)
-        .expect("typed payer request");
+        .map_err(|error| format!("typed payer request: {error:?}"))?;
     let signature: Result<DidSignature, SignError> = ready(signer.sign(request));
     let Ok(signature) = signature else {
         panic!("local signer refused valid request");
@@ -53,19 +57,20 @@ fn local_signer_is_object_safe_and_never_renders_key_material() {
             &signer.public_key(),
             signature.as_bytes(),
             &SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
-                .expect("payer scope")
+                .map_err(|error| format!("payer scope: {error:?}"))?
                 .digest()
         ),
         Ok(())
     );
-    let old = support::signing::old_envelope(signer.public_key());
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let activity =
+        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
+            .map_err(|error| format!("activity domain: {error:?}"))?;
+    let request = SigningRequest::new(activity, &produced.disclosure)
+        .map_err(|error| format!("validated audit request: {error:?}"))?;
     assert_eq!(
-        ready(sign_disclosed(
-            signer.as_ref(),
-            &old.canonical,
-            &old.disclosure,
-            &old.registry
-        )),
+        ready(signer.sign(request)),
         Err(SignError::InvalidDisclosure)
     );
     let panic = std::panic::catch_unwind(|| panic!("{rendered}"));
@@ -77,12 +82,17 @@ fn local_signer_is_object_safe_and_never_renders_key_material() {
     };
     assert!(!text.contains("53535353"));
     assert!(!SignError::KeyRejected.to_string().contains("53535353"));
+
+    Ok(())
 }
 
 #[test]
-fn mismatched_disclosure_is_refused_before_a_signer_runs() {
+fn mismatched_disclosure_is_refused_before_a_signer_runs() -> Result<(), Box<dyn std::error::Error>>
+{
     let debit = support::debit(25);
-    let canonical = debit.authorization_message().expect("native payer message");
+    let canonical = debit
+        .authorization_message()
+        .map_err(|error| format!("native payer message: {error:?}"))?;
     let mut changed = debit.clone();
     changed.amount = 1;
     let signer = LocalSigner::new([0x53; 32]);
@@ -103,6 +113,8 @@ fn mismatched_disclosure_is_refused_before_a_signer_runs() {
         )),
         Err(SignError::DisclosureMismatch("call"))
     );
+
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -174,10 +186,11 @@ fn public_key(path: &std::path::Path) -> [u8; 32] {
 }
 
 #[cfg(unix)]
-#[test]
-fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
-    let directory =
-        std::env::temp_dir().join(format!("layerx-keystore-signer-{}", std::process::id()));
+fn keystore_fixture(label: &str) -> (AgentFixture, KeystoreSigner) {
+    let directory = std::env::temp_dir().join(format!(
+        "layerx-keystore-signer-{label}-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&directory);
     assert!(std::fs::create_dir(&directory).is_ok());
     let key_path = directory.join("identity");
@@ -217,28 +230,23 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
     let Ok(signer) = KeystoreSigner::new(&socket_path, public_key) else {
         panic!("real external key was rejected");
     };
+    (fixture, signer)
+}
+
+#[cfg(unix)]
+#[test]
+fn operating_system_keystore_signer_uses_a_real_ssh_agent() -> Result<(), Box<dyn std::error::Error>>
+{
+    let (fixture, signer) = keystore_fixture("payer");
+    let public_key = signer.public_key();
     assert_eq!(format!("{signer:?}"), "KeystoreSigner([external key])");
-    let old = support::signing::old_envelope(public_key);
-    for candidate in [
-        &signer,
-        &KeystoreSigner::new(fixture.directory.join("unavailable.sock"), public_key)
-            .expect("public key"),
-    ] {
-        assert_eq!(
-            ready(sign_disclosed(
-                candidate,
-                &old.canonical,
-                &old.disclosure,
-                &old.registry
-            )),
-            Err(SignError::InvalidDisclosure)
-        );
-    }
     let debit = support::debit(25);
-    let canonical = debit.authorization_message().expect("native payer message");
+    let canonical = debit
+        .authorization_message()
+        .map_err(|error| format!("native payer message: {error:?}"))?;
     let request = debit
         .signing_request(&canonical)
-        .expect("typed payer request");
+        .map_err(|error| format!("typed payer request: {error:?}"))?;
     let signature: Result<DidSignature, SignError> = ready(signer.sign(request));
     let Ok(signature) = signature else {
         panic!("real ssh-agent refused valid request");
@@ -253,7 +261,63 @@ fn operating_system_keystore_signer_uses_a_real_ssh_agent() {
         Ok(())
     );
     let binding = support::signing::binding();
-    let signature = ready(signer.sign_bind(&binding)).expect("real SSH-agent bind signature");
+    let signature = ready(signer.sign_bind(&binding))
+        .map_err(|error| format!("real SSH-agent bind signature: {error:?}"))?;
     assert_eq!(binding.verify(&public_key, signature.as_bytes()), Ok(()));
     drop(fixture);
+
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn keystore_signer_refuses_activity_preimages_and_signs_the_bind_message(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (fixture, signer) = keystore_fixture("activity-refusal");
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let activity =
+        SignatureMessage::new(Domain::SignaturePreimage, PROTOCOL_VERSION, 17, &canonical)
+            .map_err(|error| format!("activity signature preimage domain: {error:?}"))?;
+    let request = SigningRequest::new(activity, &produced.disclosure)
+        .map_err(|error| format!("validated disclosure: {error:?}"))?;
+    assert_eq!(
+        request.message().ok_or("activity preimage")?.digest(),
+        activity.digest()
+    );
+    let unavailable = KeystoreSigner::new(
+        fixture.directory.join("unavailable.sock"),
+        signer.public_key(),
+    )
+    .map_err(|error| format!("public identity: {error:?}"))?;
+    for candidate in [&signer, &unavailable] {
+        assert_eq!(
+            ready(candidate.sign(request)),
+            Err(SignError::InvalidDisclosure)
+        );
+        assert_eq!(
+            ready(candidate.sign_bind_bytes(&support::archived_send(25))),
+            Err(SignError::InvalidDisclosure)
+        );
+    }
+    let binding = support::signing::binding();
+    let signature = ready(signer.sign_bind(&binding))
+        .map_err(|error| format!("bind consent through real SSH socket: {error:?}"))?;
+    assert_eq!(
+        binding.verify(&signer.public_key(), signature.as_bytes()),
+        Ok(())
+    );
+    let transaction_signature = ready(sign_disclosed_call(
+        &support::evm_signer(),
+        &produced.call,
+        &produced.disclosure,
+        support::call_options(7).from,
+    ))
+    .map_err(|error| format!("disclosed type-2 transaction: {error:?}"))?;
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&produced.call, &transaction_signature),
+        Ok(support::call_options(7).from)
+    );
+
+    Ok(())
 }

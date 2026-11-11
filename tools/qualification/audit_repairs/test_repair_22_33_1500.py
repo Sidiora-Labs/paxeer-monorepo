@@ -59,7 +59,7 @@ def test_install_guide_inputs_maintained_cli_link():
     assert len(links) == 1
     url = urlsplit(links[0])
     assert url.scheme == "https" and url.netloc == "github.com"
-    prefix = "/Sidiora-Labs/Paxeer-X-Network/blob/main/"
+    prefix = "/Sidiora-Labs/paxeer-monorepo/blob/main/"
     assert url.path == prefix + CLI + "README.md"
     assert url.fragment == "wallet-quickstart" and not url.query
     guide = source(url.path.removeprefix(prefix))
@@ -94,10 +94,15 @@ def test_install_guide_inputs_signing_and_disclosure():
         "let prepared = PreparedTransaction::new(call, from)?;",
         "print_disclosure(&prepared.confirmation())?;",
         "let (raw, expected_hash) = prepared.sign(&evm_key)?;",
-        "let hash = client.send_raw_transaction(&raw).map_err(rpc_error)?;",
-        "if hash != expected_hash",
+        "let hash = submit_transaction(",
+        "reconcile_submission(",
     ]
-    positions = [wallet.index(fact) for fact in ordered]
+    send = wallet[wallet.index("let prepared = PreparedTransaction::new(call, from)?;"):]
+    positions = [send.index(fact) for fact in ordered]
+    journal = wallet.split("pub(crate) fn submit_transaction(", 1)[1].split("pub(crate) fn reconcile_submission(", 1)[0]
+    assert journal.index("save_submission(journal, &record)?") < journal.index("client.send_raw_transaction(raw)")
+    assert 'Ok(hash) if hash == expected_hash' in journal
+    assert 'state: "unknown".into()' in journal
     assert positions == sorted(positions)
     debit = wallet.split("let debit =\n", 1)[1].split("fn identity_sequence(", 1)[0]
     assert debit.index("print_disclosure(") < debit.index("debit.sign(signer)")
@@ -124,13 +129,16 @@ def test_install_guide_inputs_raw_transaction_producer_transport():
     assert_facts(
         submit, ".filter(|object| object.len() == 1)", '.get("raw_transaction")',
         'rpc::request("eth_sendRawTransaction", &json!([raw]))',
-        "decode_signed(&bytes)", "recover_sender(&call, &signature)",
-        "call.chain_id != u64::from(runtime.network_id)",
-        'let tx_hash = format!("0x{}", hex_encode(&transaction_hash(&bytes)))',
-        '.post("/rpc", &request, None)', "submission_result(&bytes, &response)",
+        "rpc::prepare_submission(&bytes, Some(u64::from(runtime.network_id)))?",
+        '.post("/", prepared.request(), None)', "prepared.resolve(response)",
     )
-    assert submit.index("decode_signed(&bytes)") < submit.index('.post("/rpc", &request, None)')
-    assert submit.index("call.chain_id !=") < submit.index('.post("/rpc", &request, None)')
+    assert submit.index("rpc::prepare_submission(") < submit.index('.post("/", prepared.request(), None)')
+    rpc = source(CLI + "src/rpc.rs")
+    validation = rpc.split("pub fn prepare_submission(", 1)[1].split("pub fn submission_outcome(", 1)[0]
+    assert_facts(validation, "decode_signed(raw)", "recover_sender(&call, &signature)",
+                 "network_id.is_some_and(|id| id != call.chain_id)",
+                 "transaction_hash(raw)", "Ok(PreparedSubmission { command, tx_hash })")
+
 
 
 def test_install_guide_inputs_txhash_reconciliation_consumer():
@@ -149,7 +157,7 @@ def test_install_guide_inputs_txhash_reconciliation_consumer():
     )
     toolset = source(CLI + "src/toolset.rs")
     assert_facts(
-        toolset, 'Ok(json!({"txHash": tx_hash, "rung": "unknown", "detail": detail}))',
+        toolset,
         'let expected = format!("0x{}", hex_encode(&transaction_hash(raw)))',
         "if hash.as_str() != Some(expected.as_str())",
         'Ok(json!({"txHash": hash, "rung": "submitted"}))',
@@ -158,6 +166,10 @@ def test_install_guide_inputs_txhash_reconciliation_consumer():
         'rpc::request("pax_sequencerReceipt", &json!([hash]))',
         'rpc::decode_response("pax_sequencerReceipt", &response)',
     )
+    rpc = source(CLI + "src/rpc.rs")
+    assert_facts(rpc, 'Ok(json!({"txHash":tx_hash,"rung":"unknown","detail":detail}))',
+                 "if hash.as_str() != Some(tx_hash.as_str())",
+                 'Ok(json!({"txHash":hash,"rung":"submitted"}))')
     schema = tool_schema("receipt.get")
     arguments = documented_arguments("activity_id")
     assert schema["required"] == list(arguments) == ["activity_id"]

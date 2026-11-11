@@ -4,6 +4,7 @@ use gap_integration::{HistoryServer, SubscriptionServer};
 
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -31,7 +32,7 @@ use layerx_agentd::events::{
     backfill, deliver, DeliveryEngine, DeliveryError, DeliveryItem, EventAttributes, EventIngestor,
     RetryPolicy,
 };
-use layerx_agentd::read::HistoryLimits;
+use layerx_agentd::read::{Cursor as ChainCursor, HistoryLimits};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Config, RedactionPolicy, Retention};
@@ -232,28 +233,39 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
         counterparty: "human-approval".to_owned(),
         result_code: 0,
     };
-    let wire_log = serde_json::from_slice(&recovered_bytes).unwrap();
+    let wire_log = assert_ok(serde_json::from_slice(&recovered_bytes), "unexpected error");
     let logs_server = SubscriptionServer::new(json!(["logs", {"topics": []}]), vec![wire_log]);
-    let mut logs = subscribe(
-        &logs_server.url,
-        &[],
-        SubscriptionTopic::Logs {
-            address: None,
-            topics: vec![],
-        },
-    )
-    .unwrap();
+    let mut logs = assert_ok(
+        subscribe(
+            &logs_server.url,
+            &[],
+            SubscriptionTopic::Logs {
+                address: None,
+                topics: vec![],
+            },
+        ),
+        "unexpected error",
+    );
     let mut ingestor = EventIngestor::open(durable, tenant(), 16, 1)
         .unwrap_or_else(|error| panic!("recovery ingestor: {error}"));
-    ingestor.read_log(&mut logs, attributes.clone()).unwrap();
+    assert_ok(
+        ingestor.read_log(&mut logs, attributes.clone()),
+        "unexpected error",
+    );
     logs_server.finish();
     let history = HistoryServer::new(vec![(
         1,
-        json!([serde_json::from_slice::<serde_json::Value>(&recovered_bytes).unwrap()]),
+        json!([assert_ok(
+            serde_json::from_slice::<serde_json::Value>(&recovered_bytes),
+            "unexpected error"
+        )]),
     )]);
     let source = history.connect();
     let heads_server = SubscriptionServer::new(json!(["newHeads"]), vec![json!({"number":"0x2"})]);
-    let mut heads = subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads).unwrap();
+    let mut heads = assert_ok(
+        subscribe(&heads_server.url, &[], SubscriptionTopic::NewHeads),
+        "unexpected error",
+    );
     ingestor
         .read_head(
             &mut heads,
@@ -267,24 +279,7 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
         )
         .unwrap_or_else(|error| panic!("close recovered block: {error}"));
     heads_server.finish();
-    let mut subscriptions = SubscriptionStore::open(ingestor.into_store(), tenant())
-        .unwrap_or_else(|error| panic!("subscriptions: {error}"));
-    subscriptions
-        .create(
-            target().subscription_id,
-            SubscriptionCreate {
-                scope: scope(),
-                filter: filter(),
-                start: ApiCursor {
-                    block_height: 0,
-                    tx_index: 0,
-                    log_index: 0,
-                },
-                delivery_target: DeliveryTarget::new("uds://approval-consumer")
-                    .unwrap_or_else(|error| panic!("target: {error:?}")),
-            },
-        )
-        .unwrap_or_else(|error| panic!("create: {error}"));
+    let mut subscriptions = stream_subscriptions(ingestor.into_store());
     let gap = detect(&mut subscriptions, &target(), 1, 2)
         .unwrap_or_else(|error| panic!("detect gap: {error}"))
         .unwrap_or_else(|| panic!("gap missing"));
@@ -307,11 +302,37 @@ fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u
     (subscriptions, recovered_bytes)
 }
 
+fn stream_subscriptions(durable: Store) -> SubscriptionStore {
+    let mut subscriptions = SubscriptionStore::open(durable, tenant())
+        .unwrap_or_else(|error| panic!("subscriptions: {error}"));
+    subscriptions
+        .create(
+            target().subscription_id,
+            SubscriptionCreate {
+                scope: scope(),
+                filter: filter(),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
+                delivery_target: DeliveryTarget::new("uds://approval-consumer")
+                    .unwrap_or_else(|error| panic!("target: {error:?}")),
+            },
+        )
+        .unwrap_or_else(|error| panic!("create: {error}"));
+    subscriptions
+}
+
 fn delivery_engine(subscriptions: SubscriptionStore) -> DeliveryEngine {
+    delivery_engine_at(subscriptions, 4)
+}
+
+fn delivery_engine_at(subscriptions: SubscriptionStore, live_start: u64) -> DeliveryEngine {
     DeliveryEngine::open(
         subscriptions,
         target(),
-        4,
+        live_start,
         8,
         RetryPolicy {
             base_delay_ms: 10,
@@ -332,6 +353,7 @@ fn refill_backfill(delivery: &mut DeliveryEngine, label: &str) {
 
 fn drain_delivered(delivery: &mut DeliveryEngine) -> Vec<Vec<u8>> {
     let mut delivered = Vec::new();
+    let mut previous_cursor = None;
     refill_backfill(delivery, "backfill");
     while let Some(item) =
         deliver(delivery).unwrap_or_else(|error| panic!("delivery attempt: {error}"))
@@ -341,6 +363,8 @@ fn drain_delivered(delivery: &mut DeliveryEngine) -> Vec<Vec<u8>> {
             .unwrap_or_else(|error| panic!("accept: {error}"));
         assert_eq!(accepted, item);
         if let DeliveryItem::Event(event) = accepted {
+            assert!(previous_cursor.is_none_or(|previous| previous < event.delivery.cursor));
+            previous_cursor = Some(event.delivery.cursor);
             delivered.push(event.delivery.event_bytes.clone());
             delivery
                 .acknowledge(&CursorAcknowledgement {
@@ -401,7 +425,11 @@ fn assert_digest_evidence_exported(audit_path: &Path, lifecycles: &[ApprovalLife
 #[test]
 fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
     let root = directory();
-    fs::create_dir_all(&root).unwrap_or_else(|error| panic!("root: {error}"));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&root)
+        .unwrap_or_else(|error| panic!("root: {error}"));
+    let root = fs::canonicalize(root).unwrap_or_else(|error| panic!("canonical root: {error}"));
     let durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut ingestor = EventIngestor::open(durable, tenant(), 16, 0)
         .unwrap_or_else(|error| panic!("ingestor: {error}"));
@@ -436,4 +464,303 @@ fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
 
     assert_digest_evidence_exported(&audit_path, &lifecycles);
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn local_approval_between_closed_blocks_keeps_journal_order_after_restart() {
+    assert_approval_at_block_boundary(false);
+}
+
+#[test]
+fn local_approval_while_next_block_is_pending_keeps_journal_order_after_restart() {
+    assert_approval_at_block_boundary(true);
+}
+
+fn assert_approval_at_block_boundary(queue_next_block_first: bool) {
+    let root = directory();
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            tenant(),
+            8,
+            0,
+        ),
+        "unexpected error",
+    );
+    let attributes = boundary_attributes();
+    let BoundaryLogs {
+        first,
+        second,
+        history,
+        source,
+        limits,
+    } = first_boundary_block(&mut ingestor, queue_next_block_first, &attributes);
+    let mut audit = assert_ok(Log::open(&root, &tenant()), "unexpected error");
+    let emission = assert_ok(
+        ApprovalEvents::emit(
+            &mut ingestor,
+            &mut audit,
+            &mut Coverage::default(),
+            &lifecycle(ApprovalEventKind::Created, 1, 100),
+        ),
+        "unexpected error",
+    );
+    assert_eq!(emission.global_sequence, 2);
+    drop(audit);
+    drop(ingestor);
+
+    let mut ingestor = assert_ok(
+        EventIngestor::open(
+            assert_ok(Store::open(&root), "unexpected error"),
+            tenant(),
+            8,
+            0,
+        ),
+        "unexpected error",
+    );
+    assert_eq!(
+        ingestor.watermark().last_position,
+        Some(ChainCursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 1,
+        })
+    );
+    let mut audit = assert_ok(Log::open(&root, &tenant()), "unexpected error");
+    let next_emission = assert_ok(
+        ApprovalEvents::emit(
+            &mut ingestor,
+            &mut audit,
+            &mut Coverage::default(),
+            &lifecycle(ApprovalEventKind::Granted, 1, 101),
+        ),
+        "unexpected error",
+    );
+    assert_eq!(next_emission.global_sequence, 3);
+    if !queue_next_block_first {
+        for log in &second {
+            assert_ok(
+                ingestor.ingest_log(log, attributes.clone()),
+                "unexpected error",
+            );
+        }
+    }
+    assert_eq!(ingestor.watermark().next_expected, 4);
+    assert_ok(
+        ingestor.new_head(14, &source, limits, 8, attributes),
+        "unexpected error",
+    );
+    history.finish();
+    assert_eq!(ingestor.watermark().next_expected, 6);
+    let final_emission = assert_ok(
+        ApprovalEvents::emit(
+            &mut ingestor,
+            &mut audit,
+            &mut Coverage::default(),
+            &lifecycle(ApprovalEventKind::Created, 2, 102),
+        ),
+        "unexpected error",
+    );
+    drop(audit);
+    drop(ingestor);
+
+    assert_boundary_delivery(
+        &root,
+        &first,
+        &second,
+        emission,
+        next_emission,
+        final_emission,
+    );
+    assert_ok(fs::remove_dir_all(root), "unexpected error");
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+fn assert_boundary_delivery(
+    root: &Path,
+    first: &[serde_json::Value; 2],
+    second: &[serde_json::Value; 2],
+    emission: ApprovalEmission,
+    next_emission: ApprovalEmission,
+    final_emission: ApprovalEmission,
+) {
+    let subscriptions = stream_subscriptions(assert_ok(Store::open(root), "unexpected error"));
+    let mut engine = delivery_engine_at(subscriptions, 7);
+    // 2985: raw log positions stay exact; local counters start at zero for each closed block.
+    let expected = [
+        (12, 0, 0),
+        (12, 0, 1),
+        (12, u32::MAX, 0),
+        (12, u32::MAX, 1),
+        (13, 0, 0),
+        (13, 0, 1),
+        (13, u32::MAX, 0),
+    ];
+    let mut delivered = Vec::new();
+    let mut previous = None;
+    for (sequence, (block_height, tx_index, log_index)) in expected.into_iter().enumerate() {
+        let item = assert_some(
+            assert_ok(deliver(&mut engine), "unexpected error"),
+            "ordered event",
+        );
+        let DeliveryItem::Event(event) = &item else {
+            panic!("event before seam")
+        };
+        assert_eq!(event.global_sequence, sequence as u64);
+        assert_eq!(
+            event.delivery.cursor,
+            ApiCursor {
+                block_height,
+                tx_index,
+                log_index
+            }
+        );
+        assert!(previous.is_none_or(|cursor| cursor < event.delivery.cursor));
+        previous = Some(event.delivery.cursor);
+        if sequence == 2 {
+            let original = event.clone();
+            assert_eq!(
+                assert_ok(engine.accept_front(100), "unexpected error"),
+                item
+            );
+            drop(engine);
+            engine = delivery_engine_at(
+                assert_ok(
+                    SubscriptionStore::open(
+                        assert_ok(Store::open(root), "unexpected error"),
+                        tenant(),
+                    ),
+                    "unexpected error",
+                ),
+                7,
+            );
+            let replay = assert_some(
+                assert_ok(deliver(&mut engine), "unexpected error"),
+                "unacknowledged approval",
+            );
+            assert_eq!(replay, DeliveryItem::Event(original));
+            assert_eq!(
+                assert_ok(engine.accept_front(101), "unexpected error"),
+                replay
+            );
+        } else {
+            assert_eq!(
+                assert_ok(engine.accept_front(100), "unexpected error"),
+                item
+            );
+        }
+        let DeliveryItem::Event(event) = item else {
+            unreachable!()
+        };
+        assert_ok(
+            engine.acknowledge(&CursorAcknowledgement {
+                scope: scope(),
+                subscription_id: target().subscription_id,
+                cursor: event.delivery.cursor,
+            }),
+            "unexpected error",
+        );
+        delivered.push(event.delivery.event_bytes);
+    }
+    assert_eq!(
+        delivered,
+        vec![
+            assert_ok(serde_json::to_vec(&first[0]), "unexpected error"),
+            assert_ok(serde_json::to_vec(&first[1]), "unexpected error"),
+            emission.canonical_event_bytes,
+            next_emission.canonical_event_bytes,
+            assert_ok(serde_json::to_vec(&second[0]), "unexpected error"),
+            assert_ok(serde_json::to_vec(&second[1]), "unexpected error"),
+            final_emission.canonical_event_bytes
+        ]
+    );
+    assert!(matches!(
+        assert_ok(deliver(&mut engine), "unexpected error"),
+        Some(DeliveryItem::BackfillComplete(_))
+    ));
+    assert_ok(engine.accept_front(102), "unexpected error");
+    assert!(assert_ok(deliver(&mut engine), "unexpected error").is_none());
+}
+
+struct BoundaryLogs {
+    first: [serde_json::Value; 2],
+    second: [serde_json::Value; 2],
+    history: HistoryServer,
+    source: layerx_agentd::events::gap::EthLogSource,
+    limits: HistoryLimits,
+}
+fn first_boundary_block(
+    ingestor: &mut EventIngestor,
+    queue_next_block_first: bool,
+    attributes: &EventAttributes,
+) -> BoundaryLogs {
+    let first = [
+        gap_integration::log(12, 0, 0),
+        gap_integration::log(12, 0, 1),
+    ];
+    let second = [
+        gap_integration::log(13, 0, 0),
+        gap_integration::log(13, 0, 1),
+    ];
+    let history = HistoryServer::new(vec![]);
+    let source = history.connect();
+    let limits = HistoryLimits {
+        maximum_items: 8,
+        maximum_response_bytes: 1_048_576,
+    };
+    for log in &first {
+        assert_ok(
+            ingestor.ingest_log(log, attributes.clone()),
+            "unexpected error",
+        );
+    }
+    assert_eq!(ingestor.watermark().next_expected, 0);
+    assert_ok(
+        ingestor.new_head(13, &source, limits, 8, attributes.clone()),
+        "unexpected error",
+    );
+    assert_eq!(ingestor.watermark().next_expected, 2);
+    if queue_next_block_first {
+        for log in &second {
+            assert_ok(
+                ingestor.ingest_log(log, attributes.clone()),
+                "unexpected error",
+            );
+        }
+        assert_eq!(ingestor.watermark().next_expected, 2);
+    }
+    BoundaryLogs {
+        first,
+        second,
+        history,
+        source,
+        limits,
+    }
+}
+
+fn boundary_attributes() -> EventAttributes {
+    EventAttributes {
+        agent: "did:layerx:approval-events".into(),
+        account: "tenant-a".into(),
+        activity_type: 7,
+        module: "approval".into(),
+        asset: "LXP".into(),
+        counterparty: "human-approval".into(),
+        result_code: 0,
+    }
 }

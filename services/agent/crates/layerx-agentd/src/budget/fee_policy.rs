@@ -1,3 +1,6 @@
+#[cfg(test)]
+use crate::budget::AssertCase as _;
+
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 
@@ -120,6 +123,9 @@ fn denom_call(signature: &[u8], denom: &[u8]) -> Vec<u8> {
     call
 }
 
+/// # Errors
+/// Returns an error if the node fee read fails or the returned fee policy cannot be
+/// validated.
 pub fn native_fee_policy(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -128,6 +134,9 @@ pub fn native_fee_policy(
 }
 
 /// Reads the selected fee denomination for the authenticated native transaction payer.
+/// # Errors
+/// Returns an error if the node fee read fails or the returned fee policy cannot be
+/// validated.
 pub fn native_fee_policy_for(
     endpoint: &SequencerEndpoint,
     height: u64,
@@ -150,51 +159,11 @@ pub fn native_fee_policy_for(
     call.extend(payer);
     let answer = endpoint.call_at(height, &FEE_TOKEN, &call)?;
     let denom = text(&answer, 0, 1, 128).map_err(|_| FeeReadError::Denomination)?;
-    if !denom.iter().all(|byte| byte.is_ascii_graphic()) {
+    if !denom.iter().all(u8::is_ascii_graphic) {
         return Err(FeeReadError::Denomination);
     }
     let asset = if let Some(hex) = denom.strip_prefix(b"layerx/") {
-        if hex.len() != 64 {
-            return Err(FeeReadError::Denomination);
-        }
-        let mut id = [0; 32];
-        for (out, pair) in id.iter_mut().zip(hex.chunks_exact(2)) {
-            let digit = |byte: u8| match byte {
-                b'0'..=b'9' => Ok(byte - b'0'),
-                b'a'..=b'f' => Ok(byte - b'a' + 10),
-                b'A'..=b'F' => Ok(byte - b'A' + 10),
-                _ => Err(FeeReadError::Denomination),
-            };
-            *out = digit(pair[0])? * 16 + digit(pair[1])?;
-        }
-        let mut call = selector(b"getAsset(bytes32)");
-        call.extend(id);
-        let answer = endpoint.call_at(height, &LEDGER, &call)?;
-        let returned_id = word(&answer, 0)?;
-        let decimals = u8::try_from(small(&answer, 3)?).map_err(|_| FeeReadError::Metadata)?;
-        let paused = small(&answer, 10)?;
-        if returned_id != id || paused > 1 || answer.len() < 12 * 32 {
-            return Err(FeeReadError::Metadata);
-        }
-        let issuer_kind = u8::try_from(small(&answer, 7)?).map_err(|_| FeeReadError::Metadata)?;
-        if issuer_kind > 2 {
-            return Err(FeeReadError::Metadata);
-        }
-        AssetMetadata {
-            asset_id: returned_id,
-            symbol: text(&answer, 1, 12, 16)?,
-            name: String::from_utf8(dynamic(&answer, 2, 12, 32)?)
-                .map_err(|_| FeeReadError::Metadata)?,
-            decimals,
-            supply_cap: units(&answer, 4)?,
-            issuer_did: word(&answer, 5)?,
-            salt: word(&answer, 6)?,
-            issuer_kind,
-            custody_kind: u8::try_from(small(&answer, 8)?).map_err(|_| FeeReadError::Metadata)?,
-            custody_reference: dynamic(&answer, 9, 12, 128)?,
-            paused: paused == 1,
-            total_units: units(&answer, 11)?,
-        }
+        read_native_asset_metadata(endpoint, height, hex)?
     } else {
         let symbol = endpoint.call_at(height, &BANK, &denom_call(b"symbol(string)", &denom))?;
         let decimals = endpoint.call_at(height, &BANK, &denom_call(b"decimals(string)", &denom))?;
@@ -239,6 +208,53 @@ pub fn native_fee_policy_for(
     })
 }
 
+fn read_native_asset_metadata(
+    endpoint: &SequencerEndpoint,
+    height: u64,
+    hex: &[u8],
+) -> Result<AssetMetadata, FeeReadError> {
+    if hex.len() != 64 {
+        return Err(FeeReadError::Denomination);
+    }
+    let mut id = [0; 32];
+    for (out, pair) in id.iter_mut().zip(hex.chunks_exact(2)) {
+        let digit = |byte: u8| match byte {
+            b'0'..=b'9' => Ok(byte - b'0'),
+            b'a'..=b'f' => Ok(byte - b'a' + 10),
+            b'A'..=b'F' => Ok(byte - b'A' + 10),
+            _ => Err(FeeReadError::Denomination),
+        };
+        *out = digit(pair[0])? * 16 + digit(pair[1])?;
+    }
+    let mut call = selector(b"getAsset(bytes32)");
+    call.extend(id);
+    let answer = endpoint.call_at(height, &LEDGER, &call)?;
+    let returned_id = word(&answer, 0)?;
+    let decimals = u8::try_from(small(&answer, 3)?).map_err(|_| FeeReadError::Metadata)?;
+    let paused = small(&answer, 10)?;
+    if returned_id != id || paused > 1 || answer.len() < 12 * 32 {
+        return Err(FeeReadError::Metadata);
+    }
+    let issuer_kind = u8::try_from(small(&answer, 7)?).map_err(|_| FeeReadError::Metadata)?;
+    if issuer_kind > 2 {
+        return Err(FeeReadError::Metadata);
+    }
+    Ok(AssetMetadata {
+        asset_id: returned_id,
+        symbol: text(&answer, 1, 12, 16)?,
+        name: String::from_utf8(dynamic(&answer, 2, 12, 32)?)
+            .map_err(|_| FeeReadError::Metadata)?,
+        decimals,
+        supply_cap: units(&answer, 4)?,
+        issuer_did: word(&answer, 5)?,
+        salt: word(&answer, 6)?,
+        issuer_kind,
+        custody_kind: u8::try_from(small(&answer, 8)?).map_err(|_| FeeReadError::Metadata)?,
+        custody_reference: dynamic(&answer, 9, 12, 128)?,
+        paused: paused == 1,
+        total_units: units(&answer, 11)?,
+    })
+}
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -286,6 +302,90 @@ pub(crate) mod tests {
         bytes
     }
 
+    fn fixture_result(
+        request: &Value,
+        blocks: &mut usize,
+        root: [u8; 32],
+        fault: Option<&str>,
+        denom: &str,
+        preferences: &[([u8; 20], String, Vec<u8>)],
+    ) -> Value {
+        match request["method"].as_str().assert_case("method") {
+            "eth_blockNumber" => json!("0x7"),
+            "eth_getBlockByNumber" => {
+                assert_eq!(request["params"][0], "0x7");
+                assert!(request["params"][1].is_boolean());
+                if request["params"][1] == true {
+                    *blocks += 1;
+                }
+                if fault == Some("missing") {
+                    Value::Null
+                } else {
+                    let hash = if fault == Some("changed") && *blocks > 1 {
+                        [9; 32]
+                    } else {
+                        [3; 32]
+                    };
+                    let root = if fault == Some("changed_root") && *blocks > 1 {
+                        [9; 32]
+                    } else {
+                        root
+                    };
+                    json!({"number":"0x7", "hash":format!("0x{}", hex::encode(hash)),
+                                    "parentHash":format!("0x{}", hex::encode([2;32])), "timestamp":"0x1",
+                                    "transactionsRoot":format!("0x{}", hex::encode([4;32])),
+                                    "receiptsRoot":format!("0x{}", hex::encode([5;32])),
+                                    "stateRoot": if fault == Some("missing_root") { Value::Null } else { json!(format!("0x{}", hex::encode(root))) },
+                                    "transactions":[]})
+                }
+            }
+            "eth_call" => {
+                assert_eq!(request["params"][1], "0x7");
+                let to = request["params"][0]["to"].as_str().assert_case("to");
+                let data = hex::decode(
+                    request["params"][0]["data"]
+                        .as_str()
+                        .assert_case("data")
+                        .trim_start_matches("0x"),
+                )
+                .assert_case("call bytes");
+                let bytes = if data.starts_with(&selector(b"getFeeDenom(address)")) {
+                    assert_eq!(to, format!("0x{}", hex::encode(FEE_TOKEN)));
+                    assert_eq!(data.len(), 36);
+                    assert_eq!(&data[4..16], &[0; 12]);
+                    let preference = preferences
+                        .iter()
+                        .find(|(payer, _, _)| data[16..] == *payer)
+                        .assert_case("recorded payer preference");
+                    string_result(preference.1.as_bytes())
+                } else if data.starts_with(&selector(b"getAsset(bytes32)")) {
+                    assert_eq!(to, format!("0x{}", hex::encode(LEDGER)));
+                    assert_eq!(data.len(), 36);
+                    let preference = preferences
+                        .iter()
+                        .find(|(_, denom, _)| {
+                            denom.strip_prefix("layerx/").is_some_and(|id| {
+                                hex::decode(id).assert_case("asset id") == data[4..]
+                            })
+                        })
+                        .assert_case("recorded registry asset");
+                    preference.2.clone()
+                } else if data == denom_call(b"symbol(string)", denom.as_bytes()) {
+                    assert_eq!(to, format!("0x{}", hex::encode(BANK)));
+                    string_result(b"PAX")
+                } else {
+                    assert_eq!(to, format!("0x{}", hex::encode(BANK)));
+                    assert_eq!(data, denom_call(b"decimals(string)", denom.as_bytes()));
+                    let mut bytes = vec![0; 32];
+                    bytes[31] = 6;
+                    bytes
+                };
+                json!(format!("0x{}", hex::encode(bytes)))
+            }
+            other => panic!("unexpected RPC method {other}"),
+        }
+    }
+
     impl FeeFixture {
         pub(crate) fn new(denom: &str, root: [u8; 32], asset: Vec<u8>) -> Self {
             Self::with_reply(denom, root, asset, None)
@@ -297,118 +397,74 @@ pub(crate) mod tests {
             asset: Vec<u8>,
             fault: Option<&'static str>,
         ) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("fixture listener");
-            let address = listener.local_addr().expect("fixture address");
+            let listener = TcpListener::bind("127.0.0.1:0").assert_case("fixture listener");
+            let address = listener.local_addr().assert_case("fixture address");
             let endpoint =
-                SequencerEndpoint::new(&format!("http://{address}"), &[]).expect("endpoint");
+                SequencerEndpoint::new(&format!("http://{address}"), &[]).assert_case("endpoint");
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = stop.clone();
             let denom = denom.to_owned();
+            let corpus: Value = serde_json::from_slice(include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/repair_22_31_217/corpus.json"
+            )))
+            .assert_case("committed fee-token keeper answers");
+            let mut preferences = vec![([0; 20], denom.clone(), asset)];
+            for (seed, id) in [(0xa5, [4; 32]), (0xa6, [5; 32])] {
+                let key = k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into())
+                    .assert_case("payer key");
+                let payer = layerx_crypto::secp256k1::evm_address(
+                    key.verifying_key().to_encoded_point(false).as_bytes(),
+                )
+                .assert_case("payer address");
+                let view = &corpus["peer_views"]["fee_assets"][hex::encode(id)];
+                preferences.push((
+                    payer,
+                    format!("layerx/{}", hex::encode(id)),
+                    hex::decode(view["metadata"].as_str().assert_case("keeper metadata"))
+                        .assert_case("keeper ABI"),
+                ));
+            }
             let worker = std::thread::spawn(move || {
                 let mut blocks = 0;
                 for connection in listener.incoming() {
                     if stopped.load(Ordering::SeqCst) {
                         break;
                     }
-                    let mut stream = connection.expect("fixture connection");
+                    let mut stream = connection.assert_case("fixture connection");
                     stream
                         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                        .expect("timeout");
+                        .assert_case("timeout");
                     let mut reader = BufReader::new(&mut stream);
                     let mut line = String::new();
-                    reader.read_line(&mut line).expect("request line");
+                    reader.read_line(&mut line).assert_case("request line");
                     let mut length = None;
                     loop {
                         line.clear();
-                        reader.read_line(&mut line).expect("request header");
+                        reader.read_line(&mut line).assert_case("request header");
                         if line == "\r\n" {
                             break;
                         }
                         if let Some((key, value)) = line.split_once(':') {
                             if key.eq_ignore_ascii_case("content-length") {
-                                length =
-                                    Some(value.trim().parse::<usize>().expect("content length"));
+                                length = Some(
+                                    value.trim().parse::<usize>().assert_case("content length"),
+                                );
                             }
                         }
                     }
-                    let mut body = vec![0; length.expect("body length")];
-                    reader.read_exact(&mut body).expect("request body");
-                    let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
-                    let result = match request["method"].as_str().expect("method") {
-                        "eth_blockNumber" => json!("0x7"),
-                        "eth_getBlockByNumber" => {
-                            assert_eq!(request["params"][0], "0x7");
-                            assert!(request["params"][1].is_boolean());
-                            if request["params"][1] == true {
-                                blocks += 1;
-                            }
-                            if fault == Some("missing") {
-                                Value::Null
-                            } else {
-                                let hash = if fault == Some("changed") && blocks > 1 {
-                                    [9; 32]
-                                } else {
-                                    [3; 32]
-                                };
-                                let root = if fault == Some("changed_root") && blocks > 1 {
-                                    [9; 32]
-                                } else {
-                                    root
-                                };
-                                json!({"number":"0x7", "hash":format!("0x{}", hex::encode(hash)),
-                                    "parentHash":format!("0x{}", hex::encode([2;32])), "timestamp":"0x1",
-                                    "transactionsRoot":format!("0x{}", hex::encode([4;32])),
-                                    "receiptsRoot":format!("0x{}", hex::encode([5;32])),
-                                    "stateRoot": if fault == Some("missing_root") { Value::Null } else { json!(format!("0x{}", hex::encode(root))) },
-                                    "transactions":[]})
-                            }
-                        }
-                        "eth_call" => {
-                            assert_eq!(request["params"][1], "0x7");
-                            let to = request["params"][0]["to"].as_str().expect("to");
-                            let data = hex::decode(
-                                request["params"][0]["data"]
-                                    .as_str()
-                                    .expect("data")
-                                    .trim_start_matches("0x"),
-                            )
-                            .expect("call bytes");
-                            let bytes = if data
-                                == [selector(b"getFeeDenom(address)"), vec![0; 32]].concat()
-                            {
-                                assert_eq!(to, format!("0x{}", hex::encode(FEE_TOKEN)));
-                                string_result(denom.as_bytes())
-                            } else if data.starts_with(&selector(b"getAsset(bytes32)")) {
-                                assert_eq!(to, format!("0x{}", hex::encode(LEDGER)));
-                                assert_eq!(data.len(), 36);
-                                assert_eq!(
-                                    &data[4..],
-                                    hex::decode(
-                                        denom.strip_prefix("layerx/").expect("registry denom")
-                                    )
-                                    .expect("asset id")
-                                );
-                                asset.clone()
-                            } else if data == denom_call(b"symbol(string)", denom.as_bytes()) {
-                                assert_eq!(to, format!("0x{}", hex::encode(BANK)));
-                                string_result(b"PAX")
-                            } else {
-                                assert_eq!(to, format!("0x{}", hex::encode(BANK)));
-                                assert_eq!(data, denom_call(b"decimals(string)", denom.as_bytes()));
-                                let mut bytes = vec![0; 32];
-                                bytes[31] = 6;
-                                bytes
-                            };
-                            json!(format!("0x{}", hex::encode(bytes)))
-                        }
-                        other => panic!("unexpected RPC method {other}"),
-                    };
+                    let mut body = vec![0; length.assert_case("body length")];
+                    reader.read_exact(&mut body).assert_case("request body");
+                    let request: Value =
+                        serde_json::from_slice(&body).assert_case("JSON-RPC request");
+                    let result =
+                        fixture_result(&request, &mut blocks, root, fault, &denom, &preferences);
                     let response = serde_json::to_vec(
                         &json!({"jsonrpc":"2.0","id":request["id"],"result":result}),
                     )
-                    .expect("response");
-                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.len()).expect("response headers");
-                    stream.write_all(&response).expect("response body");
+                    .assert_case("response");
+                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",response.len()).assert_case("response headers");
+                    stream.write_all(&response).assert_case("response body");
                 }
             });
             Self {
@@ -426,10 +482,32 @@ pub(crate) mod tests {
             let _ = TcpStream::connect(self.address);
             self.worker
                 .take()
-                .expect("fixture worker")
+                .assert_case("fixture worker")
                 .join()
-                .expect("fixture succeeded");
+                .assert_case("fixture succeeded");
         }
+    }
+
+    #[test]
+    fn native_fee_policy_reads_distinct_payer_preferences_at_the_committed_height() {
+        let fixture = FeeFixture::new("upax", [7; 32], Vec::new());
+        let default = native_fee_policy(&fixture.endpoint, 7).assert_case("default denomination");
+        let mut assets = Vec::new();
+        for (seed, expected) in [(0xa5, [4; 32]), (0xa6, [5; 32])] {
+            let key =
+                k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).assert_case("payer");
+            let payer = layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            )
+            .assert_case("address");
+            let fee =
+                native_fee_policy_for(&fixture.endpoint, 7, payer).assert_case("payer preference");
+            assert_eq!((fee.observed_sequence, fee.state_root), (7, [7; 32]));
+            assert_eq!(fee.value.asset.asset_id, expected);
+            assert_ne!(fee.value.asset.asset_id, default.value.asset.asset_id);
+            assets.push(fee.value.asset.asset_id);
+        }
+        assert_ne!(assets[0], assets[1]);
     }
 
     #[test]
@@ -440,7 +518,7 @@ pub(crate) mod tests {
                 [7; 32],
                 asset_result([1; 32], b"PAX", 18, paused),
             );
-            let fee = native_fee_policy(&fixture.endpoint, 7).expect("registry policy");
+            let fee = native_fee_policy(&fixture.endpoint, 7).assert_case("registry policy");
             assert_eq!(
                 (fee.observed_sequence, fee.state_root, fee.value.version),
                 (7, [7; 32], 1)
@@ -456,7 +534,7 @@ pub(crate) mod tests {
     #[test]
     fn native_fee_policy_reads_bank_metadata_and_hashes_the_denomination() {
         let fixture = FeeFixture::new("upax", [7; 32], Vec::new());
-        let fee = native_fee_policy(&fixture.endpoint, 7).expect("bank policy");
+        let fee = native_fee_policy(&fixture.endpoint, 7).assert_case("bank policy");
         assert_eq!(fee.value.asset.asset_id, keccak256(b"upax"));
         assert_eq!(fee.value.asset.symbol, b"PAX");
         assert_eq!(fee.value.asset.decimals, 6);

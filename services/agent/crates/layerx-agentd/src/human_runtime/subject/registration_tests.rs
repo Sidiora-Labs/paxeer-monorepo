@@ -1,7 +1,7 @@
 use super::agentd;
 use agentd::human::{HumanOperationError, HumanPeer, HumanSubject};
 use agentd::human_runtime::{bind_retained_registration, bind_subject_transaction};
-use agentd::outbox::{Outbox, SubmissionState};
+use agentd::outbox::{Outbox, SubmissionState, SubmissionStatus};
 use agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence};
 use agentd::store::{Store, TenantId};
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -22,6 +22,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 const NETWORK: u32 = 125;
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn subject_registration_test_gap_resolves_reads_and_writes_across_commitment_and_restart() {
+    prove_registration_resolution(|_, alice, bob, _| (alice.clone(), bob.clone()));
+}
 
 fn must<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("managed subject registration: {error:?}"))
@@ -191,34 +196,14 @@ pub(super) fn prove_registration_resolution(
     let hash = must(outbox.enqueue(&mut store, tenant(&alice), raw.clone()));
     assert_eq!(hash, transaction_hash(&raw));
     assert_eq!(must(outbox.bytes_for_transmission(hash)), raw);
-    for state in [SubmissionState::Queued, SubmissionState::Submitted] {
-        if state == SubmissionState::Submitted {
-            must(outbox.transition(
-                &mut store,
-                hash,
-                state,
-                "exact registration transmitted",
-                None,
-            ));
-        }
-        assert_eq!(
-            outbox
-                .status(hash)
-                .unwrap_or_else(|| panic!("outbox status"))
-                .state,
-            state
-        );
-        assert!(matches!(
-            bind_retained_registration(
-                &store,
-                &alice,
-                &did,
-                u64::from(NETWORK),
-                account.evm_address()
-            ),
-            Err(HumanOperationError::Refused)
-        ));
-    }
+    assert_pending_refuses(
+        &mut store,
+        &mut outbox,
+        hash,
+        &alice,
+        &did,
+        account.evm_address(),
+    );
     let authority = must(EvidenceAuthority::pinned_to_handshake(
         PROTOCOL_VERSION,
         NETWORK,
@@ -241,21 +226,82 @@ pub(super) fn prove_registration_resolution(
     drop(outbox);
     drop(store);
 
+    assert_restart_and_reconcile(
+        &directory,
+        &mut bindings,
+        &RegistrationResolution {
+            alice: &alice,
+            bob: &bob,
+            did: &did,
+            owner_address: account.evm_address(),
+            raw: &raw,
+            activity: &activity,
+            hash,
+            executed: &executed,
+        },
+    );
+}
+
+fn assert_pending_refuses(
+    store: &mut Store,
+    outbox: &mut Outbox,
+    hash: [u8; 32],
+    alice: &HumanPeer,
+    did: &Did,
+    owner_address: [u8; 20],
+) {
+    for state in [SubmissionState::Queued, SubmissionState::Submitted] {
+        if state == SubmissionState::Submitted {
+            must(outbox.transition(store, hash, state, "exact registration transmitted", None));
+        }
+        assert_eq!(
+            outbox
+                .status(hash)
+                .unwrap_or_else(|| panic!("outbox status"))
+                .state,
+            state
+        );
+        assert!(matches!(
+            bind_retained_registration(store, alice, did, u64::from(NETWORK), owner_address),
+            Err(HumanOperationError::Refused)
+        ));
+    }
+}
+
+#[derive(Clone, Copy)]
+struct RegistrationResolution<'a> {
+    alice: &'a HumanPeer,
+    bob: &'a HumanPeer,
+    did: &'a Did,
+    owner_address: [u8; 20],
+    raw: &'a [u8],
+    activity: &'a [u8],
+    hash: [u8; 32],
+    executed: &'a SubmissionStatus,
+}
+
+fn assert_restart_and_reconcile(
+    directory: &Directory,
+    bindings: &mut impl FnMut(&mut Store, &HumanPeer, &HumanPeer, bool) -> (HumanPeer, HumanPeer),
+    fixture: &RegistrationResolution<'_>,
+) {
+    let RegistrationResolution {
+        alice,
+        bob,
+        did,
+        owner_address,
+        raw,
+        activity,
+        hash,
+        executed,
+    } = *fixture;
     let mut store = must(Store::open(&directory.0));
-    let (alice, bob) = bindings(&mut store, &alice, &bob, true);
+    let (alice, bob) = bindings(&mut store, alice, bob, true);
     let mut outbox = Outbox::default();
     must(outbox.restore(&store, tenant(&alice), hash));
-    assert_eq!(outbox.status(hash), Some(&executed));
+    assert_eq!(outbox.status(hash), Some(executed));
     assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
-    assert_resolution(
-        &store,
-        &alice,
-        &bob,
-        &did,
-        account.evm_address(),
-        &raw,
-        &activity,
-    );
+    assert_resolution(&store, &alice, &bob, did, owner_address, raw, activity);
     let block = SequencerBlock {
         number: 8,
         hash: [0x55; 32],
@@ -263,19 +309,11 @@ pub(super) fn prove_registration_resolution(
         timestamp: 1_000,
         transactions_root: [0x33; 32],
         receipts_root: [0x66; 32],
-        transactions: vec![raw.clone()],
+        transactions: vec![raw.to_vec()],
     };
     let committed = must(outbox.reconcile_committed_block(&mut store, hash, &block));
     assert_eq!(committed.state, SubmissionState::Committed);
-    assert_resolution(
-        &store,
-        &alice,
-        &bob,
-        &did,
-        account.evm_address(),
-        &raw,
-        &activity,
-    );
+    assert_resolution(&store, &alice, &bob, did, owner_address, raw, activity);
     drop(outbox);
     drop(store);
 
@@ -285,15 +323,7 @@ pub(super) fn prove_registration_resolution(
     must(outbox.restore(&store, tenant(&alice), hash));
     assert_eq!(outbox.status(hash), Some(&committed));
     assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
-    assert_resolution(
-        &store,
-        &alice,
-        &bob,
-        &did,
-        account.evm_address(),
-        &raw,
-        &activity,
-    );
+    assert_resolution(&store, &alice, &bob, did, owner_address, raw, activity);
 }
 
 fn raw_receipt(activity_id: [u8; 32], result_code: i32, amount: u128) -> RawReceiptEvidence {

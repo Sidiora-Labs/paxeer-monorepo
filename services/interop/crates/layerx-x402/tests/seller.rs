@@ -790,6 +790,25 @@ fn settlement_executed_with_rung(
     }
 }
 
+fn grant_log() -> SequencerLog {
+    let reference = [0x5c; 32];
+    let exact = settlement_log(payer_account(), reference);
+    let mut data = exact.data().to_vec();
+    data.extend_from_slice(&reference);
+    data.extend_from_slice(&[0x9b; 32]);
+    SequencerLog::new(
+        exact.address(),
+        vec![
+            fixture_array("0x13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1"),
+            [0x8a; 32],
+            payer_account(),
+            account_id(PAYEE_ACCOUNT),
+        ],
+        data,
+        0,
+    )
+}
+
 fn grant_requirements(purpose: Option<&str>) -> PaymentRequirements {
     let mut layerx = json!({
         "commitment": "receipted",
@@ -1062,11 +1081,11 @@ fn seller_settles_a_drawn_payment() {
 
 #[test]
 fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
-    let executed = settlement_executed(6, payer_account());
+    let executed = settlement_executed_with_logs(payer_account(), vec![grant_log()]);
     let receipt = executed.evidence.signed_receipt.clone();
     let outcome = settle_executed(
         grant_requirements(Some(SETTLEMENT_PURPOSE)),
-        json!({"receive": "00", "idempotencyKey": "5c".repeat(32)}),
+        json!({"grantId": "8a".repeat(32), "idempotencyKey": "5c".repeat(32)}),
         executed,
         settlement_keys(),
     )
@@ -1079,9 +1098,9 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
             r#"{{"success":true,"payer":"{payer}","transaction":"0x{transaction}","#,
             r#""network":"eip155:125","amount":"1000","extensions":{{"layerx":{{"#,
             r#""logs":[{{"address":"0x000000000000000000000000000000000000101a","#,
-            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8","#,
-            r#""logIndex":"0x0","topics":["0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1","#,
-            r#""0x{reference}","0x{payer}","0x{payee}"]}}],"#,
+            r#""data":"0x{asset}00000000000000000000000000000000000000000000000000000000000003e8{reference}{draw_purpose}","#,
+            r#""logIndex":"0x0","topics":["0x13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1","#,
+            r#""0x{grant}","0x{payer}","0x{payee}"]}}],"#,
             r#""purposeHash":"{purpose}","receipt":"{receipt}","receiptDigest":"{digest}","#,
             r#""verificationLevel":"receipted"}}}}}}"#
         ),
@@ -1089,6 +1108,8 @@ fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
         transaction = hex32(&[0x61; 32]),
         asset = ASSET_HEX,
         reference = hex32(&[0x5c; 32]),
+        grant = hex32(&[0x8a; 32]),
+        draw_purpose = hex32(&[0x9b; 32]),
         payee = hex32(&account_id(PAYEE_ACCOUNT)),
         digest = digest,
         purpose = SETTLEMENT_PURPOSE,
@@ -1168,8 +1189,8 @@ fn a_grant_settlement_without_a_challenge_purpose_never_succeeds() {
     for purpose in [None, Some("7C3E"), Some(&*"g".repeat(64))] {
         let outcome = settle_executed(
             grant_requirements(purpose),
-            json!({"receive": "00", "idempotencyKey": "5c".repeat(32)}),
-            settlement_executed(6, payer_account()),
+            json!({"grantId": "8a".repeat(32), "idempotencyKey": "5c".repeat(32)}),
+            settlement_executed_with_logs(payer_account(), vec![grant_log()]),
             settlement_keys(),
         );
         assert!(

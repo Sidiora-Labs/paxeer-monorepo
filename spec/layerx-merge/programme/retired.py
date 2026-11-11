@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
+import sys
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from os import PathLike
 from pathlib import Path, PurePosixPath
 
+from . import evidence, parity
 from .kvx import KvxValue, load
 
 INVENTORY_PATH = Path(__file__).resolve().parent / "data" / "retired.kvx"
@@ -129,12 +133,33 @@ DOMAIN_ROOT_FILES: dict[int, tuple[str, ...]] = {
 }
 
 
+# Merged-tree snapshot at 1a66b50a6fe980d89fb9bed46b7fe0c50b0fb8d3.
+# Scan: python3 tools/paxeer-x/tests/retired_callers_test.py --deleted.
+# 8 hits in 6 paths, 28.278s; core/deps excluded.
+# Evidence: /tmp/layerx-merge-retired-callers-966pxtwh/scan.log
+# Historical counts only: these are not allowances; the gate still requires zero.
+CALLER_BASELINE: dict[str, int] = {
+    "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx": 1,
+    "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json": 3,
+    "services/agent/crates/layerx-client/src/ai_market.rs": 1,
+    "services/platform/hosted/paxeer": 1,
+    "tests/replay/golden/history.lxl": 1,
+    "tests/replay/lxp_test_golden_replay.c": 1,
+}
+
+
 def load_components() -> dict[str, dict[str, KvxValue]]:
-    return {
+    components = {
         section.removeprefix("component."): component
         for section, component in load(INVENTORY_PATH).items()
         if section.startswith("component.")
     }
+    # Decisions 3125 and 3202 retain the live golden replay (task 22.39.277).
+    # Decision 3203 retains the Paxeer boundary crate as a compatibility root.
+    # Keep both components' symbols so callers in these trees are still scanned.
+    for name in ("replay-golden", "eth-relay"):
+        components[name]["deleted_trees"] = []
+    return components
 
 
 def _doc_cell(value: KvxValue) -> str:
@@ -227,6 +252,82 @@ def stale_rows(root: str | PathLike[str]) -> list[str]:
     return sorted(stale)
 
 
+@dataclass(frozen=True)
+class RefusalResult:
+    passed: bool
+    count: int
+    exit_code: int
+    evidence: str
+
+
+def _count_refusal(command: str, root: str) -> None:
+    try:
+        count = parity.count_go_tests(command, root)
+    except subprocess.CalledProcessError as error:
+        print(error.stdout or "", end="")
+        print(error.stderr or "", end="", file=sys.stderr)
+        raise
+    print(json.dumps({"count": count}), flush=True)
+
+
+def run_refusals(
+    table: Mapping[str, Mapping[str, KvxValue]],
+    root: str | PathLike[str],
+    log_dir: str | PathLike[str],
+) -> dict[str, RefusalResult]:
+    root = Path(root).resolve()
+    directory = (root / log_dir).resolve()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    results: dict[str, RefusalResult] = {}
+    for name, row in table.items():
+        if name == "meta":
+            continue
+        if not re.fullmatch(r"refusal\.[A-Za-z0-9_.-]+", name):
+            raise ValueError(f"invalid refusal section: {name}")
+        command = row["command"]
+        if not isinstance(command, str) or shlex.split(command)[:2] != ["go", "test"]:
+            raise ValueError(f"{name}: expected a go test command")
+        log_path = directory / f"{name}.log"
+        exit_code = evidence.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, sys.argv[1]); "
+                "from programme.retired import _count_refusal; "
+                "_count_refusal(sys.argv[2], sys.argv[3])",
+                str(Path(__file__).resolve().parents[1]),
+                command,
+                str(root),
+            ],
+            log_path,
+        )
+        count = 0
+        if exit_code == 0:
+            count = json.loads(log_path.read_text(encoding="utf-8"))["count"]
+            if type(count) is not int or count < 0:
+                raise ValueError(f"{name}: invalid Go test count: {count!r}")
+            if count == 0:
+                exit_code = 1
+        line = evidence.evidence_line(revision, command, exit_code, log_path)
+        with (directory / "evidence.log").open("a", encoding="utf-8") as ledger:
+            ledger.write(line + "\n")
+        print(line, flush=True)
+        results[name] = RefusalResult(
+            passed=exit_code == 0 and count >= 1,
+            count=count,
+            exit_code=exit_code,
+            evidence=line,
+        )
+    return results
+
+
 def callers(component: str, root: str | PathLike[str]) -> list[str]:
     result = subprocess.run(
         [
@@ -275,10 +376,14 @@ def owners(callers: Iterable[str]) -> dict[str, int]:
         ]
         if path.startswith("tests/explorer"):
             matches.append((len("tests/explorer"), 14))
-        if relative.parent == PurePosixPath("api") and (
-            relative.suffix == ".yaml" or relative.name == "README.md"
-        ):
+        if relative.parent == PurePosixPath("api") and relative.suffix == ".yaml":
             matches.append((len(path), 7))
+        if relative.parent in {
+            PurePosixPath("modules"),
+            PurePosixPath("precompiles"),
+            PurePosixPath("api"),
+        } and relative.name == "README.md":
+            matches.append((len(path), 17))
         if relative.parent == PurePosixPath("."):
             for domain, patterns in DOMAIN_ROOT_FILES.items():
                 if any(fnmatchcase(path, pattern) for pattern in patterns):

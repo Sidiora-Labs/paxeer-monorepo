@@ -120,7 +120,7 @@ fn signed_receipt() -> (Value, Vec<u8>, ReceiptKeyEntry) {
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "feeDenom": "upax", "paymentDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&[6; 20]), "to": rpc_hex(&[7; 20]), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": "", "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
         "signingKey": rpc_hex(&key.public_key)
@@ -190,7 +190,7 @@ fn serve(exchanges: Vec<Exchange>) -> (NodeRpcConfig, JoinHandle<()>) {
                     length = Some(must(value.trim().parse::<usize>()));
                 }
             }
-            let length = length.expect("content length required");
+            let length = lint_present(length, "content length required");
             assert!(length <= 64 * 1024);
             let mut body = vec![0; length];
             must(reader.read_exact(&mut body));
@@ -208,10 +208,15 @@ fn serve(exchanges: Vec<Exchange>) -> (NodeRpcConfig, JoinHandle<()>) {
     (config, server)
 }
 
+/// # Panics
+/// Panics if required fixture data is absent, invalid, or an operation fails.
 pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("native JSON-RPC read: {error:?}"))
 }
 
+/// # Panics
+/// Panics if required fixture data is absent, invalid, or an operation fails.
+#[must_use]
 pub fn endpoint(config: &NodeRpcConfig) -> SequencerEndpoint {
     let certificates = if config.url.starts_with("https://") {
         let roots = rustls_native_certs::load_native_certs();
@@ -228,33 +233,13 @@ pub fn endpoint(config: &NodeRpcConfig) -> SequencerEndpoint {
     must(SequencerEndpoint::new(&config.url, &anchors))
 }
 
-pub fn live_route() -> (NativeReadRoute, NodeRpcConfig) {
-    let block = json!({"number": "0x96", "hash": rpc_hex(&[5; 32]),
-        "parentHash": rpc_hex(&[4; 32]), "timestamp": "0x3e8",
-        "transactionsRoot": rpc_hex(&[6; 32]), "receiptsRoot": rpc_hex(&[7; 32]),
-        "transactions": []});
-    let mut exchanges = receipt_exchanges();
-    exchanges.extend([
-        ("eth_blockNumber", json!([]), json!("0x96")),
-        ("eth_chainId", json!([]), json!("0x7d")),
-        ("eth_blockNumber", json!([]), json!("0x96")),
-        ("eth_chainId", json!([]), json!("0x7d")),
-        ("eth_blockNumber", json!([]), json!("0x96")),
-        ("eth_getBlockByNumber", json!(["0x96", true]), block.clone()),
-        ("eth_getBlockByNumber", json!(["0x96", true]), block),
-        ("eth_chainId", json!([]), json!("0x7d")),
-        ("px_getHistory", json!([rpc_hex(&receipt_hash()), null, 2]),
-            json!({"items": [], "next_cursor": null, "indexedHeight": HEIGHT, "chainHeight": HEIGHT})),
-    ]);
-    let (config, _server) = serve(exchanges);
-    let route = NativeReadRoute::new(endpoint(&config), config.chain_id);
-    (route, config)
-}
-
+#[must_use]
 pub fn receipt_hash() -> [u8; 32] {
     [3; 32]
 }
 
+/// # Panics
+/// Panics if required fixture data is absent, invalid, or an operation fails.
 pub fn assert_receipt(route: &mut NativeReadRoute, config: &NodeRpcConfig) {
     let hash = receipt_hash();
     let client = endpoint(config);
@@ -278,14 +263,15 @@ pub fn assert_receipt(route: &mut NativeReadRoute, config: &NodeRpcConfig) {
     assert_eq!(value["receipt"], hex::encode(expected.canonical_bytes()));
     assert_eq!(value["transaction_hash"], hex::encode(&hash));
     assert_eq!(value["rung"], "receipted");
-    let index = usize::try_from(
-        value["key_index"]
-            .as_u64()
-            .expect("receipt signing key index"),
-    )
-    .expect("representable key index");
+    let index = lint_success(
+        usize::try_from(lint_present(
+            value["key_index"].as_u64(),
+            "receipt signing key index",
+        )),
+        "representable key index",
+    );
     assert_eq!(index, 1, "select the signing key from the published set");
-    let key = keys.get(index).expect("index in px_getReceiptKeys");
+    let key = lint_present(keys.get(index), "index in px_getReceiptKeys");
     assert_eq!(key.key_id, expected.execution().key_id);
     assert!(key.first_height <= expected.height());
     assert!(expected.height() <= key.last_height);
@@ -334,10 +320,7 @@ fn native_receipt_refuses_missing_and_changed_payment_denomination() {
         let (mut receipt, _, key) = signed_receipt();
         match denomination {
             None => {
-                receipt
-                    .as_object_mut()
-                    .expect("receipt object")
-                    .remove("paymentDenom");
+                lint_present(receipt.as_object_mut(), "receipt object").remove("paymentDenom");
             }
             Some(value) => receipt["paymentDenom"] = json!(value),
         }
@@ -396,5 +379,21 @@ fn native_keys_refuse_empty_sets_and_out_of_window_receipts() {
             Err(layerx_client::rpc::receipt::ReceiptError::Verification(_))
         ));
         must(server.join());
+    }
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
 }

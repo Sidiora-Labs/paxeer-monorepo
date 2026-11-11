@@ -179,10 +179,19 @@ or establish finality.
 Public JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network`
 and `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`, chain ID `125` (`0x7d`). See
-[Public JSON-RPC](PublicRpc.md). Hosted `px_*` methods are a separate service
-contract in `services/platform/hosted/gateway/openrpc.json`, not public node
-methods. The gateway's `px_getCapabilities` probes `getCurrentFeeSchedule()`
-at `0x101D`; when Programs is unavailable it refuses direct Programs
+[Public JSON-RPC](PublicRpc.md).
+
+The node serves the `px` namespace at its root and answers from node state.
+`px_getBalances` and `px_getCapabilities` are node reads and do not require a
+hosted gateway.
+Only `px_register` and `px_requestFunds` are hosted operations.
+After parameter validation, node calls to either operation return JSON-RPC
+`-32004` with `error.data.code: "hosted_gateway_service_required"`.
+
+The gateway's method schemas are defined in
+`services/platform/hosted/gateway/openrpc.json`. Both the node's and gateway's
+`px_getCapabilities` probe `getCurrentFeeSchedule()` at `0x101D` for Programs
+availability. When Programs is unavailable the gateway refuses direct Programs
 transaction submissions with JSON-RPC `-32003` and data code
 `surface_unavailable`. Obtain gateway availability from its operator.
 
@@ -337,6 +346,21 @@ Nested wrappers, trailing data, forged names, or a recomputed root mismatch are
 refused. The positive native per-Asset evidence and negative vectors for that
 refusal live in `programs/fixtures/pay5/account-authorization-vectors.json`,
 alongside native-token and native-merchant fixtures.
+
+A transfer leg may name an identity as its destination and pays that identity's
+one payment account for the leg's asset. If the identity has no payment account
+for that asset, or more than one, the transfer is refused. When at least one
+destination is an identity, the account-bound evidence uses
+`LayerX/programs/402LXP/account-bound-set/v2\0`, followed by the u32 big-endian
+length and bytes of the original authorization, then, for every leg, the u16
+big-endian length and bytes of the source name followed by the u16 big-endian
+length and bytes of the destination name. Source names follow the version 1
+rules; destination names are empty for account-id and asset fee-account
+destinations. The runtime derives each named destination account from the
+identity, asset and canonical name before committing the account endpoints and
+transfer root. Grant and capability checks retain the destination bytes supplied
+by the program. A set without an identity destination keeps its version 1 bytes;
+a version 2 wrapper with all destination names empty is refused.
 
 ---
 

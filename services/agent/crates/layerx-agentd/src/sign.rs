@@ -17,31 +17,20 @@
 //!   `Result<SignedPreparation, SigningError>` with a 65-byte signature and
 //!   20-byte sender after scope, expiry and revocation checks.
 //!
-//! These functions do not accept the retired kernel `Prepared`, 64-byte Ed25519
-//! signature or 32-byte signer public key. Explicit kernel compatibility APIs
-//! are [`attach_kernel_signature`] and [`verify_kernel_before_submit`]; their
-//! artifacts cannot be submitted as EVM transactions. Retained preparations
-//! reopen via [`SigningPreparation::restore`] with call/disclosure binding intact.
+//! Retained preparations reopen via [`SigningPreparation::restore`] with
+//! call/disclosure binding intact.
 
 use std::collections::BTreeSet;
 
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
 use layerx_crypto::signer::SignError;
-use layerx_types::activity::ActivityBuildError;
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_wire::WireError;
 
-use crate::prepare::{
-    verify_call_binding, CallBindingError, DisclosureBindingError, DisclosureDigest, EvmPrepared,
-};
+use crate::prepare::{verify_call_binding, CallBindingError, EvmPrepared};
 
 #[path = "sign_verify.rs"]
 mod verification;
-
-#[path = "sign_legacy.rs"]
-mod legacy;
-pub use legacy::{attach_kernel_signature, verify_kernel_before_submit, VerifiedKernelArtifact};
 
 pub use verification::{SubmissionBindingAudit, VerifiedSubmission};
 
@@ -57,7 +46,7 @@ pub enum SigningMode {
 pub struct ExternalSigningPackage {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: [u8; 32],
-    pub disclosure_digest: DisclosureDigest,
+    pub disclosure_digest: [u8; 32],
     pub mode: SigningMode,
 }
 
@@ -67,7 +56,7 @@ pub struct SelfSigningAudit {
     pub mode: SigningMode,
     pub session_public_key: [u8; 32],
     pub activity_type: ActivityType,
-    pub disclosure_digest: DisclosureDigest,
+    pub disclosure_digest: [u8; 32],
     pub authority_bytes: Vec<u8>,
     pub expires_at: u64,
     pub revocation_sequence: u64,
@@ -153,7 +142,7 @@ pub fn validate_issued_session(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SigningError {
-    Disclosure(DisclosureBindingError),
+    CallBinding(CallBindingError),
     NotProvisioned,
     InvalidProvisioning,
     KeyMismatch,
@@ -162,8 +151,6 @@ pub enum SigningError {
     Revoked,
     AuthorityMismatch,
     Crypto(SignError),
-    SignatureEncoding(ActivityBuildError),
-    Wire(WireError),
     PreparedBytesChanged,
     SignatureInvalid,
     SignerMismatch,
@@ -172,13 +159,8 @@ pub enum SigningError {
 impl From<CallBindingError> for SigningError {
     fn from(error: CallBindingError) -> Self {
         match error {
-            CallBindingError::Disclosure(error) => {
-                Self::Disclosure(DisclosureBindingError::Decode(error))
-            }
-            CallBindingError::DigestMismatch => {
-                Self::Disclosure(DisclosureBindingError::DigestMismatch)
-            }
             CallBindingError::SigningHashMismatch => Self::PreparedBytesChanged,
+            error => Self::CallBinding(error),
         }
     }
 }
@@ -197,7 +179,7 @@ pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage,
     Ok(ExternalSigningPackage {
         canonical_bytes: prepared.transaction.call.encode_unsigned(),
         signing_preimage: prepared.transaction.signing_hash,
-        disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
+        disclosure_digest: prepared.transaction.disclosure_digest,
         mode: SigningMode::External,
     })
 }
@@ -209,6 +191,10 @@ pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage,
 /// Refuses an absent, expired, or revoked session key, an activity type outside its permitted set,
 /// and an authority other than the issued one. Also returns the disclosure, signing, encoding, and
 /// wire failures raised while producing the signed bytes.
+#[allow(
+    clippy::unused_async,
+    reason = "Preserve the public API signature used by daemon consumers."
+)]
 pub async fn self_sign(
     provisioned: Option<&ProvisionedSessionKey>,
     prepared: &SigningPreparation,
@@ -273,7 +259,7 @@ pub async fn self_sign(
             mode: SigningMode::ProtocolSessionKey,
             session_public_key: public_key,
             activity_type,
-            disclosure_digest: DisclosureDigest(prepared.transaction.disclosure_digest),
+            disclosure_digest: prepared.transaction.disclosure_digest,
             authority_bytes,
             expires_at: provisioned.issued.expires_at,
             revocation_sequence: provisioned.issued.revocation_sequence,
@@ -317,6 +303,9 @@ pub fn verify_before_submit(
 
 impl SigningPreparation {
     /// Retains the exact unsigned transaction, actor, and disclosure for crash recovery.
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn retain(
         &self,
         store: &mut crate::store::Store,
@@ -346,6 +335,9 @@ impl SigningPreparation {
             .map_err(|_| SigningError::PreparedBytesChanged)
     }
 
+    /// # Errors
+    /// Returns an error if the signing key, preparation or retained signing binding is invalid or
+    /// cannot be persisted.
     pub fn restore(
         store: &crate::store::Store,
         tenant: crate::store::TenantId,

@@ -1,0 +1,7 @@
+[issue.1694]
+number = 1694
+title = "[Coherence] The task record's qualification entry names a build command that is not the task's declared build_cmd"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "spec-edit"
+evidence = "Task 22.33.970 is done at spec/layerx-merge/spec.kvx:161511 and declares frozen-lockfile pnpm gates at spec/layerx-merge/spec.kvx:161529 and spec/layerx-merge/spec.kvx:161530, with the npm-to-pnpm correction explained at spec/layerx-merge/spec.kvx:161542, so its qualification documentation at apps/launchpad/web/src/features/metadata-media/repair-22-33-970.kvx:15 and apps/launchpad/web/src/features/metadata-media/repair-22-33-970.kvx:19 must label the npm failure as historical and the wiring request as superseded, preserve the original failure evidence, and identify the current pnpm gates without inventing a successful result."
+close_comment = "The launchpad metadata build and verification gates already use frozen-lockfile pnpm installs. The qualification record needs a documentation correction to distinguish the historical npm failure from the current gates and retire the superseded dependency-wiring request while preserving its original evidence."

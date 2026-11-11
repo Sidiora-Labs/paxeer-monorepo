@@ -43,6 +43,7 @@ pub struct PaymentExecution<'a> {
 
 /// # Errors
 /// Preserves daemon scope, policy and budget refusal before any wallet signature or submission.
+/// The wallet signs the disclosed EIP-1559 call and verifies its recovered EVM sender.
 pub fn execute(
     server: &mut Server,
     core_sequence: u64,
@@ -125,6 +126,8 @@ pub fn execute(
         .map_err(WalletToolError::Server)?
 }
 
+/// # Errors
+/// Returns an error if the alias, payment payload or encoded ledger target is invalid.
 pub fn prepare_alias_call(
     tool: PaymentTool,
     payload: &[u8],
@@ -134,6 +137,8 @@ pub fn prepare_alias_call(
     prepare_alias_call_with_receive(tool, payload, actor, options).map(|(call, _)| call)
 }
 
+/// # Errors
+/// Returns an error if the alias or payment cannot be decoded or encoded, or its target differs from the declared ledger precompile.
 pub fn prepare_alias_call_with_receive(
     tool: PaymentTool,
     payload: &[u8],
@@ -189,7 +194,7 @@ fn prepare(
         .signer
         .evm_address()
         .ok_or(WalletToolError::Arguments)?;
-    let address: String = from.iter().map(|byte| format!("{byte:02x}")).collect();
+    let address: String = crate::hex(&from);
     let nonce = wallet
         .rpc
         .get_identity_sequence(&format!("0x{address}"))
@@ -246,7 +251,7 @@ fn prepare(
                     .account
             }
         };
-        let account: String = source.iter().map(|byte| format!("{byte:02x}")).collect();
+        let account: String = crate::hex(&source);
         let value = wallet
             .rpc
             .get_account(&account)
@@ -386,18 +391,17 @@ pub fn accounts(
             "wallet.accounts",
             did.as_bytes().to_vec(),
             |_| {
-                let result = if did.as_bytes() != server_actor {
-                    Err(WalletToolError::Scope)
-                } else {
+                let result = if did.as_bytes() == server_actor {
                     wallet
                         .signer
                         .evm_address()
                         .ok_or(WalletToolError::Arguments)
                         .map(|address| {
-                            let address: String =
-                                address.iter().map(|byte| format!("{byte:02x}")).collect();
+                            let address: String = crate::hex(&address);
                             json!({"accounts": [format!("0x{address}")]})
                         })
+                } else {
+                    Err(WalletToolError::Scope)
                 };
                 let outcome = if result.is_ok() {
                     InvocationOutcome::Completed
@@ -425,7 +429,7 @@ pub fn balance(
         .execute_read(core_sequence, "wallet.balance", arguments, |_| {
             let result = layerx_agentd::read::balance(config, account, height)
                 .map(|read| json!({
-                    "account": format!("0x{}", account.iter().map(|byte| format!("{byte:02x}")).collect::<String>()),
+                    "account": format!("0x{}", crate::hex(&account)),
                     "amount": read.amount.value().to_string(),
                     "rung": read.achieved_rung.map(layerx_types::rung::Rung::name),
                     "freshness": {"chain_head": read.freshness.chain_head, "value_height": read.freshness.value_height,

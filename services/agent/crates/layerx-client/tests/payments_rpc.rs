@@ -82,7 +82,7 @@ fn list_assets_and_get_asset_read_px_list_assets() {
     let mut malformed = result.clone();
     malformed["assets"][1]["asset_id"] = json!("");
     let refusal = RpcRefusal {
-        code: -32004,
+        code: -32_004,
         message: "assets unavailable".to_owned(),
         data: Some(json!({"reason": "unavailable"})),
     };
@@ -121,7 +121,10 @@ fn list_assets_and_get_asset_read_px_list_assets() {
         name: Some("Paxeer".to_owned()),
         symbol: Some("PAX".to_owned()),
         decimals: Some(18),
-        supply: Some(Uint256::from_decimal("123456789").expect("exact supply")),
+        supply: Some(match Uint256::from_decimal("123456789") {
+            Some(required_value) => required_value,
+            None => panic!("exact supply"),
+        }),
         paused: Some(false),
         verification: Some("authenticated_committed_snapshot".to_owned()),
     };
@@ -206,7 +209,7 @@ fn estimate_fee_uses_eth_estimate_gas_on_the_signed_transaction() {
     assert_eq!(
         must(estimate_fee(&endpoint, &call)),
         FeeEstimate {
-            fee: 0x12345,
+            fee: 0x1_2345,
             parameter_version: 0,
             canonical_schedule: vec![]
         }

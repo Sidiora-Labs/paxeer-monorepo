@@ -42,7 +42,6 @@ use crate::human::HumanRefusal;
 use layerx_agent_api::budget::{BudgetAuthorization, SignedBudgetMutation};
 use layerx_agent_api::error::Retriability;
 use layerx_agent_api::export::{validate_export_request, FactRef};
-use layerx_agent_api::identity::{LegacyPolicyDryRun, MAX_POLICY_INTENT_BYTES};
 use layerx_agent_api::policy::PolicyDryRunRequest;
 use layerx_agent_api::read::{FeeProjectionRequest, ReadRequest};
 
@@ -58,7 +57,8 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
-pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+#[doc(hidden)]
+pub fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
     use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
 
     let id = body
@@ -645,23 +645,40 @@ pub(crate) fn native_effect_human_prepare(
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct NativeSendPurposeV1Wire {
-    version: String,
-    tenant: String,
-    agent_did: String,
-    owner_did: String,
-    owner_public_key: String,
-    session_id: String,
-    generation: String,
-    expires_at_ms: String,
-    capability_id: String,
-    protocol_version: String,
-    network_id: String,
-    activity: NativeActivityV1Wire,
-    preparation_id: String,
-    canonical_digest: String,
-    economic_action: String,
-    idempotency_key: String,
-    commitment: String,
+    #[serde(rename = "version")]
+    _version: String,
+    #[serde(rename = "tenant")]
+    _tenant: String,
+    #[serde(rename = "agent_did")]
+    _agent_did: String,
+    #[serde(rename = "owner_did")]
+    _owner_did: String,
+    #[serde(rename = "owner_public_key")]
+    _owner_public_key: String,
+    #[serde(rename = "session_id")]
+    _session_id: String,
+    #[serde(rename = "generation")]
+    _generation: String,
+    #[serde(rename = "expires_at_ms")]
+    _expires_at_ms: String,
+    #[serde(rename = "capability_id")]
+    _capability_id: String,
+    #[serde(rename = "protocol_version")]
+    _protocol_version: String,
+    #[serde(rename = "network_id")]
+    _network_id: String,
+    #[serde(rename = "activity")]
+    _activity: NativeActivityV1Wire,
+    #[serde(rename = "preparation_id")]
+    _preparation_id: String,
+    #[serde(rename = "canonical_digest")]
+    _canonical_digest: String,
+    #[serde(rename = "economic_action")]
+    _economic_action: String,
+    #[serde(rename = "idempotency_key")]
+    _idempotency_key: String,
+    #[serde(rename = "commitment")]
+    _commitment: String,
 }
 
 impl NativeSendPurposeV1Wire {
@@ -669,6 +686,7 @@ impl NativeSendPurposeV1Wire {
         self,
         id: RequestId,
     ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, Rejection> {
+        drop(self);
         Err(malformed(id))
     }
 }
@@ -677,8 +695,10 @@ impl NativeSendPurposeV1Wire {
 #[serde(deny_unknown_fields)]
 pub(crate) struct SignedNativeSendPurposeV1Wire {
     purpose: NativeSendPurposeV1Wire,
-    owner_public_key: String,
-    signature: String,
+    #[serde(rename = "owner_public_key")]
+    _owner_public_key: String,
+    #[serde(rename = "signature")]
+    _signature: String,
 }
 
 impl SignedNativeSendPurposeV1Wire {
@@ -1693,10 +1713,9 @@ impl PolicyDryRunWire {
     }
 }
 
-/// The two disjoint `policy.dry_run` request shapes.
+/// The typed `policy.dry_run` request.
 pub(crate) enum PolicyDryRunShape {
     Typed(PolicyDryRunRequest),
-    Legacy(LegacyPolicyDryRun),
 }
 
 const POLICY_DRY_RUN_TYPED_KEYS: [&str; 10] = [
@@ -1712,29 +1731,6 @@ const POLICY_DRY_RUN_TYPED_KEYS: [&str; 10] = [
     "core_sequence",
 ];
 
-const POLICY_DRY_RUN_LEGACY_KEYS: [&str; 2] = ["context", "canonical_intent"];
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct LegacyPolicyDryRunWire {
-    context: SessionContextWire,
-    canonical_intent: String,
-}
-
-impl LegacyPolicyDryRunWire {
-    fn into_request(self, id: RequestId) -> Result<LegacyPolicyDryRun, Rejection> {
-        if self.canonical_intent.is_empty()
-            || self.canonical_intent.len() > MAX_POLICY_INTENT_BYTES * 2
-        {
-            return Err(malformed(id));
-        }
-        Ok(LegacyPolicyDryRun {
-            context: self.context.into_context(id)?,
-            canonical_intent: hex_bytes(&self.canonical_intent, id)?,
-        })
-    }
-}
-
 /// The single decoder of the `policy.dry_run` request.
 pub(crate) fn policy_dry_run_request(
     request: &Map<String, Value>,
@@ -1745,10 +1741,6 @@ pub(crate) fn policy_dry_run_request(
         decode_wire::<PolicyDryRunWire>(request, id)?
             .into_request(id)
             .map(PolicyDryRunShape::Typed)
-    } else if within(&POLICY_DRY_RUN_LEGACY_KEYS) {
-        decode_wire::<LegacyPolicyDryRunWire>(request, id)?
-            .into_request(id)
-            .map(PolicyDryRunShape::Legacy)
     } else {
         Err(malformed(id))
     }
@@ -2467,6 +2459,31 @@ impl ProgramActivityWire {
 }
 
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod budget_create_wire_tests {
     use super::{
         budget_create_purpose_suffix, BudgetCreateWire, Canonical, BUDGET_CREATE_PURPOSE_TEXT_V1,
@@ -2881,7 +2898,7 @@ mod native_contract_tests {
         let mut invalid = request;
         invalid.actor = match layerx_agent_api::identity::AgentDid::new("did:layerx:bob") {
             Ok(actor) => actor,
-            Err(_) => panic!("bounded actor did not construct"),
+            Err(error) => panic!("bounded actor did not construct: {error:?}"),
         };
         assert!(native_human_prepare(&invalid, RequestId(1)).is_err());
     }
@@ -3246,12 +3263,12 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             account_id: [2_u8; 32],
         },
     ] {
-        let bytes = target.encode().expect("canonical selector");
+        let bytes = target.encode().assert_value("canonical selector");
         let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted"});
-        let request = decode_wire::<ProofBundleWire>(value.as_object().expect("object"), id)
-            .expect("wire")
+        let request = decode_wire::<ProofBundleWire>(value.as_object().assert_value("object"), id)
+            .assert_value("wire")
             .into_request(id)
-            .expect("selector");
+            .assert_value("selector");
         assert_eq!(request.selector.as_bytes(), bytes.as_bytes());
         for invalid in [
             String::new(),
@@ -3260,14 +3277,17 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             "000103".to_owned() + &"00".repeat(32),
         ] {
             let malformed = json!({"target": invalid, "requested_rung": "receipted"});
-            assert!(
-                decode_wire::<ProofBundleWire>(malformed.as_object().expect("object"), id)
-                    .and_then(|wire| wire.into_request(id))
-                    .is_err()
-            );
+            assert!(decode_wire::<ProofBundleWire>(
+                malformed.as_object().assert_value("object"),
+                id
+            )
+            .and_then(|wire| wire.into_request(id))
+            .is_err());
         }
         let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted", "authority": "caller"});
-        assert!(decode_wire::<ProofBundleWire>(unknown.as_object().expect("object"), id).is_err());
+        assert!(
+            decode_wire::<ProofBundleWire>(unknown.as_object().assert_value("object"), id).is_err()
+        );
     }
 }
 
@@ -3324,17 +3344,17 @@ mod native_send_contract_tests {
             "commitment":"05".repeat(32)
         });
         let purpose = serde_json::from_value::<NativeSendPurposeV2Wire>(purpose_body.clone())
-            .expect("Send purpose wire")
+            .assert_value("Send purpose wire")
             .into_request(id)
-            .expect("Send purpose contract");
+            .assert_value("Send purpose contract");
         let digest: [u8; 32] =
-            Sha256::digest(purpose.canonical_bytes().expect("canonical purpose")).into();
+            Sha256::digest(purpose.canonical_bytes().assert_value("canonical purpose")).into();
         json!({
             "variant":"native_send_v1", "activity":{"version":"1", "module":"1", "ordinal":"5"},
             "actor":format!("did:layerx:{owner_public_key}"), "authority":"owner", "account_sequence":"7",
             "not_before":"1", "not_after":"100", "idempotency_key":"04".repeat(32),
             "fee_limit":"123", "payload":payload,
-            "payload_hash":lower_hex(&Sha256::digest(hex_bytes(payload, id).expect("real Send payload"))),
+            "payload_hash":lower_hex(&Sha256::digest(hex_bytes(payload, id).assert_value("real Send payload"))),
             "capability_id":"22".repeat(32),
             "purpose":{"purpose":purpose_body,
                 "signature":lower_hex(&key.sign(&digest).to_bytes())},
@@ -3345,24 +3365,26 @@ mod native_send_contract_tests {
     #[test]
     fn native_send_wire_preserves_exact_signed_request_and_distinct_digest() {
         let body = send_body();
-        let request =
-            decode_wire::<NativeSendPrepareV1Wire>(body.as_object().expect("object"), RequestId(1))
-                .expect("Send wire")
-                .into_request(RequestId(1))
-                .expect("Send contract");
+        let request = decode_wire::<NativeSendPrepareV1Wire>(
+            body.as_object().assert_value("object"),
+            RequestId(1),
+        )
+        .assert_value("Send wire")
+        .into_request(RequestId(1))
+        .assert_value("Send contract");
         assert_eq!(request.canonical(), body);
-        let prepare =
-            native_send_human_prepare(&request, RequestId(1)).expect("Human Send preparation");
+        let prepare = native_send_human_prepare(&request, RequestId(1))
+            .assert_value("Human Send preparation");
         assert_eq!(prepare.activity_type, 0x0001_0005);
         assert_eq!(prepare.payload, request.payload);
         assert_eq!(prepare.idempotency_key, lower_hex(&request.idempotency_key));
-        let canonical = serde_json::to_vec(&body).expect("canonical Send JSON");
+        let canonical = serde_json::to_vec(&body).assert_value("canonical Send JSON");
         let digest: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/agent/native-send-prepare/v1\0")
             .chain_update(&canonical)
             .finalize()
             .into();
-        assert_eq!(request.prepare_digest().expect("Send digest"), digest);
+        assert_eq!(request.prepare_digest().assert_value("Send digest"), digest);
         let old: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/agent/native-effect-prepare/v1\0")
             .chain_update(&canonical)
@@ -3370,17 +3392,17 @@ mod native_send_contract_tests {
             .into();
         assert_ne!(digest, old);
         assert!(decode_wire::<NativeEffectPrepareV1Wire>(
-            body.as_object().expect("object"),
+            body.as_object().assert_value("object"),
             RequestId(1)
         )
         .is_err());
         assert!(decode_wire::<NativePrepareV1Wire>(
-            body.as_object().expect("object"),
+            body.as_object().assert_value("object"),
             RequestId(1)
         )
         .is_err());
         if let Ok(path) = std::env::var("NATIVE_SEND_DAEMON_CANONICAL_OUTPUT") {
-            std::fs::write(path, canonical).expect("private Send canonical artifact");
+            std::fs::write(path, canonical).assert_value("private Send canonical artifact");
         }
     }
 
@@ -3442,7 +3464,7 @@ mod native_send_contract_tests {
         invalid.push(changed);
         for body in invalid {
             assert!(decode_wire::<NativeSendPrepareV1Wire>(
-                body.as_object().expect("object"),
+                body.as_object().assert_value("object"),
                 RequestId(1)
             )
             .and_then(|wire| wire.into_request(RequestId(1)))

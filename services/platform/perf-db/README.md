@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="https://cdn.redixusercontent.ocfstudio.com/perf_db.png" alt="PerfDB" width="500" />
-
 <h3>Embedded Rust database engine for high-frequency trading systems</h3>
 
 <p>
@@ -170,18 +168,28 @@ The example creates `./data`; start with an empty directory for its single-tick 
 
 ## Installation
 
-PerfDB is not yet published to crates.io. Use it as a path or git dependency:
+PerfDB is not yet published to crates.io. Its source lives at
+`services/platform/perf-db` in the monorepo. Use it as a git dependency
+(Cargo finds the `perfdb` package in that directory):
 
 ```toml
 [dependencies]
-perfdb = { git = "https://github.com/Sidiora-Labs/perf-db" }
+perfdb = { git = "https://github.com/Sidiora-Labs/paxeer-monorepo" }
+```
+
+For a local monorepo checkout, use a path dependency, adjusting the path
+relative to your application's `Cargo.toml`:
+
+```toml
+[dependencies]
+perfdb = { path = "../paxeer-monorepo/services/platform/perf-db" }
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 cargo build --release
 ```
 
@@ -325,8 +333,8 @@ Contributions are welcome. See [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for
 setup instructions, code standards, and the PR process.
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 rustup component add clippy rustfmt
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings

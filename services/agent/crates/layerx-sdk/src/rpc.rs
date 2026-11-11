@@ -44,6 +44,8 @@ pub enum RpcError {
 }
 
 #[cfg(test)]
+// Platform test support lints are owned outside the SDK crate.
+#[allow(clippy::expect_used)]
 #[path = "../../../../../services/platform/tests/support/tls_boundary.rs"]
 mod tls_boundary;
 
@@ -270,6 +272,9 @@ impl LedgerAccountSnapshot {
     pub fn into_value(self) -> Value {
         self.raw
     }
+    /// # Errors
+    ///
+    /// Returns `InvalidResponse` for malformed or inconsistent snapshot fields, identity, amounts, custody metadata or pagination bounds.
     pub fn decode(value: Value, did: &str, asset: [u8; 32]) -> Result<Self, RpcError> {
         let fields = object(&value)?;
         let owner = decode_hex::<32>(
@@ -315,6 +320,9 @@ impl CustodyAssetPage {
     pub fn into_value(self) -> Value {
         self.raw
     }
+    /// # Errors
+    ///
+    /// Returns `InvalidResponse` for malformed or inconsistent snapshot fields, identity, amounts, custody metadata or pagination bounds.
     pub fn decode(value: Value, cursor: Option<u64>, limit: u16) -> Result<Self, RpcError> {
         if limit == 0 || limit > 16 {
             return Err(RpcError::InvalidRequest);
@@ -1174,6 +1182,9 @@ impl RpcClient {
     }
 
     /// Reads native ownership and the independent source sequence at a single committed height.
+    /// # Errors
+    ///
+    /// Preserves RPC refusals and returns an error for invalid identity or asset inputs, inconsistent account data, or a changed committed snapshot.
     pub fn get_ledger_account(
         &self,
         did: &str,
@@ -1193,6 +1204,9 @@ impl RpcClient {
     }
 
     /// Pages the hosted custody inventory. The response is a node observation, not a state proof.
+    /// # Errors
+    ///
+    /// Refuses zero cursors or invalid page limits, transport and remote errors, and malformed or inconsistent custody pages.
     pub fn list_custody_assets_page(
         &self,
         cursor: Option<u64>,
@@ -1221,6 +1235,9 @@ impl RpcClient {
         )
     }
 
+    /// # Errors
+    ///
+    /// Refuses a zero asset ID, RPC failures, or malformed custody metadata.
     pub fn get_custody_asset(&self, asset: [u8; 32]) -> Result<Value, RpcError> {
         if asset == [0; 32] {
             return Err(RpcError::InvalidRequest);
@@ -1261,7 +1278,7 @@ impl RpcClient {
     }
 
     /// Reopens a subscription from the cursor of the last notification the caller observed.
-    /// Subscribe to live logs first, then replay eth_getLogs from the cursor block through the
+    /// Subscribe to live logs first, then replay `eth_getLogs` from the cursor block through the
     /// captured head, discarding only positions the caller already observed.
     /// # Errors
     /// Refuses invalid topic selectors, refused resumes, transport failures and mismatched
@@ -1395,6 +1412,9 @@ impl RpcClient {
         )
     }
 
+    /// # Errors
+    ///
+    /// Refuses oversized calldata and preserves transport, transaction-revert and gas-estimation response errors.
     pub fn estimate_fee_from(&self, call: &Eip1559Call, from: [u8; 20]) -> Result<u64, RpcError> {
         if call.data.len() > MAX_TRANSACTION_CALLDATA_BYTES {
             return Err(RpcError::InvalidRequest);
@@ -1413,6 +1433,9 @@ impl RpcClient {
         )
     }
 
+    /// # Errors
+    ///
+    /// Preserves RPC and quantity decoding errors and refuses a zero chain ID, zero fee ceiling or overflowing fee calculation.
     pub fn eip1559_parameters(&self) -> Result<(u64, u128, u128), RpcError> {
         let chain_id = quantity_u64(&self.call("eth_chainId", &json!([]))?)?;
         let price = quantity_u128(&self.call("eth_gasPrice", &json!([]))?)?;
@@ -1450,7 +1473,7 @@ impl RpcClient {
     /// # Errors
     /// Rejects empty or oversized bytes and malformed transaction hashes.
     pub fn send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], RpcError> {
-        if raw.is_empty() || raw.len() > 524_288 {
+        if raw.is_empty() || raw.len() > MAX_TRANSACTION_CALLDATA_BYTES {
             return Err(RpcError::InvalidRequest);
         }
         ethereum_hash(
@@ -1690,6 +1713,9 @@ pub fn ethereum_address(address: &[u8; 20]) -> String {
 }
 
 /// Parses a hosted indexer registration cursor without treating it as an asset ID.
+/// # Errors
+///
+/// Returns `InvalidRequest` when the cursor is not a nonzero canonical unsigned decimal integer.
 pub fn registration_cursor(text: &str) -> Result<u64, RpcError> {
     text.parse::<u64>()
         .ok()
@@ -1729,13 +1755,34 @@ mod tests {
             .unwrap_or_else(|| panic!("gateway does not publish {REGISTER_METHOD}"));
         assert!(!methods.iter().any(|entry| entry["name"] == "lx_register"));
         assert_eq!(served["paramStructure"], "by-position");
-        let names: Vec<&str> = served["params"]
+        let params = served["params"]
             .as_array()
-            .unwrap_or_else(|| panic!("{REGISTER_METHOD} lists no params"))
+            .unwrap_or_else(|| panic!("{REGISTER_METHOD} lists no params"));
+        let names: Vec<&str> = params
             .iter()
-            .filter_map(|param| param["name"].as_str())
+            .map(|param| {
+                param["name"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("published parameter name"))
+            })
             .collect();
-        assert_eq!(names, ["signer_public_key", "registration_signature"]);
+        assert_eq!(
+            names,
+            [
+                "signer_public_key",
+                "registration_signature",
+                "email_or_verification_token"
+            ]
+        );
+        let required: Vec<bool> = params
+            .iter()
+            .map(|param| {
+                param["required"]
+                    .as_bool()
+                    .unwrap_or_else(|| panic!("published required flag"))
+            })
+            .collect();
+        assert_eq!(required, [true, true, false]);
     }
 
     #[test]
@@ -1770,10 +1817,10 @@ mod tests {
         .is_err());
         assert!(matches!(
             decode_response(
-                &json!({"jsonrpc":"2.0","id":"1","error":{"code":-32005,"message":"Read unavailable","data":{"retry":1}}}),
+                &json!({"jsonrpc":"2.0","id":"1","error":{"code":-32_005,"message":"Read unavailable","data":{"retry":1}}}),
                 "1"
             ),
-            Err(RpcError::Remote { code: -32005, .. })
+            Err(RpcError::Remote { code: -32_005, .. })
         ));
         assert_eq!(
             decode_response(
@@ -1870,7 +1917,7 @@ mod tests {
                 nonce: 0,
                 max_priority_fee_per_gas: 1,
                 max_fee_per_gas: 2,
-                gas_limit: 21000,
+                gas_limit: 21_000,
                 to: [1; 20],
                 data: vec![0; 524_289],
             }),

@@ -1777,6 +1777,310 @@ fn install_journey_a2a_contract() {
     )
     .is_err());
     assert_eq!(node.requests().len(), 1);
+
+    let corpus: Value = serde_json::from_str(include_str!(
+        "../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .unwrap();
+    let cases = corpus["cases"].as_array().unwrap();
+    let ledger_case = vector();
+    let raw = raw_vector();
+    let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw).unwrap();
+    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).unwrap();
+    let transaction = format!(
+        "0x{}",
+        encoding::hex_encode(&layerx_crypto::evm_transaction::transaction_hash(&raw))
+    );
+    // Replay the producer's accepted transaction order, independently of receipt bytes.
+    let activities: Vec<String> = cases[..4]
+        .iter()
+        .map(|case| {
+            let raw = encoding::hex_decode(
+                "producer transaction",
+                case["rawTransaction"]
+                    .as_str()
+                    .unwrap()
+                    .trim_start_matches("0x"),
+            )
+            .unwrap();
+            format!(
+                "0x{}",
+                encoding::hex_encode(&layerx_crypto::evm_transaction::transaction_hash(&raw))
+            )
+        })
+        .collect();
+    let mut chain = [0u8; 32];
+    let mut predecessor = chain;
+    for (offset, activity) in activities.iter().enumerate() {
+        if offset == 2 {
+            predecessor = chain;
+        }
+        chain = Sha256::new()
+            .chain_update(b"PAXEER/v1/sequence\0")
+            .chain_update(chain)
+            .chain_update(((offset + 1) as u64).to_be_bytes())
+            .chain_update(encoding::hex_decode("activity", &activity[2..]).unwrap())
+            .finalize()
+            .into();
+    }
+    let block_ids: Vec<u8> = activities[2..4]
+        .iter()
+        .flat_map(|id| encoding::hex_decode("activity", &id[2..]).unwrap())
+        .collect();
+    // The producer's seqVecLedgerPayment and accept schedule declare these fields.
+    let data = &call.data;
+    assert_eq!(&data[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    let disclosure = json!({
+        "from": format!("0x{}", encoding::hex_encode(&sender)),
+        "to": format!("0x{}", encoding::hex_encode(&call.to)),
+        "source": encoding::hex_encode(&data[4..36]),
+        "destination": encoding::hex_encode(&data[36..68]),
+        "asset": encoding::hex_encode(&data[68..100]),
+        "amount": u128::from_be_bytes(data[116..132].try_into().unwrap()).to_string(),
+        "evm_nonce": call.nonce.to_string()
+    });
+    let evidence = json!({
+        "payment": {"txHash": transaction, "disclosure": disclosure},
+        "served": ledger_case["receiptJson"],
+        "actual": ledger_case["receiptJson"],
+        "logs": ledger_case["receiptJson"]["logs"],
+        "key": ledger_case["pinnedKey"]["publicKey"].as_str().unwrap().trim_start_matches("0x"),
+        "denomination": "uhpx",
+        "height": 1001, "first": 3, "last": 4,
+        "previous": encoding::hex_encode(&predecessor),
+        "resulting": encoding::hex_encode(&chain),
+        "tx_root": encoding::hex_encode(&Sha256::digest(&block_ids)),
+        "activities": activities[2..4],
+    });
+    assert_ne!(
+        disclosure["asset"].as_str().unwrap(),
+        encoding::hex_encode(&Sha256::digest(b"uhpx")),
+        "ledger payload asset must remain distinct from the native payment denomination"
+    );
+    let journey = include_str!("install-journey.sh");
+    let helpers = journey
+        .split("<<'A2A_RECEIPT'\n")
+        .nth(1)
+        .unwrap()
+        .split("def rpc(method, params):")
+        .next()
+        .unwrap();
+    let program = format!(
+        "{helpers}\n{}",
+        r#"
+value = json.load(sys.stdin)
+if value.get('batch_fixture'):
+    import base64
+    case = value['batch_fixture']
+    proof = case['sequence_batch_proof']
+    batch = {'height': str(case['sequence_batch']['Height']),
+             'tx': base64.b64decode(proof['data']).hex(),
+             'proof': {'total': int(proof['proof']['total']), 'index': int(proof['proof']['index']),
+                       'leafHash': base64.b64decode(proof['proof']['leaf_hash']).hex(),
+                       'aunts': [base64.b64decode(a).hex() for a in proof['proof']['aunts']]}}
+    wire, positions, previous, resulting, tx_root = batch_evidence(
+        batch, 10, case['execution_header']['data_hash'])
+    digest = batch_digest(wire, case['execution_header']['chain_id']).hex()
+    print(json.dumps({'digest': digest, 'signature': wire[-64:].hex()}))
+else:
+    authority = sequence_authority(value['height'], value['first'], value['last'],
+        hex_bytes(value['previous']), hex_bytes(value['resulting']), hex_bytes(value['tx_root']),
+        value['activities'], value['payment']['txHash'], value['denomination'])
+    if not value.get('sequence_only'):
+        canonical = reconcile_transaction(value['payment'], value['served'], value['actual'],
+                                          value['key'], value['denomination'])
+        require(int(value['actual']['seq'], 16) == int.from_bytes(canonical[42:50], 'big')
+                == authority['sequence'], 'receipt sequence differs from independent batch position')
+        reconcile_ledger(value['payment']['disclosure'], value['logs'])
+    print(json.dumps(authority))
+"#
+    );
+    let reconcile = |value: &Value| {
+        use std::process::{Command, Stdio};
+        let mut child = Command::new("python3")
+            .args(["-c", &program])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&serde_json::to_vec(value).unwrap())
+            .unwrap();
+        child.wait_with_output().unwrap()
+    };
+    let matching = reconcile(&evidence);
+    assert!(
+        matching.status.success(),
+        "{}",
+        String::from_utf8_lossy(&matching.stderr)
+    );
+    let authority: Value = serde_json::from_slice(&matching.stdout).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let receipt_path = root.path().join("receipt.hex");
+    let verify = |case: &Value, facts: &Value| {
+        fs::write(
+            &receipt_path,
+            case["signedReceipt"]
+                .as_str()
+                .unwrap()
+                .trim_start_matches("0x"),
+        )
+        .unwrap();
+        std::process::Command::new(env!("CARGO_BIN_EXE_layerx"))
+            .args(["--json", "receipt", "verify", "--receipt"])
+            .arg(&receipt_path)
+            .args([
+                "--batch-id",
+                facts["batch_id"].as_str().unwrap(),
+                "--asset",
+                facts["asset"].as_str().unwrap(),
+                "--previous-state-root",
+                facts["previous_state_root"].as_str().unwrap(),
+                "--resulting-state-root",
+                facts["resulting_state_root"].as_str().unwrap(),
+                "--sequencer-public-key",
+                evidence["key"].as_str().unwrap(),
+            ])
+            .output()
+            .unwrap()
+    };
+    let accepted = verify(&ledger_case, &authority);
+    assert!(
+        accepted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&accepted.stderr)
+    );
+    let accepted: Value = serde_json::from_slice(&accepted.stdout).unwrap();
+    assert_eq!(accepted["data"]["verified"], true);
+    assert_eq!(accepted["data"]["result_code"], 0);
+    assert_eq!(accepted["data"]["activity_id"], &transaction[2..]);
+    for (field, check) in [
+        ("batch_id", "BatchId"),
+        ("asset", "Asset"),
+        ("previous_state_root", "PreviousStateRoot"),
+        ("resulting_state_root", "ResultingStateRoot"),
+    ] {
+        let mut wrong = authority.clone();
+        wrong[field] = json!("ff".repeat(32));
+        let refused = verify(&ledger_case, &wrong);
+        assert!(!refused.status.success(), "{field} mismatch accepted");
+        assert!(
+            String::from_utf8_lossy(&refused.stderr).contains(check),
+            "{}",
+            String::from_utf8_lossy(&refused.stderr)
+        );
+    }
+    for field in ["asset", "source", "destination", "amount"] {
+        let mut wrong = evidence.clone();
+        wrong["payment"]["disclosure"][field] = if field == "amount" {
+            json!("999")
+        } else {
+            json!("ff".repeat(32))
+        };
+        let refused = reconcile(&wrong);
+        assert!(
+            !refused.status.success(),
+            "ledger {field} mismatch accepted"
+        );
+        assert!(String::from_utf8_lossy(&refused.stderr).contains("ledger payment differs"));
+    }
+    for field in ["previous", "resulting", "tx_root"] {
+        let mut wrong = evidence.clone();
+        wrong[field] = json!("ff".repeat(32));
+        assert!(
+            !reconcile(&wrong).status.success(),
+            "inconsistent batch {field} accepted"
+        );
+    }
+    for field in [
+        "txHash",
+        "from",
+        "nonce",
+        "signingKey",
+        "paymentDenom",
+        "status",
+    ] {
+        let mut wrong = evidence.clone();
+        wrong["actual"][field] = match field {
+            "nonce" | "status" => json!("0x0"),
+            "paymentDenom" => json!("another-denomination"),
+            _ => json!(format!("0x{}", "ff".repeat(32))),
+        };
+        assert!(
+            !reconcile(&wrong).status.success(),
+            "receipt {field} mismatch accepted"
+        );
+    }
+    let mut absent_ledger = evidence.clone();
+    absent_ledger["logs"] = json!([]);
+    assert!(!reconcile(&absent_ledger).status.success());
+    let mut absent = evidence.clone();
+    absent["activities"] = json!([]);
+    assert!(!reconcile(&absent).status.success());
+    let mut other = evidence.clone();
+    other["sequence_only"] = json!(true);
+    other["payment"]["txHash"] = json!(activities[3]);
+    let other_output = reconcile(&other);
+    assert!(other_output.status.success());
+    let other_authority: Value = serde_json::from_slice(&other_output.stdout).unwrap();
+    assert!(
+        verify(&cases[3], &other_authority).status.success(),
+        "other transition has a genuine valid signed receipt"
+    );
+    assert!(
+        !verify(&cases[3], &authority).status.success(),
+        "valid receipt for a different transition accepted"
+    );
+    let mut substituted = evidence.clone();
+    substituted["actual"] = cases[3]["receiptJson"].clone();
+    substituted["served"] = cases[3]["receiptJson"].clone();
+    assert!(!reconcile(&substituted).status.success());
+    let tampered = cases
+        .iter()
+        .find(|case| case["id"] == "V3-tampered-log")
+        .unwrap();
+    assert!(!verify(tampered, &authority).status.success());
+
+    let committed: Value = serde_json::from_str(include_str!(
+        "../../../../sdk/platform/conformance/fixtures/vector-v7-named-payee.json"
+    ))
+    .unwrap();
+    let batch = reconcile(&json!({"batch_fixture": committed["settlement"]}));
+    assert!(
+        batch.status.success(),
+        "{}",
+        String::from_utf8_lossy(&batch.stderr)
+    );
+    let batch: Value = serde_json::from_slice(&batch.stdout).unwrap();
+    let batch_key: [u8; 32] = committed["authorization"]["PublicKey"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|byte| u8::try_from(byte.as_u64().unwrap()).unwrap())
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+    let batch_signature = encoding::fixed_hex::<64>(
+        "recorded batch signature",
+        batch["signature"].as_str().unwrap(),
+    )
+    .unwrap();
+    ed25519_dalek::VerifyingKey::from_bytes(&batch_key)
+        .unwrap()
+        .verify_strict(
+            &encoding::hex_decode("batch digest", batch["digest"].as_str().unwrap()).unwrap(),
+            &ed25519_dalek::Signature::from_bytes(&batch_signature),
+        )
+        .unwrap();
+    let mut wrong_batch = committed["settlement"].clone();
+    wrong_batch["sequence_batch"]["Height"] = json!(11);
+    assert!(!reconcile(&json!({"batch_fixture": wrong_batch}))
+        .status
+        .success());
 }
 
 fn gateway_authentication_required(root: &Path, endpoint: &str, binding_path: &Path) {

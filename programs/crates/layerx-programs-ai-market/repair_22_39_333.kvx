@@ -1,0 +1,114 @@
+[meta]
+task = "22.39.333"
+acceptance = "22998.1"
+base_revision = "654bb784cafa2fa1a00f05896bd44aa99d4013d4"
+verified_revision_source = "/out/run/gates.jsonl: final matching passing build and verify candidate revision"
+private_evidence = "/out/run/gates.jsonl and the numbered build/verify log paths recorded there"
+recipe = "programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh"
+deployment_bound_bytes = 524184
+aim_bytes = 504184
+
+[starting_make]
+revision = "654bb784cafa2fa1a00f05896bd44aa99d4013d4"
+command = "make -s paxai-host-boundary-build"
+exit = 2
+log = "/out/logs/starting-host-boundary.log"
+wasm_bytes = 553812
+optimizer = "wasm-opt version 133 (version_133)"
+observed = "The original short pass list exceeds the unchanged deployment bound by 29628 bytes."
+
+[starting_fixture]
+revision = "654bb784cafa2fa1a00f05896bd44aa99d4013d4"
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh"
+exit = 0
+log = "/out/logs/starting-fixture.log"
+wasm_bytes = 522661
+optimizer = "wasm-opt version 133 (version_133)"
+headroom_bytes = 1523
+saved_from_starting_make_bytes = 31151
+
+[followers]
+make = "paxai-host-boundary-build invokes recipe check/build; domain syntax guard, exact packaged-file size test, native harness and manifest remain in order."
+fixture = "build-guest.sh sources the recipe, uses its compiler/packager and writes provenance from its constants."
+rpc = "repair478RawGuest compiles historical and candidate source through the shared recipe; repair478PackageGuest uses its version-checked packager; isolated workspaces generate their real dependency lock before the locked compile."
+support = "BUILD_OPT_LEVEL and BUILD_POSTPROCESS retain the existing recipe description, now checked against the recipe; both modules check source, packaged bytes and provenance."
+audit_219 = "test_repair_22_33_219.py follows the recipe compiler and pass arrays, preserving release, required optimizer, size, envelope, harness and manifest assertions."
+audit_788 = "test_repair_22_33_788.py follows recipe check/build and validates its compiler/optimizer contracts while retaining domain, size, harness, manifest and source-consumer proofs."
+readme = "programs/README.md names the shared recipe, Binaryen 133 and its compiler/size passes instead of the obsolete short pass list."
+
+[size_step.shared_readers]
+metrics_before = "/out/logs/starting-function-metrics.log and /out/logs/starting-fixture-function-metrics.log"
+wasm_bytes = 523648
+saved_bytes = -987
+log = "/out/logs/final-fixture.log"
+observed = "Single bodies for Reader::take and zero_bytes grew the package, so those exploratory annotations were discarded."
+
+[size_step.shared_commits]
+metrics_before = "/out/logs/starting-symbol-function-metrics.txt"
+implementation = "Keep large shared commit and region helpers in one Wasm body; use the existing ordered typed writer for application-result, epoch checkpoint and reputation-current fields."
+safety = "Only inlining and writer traversal change; bodies, field order, validation and error propagation are retained. Fallible field encodings are not reordered. Native reputation vectors retain their direct writer path."
+wasm_bytes = 524098
+saved_from_starting_fixture_bytes = -1437
+log = "/out/logs/final-shared-commits-fixture-2.log"
+observed = "The annotation-only experiment did not reduce the final package, so those annotations were discarded; ordered writer changes were retained."
+
+[size_step.shared_decoders]
+metrics_before = "/out/logs/starting-symbol-function-metrics.txt"
+implementation = "Separate WorkerTable, AdmissionTable and EvaluatorRegion decoding/cache lookup from generic consumers: a single strict decoded method returns the cached value or caller-owned scratch."
+safety = "Identical pointer/equal-byte cache matching, immutable-current-slice admission, guarded cache initialization, strict decoder calls and statuses; no unsafe code or input validation changes. Native vector/test code retains its original path."
+wasm_bytes = 520454
+saved_from_starting_fixture_bytes = 2207
+log = "/out/logs/final-shared-decoders-fixture.log"
+
+[size_step.shared_initialization]
+implementation = "Keep WorkerTable, AdmissionTable, EvaluatorRegion, ReputationState and ReplayTable initialization in shared Wasm constructor bodies instead of repeating large array initialization in callers. Const APIs, array bounds and all initialized values remain unchanged."
+wasm_bytes = 520449
+saved_from_starting_fixture_bytes = 2212
+log = "/out/logs/final-shared-initialization-fixture.log"
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+policy = "Only the final passing hf-done row with a matching build revision establishes completion; no manual verify_cmd run."
+
+[gotcha.baseline]
+observed = "The old fixture digest was stale even though its byte size fit the protocol bound."
+resolution = "Regenerate both real artifacts after the last source change and enforce the source digest for both loaders."
+
+[gotcha.writer_macro]
+observed = "The ordered writer macro spells its byte-slice field put, not bytes; fixture regeneration reported exit 101 before emitting an artifact."
+resolution = "Use the existing put variant, with no macro interface change."
+
+[gotcha.isolated_dependencies]
+observed = "The sandbox has no Cargo registry cache; an isolated guest workspace does not inherit programs/.cargo/config.toml."
+resolution = "Give each isolated historical/candidate workspace an offline configuration pointing to the production vendored dependency directory before generating its lock."
+
+[final]
+wasm_bytes = 520449
+headroom_bytes = 3735
+saved_from_starting_make_bytes = 33363
+saved_from_starting_fixture_bytes = 2212
+aim_shortfall_bytes = 16265
+source_sha256 = "045fe0170095e8bc846c110de322cd0d2f44143f069f693182867c0fc626203b"
+sha256 = "7b50fd64aed5a93af5f7240eb469bdd205ca4bc88cafaed4df8a64db64ded5c3"
+optimizer = "wasm-opt version 133 (version_133)"
+function_metrics = "/out/logs/final-function-metrics.log"
+scope_limit = "The 504184-byte aim remains unmet. Stop before changing record layouts, validation algorithms or operation/chunk behavior; qualification retains the exact 524184-byte deployment bound and existing fuel assertions."
+
+[fixtures.deployment]
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh"
+exit = 0
+log = "/out/logs/final-shared-initialization-fixture.log"
+wasm_bytes = 520449
+source_sha256 = "045fe0170095e8bc846c110de322cd0d2f44143f069f693182867c0fc626203b"
+hex = "tests/fixtures/ai-market-opt-z.hex"
+record = "tests/fixtures/ai-market-opt-z.kvx"
+
+[fixtures.aggregation]
+command = "programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh --aggregation-probe"
+exit = 0
+log = "/out/logs/final-aggregation-fixture.log"
+wasm_bytes = 130679
+source_sha256 = "045fe0170095e8bc846c110de322cd0d2f44143f069f693182867c0fc626203b"
+hex = "tests/fixtures/ai-market-aggregation-baseline.hex"
+record = "tests/fixtures/ai-market-aggregation-baseline.kvx"

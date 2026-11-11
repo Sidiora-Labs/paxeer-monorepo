@@ -8,7 +8,7 @@ use std::task::{Context, Poll, Wake, Waker};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-mod support;
+use crate::support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::remote::RemoteSigner;
@@ -217,13 +217,32 @@ fn sign(signer: &RemoteSigner) -> Result<layerx_crypto::signer::DidSignature, Si
 }
 
 #[test]
-fn mutually_authenticated_remote_signer_returns_one_verified_signature() {
+fn mutually_authenticated_remote_signer_returns_one_verified_signature(
+) -> Result<(), Box<dyn std::error::Error>> {
     let certificates = Certificates::create();
     let (address, attempts, handle) = spawn_server(&certificates, Behavior::Sign);
     let signer = remote(&certificates, address, Duration::from_secs(2));
+    let produced = support::send_call(25, 7);
+    let canonical = produced.call.encode_unsigned();
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_wire::hash::Domain::SignaturePreimage,
+        support::PROTOCOL_VERSION,
+        support::NETWORK_ID,
+        &canonical,
+    )
+    .map_err(|error| format!("activity preimage domain: {error:?}"))?;
+    let request = layerx_crypto::signer::SigningRequest::new(message, &produced.disclosure)
+        .map_err(|error| format!("validated audit request: {error:?}"))?;
+    assert_eq!(
+        ready(signer.sign(request)),
+        Err(SignError::InvalidDisclosure)
+    );
+    assert_eq!(attempts.load(Ordering::SeqCst), 0);
     assert!(sign(&signer).is_ok());
     assert!(handle.join().is_ok());
     assert_eq!(attempts.load(Ordering::SeqCst), 1);
+
+    Ok(())
 }
 
 #[test]
@@ -320,24 +339,30 @@ fn handshake_exceeding_the_deadline_is_a_timeout_not_an_authentication_refusal()
 }
 
 #[test]
-fn mutually_authenticated_remote_signer_preserves_native_payer_authorization() {
+fn mutually_authenticated_remote_signer_preserves_native_payer_authorization(
+) -> Result<(), Box<dyn std::error::Error>> {
     let certificates = Certificates::create();
     let (address, attempts, handle) = spawn_server(&certificates, Behavior::Sign);
     let signer = remote(&certificates, address, Duration::from_secs(2));
     let debit = support::debit(25);
-    let canonical = debit.authorization_message().expect("native payer message");
+    let canonical = debit
+        .authorization_message()
+        .map_err(|error| format!("native payer message: {error:?}"))?;
     let request = debit
         .signing_request(&canonical)
-        .expect("typed payer request");
-    let signature = ready(signer.sign(request)).expect("native payer over mutual TLS");
+        .map_err(|error| format!("typed payer request: {error:?}"))?;
+    let signature = ready(signer.sign(request))
+        .map_err(|error| format!("native payer over mutual TLS: {error:?}"))?;
     assert_eq!(
         layerx_crypto::ed25519::verify(
             &signer.public_key(),
             signature.as_bytes(),
-            request.message().expect("payer domain")
+            request.message().ok_or("payer domain")?
         ),
         Ok(())
     );
     assert!(handle.join().is_ok());
     assert_eq!(attempts.load(Ordering::SeqCst), 1);
+
+    Ok(())
 }

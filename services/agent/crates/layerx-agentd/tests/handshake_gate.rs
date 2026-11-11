@@ -29,6 +29,8 @@ fn socket_path(label: &str) -> PathBuf {
     ))
 }
 
+/// # Panics
+/// Panics if the supplied result is an error.
 pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
@@ -79,13 +81,18 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (NodeRpcConfig, JoinHandle<()
             let answer =
                 json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
             let mut stream = reader.into_inner();
-            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+            must(write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",
+                answer.len()
+            ));
             must(stream.flush());
         }
     });
     (config, server)
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn empty_node_config(
     chain_checks: usize,
     receipt_checks: usize,
@@ -121,6 +128,9 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the authority fixture cannot be initialized or validated.
 pub fn config() -> StartupConfig {
     let authority_source = socket_path("authority").with_extension("csv");
     let key = receipt_public_key();
@@ -256,7 +266,9 @@ fn startup_is_not_ready_until_real_node_reports_receipt_keys() {
 
     let (node, server) = ready_node(2);
     let keys = must(node.receipt_keys());
-    assert!(!keys.is_empty());
+    assert_eq!(keys.len(), 1);
+    assert_eq!(keys[0].first_height, 1);
+    assert_eq!(keys[0].last_height, 100);
     let status = must(gate.readiness_gate(&node));
     assert_eq!(status.chain_id, node.chain_id());
     assert_eq!(status.receipt_keys, keys);

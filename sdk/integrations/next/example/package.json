@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-example-next",
   "version": "0.1.0",
   "private": true,
@@ -9,7 +11,7 @@
     "build": "next build",
     "start": "next start --port ${PORT:-8080}",
     "scan": "layerx-scan-bundle dist/static public",
-    "test": "npm run test:fulfillment",
+    "test": "node --import ./test/source-runtime.mjs --test test/*.test.mjs",
     "test:fulfillment": "node --test test/fulfillment.test.mjs"
   },
   "dependencies": {

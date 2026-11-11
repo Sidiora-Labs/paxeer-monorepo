@@ -201,7 +201,7 @@ def test_current_build_start_and_source_links():
     assert './build/paxd start --home "$PAXD_HOME"' in build
     assert "operator-provisioned, initialized node home" in build
     assert "running network entry point is `paxd`" in build
-    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build\n" in source("Makefile")
+    assert "\npaxd-native-libs: $(LIBRARY) programs-release-build evmone-lib\n" in source("Makefile")
     assert "\npaxd-build: paxd-native-libs\n" in source("Makefile")
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")

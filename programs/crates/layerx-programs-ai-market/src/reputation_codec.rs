@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{CodecResult, BAD_VERSION, CAPACITY, F07_RESOURCE_LIMIT, NON_CANONICAL},
@@ -14,50 +15,79 @@ use crate::{
 /// Propagates `ReputationCurrent::validate`'s `NON_CANONICAL` refusal and the writer's `ARITHMETIC`/`CAPACITY` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_current(value: &ReputationCurrent) -> CodecResult<[u8; CURRENT_BYTES]> {
-    value.validate()?;
     let mut out = [0; CURRENT_BYTES];
-    let mut w = Writer::new(&mut out);
-    w.put(value.worker.as_bytes())?;
-    w.put(value.segment.as_bytes())?;
-    w.put(value.owner.as_bytes())?;
-    w.u64(value.reset_generation.get())?;
-    w.u32(value.quality.get())?;
-    w.u32(value.qualifying_count)?;
-    let mut flags = 0;
-    match value.coverage {
+    write_current(value, &mut Writer::new(&mut out))?;
+    Ok(out)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn write_current(value: &ReputationCurrent, w: &mut Writer<'_>) -> CodecResult<()> {
+    value.validate()?;
+    write_current_fields(value, w)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn write_current_fields(value: &ReputationCurrent, w: &mut Writer<'_>) -> CodecResult<()> {
+    let mut flags = 0u8;
+    let coverage = match value.coverage {
         Presence::Present(v) => {
             flags |= 2;
-            w.u32(v.get())?;
+            v.get()
         }
-        Presence::Absent => w.u32(0)?,
-    }
-    match value.last_applied {
+        Presence::Absent => 0,
+    };
+    let applied = match value.last_applied {
         Presence::Present(e) => {
             flags |= 4;
-            w.u64(e)?;
+            e
         }
-        Presence::Absent => w.u64(0)?,
-    }
-    match value.last_observed {
+        Presence::Absent => 0,
+    };
+    let (observed, observed_height) = match value.last_observed {
         Presence::Present(o) => {
             flags |= 1;
-            w.u64(o.epoch)?;
-            w.u64(o.height)?;
+            (o.epoch, o.height)
         }
-        Presence::Absent => {
-            w.u64(0)?;
-            w.u64(0)?;
-        }
+        Presence::Absent => (0, 0),
+    };
+    let previous = match &value.previous_segment {
+        Presence::Present(d) => d.as_bytes(),
+        Presence::Absent => &[0; 32],
+    };
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::codec::write_fields!(w;
+            id32: value.worker.as_bytes();
+            id32: value.segment.as_bytes();
+            id32: value.owner.as_bytes();
+            u64: value.reset_generation.get();
+            u32: value.quality.get();
+            u32: value.qualifying_count;
+            u32: coverage;
+            u64: applied;
+            u64: observed;
+            u64: observed_height;
+            u64: value.last_transition_height;
+            id32: previous;
+            u32: ((value.status as u32) << 24) | (u32::from(flags) << 16);
+        )
     }
-    w.u64(value.last_transition_height)?;
-    match value.previous_segment {
-        Presence::Present(d) => w.put(d.as_bytes())?,
-        Presence::Absent => w.put(&[0; 32])?,
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        w.put(value.worker.as_bytes())?;
+        w.put(value.segment.as_bytes())?;
+        w.put(value.owner.as_bytes())?;
+        w.u64(value.reset_generation.get())?;
+        w.u32(value.quality.get())?;
+        w.u32(value.qualifying_count)?;
+        w.u32(coverage)?;
+        w.u64(applied)?;
+        w.u64(observed)?;
+        w.u64(observed_height)?;
+        w.u64(value.last_transition_height)?;
+        w.put(previous)?;
+        w.u32(((value.status as u32) << 24) | (u32::from(flags) << 16))
     }
-    w.u8(value.status as u8)?;
-    w.u8(flags)?;
-    w.u16(0)?;
-    Ok(out)
 }
 /// Decodes one current record.
 ///
@@ -67,17 +97,58 @@ pub fn encode_current(value: &ReputationCurrent) -> CodecResult<[u8; CURRENT_BYT
 pub fn decode_current(input: &[u8]) -> CodecResult<ReputationCurrent> {
     let mut r = Reader::new(input);
     let worker = r.worker_id()?;
-    let segment = r.digest32()?;
-    let owner = r.principal_id()?;
-    let reset_generation = r.version()?;
-    let quality = r.score()?;
-    let qualifying_count = r.u32()?;
-    let coverage = r.score()?;
-    let applied = r.u64()?;
-    let observed = r.u64()?;
-    let observed_height = r.u64()?;
-    let last_transition_height = r.u64()?;
-    let previous = r.fixed::<32>()?;
+    #[cfg(target_arch = "wasm32")]
+    let (
+        segment,
+        owner,
+        reset_generation,
+        quality,
+        qualifying_count,
+        coverage,
+        applied,
+        observed,
+        observed_height,
+        last_transition_height,
+        previous,
+    ) = crate::codec::read_values!(&mut r; seed = worker;
+        segment: Digest32,
+        owner: PrincipalId,
+        reset_generation: Version,
+        quality: Score,
+        qualifying_count: U32,
+        coverage: Score,
+        applied: U64,
+        observed: U64,
+        observed_height: U64,
+        last_transition_height: U64,
+        previous: Fixed
+    );
+    #[cfg(not(target_arch = "wasm32"))]
+    let (
+        segment,
+        owner,
+        reset_generation,
+        quality,
+        qualifying_count,
+        coverage,
+        applied,
+        observed,
+        observed_height,
+        last_transition_height,
+        previous,
+    ) = (
+        r.digest32()?,
+        r.principal_id()?,
+        r.version()?,
+        r.score()?,
+        r.u32()?,
+        r.score()?,
+        r.u64()?,
+        r.u64()?,
+        r.u64()?,
+        r.u64()?,
+        r.fixed::<32>()?,
+    );
     let status = HistoryStatus::decode(r.u8()?)?;
     let flags = r.u8()?;
     if flags & !7 != 0
@@ -134,16 +205,23 @@ pub fn encode_history(value: &CompletedHistory) -> CodecResult<[u8; HISTORY_BYTE
     value.validate()?;
     let mut out = [0; HISTORY_BYTES];
     let mut w = Writer::new(&mut out);
+    write_history_fields(value, &mut w)?;
+    Ok(out)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn write_history_fields(value: &CompletedHistory, w: &mut Writer<'_>) -> CodecResult<()> {
     w.u64(value.epoch)?;
     w.u64(value.execution_height)?;
     w.u64(value.config.get())?;
     w.put(value.result.as_bytes())?;
     w.put(value.root.as_bytes())?;
-    w.u8(value.observed_workers)?;
-    w.u8(value.total_workers)?;
-    w.u8(value.covered_workers)?;
-    w.u8(0)?;
-    Ok(out)
+    w.put(&[
+        value.observed_workers,
+        value.total_workers,
+        value.covered_workers,
+        0,
+    ])
 }
 /// Decodes one completion history row.
 ///
@@ -152,17 +230,25 @@ pub fn encode_history(value: &CompletedHistory) -> CodecResult<[u8; HISTORY_BYTE
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_history(input: &[u8]) -> CodecResult<CompletedHistory> {
     let mut r = Reader::new(input);
+    let epoch = r.u64()?;
+    let execution_height = r.u64()?;
+    let config = r.version()?;
+    let result = r.digest32()?;
+    let root = r.digest32()?;
+    let counts = r.u32()?;
+    if counts & 0xff != 0 {
+        return Err(NON_CANONICAL);
+    }
     let value = CompletedHistory {
-        epoch: r.u64()?,
-        execution_height: r.u64()?,
-        config: r.version()?,
-        result: r.digest32()?,
-        root: r.digest32()?,
-        observed_workers: r.u8()?,
-        total_workers: r.u8()?,
-        covered_workers: r.u8()?,
+        epoch,
+        execution_height,
+        config,
+        result,
+        root,
+        observed_workers: (counts >> 24) as u8,
+        total_workers: (counts >> 16) as u8,
+        covered_workers: (counts >> 8) as u8,
     };
-    r.reserved(1)?;
     r.finish()?;
     value.validate()?;
     Ok(value)
@@ -171,6 +257,7 @@ pub fn decode_history(input: &[u8]) -> CodecResult<CompletedHistory> {
 ///
 /// # Errors
 /// Propagates `Digest32::new`'s `NON_CANONICAL` refusal for an all-zero digest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn segment_digest(key: SegmentKey) -> CodecResult<Digest32> {
     Digest32::new(crate::codec::sha256([
         b"PAXAI/reputation-segment/v1\0".as_slice(),
@@ -186,6 +273,7 @@ pub fn segment_digest(key: SegmentKey) -> CodecResult<Digest32> {
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::validate`'s and `Digest32::new`'s `NON_CANONICAL` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn closure_digest(
     market: MarketId,
     value: &ReputationCurrent,
@@ -222,6 +310,7 @@ pub fn closure_digest(
 ///
 /// # Errors
 /// Returns `CAPACITY` when there are more than `LIMIT` records; `NON_CANONICAL` when workers are not strictly ascending; propagates `encode_current`'s and `Digest32::new`'s refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn reputation_root(
     market: MarketId,
     epoch: u64,
@@ -230,7 +319,7 @@ pub fn reputation_root(
     if records.len() > LIMIT {
         return Err(CAPACITY);
     }
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(market.as_bytes())?;
@@ -241,19 +330,20 @@ pub fn reputation_root(
         if previous.is_some_and(|w| w >= record.worker) {
             return Err(NON_CANONICAL);
         }
-        h.put(&encode_current(record)?)?;
+        write_current(record, &mut h)?;
         previous = Some(record.worker);
     }
     let length = h.len();
-    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
+    Digest32::new(crate::codec::sha256([bytes.guest_index(..length)])?)
 }
 #[allow(
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Digest32> {
     // During staging, records may already refer to the pending completion.
-    let mut bytes = [0; 24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
+    let mut bytes = [0; b"PAXAI/reputation-root/v1\0".len() + 32 + 8 + 2 + LIMIT * CURRENT_BYTES];
     let mut h = Writer::new(&mut bytes);
     h.put(b"PAXAI/reputation-root/v1\0")?;
     h.put(state.market.as_bytes())?;
@@ -264,11 +354,11 @@ pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Dig
         if previous.is_some_and(|w| w >= record.worker) {
             return Err(NON_CANONICAL);
         }
-        h.put(&encode_current(record)?)?;
+        write_current_fields(record, &mut h)?;
         previous = Some(record.worker);
     }
     let length = h.len();
-    Digest32::new(crate::codec::sha256([&bytes[..length]])?)
+    Digest32::new(crate::codec::sha256([bytes.guest_index(..length)])?)
 }
 // F07 section framing: RP07, schema:u16, counts:u8/u8, market32,
 // completed-presence:u8, completed-epoch:u64, fifteen reserved zero bytes.
@@ -278,32 +368,51 @@ pub(crate) fn state_root(state: &ReputationState, epoch: u64) -> CodecResult<Dig
 /// Propagates `ReputationState::encoded_len`'s `CAPACITY`/`NON_CANONICAL`/`F07_RESOURCE_LIMIT` refusals; returns `CAPACITY` when `output` is shorter than the section; propagates the record encoders' and the writer's refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_section(state: &ReputationState, output: &mut [u8]) -> CodecResult<usize> {
-    let size = state.encoded_len()?;
+    state.validate()?;
+    encode_produced_section(state, output)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_produced_section(
+    state: &ReputationState,
+    output: &mut [u8],
+) -> CodecResult<usize> {
+    let size = state.encoded_size()?;
     if output.len() < size {
         return Err(CAPACITY);
     }
     let mut w = Writer::new(output);
-    w.put(b"RP07")?;
-    w.u16(1)?;
-    w.u8(state.current_len)?;
-    w.u8(state.history_len)?;
-    w.put(state.market.as_bytes())?;
-    match state.completed_through {
-        Presence::Absent => {
-            w.u8(0)?;
-            w.u64(0)?;
-        }
-        Presence::Present(e) => {
-            w.u8(1)?;
-            w.u64(e)?;
-        }
+    let (present, completed) = match state.completed_through {
+        Presence::Absent => (0, 0),
+        Presence::Present(e) => (1, e),
+    };
+    #[cfg(target_arch = "wasm32")]
+    crate::codec::write_fields!(w;
+        put: b"RP07";
+        u16: 1_u16;
+        u8: state.current_len;
+        u8: state.history_len;
+        id32: state.market.as_bytes();
+        u8: present;
+        u64: completed;
+        put: &[0; 15];
+    )?;
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        w.put(b"RP07")?;
+        w.u16(1)?;
+        w.u8(state.current_len)?;
+        w.u8(state.history_len)?;
+        w.put(state.market.as_bytes())?;
+        w.u8(present)?;
+        w.u64(completed)?;
+        w.put(&[0; 15])?;
     }
-    w.put(&[0; 15])?;
     for value in state.records() {
-        w.put(&encode_current(value)?)?;
+        write_current_fields(value, &mut w)?;
     }
     for value in state.completed() {
-        w.put(&encode_history(value)?)?;
+        write_history_fields(value, &mut w)?;
     }
     Ok(w.len())
 }
@@ -313,6 +422,16 @@ pub fn encode_section(state: &ReputationState, output: &mut [u8]) -> CodecResult
 /// Returns `F07_RESOURCE_LIMIT` when the input exceeds `SECTION_CAP`; `NON_CANONICAL` on a bad magic, presence, completed epoch, reserved byte or trailing input; `BAD_VERSION` when the schema is not 1; `CAPACITY` when a count exceeds `LIMIT`; propagates the record decoders' and `ReputationState::validate`'s refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_section(input: &[u8]) -> CodecResult<ReputationState> {
+    decode_section_records(input, false)
+}
+
+// Authoritative sections were checked by their producer. Decode the records
+// this transition consumes once; do not validate their whole container again.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn decode_section_records(
+    input: &[u8],
+    committed: bool,
+) -> CodecResult<ReputationState> {
     if input.len() > SECTION_CAP {
         return Err(F07_RESOURCE_LIMIT);
     }
@@ -350,6 +469,8 @@ pub fn decode_section(input: &[u8]) -> CodecResult<ReputationState> {
         *slot = Some(decode_history(r.take(HISTORY_BYTES)?)?);
     }
     r.finish()?;
-    state.validate()?;
+    if !committed {
+        state.validate()?;
+    }
     Ok(state)
 }

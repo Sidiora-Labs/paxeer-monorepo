@@ -1,5 +1,5 @@
 // Integration-test host for the actual vault and an actual local EVM node.
-// Dependencies are provisioned before qualification, never installed by a test.
+// The Rust test host provisions the pinned real compiler and EVM dependencies.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -7,6 +7,27 @@ const readline = require('node:readline');
 const ganache = require('ganache');
 const solc = require('solc');
 const ethers = require('ethers');
+
+const idempotentReads = new Set([
+  'eth_accounts', 'eth_chainId', 'eth_blockNumber', 'eth_call', 'eth_estimateGas',
+  'eth_getBalance', 'eth_getCode', 'eth_getTransactionCount', 'eth_getTransactionByHash',
+  'eth_getTransactionReceipt', 'eth_getBlockByNumber', 'eth_getBlockByHash',
+  'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_feeHistory',
+]);
+class VaultProvider extends ethers.JsonRpcProvider {
+  async _send(payload) {
+    try {
+      return await super._send(payload);
+    } catch (error) {
+      const requests = Array.isArray(payload) ? payload : [payload];
+      if ((error.code !== 'ECONNRESET' && error.cause?.code !== 'ECONNRESET') ||
+          !requests.every(request => idempotentReads.has(request.method))) {
+        throw error;
+      }
+      return await super._send(payload);
+    }
+  }
+}
 
 const root = process.argv[2];
 const server = ganache.server({
@@ -80,7 +101,9 @@ async function command(input) {
 (async () => {
   await server.listen(0, '127.0.0.1');
   const url = `http://127.0.0.1:${server.address().port}`;
-  provider = new ethers.JsonRpcProvider(url);
+  const request = new ethers.FetchRequest(url);
+  request.setHeader('Connection', 'close');
+  provider = new VaultProvider(request);
   owner = await provider.getSigner(0);
   console.log(JSON.stringify({ url }));
   for await (const line of readline.createInterface({ input: process.stdin })) {

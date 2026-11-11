@@ -178,21 +178,23 @@ pub enum CallMonetaryAmount {
     },
 }
 
-fn uint256_decimal(mut value: [u8; 32]) -> String {
+fn uint256_decimal(mut value: [u8; 32]) -> Result<String, fmt::Error> {
     if value == [0; 32] {
-        return "0".to_owned();
+        return Ok("0".to_owned());
     }
     let mut digits = Vec::with_capacity(78);
     while value != [0; 32] {
         let mut remainder = 0_u16;
         for byte in &mut value {
             let dividend = (remainder << 8) | u16::from(*byte);
-            *byte = (dividend / 10) as u8;
+            *byte = u8::try_from(dividend / 10).map_err(|_| fmt::Error)?;
             remainder = dividend % 10;
         }
-        digits.push(char::from(b'0' + remainder as u8));
+        digits.push(char::from(
+            b'0' + u8::try_from(remainder).map_err(|_| fmt::Error)?,
+        ));
     }
-    digits.into_iter().rev().collect()
+    Ok(digits.into_iter().rev().collect())
 }
 
 impl fmt::Display for CallMonetaryAmount {
@@ -203,7 +205,7 @@ impl fmt::Display for CallMonetaryAmount {
                 write!(
                     out,
                     "{role:?}: {} base units of {denom:?}",
-                    uint256_decimal(*value)
+                    uint256_decimal(*value)?
                 )
             }
             Self::Protocol { role, asset, value } => {
@@ -238,7 +240,7 @@ pub enum CallFeeContext {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GasFeeBound {
-    /// The chain's native EVM currency, in wei (gas * max_fee_per_gas).
+    /// The chain's native EVM currency, in wei (gas * `max_fee_per_gas`).
     pub chain_id: u64,
     pub amount_wei: u128,
 }
@@ -295,9 +297,7 @@ impl Disclosure {
         context: CallFeeContext,
     ) -> Result<CallMonetaryDisclosure, DisclosureError> {
         self.validate()?;
-        let Source::Call(call) = &self.source else {
-            return Err(DisclosureError::FieldMismatch("source"));
-        };
+        let Source::Call(call) = &self.source;
         let method = decode_method(call)?;
         let execution_fee_bound = match (&method, context) {
             (
@@ -459,6 +459,7 @@ pub(super) fn tail<'a>(
         .ok_or(DisclosureError::MalformedPayload)
 }
 
+#[must_use]
 pub fn ledger_selector(signature: &str) -> [u8; 4] {
     let hash = Keccak256::digest(signature.as_bytes());
     [hash[0], hash[1], hash[2], hash[3]]
@@ -478,6 +479,9 @@ pub(super) fn abi_tail(value: &[u8]) -> Vec<u8> {
 }
 
 /// Encodes the ledger ABI after validating the canonical payment and its authorization.
+///
+/// # Errors
+/// Refuses invalid payment fields, invalid authorization or an unsupported ledger operation.
 pub fn encode_payment_call(payment: &Payment, actor: &[u8]) -> Result<Vec<u8>, DisclosureError> {
     let payload = payment.encode(actor)?;
     let (signature, args) = match payment {
@@ -558,6 +562,9 @@ pub fn encode_payment_call(payment: &Payment, actor: &[u8]) -> Result<Vec<u8>, D
 }
 
 /// Encodes the merged authorization precompile's raw kernel grant body.
+///
+/// # Errors
+/// Returns `MalformedPayload` if the grant fails canonical encoding or validation.
 pub fn encode_authority_grant_call(grant: &AuthorityGrant) -> Result<Vec<u8>, DisclosureError> {
     let body = grant
         .encode()
@@ -583,298 +590,16 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         .map_err(|_| DisclosureError::MalformedPayload)?;
     let args = &call.data[4..];
     if target(&call.to, [0x10, 0x1d]) {
-        return match selector {
-            value if value == ledger_selector(program::PROGRAM_CALL_SIGNATURE) => {
-                let (call, fee_limit) = decode_program_call(&call.data)?;
-                Ok(ConstructMethod::ProgramCall {
-                    call: Box::new(call),
-                    fee_limit,
-                })
-            }
-            value if value == ledger_selector(program::PROGRAM_DEPLOY_SIGNATURE) => {
-                Ok(ConstructMethod::ProgramDeploy {
-                    deploy: Box::new(decode_program_deploy(&call.data)?),
-                })
-            }
-            value if value == ledger_selector(program::PROGRAM_UPGRADE_SIGNATURE) => {
-                let (upgrade, fee_limit) = decode_program_upgrade(&call.data)?;
-                Ok(ConstructMethod::ProgramUpgrade {
-                    upgrade: Box::new(upgrade),
-                    fee_limit,
-                })
-            }
-            value
-                if [
-                    program::PROGRAM_ROUTE_SIGNATURE,
-                    program::PROGRAM_DEPRECATE_SIGNATURE,
-                    program::PROGRAM_TOMBSTONE_SIGNATURE,
-                    program::PROGRAM_EXIT_SIGNATURE,
-                    program::PROGRAM_BOUNDED_EXIT_SIGNATURE,
-                ]
-                .iter()
-                .any(|signature| value == ledger_selector(signature)) =>
-            {
-                Ok(ConstructMethod::ProgramWindDown {
-                    wind_down: Box::new(decode_program_wind_down(&call.data)?),
-                })
-            }
-            _ => Err(DisclosureError::MalformedPayload),
-        };
+        return decode_program_method(call, selector);
     }
     if target(&call.to, [0x10, 0x1a]) {
-        return match selector {
-            value if value == ledger_selector("openAccount(bytes32)") && args.len() == 32 => {
-                Ok(ConstructMethod::LedgerOpenAccount {
-                    asset: word(args, 0)?,
-                })
-            }
-            value
-                if value
-                    == ledger_selector(
-                        "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
-                    ) =>
-            {
-                let mut cursor = 8 * 32;
-                let symbol = std::str::from_utf8(tail(args, 2, &mut cursor)?)
-                    .map_err(|_| DisclosureError::MalformedPayload)?
-                    .to_owned();
-                let name = std::str::from_utf8(tail(args, 3, &mut cursor)?)
-                    .map_err(|_| DisclosureError::MalformedPayload)?
-                    .to_owned();
-                let custody_ref = tail(args, 7, &mut cursor)?.to_vec();
-                let registration = Registration {
-                    asset: word(args, 0)?,
-                    salt: word(args, 1)?,
-                    symbol,
-                    name,
-                    decimals: uint::<1>(word(args, 4)?)?[0],
-                    supply_cap: u128::from_be_bytes(uint(word(args, 5)?)?),
-                    issuer_kind: uint::<1>(word(args, 6)?)?[0],
-                    custody_ref,
-                };
-                if cursor != args.len()
-                    || registration.symbol.is_empty()
-                    || registration.symbol.len() > 16
-                    || !registration.symbol.is_ascii()
-                    || registration.name.is_empty()
-                    || registration.name.len() > 32
-                    || registration.decimals > 38
-                    || registration.custody_ref.len() > 128
-                    || !matches!(registration.issuer_kind, 1 | 2)
-                    || (registration.issuer_kind == 1 && !registration.custody_ref.is_empty())
-                {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::LedgerRegister { registration })
-            }
-            value
-                if value == ledger_selector("mint(bytes32,bytes32,uint128)")
-                    && args.len() == 96 =>
-            {
-                let amount = u128::from_be_bytes(uint(word(args, 2)?)?);
-                if amount == 0 {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::LedgerMint {
-                    asset: word(args, 0)?,
-                    to: word(args, 1)?,
-                    amount,
-                })
-            }
-            value
-                if value == ledger_selector("burn(bytes32,bytes32,uint128)")
-                    && args.len() == 96 =>
-            {
-                let amount = u128::from_be_bytes(uint(word(args, 2)?)?);
-                if amount == 0 {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::LedgerBurn {
-                    asset: word(args, 0)?,
-                    from: word(args, 1)?,
-                    amount,
-                })
-            }
-            [0x2b, 0xb1, 0xae, 0x7c] => {
-                let payload = dynamic(args, 1, 0)?;
-                decode_send(payload).map_err(|_| DisclosureError::MalformedPayload)?;
-                Ok(ConstructMethod::LedgerSend {
-                    payload: payload.to_vec(),
-                })
-            }
-            [0xd0, 0xd5, 0x34, 0x80] => {
-                let payload = dynamic(args, 1, 0)?;
-                let Payment::IssueGrant(grant) = Payment::decode(ModuleId::Asset, 7, payload, &[])
-                    .map_err(|_| DisclosureError::MalformedPayload)?
-                else {
-                    return Err(DisclosureError::MalformedPayload);
-                };
-                Ok(ConstructMethod::LedgerIssueGrant { grant })
-            }
-            [0x2e, 0x89, 0x49, 0x0f] if args.len() == 7 * 32 => Ok(ConstructMethod::LedgerDraw {
-                recipient: word(args, 1)?,
-                purpose_hash: word(args, 5)?,
-                amount: u128::from_be_bytes(uint(word(args, 2)?)?),
-                grant: word(args, 0)?,
-                receiver_sequence: u64::from_be_bytes(uint(word(args, 4)?)?),
-                idempotency_key: word(args, 3)?,
-                context_hash: word(args, 6)?,
-            }),
-            [0x58, 0xd1, 0x83, 0xa8] if args.len() == 2 * 32 => {
-                Ok(ConstructMethod::LedgerRevokeGrant {
-                    grant: word(args, 0)?,
-                    revocation_sequence: u64::from_be_bytes(uint(word(args, 1)?)?),
-                })
-            }
-            _ => Err(DisclosureError::MalformedPayload),
-        };
+        return decode_ledger_method(selector, args);
     }
     if target(&call.to, [0x10, 0x1b]) {
-        return match selector {
-            value if value == ledger_selector("budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)") && args.len() == 14 * 32 => {
-                let budget = DisclosedNativeBudgetCreate {
-                    encoding_version: 2,
-                    budget_id: word(args, 0)?,
-                    budget_account: word(args, 1)?,
-                    asset: word(args, 2)?,
-                    purpose: word(args, 3)?,
-                    per_period_limit: u128::from_be_bytes(uint(word(args, 4)?)?),
-                    carry_cap: u128::from_be_bytes(uint(word(args, 5)?)?),
-                    initial_amount: u128::from_be_bytes(uint(word(args, 6)?)?),
-                    period_length_ms: u64::from_be_bytes(uint(word(args, 7)?)?),
-                    period_start_ms: u64::from_be_bytes(uint(word(args, 8)?)?),
-                    expiry_ms: u64::from_be_bytes(uint(word(args, 9)?)?),
-                    revocation_sequence: u64::from_be_bytes(uint(word(args, 10)?)?),
-                    rollover: uint::<1>(word(args, 11)?)?[0],
-                    source_account: word(args, 12)?,
-                    source_sequence: u64::from_be_bytes(uint(word(args, 13)?)?),
-                };
-                native::budget_create_terms(&budget.budget_id, &budget.budget_account,
-                    &budget.asset, budget.per_period_limit, budget.carry_cap,
-                    budget.initial_amount, budget.period_length_ms, budget.period_start_ms,
-                    budget.expiry_ms, budget.rollover)?;
-                if budget.source_account == [0; 32] || budget.source_sequence == 0
-                    || budget.source_account == budget.budget_account
-                    || budget.period_start_ms.checked_add(budget.period_length_ms).is_none() {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::PayBudgetCreateNative { budget: Box::new(budget) })
-            }
-            value
-                if value
-                    == ledger_selector(
-                        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
-                    ) && args.len() == 384 =>
-            {
-                let budget_id = word(args, 0)?;
-                let budget_account = word(args, 1)?;
-                let asset = word(args, 2)?;
-                let purpose = word(args, 3)?;
-                let per_period_limit = u128::from_be_bytes(uint(word(args, 4)?)?);
-                let carry_cap = u128::from_be_bytes(uint(word(args, 5)?)?);
-                let initial_amount = u128::from_be_bytes(uint(word(args, 6)?)?);
-                let period_length_ms = u64::from_be_bytes(uint(word(args, 7)?)?);
-                let period_start_ms = u64::from_be_bytes(uint(word(args, 8)?)?);
-                let expiry_ms = u64::from_be_bytes(uint(word(args, 9)?)?);
-                let revocation_sequence = u64::from_be_bytes(uint(word(args, 10)?)?);
-                let rollover = u8::from_be_bytes(uint(word(args, 11)?)?);
-                native::budget_create_terms(
-                    &budget_id,
-                    &budget_account,
-                    &asset,
-                    per_period_limit,
-                    carry_cap,
-                    initial_amount,
-                    period_length_ms,
-                    period_start_ms,
-                    expiry_ms,
-                    rollover,
-                )?;
-                let mut payload = Vec::with_capacity(211);
-                payload.extend_from_slice(&1_u16.to_be_bytes());
-                for value in [budget_id, budget_account, asset, purpose] {
-                    payload.extend_from_slice(&value);
-                }
-                for value in [per_period_limit, carry_cap, initial_amount] {
-                    payload.extend_from_slice(&value.to_be_bytes());
-                }
-                for value in [period_length_ms, period_start_ms, expiry_ms, revocation_sequence] {
-                    payload.extend_from_slice(&value.to_be_bytes());
-                }
-                payload.push(rollover);
-                Ok(ConstructMethod::PayBudgetCreate { payload })
-            }
-            value
-                if value == ledger_selector("budgetFund(bytes32,uint128)")
-                    && args.len() == 64 =>
-            {
-                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
-                if amount == 0 {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::PayBudgetFund {
-                    budget: word(args, 0)?,
-                    amount,
-                })
-            }
-            value
-                if value == ledger_selector("budgetDefund(bytes32,uint128)")
-                    && args.len() == 64 =>
-            {
-                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
-                if amount == 0 {
-                    return Err(DisclosureError::MalformedPayload);
-                }
-                Ok(ConstructMethod::PayBudgetDefund {
-                    budget: word(args, 0)?,
-                    amount,
-                })
-            }
-            _ => Err(DisclosureError::MalformedPayload),
-        };
+        return decode_budget_method(selector, args);
     }
     if target(&call.to, [0x10, 0x1c]) {
-        if selector == ledger_selector("grantCapability(bytes)") {
-            let grant = AuthorityGrant::decode(dynamic(args, 1, 0)?)
-                .map_err(|_| DisclosureError::MalformedPayload)?;
-            return Ok(ConstructMethod::AuthLifecycle {
-                payload: grant
-                    .payload()
-                    .map_err(|_| DisclosureError::MalformedPayload)?,
-                idempotency_key: [0; 32],
-            });
-        }
-        if selector == ledger_selector("grantSession(bytes,uint64,bytes32)") {
-            let grant = decode_session_key(dynamic(args, 3, 0)?)
-                .map_err(|_| DisclosureError::MalformedPayload)?;
-            let expiry_sequence = u64::from_be_bytes(uint(word(args, 1)?)?);
-            let purpose = word(args, 2)?;
-            if expiry_sequence == 0 || purpose == [0; 32] {
-                return Err(DisclosureError::MalformedPayload);
-            }
-            return Ok(ConstructMethod::AuthSession {
-                grant,
-                expiry_sequence,
-                purpose,
-            });
-        }
-        if selector != ledger_selector("recordLifecycle(bytes,bytes32)") {
-            return Err(DisclosureError::MalformedPayload);
-        }
-        let payload = dynamic(args, 2, 0)?;
-        if !(4..=1024).contains(&payload.len())
-            || payload[0] != 0x71
-            || !matches!(
-                (payload[1], payload[2], payload[3], payload.len()),
-                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (2, 0, 4, 92) | (3, 0, 3, 70) | (3, 0, 5, 86)
-            )
-        {
-            return Err(DisclosureError::MalformedPayload);
-        }
-        return Ok(ConstructMethod::AuthLifecycle {
-            payload: payload.to_vec(),
-            idempotency_key: word(args, 1)?,
-        });
+        return decode_authorization_method(selector, args);
     }
     if target(&call.to, [0x10, 0x01]) && selector == [0x5c, 0x05, 0x96, 0x1b] {
         return Ok(ConstructMethod::BankSend {
@@ -919,58 +644,9 @@ pub(super) fn fields(
     from: [u8; 20],
 ) -> Result<DisclosureFields, DisclosureError> {
     let method = decode_method(call)?;
-    let ordinal = match &method {
-        ConstructMethod::ProgramDeploy { .. } => 1,
-        ConstructMethod::ProgramUpgrade { .. } => 2,
-        ConstructMethod::ProgramWindDown { .. } => 7,
-        ConstructMethod::ProgramCall { .. } => 3,
-        ConstructMethod::LedgerOpenAccount { .. } => 4,
-        ConstructMethod::BindLayerX { .. }
-        | ConstructMethod::LedgerRegister { .. }
-        | ConstructMethod::PayBudgetCreate { .. }
-        | ConstructMethod::PayBudgetCreateNative { .. } => 1,
-        ConstructMethod::AuthSession { .. } => 5,
-        ConstructMethod::LedgerMint { .. } => 10,
-        ConstructMethod::LedgerBurn { .. } => 11,
-        ConstructMethod::LedgerSend { .. }
-        | ConstructMethod::BankSend { .. }
-        | ConstructMethod::PointerTransfer { .. } => 5,
-        ConstructMethod::LedgerIssueGrant { .. } => 7,
-        ConstructMethod::LedgerDraw { .. } => 6,
-        ConstructMethod::LedgerRevokeGrant { .. } => 8,
-        ConstructMethod::PayBudgetFund { .. } => 2,
-        ConstructMethod::PayBudgetDefund { .. } => 8,
-        ConstructMethod::AuthLifecycle { payload, .. } => u16::from(payload[1]),
-    };
-    let module = if matches!(
-        &method,
-        ConstructMethod::PayBudgetCreate { .. }
-            | ConstructMethod::PayBudgetCreateNative { .. }
-            | ConstructMethod::PayBudgetFund { .. }
-            | ConstructMethod::PayBudgetDefund { .. }
-    ) {
-        ModuleId::Budget
-    } else if matches!(
-        &method,
-        ConstructMethod::BindLayerX { .. }
-            | ConstructMethod::AuthLifecycle { .. }
-            | ConstructMethod::AuthSession { .. }
-    ) {
-        ModuleId::Governance
-    } else if matches!(
-        &method,
-        ConstructMethod::ProgramCall { .. }
-            | ConstructMethod::ProgramDeploy { .. }
-            | ConstructMethod::ProgramUpgrade { .. }
-            | ConstructMethod::ProgramWindDown { .. }
-    ) {
-        ModuleId::Programs
-    } else {
-        ModuleId::Asset
-    };
+    let activity_type = method_activity_type(&method)?;
     let mut fields = DisclosureFields {
-        activity_type: ActivityType::new(module, ordinal)
-            .map_err(|_| DisclosureError::MalformedPayload)?,
+        activity_type,
         actor: from.to_vec(),
         authority: from.to_vec(),
         counterparties: Vec::new(),
@@ -993,6 +669,440 @@ pub(super) fn fields(
         onboarding: None,
         native_operation: None,
     };
+    match method {
+        ConstructMethod::BindLayerX { .. }
+        | ConstructMethod::ProgramDeploy { .. }
+        | ConstructMethod::ProgramUpgrade { .. }
+        | ConstructMethod::ProgramWindDown { .. }
+        | ConstructMethod::ProgramCall { .. }
+        | ConstructMethod::LedgerOpenAccount { .. }
+        | ConstructMethod::LedgerRegister { .. }
+        | ConstructMethod::LedgerMint { .. }
+        | ConstructMethod::LedgerBurn { .. }
+        | ConstructMethod::LedgerSend { .. } => {
+            disclose_program_and_asset_fields(&mut fields, method)?;
+        }
+        ConstructMethod::LedgerIssueGrant { .. }
+        | ConstructMethod::LedgerDraw { .. }
+        | ConstructMethod::LedgerRevokeGrant { .. }
+        | ConstructMethod::PayBudgetCreateNative { .. } => {
+            disclose_grant_and_budget_creation_fields(&mut fields, method)?;
+        }
+        ConstructMethod::AuthSession { .. }
+        | ConstructMethod::PayBudgetCreate { .. }
+        | ConstructMethod::PayBudgetFund { .. }
+        | ConstructMethod::PayBudgetDefund { .. } => {
+            disclose_session_and_budget_state_fields(&mut fields, method)?;
+        }
+        ConstructMethod::AuthLifecycle { .. }
+        | ConstructMethod::PointerTransfer { .. }
+        | ConstructMethod::BankSend { .. } => {
+            disclose_authorization_and_external_fields(&mut fields, method)?;
+        }
+    }
+    Ok(fields)
+}
+
+pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, DisclosureError> {
+    match decode_method(call)? {
+        ConstructMethod::LedgerSend { payload } => Ok(Some(decode_send(&payload)?.sequence)),
+        ConstructMethod::LedgerDraw {
+            receiver_sequence, ..
+        } => Ok(Some(receiver_sequence)),
+        ConstructMethod::PayBudgetCreateNative { budget } => Ok(Some(budget.source_sequence)),
+        _ => Ok(None),
+    }
+}
+
+/// Discloses a supported construct call from its canonical ABI arguments.
+///
+/// # Errors
+/// Refuses unknown targets or selectors, noncanonical ABI, invalid payloads,
+/// trailing data, and a maximum transaction fee that overflows uint128.
+/// The sender is part of the disclosure, although EIP-1559 encodes it only through
+/// signature recovery. Signing must therefore also bind the selected key to it.
+pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
+    let fields = fields(call, from)?;
+    Ok(Disclosure {
+        activity_type: fields.activity_type,
+        actor: fields.actor,
+        authority: fields.authority,
+        counterparties: fields.counterparties,
+        amounts: fields.amounts,
+        asset: fields.asset,
+        fee_limit: fields.fee_limit,
+        expiry: fields.expiry,
+        idempotency_key: fields.idempotency_key,
+        evm_payout_binding: fields.evm_payout_binding,
+        withdrawal: fields.withdrawal,
+        payment: fields.payment,
+        authority_grant: fields.authority_grant,
+        session_grant: fields.session_grant,
+        onboarding: fields.onboarding,
+        native_operation: fields.native_operation,
+        source: Source::Call(call.clone()),
+        signing_digest: call.signing_hash(),
+        budget_context: None,
+        call_sender: Some(from),
+    })
+}
+
+/// Re-encodes a validated disclosure as the unsigned type-2 transaction bytes.
+///
+/// # Errors
+/// Refuses changed semantic fields or a disclosure from another source kind.
+pub fn reencode(disclosure: &Disclosure) -> Result<Vec<u8>, DisclosureError> {
+    disclosure.validate()?;
+    let Source::Call(call) = &disclosure.source;
+    Ok(call.encode_unsigned())
+}
+
+/// Validates canonical unsigned transaction bytes against the retained disclosure.
+///
+/// # Errors
+/// Refuses altered semantics, a different source, or different transaction bytes.
+pub fn validate_canonical(
+    disclosure: &Disclosure,
+    canonical: &[u8],
+) -> Result<(), DisclosureError> {
+    if reencode(disclosure)? != canonical {
+        return Err(DisclosureError::FieldMismatch("canonical_bytes"));
+    }
+    Ok(())
+}
+
+fn decode_registration(args: &[u8]) -> Result<ConstructMethod, DisclosureError> {
+    let mut cursor = 8 * 32;
+    let symbol = std::str::from_utf8(tail(args, 2, &mut cursor)?)
+        .map_err(|_| DisclosureError::MalformedPayload)?
+        .to_owned();
+    let name = std::str::from_utf8(tail(args, 3, &mut cursor)?)
+        .map_err(|_| DisclosureError::MalformedPayload)?
+        .to_owned();
+    let custody_ref = tail(args, 7, &mut cursor)?.to_vec();
+    let registration = Registration {
+        asset: word(args, 0)?,
+        salt: word(args, 1)?,
+        symbol,
+        name,
+        decimals: uint::<1>(word(args, 4)?)?[0],
+        supply_cap: u128::from_be_bytes(uint(word(args, 5)?)?),
+        issuer_kind: uint::<1>(word(args, 6)?)?[0],
+        custody_ref,
+    };
+    if cursor != args.len()
+        || registration.symbol.is_empty()
+        || registration.symbol.len() > 16
+        || !registration.symbol.is_ascii()
+        || registration.name.is_empty()
+        || registration.name.len() > 32
+        || registration.decimals > 38
+        || registration.custody_ref.len() > 128
+        || !matches!(registration.issuer_kind, 1 | 2)
+        || (registration.issuer_kind == 1 && !registration.custody_ref.is_empty())
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(ConstructMethod::LedgerRegister { registration })
+}
+
+fn decode_native_budget(args: &[u8]) -> Result<ConstructMethod, DisclosureError> {
+    let budget = DisclosedNativeBudgetCreate {
+        encoding_version: 2,
+        budget_id: word(args, 0)?,
+        budget_account: word(args, 1)?,
+        asset: word(args, 2)?,
+        purpose: word(args, 3)?,
+        per_period_limit: u128::from_be_bytes(uint(word(args, 4)?)?),
+        carry_cap: u128::from_be_bytes(uint(word(args, 5)?)?),
+        initial_amount: u128::from_be_bytes(uint(word(args, 6)?)?),
+        period_length_ms: u64::from_be_bytes(uint(word(args, 7)?)?),
+        period_start_ms: u64::from_be_bytes(uint(word(args, 8)?)?),
+        expiry_ms: u64::from_be_bytes(uint(word(args, 9)?)?),
+        revocation_sequence: u64::from_be_bytes(uint(word(args, 10)?)?),
+        rollover: uint::<1>(word(args, 11)?)?[0],
+        source_account: word(args, 12)?,
+        source_sequence: u64::from_be_bytes(uint(word(args, 13)?)?),
+    };
+    native::budget_create_terms(
+        [&budget.budget_id, &budget.budget_account, &budget.asset],
+        [
+            budget.per_period_limit,
+            budget.carry_cap,
+            budget.initial_amount,
+        ],
+        [
+            budget.period_length_ms,
+            budget.period_start_ms,
+            budget.expiry_ms,
+        ],
+        budget.rollover,
+    )?;
+    if budget.source_account == [0; 32]
+        || budget.source_sequence == 0
+        || budget.source_account == budget.budget_account
+        || budget
+            .period_start_ms
+            .checked_add(budget.period_length_ms)
+            .is_none()
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(ConstructMethod::PayBudgetCreateNative {
+        budget: Box::new(budget),
+    })
+}
+
+fn decode_legacy_budget(args: &[u8]) -> Result<ConstructMethod, DisclosureError> {
+    let budget_id = word(args, 0)?;
+    let budget_account = word(args, 1)?;
+    let asset = word(args, 2)?;
+    let purpose = word(args, 3)?;
+    let per_period_limit = u128::from_be_bytes(uint(word(args, 4)?)?);
+    let carry_cap = u128::from_be_bytes(uint(word(args, 5)?)?);
+    let initial_amount = u128::from_be_bytes(uint(word(args, 6)?)?);
+    let period_length_ms = u64::from_be_bytes(uint(word(args, 7)?)?);
+    let period_start_ms = u64::from_be_bytes(uint(word(args, 8)?)?);
+    let expiry_ms = u64::from_be_bytes(uint(word(args, 9)?)?);
+    let revocation_sequence = u64::from_be_bytes(uint(word(args, 10)?)?);
+    let rollover = u8::from_be_bytes(uint(word(args, 11)?)?);
+    native::budget_create_terms(
+        [&budget_id, &budget_account, &asset],
+        [per_period_limit, carry_cap, initial_amount],
+        [period_length_ms, period_start_ms, expiry_ms],
+        rollover,
+    )?;
+    let mut payload = Vec::with_capacity(211);
+    payload.extend_from_slice(&1_u16.to_be_bytes());
+    for value in [budget_id, budget_account, asset, purpose] {
+        payload.extend_from_slice(&value);
+    }
+    for value in [per_period_limit, carry_cap, initial_amount] {
+        payload.extend_from_slice(&value.to_be_bytes());
+    }
+    for value in [
+        period_length_ms,
+        period_start_ms,
+        expiry_ms,
+        revocation_sequence,
+    ] {
+        payload.extend_from_slice(&value.to_be_bytes());
+    }
+    payload.push(rollover);
+    Ok(ConstructMethod::PayBudgetCreate { payload })
+}
+
+fn decode_program_method(
+    call: &Eip1559Call,
+    selector: [u8; 4],
+) -> Result<ConstructMethod, DisclosureError> {
+    match selector {
+        value if value == ledger_selector(program::PROGRAM_CALL_SIGNATURE) => {
+            let (call, fee_limit) = decode_program_call(&call.data)?;
+            Ok(ConstructMethod::ProgramCall {
+                call: Box::new(call),
+                fee_limit,
+            })
+        }
+        value if value == ledger_selector(program::PROGRAM_DEPLOY_SIGNATURE) => {
+            Ok(ConstructMethod::ProgramDeploy {
+                deploy: Box::new(decode_program_deploy(&call.data)?),
+            })
+        }
+        value if value == ledger_selector(program::PROGRAM_UPGRADE_SIGNATURE) => {
+            let (upgrade, fee_limit) = decode_program_upgrade(&call.data)?;
+            Ok(ConstructMethod::ProgramUpgrade {
+                upgrade: Box::new(upgrade),
+                fee_limit,
+            })
+        }
+        value
+            if [
+                program::PROGRAM_ROUTE_SIGNATURE,
+                program::PROGRAM_DEPRECATE_SIGNATURE,
+                program::PROGRAM_TOMBSTONE_SIGNATURE,
+                program::PROGRAM_EXIT_SIGNATURE,
+                program::PROGRAM_BOUNDED_EXIT_SIGNATURE,
+            ]
+            .iter()
+            .any(|signature| value == ledger_selector(signature)) =>
+        {
+            Ok(ConstructMethod::ProgramWindDown {
+                wind_down: Box::new(decode_program_wind_down(&call.data)?),
+            })
+        }
+        _ => Err(DisclosureError::MalformedPayload),
+    }
+}
+
+fn decode_ledger_method(
+    selector: [u8; 4],
+    args: &[u8],
+) -> Result<ConstructMethod, DisclosureError> {
+    match selector {
+        value if value == ledger_selector("openAccount(bytes32)") && args.len() == 32 => {
+            Ok(ConstructMethod::LedgerOpenAccount {
+                asset: word(args, 0)?,
+            })
+        }
+        value
+            if value
+                == ledger_selector(
+                    "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+                ) =>
+        {
+            decode_registration(args)
+        }
+        value if value == ledger_selector("mint(bytes32,bytes32,uint128)") && args.len() == 96 => {
+            let amount = u128::from_be_bytes(uint(word(args, 2)?)?);
+            if amount == 0 {
+                return Err(DisclosureError::MalformedPayload);
+            }
+            Ok(ConstructMethod::LedgerMint {
+                asset: word(args, 0)?,
+                to: word(args, 1)?,
+                amount,
+            })
+        }
+        value if value == ledger_selector("burn(bytes32,bytes32,uint128)") && args.len() == 96 => {
+            let amount = u128::from_be_bytes(uint(word(args, 2)?)?);
+            if amount == 0 {
+                return Err(DisclosureError::MalformedPayload);
+            }
+            Ok(ConstructMethod::LedgerBurn {
+                asset: word(args, 0)?,
+                from: word(args, 1)?,
+                amount,
+            })
+        }
+        [0x2b, 0xb1, 0xae, 0x7c] => {
+            let payload = dynamic(args, 1, 0)?;
+            decode_send(payload).map_err(|_| DisclosureError::MalformedPayload)?;
+            Ok(ConstructMethod::LedgerSend {
+                payload: payload.to_vec(),
+            })
+        }
+        [0xd0, 0xd5, 0x34, 0x80] => {
+            let payload = dynamic(args, 1, 0)?;
+            let Payment::IssueGrant(grant) = Payment::decode(ModuleId::Asset, 7, payload, &[])
+                .map_err(|_| DisclosureError::MalformedPayload)?
+            else {
+                return Err(DisclosureError::MalformedPayload);
+            };
+            Ok(ConstructMethod::LedgerIssueGrant { grant })
+        }
+        [0x2e, 0x89, 0x49, 0x0f] if args.len() == 7 * 32 => Ok(ConstructMethod::LedgerDraw {
+            recipient: word(args, 1)?,
+            purpose_hash: word(args, 5)?,
+            amount: u128::from_be_bytes(uint(word(args, 2)?)?),
+            grant: word(args, 0)?,
+            receiver_sequence: u64::from_be_bytes(uint(word(args, 4)?)?),
+            idempotency_key: word(args, 3)?,
+            context_hash: word(args, 6)?,
+        }),
+        [0x58, 0xd1, 0x83, 0xa8] if args.len() == 2 * 32 => {
+            Ok(ConstructMethod::LedgerRevokeGrant {
+                grant: word(args, 0)?,
+                revocation_sequence: u64::from_be_bytes(uint(word(args, 1)?)?),
+            })
+        }
+        _ => Err(DisclosureError::MalformedPayload),
+    }
+}
+
+fn decode_budget_method(
+    selector: [u8; 4],
+    args: &[u8],
+) -> Result<ConstructMethod, DisclosureError> {
+    match selector {
+            value if value == ledger_selector("budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)") && args.len() == 14 * 32 => decode_native_budget(args),
+            value
+                if value
+                    == ledger_selector(
+                        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+                    ) && args.len() == 384 =>
+            decode_legacy_budget(args),
+            value
+                if value == ledger_selector("budgetFund(bytes32,uint128)")
+                    && args.len() == 64 =>
+            {
+                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
+                if amount == 0 {
+                    return Err(DisclosureError::MalformedPayload);
+                }
+                Ok(ConstructMethod::PayBudgetFund {
+                    budget: word(args, 0)?,
+                    amount,
+                })
+            }
+            value
+                if value == ledger_selector("budgetDefund(bytes32,uint128)")
+                    && args.len() == 64 =>
+            {
+                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
+                if amount == 0 {
+                    return Err(DisclosureError::MalformedPayload);
+                }
+                Ok(ConstructMethod::PayBudgetDefund {
+                    budget: word(args, 0)?,
+                    amount,
+                })
+            }
+            _ => Err(DisclosureError::MalformedPayload),
+        }
+}
+
+fn decode_authorization_method(
+    selector: [u8; 4],
+    args: &[u8],
+) -> Result<ConstructMethod, DisclosureError> {
+    if selector == ledger_selector("grantCapability(bytes)") {
+        let grant = AuthorityGrant::decode(dynamic(args, 1, 0)?)
+            .map_err(|_| DisclosureError::MalformedPayload)?;
+        return Ok(ConstructMethod::AuthLifecycle {
+            payload: grant
+                .payload()
+                .map_err(|_| DisclosureError::MalformedPayload)?,
+            idempotency_key: [0; 32],
+        });
+    }
+    if selector == ledger_selector("grantSession(bytes,uint64,bytes32)") {
+        let grant = decode_session_key(dynamic(args, 3, 0)?)
+            .map_err(|_| DisclosureError::MalformedPayload)?;
+        let expiry_sequence = u64::from_be_bytes(uint(word(args, 1)?)?);
+        let purpose = word(args, 2)?;
+        if expiry_sequence == 0 || purpose == [0; 32] {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        return Ok(ConstructMethod::AuthSession {
+            grant,
+            expiry_sequence,
+            purpose,
+        });
+    }
+    if selector != ledger_selector("recordLifecycle(bytes,bytes32)") {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    let payload = dynamic(args, 2, 0)?;
+    if !(4..=1024).contains(&payload.len())
+        || payload[0] != 0x71
+        || !matches!(
+            (payload[1], payload[2], payload[3], payload.len()),
+            (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (2, 0, 4, 92) | (3, 0, 3, 70) | (3, 0, 5, 86)
+        )
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(ConstructMethod::AuthLifecycle {
+        payload: payload.to_vec(),
+        idempotency_key: word(args, 1)?,
+    })
+}
+
+fn disclose_program_and_asset_fields(
+    fields: &mut DisclosureFields,
+    method: ConstructMethod,
+) -> Result<(), DisclosureError> {
     match method {
         ConstructMethod::BindLayerX { .. } => {}
         ConstructMethod::ProgramDeploy { deploy } => {
@@ -1061,6 +1171,16 @@ pub(super) fn fields(
             fields.idempotency_key = send.idempotency_key;
             fields.expiry.payload_expires_at = send.expires_at;
         }
+        _ => return Err(DisclosureError::MalformedPayload),
+    }
+    Ok(())
+}
+
+fn disclose_grant_and_budget_creation_fields(
+    fields: &mut DisclosureFields,
+    method: ConstructMethod,
+) -> Result<(), DisclosureError> {
+    match method {
         ConstructMethod::LedgerIssueGrant { grant } => {
             disclose_grant(&grant, &mut fields.counterparties, &mut fields.amounts);
             fields.asset = grant.asset;
@@ -1116,6 +1236,16 @@ pub(super) fn fields(
             fields.expiry.payload_expires_at = budget.expiry_ms;
             fields.native_operation = Some(DisclosedNativeOperation::BudgetCreate(budget));
         }
+        _ => return Err(DisclosureError::MalformedPayload),
+    }
+    Ok(())
+}
+
+fn disclose_session_and_budget_state_fields(
+    fields: &mut DisclosureFields,
+    method: ConstructMethod,
+) -> Result<(), DisclosureError> {
+    match method {
         ConstructMethod::AuthSession {
             grant,
             expiry_sequence,
@@ -1166,14 +1296,22 @@ pub(super) fn fields(
                     .map_err(|_| DisclosureError::MalformedPayload)?,
             );
         }
-        ConstructMethod::PayBudgetFund { budget, amount } => {
+        ConstructMethod::PayBudgetFund { budget, amount }
+        | ConstructMethod::PayBudgetDefund { budget, amount } => {
             disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
-        ConstructMethod::PayBudgetDefund { budget, amount } => {
-            disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
-            disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
-        }
+
+        _ => return Err(DisclosureError::MalformedPayload),
+    }
+    Ok(())
+}
+
+fn disclose_authorization_and_external_fields(
+    fields: &mut DisclosureFields,
+    method: ConstructMethod,
+) -> Result<(), DisclosureError> {
+    match method {
         ConstructMethod::AuthLifecycle {
             payload,
             idempotency_key,
@@ -1234,94 +1372,62 @@ pub(super) fn fields(
                 recipient,
             );
         }
+        _ => return Err(DisclosureError::MalformedPayload),
     }
-    Ok(fields)
+    Ok(())
 }
 
-pub(super) fn payload_sequence(call: &Eip1559Call) -> Result<Option<u64>, DisclosureError> {
-    match decode_method(call)? {
-        ConstructMethod::LedgerSend { payload } => Ok(Some(decode_send(&payload)?.sequence)),
-        ConstructMethod::LedgerDraw {
-            receiver_sequence, ..
-        } => Ok(Some(receiver_sequence)),
-        ConstructMethod::PayBudgetCreateNative { budget } => Ok(Some(budget.source_sequence)),
-        ConstructMethod::AuthLifecycle { .. } => Ok(None),
-        _ => Ok(None),
-    }
-}
+fn method_activity_type(method: &ConstructMethod) -> Result<ActivityType, DisclosureError> {
+    let ordinal = match method {
+        ConstructMethod::ProgramDeploy { .. }
+        | ConstructMethod::BindLayerX { .. }
+        | ConstructMethod::LedgerRegister { .. }
+        | ConstructMethod::PayBudgetCreate { .. }
+        | ConstructMethod::PayBudgetCreateNative { .. } => 1,
+        ConstructMethod::ProgramUpgrade { .. } | ConstructMethod::PayBudgetFund { .. } => 2,
+        ConstructMethod::ProgramWindDown { .. } | ConstructMethod::LedgerIssueGrant { .. } => 7,
+        ConstructMethod::ProgramCall { .. } => 3,
+        ConstructMethod::LedgerOpenAccount { .. } => 4,
 
-/// Discloses a supported construct call from its canonical ABI arguments.
-///
-/// # Errors
-/// Refuses unknown targets or selectors, noncanonical ABI, invalid payloads,
-/// trailing data, and a maximum transaction fee that overflows uint128.
-/// The sender is part of the disclosure, although EIP-1559 encodes it only through
-/// signature recovery. Signing must therefore also bind the selected key to it.
-pub fn bind_call(call: &Eip1559Call, from: [u8; 20]) -> Result<Disclosure, DisclosureError> {
-    let fields = fields(call, from)?;
-    Ok(Disclosure {
-        activity_type: fields.activity_type,
-        actor: fields.actor,
-        authority: fields.authority,
-        counterparties: fields.counterparties,
-        amounts: fields.amounts,
-        asset: fields.asset,
-        fee_limit: fields.fee_limit,
-        expiry: fields.expiry,
-        idempotency_key: fields.idempotency_key,
-        evm_payout_binding: fields.evm_payout_binding,
-        withdrawal: fields.withdrawal,
-        payment: fields.payment,
-        authority_grant: fields.authority_grant,
-        session_grant: fields.session_grant,
-        onboarding: fields.onboarding,
-        native_operation: fields.native_operation,
-        source: Source::Call(call.clone()),
-        signing_digest: call.signing_hash(),
-        budget_context: None,
-        call_sender: Some(from),
-    })
-}
+        ConstructMethod::AuthSession { .. }
+        | ConstructMethod::LedgerSend { .. }
+        | ConstructMethod::BankSend { .. }
+        | ConstructMethod::PointerTransfer { .. } => 5,
+        ConstructMethod::LedgerMint { .. } => 10,
+        ConstructMethod::LedgerBurn { .. } => 11,
 
-/// Re-encodes a validated disclosure as the unsigned type-2 transaction bytes.
-///
-/// # Errors
-/// Refuses changed semantic fields or a disclosure from another source kind.
-pub fn reencode(disclosure: &Disclosure) -> Result<Vec<u8>, DisclosureError> {
-    disclosure.validate()?;
-    let Source::Call(call) = &disclosure.source else {
-        return Err(DisclosureError::FieldMismatch("source"));
+        ConstructMethod::LedgerDraw { .. } => 6,
+        ConstructMethod::LedgerRevokeGrant { .. } | ConstructMethod::PayBudgetDefund { .. } => 8,
+
+        ConstructMethod::AuthLifecycle { payload, .. } => u16::from(payload[1]),
     };
-    Ok(call.encode_unsigned())
-}
-
-/// Validates canonical unsigned transaction bytes against the retained disclosure.
-///
-/// # Errors
-/// Refuses altered semantics, a different source, or different transaction bytes.
-pub fn validate_canonical(
-    disclosure: &Disclosure,
-    canonical: &[u8],
-) -> Result<(), DisclosureError> {
-    if reencode(disclosure)? != canonical {
-        return Err(DisclosureError::FieldMismatch("canonical_bytes"));
-    }
-    Ok(())
-}
-
-/// Validates a consumer's retained disclosure against the exact prepared call.
-///
-/// # Errors
-/// Refuses unsupported or malformed calls and any changed disclosure or sender.
-pub fn validate_call(
-    call: &Eip1559Call,
-    disclosure: &Disclosure,
-    from: [u8; 20],
-) -> Result<(), DisclosureError> {
-    if &bind_call(call, from)? != disclosure {
-        return Err(DisclosureError::FieldMismatch("call"));
-    }
-    Ok(())
+    let module = if matches!(
+        method,
+        ConstructMethod::PayBudgetCreate { .. }
+            | ConstructMethod::PayBudgetCreateNative { .. }
+            | ConstructMethod::PayBudgetFund { .. }
+            | ConstructMethod::PayBudgetDefund { .. }
+    ) {
+        ModuleId::Budget
+    } else if matches!(
+        method,
+        ConstructMethod::BindLayerX { .. }
+            | ConstructMethod::AuthLifecycle { .. }
+            | ConstructMethod::AuthSession { .. }
+    ) {
+        ModuleId::Governance
+    } else if matches!(
+        method,
+        ConstructMethod::ProgramCall { .. }
+            | ConstructMethod::ProgramDeploy { .. }
+            | ConstructMethod::ProgramUpgrade { .. }
+            | ConstructMethod::ProgramWindDown { .. }
+    ) {
+        ModuleId::Programs
+    } else {
+        ModuleId::Asset
+    };
+    ActivityType::new(module, ordinal).map_err(|_| DisclosureError::MalformedPayload)
 }
 
 #[cfg(test)]
@@ -1329,7 +1435,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn pointer_transfer_disclosure_names_the_recipient_and_amount() {
+    fn pointer_transfer_disclosure_names_the_recipient_and_amount(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let pointer = [3; 20];
         let from = [4; 20];
         let to = [5; 20];
@@ -1350,9 +1457,12 @@ mod tests {
                 ]
                 .concat(),
             };
-            let disclosure = bind_call(&call, from).expect("pointer transfer disclosure");
+            let disclosure = bind_call(&call, from)
+                .map_err(|error| format!("pointer transfer disclosure: {error:?}"))?;
             assert_eq!(
-                disclosure.construct_method().expect("pointer ABI"),
+                disclosure
+                    .construct_method()
+                    .map_err(|error| format!("pointer ABI: {error:?}"))?,
                 Some(ConstructMethod::PointerTransfer {
                     pointer,
                     to,
@@ -1363,7 +1473,8 @@ mod tests {
             assert_eq!(disclosure.authority, from);
             assert_eq!(
                 disclosure.activity_type,
-                ActivityType::new(ModuleId::Asset, 5).expect("asset send")
+                ActivityType::new(ModuleId::Asset, 5)
+                    .map_err(|error| format!("asset send: {error:?}"))?
             );
             assert_eq!(
                 disclosure.counterparties,
@@ -1380,7 +1491,9 @@ mod tests {
                 }]
             );
             assert_eq!(
-                disclosure.signing_digest().expect("digest"),
+                disclosure
+                    .signing_digest()
+                    .map_err(|error| format!("digest: {error:?}"))?,
                 call.signing_hash()
             );
             for suffix in 0x1000_u16..=0x10ff {
@@ -1411,5 +1524,7 @@ mod tests {
             oversized.data[36] = 1;
             assert!(bind_call(&oversized, from).is_err());
         }
+
+        Ok(())
     }
 }

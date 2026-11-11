@@ -214,6 +214,9 @@ pub fn derive(
     )
 }
 
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn derive_native_effects(
     disclosure: &Disclosure,
     verified: &VerifiedInputs,
@@ -360,6 +363,7 @@ pub struct NativeRegistrationContext {
 }
 
 impl NativeRegistrationContext {
+    #[must_use]
     pub const fn new(principal: super::VerifiedLedgerPrincipal, fee_asset: [u8; 32]) -> Self {
         Self {
             principal: Some(principal),
@@ -430,6 +434,9 @@ fn native_registration_terms<'a>(
 }
 
 /// Derives supply authority from the EVM signer's live ledger owner and gas fee account.
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn derive_native_registration(
     disclosure: &Disclosure,
     context: impl Into<NativeRegistrationContext>,
@@ -446,6 +453,9 @@ pub fn derive_native_registration(
     Ok(plan)
 }
 
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn native_registration_commitment(
     disclosure: &Disclosure,
     protocol_version: u16,
@@ -490,6 +500,7 @@ const fn untyped_kind(disclosure: &Disclosure) -> &'static str {
     } else if disclosure.session_grant.is_some() {
         "SessionGrant"
     } else if disclosure.evm_payout_binding.is_some() {
+        // The disclosure field still ships; report its unsupported kind without authorizing it.
         "EvmPayoutBinding"
     } else {
         "Send"
@@ -576,8 +587,6 @@ fn native_effects(
     verified: &VerifiedInputs,
 ) -> Result<(), EffectsError> {
     match native {
-        DisclosedNativeOperation::ProgramDeploy(_)
-        | DisclosedNativeOperation::ProgramUpgrade(_) => {}
         DisclosedNativeOperation::ProgramCall(call) => program_call_effects(plan, call)?,
         DisclosedNativeOperation::LegacyProgramCall(call) => {
             if call.capabilities().as_slice().iter().any(|capability| {
@@ -624,7 +633,9 @@ fn native_effects(
                 }
             }
         }
-        DisclosedNativeOperation::IdentityRegistration(_)
+        DisclosedNativeOperation::ProgramDeploy(_)
+        | DisclosedNativeOperation::ProgramUpgrade(_)
+        | DisclosedNativeOperation::IdentityRegistration(_)
         | DisclosedNativeOperation::RecoveryPolicy(_) => {}
         DisclosedNativeOperation::BudgetCreate(budget) => {
             plan.transfer(
@@ -769,7 +780,7 @@ mod tests {
 
     fn signed_native_send() -> Disclosure {
         use ed25519_dalek::{Signer as _, SigningKey};
-        use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
+        use layerx_crypto::send::SendDebit;
         let signer = SigningKey::from_bytes(&[42; 32]);
         let debit = SendDebit {
             from: PAYER,
@@ -797,21 +808,9 @@ mod tests {
         let public_key = signer.verifying_key().to_bytes();
         let payload =
             must(debit.encode_signed(public_key, signer.sign(&message.digest()).to_bytes()));
-        must(encode_send_envelope(
-            &payload,
-            &EnvelopeOptions {
-                actor: "did:layerx:alice",
-                public_key,
-                network_id: 17,
-                protocol_version: 3,
-                identity_sequence: 19,
-                idempotency_key: [4; 32],
-                fee_limit: 20,
-                not_before: 10,
-                not_after: 100,
-            },
+        prepared_disclosure(crate::prepare::evm::PrecompileCall::ledger_transfer(
+            payload,
         ))
-        .disclosure
     }
 
     #[test]
@@ -1216,46 +1215,65 @@ mod tests {
     }
 
     fn registration_disclosure(registration: layerx_crypto::payments::Registration) -> Disclosure {
-        use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-        use layerx_wire::{encode::Encoder, hash::Domain};
-        use sha2::{Digest as _, Sha256};
-        let actor: &[u8] = b"did:layerx:alice";
-        let payload = must(Payment::Register(registration).encode(actor));
-        let kind = must(ActivityType::new(ModuleId::Asset, 1));
-        let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
-            ModuleId::Asset,
-            &[kind],
-        ))]));
-        let mut hasher = Sha256::new();
-        hasher.update(Domain::PayloadHash.tag());
-        hasher.update(&payload);
-        let digest: [u8; 32] = hasher.finalize().into();
-        let mut e = Encoder::new(65536);
-        must(e.structure_header_version(0x1001, 3));
-        must(e.u8(11));
-        must(e.tag(1, 12));
-        must(e.u16(3));
-        must(e.tag(2, 12));
-        must(e.u32(17));
-        must(e.tag(3, 12));
-        must(e.u32(kind.value()));
-        must(e.tag(4, 12));
-        must(e.bytes(actor, 255));
-        must(e.tag(5, 12));
-        must(e.bytes(&[9; 32], 524_288));
-        must(e.tag(6, 12));
-        must(e.u64(7));
-        must(e.tag(7, 12));
-        must(e.u64(10));
-        must(e.u64(100));
-        must(e.tag(8, 12));
-        must(e.bytes(&[0x71; 32], 32));
-        must(e.tag(9, 12));
-        must(e.u128(20));
-        must(e.tag(10, 12));
-        must(e.bytes(&digest, 32));
-        must(e.tag(11, 12));
-        must(e.bytes(&payload, 524_288));
-        must(layerx_crypto::disclosure::bind(&e.finish(), &registry))
+        use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+        let word = |value: u128| {
+            let mut word = [0; 32];
+            word[16..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        prepared_disclosure(PrecompileCall {
+            target: PrecompileTarget::Ledger,
+            selector: layerx_crypto::disclosure::call::ledger_selector(
+                "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+            ),
+            arguments: vec![
+                AbiArgument::Word(registration.asset),
+                AbiArgument::Word(registration.salt),
+                AbiArgument::Bytes(registration.symbol.into_bytes()),
+                AbiArgument::Bytes(registration.name.into_bytes()),
+                AbiArgument::Word(word(u128::from(registration.decimals))),
+                AbiArgument::Word(word(registration.supply_cap)),
+                AbiArgument::Word(word(u128::from(registration.issuer_kind))),
+                AbiArgument::Bytes(registration.custody_ref),
+            ],
+        })
+    }
+
+    fn prepared_disclosure(call: crate::prepare::evm::PrecompileCall) -> Disclosure {
+        use crate::prepare::evm::{
+            prepare_bound, EvmPreparationState, PreparationDefaults, PrepareRequest,
+        };
+        let prepared = must(prepare_bound(
+            EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 19,
+            },
+            PreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 20,
+                maximum_payload_bytes: 4096,
+            },
+            PrepareRequest {
+                from: [0x11; 20],
+                call,
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 4096,
+            },
+            100_000,
+        ));
+        let disclosure = must(layerx_crypto::disclosure::call::bind_call(
+            &prepared.call,
+            prepared.from,
+        ));
+        assert_eq!(disclosure, prepared.disclosure);
+        assert_eq!(
+            must(disclosure.signing_digest()),
+            prepared.disclosure_digest
+        );
+        disclosure
     }
 }

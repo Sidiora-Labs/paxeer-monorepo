@@ -30,7 +30,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    hex::encode(bytes)
 }
 fn unhex(text: &str) -> Vec<u8> {
     let text = text.strip_prefix("0x").unwrap_or(text);
@@ -38,7 +38,11 @@ fn unhex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex text: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("hex byte: {error:?}"))
         })
         .collect()
 }
@@ -102,13 +106,7 @@ impl Clock for OsClock {
     }
 }
 
-fn fixture_receipt(raw: &[u8], seq: u64) -> Value {
-    use layerx_wire::encode::Encoder;
-    let (call, signature) = decode_signed(raw).expect("fixture signed call");
-    let sender = recover_sender(&call, &signature).expect("fixture signer");
-    let activity = transaction_hash(raw);
-    let returned = Vec::<u8>::new();
-    let logs = Vec::<Value>::new();
+fn execution_summary(returned: &[u8], logs: &[Value]) -> Vec<u8> {
     let mut summary = Vec::new();
     for n in [100_000_u64, 100_000, 3] {
         summary.extend_from_slice(&n.to_be_bytes());
@@ -116,10 +114,81 @@ fn fixture_receipt(raw: &[u8], seq: u64) -> Value {
     summary.extend_from_slice(&1_u32.to_be_bytes());
     summary.extend_from_slice(&[0; 40]);
     summary.extend_from_slice(&Sha256::digest([]));
-    summary.extend_from_slice(&(returned.len() as u32).to_be_bytes());
-    summary.extend_from_slice(&(logs.len() as u32).to_be_bytes());
+    summary.extend_from_slice(
+        &(u32::try_from(returned.len())
+            .unwrap_or_else(|error| panic!("fixture integer must fit u32: {error:?}")))
+        .to_be_bytes(),
+    );
+    summary.extend_from_slice(
+        &(u32::try_from(logs.len())
+            .unwrap_or_else(|error| panic!("fixture integer must fit u32: {error:?}")))
+        .to_be_bytes(),
+    );
     summary.push(4);
     summary.extend_from_slice(b"uhpx");
+    summary
+}
+
+fn sign_receipt(unsigned: Vec<u8>, key: &SigningKey) -> Vec<u8> {
+    let decoded = layerx_wire::receipt::decode(&unsigned)
+        .unwrap_or_else(|error| panic!("real receipt codec: {error:?}"));
+    assert_eq!(
+        layerx_wire::receipt::encode_unsigned(&decoded)
+            .unwrap_or_else(|error| panic!("canonical unsigned receipt: {error:?}")),
+        unsigned
+    );
+    let digest = layerx_wire::hash::receipt_digest(&unsigned)
+        .unwrap_or_else(|error| panic!("domain-separated receipt digest: {error:?}"));
+    let signature = key.sign(&digest).to_bytes();
+    let mut canonical = unsigned;
+    canonical.pop();
+    canonical.push(1);
+    canonical.extend_from_slice(&64_u32.to_be_bytes());
+    canonical.extend_from_slice(&signature);
+    let decoded = layerx_wire::receipt::decode(&canonical)
+        .unwrap_or_else(|error| panic!("real signed receipt codec: {error:?}"));
+    assert_eq!(
+        layerx_wire::receipt::encode(&decoded)
+            .unwrap_or_else(|error| panic!("canonical signed receipt: {error:?}")),
+        canonical
+    );
+    canonical
+}
+
+fn encode_receipt_effects(e: &mut Encoder, effects: &[Vec<u8>]) {
+    e.sequence_length(effects.len(), 512)
+        .unwrap_or_else(|error| panic!("effect count: {error:?}"));
+    for (ordinal, body) in effects.iter().enumerate() {
+        e.u16(12)
+            .unwrap_or_else(|error| panic!("summary module: {error:?}"));
+        e.u16(
+            u16::try_from(ordinal)
+                .unwrap_or_else(|error| panic!("fixture integer must fit u16: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("ordinal: {error:?}"));
+        e.u16(0)
+            .unwrap_or_else(|error| panic!("event type: {error:?}"));
+        e.u8(if ordinal == 0 { 1 } else { 3 })
+            .unwrap_or_else(|error| panic!("effect kind: {error:?}"));
+        e.u8(0)
+            .unwrap_or_else(|error| panic!("nonmonetary: {error:?}"));
+        e.bytes(&[0; 32], 32)
+            .unwrap_or_else(|error| panic!("transfer root: {error:?}"));
+        e.bytes(body, 256)
+            .unwrap_or_else(|error| panic!("effect body: {error:?}"));
+    }
+}
+
+fn fixture_receipt(raw: &[u8], seq: u64) -> Value {
+    use layerx_wire::encode::Encoder;
+    let (call, signature) =
+        decode_signed(raw).unwrap_or_else(|error| panic!("fixture signed call: {error:?}"));
+    let sender = recover_sender(&call, &signature)
+        .unwrap_or_else(|error| panic!("fixture signer: {error:?}"));
+    let activity = transaction_hash(raw);
+    let returned = Vec::<u8>::new();
+    let logs = Vec::<Value>::new();
+    let summary = execution_summary(&returned, &logs);
     let effects = [summary];
     let key = SigningKey::from_bytes(&[0x5e; 32]);
     let key_id: [u8; 32] = Sha256::digest(key.verifying_key().as_bytes()).into();
@@ -139,63 +208,58 @@ fn fixture_receipt(raw: &[u8], seq: u64) -> Value {
     to[12..].copy_from_slice(&call.to);
     let mut e = Encoder::new(1_048_576);
     e.structure_header_version(0x5201, 2)
-        .expect("receipt header");
-    e.u16(2).expect("protocol");
-    e.bytes(&activity, 32).expect("activity");
-    e.u64(seq).expect("sequence");
+        .unwrap_or_else(|error| panic!("receipt header: {error:?}"));
+    e.u16(2)
+        .unwrap_or_else(|error| panic!("protocol: {error:?}"));
+    e.bytes(&activity, 32)
+        .unwrap_or_else(|error| panic!("activity: {error:?}"));
+    e.u64(seq)
+        .unwrap_or_else(|error| panic!("sequence: {error:?}"));
     for value in [previous, resulting, Sha256::digest(&returned).into()] {
-        e.bytes(&value, 32).expect("receipt root");
+        e.bytes(&value, 32)
+            .unwrap_or_else(|error| panic!("receipt root: {error:?}"));
     }
-    e.i32(0).expect("result");
-    e.sequence_length(effects.len(), 512).expect("effect count");
-    for (ordinal, body) in effects.iter().enumerate() {
-        e.u16(12).expect("summary module");
-        e.u16(ordinal as u16).expect("ordinal");
-        e.u16(0).expect("event type");
-        e.u8(if ordinal == 0 { 1 } else { 3 }).expect("effect kind");
-        e.u8(0).expect("nonmonetary");
-        e.bytes(&[0; 32], 32).expect("transfer root");
-        e.bytes(body, 256).expect("effect body");
-    }
-    e.u128(300_000).expect("fee");
-    e.bytes(&height, 32).expect("height");
-    e.u16(12).expect("module");
-    e.u32(1).expect("layout");
-    e.u32(0).expect("parameters");
-    e.u8(2).expect("call operation");
-    e.bytes(&Sha256::digest(b"uhpx"), 32).expect("asset");
-    e.u128(0).expect("amount");
-    e.bytes(&from, 32).expect("from");
-    e.u128(1_000_000).expect("before");
-    e.u128(700_000).expect("after");
-    e.u64(call.nonce).expect("nonce");
-    e.bytes(&to, 32).expect("to");
-    e.u128(0).expect("to before");
-    e.u128(0).expect("to after");
+    e.i32(0).unwrap_or_else(|error| panic!("result: {error:?}"));
+    encode_receipt_effects(&mut e, &effects);
+    e.u128(300_000)
+        .unwrap_or_else(|error| panic!("fee: {error:?}"));
+    e.bytes(&height, 32)
+        .unwrap_or_else(|error| panic!("height: {error:?}"));
+    e.u16(12)
+        .unwrap_or_else(|error| panic!("module: {error:?}"));
+    e.u32(1).unwrap_or_else(|error| panic!("layout: {error:?}"));
+    e.u32(0)
+        .unwrap_or_else(|error| panic!("parameters: {error:?}"));
+    e.u8(2)
+        .unwrap_or_else(|error| panic!("call operation: {error:?}"));
+    e.bytes(&Sha256::digest(b"uhpx"), 32)
+        .unwrap_or_else(|error| panic!("asset: {error:?}"));
+    e.u128(0)
+        .unwrap_or_else(|error| panic!("amount: {error:?}"));
+    e.bytes(&from, 32)
+        .unwrap_or_else(|error| panic!("from: {error:?}"));
+    e.u128(1_000_000)
+        .unwrap_or_else(|error| panic!("before: {error:?}"));
+    e.u128(700_000)
+        .unwrap_or_else(|error| panic!("after: {error:?}"));
+    e.u64(call.nonce)
+        .unwrap_or_else(|error| panic!("nonce: {error:?}"));
+    e.bytes(&to, 32)
+        .unwrap_or_else(|error| panic!("to: {error:?}"));
+    e.u128(0)
+        .unwrap_or_else(|error| panic!("to before: {error:?}"));
+    e.u128(0)
+        .unwrap_or_else(|error| panic!("to after: {error:?}"));
     for value in [[0; 32], [0; 32], key_id] {
-        e.bytes(&value, 32).expect("authorization");
+        e.bytes(&value, 32)
+            .unwrap_or_else(|error| panic!("authorization: {error:?}"));
     }
-    e.u64(1_000_000 + seq).expect("timestamp");
-    e.u8(0).expect("unsigned receipt");
+    e.u64(1_000_000 + seq)
+        .unwrap_or_else(|error| panic!("timestamp: {error:?}"));
+    e.u8(0)
+        .unwrap_or_else(|error| panic!("unsigned receipt: {error:?}"));
     let unsigned = e.finish();
-    let decoded = layerx_wire::receipt::decode(&unsigned).expect("real receipt codec");
-    assert_eq!(
-        layerx_wire::receipt::encode_unsigned(&decoded).expect("canonical unsigned receipt"),
-        unsigned
-    );
-    let digest =
-        layerx_wire::hash::receipt_digest(&unsigned).expect("domain-separated receipt digest");
-    let signature = key.sign(&digest).to_bytes();
-    let mut canonical = unsigned;
-    canonical.pop();
-    canonical.push(1);
-    canonical.extend_from_slice(&64_u32.to_be_bytes());
-    canonical.extend_from_slice(&signature);
-    let decoded = layerx_wire::receipt::decode(&canonical).expect("real signed receipt codec");
-    assert_eq!(
-        layerx_wire::receipt::encode(&decoded).expect("canonical signed receipt"),
-        canonical
-    );
+    let canonical = sign_receipt(unsigned, &key);
     json!({"rung":"receipted","txHash":format!("0x{}",hex(&activity)),"nonce":format!("0x{:x}",call.nonce),"seq":format!("0x{seq:x}"),"height":"0x3e8","index":"0x1","timestamp":format!("0x{:x}",1_000_000+seq),"status":"0x1","returnData":format!("0x{}",hex(&returned)),"logs":logs,"gasUsed":"0x186a0","cumulativeGasUsed":"0x186a0","effectiveGasPrice":"0x3","paymentDenom":"uhpx","feeDenom":"uhpx","feeAmount":"0x493e0","sponsor":format!("0x{}",hex(&[0;20])),"from":format!("0x{}",hex(&sender)),"to":format!("0x{}",hex(&call.to)),"contractAddress":format!("0x{}",hex(&[0;20])),"vmError":"","keyId":format!("0x{}",hex(&key_id)),"signingKey":format!("0x{}",hex(key.verifying_key().as_bytes())),"receipt":format!("0x{}",hex(&canonical))})
 }
 
@@ -204,41 +268,73 @@ fn inclusion(summary: &Value) -> Value {
 }
 
 fn inclusion_on_network(summary: &Value, network: u32) -> Value {
-    let canonical = unhex(summary["receipt"].as_str().expect("signed receipt"));
-    let decoded = layerx_wire::receipt::decode(&canonical).expect("receipt producer codec");
-    let receipt = decoded.protocol().expect("protocol receipt");
+    let canonical = unhex(
+        summary["receipt"]
+            .as_str()
+            .unwrap_or_else(|| panic!("signed receipt")),
+    );
+    let decoded = layerx_wire::receipt::decode(&canonical)
+        .unwrap_or_else(|error| panic!("receipt producer codec: {error:?}"));
+    let receipt = decoded
+        .protocol()
+        .unwrap_or_else(|| panic!("protocol receipt"));
     let (proof, root) = build_proof(&[b"prior receipt", &canonical, b"next receipt"], 1)
-        .expect("production Merkle constructor");
+        .unwrap_or_else(|error| panic!("production Merkle constructor: {error:?}"));
     let key = SigningKey::from_bytes(&[0x5e; 32]);
     let key_id: [u8; 32] = Sha256::digest(key.verifying_key().as_bytes()).into();
     let mut encoder = Encoder::new(1024);
     encoder
         .structure_header_version(0x1701, 2)
-        .expect("batch header");
-    encoder.u8(15).expect("field count");
+        .unwrap_or_else(|error| panic!("batch header: {error:?}"));
+    encoder
+        .u8(15)
+        .unwrap_or_else(|error| panic!("field count: {error:?}"));
     for field in 1..=15 {
-        encoder.tag(field, 15).expect("batch field");
+        encoder
+            .tag(field, 15)
+            .unwrap_or_else(|error| panic!("batch field: {error:?}"));
         match field {
-            1 => encoder.u16(2).expect("protocol"),
-            2 => encoder.u32(network).expect("network"),
-            3 => encoder.u64(1).expect("epoch"),
-            4 => encoder.u64(1000).expect("batch number"),
-            5 | 6 => encoder.u64(receipt.global_sequence()).expect("sequence"),
+            1 => encoder
+                .u16(2)
+                .unwrap_or_else(|error| panic!("protocol: {error:?}")),
+            2 => encoder
+                .u32(network)
+                .unwrap_or_else(|error| panic!("network: {error:?}")),
+            3 => encoder
+                .u64(1)
+                .unwrap_or_else(|error| panic!("epoch: {error:?}")),
+            4 => encoder
+                .u64(1000)
+                .unwrap_or_else(|error| panic!("batch number: {error:?}")),
+            5 | 6 => encoder
+                .u64(receipt.global_sequence())
+                .unwrap_or_else(|error| panic!("sequence: {error:?}")),
             7 => encoder
                 .bytes(&receipt.previous_state_root(), 32)
-                .expect("previous root"),
+                .unwrap_or_else(|error| panic!("previous root: {error:?}")),
             8 => encoder
                 .bytes(&receipt.resulting_state_root(), 32)
-                .expect("resulting root"),
-            10 => encoder.bytes(&root, 32).expect("receipt root"),
-            14 => encoder.u64(receipt.timestamp()).expect("timestamp"),
-            15 => encoder.bytes(&key_id, 32).expect("sequencer"),
-            _ => encoder.bytes(&[1; 32], 32).expect("commitment"),
+                .unwrap_or_else(|error| panic!("resulting root: {error:?}")),
+            10 => encoder
+                .bytes(&root, 32)
+                .unwrap_or_else(|error| panic!("receipt root: {error:?}")),
+            14 => encoder
+                .u64(receipt.timestamp())
+                .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
+            15 => encoder
+                .bytes(&key_id, 32)
+                .unwrap_or_else(|error| panic!("sequencer: {error:?}")),
+            _ => encoder
+                .bytes(&[1; 32], 32)
+                .unwrap_or_else(|error| panic!("commitment: {error:?}")),
         }
     }
     let header = encoder.finish();
     let signature = key
-        .sign(&batch_header_digest(&header).expect("header digest"))
+        .sign(
+            &batch_header_digest(&header)
+                .unwrap_or_else(|error| panic!("header digest: {error:?}")),
+        )
         .to_bytes();
     json!({
         "kind":"receipt", "activity_id":hex(&receipt.activity_id()),
@@ -257,14 +353,23 @@ pub(crate) struct Node {
 }
 impl Node {
     pub(crate) fn start(include_proof: bool) -> Self {
-        let owner = derive_from_seed(&[0x41; 32], 0).expect("wallet owner");
+        let owner = derive_from_seed(&[0x41; 32], 0)
+            .unwrap_or_else(|error| panic!("wallet owner: {error:?}"));
         let state = Arc::new(Mutex::new(json!({
             "owner":owner.evm_address_text(), "nonce":0, "include_proof":include_proof,
             "transactions":{}, "receipts":{}, "requests":[]
         })));
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback node");
-        listener.set_nonblocking(true).expect("bounded listener");
-        let endpoint = format!("http://{}", listener.local_addr().expect("node address"));
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("loopback node: {error:?}"));
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("bounded listener: {error:?}"));
+        let endpoint = format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("node address: {error:?}"))
+        );
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = stop.clone();
         let store = state.clone();
@@ -278,39 +383,11 @@ impl Node {
                     }
                     Err(error) => panic!("node accept: {error}"),
                 };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("read bound");
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("write bound");
-                let mut reader = BufReader::new(stream);
-                let mut line = String::new();
-                reader.read_line(&mut line).expect("HTTP request");
-                assert_eq!(line, "POST / HTTP/1.1\r\n");
-                let mut length = None;
-                let mut header_bytes = line.len();
-                loop {
-                    line.clear();
-                    reader.read_line(&mut line).expect("HTTP header");
-                    header_bytes += line.len();
-                    assert!(header_bytes <= 8192);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some((name, value)) = line.split_once(':') {
-                        if name.eq_ignore_ascii_case("content-length") {
-                            length = Some(value.trim().parse::<usize>().expect("body length"));
-                        }
-                    }
-                }
-                let length = length.expect("length-delimited request");
-                assert!(length <= 1_048_576 + 4096);
-                let mut body = vec![0; length];
-                reader.read_exact(&mut body).expect("request bytes");
-                let request: Value = serde_json::from_slice(&body).expect("request JSON");
+                let (reader, request) = Self::read_request(stream);
                 let response = {
-                    let mut state = store.lock().expect("node store");
+                    let mut state = store
+                        .lock()
+                        .unwrap_or_else(|error| panic!("node store: {error:?}"));
                     let result = Self::response(&mut state, &request);
                     if request["method"] == "px_getSequenceBatch" && !state["batch_error"].is_null()
                     {
@@ -319,11 +396,14 @@ impl Node {
                         json!({"jsonrpc":"2.0","id":request["id"],"result":result})
                     }
                 };
-                let body = serde_json::to_vec(&response).expect("response JSON");
+                let body = serde_json::to_vec(&response)
+                    .unwrap_or_else(|error| panic!("response JSON: {error:?}"));
                 let mut stream = reader.into_inner();
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())
-                    .expect("HTTP response");
-                stream.write_all(&body).expect("response bytes");
+                    .unwrap_or_else(|error| panic!("HTTP response: {error:?}"));
+                stream
+                    .write_all(&body)
+                    .unwrap_or_else(|error| panic!("response bytes: {error:?}"));
             }
         });
         Self {
@@ -334,63 +414,148 @@ impl Node {
         }
     }
 
+    fn read_request(stream: std::net::TcpStream) -> (BufReader<std::net::TcpStream>, Value) {
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("read bound: {error:?}"));
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("write bound: {error:?}"));
+        let mut reader = BufReader::new(stream);
+        let mut line = String::new();
+        reader
+            .read_line(&mut line)
+            .unwrap_or_else(|error| panic!("HTTP request: {error:?}"));
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
+        let mut length = None;
+        let mut header_bytes = line.len();
+        loop {
+            line.clear();
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("HTTP header: {error:?}"));
+            header_bytes += line.len();
+            assert!(header_bytes <= 8192);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    length = Some(
+                        value
+                            .trim()
+                            .parse::<usize>()
+                            .unwrap_or_else(|error| panic!("body length: {error:?}")),
+                    );
+                }
+            }
+        }
+        let length = length.unwrap_or_else(|| panic!("length-delimited request"));
+        assert!(length <= 1_048_576 + 4096);
+        let mut body = vec![0; length];
+        reader
+            .read_exact(&mut body)
+            .unwrap_or_else(|error| panic!("request bytes: {error:?}"));
+        let request: Value =
+            serde_json::from_slice(&body).unwrap_or_else(|error| panic!("request JSON: {error:?}"));
+        (reader, request)
+    }
+
+    fn submit_transaction(state: &mut Value, params: &Value) -> Value {
+        let raw = unhex(
+            params[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("signed transaction")),
+        );
+        let (call, signature) = decode_signed(&raw)
+            .unwrap_or_else(|error| panic!("production transaction decoder: {error:?}"));
+        let sender = recover_sender(&call, &signature)
+            .unwrap_or_else(|error| panic!("signature recovery: {error:?}"));
+        assert_eq!(
+            sender.as_slice(),
+            unhex(
+                state["owner"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("wallet owner"))
+            )
+        );
+        assert_eq!(
+            call.nonce,
+            state["nonce"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("stored nonce"))
+        );
+        assert_eq!(call.chain_id, 125);
+        assert_eq!(call.to, call_target(0x101a));
+        bind_call(&call, sender)
+            .unwrap_or_else(|error| panic!("production disclosure verifier: {error:?}"));
+        let hash = format!("0x{}", hex(&transaction_hash(&raw)));
+        let seq = call.nonce + 1;
+        let mut receipt = fixture_receipt(&raw, seq);
+        if state["include_proof"] == true {
+            receipt["inclusion"] = inclusion(&receipt);
+        }
+        state["nonce"] = json!(seq);
+        state["transactions"][&hash] = params[0].clone();
+        state["receipts"][&hash] = receipt;
+        json!(hash)
+    }
+
     fn response(state: &mut Value, request: &Value) -> Value {
         state["requests"]
             .as_array_mut()
-            .expect("request journal")
+            .unwrap_or_else(|| panic!("request journal"))
             .push(request.clone());
         let params = &request["params"];
-        match request["method"].as_str().expect("RPC method") {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("RPC method"))
+        {
             "eth_chainId" => json!("0x7d"),
             "eth_gasPrice" | "eth_maxPriorityFeePerGas" => json!("0x1"),
             "eth_estimateGas" => json!("0x186a0"),
             "eth_getTransactionCount" => {
-                assert_eq!(params.as_array().expect("nonce params").len(), 2);
                 assert_eq!(
-                    unhex(params[0].as_str().expect("nonce address")),
-                    unhex(state["owner"].as_str().expect("wallet owner"))
+                    params
+                        .as_array()
+                        .unwrap_or_else(|| panic!("nonce params"))
+                        .len(),
+                    2
+                );
+                assert_eq!(
+                    unhex(
+                        params[0]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("nonce address"))
+                    ),
+                    unhex(
+                        state["owner"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("wallet owner"))
+                    )
                 );
                 assert_eq!(params[1], "pending");
-                json!(format!("0x{:x}", state["nonce"].as_u64().expect("nonce")))
+                json!(format!(
+                    "0x{:x}",
+                    state["nonce"].as_u64().unwrap_or_else(|| panic!("nonce"))
+                ))
             }
             "px_getAccount" => json!({"account_id": params[0], "next_sequence":"7"}),
-            "eth_sendRawTransaction" => {
-                let raw = unhex(params[0].as_str().expect("signed transaction"));
-                let (call, signature) =
-                    decode_signed(&raw).expect("production transaction decoder");
-                let sender = recover_sender(&call, &signature).expect("signature recovery");
-                assert_eq!(
-                    sender.as_slice(),
-                    unhex(state["owner"].as_str().expect("wallet owner"))
-                );
-                assert_eq!(call.nonce, state["nonce"].as_u64().expect("stored nonce"));
-                assert_eq!(call.chain_id, 125);
-                assert_eq!(call.to, call_target(0x101a));
-                bind_call(&call, sender).expect("production disclosure verifier");
-                let hash = format!("0x{}", hex(&transaction_hash(&raw)));
-                let seq = call.nonce + 1;
-                let mut receipt = fixture_receipt(&raw, seq);
-                if state["include_proof"] == true {
-                    receipt["inclusion"] = inclusion(&receipt);
-                }
-                state["nonce"] = json!(seq);
-                state["transactions"][&hash] = params[0].clone();
-                state["receipts"][&hash] = receipt;
-                json!(hash)
-            }
-            "pax_sequencerReceipt" => {
-                state["receipts"][params[0].as_str().expect("activity hash")].clone()
-            }
+            "eth_sendRawTransaction" => Self::submit_transaction(state, params),
+            "pax_sequencerReceipt" => state["receipts"][params[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("activity hash"))]
+            .clone(),
             "eth_getBlockByNumber" => {
                 let height = u64::from_str_radix(
                     params[0]
                         .as_str()
-                        .expect("block height")
+                        .unwrap_or_else(|| panic!("block height"))
                         .strip_prefix("0x")
-                        .expect("hex block height"),
+                        .unwrap_or_else(|| panic!("hex block height")),
                     16,
                 )
-                .expect("height");
+                .unwrap_or_else(|error| panic!("height: {error:?}"));
                 assert_eq!(params, &json!([format!("0x{height:x}"), false]));
                 let record = if state["committed_by_height"].is_object() {
                     &state["committed_by_height"][height.to_string()]
@@ -403,9 +568,20 @@ impl Node {
                     "transactions":record["activityIds"]})
             }
             "px_getCommit" | "px_getSequenceBatch" => {
-                let height = params[0].as_str().expect("decimal height");
-                assert_eq!(height.parse::<u64>().expect("height").to_string(), height);
-                assert_eq!(params.as_array().expect("params").len(), 1);
+                let height = params[0]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("decimal height"));
+                assert_eq!(
+                    height
+                        .parse::<u64>()
+                        .unwrap_or_else(|error| panic!("height: {error:?}"))
+                        .to_string(),
+                    height
+                );
+                assert_eq!(
+                    params.as_array().unwrap_or_else(|| panic!("params")).len(),
+                    1
+                );
                 let record = if state["committed_by_height"].is_object() {
                     &state["committed_by_height"][height]
                 } else {
@@ -417,34 +593,43 @@ impl Node {
                     record["batch"].clone()
                 }
             }
-            "eth_getRawTransactionByHash" => {
-                state["transactions"][params[0].as_str().expect("activity hash")].clone()
-            }
+            "eth_getRawTransactionByHash" => state["transactions"][params[0]
+                .as_str()
+                .unwrap_or_else(|| panic!("activity hash"))]
+            .clone(),
             method => panic!("unexpected RPC method {method}"),
         }
     }
 
     pub(crate) fn rpc(&self) -> RpcClient {
         RpcClient::connect_node(&self.endpoint, None)
-            .expect("direct node RPC")
+            .unwrap_or_else(|error| panic!("direct node RPC: {error:?}"))
             .with_clock(Arc::new(OsClock::new()))
     }
     fn submitted(&self, hash: [u8; 32]) -> Vec<u8> {
         let body = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":"raw",
             "method":"eth_getRawTransactionByHash","params":[format!("0x{}",hex(&hash))]}))
-        .expect("raw transaction request");
+        .unwrap_or_else(|error| panic!("raw transaction request: {error:?}"));
         let mut response = ureq::post(&self.endpoint)
             .header("Content-Type", "application/json")
             .config()
             .timeout_global(Some(Duration::from_secs(5)))
             .build()
             .send(body.as_slice())
-            .expect("node raw transaction lookup");
-        let result: Value =
-            serde_json::from_slice(&response.body_mut().read_to_vec().expect("raw response"))
-                .expect("raw JSON");
+            .unwrap_or_else(|error| panic!("node raw transaction lookup: {error:?}"));
+        let result: Value = serde_json::from_slice(
+            &response
+                .body_mut()
+                .read_to_vec()
+                .unwrap_or_else(|error| panic!("raw response: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("raw JSON: {error:?}"));
         assert_eq!(result["id"], "raw");
-        unhex(result["result"].as_str().expect("submitted bytes"))
+        unhex(
+            result["result"]
+                .as_str()
+                .unwrap_or_else(|| panic!("submitted bytes")),
+        )
     }
 }
 impl Drop for Node {
@@ -453,7 +638,7 @@ impl Drop for Node {
         if let Some(worker) = self.worker.take() {
             let result = worker.join();
             if !std::thread::panicking() {
-                result.expect("node worker");
+                result.unwrap_or_else(|error| panic!("node worker: {error:?}"));
             }
         }
     }
@@ -472,7 +657,9 @@ pub(crate) fn policy() -> ReceiptPolicy {
 }
 pub(crate) fn options() -> PaymentOptions {
     PaymentOptions {
-        actor: derive_from_seed(&[0x41; 32], 0).expect("owner").did(),
+        actor: derive_from_seed(&[0x41; 32], 0)
+            .unwrap_or_else(|error| panic!("owner: {error:?}"))
+            .did(),
         idempotency_key: [4; 32],
         fee_limit: 1_000_000,
         not_before: 0,
@@ -501,18 +688,26 @@ fn assert_bound(node: &Node, receipt: &VerifiedRpcReceipt, signer: &LocalSigner)
     let hash = receipt
         .receipt()
         .protocol()
-        .expect("protocol")
+        .unwrap_or_else(|| panic!("protocol"))
         .activity_id();
     let raw = node.submitted(hash);
     assert_eq!(receipt.canonical_activity(), Some(raw.as_slice()));
     assert_eq!(
-        transaction_hash(receipt.canonical_activity().expect("bound transaction")),
+        transaction_hash(
+            receipt
+                .canonical_activity()
+                .unwrap_or_else(|| panic!("bound transaction"))
+        ),
         hash
     );
-    let (call, signature) = decode_signed(&raw).expect("submitted transaction decode");
+    let (call, signature) = decode_signed(&raw)
+        .unwrap_or_else(|error| panic!("submitted transaction decode: {error:?}"));
     assert_eq!(
-        recover_sender(&call, &signature).expect("recovered sender"),
-        signer.evm_address().expect("signer address")
+        recover_sender(&call, &signature)
+            .unwrap_or_else(|error| panic!("recovered sender: {error:?}")),
+        signer
+            .evm_address()
+            .unwrap_or_else(|| panic!("signer address"))
     );
     assert_eq!(call.to, call_target(0x101a));
     assert_eq!(receipt.rung(), Rung::Receipted);
@@ -523,7 +718,8 @@ fn assert_bound(node: &Node, receipt: &VerifiedRpcReceipt, signer: &LocalSigner)
 fn wallet_send_retains_the_exact_submitted_pax_transaction() {
     let node = Node::start(true);
     let rpc = node.rpc();
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("owner derivation");
+    let owner = derive_from_seed(&[0x41; 32], 0)
+        .unwrap_or_else(|error| panic!("owner derivation: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     let wallet = Wallet {
@@ -533,22 +729,24 @@ fn wallet_send_retains_the_exact_submitted_pax_transaction() {
         native_asset: [3; 32],
     };
     let debit = debit();
-    let payload = run(debit.sign(&signer)).expect("real native Send authorization");
-    let receipt = run(wallet.send(&payload, &options())).expect("verified wallet Send");
+    let payload = run(debit.sign(&signer))
+        .unwrap_or_else(|error| panic!("real native Send authorization: {error:?}"));
+    let receipt = run(wallet.send(&payload, &options()))
+        .unwrap_or_else(|error| panic!("verified wallet Send: {error:?}"));
     assert_bound(&node, &receipt, &signer);
     let raw = node.submitted(
         receipt
             .receipt()
             .protocol()
-            .expect("protocol")
+            .unwrap_or_else(|| panic!("protocol"))
             .activity_id(),
     );
-    let (call, _) = decode_signed(&raw).expect("transaction");
+    let (call, _) = decode_signed(&raw).unwrap_or_else(|error| panic!("transaction: {error:?}"));
     assert_eq!(
         bind_call(&call, owner.evm_address())
-            .expect("disclosure")
+            .unwrap_or_else(|error| panic!("disclosure: {error:?}"))
             .construct_method()
-            .expect("method"),
+            .unwrap_or_else(|error| panic!("method: {error:?}")),
         Some(ConstructMethod::LedgerSend { payload })
     );
 }
@@ -557,7 +755,7 @@ fn wallet_send_retains_the_exact_submitted_pax_transaction() {
 fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transaction() {
     let node = Node::start(true);
     let rpc = node.rpc();
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("owner");
+    let owner = derive_from_seed(&[0x41; 32], 0).unwrap_or_else(|error| panic!("owner: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     let wallet = Wallet {
@@ -566,25 +764,29 @@ fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transact
         policy: &policy,
         native_asset: [3; 32],
     };
-    let receipt = run(wallet.send_debit(&debit(), &options())).expect("verified SendDebit");
+    let receipt = run(wallet.send_debit(&debit(), &options()))
+        .unwrap_or_else(|error| panic!("verified SendDebit: {error:?}"));
     assert_bound(&node, &receipt, &signer);
     let hash = receipt
         .receipt()
         .protocol()
-        .expect("protocol")
+        .unwrap_or_else(|| panic!("protocol"))
         .activity_id();
-    let material = node.state.lock().expect("node store")["receipts"][format!("0x{}", hex(&hash))]
-        ["inclusion"]
+    let material = node
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["receipts"]
+        [format!("0x{}", hex(&hash))]["inclusion"]
         .clone();
     let evidence = receipt
         .batch_evidence()
-        .expect("retained inclusion material");
+        .unwrap_or_else(|| panic!("retained inclusion material"));
     assert_eq!(
         evidence.canonical_header(),
         unhex(
             material["signed_header"]["canonical_header"]
                 .as_str()
-                .expect("header")
+                .unwrap_or_else(|| panic!("header"))
         )
     );
     assert_eq!(
@@ -592,7 +794,7 @@ fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transact
         unhex(
             material["signed_header"]["signature"]
                 .as_str()
-                .expect("signature")
+                .unwrap_or_else(|| panic!("signature"))
         )
     );
     assert_eq!(evidence.proof().leaf_index(), 1);
@@ -606,9 +808,9 @@ fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transact
             .collect::<Vec<_>>(),
         material["proof"]["siblings"]
             .as_array()
-            .expect("siblings")
+            .unwrap_or_else(|| panic!("siblings"))
             .iter()
-            .map(|s| s.as_str().expect("sibling").to_owned())
+            .map(|s| s.as_str().unwrap_or_else(|| panic!("sibling")).to_owned())
             .collect::<Vec<_>>()
     );
     verify_receipt(
@@ -618,26 +820,29 @@ fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transact
         &evidence.header_signature(),
         &policy.sequencer,
     )
-    .expect("retained evidence independently verifies");
+    .unwrap_or_else(|error| panic!("retained evidence independently verifies: {error:?}"));
     let independent = rpc
         .wait_for(hash, Commitment::Executed, &policy, Duration::from_secs(5))
-        .expect("independent lookup");
+        .unwrap_or_else(|error| panic!("independent lookup: {error:?}"));
     assert_eq!(independent.canonical_activity(), None);
     assert_eq!(independent.canonical_bytes(), receipt.canonical_bytes());
     assert_eq!(
         independent
             .batch_evidence()
-            .expect("independent verified inclusion")
+            .unwrap_or_else(|| panic!("independent verified inclusion"))
             .proof(),
         evidence.proof()
     );
-    node.state.lock().expect("node store")["receipts"][format!("0x{}", hex(&hash))]
-        .as_object_mut()
-        .expect("summary")
-        .remove("inclusion");
+    node.state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["receipts"]
+        [format!("0x{}", hex(&hash))]
+    .as_object_mut()
+    .unwrap_or_else(|| panic!("summary"))
+    .remove("inclusion");
     let summary = rpc
         .wait_for(hash, Commitment::Executed, &policy, Duration::from_secs(5))
-        .expect("signed summary without inclusion");
+        .unwrap_or_else(|error| panic!("signed summary without inclusion: {error:?}"));
     assert_eq!(summary.canonical_activity(), None);
     assert!(summary.batch_evidence().is_none());
     assert_eq!(summary.committed_block(), None);
@@ -647,7 +852,7 @@ fn inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transact
 fn payment_and_issue_bind_the_submitted_bytes_without_inventing_inclusion() {
     let node = Node::start(false);
     let rpc = node.rpc();
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("owner");
+    let owner = derive_from_seed(&[0x41; 32], 0).unwrap_or_else(|error| panic!("owner: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     let wallet = Wallet {
@@ -657,12 +862,15 @@ fn payment_and_issue_bind_the_submitted_bytes_without_inventing_inclusion() {
         native_asset: [3; 32],
     };
     let options = options();
-    let opened = run(wallet.open_account([3; 32], &options)).expect("wallet open account");
+    let opened = run(wallet.open_account([3; 32], &options))
+        .unwrap_or_else(|error| panic!("wallet open account: {error:?}"));
     assert_bound(&node, &opened, &signer);
     assert!(opened.batch_evidence().is_none());
-    let minted = run(wallet.mint([4; 32], [2; 32], 10, &options)).expect("wallet mint");
+    let minted = run(wallet.mint([4; 32], [2; 32], 10, &options))
+        .unwrap_or_else(|error| panic!("wallet mint: {error:?}"));
     assert_bound(&node, &minted, &signer);
-    let burned = run(wallet.burn([4; 32], [2; 32], 1, &options)).expect("wallet burn");
+    let burned = run(wallet.burn([4; 32], [2; 32], 1, &options))
+        .unwrap_or_else(|error| panic!("wallet burn: {error:?}"));
     assert_bound(&node, &burned, &signer);
     let payload = unhex(include_str!("../../layerx-crypto/tests/fixtures/payments/1-7.hex").trim());
     let Payment::IssueGrant(grant) = Payment::decode(
@@ -671,13 +879,15 @@ fn payment_and_issue_bind_the_submitted_bytes_without_inventing_inclusion() {
         &payload,
         options.actor.as_bytes(),
     )
-    .expect("canonical signed grant producer fixture") else {
+    .unwrap_or_else(|error| panic!("canonical signed grant producer fixture: {error:?}")) else {
         panic!("expected signed grant");
     };
-    let issued = run(wallet.issue(grant, &options)).expect("wallet grant issue");
+    let issued = run(wallet.issue(grant, &options))
+        .unwrap_or_else(|error| panic!("wallet grant issue: {error:?}"));
     assert_bound(&node, &issued, &signer);
     assert!(issued.batch_evidence().is_none());
-    let revoked = run(wallet.revoke([7; 32], 1, &options)).expect("wallet revoke");
+    let revoked = run(wallet.revoke([7; 32], 1, &options))
+        .unwrap_or_else(|error| panic!("wallet revoke: {error:?}"));
     assert_bound(&node, &revoked, &signer);
 }
 
@@ -685,7 +895,7 @@ fn payment_and_issue_bind_the_submitted_bytes_without_inventing_inclusion() {
 fn invalid_inclusion_material_is_refused_without_dropping_to_summary_verification() {
     let node = Node::start(true);
     let rpc = node.rpc();
-    let owner = derive_from_seed(&[0x41; 32], 0).expect("owner");
+    let owner = derive_from_seed(&[0x41; 32], 0).unwrap_or_else(|error| panic!("owner: {error:?}"));
     let signer = LocalSigner::from_derived_account(&owner);
     let policy = policy();
     let wallet = Wallet {
@@ -694,14 +904,19 @@ fn invalid_inclusion_material_is_refused_without_dropping_to_summary_verificatio
         policy: &policy,
         native_asset: [3; 32],
     };
-    let receipt = run(wallet.open_account([3; 32], &options())).expect("verified wallet payment");
+    let receipt = run(wallet.open_account([3; 32], &options()))
+        .unwrap_or_else(|error| panic!("verified wallet payment: {error:?}"));
     let hash = receipt
         .receipt()
         .protocol()
-        .expect("protocol")
+        .unwrap_or_else(|| panic!("protocol"))
         .activity_id();
     let id = format!("0x{}", hex(&hash));
-    let original = node.state.lock().expect("node store")["receipts"][&id].clone();
+    let original = node
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("node store: {error:?}"))["receipts"][&id]
+        .clone();
     let mut corruptions = Vec::new();
     for (path, replacement) in [
         ("/inclusion/signed_header/signature", json!("00".repeat(64))),
@@ -711,7 +926,9 @@ fn invalid_inclusion_material_is_refused_without_dropping_to_summary_verificatio
         ("/inclusion/proof/leaf_index", json!(0)),
     ] {
         let mut changed = original.clone();
-        *changed.pointer_mut(path).expect("inclusion field") = replacement;
+        *changed
+            .pointer_mut(path)
+            .unwrap_or_else(|| panic!("inclusion field")) = replacement;
         corruptions.push(changed);
     }
     let mut changed = original.clone();
@@ -721,7 +938,9 @@ fn invalid_inclusion_material_is_refused_without_dropping_to_summary_verificatio
     changed["inclusion"] = Value::Null;
     corruptions.push(changed);
     for changed in corruptions {
-        node.state.lock().expect("node store")["receipts"][&id] = changed;
+        node.state
+            .lock()
+            .unwrap_or_else(|error| panic!("node store: {error:?}"))["receipts"][&id] = changed;
         assert!(matches!(
             rpc.wait_for(hash, Commitment::Executed, &policy, Duration::from_secs(5)),
             Err(RpcError::Verification | RpcError::InvalidResponse)
@@ -736,45 +955,57 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
     let record: Value = serde_json::from_str(include_str!(
         "../src/repair_22_31_227_fixture/committed.json"
     ))
-    .expect("existing real node and Comet transcript");
-    let hash_text = record["receiptJson"]["txHash"].as_str().expect("hash");
-    let hash: [u8; 32] = unhex(hash_text).try_into().expect("hash width");
+    .unwrap_or_else(|error| panic!("existing real node and Comet transcript: {error:?}"));
+    let hash_text = record["receiptJson"]["txHash"]
+        .as_str()
+        .unwrap_or_else(|| panic!("hash"));
+    let hash: [u8; 32] = unhex(hash_text)
+        .try_into()
+        .unwrap_or_else(|error| panic!("hash width: {error:?}"));
     {
-        let mut state = node.state.lock().expect("node store");
+        let mut state = node
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("node store: {error:?}"));
         state["receipts"][hash_text] = record["receiptJson"].clone();
         state["committed"] = record.clone();
         state["committed"]["activityIds"] = json!([hash_text]);
+        state["committed"]["batch"]["activityIds"] = json!([hash_text]);
     }
     let authority = NodeCommitAuthority::new(
         "committed-fixture".to_owned(),
         vec![(
             unhex("c614a1c91884c3c13bed586a16d51f7253072f7cc41018ea28dd864e4e548e4d")
                 .try_into()
-                .expect("independently pinned validator"),
+                .unwrap_or_else(|error| panic!("independently pinned validator: {error:?}")),
             7_000_000_000,
         )],
         10,
         10,
     )
-    .expect("pinned Comet authority");
+    .unwrap_or_else(|error| panic!("pinned Comet authority: {error:?}"));
     let rpc = node
         .rpc()
         .with_node_commit_authority(authority)
-        .expect("committed coverage");
+        .unwrap_or_else(|error| panic!("committed coverage: {error:?}"));
     let policy = ReceiptPolicy {
         protocol_version: 2,
         network_id: 125,
         sequencer: SequencerAuthorization::new(
-            unhex(record["pinnedKey"]["keyId"].as_str().expect("key id"))
-                .try_into()
-                .expect("key id width"),
+            unhex(
+                record["pinnedKey"]["keyId"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("key id")),
+            )
+            .try_into()
+            .unwrap_or_else(|error| panic!("key id width: {error:?}")),
             unhex(
                 record["pinnedKey"]["publicKey"]
                     .as_str()
-                    .expect("receipt key"),
+                    .unwrap_or_else(|| panic!("receipt key")),
             )
             .try_into()
-            .expect("key width"),
+            .unwrap_or_else(|error| panic!("key width: {error:?}")),
             10,
             10,
         ),
@@ -782,14 +1013,14 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
     };
     let receipt = rpc
         .wait_for(hash, Commitment::Committed, &policy, Duration::from_secs(5))
-        .expect("verified committed receipt");
+        .unwrap_or_else(|error| panic!("verified committed receipt: {error:?}"));
     let block_hash = unhex(
         record["receiptJson"]["blockHash"]
             .as_str()
-            .expect("block hash"),
+            .unwrap_or_else(|| panic!("block hash")),
     )
     .try_into()
-    .expect("block hash width");
+    .unwrap_or_else(|error| panic!("block hash width: {error:?}"));
     assert_eq!(receipt.committed_block(), Some((10, block_hash)));
     assert_eq!(receipt.rung(), Rung::Committed);
     assert_eq!(receipt.canonical_activity(), None);
@@ -799,7 +1030,7 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
         unhex(
             record["receiptJson"]["receipt"]
                 .as_str()
-                .expect("canonical receipt")
+                .unwrap_or_else(|| panic!("canonical receipt"))
         )
     );
 }

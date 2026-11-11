@@ -1,6 +1,7 @@
 {
   "schema": "paxeer-x.routes.v1",
   "chain_id": 125,
+  "canonical_origin": "https://api-mainnet-beta.paxeer.network",
   "services": [
     {
       "id": "kernel",
@@ -190,6 +191,15 @@
       "transport": "http",
       "authentication": "gateway-api-key",
       "version": "paxeer-x.ui-bindings.v2"
+    },
+    {
+      "id": "node_rpc",
+      "purpose": "Committed inference market reads",
+      "exposure": "product",
+      "discovery_path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1"
     }
   ],
   "routes": [
@@ -255,82 +265,6 @@
       "service": "programs-runtime",
       "method": "POST",
       "path": "/v1/programs/read",
-      "transport": "http",
-      "authentication": "gateway-api-key",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": false,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "programs-runtime:POST:/v1/programs/call",
-      "service": "programs-runtime",
-      "method": "POST",
-      "path": "/v1/programs/call",
-      "transport": "http",
-      "authentication": "gateway-api-key",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": false,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "programs-runtime:POST:/v1/programs/deploy",
-      "service": "programs-runtime",
-      "method": "POST",
-      "path": "/v1/programs/deploy",
-      "transport": "http",
-      "authentication": "gateway-api-key",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": false,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "programs-runtime:POST:/v1/programs/upgrade",
-      "service": "programs-runtime",
-      "method": "POST",
-      "path": "/v1/programs/upgrade",
-      "transport": "http",
-      "authentication": "gateway-api-key",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": false,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "programs-runtime:POST:/v1/programs/wind-down",
-      "service": "programs-runtime",
-      "method": "POST",
-      "path": "/v1/programs/wind-down",
       "transport": "http",
       "authentication": "gateway-api-key",
       "timeout_seconds": 8,
@@ -7063,288 +6997,6 @@
       "distinct_contracts": "native /rpc, /rpc/schema and Programs paths keep their own contracts"
     },
     {
-      "id": "archive:GET:/v1/peers",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/peers",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/sync/network",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/network",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/sync/head",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/head",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/sync/genesis",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/genesis",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "response_integrity": "sha256",
-      "required_response_headers": [
-        "ETag",
-        "X-Content-SHA256"
-      ]
-    },
-    {
-      "id": "archive:GET:/v1/sync/snapshot",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/snapshot",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "response_integrity": "sha256",
-      "required_response_headers": [
-        "ETag",
-        "X-Content-SHA256"
-      ]
-    },
-    {
-      "id": "archive:GET:/v1/sync/batches/{batch_number}",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/batches/{batch_number}",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "response_integrity": "sha256",
-      "required_response_headers": [
-        "ETag",
-        "X-Content-SHA256",
-        "X-LayerX-Batch"
-      ]
-    },
-    {
-      "id": "archive:GET:/v1/history/activities",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/activities",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/activities/{activity_id}",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/activities/{activity_id}",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/batches",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/batches",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/batches/{batch_number}",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/batches/{batch_number}",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/receipts",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/receipts",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/receipts/{activity_id}",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/receipts/{activity_id}",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/maintenance",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/maintenance",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/history/maintenance/{cursor}",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/history/maintenance/{cursor}",
-      "transport": "http",
-      "authentication": "public",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
       "id": "explorer-backend:GET:/api/v2/addresses/{address_hash_param}/nft/collections",
       "service": "explorer",
       "method": "GET",
@@ -12441,126 +12093,6 @@
       "ui_route_kind": "page"
     },
     {
-      "id": "explorer:GET:/explorer/paxeer-x/anchors",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/explorer/paxeer-x/anchors",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
-      "id": "explorer:HEAD:/explorer/paxeer-x/anchors",
-      "service": "explorer",
-      "method": "HEAD",
-      "path": "/explorer/paxeer-x/anchors",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
-      "id": "explorer:GET:/explorer/paxeer-x/receipts",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/explorer/paxeer-x/receipts",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
-      "id": "explorer:HEAD:/explorer/paxeer-x/receipts",
-      "service": "explorer",
-      "method": "HEAD",
-      "path": "/explorer/paxeer-x/receipts",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
-      "id": "explorer:GET:/explorer/paxeer-x/receipts/[id]",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/explorer/paxeer-x/receipts/[id]",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
-      "id": "explorer:HEAD:/explorer/paxeer-x/receipts/[id]",
-      "service": "explorer",
-      "method": "HEAD",
-      "path": "/explorer/paxeer-x/receipts/[id]",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "page"
-    },
-    {
       "id": "explorer:GET:/explorer/pools",
       "service": "explorer",
       "method": "GET",
@@ -17225,46 +16757,6 @@
       "service": "wallet-ui",
       "method": "HEAD",
       "path": "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:GET:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "GET",
-      "path": "/wallet/Untitled%20design.svg",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:HEAD:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "HEAD",
-      "path": "/wallet/Untitled%20design.svg",
       "transport": "http",
       "authentication": "public-read",
       "timeout_seconds": 8,
@@ -37954,9 +37446,6 @@
         "/explorer/ops",
         "/explorer/output-roots",
         "/explorer/paxeer-x/account/[hash]",
-        "/explorer/paxeer-x/anchors",
-        "/explorer/paxeer-x/receipts",
-        "/explorer/paxeer-x/receipts/[id]",
         "/explorer/pools",
         "/explorer/pools/[hash]",
         "/explorer/public-tags/submit",
@@ -38063,9 +37552,6 @@
         "/explorer/ops",
         "/explorer/output-roots",
         "/explorer/paxeer-x/account/[hash]",
-        "/explorer/paxeer-x/anchors",
-        "/explorer/paxeer-x/receipts",
-        "/explorer/paxeer-x/receipts/[id]",
         "/explorer/pools",
         "/explorer/pools/[hash]",
         "/explorer/public-tags/submit",
@@ -38563,63 +38049,6 @@
       "connect_timeout_seconds": 3
     },
     {
-      "id": "layerx-explorer:GET:/v1/accounts/{accountId}/unified",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/v1/accounts/{accountId}/unified",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "layerx-explorer:GET:/v1/programs/{program_id}",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/v1/programs/{program_id}",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "layerx-explorer:GET:/v1/programs/{program_id}/reads/resolve",
-      "service": "explorer",
-      "method": "GET",
-      "path": "/v1/programs/{program_id}/reads/resolve",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "explorer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
       "id": "wallet-gateway:POST:/v1/wallet/evm/review",
       "service": "wallet-gateway",
       "method": "POST",
@@ -38835,25 +38264,6 @@
       "path": "/v1/wallet/lx/approvals/:id",
       "transport": "http",
       "authentication": "requireAuth",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3
-    },
-    {
-      "id": "archive:GET:/v1/sync/readiness",
-      "service": "archive",
-      "method": "GET",
-      "path": "/v1/sync/readiness",
-      "transport": "http",
-      "authentication": "public",
       "timeout_seconds": 8,
       "retries": 0,
       "health_predicate": "service-ready-and-network-version-bound",
@@ -39386,6 +38796,76 @@
         ".ico"
       ],
       "asset_max_path_bytes": 1023
+    },
+    {
+      "id": "node_rpc:px_getInferenceRooms",
+      "service": "node_rpc",
+      "method": "px_getInferenceRooms",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceRoom",
+      "service": "node_rpc",
+      "method": "px_getInferenceRoom",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceDeal",
+      "service": "node_rpc",
+      "method": "px_getInferenceDeal",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferencePeer",
+      "service": "node_rpc",
+      "method": "px_getInferencePeer",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
+    },
+    {
+      "id": "node_rpc:px_getInferenceReceipts",
+      "service": "node_rpc",
+      "method": "px_getInferenceReceipts",
+      "path": "/",
+      "transport": "json-rpc",
+      "authentication": "none",
+      "version": "1",
+      "consumers": [
+        "wallet",
+        "explorer",
+        "developer"
+      ]
     }
   ]
 }

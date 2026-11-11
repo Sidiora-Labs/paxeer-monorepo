@@ -264899,9 +264899,9 @@ path = "contracts/config/checkpoint-settlement.json"
 line = 1
 signature = "JSON object {chain_id, offline_export}"
 callers = ["docker/kernel/Dockerfile:354", "docker/kernel/Dockerfile:397", "docker/kernel/init.sh:1151", "docker/layerx/Dockerfile:17", "docker/paxeer/Dockerfile.paxd-node:11", "docker/platform-node/Dockerfile:42", "services/agent/crates/layerx-proof/src/settlement.rs:12", "services/agent/crates/layerx-types/src/settlement.rs:11", "services/platform/hosted/node/bootstrap.sh:460", "services/platform/hosted/node/bootstrap.sh:461", "services/platform/hosted/node/bootstrap.sh:463", "services/platform/hosted/node/deployment.yaml:290", "services/platform/hosted/node/deployment.yaml:323", "services/platform/hosted/node/supervisor.sh:569", "services/platform/hosted/node/supervisor.sh:570", "services/platform/hosted/paxeer/deploy-contracts.sh:3", "services/platform/hosted/paxeer/deploy-contracts.sh:52", "services/platform/hosted/paxeer/deploy-contracts.sh:77", "services/platform/hosted/paxeer/settlement-domain.py:143", "tools/paxeer-x/build/104.30.2.mk:25", "tools/paxeer-x/retired_callers.json:312", "tools/qualification/paxeer-x/authority-evidence-read.py:13", "tools/qualification/paxeer-x/program_balance_read.py:80", "tools/qualification/paxeer-x/program_cache_native_equivalence.py:83", "tools/qualification/paxeer-x/program_market_attestation.py:23", "tools/qualification/paxeer-x/program_spend_composition.py:87", "tools/qualification/paxeer-x/program_transfer_authority.py:35", "services/agent/crates/layerx-client/tests/availability_daemon.rs:273", "services/human/crates/layerx-human-service/tests/support/withdraw-daemon.py:38", "services/platform/hosted/core/tests/boundary.rs:2688", "services/platform/hosted/core/tests/boundary.rs:2691", "services/platform/hosted/core/tests/boundary.rs:2827", "services/platform/hosted/core/tests/qualify.py:17", "services/platform/hosted/core/tests/receipt_retention.py:15", "services/platform/hosted/node/tests/bootstrap-test.py:34", "services/platform/hosted/node/tests/node-artifacts.py:15", "services/platform/hosted/node/tests/node-artifacts.py:97", "services/platform/hosted/node/tests/node-test.sh:314", "services/platform/hosted/node/tests/reset_recovery.py:1093", "services/platform/hosted/node/tests/reset_recovery.py:266"]
-status = "retired"
+status = "keep"
 contract = "contracts/address-inventory.md#fmt-checkpoint-settlement"
-notes = "kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
+notes = "kept by decisions 3022 and 3027: the document stays on main as a COPY input of docker/layerx/Dockerfile:18 and a document the historical module reads; 6.59.7 retired its kernel consumer only (gotcha 3732); kernel checkpoint settlement domain document embedded by layerx-proof (services/agent/crates/layerx-proof/src/settlement.rs:12) and copied into the kernel, layerx, node and platform images; retire: the settlement-domain component lists it (tools/paxeer-x/retired_callers.json:306 and :312); 83 caller lines in 57 files; first 40 listed; absent at HEAD (reconcile 2026-11-03, 0b17e0748b8a)"
 
 [interface.6.fmt-ed25519-vectors-json]
 kind = "file_format"
@@ -286894,9 +286894,9 @@ signature = "verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) pure retur
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:48; sol precompiles/layerxverify/LayerXVerify.sol:102; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyed25519]
 kind = "precompile_method"
@@ -286906,9 +286906,9 @@ signature = "verifyEd25519(bytes32,uint8,bytes,bytes) pure returns (bool)"
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:44; sol precompiles/layerxverify/LayerXVerify.sol:68; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceipt]
 kind = "precompile_method"
@@ -286918,9 +286918,9 @@ signature = "verifyReceipt(bytes,bytes32) pure returns ((bytes32,bytes32,uint64,
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:45; sol precompiles/layerxverify/LayerXVerify.sol:76; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifyreceiptinclusion]
 kind = "precompile_method"
@@ -286930,9 +286930,9 @@ signature = "verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:46; sol precompiles/layerxverify/LayerXVerify.sol:83; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1012-verifystateproof]
 kind = "precompile_method"
@@ -286942,9 +286942,9 @@ signature = "verifyStateProof(bytes,bytes32) pure returns (uint16,bytes,bytes)"
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#0x1012-layerxverify"
-notes = "retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); retired by the merge design at v7.0 (stale address-table.md (a) and (c)): every method must return LXP_MODULE_DISABLED at or above the MergeUpgrade height; no retire gate exists at HEAD (pcommon.RetiredAt precompiles/common/retire.go:24 has no caller); go ref precompiles/layerxverify/layerxverify.go:47; sol precompiles/layerxverify/LayerXVerify.sol:95; no in-repo caller found outside the package (selector, canonical signature and quoted name searched)"
 
 [interface.6.pc-0x1013-assetbypointer]
 kind = "precompile_method"
@@ -300452,9 +300452,9 @@ signature = "function verifyDiscoveryProof( bytes calldata payload, bytes callda
 address = "0x1012"
 selector = "0x2a5bdc60"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyDiscoveryProof(bytes,bytes,bytes32,uint64,bytes32) returns ((bytes32,uint32,bytes32,uint16,uint64,uint64,uint64,bytes32,bytes32)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyed25519-b23cd638]
 kind = "sol_function"
@@ -300464,9 +300464,9 @@ signature = "function verifyEd25519( bytes32 publicKey, uint8 domain, bytes call
 address = "0x1012"
 selector = "0xb23cd638"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyEd25519(bytes32,uint8,bytes,bytes) returns (bool); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceipt-582eecb5]
 kind = "sol_function"
@@ -300476,9 +300476,9 @@ signature = "function verifyReceipt( bytes calldata receipt, bytes32 sequencerPu
 address = "0x1012"
 selector = "0x582eecb5"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceipt(bytes,bytes32) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifyreceiptinclusion-3f0de084]
 kind = "sol_function"
@@ -300488,9 +300488,9 @@ signature = "function verifyReceiptInclusion( bytes calldata receipt, bytes call
 address = "0x1012"
 selector = "0x3f0de084"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyReceiptInclusion(bytes,bytes,bytes,bytes,bytes32,bytes32,uint64,uint64) returns ((bytes32,bytes32,uint64,int32,uint16,uint8,bytes32,uint128,bytes32,bytes32,bytes32,bytes32,uint64),(bytes32,uint32,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes32,bytes32,uint64)); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-ilayerxverify-verifystateproof-e6038e69]
 kind = "sol_function"
@@ -300500,9 +300500,9 @@ signature = "function verifyStateProof( bytes calldata witness, bytes32 stateRoo
 address = "0x1012"
 selector = "0xe6038e69"
 callers = []
-status = "retire"
+status = "retired"
 contract = "contracts/address-inventory.md#sol-ilayerxverify"
-notes = "interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
+notes = "retired by the height gate of 6.96.2: precompiles/layerxverify/layerxverify.go:199 calls pcommon.RetiredAt on pcommon.MergeUpgrade and every method reverts LXP_MODULE_DISABLED at or above the merge height (retire_gate_test.go, verifier_methods_retired_test.go); the ABI method and the Solidity declaration stay so retired calls decode their arguments before the gate (decisions 685 and 3035); interface ILayerXVerify; canonical verifyStateProof(bytes,bytes32) returns (uint16,bytes,bytes); external pure; consumer interface for the precompile at 0x1012; retire: consumer copy of the layerxVerify 0x1012 ABI (identical to precompiles/layerxverify/abi.json); the verify component lists ILayerXVerify (tools/paxeer-x/retired_callers.json:8) and req.11001 leaves this file with the deletion (spec/layerx-merge/spec.kvx:54145); no in-repo caller found by name, selector or canonical signature search outside the defining file"
 
 [interface.6.sol-imanagersealattestation-componentforrole-f5517ac2]
 kind = "sol_function"
@@ -312549,7 +312549,7 @@ signature = "eth_getRawTransactionByBlockHashAndIndex(blockHash common.Hash, ind
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null for an unknown block; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyblocknumberandindex-j38]
 kind = "jsonrpc_method"
@@ -312559,7 +312559,7 @@ signature = "eth_getRawTransactionByBlockNumberAndIndex(blockNr rpc.BlockNumber,
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; null past the end; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; JSON string '0x' for an unknown block or an out-of-range index; task 7.5.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getrawtransactionbyhash-j38]
 kind = "jsonrpc_method"
@@ -312569,7 +312569,7 @@ signature = "eth_getRawTransactionByHash(hash common.Hash) (hexutil.Bytes, error
 callers = []
 status = "served"
 contract = "contracts/evm-rpc.md#client-parity"
-notes = "HTTP and WS; binary envelope, null for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
+notes = "HTTP and WS; binary envelope, JSON string '0x' for an unknown hash, pending sequencer transactions included; tasks 7.5.1 and 7.9.2; served at HEAD (reconcile 2026-11-02, d76e8c151)"
 
 [interface.7.rpc-eth-getstorageat]
 kind = "jsonrpc_method"
@@ -313192,7 +313192,7 @@ signature = "func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context,
 callers = ["services/agent/crates/layerx-client/src/sequencer.rs:5", "services/agent/crates/layerx-client/tests/sequencer.rs:176", "services/agent/crates/layerx-proof/src/sequencer_logs.rs:111", "services/agent/sdk/python/layerx_sdk/x402_rpc.py:195", "services/agent/sdk/typescript/src/ai_market.ts:3092", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:6", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs:42", "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:150", "services/interop/crates/layerx-gas-station/src/rate.rs:530", "services/interop/crates/layerx-gas-station/src/rpc.rs:78", "services/interop/crates/layerx-gas-station/tests/rate.rs:323", "services/interop/crates/layerx-gas-station/tests/service.rs:168", "services/interop/crates/layerx-gas-station/tests/station.rs:259", "services/platform/hosted/ai-evaluator/src/main.rs:1050", "services/platform/hosted/gateway/src/main.rs:4523", "services/platform/hosted/testnet/tests/wallet-receipt-journey.py:66", "tools/qualification/paxeer-x/paid-web-contract.py:836", "tools/qualification/paxeer-x/router-authority-schema.py:13", "tools/qualification/paxeer-x/wallet-402-caps.py:663"]
 status = "stable"
 contract = "contracts/evm-rpc.md#pax-sequencerreceipt"
-notes = "pax_sequencerReceipt; HTTP only; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
+notes = "pax_sequencerReceipt; HTTP and WebSocket; exempt from the legacy gate (rpc/pax_legacy.go:145); local on sequencer and standby, forwarded elsewhere; rungs submitted, receipted, committed; 57 call site(s) in 19 file(s); a node with neither a source nor a forward endpoint answers -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:49, :99)"
 
 [interface.7.rpc-pax-setreceiptlogfeed]
 kind = "jsonrpc_method"
@@ -760704,16 +760704,6 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Dependency update config."
 
-[interface.16.fmt-gh-issue-template-bug-report-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/bug_report.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/bug_report.md: ---"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-bug-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/bug.yml"
@@ -760734,31 +760724,11 @@ status = "stable"
 contract = "contracts/operations.md#ci-formats"
 notes = "Issue form or template."
 
-[interface.16.fmt-gh-issue-template-enahancement-yml]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/enahancement.yml"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/enahancement.yml: name: Enhancement"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
 [interface.16.fmt-gh-issue-template-feature-yml]
 kind = "file_format"
 path = ".github/ISSUE_TEMPLATE/feature.yml"
 line = 1
 signature = ".github/ISSUE_TEMPLATE/feature.yml: name: LayerX Network feature request"
-callers = []
-status = "stable"
-contract = "contracts/operations.md#ci-formats"
-notes = "Issue form or template."
-
-[interface.16.fmt-gh-issue-template-general-issue-md]
-kind = "file_format"
-path = ".github/ISSUE_TEMPLATE/general_issue.md"
-line = 1
-signature = ".github/ISSUE_TEMPLATE/general_issue.md: ---"
 callers = []
 status = "stable"
 contract = "contracts/operations.md#ci-formats"
@@ -775572,3 +775542,513 @@ callers = []
 status = "new"
 contract = "contracts/inference-market.md#qualification"
 notes = "planned by task 22.38.36 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.chainlaunch-method-launchchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "launchChain(string,string,uint8,address,string,uint64,uint64,uint16) payable returns (address,address,uint256,uint32,uint64)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-launchchainwithpermit]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "launchChainWithPermit(string,string,uint8,address,string,uint64,uint64,uint16,PermitParams) payable returns (address,address,uint256,uint32,uint64)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-openchainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "openChainRevenueEpoch(uint32) returns (uint64,uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-claimchainrevenue]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "claimChainRevenue(uint32,uint64) returns (uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-claimchainrevenuebatch]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "claimChainRevenueBatch(uint32,uint64[]) returns (uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-pauselaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "pauseLaunchedChain(uint32)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-resumelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "resumeLaunchedChain(uint32)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-retirelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "retireLaunchedChain(uint32)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-launchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "launchedChain(uint32) view returns (uint32,uint64,address,address,uint256,address,uint64)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-launchedchainofpool]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "launchedChainOfPool(address) view returns (uint32)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-homechainof]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "homeChainOf(address) view returns (uint32)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-chainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "chainRevenueEpoch(uint32,uint64) view returns (uint32,uint64,uint256,uint64,uint256,uint256,uint64)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-method-chainrevenueclaimable]
+kind = "precompile_method"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "chainRevenueClaimable(uint32,uint64,address) view returns (uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-event-chainlaunched]
+kind = "precompile_event"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-event-chainrevenueepochopened]
+kind = "precompile_event"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-event-chainrevenueclaimed]
+kind = "precompile_event"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-event-launchedchainretired]
+kind = "precompile_event"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-wrongchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "WrongChain()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-notlaunchedchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "NotLaunchedChain()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-notfeerightholder]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "NotFeeRightHolder()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-epochtooearly]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "EpochTooEarly()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-nothingtodistribute]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "NothingToDistribute()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-error-alreadyclaimed]
+kind = "precompile_error"
+path = "precompiles/launchpad/chainlaunch.go"
+line = 0
+signature = "AlreadyClaimed()"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "planned by task 22.40.7; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-launchedchain]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "LaunchedChain key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-launchedchainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "LaunchedChainOfPool key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-homechainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "HomeChainOfPool key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-chainrevenuelastepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "ChainRevenueLastEpoch key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-chainrevenueepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "ChainRevenueEpoch key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-store-chainrevenueclaim]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 0
+signature = "ChainRevenueClaim key prefix and record"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-launchchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch.go"
+line = 0
+signature = "LaunchChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "planned by task 22.40.3; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-getlaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch.go"
+line = 0
+signature = "GetLaunchedChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-getlaunchedchainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch.go"
+line = 0
+signature = "GetLaunchedChainOfPool"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-gethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/homechain.go"
+line = 0
+signature = "GetHomeChainOfPool"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "planned by task 22.40.4; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-sethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/homechain.go"
+line = 0
+signature = "SetHomeChainOfPool"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "planned by task 22.40.4; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-checkhomechain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/homechain.go"
+line = 0
+signature = "CheckHomeChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "planned by task 22.40.4; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-getchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "GetChainRevenueEpoch"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-getchainrevenuelastepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "GetChainRevenueLastEpoch"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-hasclaimedchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "HasClaimedChainRevenue"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "planned by task 22.40.2; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-openchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "OpenChainRevenueEpoch"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "planned by task 22.40.5; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-claimchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "ClaimChainRevenue"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "planned by task 22.40.5; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-claimchainrevenuebatch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "ClaimChainRevenueBatch"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "planned by task 22.40.5; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-chainrevenueclaimable]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 0
+signature = "ChainRevenueClaimable"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "planned by task 22.40.5; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-pauselaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 0
+signature = "PauseLaunchedChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "planned by task 22.40.6; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-resumelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 0
+signature = "ResumeLaunchedChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "planned by task 22.40.6; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-keeper-retirelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 0
+signature = "RetireLaunchedChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "planned by task 22.40.6; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-route-list]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/chains.go"
+line = 0
+signature = "GET /v2/chains"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.13; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-route-detail]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/chains.go"
+line = 0
+signature = "GET /v2/chains/ID"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.13; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-route-revenue]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/chains.go"
+line = 0
+signature = "GET /v2/chains/ID/revenue"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.13; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-ts-listlaunchedchains]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 0
+signature = "listLaunchedChains"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.15; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-ts-getlaunchedchain]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 0
+signature = "getLaunchedChain"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.15; task 22.40.18 reconciles this row to served"
+
+[interface.22.chainlaunch-ts-getlaunchedchainrevenue]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 0
+signature = "getLaunchedChainRevenue"
+callers = []
+status = "new"
+contract = "contracts/chain-launchpad.md#api"
+notes = "planned by task 22.40.15; task 22.40.18 reconciles this row to served"

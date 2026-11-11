@@ -1,0 +1,523 @@
+# Evidence read from main-line revision a26369c7eda603cb28bcdd8cef55c35df7d248ee (origin/main).
+# Ordered inventory: spec/layerx-merge/programme/closure/22.39.196.ids.
+
+[disposition.22.33.379.1]
+finding = "22.33.379.1"
+status = "resolved"
+evidence = "Commit e4e6a15931c74b3bfa780fecdee4b6bbbb320be5 casts the expected block timestamp through the Ecto block schema at services/explorer/backend/apps/explorer/test/repair/repair_22_33_379_test.exs:139 and retains exact timestamp equality. Both recorded import orders still require the highest block's zero balance."
+
+[disposition.22.33.382.1]
+finding = "22.33.382.1"
+status = "resolved"
+evidence = "Commit 678595244f33ec30fc55a15d98a379487ddb1a88 handles expiring Redis writes through SETEX at services/explorer/services/libs/recache/tests/repair_22_33_382.rs:152 and asserts expiration followed by a fresh computation at services/explorer/services/libs/recache/tests/repair_22_33_382.rs:250 in that file. The cache worker retains computation ownership independently of cancelled callers at services/explorer/services/libs/recache/src/handler.rs:214."
+
+[disposition.22.33.386.1]
+finding = "22.33.386.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/nameDomain/history/utils.ts:14 implements ascending and descending timestamp comparison with stable default ordering. The three registered cases at apps/explorer/ui/nameDomain/history/repair-22-33-386.spec.ts:65 exercise the real table's sort controls without mutating its source events."
+
+[disposition.22.33.386.2]
+finding = "22.33.386.2"
+status = "resolved"
+evidence = "Commit bb73b90f313841540ff8dd65d4bb40ef7652305d registers all three domain-history sort cases with Vitest at apps/explorer/ui/nameDomain/history/repair-22-33-386.spec.ts:65. The production comparator at apps/explorer/ui/nameDomain/history/utils.ts:14 preserves original order for default sorting and equal timestamps."
+
+[disposition.22.33.387.1]
+finding = "22.33.387.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts:22 removes duplicate and expired history points before retaining a bounded series. Reconnecting releases the previous socket and heartbeat through disconnect at apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts:61."
+
+[disposition.22.33.387.2]
+finding = "22.33.387.2"
+status = "environment"
+evidence = "On main, apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts:94 normalizes full snapshots and merges deltas through the same retention function. Its close handler at apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts:132 clears the current socket and heartbeat, and the effect at apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts:145 releases them on unmount."
+
+[disposition.22.33.387.3]
+finding = "22.33.387.3"
+status = "resolved"
+evidence = "Commit 27918b34ded7f49134af21a12b29745f2a951882 constructs every UptimeHistoryFull series in historyWith at apps/explorer/ui/megaEth/uptime/repair-22-33-387.spec.ts:52. The real socket consumer case at apps/explorer/ui/megaEth/uptime/repair-22-33-387.spec.ts:81 retains the 2048-point bound, duplicate elimination, time horizons and snapshot/delta reconciliation."
+
+[disposition.22.33.394.1]
+finding = "22.33.394.1"
+status = "resolved"
+evidence = "Commit 5478efec41e2a1aa83842a3f331248fbe97bfbca retains the complete controller regression at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_394_test.exs:163: JSON verification is accepted only after a job is persisted, and an unavailable queue returns 503 at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_394_test.exs:230. The same case checks the actual verifier request and compiler input before its completion event."
+
+[disposition.22.33.402.1]
+finding = "22.33.402.1"
+status = "resolved"
+evidence = "Commit 8c5ae41aedb884371216a852fb93716b0a0be159 starts the LatestL1BlockNumber cache under test supervision at services/explorer/backend/apps/indexer/test/repair/repair_22_33_402_test.exs:25. The dispute-game regression at services/explorer/backend/apps/indexer/test/repair/repair_22_33_402_test.exs:74 retains the failed chunk through restart and checks all 51 imported games without duplicate replay."
+
+[disposition.22.33.405.1]
+finding = "22.33.405.1"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/explorer/test/repair/repair_22_33_405_test.exs:35 checks the documented archive and transaction-signature paths against the production router. Its receipt case at services/explorer/backend/apps/explorer/test/repair/repair_22_33_405_test.exs:60 verifies frozen receipt evidence separately from the live signature response at services/explorer/backend/apps/explorer/test/repair/repair_22_33_405_test.exs:109."
+
+[disposition.22.33.407.1]
+finding = "22.33.407.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/home/fallbacks/rpcDataContext.tsx:62 deduplicates observed transaction hashes and limits the displayed transaction and block samples to five. The watcher is released at apps/explorer/ui/home/fallbacks/rpcDataContext.tsx:94 when its subscription ends, and the total at apps/explorer/ui/home/fallbacks/rpcDataContext.tsx:142 counts distinct observed hashes."
+
+[disposition.22.33.409.1]
+finding = "22.33.409.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/home/indicators/utils/chart.ts:34 rejects empty, non-finite and invalid-date chart values before sorting and numeric conversion. getChartData at apps/explorer/ui/home/indicators/utils/chart.ts:41 uses that validated series for every indicator."
+
+[disposition.22.33.41.1]
+finding = "22.33.41.1"
+status = "resolved"
+evidence = "Commit cdcf3bfd4700337810ee0c3f599a7b71d0c4b9d5 places the schema integration cases in the consuming Human service crate at services/human/crates/layerx-human-service/tests/repair_22_33_41.rs:184. The intent contract at services/human/schema/human-api/intent.kvx:40 binds bank calls to the sender's pending nonce, and the consumer cases retain strict replan and unknown-observation refusals."
+
+[disposition.22.33.412.1]
+finding = "22.33.412.1"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs:174 checks offset addition for overflow and bounds every reference against both bytecode lengths. Library substitutions at services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs:210 use that checked range and preserve repeated-reference consistency."
+
+[disposition.22.33.412.2]
+finding = "22.33.412.2"
+status = "environment"
+evidence = "On main, services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs:174 checks offset addition for overflow and bounds every reference against both bytecode lengths. Library substitutions at services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs:210 use that checked range and preserve repeated-reference consistency."
+
+[disposition.22.33.416.1]
+finding = "22.33.416.1"
+status = "resolved"
+evidence = "Commit fa38a4189c76c219f221836b5e077f0765b97383 requires the canonical four-word head, zero address padding, offset 128 and complete padded string tail at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:321. Malformed responses yield an absent unified-account capability, with retained negative cases at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs:34."
+
+[disposition.22.33.416.2]
+finding = "22.33.416.2"
+status = "resolved"
+evidence = "Commit fa38a4189c76c219f221836b5e077f0765b97383 requires the canonical four-word head, zero address padding, offset 128 and complete padded string tail at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:321. Malformed responses yield an absent unified-account capability, with retained negative cases at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs:34."
+
+[disposition.22.33.416.3]
+finding = "22.33.416.3"
+status = "resolved"
+evidence = "Commit fa38a4189c76c219f221836b5e077f0765b97383 requires the canonical four-word head, zero address padding, offset 128 and complete padded string tail at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:321. Malformed responses yield an absent unified-account capability, with retained negative cases at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs:34."
+
+[disposition.22.33.419.1]
+finding = "22.33.419.1"
+status = "resolved"
+evidence = "Commit a2137d912044836d7cb21812f2357f7de5023531 preserves approved local package identity, path and dependency metadata at apps/web/test/repair-22-33-419.test.mjs:119. The production-policy consumer still rejects arbitrary local targets at apps/web/test/repair-22-33-419.test.mjs:145 and enforces the seven-dependency budget at apps/web/test/repair-22-33-419.test.mjs:176."
+
+[disposition.22.33.42.1]
+finding = "22.33.42.1"
+status = "resolved"
+evidence = "Commit 3181f65bfba1b7585029b04348cc173ce2fbdeb7 adds the bounded provider-allocation regression at services/human/crates/layerx-human-service/tests/repair_22_33_42.rs:92 and durable authorization-index compaction at services/human/crates/layerx-human-service/tests/repair_22_33_42.rs:161. The same integration target checks real protocol selection, journal recovery and evidence reads through the production server."
+
+[disposition.22.33.423.1]
+finding = "22.33.423.1"
+status = "resolved"
+evidence = "Commit 88b348bc764b7eb3233d07226be62744862857c0 enables the telemetry SDK only for OTEL_SDK_ENABLED equal to true at apps/explorer/instrumentation.node.ts:60. Separate disabled, enabled and unset cases at apps/explorer/repair-22-33-423.spec.ts:7 check exported spans and SIGTERM handler counts."
+
+[disposition.22.33.43.1]
+finding = "22.33.43.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_43.rs:156 checks the persisted recent-conversation index after reopening. The support replay case at services/human/crates/layerx-human-service/tests/repair_22_33_43.rs:304 requires a resolved conversation and its accepted reply to converge without duplicate messages."
+
+[disposition.22.33.435.1]
+finding = "22.33.435.1"
+status = "resolved"
+evidence = "Commit 8b11dad4c65b348ccea2e081134759208d8c997d retains an actual HTTP transport-error refusal at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:70 and recorded HTTP/WebSocket head parity at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:58. Both cases pass through the PaxeerX adapter and the imported block consumer."
+
+[disposition.22.33.435.2]
+finding = "22.33.435.2"
+status = "resolved"
+evidence = "Commit 8b11dad4c65b348ccea2e081134759208d8c997d retains recorded WebSocket/HTTP parity through the actual imported block at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:58. The adjacent mutation case at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:54 requires inconsistent head roots to trigger number refetch and rejects invalid heights."
+
+[disposition.22.33.435.3]
+finding = "22.33.435.3"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:62 carries recorded catch-up progress through HTTP into the PaxeerX adapter. The current-synced case at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:66 and transport-error case at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:70 distinguish a valid false result from an RPC failure."
+
+[disposition.22.33.435.4]
+finding = "22.33.435.4"
+status = "environment"
+evidence = "On main, services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:50 imports recorded head fields and verifies HTTP/WebSocket parity at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:58. Its trace cases at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:74 and services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs:78 preserve both recorded empty blocks and historical-block refusal through the importer."
+
+[disposition.22.33.44.1]
+finding = "22.33.44.1"
+status = "resolved"
+evidence = "Commit f83425c2a8b990d50d884e286f59800c7de91252 uses durable prepared holds and explicit authenticated time at services/human/crates/layerx-human-service/tests/decide_nonces.rs:317. The Human decision path retains both pending-nonce release and stale-nonce refusal, while the renderer checks canonical held digests at services/human/crates/layerx-human-service/tests/render.rs:289."
+
+[disposition.22.33.44.2]
+finding = "22.33.44.2"
+status = "resolved"
+evidence = "Commit f83425c2a8b990d50d884e286f59800c7de91252 retains the real authenticated clock and route cases through services/human/crates/layerx-human-service/tests/repair_22_33_44.rs:10 and its clock-binding test at services/human/crates/layerx-human-service/tests/repair_22_33_44.rs:25. The binding checks shared generation and monotonic samples at services/human/crates/layerx-human-service/tests/repair_22_33_44.rs:76 and rejects a mismatched authority process at services/human/crates/layerx-human-service/tests/repair_22_33_44.rs:82."
+
+[disposition.22.33.44.3]
+finding = "22.33.44.3"
+status = "resolved"
+evidence = "Commit f83425c2a8b990d50d884e286f59800c7de91252 supplies an authenticated clock to durable approval registration and reopening at services/human/crates/layerx-human-service/tests/decide_nonces.rs:324. Decision requests pass explicit current_time at services/human/crates/layerx-human-service/tests/decide_nonces.rs:310, preserving the original pending-nonce and stale-nonce assertions."
+
+[disposition.22.33.44.4]
+finding = "22.33.44.4"
+status = "resolved"
+evidence = "Commit f83425c2a8b990d50d884e286f59800c7de91252 routes the Human decision fixture through ApprovalService with a retained authenticated clock at services/human/crates/layerx-human-service/tests/decide_nonces.rs:334. The call to approve at services/human/crates/layerx-human-service/tests/decide_nonces.rs:370 retains passkey step-up evidence and checks actual release of a prepared hold at the pending nonce."
+
+[disposition.22.33.44.5]
+finding = "22.33.44.5"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/decide_nonces.rs:334 constructs the real ApprovalService and supplies authenticated decision time in its request at services/human/crates/layerx-human-service/tests/decide_nonces.rs:310. Its durable registration at services/human/crates/layerx-human-service/tests/decide_nonces.rs:325 reopens the same approval registry before the Human decision is made."
+
+[disposition.22.33.44.6]
+finding = "22.33.44.6"
+status = "resolved"
+evidence = "Commit f83425c2a8b990d50d884e286f59800c7de91252 retains the Submitted budget and evidence in the rendered presentation at services/human/crates/layerx-human-service/tests/render.rs:300 while requiring can_approve to remain false. Digest mismatch still takes precedence, and zero budget evidence still returns UnverifiedBudget at services/human/crates/layerx-human-service/tests/render.rs:308."
+
+[disposition.22.33.440.1]
+finding = "22.33.440.1"
+status = "resolved"
+evidence = "Commit cde501a17d2595a13fa5e23dc88edb7c1971d2a9 compares gasUsed as a decoded quantity at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_440_test.exs:82. Constructor code, value and nested creation identity remain exact assertions through the real trace importer at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_440_test.exs:195."
+
+[disposition.22.33.442.1]
+finding = "22.33.442.1"
+status = "resolved"
+evidence = "Commit 2471102c1b605a81192bd26cecd824c7a1a234cf checks chain id 125 on both configured HTTP and WebSocket endpoints at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs:106. The subscribed head is imported through HTTP at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs:115, while chain mismatch cases at services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs:157 and services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs:167 refuse the pair and close its client."
+
+[disposition.22.33.448.1]
+finding = "22.33.448.1"
+status = "resolved"
+evidence = "Commit 258cbf2a794b9eb70f056bde3a3730e463951ca1 initializes configuration before importing the proxy route at apps/explorer/nextjs/pages-tests/api/repair-22-33-448.spec.ts:96. The current cases at apps/explorer/nextjs/pages-tests/api/repair-22-33-448.spec.ts:165 require arbitrary upstream selectors to return 400 before any account credentials are sent; commit 425f12549b9af86d4e8cae64540205e3d670739c moves these retained cases to their current path."
+
+[disposition.22.33.449.1]
+finding = "22.33.449.1"
+status = "environment"
+evidence = "On main, apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:44 validates protocol, credentials and every resolved address before any media request. Outbound HEAD requests at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:89 connect to the approved address while retaining the original HTTP host and TLS identity."
+
+[disposition.22.33.449.2]
+finding = "22.33.449.2"
+status = "environment"
+evidence = "On main, apps/explorer/nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts:48 imports the actual bracketed media route. The production redirect helper at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:82 revalidates each destination and limits the redirect chain."
+
+[disposition.22.33.449.3]
+finding = "22.33.449.3"
+status = "resolved"
+evidence = "Commit 1a77da0a7abfa4ef4778781deccde4000e2eac7a declares resolveMediaDestination at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:44, rejects non-public DNS results at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:76 and pins outbound requests to the validated address at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:93. Every redirect is revalidated through resolveMediaRedirect at apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts:82."
+
+[disposition.22.33.45.1]
+finding = "22.33.45.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_45.rs:232 checks the documented native bank call against the sender's pending nonce. The committed-receipt documentation case at services/human/crates/layerx-human-service/tests/repair_22_33_45.rs:332 requires batch authorization, quorum and inclusion evidence through the production verifier."
+
+[disposition.22.33.451.1]
+finding = "22.33.451.1"
+status = "resolved"
+evidence = "Commit 2f4196112cab5626eb786442fc0768366334f62f installs marketplace configuration before importing its page at apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.spec.ts:58. The preview case at apps/explorer/nextjs/pages-tests/apps/repair-22-33-451.spec.ts:71 verifies catalogue reads from the configured origin despite untrusted request host headers; commit 425f12549b9af86d4e8cae64540205e3d670739c retains this case at its current path."
+
+[disposition.22.33.456.1]
+finding = "22.33.456.1"
+status = "resolved"
+evidence = "Commit b158f6fe9e4d43e5375eaa9d7e6d63aae9123da0 exercises current and historic ERC-404 balance requests together at services/explorer/backend/apps/indexer/test/repair/repair_22_33_456_test.exs:320. The imported rows at services/explorer/backend/apps/indexer/test/repair/repair_22_33_456_test.exs:362 must contain both the fungible balance 42 and token-id balance 3, and a repeated historic read updates that token id to 4 at services/explorer/backend/apps/indexer/test/repair/repair_22_33_456_test.exs:386."
+
+[disposition.22.33.457.1]
+finding = "22.33.457.1"
+status = "resolved"
+evidence = "Commit cf9dc2eee58b2966c9c0a9f5587e701873ee3dd6 explicitly closes and reopens Scroll relay fetchers at services/explorer/backend/apps/indexer/test/repair/repair_22_33_457_test.exs:285. The recovered worker at services/explorer/backend/apps/indexer/test/repair/repair_22_33_457_test.exs:307 removes orphaned relay provenance while preserving the initiation fields and unaffected canonical completion."
+
+[disposition.22.33.458.1]
+finding = "22.33.458.1"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-service-launcher/src/database.rs:15 selects a concrete SeaORM driver and its matching migration trait. connect_postgres at services/explorer/services/libs/blockscout-service-launcher/src/database.rs:97 uses that database facade and preserves configured connection options after optional database creation."
+
+[disposition.22.33.458.2]
+finding = "22.33.458.2"
+status = "environment"
+evidence = "On main, services/explorer/services/libs/blockscout-service-launcher/src/database.rs:16 exports the selected SeaORM implementation and its matching MigratorTrait. The production module rejects configurations with no database driver at services/explorer/services/libs/blockscout-service-launcher/src/database.rs:25 rather than silently dropping migration support."
+
+[disposition.22.33.458.3]
+finding = "22.33.458.3"
+status = "resolved"
+evidence = "Commit b614777f497ded4afbeb88245fb8074be9982b38 imports ConnectionTrait from the launcher's database facade at services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs:2. The database creation path at services/explorer/services/libs/blockscout-service-launcher/src/database.rs:51 decodes the database-name component without treating literal plus or ampersand as form separators."
+
+[disposition.22.33.461.1]
+finding = "22.33.461.1"
+status = "resolved"
+evidence = "Commit bde18b3c5f5ad937073be2df4a9b3886b6d5be4f documents account v2 operations through the production OpenAPI modules, with exact equality to the registered route set at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_461_test.exs:159. The same case verifies configured server origin and public/private path separation at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_461_test.exs:131 and services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_461_test.exs:161."
+
+[disposition.22.33.465.1]
+finding = "22.33.465.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/tokenInstance/useTokenInstanceMetadataRefresh.ts:60 reconciles completion against the canonical token-instance query rather than a socket payload. The channel at apps/explorer/ui/tokenInstance/useTokenInstanceMetadataRefresh.ts:119 filters completion by token id, and cleanup at apps/explorer/ui/tokenInstance/useTokenInstanceMetadataRefresh.ts:175 releases the deadline and subscription."
+
+[disposition.22.33.466.1]
+finding = "22.33.466.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/tokens/TokensTableItem.tsx:38 refuses missing decimals instead of inventing a market cap. Finite nonnegative integer decimals are required at apps/explorer/ui/tokens/TokensTableItem.tsx:44, and undefined values render the explicit placeholder through TokenFiatValue at apps/explorer/ui/tokens/TokensTableItem.tsx:120."
+
+[disposition.22.33.466.2]
+finding = "22.33.466.2"
+status = "environment"
+evidence = "On main, apps/explorer/ui/tokens/repair-22-33-466.spec.ts:44 asserts a zero-decimal token's market cap and rendered fiat value. The sorting case at apps/explorer/ui/tokens/repair-22-33-466.spec.ts:60 checks that circulating-market-cap labels, URL sort parameters and parsed selection agree."
+
+[disposition.22.33.466.3]
+finding = "22.33.466.3"
+status = "resolved"
+evidence = "Commit f70c7c57b41d65daafb9af818963a4e495e083a1 renders market-cap assertions through the shared layout wrapper at apps/explorer/ui/tokens/repair-22-33-466.spec.ts:11. Production market-cap conversion at apps/explorer/ui/tokens/TokensTableItem.tsx:31 rejects missing or invalid decimals and preserves valid zero-decimal tokens."
+
+[disposition.22.33.467.1]
+finding = "22.33.467.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/stats/NumberWidgetsList.tsx:38 displays a trend direction only for explicitly declared change semantics and finite values. The recorded utilization case at apps/explorer/ui/stats/repair-22-33-467.spec.ts:25 keeps 1.554 percent as an absolute value with no delta marker."
+
+[disposition.22.33.468.1]
+finding = "22.33.468.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/withdrawals/beaconChain/BeaconChainWithdrawalsListItem.tsx:84 renders withdrawal value for the block view through NativeCoinValue. The same component forwards loading state to the amount while omitting redundant block and age fields in that view."
+
+[disposition.22.33.47.1]
+finding = "22.33.47.1"
+status = "resolved"
+evidence = "Commit 5f4b2f5535386e522679fdf7635492d3e6e0cc10 carries recovery module 12 operation 2 evidence through administrative ingestion, reveal and reopen at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:191. The receipt-key proof at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:213 must use the signed successor header, while altered transactions, wrong roots and failed outcomes remain refused at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:268."
+
+[disposition.22.33.47.2]
+finding = "22.33.47.2"
+status = "resolved"
+evidence = "Commit 5f4b2f5535386e522679fdf7635492d3e6e0cc10 requires the recorded recovery receipt to name module 12 operation 2 and a successful result at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:198. The actual administrative ingestion at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:225 and reveal/reopen loop at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:244 consume that recovery outcome rather than a payment receipt."
+
+[disposition.22.33.47.3]
+finding = "22.33.47.3"
+status = "resolved"
+evidence = "Commit 5f4b2f5535386e522679fdf7635492d3e6e0cc10 checks the successor height and previous execution-header hash at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:205. The receipt-key proof must carry that same signed successor header at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:213 before the evidence reaches the persistent provider."
+
+[disposition.22.33.47.4]
+finding = "22.33.47.4"
+status = "resolved"
+evidence = "Commit 5f4b2f5535386e522679fdf7635492d3e6e0cc10 binds the sequencer receipt-key proof to the signed header and sequencer key at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:213. Wrong-root evidence is included among the rejection cases at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:170 and must fail ingestion, reveal and reopen."
+
+[disposition.22.33.47.5]
+finding = "22.33.47.5"
+status = "resolved"
+evidence = "Commit 5f4b2f5535386e522679fdf7635492d3e6e0cc10 preserves recovery transaction, execution-header and successor-header checks at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:193. The production provider must reveal the same receipt across two reopenings at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:244, while corrupted journal evidence is refused at services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs:281."
+
+[disposition.22.33.478.1]
+finding = "22.33.478.1"
+status = "resolved"
+evidence = "Commit a04b8d8cda15f8273881f0c46889d618060b5736 checks published authentication examples against current schemas at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs:171 and exercises authenticated profile, CSRF and unauthorized contracts at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs:196. The documented verbs and account v2 routes are compared with the real router at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs:129."
+
+[disposition.22.33.478.2]
+finding = "22.33.478.2"
+status = "resolved"
+evidence = "Commit a04b8d8cda15f8273881f0c46889d618060b5736 protects transaction-tag lookup for contract creation at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/tags_controller.ex:80. A missing recipient produces no recipient tags, and the recorded transaction-tag case remains at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs:250."
+
+[disposition.22.33.48.1]
+finding = "22.33.48.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_48.rs:404 commits one of two interleaved authentication preparations after reopening the store. The other preparation must return AssertionSpent at services/human/crates/layerx-human-service/tests/repair_22_33_48.rs:423, and reopening retains exactly one session, assertion consumption and grant."
+
+[disposition.22.33.48.2]
+finding = "22.33.48.2"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_48.rs:404 commits one of two interleaved authentication preparations after reopening the store. The other preparation must return AssertionSpent at services/human/crates/layerx-human-service/tests/repair_22_33_48.rs:423, and reopening retains exactly one session, assertion consumption and grant."
+
+[disposition.22.33.489.1]
+finding = "22.33.489.1"
+status = "resolved"
+evidence = "Commit 407b1369007a7a0226e8c4e5bcc1f2abd3f09ac9 documents thumbnail resizing with the opened image and explicit error handling at services/explorer/backend/apps/nft_media_handler/README.md:75. The executable README regressions at services/explorer/backend/apps/nft_media_handler/test/repair/repair_22_33_489_test.exs:12 retain decodable thumbnails, missing-file and invalid-image errors, and the small-image empty result."
+
+[disposition.22.33.490.1]
+finding = "22.33.490.1"
+status = "resolved"
+evidence = "Commit 77bf2fe5a06c3c799696501afb972f5da0f70dd8 lands the current archive-route documentation and its router check at services/explorer/backend/apps/explorer/test/repair/repair_22_33_490_test.exs:53. Historical checkpoint and receipt reads remain frozen beside committed status in the case at services/explorer/backend/apps/explorer/test/repair/repair_22_33_490_test.exs:75, and native feeds use their current routes at services/explorer/backend/apps/explorer/test/repair/repair_22_33_490_test.exs:155."
+
+[disposition.22.33.493.1]
+finding = "22.33.493.1"
+status = "resolved"
+evidence = "Commit c082a79b40e9747583b811a4bb804c6faab24b75 supervises the restarted gap scanner at services/explorer/backend/apps/explorer/test/repair/repair_22_33_493_test.exs:137 and verifies the durable frontier after reopening at services/explorer/backend/apps/explorer/test/repair/repair_22_33_493_test.exs:158. The pool-metadata case at services/explorer/backend/apps/explorer/test/repair/repair_22_33_493_test.exs:170 uses a recorded swap and real token metadata to retain imported actions after eviction."
+
+[disposition.22.33.499.1]
+finding = "22.33.499.1"
+status = "environment"
+evidence = "On main, apps/explorer/deploy/tools/envs-validator/schema.ts:87 declares the gas-tracker boolean once alongside its units validator. The validator cases at apps/explorer/deploy/tools/envs-validator/repair-22-33-499.spec.ts:72 retain accepted boolean forms and reject invalid values."
+
+[disposition.22.33.5.1]
+finding = "22.33.5.1"
+status = "resolved"
+evidence = "Commit 342e244f0ab040005c8430120b9f79f4a92fe7f5 registers the asset module and binds its real runtime before the escrow module at tests/modules/test_escrow_audit.h:65. The invariant fixture at tests/modules/test_escrow_invariants.c:330 uses native issued supply and registered accounts to check escrow hold totals against conserved bank units."
+
+[disposition.22.33.50.1]
+finding = "22.33.50.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:229 authenticates the recorded receipt before storing it. The reopening path at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:255 independently verifies its consensus evidence and requires the retained receipt's current verification level to be COMMITTED."
+
+[disposition.22.33.50.2]
+finding = "22.33.50.2"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae persists the authenticated recording through the production receipt store at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:237. The stored and reopened metadata is checked against Rung::Committed at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:246 and services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:294, retaining the recorded canonical receipt bytes."
+
+[disposition.22.33.50.3]
+finding = "22.33.50.3"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae requires reopened receipt metadata and exported consensus verification to agree at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:283. The evidence served from the reopened store retains Committed rung and exactly one current evidence entry at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:298."
+
+[disposition.22.33.50.4]
+finding = "22.33.50.4"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae exchanges actual ReceiptLookupAnswer frames through the runtime at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:418. The control exchange at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:593 retains the typed FinalizationEvidenceLookup refusal and verifies that the managed-agent store remains byte-for-byte unchanged."
+
+[disposition.22.33.50.5]
+finding = "22.33.50.5"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae authenticates the recording with its recorded commit, header, votes and batch inclusion at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:124. store_verified_if_absent at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:238 then persists the authenticated receipt rather than trusting an RPC commitment label."
+
+[disposition.22.33.50.6]
+finding = "22.33.50.6"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae requires COMMITTED as the achieved and persisted verification level at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:287. The receipt transport's material assertion at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:466 preserves Committed rung, canonical bytes, signed receipt, public key and inclusion height."
+
+[disposition.22.33.50.7]
+finding = "22.33.50.7"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae stores the receipt through authenticated store_verified_if_absent at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:238. The reopened evidence inventory at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:302 must contain no receipt without evidence and exactly one receipt with current evidence and matching canonical bytes."
+
+[disposition.22.33.50.8]
+finding = "22.33.50.8"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae publishes the managed agent before the control exchange at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:570. A genuine committed payment remains unable to authorize a budget change: the case requires FinalizationEvidenceLookup and an unchanged store at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:622."
+
+[disposition.22.33.50.9]
+finding = "22.33.50.9"
+status = "resolved"
+evidence = "Commit 1c1fb2c68cece895cce12dec3886661abc69a8ae compares the control transport's consumed verification with Rung::Committed.wire_rank at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:643. The request asserts that same rung rank at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:609, while receipt material separately retains VerificationLevel::COMMITTED at services/human/crates/layerx-human-service/tests/repair_22_33_50.rs:473."
+
+[disposition.22.33.501.1]
+finding = "22.33.501.1"
+status = "environment"
+evidence = "On main, apps/explorer/deploy/tools/multichain-config-generator/index.ts:88 validates its timeout and keeps the abort deadline active through JSON decoding. It checks every returned explorer URL for an HTTP or HTTPS scheme at apps/explorer/deploy/tools/multichain-config-generator/index.ts:109 before any configuration worker is started."
+
+[disposition.22.33.501.2]
+finding = "22.33.501.2"
+status = "resolved"
+evidence = "Commit ae359b25928d9a9a5f6c27d7322deeabc17ec5bb scopes the shared fetch interception around the real HTTP cases at apps/explorer/deploy/tools/multichain-config-generator/repair-22-33-501.spec.ts:11. The production aggregator reader at apps/explorer/deploy/tools/multichain-config-generator/index.ts:98 retains deadline, HTTP-error and complete response-shape checks."
+
+[disposition.22.33.503.1]
+finding = "22.33.503.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:26 identifies the row with checkpoint_id and renders batch_number separately. Its loading state at apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:37 renders a disabled skeleton copy control, while the loaded control copies the actual checkpoint identifier."
+
+[disposition.22.33.503.2]
+finding = "22.33.503.2"
+status = "resolved"
+evidence = "Commit 72e4210d3a2474a2a60fc01e846baba667c5c8a7 renders a disabled copy button inside a loading skeleton at apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:37. Once loaded, the same row copies checkpoint_id at apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:42 while retaining batch number and checkpoint height as separate fields."
+
+[disposition.22.33.505.1]
+finding = "22.33.505.1"
+status = "environment"
+evidence = "On main, apps/explorer/ui/paxeerX/feed/repair-22-33-505.spec.ts:241 exercises HTTP polling while socket replacement times out. The cases at apps/explorer/ui/paxeerX/feed/repair-22-33-505.spec.ts:244 and apps/explorer/ui/paxeerX/feed/repair-22-33-505.spec.ts:247 retain recovery after disable/restart and polling until a failed reconnection successfully rejoins its current channel."
+
+[disposition.22.33.51.1]
+finding = "22.33.51.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:220 authenticates the recorded sequencer receipt with production lookup_authenticated. Consensus verification at services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:355 then checks its retained batch and roots, and mutations at services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:364 must be rejected."
+
+[disposition.22.33.51.2]
+finding = "22.33.51.2"
+status = "resolved"
+evidence = "Commit 4197d7b6d08898f8741a690d6ed925148714f59e binds receipt keys to the independently recorded public key and batch key id at services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:199. Production lookup_authenticated at services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:220 verifies the signature and execution view, and consensus verification at services/human/crates/layerx-human-service/tests/repair_22_33_51.rs:355 authenticates the retained headers, batch and roots."
+
+[disposition.22.33.512.1]
+finding = "22.33.512.1"
+status = "resolved"
+evidence = "Commit 92a09d51af65e582a349db92456a8f9d463eae0b assigns sibling history its canonical status explicitly at services/explorer/backend/apps/indexer/test/repair/repair_22_33_512_test.exs:336. The bounded keyset regression at services/explorer/backend/apps/indexer/test/repair/repair_22_33_512_test.exs:139 preserves committed refetch markers across worker interruption and reopening without violating the canonical-child constraint."
+
+[disposition.22.33.513.1]
+finding = "22.33.513.1"
+status = "resolved"
+evidence = "Commit f54daa391df2e52729c7f445c7b9a2692c12d58c gives notification senders committed database writes at services/explorer/backend/apps/indexer/test/repair/repair_22_33_513_test.exs:22 and explicitly stops the supervised listener and its connection at services/explorer/backend/apps/indexer/test/repair/repair_22_33_513_test.exs:52. Reopening at services/explorer/backend/apps/indexer/test/repair/repair_22_33_513_test.exs:67 requires reconciliation to the authoritative head even after retained notifications have expired."
+
+[disposition.22.33.516.1]
+finding = "22.33.516.1"
+status = "resolved"
+evidence = "Commit 213eb2ff4e42875035a415df795b30e2f05706eb carries the essential-chain accessor and startup integration with consumer cases at apps/explorer/repair-22-33-516.spec.ts:156. The target checks node-cache loading, missing-config refusal, server/browser equality and actual Wagmi transport wiring through apps/explorer/repair-22-33-516.spec.ts:184."
+
+[disposition.22.33.517.1]
+finding = "22.33.517.1"
+status = "resolved"
+evidence = "Commit 557023b6443dfdc1a7d768b76a50a111623eb35a declares archive receipts as a discriminated EVM/kernel union at apps/explorer/types/api/paxeerXArchive.ts:72. Kernel receipts have null transaction, block and timestamp fields at apps/explorer/types/api/paxeerXArchive.ts:46, and the consumer integration at apps/explorer/types/api/repair-22-33-517.spec.ts:117 transports both origins to the receipt list and table."
+
+[disposition.22.33.517.2]
+finding = "22.33.517.2"
+status = "resolved"
+evidence = "Commit 557023b6443dfdc1a7d768b76a50a111623eb35a declares archive receipts as a discriminated EVM/kernel union at apps/explorer/types/api/paxeerXArchive.ts:72. Kernel receipts have null transaction, block and timestamp fields at apps/explorer/types/api/paxeerXArchive.ts:46, and the consumer integration at apps/explorer/types/api/repair-22-33-517.spec.ts:117 transports both origins to the receipt list and table."
+
+[disposition.22.33.538.1]
+finding = "22.33.538.1"
+status = "resolved"
+evidence = "Commit 1edee0ff26ac9a589a737a4aaa4be7d9ff5675a4 preserves and hashes the historical Parity cassette at services/explorer/backend/apps/explorer/test/repair/repair_22_33_538_test.exs:50 and adds separate pending-refusal and committed-identity replay cases at services/explorer/backend/apps/explorer/test/repair/repair_22_33_538_test.exs:86 and services/explorer/backend/apps/explorer/test/repair/repair_22_33_538_test.exs:168. On main, rpc/block.go:358 explicitly rejects full pending transactions and returns only transaction hashes for the open block."
+
+[disposition.22.33.540.1]
+finding = "22.33.540.1"
+status = "resolved"
+evidence = "Commit 513f98c0534915a4a806cb942c16b130d329f21a reads the profile cookie's value with header, query and cookie precedence at apps/explorer/nextjs/middlewares/appProfile.ts:10. The middleware forwards the chosen profile into Next.js request overrides at apps/explorer/nextjs/middlewares/appProfile.ts:21 and sets or deletes the persisted private-profile cookie at apps/explorer/nextjs/middlewares/appProfile.ts:30."
+
+[disposition.22.33.541.1]
+finding = "22.33.541.1"
+status = "resolved"
+evidence = "Commit aa097cc3c827ea96ee07193181d394b88d995eda isolates pageview reporting at apps/explorer/nextjs/getServerSideProps/handlers.ts:27 with a one-second abort deadline, handled HTTP and transport failures, response-body cancellation and timer cleanup. The consumer cases at apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts:275 retain page rendering when telemetry rejects or times out."
+
+[disposition.22.33.543.1]
+finding = "22.33.543.1"
+status = "environment"
+evidence = "On main, apps/explorer/nextjs/utils/fetchApi.ts:35 returns no payload for non-success HTTP responses before JSON decoding. Its registered regression at apps/explorer/nextjs/utils/repair-22-33-543.spec.ts:98 exercises error responses through the production fetch helper."
+
+[disposition.22.33.544.1]
+finding = "22.33.544.1"
+status = "resolved"
+evidence = "Commit b8bbf5e8eb90c4c459f1165b81a689a8e534f399 treats a contract getter's binary result as bytes and hex-encodes it exactly once at services/explorer/backend/apps/explorer/lib/explorer/smart_contract/helper.ex:320. The HTTP regression at services/explorer/backend/apps/explorer/test/repair/repair_22_33_544_test.exs:53 retains a byte value beginning with the ASCII characters 0x."
+
+[disposition.22.33.55.1]
+finding = "22.33.55.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-human-test-support/tests/repair_22_33_55.rs:57 keeps HTTP admission at Submitted through journal recovery. Its separate proof at services/human/crates/layerx-human-test-support/tests/repair_22_33_55.rs:182 uses recorded committed receipt evidence and retains malformed and foreign evidence refusals."
+
+[disposition.22.33.55.2]
+finding = "22.33.55.2"
+status = "resolved"
+evidence = "Commit 504913d8d28915f20ce0721509041494369ecf18 exercises the documented committed proof through the real node recording at services/human/crates/layerx-human-test-support/tests/repair_22_33_55.rs:182. The support consumer at services/human/crates/layerx-human-test-support/tests/support/committed_evidence.rs:321 checks the recorded signed receipt against its pinned key and consensus authorities before persistence and recovery."
+
+[disposition.22.33.552.1]
+finding = "22.33.552.1"
+status = "resolved"
+evidence = "Commit c01d3bc3c9979ae03aa99e16b148418cd8c747e6 configures the shared recorded import's Geth call tracer and coin-balance consumer at services/explorer/backend/apps/indexer/test/indexer/block/paxeer_import_case.exs:41. The resulting import checks persisted balances at services/explorer/backend/apps/indexer/test/indexer/block/paxeer_import_case.exs:148 and internal-transaction identity and type at services/explorer/backend/apps/indexer/test/indexer/block/paxeer_import_case.exs:125."
+
+[disposition.22.33.552.2]
+finding = "22.33.552.2"
+status = "resolved"
+evidence = "Commit c01d3bc3c9979ae03aa99e16b148418cd8c747e6 distinguishes a successful worker start from its subsequent completion at services/explorer/backend/apps/indexer/test/indexer/block/paxeer_import_case.exs:243. Task results must be ok and DOWN reasons normal, preserving the full-schema import assertions at services/explorer/backend/apps/indexer/test/repair/repair_22_33_552_test.exs:17."
+
+[disposition.22.33.552.3]
+finding = "22.33.552.3"
+status = "resolved"
+evidence = "Commit c01d3bc3c9979ae03aa99e16b148418cd8c747e6 checks the imported internal transaction's persisted call_type_enum and derived call_type at services/explorer/backend/apps/indexer/test/indexer/block/paxeer_import_case.exs:125. Both must be call, with transaction hash, block number, input and gas tied to the same recorded import."
+
+[disposition.22.33.555.1]
+finding = "22.33.555.1"
+status = "resolved"
+evidence = "Commit e3fe753ab7192d0f99da88bb6dabe77fc7d045ef selects transaction pending operations for both Geth and PaxeerX when block tracing is disabled at services/explorer/backend/apps/explorer/lib/explorer/chain/pending_operations_helper.ex:12. Both adapters retain durable queue conversion and recorded trace recovery across restart at services/explorer/backend/apps/indexer/test/repair/repair_22_33_555_test.exs:46."
+
+[disposition.22.33.555.2]
+finding = "22.33.555.2"
+status = "resolved"
+evidence = "Commit e3fe753ab7192d0f99da88bb6dabe77fc7d045ef selects transaction pending operations for both Geth and PaxeerX when block tracing is disabled at services/explorer/backend/apps/explorer/lib/explorer/chain/pending_operations_helper.ex:12. Both adapters retain durable queue conversion and recorded trace recovery across restart at services/explorer/backend/apps/indexer/test/repair/repair_22_33_555_test.exs:46."
+
+[disposition.22.33.56.1]
+finding = "22.33.56.1"
+status = "environment"
+evidence = "On main, services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs:194 drives registry-denomination mapping through the real gateway transport. The same target enforces total deadlines across fragmented responses and TLS handshakes at services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs:377 and services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs:420, and rejects responses beyond its byte ceiling at services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs:468."
+
+[disposition.22.33.560.1]
+finding = "22.33.560.1"
+status = "resolved"
+evidence = "Commit 3d82e0ba2ac7de68db92834012eaea743b7e4c8d starts WETH recovery through an immediate continuation at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:24. The final empty batch records completion and returns a normal stop at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:66, preserving receipt decoding and recovered transfer checks at services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs:58."
+
+[disposition.22.33.560.2]
+finding = "22.33.560.2"
+status = "resolved"
+evidence = "Commit 3d82e0ba2ac7de68db92834012eaea743b7e4c8d checks for more work immediately after committing each WETH recovery batch at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:99. The regression at services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs:121 still requires normal exit inside half of the configured two-second interval."
+
+[disposition.22.33.560.3]
+finding = "22.33.560.3"
+status = "resolved"
+evidence = "Commit 3d82e0ba2ac7de68db92834012eaea743b7e4c8d recursively advances empty WETH recovery ranges at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:75. Reaching the minimum block with no remaining identifiers writes completed status and stops normally at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:66 without scheduling another poll."
+
+[disposition.22.33.560.4]
+finding = "22.33.560.4"
+status = "resolved"
+evidence = "Commit 3d82e0ba2ac7de68db92834012eaea743b7e4c8d makes the final WETH recovery step persist completed status with nil metadata and stop normally at services/explorer/backend/apps/indexer/lib/indexer/migrator/recovery_weth_token_transfers.ex:66. The monitor assertion at services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs:121 retains the one-second bound and checks both recovered transfers."
+

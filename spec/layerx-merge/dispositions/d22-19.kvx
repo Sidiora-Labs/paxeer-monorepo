@@ -1,0 +1,524 @@
+[disposition.22.31.396.2]
+finding = "22.31.396.2"
+status = "resolved"
+evidence = "Commit 8072ba2be2 binds committed promotion to authenticated inclusion and independent receipt authority in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:804 and services/explorer/backend/config/runtime.exs:300. The controller regressions at services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs:138 cover missing authority and governed rotation across restart."
+
+[disposition.22.31.399.1]
+finding = "22.31.399.1"
+status = "resolved"
+evidence = "Commit 2e34a707e4 makes services/explorer/backend/apps/explorer/test/repair/repair_22_31_399_test.exs:50 derive the surviving identity from the migration plan, and its source and imported_ids helpers at lines 190 and 204 preserve the matching provider identifiers and imported identity mapping."
+
+[disposition.22.31.40.1]
+finding = "22.31.40.1"
+status = "resolved"
+evidence = "Commit 1eed5ed5fe derives notification ownership from Principal.AccountID and Principal.Wallet at services/launchpad/notifications/http.go:142; services/launchpad/api/internal/app/app.go:625 supplies both authenticated fields. The notification regression at services/launchpad/notifications/repair_40_test.go:170 retains list, read and recovery checks against that contract."
+
+[disposition.22.31.40.2]
+finding = "22.31.40.2"
+status = "resolved"
+evidence = "Commit 1eed5ed5fe supplies pool and interval authorities at services/launchpad/api/internal/app/app.go:652, and services/launchpad/notifications/repair_40_test.go:199 constructs the real HTTPRuntime handler directly. The runtime-authority regression at line 287 covers readiness and refusal when required authorities are absent."
+
+[disposition.22.31.401.1]
+finding = "22.31.401.1"
+status = "resolved"
+evidence = "Commit 76b3a6a3f1 separates node-root and gateway configuration at services/explorer/backend/config/runtime.exs:334. services/explorer/backend/apps/explorer/test/repair/repair_22_31_401_test.exs:77 checks that the retired router setting supplies neither producer, while line 121 exercises recorded committed evidence through the configured endpoints."
+
+[disposition.22.31.402.1]
+finding = "22.31.402.1"
+status = "resolved"
+evidence = "Commit 9cf2efc9c5 aligns bridge chain configurations with the five explicitly pending signer slots and threshold three at services/bridge/deploy/attestors.json:2. services/bridge/deploy/proposals/manifest.go:32 rejects this pending document through strict field decoding, preserving refusal until an approved signer manifest replaces it."
+
+[disposition.22.31.404.1]
+finding = "22.31.404.1"
+status = "environment"
+evidence = "services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex:62 makes application startup conditional and dispatches dry-run planning through Preview. services/explorer/backend/apps/explorer/test/repair/repair_22_31_404_test.exs:172 invokes that CLI with --no-start and retains the database invariance assertions at line 69."
+
+[disposition.22.31.405.1]
+finding = "22.31.405.1"
+status = "resolved"
+evidence = "Commit de8f1bb24a replaces the undeclared ganache dependency with the recorded RPC fixture at apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:116. Commit fb585a36f3 retains transaction rejoin and receipt reconciliation coverage at apps/explorer/ui/tx/repair-22-31-405.spec.ts:172."
+
+[disposition.22.31.405.2]
+finding = "22.31.405.2"
+status = "resolved"
+evidence = "Commit de8f1bb24a replaces the undeclared ganache dependency with the recorded RPC fixture at apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:116. Commit fb585a36f3 retains transaction rejoin and receipt reconciliation coverage at apps/explorer/ui/tx/repair-22-31-405.spec.ts:172."
+
+[disposition.22.31.407.1]
+finding = "22.31.407.1"
+status = "environment"
+evidence = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:249 probes launchpad availability through getPoolCount at one observed block height. services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs:38 checks live, refused and malformed responses against that production probe contract."
+
+[disposition.22.31.407.2]
+finding = "22.31.407.2"
+status = "resolved"
+evidence = "Commit 6e66afb32c makes services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:257 select getPoolCount and construct an eth_call for the launchpad precompile. Availability therefore follows the callable view response rather than empty precompile bytecode."
+
+[disposition.22.31.409.1]
+finding = "22.31.409.1"
+status = "resolved"
+evidence = "Commit 8c22e0cb53 includes contract_creation in the HTTP transaction-type enumeration at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general.ex:49. services/explorer/backend/apps/explorer/test/repair/repair_22_31_409_test.exs:49 checks mixed creation/call filters and retains unsupported-type refusals at line 112."
+
+[disposition.22.31.410.1]
+finding = "22.31.410.1"
+status = "resolved"
+evidence = "Commit 34dbce23a2 selects successful CREATE and CREATE2 operations in the same canonical transaction before filtering post-Cancun destructions at services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex:99. Transaction-local creations remain eligible for canonical bytecode reconciliation."
+
+[disposition.22.31.410.2]
+finding = "22.31.410.2"
+status = "resolved"
+evidence = "Commit 34dbce23a2 sends candidate addresses through InternalTransactions.reconcile_selfdestructed_contracts_bytecode at services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex:132. The regression at services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs:50 distinguishes pre-Cancun deletion from retained post-Cancun code."
+
+[disposition.22.31.410.3]
+finding = "22.31.410.3"
+status = "resolved"
+evidence = "Commit 34dbce23a2 applies the fork rule and canonical reconciliation inside one database transaction at services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex:69. The tests at services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs:73 preserve stored code when canonical state is unavailable."
+
+[disposition.22.31.410.4]
+finding = "22.31.410.4"
+status = "resolved"
+evidence = "Commit 34dbce23a2 obtains Cancun activation before selecting destructions at services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex:65. The mixed-fork chain-spec test at services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs:131 reaches reconciliation, while line 146 requires refusal when no fork schedule exists."
+
+[disposition.22.31.411.1]
+finding = "22.31.411.1"
+status = "resolved"
+evidence = "Commit bd50fa0d6a requires ReceiptInclusion.verify before returning committed at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:811. services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:275 requires every witness and expects r8 for omitted evidence."
+
+[disposition.22.31.411.2]
+finding = "22.31.411.2"
+status = "resolved"
+evidence = "Commit bd50fa0d6a preserves authenticated controller evidence at services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs:143 and rejects unrelated headers and altered witnesses at lines 223 and 247. The production committed branch at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:811 propagates inclusion refusal."
+
+[disposition.22.31.415.1]
+finding = "22.31.415.1"
+status = "resolved"
+evidence = "Commit 2771aa3c26 updates the iOS sample to propagate receipt-authority initialization errors, with missing-authority rejection asserted at sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift:193. The configured-wallet flow at line 168 retains verification of the recorded receipt."
+
+[disposition.22.31.415.2]
+finding = "22.31.415.2"
+status = "resolved"
+evidence = "Commit 2771aa3c26 derives the mobile payment response and receipt from the same conformance vector at sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift:231. The configured-wallet assertion at line 174 compares the verified receipted digest with that vector."
+
+[disposition.22.31.415.3]
+finding = "22.31.415.3"
+status = "resolved"
+evidence = "Commit 2771aa3c26 binds the commit response evidence to the selected V1-pax-transfer vector at sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift:233 and serves its relayResponse at line 234. Both response halves therefore share the recorded receipt identity."
+
+[disposition.22.31.415.4]
+finding = "22.31.415.4"
+status = "resolved"
+evidence = "Commit 2771aa3c26 derives the response and receipt together at sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift:231. The configured-wallet case at line 168 checks the verified digest, and the different-public-key case at line 178 still requires verification-failure."
+
+[disposition.22.31.416.1]
+finding = "22.31.416.1"
+status = "environment"
+evidence = "sdk/integrations/next/example/package.json:23 resolves @sidiora/layerx-next through file:.., and sdk/integrations/next/example/test/repair-22-31-416.test.mjs:297 retains fulfillment replay, conflict and legacy-record recovery cases. The example uses its local integration implementation."
+
+[disposition.22.31.421.1]
+finding = "22.31.421.1"
+status = "environment"
+evidence = "tests/integration/contracts/create_tokenfactory_denoms.sh:25 derives each factory denomination from the actual creator address and line 82 passes that address to the paginated query verifier. tools/qualification/audit_repairs/test_repair_22_31_421.py:139 retains all-thirty denomination coverage and missing-denomination refusals."
+
+[disposition.22.31.425.1]
+finding = "22.31.425.1"
+status = "environment"
+evidence = "tools/ops/keyring-migrate.sh:105 restores the downloaded backup through keyring_recovery.py before accepting it. tools/ops/keyring_recovery.py:76 restores private key bytes against the recorded content manifest, with restart recovery and source preservation covered at tools/qualification/audit_repairs/test_repair_22_31_425.py:95."
+
+[disposition.22.31.427.1]
+finding = "22.31.427.1"
+status = "environment"
+evidence = "docker/kernel/Dockerfile supplies the native paxd backend and services/platform/hosted/node readiness modules, as pinned at tools/qualification/audit_repairs/test_repair_22_31_427.py:396. Its cold-start and reopened-readiness cases at line 153 require a committed, matching chain before readiness succeeds."
+
+[disposition.22.31.43.1]
+finding = "22.31.43.1"
+status = "resolved"
+evidence = "Commit ba88778da5 replaces the nested swap runtime dependency with recorded RPC interactions in apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts:8. The swap proof retains successful settlement and refusal checks through the real swap consumer."
+
+[disposition.22.31.439.1]
+finding = "22.31.439.1"
+status = "resolved"
+evidence = "Commit 00a50d4bdb removes the orphaned services/human/crates/layerx-explorer-index test tree after the crate retirement. The maintained member list at services/human/Cargo.toml:2 contains the human services and network gateway without the deleted explorer-index crate."
+
+[disposition.22.31.439.2]
+finding = "22.31.439.2"
+status = "resolved"
+evidence = "Commit 00a50d4bdb removes the orphaned services/human/crates/layerx-explorer-index test tree after the crate retirement. The maintained member list at services/human/Cargo.toml:2 contains the human services and network gateway without the deleted explorer-index crate."
+
+[disposition.22.31.447.1]
+finding = "22.31.447.1"
+status = "resolved"
+evidence = "Commit 0e95c00565 places the database regression at services/wallet/gateway/test/db/repair-22-31-447.test.ts:8, inside the test/**/*.test.ts include at services/wallet/gateway/vitest.config.ts:6. Its PostgreSQL-socket case at line 16 checks pgcrypto and persistence through the gateway database helper."
+
+[disposition.22.31.447.2]
+finding = "22.31.447.2"
+status = "environment"
+evidence = "services/wallet/gateway/package.json:40 declares the gateway database development dependencies directly, and services/wallet/gateway/test/db/repair-22-31-447.test.ts:8 checks their exact versions and the absence of nested source manifests. The database helper retains the PostgreSQL-socket pgcrypto exchange at line 16."
+
+[disposition.22.31.447.3]
+finding = "22.31.447.3"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removes the installed binaries from apps/perps/node_modules and the tracked TypeScript build metadata. apps/perps/.gitignore:4 excludes installed dependencies and line 45 excludes tsconfig.tsbuildinfo, so these generated files are outside the maintained product source."
+
+[disposition.22.31.447.4]
+finding = "22.31.447.4"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removes the installed binaries from apps/perps/node_modules and the tracked TypeScript build metadata. apps/perps/.gitignore:4 excludes installed dependencies and line 45 excludes tsconfig.tsbuildinfo, so these generated files are outside the maintained product source."
+
+[disposition.22.31.447.5]
+finding = "22.31.447.5"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 removes the installed binaries from apps/perps/node_modules and the tracked TypeScript build metadata. apps/perps/.gitignore:4 excludes installed dependencies and line 45 excludes tsconfig.tsbuildinfo, so these generated files are outside the maintained product source."
+
+[disposition.22.31.447.6]
+finding = "22.31.447.6"
+status = "environment"
+evidence = "services/wallet/gateway/package.json:40 owns the PGlite dependencies and services/wallet/gateway/test/db/repair-22-31-447.test.ts:12 requires the nested source package and workspace manifests to be absent. The gateway database remains exposed through its own src/db/testDatabase.js import at line 6."
+
+[disposition.22.31.45.1]
+finding = "22.31.45.1"
+status = "resolved"
+evidence = "Commit fe0dc3863e makes services/launchpad/pnl-tracker/internal/card/card.go:92 return ErrMintRetired without publishing a legacy card. Both existing Mint cases now require that refusal at services/launchpad/pnl-tracker/internal/card/card_test.go:50 and line 96."
+
+[disposition.22.31.452.1]
+finding = "22.31.452.1"
+status = "environment"
+evidence = "sdk/integrations/spring/pom.xml:26 pins Spring Boot 4.0.7 through the shared dependency management import. sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/Repair2231452Test.java:53 checks discovery of the integration auto-configuration and its receipt-authority-backed middleware beans."
+
+[disposition.22.31.454.1]
+finding = "22.31.454.1"
+status = "resolved"
+evidence = "Commit 8dd1be7a9d migrates the NAT consumer import to github.com/pion/stun/v3 at core/deps/geth/p2p/nat/stun.go:29. go.mod:243 and line 245 pin maintained dtls/v3 and stun/v3 releases rather than the advisory-bearing module generations."
+
+[disposition.22.31.454.2]
+finding = "22.31.454.2"
+status = "resolved"
+evidence = "Commit d56c2b440d carries the fallible NewFactoryCLI result through the tokenfactory commands at modules/tokenfactory/client/cli/tx.go:80. Each caller handles the returned error before using the transaction factory, including the additional call sites at lines 132 and 175."
+
+[disposition.22.31.455.1]
+finding = "22.31.455.1"
+status = "environment"
+evidence = "tools/qualification/audit_repairs/test_repair_22_31_455.py:59 records the maintained elliptic, request and deepmerge replacements, and line 189 checks the resolved lock entries against the advisory minima. Its CosmJS migration assertion at line 266 requires the elliptic dependency path to be absent."
+
+[disposition.22.31.457.1]
+finding = "22.31.457.1"
+status = "resolved"
+evidence = "Commit 0c87b70fab implements AgentGrantMiddleware.resolveGrant at services/platform/middleware/agent/src/index.ts:961 by delegating the grant identifier and network to its configured draw authority. The class therefore supplies the GrantDrawExecution interface consumed by the seller."
+
+[disposition.22.31.459.1]
+finding = "22.31.459.1"
+status = "resolved"
+evidence = "Commit d56c2b440d handles NewFactoryCLI constructor errors at modules/tokenfactory/client/cli/tx.go:80 and the remaining CLI callers. The exchange product retains both placeOrder signatures at precompiles/layerxexchange/layerxexchange.go:54 and routes the account-bearing overload through RecordPlaceOrderIntentForAccount at line 412."
+
+[disposition.22.31.461.1]
+finding = "22.31.461.1"
+status = "environment"
+evidence = "services/launchpad/go.work:6 declares Go 1.27.0 and its member list at line 11 includes the notifications module. The workspace owns that module directly, with the nested notifications workspace removed by commit 17f3c834e0."
+
+[disposition.22.31.462.1]
+finding = "22.31.462.1"
+status = "resolved"
+evidence = "Commit a349c0fb8c replaces the live human boundary rank ranges with the shared decoder at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1385 and line 1488. Both paths now accept only ranks that crate::agents::rung_from_rank decodes, matching the daemon budget contract."
+
+[disposition.22.31.465.1]
+finding = "22.31.465.1"
+status = "resolved"
+evidence = "Commit c433d0ec70 reconciles the native deployment assertions in services/platform/hosted/paxeer/repair_m1319_test.go with the maintained node configuration. services/platform/hosted/paxeer/deployment.yaml:71 now identifies the paxd container, its kernel image and native profile, while node/repair_m1319_test.go:12 pins the restored manifest digest from commit 7435b17141."
+
+[disposition.22.31.471.1]
+finding = "22.31.471.1"
+status = "environment"
+evidence = "services/launchpad/user/internal/account/jobs_http.go:349 passes maxSealedExportBytes to Objects.GetBytes; the bound at line 315 includes the JSON limit, AES-GCM nonce and tag. The account retrieval path preserves a finite bound and refuses retrieval errors before consuming the export credential."
+
+[disposition.22.31.474.1]
+finding = "22.31.474.1"
+status = "resolved"
+evidence = "Commit 52f55ef49b makes apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts:75 derive expectedHeight from the recorded receipt blockNumber. The next assertions compare the consumer height and the canonical signed batch-id bytes with that same value instead of a stale literal."
+
+[disposition.22.31.475.1]
+finding = "22.31.475.1"
+status = "resolved"
+evidence = "Commit 99a76e1542 constructs the finalized-block fixture header with version.Consensus{Block: version.BlockProtocol} at node/repair_22_31_475_test.go:113. The restart, committed-hash corruption and seal-reconciliation cases remain declared at lines 176, 223 and 254."
+
+[disposition.22.31.477.1]
+finding = "22.31.477.1"
+status = "resolved"
+evidence = "Commit 6d10c58d39 reconciles the root workspace lock with the agent-spend example manifest. The conformance consumer at services/platform/middleware/conformance/src/scenarios.ts:316 narrows both settlement decisions to released before reading released fields, as implemented by commit b111eb8217."
+
+[disposition.22.31.478.10]
+finding = "22.31.478.10"
+status = "resolved"
+evidence = "Commit e3221769d7 makes FundingView decode the market header and ledger head without decoding carried reward regions at programs/crates/layerx-programs-ai-market/src/rewards.rs:2934. The production Fund proof at rpc/repair_478_test.go:548 requires a successful terminal, bounded CPU fuel and the exact deposit transfer."
+
+[disposition.22.31.478.11]
+finding = "22.31.478.11"
+status = "resolved"
+evidence = "Commit a0cc1e345c moves PUBLISHED_MATRIX to the maintained documentation path at services/agent/crates/layerx-agentd/src/compat.rs:8. The include now reads docs/agent/COMPATIBILITY.md, matching the published compatibility matrix."
+
+[disposition.22.31.478.12]
+finding = "22.31.478.12"
+status = "resolved"
+evidence = "Commit e3221769d7 encodes the observed SDK balance with balance.BigInt().FillBytes at rpc/repair_478_test.go:518. The following fields bind that balance sight to the latest receipt digest, resulting root and global sequence."
+
+[disposition.22.31.478.13]
+finding = "22.31.478.13"
+status = "resolved"
+evidence = "Commit e3221769d7 finalizes preceding empty-block occupancy at rpc/repair_478_test.go:404 and finalizes the created state at line 456 before Fund. programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:153 decodes canonical applied and pre-runtime terminals separately."
+
+[disposition.22.31.478.14]
+finding = "22.31.478.14"
+status = "resolved"
+evidence = "Commit e3221769d7 introduces canonical kernel terminal decoding, retained at programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:153. The decoder recognizes PRE_RUNTIME_FAILURE directly and otherwise unwraps the applied terminal before decoding its ABI-5 detail; commit 101f526f03 retains that framing contract."
+
+[disposition.22.31.478.15]
+finding = "22.31.478.15"
+status = "resolved"
+evidence = "Commit e3221769d7 re-registers the existing rewards account after occupancy finalization at rpc/repair_478_test.go:466. Fund uses the resulting fresh canonical receipt in ReceiptAuthorities at line 505 and its digest, state root and sequence in the balance sight at line 519."
+
+[disposition.22.31.478.16]
+finding = "22.31.478.16"
+status = "resolved"
+evidence = "Commit e3221769d7 supplies the rewards-account transfer authority and receipt-bound balance-sight capability in canonical order at rpc/repair_478_test.go:480. The successful Fund branch at line 557 checks one transfer of 100 from the payer into that rewards account."
+
+[disposition.22.31.478.17]
+finding = "22.31.478.17"
+status = "resolved"
+evidence = "Commit e3221769d7 derives the populated reward fixture epoch heights from header.origin_height at programs/crates/layerx-programs-ai-market/src/lib.rs:475. The committed Fund accounting at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1895 includes both the shared-state key and the sixteen-byte balance observation in storage_read_bytes."
+
+[disposition.22.31.478.18]
+finding = "22.31.478.18"
+status = "resolved"
+evidence = "Commit e3221769d7 binds the WorkerAggregate output array to a local at programs/crates/layerx-programs-ai-market/src/lib.rs:503 before EpochAggregation::structural borrows it. The array remains alive while the aggregation root is used to terminalize the populated reward state."
+
+[disposition.22.31.478.19]
+finding = "22.31.478.19"
+status = "resolved"
+evidence = "Commit 101f526f03 splits the RP07 joint section before decoding its admission table at programs/crates/layerx-programs-ai-market/tests/artifact_binding.rs:266. The loader preserves reputation separately and passes only the F08 table to AdmissionTable::decode at line 276, matching production CREATE framing."
+
+[disposition.22.31.478.1]
+finding = "22.31.478.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ports hosted asset reads to the shared PxAssetEntry representation at services/platform/hosted/core/src/public_reads.rs:135. The metadata builder now consumes optional symbol, name and decimals and the string asset_id instead of removed account-entry fields."
+
+[disposition.22.31.478.20]
+finding = "22.31.478.20"
+status = "resolved"
+evidence = "Commit 101f526f03 repairs the crate consumers of joint admission framing, including programs/crates/layerx-programs-ai-market/tests/artifact_binding.rs:266, and preserves the real Fund CPU bound at programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1672. Commit 06be02228f adds the ordered read-header regression at programs/crates/layerx-programs-ai-market/tests/repair_22_39_169.rs:1 after the whole-crate reconciliation."
+
+[disposition.22.31.478.2]
+finding = "22.31.478.2"
+status = "resolved"
+evidence = "Commit b6d38a9897 places NativeSendPrepareRequest digest calculation beside its wire definition at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The native-send wire case at line 3337 compares that method with the prepared digest without depending on a dispatch-only implementation."
+
+[disposition.22.31.478.3]
+finding = "22.31.478.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 exposes NativeSendPrepareRequest.prepare_digest from its defining module at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The native_send_wire_preserves_exact_signed_request_and_distinct_digest regression at line 3318 uses that same wire contract."
+
+[disposition.22.31.478.4]
+finding = "22.31.478.4"
+status = "resolved"
+evidence = "Commit e3221769d7 funds and registers the actor before fee-bearing setup in rpc/repair_478_test.go:320. The production activity retains its explicit fee limit at line 338 and the Fund proof requires successful execution at line 548."
+
+[disposition.22.31.478.5]
+finding = "22.31.478.5"
+status = "resolved"
+evidence = "Commit d6543a4874 updates the V2 native-send consumer at services/human/crates/layerx-human-service/tests/native_send_producer.rs:681 to read purpose.consent_public_key. It compares that field with the authenticated session owner key instead of reading the removed purpose.owner_public_key field."
+
+[disposition.22.31.478.6]
+finding = "22.31.478.6"
+status = "resolved"
+evidence = "Commit e3221769d7 packages and deploys the ABI-5 Fund guests through the canonical production admission path exercised at rpc/repair_478_test.go:574. CREATE and Fund both pass through the receipt-producing execute helper at line 333, which requires a zero result code rather than accepting NON_CANONICAL."
+
+[disposition.22.31.478.7]
+finding = "22.31.478.7"
+status = "resolved"
+evidence = "Commit e3221769d7 seeds the program ownership and account-profile records before the real ABI-5 account registration in rpc/repair_478_test.go:416. The subsequent idempotent registration at line 466 binds Fund to a canonical receipt from the same registered rewards account."
+
+[disposition.22.31.478.8]
+finding = "22.31.478.8"
+status = "resolved"
+evidence = "Commit e3221769d7 routes Fund through FundingView at programs/crates/layerx-programs-ai-market/src/rewards.rs:2932, carrying opaque reward regions while decoding the ledger head. programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1656 independently compares the committed Fund execution with its measured fuel and requires DEFAULT_CPU_FUEL and success."
+
+[disposition.22.31.478.9]
+finding = "22.31.478.9"
+status = "resolved"
+evidence = "Commit e3221769d7 routes Fund through FundingView at programs/crates/layerx-programs-ai-market/src/rewards.rs:2932, carrying opaque reward regions while decoding the ledger head. programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs:1656 independently compares the committed Fund execution with its measured fuel and requires DEFAULT_CPU_FUEL and success."
+
+[disposition.22.31.480.1]
+finding = "22.31.480.1"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 deletes the tracked apps/perps/node_modules binaries and TypeScript build metadata. apps/perps/.gitignore:4 excludes node_modules and line 45 excludes tsconfig.tsbuildinfo, preserving dependency installation and incremental compiler output outside the product source."
+
+[disposition.22.31.480.2]
+finding = "22.31.480.2"
+status = "resolved"
+evidence = "Commit 8d2d6fd745 deletes the tracked apps/perps/node_modules binaries and TypeScript build metadata. apps/perps/.gitignore:4 excludes node_modules and line 45 excludes tsconfig.tsbuildinfo, preserving dependency installation and incremental compiler output outside the product source."
+
+[disposition.22.31.483.1]
+finding = "22.31.483.1"
+status = "resolved"
+evidence = "Commit 7435b17141 reconciles the gateway transcript with the route-network chain identity request at services/platform/hosted/gateway/tests/repair_22_31_345.rs:367. The connection producer at line 76 receives the config, TCP stream, permit and deadline required by the current handle_connection contract."
+
+[disposition.22.31.483.2]
+finding = "22.31.483.2"
+status = "resolved"
+evidence = "Commit 7435b17141 pins the restored deployment manifest digest at node/repair_m1319_test.go:12. services/platform/hosted/paxeer/deployment.yaml:71 contains the restored paxd container and its native profile, and the test compares the complete manifest bytes with that digest at line 24."
+
+[disposition.22.31.485.1]
+finding = "22.31.485.1"
+status = "resolved"
+evidence = "Commit 7435b17141 passes all four connection arguments in services/platform/hosted/gateway/tests/repair_22_31_345.rs:76 and updates the route-network transcript at line 367. Commit 1a3c69501c retains the hosted read conversion to current asset metadata at services/platform/hosted/core/src/public_reads.rs:135."
+
+[disposition.22.31.485.2]
+finding = "22.31.485.2"
+status = "resolved"
+evidence = "Commit 7435b17141 passes all four connection arguments in services/platform/hosted/gateway/tests/repair_22_31_345.rs:76 and updates the route-network transcript at line 367. Commit 1a3c69501c retains the hosted read conversion to current asset metadata at services/platform/hosted/core/src/public_reads.rs:135."
+
+[disposition.22.31.486.1]
+finding = "22.31.486.1"
+status = "resolved"
+evidence = "Commit 74ef78b42b re-records the committed chain-id-125 evidence and updates its SDK consumers. daemon/committed-fixture/vector_v4_test.go:322 compares explorer and conformance copies with the producer recording, including the exact transaction, receipt and authenticated digest."
+
+[disposition.22.31.486.2]
+finding = "22.31.486.2"
+status = "resolved"
+evidence = "Commit 74ef78b42b regenerates the V3 refusal copy from the same receipt corpus consumed by daemon/committed-fixture/vector_v3_test.go:25. The retained V3 cases authenticate the recorded receipt and mutated refusal fields rather than carrying a separately assembled vmError response."
+
+[disposition.22.31.486.3]
+finding = "22.31.486.3"
+status = "resolved"
+evidence = "Commit cda4e5f2e2 reconciles the wallet WebData surface with request-value payment and retired payer grants at apps/wallet/src/surfaces/repair-22-33-205.test.ts:376. The surface now checks the retired capability state and request-value fee facts rather than requiring a response from the retired grant interface."
+
+[disposition.22.31.487.1]
+finding = "22.31.487.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c ports the hosted asset reader at services/platform/hosted/core/src/public_reads.rs:135 to optional shared metadata and string asset identifiers. The SDK envelope reader retains the achieved_verification_level wire name at services/agent/crates/layerx-sdk/src/agent_envelope.rs:1739 from commit af16a1da63."
+
+[disposition.22.31.487.2]
+finding = "22.31.487.2"
+status = "resolved"
+evidence = "Commit b6d38a9897 places prepare_digest on NativeSendPrepareRequest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 and compares its output in the wire regression at line 3337. The SDK read envelope at services/agent/crates/layerx-sdk/src/agent_envelope.rs:1739 retains the achieved_verification_level field from commit af16a1da63."
+
+[disposition.22.31.487.3]
+finding = "22.31.487.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 places prepare_digest on NativeSendPrepareRequest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851 and compares its output in the wire regression at line 3337. The SDK read envelope at services/agent/crates/layerx-sdk/src/agent_envelope.rs:1739 retains the achieved_verification_level field from commit af16a1da63."
+
+[disposition.22.31.488.1]
+finding = "22.31.488.1"
+status = "resolved"
+evidence = "Commit 1a3c69501c aligns the hosted reader with the shared asset metadata at services/platform/hosted/core/src/public_reads.rs:135. Commit 87f25cefc8 retains the sandbox frame reader at programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs:301, which authenticates the trailing SHA-256 digest before attaching the canonical receipt body."
+
+[disposition.22.31.488.2]
+finding = "22.31.488.2"
+status = "resolved"
+evidence = "Commit b6d38a9897 makes prepare_digest available beside NativeSendPrepareRequest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The sandbox settlement reader from commit 87f25cefc8 at programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs:306 splits and authenticates the native frame before decoding the canonical body."
+
+[disposition.22.31.488.3]
+finding = "22.31.488.3"
+status = "resolved"
+evidence = "Commit b6d38a9897 makes prepare_digest available beside NativeSendPrepareRequest at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The sandbox settlement reader from commit 87f25cefc8 at programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs:306 splits and authenticates the native frame before decoding the canonical body."
+
+[disposition.22.31.49.1]
+finding = "22.31.49.1"
+status = "environment"
+evidence = "services/launchpad/gateway/internal/auth/repair_49_test.go:60 exercises challenge retry and signed verification through the real authentication service. At line 100 the resulting access token must authenticate the same wallet and session, while the cases at lines 130 and 158 retain malformed-identifier and changed-body refusals."
+
+[disposition.22.31.491.1]
+finding = "22.31.491.1"
+status = "resolved"
+evidence = "Commit 21e7fad723 retains the recorded preexecution refusal at rpc/repair_22_31_491_test.go:37 and validates terminal-0 through the matching checker at line 95. Its V2 conformance copy records an insufficient-balance failure with unchanged balances and no invented ledger result code."
+
+[disposition.22.31.491.2]
+finding = "22.31.491.2"
+status = "resolved"
+evidence = "Commit 21e7fad723 refreshes the receipted and portable conformance copies with the new retained refusal. daemon/committed-fixture/vector_v4_test.go:395 compares portable provenance with both current source recordings, and rpc/repair_22_31_491_test.go:128 checks committed promotion without changing the refusal receipt."
+
+[disposition.22.31.492.1]
+finding = "22.31.492.1"
+status = "resolved"
+evidence = "Commit 797a092bfa derives the buyer fixture receiptDigest from verifySequencerReceipt at services/platform/middleware/buyer/test/portable-receipts.test.mjs:37. services/platform/middleware/conformance/src/receipts.ts:208 uses the same verifier digest in the emitted portable receipt."
+
+[disposition.22.31.492.2]
+finding = "22.31.492.2"
+status = "resolved"
+evidence = "Commit 797a092bfa replaces hand-built committed evidence with recordedNamedPayeeFixture at services/platform/middleware/buyer/test/portable-receipts.test.mjs:263. The shared reader at services/platform/middleware/conformance/test/named-payee-fixture.mjs:38 reconstructs the authenticated headers, validators and inclusion witnesses from V7."
+
+[disposition.22.31.492.3]
+finding = "22.31.492.3"
+status = "resolved"
+evidence = "Commit 797a092bfa derives committed payment requirements from the actual PaymentExact log at services/platform/middleware/buyer/test/portable-receipts.test.mjs:275. At line 284 the payTo must equal the V7 payee asset-account identifier, preserving the production named-payee check."
+
+[disposition.22.31.492.4]
+finding = "22.31.492.4"
+status = "resolved"
+evidence = "Commit e19f6544bc supplies the V7 named-payee recording read at services/platform/middleware/conformance/test/named-payee-fixture.mjs:40. Commit 797a092bfa uses its execution and successor headers, transaction and result proofs, and payer/payee facts for the committed buyer case at services/platform/middleware/buyer/test/portable-receipts.test.mjs:263."
+
+[disposition.22.31.492.5]
+finding = "22.31.492.5"
+status = "resolved"
+evidence = "Commit 797a092bfa decodes V7 authorization.PublicKey as a byte array at services/platform/middleware/conformance/test/named-payee-fixture.mjs:45 and reads signed receipt bytes from settlement.receipt. The conformance RPC case at services/platform/middleware/conformance/test/repair_22_31_492.test.mjs:227 retains the strict seller digest verification."
+
+[disposition.22.31.493.1]
+finding = "22.31.493.1"
+status = "resolved"
+evidence = "Commit 12909a1d24 verifies changed receipt evidence before deciding receipt reuse in services/platform/middleware/seller/src/index.ts:315. Commit 451e8ff9ed compares the verified signature digest in sdk/integrations/next/src/index.ts:479, and sdk/integrations/next/test/repair_22_31_493.test.mjs:73 retains rejection of a tampered released digest."
+
+[disposition.22.31.494.1]
+finding = "22.31.494.1"
+status = "resolved"
+evidence = "Commit b6d38a9897 defines the native-send preparation digest beside its wire type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. Commit f0b85cbf0c retains the wallet proof at services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs:523, binding the verified receipt to the exact submitted transaction."
+
+[disposition.22.31.494.2]
+finding = "22.31.494.2"
+status = "resolved"
+evidence = "Commit b6d38a9897 defines the native-send preparation digest beside its wire type at services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. Commit f0b85cbf0c retains the wallet proof at services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs:523, binding the verified receipt to the exact submitted transaction."
+
+[disposition.22.31.494.3]
+finding = "22.31.494.3"
+status = "resolved"
+evidence = "Commit f0b85cbf0c compares decoded address bytes in the nonce-query fixture at services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs:350. It still requires the pending tag at line 353, so checksum spelling does not alter the asserted wallet identity or nonce scope."
+
+[disposition.22.31.495.1]
+finding = "22.31.495.1"
+status = "resolved"
+evidence = "Commit 9c3cd0e74d supplies current_time in the included approval ordering requests at services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs:145, line 173 and line 240. These consumers now populate the explicit clock field declared at services/agent/crates/layerx-agentd/src/approval/mod.rs:2173."
+
+[disposition.22.31.495.2]
+finding = "22.31.495.2"
+status = "resolved"
+evidence = "Commit 9c3cd0e74d carries TimestampSeconds through the durable decision request at services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs:206. The included ordering cases at services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs:145 also supply that field, preserving approval order and explicit-time checks."
+
+[disposition.22.31.495.3]
+finding = "22.31.495.3"
+status = "resolved"
+evidence = "Commit 9c3cd0e74d reads and passes current_time through the MCP approval lookup at services/agent/crates/layerx-mcp/src/catalogue.rs:812 and line 820. The human service requests at services/human/crates/layerx-human-service/tests/repair_22_33_61.rs:517 and line 546 supply TimestampSeconds(NOW) to the same approval contract."
+
+[disposition.22.31.496.1]
+finding = "22.31.496.1"
+status = "resolved"
+evidence = "Commit b6d38a9897 exposes the native-send prepare_digest method in services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The lifecycle proof from commit 47e3f12fba remains at services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:58 and compares the exact compiler payload with the kernel consumer vector."
+
+[disposition.22.31.496.2]
+finding = "22.31.496.2"
+status = "resolved"
+evidence = "Commit b6d38a9897 exposes the native-send prepare_digest method in services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:851. The lifecycle proof from commit 47e3f12fba remains at services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:58 and compares the exact compiler payload with the kernel consumer vector."
+
+[disposition.22.31.496.3]
+finding = "22.31.496.3"
+status = "resolved"
+evidence = "Commit 47e3f12fba derives the key-rotation DID from the executing key at services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:14. The kernel fixture at modules/layerxauth/keeper/repair_22_31_496_test.go:26 binds the matching public key, and line 57 requires the compiler payload actor to equal the authenticated actor."
+
+[disposition.22.31.496.4]
+finding = "22.31.496.4"
+status = "environment"
+evidence = "modules/layerxauth/keeper/repair_22_31_496_test.go:50 sends the exact compiler rotation payload to the real keeper and requires the authenticated actor at line 57. services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:58 binds the same payload and idempotency key, while line 94 retains malformed-frame refusals."
+
+[disposition.22.31.496.5]
+finding = "22.31.496.5"
+status = "environment"
+evidence = "modules/layerxauth/keeper/repair_22_31_496_test.go:50 sends the exact compiler rotation payload to the real keeper and requires the authenticated actor at line 57. services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:58 binds the same payload and idempotency key, while line 94 retains malformed-frame refusals."
+
+[disposition.22.31.496.6]
+finding = "22.31.496.6"
+status = "environment"
+evidence = "modules/layerxauth/keeper/repair_22_31_496_test.go:50 sends the exact compiler rotation payload to the real keeper and requires the authenticated actor at line 57. services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs:58 binds the same payload and idempotency key, while line 94 retains malformed-frame refusals."

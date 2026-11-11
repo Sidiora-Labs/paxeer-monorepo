@@ -1,0 +1,48 @@
+[issue.1627]
+number = 1627
+title = "Layerxpay genesis export drops canonical escrow receipt history"
+revision = "bb8caac8b3e73e3e2f4b330805574f0bcb540641"
+verdict = "task"
+evidence = "modules/layerxpay/keeper/escrow_receipt.go:45 defines the canonical receipt namespace written at :66 and read at :73, but modules/layerxpay/keeper/genesis.go:55 and :188 export only kernel family prefixes, modules/layerxpay/types/params.go:21 has no receipt collection, and modules/lxphost/genesis.go:123 excludes the receipt namespace, so neither supported pay genesis round trip can restore these receipts."
+close_comment = "Canonical escrow receipt history is omitted from both supported genesis recovery paths even when escrow state is restored. Both paths need to preserve and validate the canonical receipt bytes, including receipts for replayed operations."
+
+[task.18.1627.1]
+title = "Issue #1627: Preserve canonical escrow receipts across both genesis recovery paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181627.1"]
+capabilities = []
+interfaces = []
+do_1 = "Extend GenesisState and its validation in modules/layerxpay/types/params.go:21 and :31 with a distinct escrow receipt collection, leaving kernel record key and value bounds intact; update ExportGenesis, InitGenesis, RecoveryGenesis, RecoveryChunk, ExportRecoveryGenesis and InitRecoveryGenesis in modules/layerxpay/keeper/genesis.go:15, :52, :79, :88, :173 and :204 to export detached receipt pairs from the namespace defined at modules/layerxpay/keeper/escrow_receipt.go:45 and restore them into the shared host store atomically with the owned state; include receipt counts, ordering and bytes in recovery chunk bounds and checksum validation, retain all receipt history without an aggregate history cap, and reject malformed, duplicate, foreign or sequence-mismatched receipt entries before writing either store."
+do_2 = "Add TestPayGenesisKeepsEscrowReceipts in modules/layerxpay/keeper/genesis_test.go alongside TestPayGenesisRoundTrip at :127, using real successful escrow operations and a replay as in modules/layerxpay/keeper/repair_131_test.go:183; assert GetEscrowReceipt returns the produced canonical bytes before export, JSON-serialize each supported pay envelope together with ExportStoreGenesis output, import into fresh on-disk host and pay stores, close and reopen the destination, and assert the same sequences, exact receipt bytes, economic roots and escrow state survive; cover receipt history spanning recovery chunks and reject corrupted receipt keys, bodies, duplicate entries and altered recovery counts or checksums without changing either destination store."
+symbols = ["GenesisState", "ValidateOwnedGenesis", "ExportGenesis", "InitGenesis", "RecoveryGenesis", "RecoveryChunk", "ExportRecoveryGenesis", "InitRecoveryGenesis", "TestPayGenesisKeepsEscrowReceipts"]
+touches = ["modules/layerxpay/types/params.go", "modules/layerxpay/keeper/genesis.go", "modules/layerxpay/keeper/genesis_test.go"]
+tests = ["modules/layerxpay/keeper/genesis_test.go::TestPayGenesisKeepsEscrowReceipts"]
+planned_paths = []
+build_cmd = "go build ./modules/layerxpay/keeper/"
+verify_cmd = "go test -count=1 ./modules/layerxpay/keeper/ -run '^TestPayGenesisKeepsEscrowReceipts$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181627]
+title = "Genesis recovery preserves canonical escrow receipt history"
+ac_1 = "Given successful escrow operations and replays whose canonical receipts are persisted by modules/layerxpay/keeper/escrow_receipt.go:66, when either export/import pair at modules/layerxpay/keeper/genesis.go:15, :52, :173 and :204 is transported through JSON with the host genesis and restored into fresh stores, then GetEscrowReceipt at modules/layerxpay/keeper/escrow_receipt.go:72 returns identical canonical bytes and economic roots for every original sequence after a destination database close/reopen, escrow state remains equal, multi-chunk history is retained, and malformed or altered receipt envelopes are rejected before any writes."
+
+[acceptance.18.1627.1]
+feature = "18"
+req = "181627.1"
+scenario = "Given real successful escrow operations and replays with persisted canonical receipts, when each supported pay genesis export and the host genesis are serialized, imported into fresh stores and reopened, then every original receipt sequence returns identical canonical bytes and economic roots alongside the restored escrow state, receipt history survives recovery chunk boundaries, and invalid receipt envelopes leave both stores unchanged"
+contract = "contracts/pay.md#genesis"
+test = "modules/layerxpay/keeper/genesis_test.go::TestPayGenesisKeepsEscrowReceipts (planned)"
+qualification = "UNRUN"

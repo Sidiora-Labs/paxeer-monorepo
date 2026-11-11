@@ -81,9 +81,9 @@ def test_node_pr_input_coverage():
     assert "make -f chain.mk paxd-native-digest-check" in commands["paxd"]
     assert "make test-lxphost" in commands["lxphost"]
     tests = step_named("node-build.yml", "node-tests", "Test node packages")
-    assert tests["run"] == "go test ./node/..."
+    assert tests["run"] == "go test -timeout 15m -count=1 ./node/..."
     assert tests["env"]["CGO_ENABLED"] == "1"
-    assert commands["node-tests"].index("make paxd-native-libs") < commands["node-tests"].index("go test ./node/...")
+    assert commands["node-tests"].index("make paxd-native-libs") < commands["node-tests"].index("go test -timeout 15m -count=1 ./node/...")
     gate = config["jobs"]["node-build-gate"]
     assert gate["if"] == "always()"
     assert set(gate["needs"]) == {"native-libs", "paxd", "lxphost", "node-tests"}
@@ -307,8 +307,10 @@ def release_source_contract():
     script = source("tools/release/build-paxd.sh")
     shell_syntax(script)
     assert "set -euo pipefail" in script
-    assert "layerxd" not in script.lower()
-    assert "PAXD_RELEASE_LAYERXD" not in script
+    assert 'if [ "${PAXD_RELEASE_LAYERXD:-0}" != 0 ]; then' in script
+    assert "PAXD_RELEASE_LAYERXD is retired; release the merged paxd package" in script
+    assert re.search(r"release_assets\(\).*?return 2", script, re.S)
+    assert not re.search(r"(?:go|cargo) build[^\n]*layerxd", script)
     libs = re.search(r"^native_libs=\((.+)\)$", script, re.M)
     assert shlex.split(libs[1]) == ["build/liblayerx.a", "programs/target/release/liblayerx_programs_sandbox.a"]
     native = script.index('paxd-native-libs\n')

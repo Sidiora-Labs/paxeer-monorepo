@@ -1,0 +1,680 @@
+[
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/protocol",
+    "test": "TestRepair_61_event_argument_collision",
+    "reason": "repair_61_test.go line 150: the real consumer in services/launchpad/indexer cannot compile internal/processor/repair_m1000_test.go line 32 because github.com/elliots/go-pglite is undeclared and -mod=readonly forbids import lookup.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings",
+    "test": "TestProofLaunchpadSdkProtocolGo",
+    "reason": "proof_launchpad_sdk_protocol_go_test.go line 143: the real consumer in services/launchpad/indexer cannot compile internal/processor/repair_m1000_test.go line 32 because no required module provides github.com/elliots/go-pglite.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/protocol/coverage",
+    "test": "TestRealReviewedHistoricalDecoderMeasurement",
+    "reason": "measure_test.go line 68: actual reviewed L02 historical measurement manifest/digest and chain125 RPC inputs are required but unavailable under the complete workflow fixture environment.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase2AuditDurableBridgeAndRealBroker",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase2AuditRuntimeCannotRewriteHistory",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase3StoredReplayIntegrityAndCanceledTransaction",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase2CommittedContractRevocation",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase2RealHTTPAuthorizationAndReplay",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/auth",
+    "test": "TestPhase4RealSignedLoadMeasurement",
+    "reason": "Reads launchpad/spec/production-system/handoffs/L33/schema-proposal.sql, which is not tracked; the production specification pair must be supplied by its owner.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase2ReadAdapterRealRegisteredPool",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealFirstPinConflictPublishesNothing",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealQueuedCancellationReleasesCapacity",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealMalformedAndOversizedLogsPublishNothing",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealLaggingFallbackPreservesObservedCursor",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealTimedOutHeightRetainsCompleteReplay",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealCoalescedCancellationReleasesWorker",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealBatchIDsFailClosed",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealOpticalRejectionNeverUsesNumericFallback",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealQuarantineInvalidatesCachedSnapshot",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase3RealThousandBlockRangeSplitCoversChildren",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/chain",
+    "test": "TestPhase4ChainMeasurementRealMixedWorkload",
+    "reason": "Requires the real chain125 provider and deployed-pool fixture KINDLE_L01_REAL_FIXTURE_JSON; measured workload also requires KINDLE_L01_PHASE4_INPUT_JSON.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production",
+    "test": "TestPhase3CancellationAndAuthorization",
+    "reason": "production_test.go line 421: the cancelled SQL connection was neither reusable nor discarded within one second under the fixture database.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production",
+    "test": "TestPhase2ReaderCompatibility",
+    "reason": "Requires explicitly configured PostgreSQL runtime/reader credentials, independent reader binaries or a physical standby (L07_POSTGRES_DSN, L07_READER_PASSWORD, L07_REPLICA_DSN).",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production",
+    "test": "TestPhase2RuntimeConstructorsAtAllocatedMaximum",
+    "reason": "Requires explicitly configured PostgreSQL runtime/reader credentials, independent reader binaries or a physical standby (L07_POSTGRES_DSN, L07_READER_PASSWORD, L07_REPLICA_DSN).",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production",
+    "test": "TestPhase2PausedReplicaOwnershipAndAdmission",
+    "reason": "Requires explicitly configured PostgreSQL runtime/reader credentials, independent reader binaries or a physical standby (L07_POSTGRES_DSN, L07_READER_PASSWORD, L07_REPLICA_DSN).",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery",
+    "test": "TestArchiveActualCanonicalPostgresAndObjectStorage",
+    "reason": "Requires the admitted PostgreSQL and object-storage archive with DELIVERY_ARCHIVE_* provenance and source-range configuration.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery",
+    "test": "TestReplayPostgresLifecycle",
+    "reason": "Requires the admitted PostgreSQL and object-storage archive with DELIVERY_ARCHIVE_* provenance and source-range configuration.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery",
+    "test": "TestShadowPostgresDurableObservations",
+    "reason": "Requires the admitted PostgreSQL and object-storage archive with DELIVERY_ARCHIVE_* provenance and source-range configuration.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery",
+    "test": "TestRepair_41_ActiveRebuildRestart",
+    "reason": "Requires the admitted PostgreSQL and object-storage archive with DELIVERY_ARCHIVE_* provenance and source-range configuration.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery",
+    "test": "TestRepair_41_RejectInconsistentActiveRecovery",
+    "reason": "Requires the admitted PostgreSQL and object-storage archive with DELIVERY_ARCHIVE_* provenance and source-range configuration.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver",
+    "test": "TestEpochRealPostgresPersistsFenceBeforeExplicitActivation",
+    "reason": "Requires a real NATS broker and PostgreSQL recovery-control fixture configured by BROKER_EPOCH_TEST_DSN or DELIVERY_TEST_DSN.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver",
+    "test": "TestEpochRealPostgresFailureCannotCertifyFence",
+    "reason": "Requires a real NATS broker and PostgreSQL recovery-control fixture configured by BROKER_EPOCH_TEST_DSN or DELIVERY_TEST_DSN.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_PutGetRoundTrip",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_GetBytes",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_Head",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_Delete",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_NotFound",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestClient_Bucket",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/storage",
+    "test": "TestNewFromS3",
+    "reason": "Requires a running object store and SHARED_TEST_MINIO_ENDPOINT, SHARED_TEST_MINIO_ACCESS_KEY_ID and SHARED_TEST_MINIO_SECRET_ACCESS_KEY.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver",
+    "test": "TestPhase3ActualRelayCrashAndConsumerRestart",
+    "reason": "The embedded NATS server rejects the driver test configuration because its duplicates window is below the required minimum of 100 ms.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver",
+    "test": "TestPhase3ActualOrderedPoisonAndHundredDuplicates",
+    "reason": "The embedded NATS server rejects the driver test configuration because its duplicates window is below the required minimum of 100 ms.",
+    "retiring_task": "22.39.117"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentTransactionStatusFromChainRPC",
+    "reason": "dev_network_reads_test.go line 279: log-free reversion must refuse an invented event position expected HTTP 503 INTEGRITY_QUARANTINED, but the shared v2 receipt projection returns HTTP 200 included_reverted with a receipt.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestRepair_27_log_free_receipts",
+    "reason": "repair_27_test.go line 240: SDK log-free evidence/position refusal expects ErrReceiptPosition and no receipt, but the shared v2 receipt projection returns included_success, a receipt and no error.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamTerminalFramesCarryCloseCode",
+    "reason": "dev_stream_close_test.go line 36: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamSnapshotWebSocketAndSSE",
+    "reason": "dev_stream_test.go line 436: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamUnknownPoolAndLegacy",
+    "reason": "dev_stream_test.go line 715: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamSnapshotKnownPoolWithoutData",
+    "reason": "dev_stream_test.go line 736: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamSnapshotRegistryFailureStaysRetryable",
+    "reason": "dev_stream_test.go line 749: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/app",
+    "test": "TestDevelopmentStreamUnknownPoolSubscribeCloses",
+    "reason": "dev_stream_test.go line 760: app.New: chain reference unavailable",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker",
+    "test": "TestPostgresRetainedIdentitiesSurviveInterruptedReplay",
+    "reason": "postgres_stream_test.go line 198: timeout: context already done: context deadline exceeded",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker",
+    "test": "TestPostgresResumePreflightsByteLimitBeforeDelivery",
+    "reason": "postgres_stream_test.go line 297: timeout: context already done: context deadline exceeded",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/cache",
+    "test": "TestRealTwoAuthenticatedWalletCacheIsolation",
+    "reason": "adapter_test.go line 417: allocated real PostgreSQL, Redis and lane namespace required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/cache",
+    "test": "TestRealHotExpiryAcrossTenReplicas",
+    "reason": "adapter_test.go line 467: allocated real PostgreSQL, Redis and lane namespace required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/cache",
+    "test": "TestRealExclusiveRedisFlushPreservesDurableTruth",
+    "reason": "adapter_test.go line 558: allocated real PostgreSQL, Redis and lane namespace required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/cache",
+    "test": "TestRealAdapterMeasurementCapture",
+    "reason": "adapter_test.go line 648: allocated real PostgreSQL, Redis and lane namespace required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestFrozenV2ResponseSchemasMatchHandlerBytes",
+    "reason": "frozen_response_schema_test.go line 95: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestHolderRewardsProductionRead",
+    "reason": "holder_rewards_test.go line 85: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestLeaderboardProductionRead",
+    "reason": "leaderboards_test.go line 63: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestPoolDetailProductionRead",
+    "reason": "pool_reads_test.go line 218: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestPoolListProductionRead",
+    "reason": "pool_reads_test.go line 266: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestHoldersProductionReadValidation",
+    "reason": "pool_reads_test.go line 326: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestPlatformMetricsProductionRead",
+    "reason": "pool_reads_test.go line 364: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestPoolStatsInterface22FieldsRoundTrip",
+    "reason": "pool_stats_v22_test.go line 39: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionCanonicalStatsAndSnapshotResume",
+    "reason": "production_integration_test.go line 135: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionGeneratedSDKUsesActualHTTPAndExactAmounts",
+    "reason": "production_integration_test.go line 256: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionPrivateSnapshotDenialIsUncacheableAndRedactsTokens",
+    "reason": "production_integration_test.go line 394: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionHTTPAdmissionSurgePreservesReserveAndRejectsExplicitly",
+    "reason": "production_integration_test.go line 420: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionRESTMeasurementHarness",
+    "reason": "qualification_workload_test.go line 1091: actual approved L22 measurement input required: absolute SHA-bound input required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionRESTMeasurementAggregate",
+    "reason": "qualification_workload_test.go line 1427: actual source-bound generator result manifest required: absolute SHA-bound input required",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest",
+    "test": "TestProductionRegisteredOperationsHaveFrozenContracts",
+    "reason": "route_inventory_test.go line 16: API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store",
+    "test": "TestProductionCanonicalAccountingPagesKeepCommittedFrontier",
+    "reason": "production_readmodel_test.go line 283: timeout: context deadline exceeded",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
+    "test": "TestProofLaunchpadPnlTracker",
+    "reason": "proof_launchpad_pnl_tracker_test.go line 57: actual contract fixture: exit status 1: Cannot find module 'ethers' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
+    "test": "TestRepair_29_RewardSchemaReadiness",
+    "reason": "repair_29_test.go line 151: embedded SQL startup: process=exit status 1 scanner=<nil>: Cannot find package '@electric-sql/pglite' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
+    "test": "TestRepair_29_RewardRequestSchemaRecovery",
+    "reason": "repair_29_test.go line 330: production contract compilation: exit status 1: Cannot find package 'solc' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
+    "test": "TestRepairM_917_FreshInstallMigrationContract",
+    "reason": "repair_m917_test.go line 38: reward-proof-schema: production registry admission: unapproved migration registry",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app",
+    "test": "TestRepairM_917_ExistingSchemaUpgradeMigrationContract",
+    "reason": "repair_m917_test.go line 41: reward-proof-schema: production registry admission: unapproved migration registry",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/card",
+    "test": "TestRepair_45_LegacyMintRetired",
+    "reason": "repair_45_test.go line 57: retired mint status = 410, want current handler rejection 500: {\"statusCode\":410,\"error\":\"Gone\",\"message\":\"legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares\"}",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads",
+    "test": "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity",
+    "reason": "repair_m1032_test.go line 404: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/devreads",
+    "test": "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark",
+    "reason": "repair_m1032_test.go line 459: real Store.FoldTrade: inserted=false err=store: load trade journal: ERROR: query outside peer schema: SELECT id, token_address, is_buy, usdl_amount, token_amount, block_number, block_timestamp FROM pnl.user_trades WHERE user_address = '0x00000000000000000000000000000000000000a1' AND pool_address = '0x0000000000000000000000000000000000000a0a' (SQLSTATE XX000)",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestFactoryCreationSupplyMatchesDeployedCreationPath",
+    "reason": "baseline_ahead_postgres_test.go line 264: L16_BASELINE_RPC required (PNL_TEST_POSTGRES_DSN: fixture PostgreSQL that may CREATE DATABASE/ROLE; L16_BASELINE_RPC: chain 125 primary node; L16_SECOND_RPC: chain 125 archive node; PNL_TEST_NATS_URL: fixture JetStream); local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestBaselineAheadIssuesCreatorBaselineBeforeFirstFillPostgres",
+    "reason": "baseline_ahead_postgres_test.go line 306: L16_BASELINE_RPC required (PNL_TEST_POSTGRES_DSN: fixture PostgreSQL that may CREATE DATABASE/ROLE; L16_BASELINE_RPC: chain 125 primary node; L16_SECOND_RPC: chain 125 archive node; PNL_TEST_NATS_URL: fixture JetStream); local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestIndexerInventoryFramesConsumedByPnlPostgres",
+    "reason": "baseline_ahead_postgres_test.go line 408: L16_BASELINE_RPC required (PNL_TEST_POSTGRES_DSN: fixture PostgreSQL that may CREATE DATABASE/ROLE; L16_BASELINE_RPC: chain 125 primary node; L16_SECOND_RPC: chain 125 archive node; PNL_TEST_NATS_URL: fixture JetStream); local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestInventoryFramesInFlightAcrossFenceChangePostgres",
+    "reason": "baseline_ahead_postgres_test.go line 586: L16_BASELINE_RPC required (PNL_TEST_POSTGRES_DSN: fixture PostgreSQL that may CREATE DATABASE/ROLE; L16_BASELINE_RPC: chain 125 primary node; L16_SECOND_RPC: chain 125 archive node; PNL_TEST_NATS_URL: fixture JetStream); local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestBaselineAheadIssuesBaselineForDeferredFirstFillPostgres",
+    "reason": "baseline_ahead_postgres_test.go line 629: L16_BASELINE_RPC required (PNL_TEST_POSTGRES_DSN: fixture PostgreSQL that may CREATE DATABASE/ROLE; L16_BASELINE_RPC: chain 125 primary node; L16_SECOND_RPC: chain 125 archive node; PNL_TEST_NATS_URL: fixture JetStream); local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestFreshBaselineCapturedFromActualCanonicalChain",
+    "reason": "baseline_test.go line 69: L16_BASELINE_RPC required for genuine baseline authority qualification; local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestLiveCanonicalExternalGiftPublishesAtomicUnknownBasis",
+    "reason": "live_transfers_production_test.go line 94: L16_BASELINE_RPC required for real PostgreSQL/committed Anvil/identity provider qualification; local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestLiveDenseCanonicalTransfersUseCommittedReceiptPages",
+    "reason": "live_transfers_production_test.go line 148: L16_BASELINE_RPC required for real PostgreSQL/committed Anvil/identity provider qualification; local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestLiveCanonicalMixedBasisSaleDoesNotDoubleCountTransfer",
+    "reason": "live_transfers_production_test.go line 175: L16_BASELINE_RPC required for real PostgreSQL/committed Anvil/identity provider qualification; local PostgreSQL and JetStream are supplied, but the admitted chain125 primary/archive deployment authority is unavailable.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestPhase4InventoryMeasurementAgainstActualProviders",
+    "reason": "measurement_production_test.go line 32: L16_MEASUREMENT_PLAN required for actual inventory measurement",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepair_63_MigrationFixturePaths",
+    "reason": "repair_63_test.go line 90: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepair_63_CoordinatorWalletContract",
+    "reason": "repair_63_test.go line 102: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepair_63_ActiveSnapshotUpdateGrant",
+    "reason": "repair_63_test.go line 734: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepair_63_WalletRangeSchemaMigrated",
+    "reason": "repair_63_test.go line 785: open /work/paxeer-monorepo/launchpad/launchpad/spec/production-system/integration/migrations/60000.sql: no such file or directory",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepairM_1018_ProductionGrantRendering",
+    "reason": "repair_m1018_test.go line 118: unapproved migration registry",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16",
+    "test": "TestRepairM_1018_CompleteDependencyMigrations",
+    "reason": "repair_m1018_test.go line 176: unapproved migration registry",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17",
+    "test": "TestPostgresSnapshotOutboxExport",
+    "reason": "l17_test.go line 230: { 0   0001-01-01 00:00:00 +0000 UTC } invalid portfolio input",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17",
+    "test": "TestPhase3ExportExpiredLeaseRestartAndDigestIntegrity",
+    "reason": "phase2_test.go line 471: invalid portfolio input",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17",
+    "test": "TestShareV3RealFontPNGExpiryAndSelectedNull",
+    "reason": "shares_v3_production_test.go line 151: L17_SHARE_FONT_DIR required with actual admitted Inter-Bold.ttf and Inter-Regular.ttf",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestActualAnvilCreatorAndEpochStorage",
+    "reason": "chain_test.go line 70: actual contract fixture: exit status 1: Cannot find module 'ethers' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestPhase3ActualReceiptReplayAndNodeDisagreement",
+    "reason": "chain_test.go line 310: actual contract fixture: exit status 1: Cannot find module 'ethers' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestPhase2ActualCommittedCreatorAuthorityAndReceipt",
+    "reason": "journeys_test.go line 136: actual contract fixture: exit status 1: Cannot find module 'ethers' in the existing Node fixture; dependencies are installed only in contracts/launchpad by the public job.",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair1019MixedStrategyRewards",
+    "reason": "repair_1019_test.go line 27: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair1019CommunityPolicyRestart",
+    "reason": "repair_1019_test.go line 99: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair1019OutboxRuntimeRights",
+    "reason": "repair_1019_test.go line 137: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair1019OutboxCrashRecovery",
+    "reason": "repair_1019_test.go line 161: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair_62_SchemaSequenceGrants",
+    "reason": "repair_62_test.go line 47: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair_62_JourneyIndexerGrants",
+    "reason": "repair_62_test.go line 96: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair_62_RewardHistoryAgeOutage",
+    "reason": "repair_62_test.go line 160: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
+    "test": "TestRepair_62_IndexedPagingIntegrity",
+    "reason": "repair_62_test.go line 193: bootstrap registry changed; refresh its catalog transcript",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
+    "test": "TestRepairM_1014_PoisonPrefixRecovery",
+    "reason": "repair_m1014_test.go line 682: prefix=0 err=reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
+    "test": "TestRepairM_1014_CursorFailureReplayDeduplicates",
+    "reason": "repair_m1014_test.go line 719: cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
+    "test": "TestRepairM_1014_RestartRefreshObligation",
+    "reason": "repair_m1014_test.go line 759: interrupted refresh=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "retiring_task": "22.39.154"
+  },
+  {
+    "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/reconcile",
+    "test": "TestRepairM_1014_PoisonCursorFailureRecovery",
+    "reason": "repair_m1014_test.go line 814: poison plus cursor failure=0 reconcile: fold swap 0xswap-0: store: scan trade journal: number of field descriptions must equal number of destinations, got 12 and 7",
+    "retiring_task": "22.39.154"
+  }
+]

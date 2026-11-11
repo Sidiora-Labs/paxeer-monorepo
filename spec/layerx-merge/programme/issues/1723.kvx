@@ -1,0 +1,7 @@
+[issue.1723]
+number = 1723
+title = "Migrate retained CLI documentation tests to root-node transport"
+revision = "a910fdedd579e63379ae6c2e4d4971990d28f8ad"
+verdict = "already-fixed"
+evidence = "Commit a08a60044bf3f1a66189338037862089c11b31f0 migrated the retained target: tools/platform/cli/tests/repair_22_33_1499.rs:235 supplies a root URL, :291 requires POST /, :359 accepts the public root, :365 rejects the retired node path, and :835 requires the root WebSocket upgrade, matching tools/platform/cli/src/rpc.rs:21 and :48 while retaining authentication at tools/platform/cli/tests/repair_22_33_1499.rs:587, command and fee-input assertions at :666 and :675, and signed-receipt byte equality and tamper refusal at :751 and :754."
+close_comment = "The retained CLI documentation tests now accept public root-node URLs, reject non-root node endpoints, and use the root path for HTTP requests and WebSocket upgrades. The migration preserves authentication, command, fee-input and signed-receipt assertions."

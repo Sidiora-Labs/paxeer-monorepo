@@ -1,0 +1,129 @@
+[disposition.12.0.3.1.a2]
+finding = "12.0.3.1.a2"
+status = "environment"
+evidence = "Commit 4c9c32493e removes the obsolete layerxSync worker and mounts the EVM approval routes. On main services/wallet/gateway/src/routes/evmApprovals.ts:472 exposes the authenticated signing endpoint, while the deleted startLayerxSync worker has no remaining implementation."
+
+[disposition.12.10.4.1.a2]
+finding = "12.10.4.1.a2"
+status = "resolved"
+evidence = "Commit d84caa914c replaces the native-transfer fixture with an ERC-20 approval and receipt journey. On main services/wallet/gateway/test/evm-sign.test.ts:757 requires the reviewed token transfer and line 795 checks the returned pax_sequencerReceipt evidence for the signed transaction."
+
+[disposition.12.10.4.2.a2]
+finding = "12.10.4.2.a2"
+status = "resolved"
+evidence = "Commit d84caa914c separates the zero value from the remaining parsed transaction fields. On main services/wallet/gateway/test/evm-sign.test.ts:784 compares the other fields and line 785 explicitly compares signed.value with zero when the parser omits it, then checks serialization of the full transaction."
+
+[disposition.12.10.4.a2]
+finding = "12.10.4.a2"
+status = "environment"
+evidence = "On main services/wallet/gateway/src/routes/evmApprovals.ts:472 admits only authenticated EVM signing requests, and line 483 refuses a row without explicit approval. Commit d84caa914c carries this approval-to-signing path and its retained receipt evidence."
+
+[disposition.12.18.2.a2]
+finding = "12.18.2.a2"
+status = "resolved"
+evidence = "Commit 16672eaf7f migrates vector disclosure to call builders and 7c1f87c58f removes the historical activity round trip. On main services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:152 validates the budget-funding version, budget id and positive amount, and line 644 compares the generated vectors with the pinned file."
+
+[disposition.12.23.4.a2]
+finding = "12.23.4.a2"
+status = "resolved"
+evidence = "Commit d8ec0e761e adds receipted sending after the receipt helper is available. On main sdk/wallet/src/provider.ts:12 imports waitForSequencerReceipt and line 381 implements paxeer_sendTransactionReceipted by sending the transaction, waiting for the receipted rung and rechecking signing context."
+
+[disposition.12.3.3.a2]
+finding = "12.3.3.a2"
+status = "resolved"
+evidence = "Commit 070fba60c2 removes the activity policy branch and adapts the remaining consumers. On main services/wallet/attestor/internal/server/sign.go:519 dispatches SendAuthorizationRequest, BindRequest and GrantRequest to their typed evaluators and refuses a kernel policy kind without its matching view."
+
+[disposition.12.33.1.a2]
+finding = "12.33.1.a2"
+status = "resolved"
+evidence = "Commit e90ee77750 adapts the web-data surface to the new observation shape. On main apps/wallet/src/surfaces/WebDataView.tsx:75 renders the observation rung and block number and line 79 renders its state root, matching the grant-cap observation contract."
+
+[disposition.12.33.2.a2]
+finding = "12.33.2.a2"
+status = "resolved"
+evidence = "Commit 4a2160446f ports the exchange callers to v2 and 36df3ad933 aligns them with the current precompile ABI. On main sdk/wallet/src/modules/exchange.ts:56 passes the typed order to perpsOpenPositionCall and line 57 passes the order id to the current perpsCancelOrderCall."
+
+[disposition.12.33.5.a2]
+finding = "12.33.5.a2"
+status = "resolved"
+evidence = "Commit 28efdf736c adapts the swap consumer to the receipted execution result and df704bad45 subsequently persists swap progress. On main apps/wallet/src/widgets/swap/useSwapExecution.ts:172 awaits the journaled execution and line 196 derives txHash from recorded transaction hash fields."
+
+[disposition.12.34.1.1.a2]
+finding = "12.34.1.1.a2"
+status = "resolved"
+evidence = "Commit e90ee77750 repairs the observation producer and its surface consumers. On main apps/wallet/src/surfaces/useSurface.ts:839 returns an observation with rung, block_number and state_root, and WebDataView.tsx:75 reads that same shape."
+
+[disposition.12.34.1.a2]
+finding = "12.34.1.a2"
+status = "resolved"
+evidence = "Commit 2153419b04 changes transfer completion to the committed rung. On main apps/wallet/src/components/TransferSuccess.tsx:259 requires included truth and a committed ladder step, and line 261 treats a highest receipted rung separately from completion."
+
+[disposition.12.34.2.1.a2]
+finding = "12.34.2.1.a2"
+status = "resolved"
+evidence = "Commit 4a2160446f ports the exchange callers, followed by ABI alignment in 36df3ad933. On main apps/wallet/src/surfaces/ExchangeView.tsx:139 builds a typed perps position and line 150 cancels by the parsed order id through the current exchange module."
+
+[disposition.12.34.2.a2]
+finding = "12.34.2.a2"
+status = "resolved"
+evidence = "Commit e90ee77750 adapts grant-cap observations to the SDK contract. On main apps/wallet/src/surfaces/useSurface.ts:839 constructs the committed observation with its block number and state root, while WebDataView.tsx:75 consumes its rung and block_number."
+
+[disposition.12.34.6.1.a2]
+finding = "12.34.6.1.a2"
+status = "resolved"
+evidence = "Commit 4a2160446f replaces the old perps caller shapes and 36df3ad933 aligns the open and cancel calls with the precompile ABI. On main apps/wallet/src/surfaces/ExchangeView.tsx:139 constructs the position through buildPerpsPosition and line 150 passes the order id to cancelOrder."
+
+[disposition.12.34.6.a2]
+finding = "12.34.6.a2"
+status = "resolved"
+evidence = "Commits 3e726112a5, 2153419b04 and e90ee77750 carry the rung and observation changes through the wallet consumers. On main apps/wallet/src/account/StatusLadder.tsx:23 labels submitted, receipted and committed, and WebDataView.tsx:75 renders the new block observation."
+
+[disposition.12.35.1.1.a2]
+finding = "12.35.1.1.a2"
+status = "resolved"
+evidence = "Commit e90ee77750 repairs the grant-cap producer and its web-data consumer. On main apps/wallet/src/surfaces/WebDataView.tsx:75 renders observation.rung and observation.block_number, with observation.state_root displayed at line 79."
+
+[disposition.12.35.1.a2]
+finding = "12.35.1.a2"
+status = "resolved"
+evidence = "Commit 3e726112a5 replaces the old status labels with the sequencer rungs and removes the anchor source. On main apps/wallet/src/account/StatusLadder.tsx:23 declares submitted, receipted and committed labels and line 28 declares receipt, explorer and journey sources."
+
+[disposition.12.35.2.1.a2]
+finding = "12.35.2.1.a2"
+status = "resolved"
+evidence = "Commit b64a7eec28 routes receipt observation to the sequencer rather than the ordinary chain reader. On main apps/wallet/e2e/send.spec.ts:125 directs pax_sequencerReceipt to SEQUENCER_RPC and line 1082 requires the sent transaction to have receipted or committed evidence before the ladder assertion."
+
+[disposition.12.35.2.a2]
+finding = "12.35.2.a2"
+status = "resolved"
+evidence = "Commit e90ee77750 repairs the web-data observation consumer and 3e726112a5 repairs its status-ladder sibling. On main apps/wallet/src/surfaces/WebDataView.tsx:75 reads rung and block_number, and apps/wallet/src/account/StatusLadder.tsx:23 uses the three sequencer rung labels."
+
+[disposition.12.4.4.a2]
+finding = "12.4.4.a2"
+status = "resolved"
+evidence = "Commit 7d811547b0 preserves the published ErrorCodes map and adapts the metrics caller. On main services/wallet/attestor/cmd/attestor/main.go:137 collects the map keys and passes them to health.NewMetrics, matching internal/server/errors.go:88."
+
+[disposition.12.5.5.a2]
+finding = "12.5.5.a2"
+status = "resolved"
+evidence = "Commit d746421839 replaces external receipt inputs with explicit successful, reverted and missing receipt cases. On main services/wallet/gateway/test/chain-reads-receipt.test.ts:10 declares actionReceiptWaitUsesSequencerReceipt and line 20 supplies the success and reverted SequencerReceiptResult map for the receipt-wait assertions."
+
+[disposition.12.6.2.1.a2]
+finding = "12.6.2.1.a2"
+status = "resolved"
+evidence = "Commit c7c16a6427 supplies matching authority and inventory inputs for provisioning. On main services/wallet/gateway/test/provisioning.test.ts:619 provides the identity-binding private key and tenant together with the custody inventory and its public key, satisfying the pinned authority contract."
+
+[disposition.12.6.2.a2]
+finding = "12.6.2.a2"
+status = "resolved"
+evidence = "Commit c7c16a6427 supplies the attestor authority pin used by the provisioning path. On main services/wallet/gateway/test/provisioning.test.ts:292 encodes the public key as SPKI PEM and line 395 supplies the public-key file, issuer and tenant required by internal/auth/agent/authority.go:117."
+
+[disposition.12.6.3.a2]
+finding = "12.6.3.a2"
+status = "resolved"
+evidence = "Commit f9225cc069 implements sponsored binding and persists the station quote and submission state. On main services/wallet/gateway/src/provision/bind.ts:458 encodes executeSponsored, and migrations/020_provisioning_station.sql:2 adds station_quote_nonce alongside the retained station request."
+
+[disposition.12.7.2.a2]
+finding = "12.7.2.a2"
+status = "resolved"
+evidence = "Commit 5706f47c35 removes the deposit action kind while preserving custody reauthorization for allowance-and-call replay. On main services/wallet/gateway/src/routes/agentActions.ts:8 imports retainActionCustodyAuthorization and line 160 calls it for the retained action authorization."

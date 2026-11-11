@@ -97,13 +97,10 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
 }
 
 fn unhex(value: &Value) -> Vec<u8> {
-    must(hex::decode(
-        value
-            .as_str()
-            .expect("fixture hex")
-            .strip_prefix("0x")
-            .expect("RPC hex prefix"),
-    ))
+    must(hex::decode(assert_some(
+        assert_some(value.as_str(), "fixture hex").strip_prefix("0x"),
+        "RPC hex prefix",
+    )))
 }
 
 fn fixture_key(case: &Value) -> ReceiptKeyEntry {
@@ -111,8 +108,8 @@ fn fixture_key(case: &Value) -> ReceiptKeyEntry {
     ReceiptKeyEntry {
         key_id: must(unhex(&key["keyId"]).try_into()),
         public_key: must(unhex(&key["publicKey"]).try_into()),
-        first_height: key["firstHeight"].as_u64().expect("first height"),
-        last_height: key["lastHeight"].as_u64().expect("last height"),
+        first_height: assert_some(key["firstHeight"].as_u64(), "first height"),
+        last_height: assert_some(key["lastHeight"].as_u64(), "last height"),
     }
 }
 
@@ -130,13 +127,14 @@ fn signed_receipt(success: bool) -> (Vec<u8>, Value, Vec<u8>, ReceiptKeyEntry) {
     } else {
         "V2-layerxledger-revert"
     };
-    let case = fixtures["cases"]
-        .as_array()
-        .expect("node cases")
-        .iter()
-        .find(|case| case["id"] == id)
-        .expect("ledger case");
+    let case = assert_some(
+        assert_some(fixtures["cases"].as_array(), "node cases")
+            .iter()
+            .find(|case| case["id"] == id),
+        "ledger case",
+    );
     assert_eq!(case["receiptJson"]["receipt"], case["signedReceipt"]);
+    assert_eq!(case["receiptJson"]["paymentDenom"], "uhpx");
     (
         unhex(&case["rawTransaction"]),
         case["receiptJson"].clone(),
@@ -183,7 +181,8 @@ fn lookup_server(
 }
 
 fn rotated_keys(key: ReceiptKeyEntry) -> Value {
-    let mut entries = published_key(key)["keys"].as_array().unwrap().clone();
+    let mut entries =
+        assert_some(published_key(key)["keys"].as_array(), "expected Some value").clone();
     let old = SigningKey::from_bytes(&[42; 32]);
     let current = SigningKey::from_bytes(&[43; 32]);
     entries.insert(
@@ -214,14 +213,14 @@ fn check_human_receipt_lookup(success: bool) {
     ));
     let tenant = must(TenantId::new("human-node-receipts"));
     let (raw, response, canonical, key) = signed_receipt(success);
-    let height = u64::from_str_radix(
-        response["height"]
-            .as_str()
-            .unwrap()
-            .trim_start_matches("0x"),
-        16,
-    )
-    .unwrap();
+    let height = assert_ok(
+        u64::from_str_radix(
+            assert_some(response["height"].as_str(), "expected Some value")
+                .trim_start_matches("0x"),
+            16,
+        ),
+        "unexpected error",
+    );
     let (transaction, signature) = must(decode_signed(&raw));
     let sender = must(recover_sender(&transaction, &signature));
     let hash = transaction_hash(&raw);
@@ -231,268 +230,30 @@ fn check_human_receipt_lookup(success: bool) {
     let mut outbox = Outbox::default();
     let idempotency_key = must(outbox.enqueue(&mut store, tenant.clone(), raw.clone()));
     assert_eq!(idempotency_key, hash);
-    assert_eq!(outbox.status(idempotency_key).unwrap().activity_id, hash);
+    assert_eq!(
+        assert_some(outbox.status(idempotency_key), "expected Some value").activity_id,
+        hash
+    );
     drop(store);
     let mut store = must(Store::open(&directory));
     let mut outbox = Outbox::default();
     must(outbox.restore(&store, tenant.clone(), idempotency_key));
     assert_eq!(must(outbox.exact_signed_bytes(idempotency_key)), raw);
 
-    {
-        for (first, last) in [(1000, 1999), (height, height)] {
-            let key = ReceiptKeyEntry {
-                first_height: first,
-                last_height: last,
-                ..key
-            };
-            let (node, endpoint, server) = lookup_server(rotated_keys(key), response.clone(), true);
-            let (lookup, keys) = must(lookup_human_receipt_by_outbox_hash(
-                node.as_ref(),
-                &endpoint,
-                &outbox,
-                idempotency_key,
-                hash,
-            ));
-            let Lookup::Verified(receipt) = lookup else {
-                panic!("authenticated receipt required")
-            };
-            assert_eq!(receipt.activity_id(), hash);
-            assert_eq!(receipt.canonical_bytes(), canonical);
-            assert_eq!(receipt.height(), height);
-            assert_eq!(receipt.execution().success, success);
-            assert_eq!(receipt.execution().signing_key, key.public_key);
-            assert_eq!(receipt.result_code().raw(), i32::from(!success));
-            assert_eq!(receipt.rung(), Rung::Receipted);
-            let receipt_tenant = must(TenantId::new(format!(
-                "human-receipt-{success}-{first}-{last}"
-            )));
-            let served = must(layerx_agentd::receipt::store_verified_if_absent(
-                &mut store,
-                receipt_tenant.clone(),
-                idempotency_key,
-                receipt.canonical_bytes(),
-                &receipt,
-            ));
-            let protocol = receipt.receipt().protocol().unwrap();
-            let authority = AuthorizedBatch::new(
-                protocol.batch_id(),
-                protocol.asset(),
-                protocol.previous_state_root(),
-                protocol.resulting_state_root(),
-                key.public_key,
-            );
-            let verified = must(VerifiedReceipt::verify(hash, &canonical, &keys));
-            let block = committed_block(&raw, height);
-            for committed in [false, true] {
-                let evidence = must(augment_verified(
-                    &mut store,
-                    receipt_tenant.clone(),
-                    idempotency_key,
-                    &verified,
-                    committed.then_some(&block),
-                ));
-                let answer = must(receipt_lookup_found_bytes(
-                    &served, &evidence, authority, &keys,
-                ));
-                let ReceiptLookupAnswer::Found(frame) = must(ReceiptLookupAnswer::decode(&answer))
-                else {
-                    panic!("found receipt answer required");
-                };
-                assert_eq!(
-                    frame,
-                    ReceiptLookupFrame {
-                        canonical_bytes: served.canonical_bytes.clone(),
-                        authorised_batch: authority,
-                        verification_level: served.metadata.verification_level,
-                        tx_hash: evidence.tx_hash,
-                        receipt_hash: sha256(&canonical),
-                        block_height: evidence.height,
-                        rung: if committed {
-                            Rung::Committed
-                        } else {
-                            Rung::Receipted
-                        },
-                        signed_receipt: evidence.receipt_bytes.clone(),
-                        receipt_key_id: key.key_id,
-                        public_key: key.public_key,
-                        first_height: first,
-                        last_height: last,
-                        inclusion_height: height,
-                    }
-                );
-                assert_eq!(
-                    must(ReceiptLookupFrame::decode(&must(frame.encode()))),
-                    frame
-                );
-                let mut mismatched = evidence.clone();
-                mismatched.tx_hash[0] ^= 1;
-                assert!(matches!(
-                    receipt_lookup_found_bytes(&served, &mismatched, authority, &keys),
-                    Err(HumanOperationError::Refused)
-                ));
-            }
-            assert_eq!(served.canonical_bytes, canonical);
-            assert_eq!(served.metadata.activity_id, hash);
-            assert_eq!(served.metadata.idempotency_key, idempotency_key);
-            assert_eq!(served.metadata.result.code.raw(), i32::from(!success));
-            for selector in [
-                layerx_agentd::receipt::ReceiptLookupKey::Activity(hash),
-                layerx_agentd::receipt::ReceiptLookupKey::Idempotency(idempotency_key),
-                layerx_agentd::receipt::ReceiptLookupKey::GlobalSequence(receipt.global_sequence()),
-            ] {
-                assert_eq!(
-                    must(layerx_agentd::receipt::serve(
-                        &store,
-                        receipt_tenant.clone(),
-                        selector
-                    )),
-                    served
-                );
-            }
-            assert!(layerx_agentd::receipt::store_verified_if_absent(
-                &mut store,
-                receipt_tenant.clone(),
-                [0x88; 32],
-                receipt.canonical_bytes(),
-                &receipt,
-            )
-            .is_err());
-            assert!(layerx_agentd::receipt::store_verified_if_absent(
-                &mut store,
-                receipt_tenant,
-                idempotency_key,
-                b"altered",
-                &receipt,
-            )
-            .is_err());
-            let proof = must(receipt_proof_operation(
-                ProofBundleTarget::Receipt(hash),
-                Rung::Receipted,
-                &raw,
-                receipt.canonical_bytes(),
-                &keys,
-                125,
-                2000,
-                [0x55; 32],
-            ));
-            assert_eq!(proof.value.receipt_key, key);
-            assert_eq!(proof.value.raw_transaction.as_bytes(), raw);
-            assert_eq!(proof.value.signed_receipt.as_bytes(), canonical);
-            assert_eq!(proof.freshness.value_height, height);
-            assert_eq!(proof.freshness.chain_head, 2000);
-            assert_eq!(proof.achieved_rung, Rung::Receipted);
-            assert!(proof.value.commit.is_none());
-            let requests = must(server.join());
-            assert_eq!(requests.len(), 5);
-            assert_eq!(requests[1]["params"], json!([]));
-            for request in &requests[2..] {
-                assert_eq!(request["params"], json!([rpc_hex(&hash)]));
-            }
-        }
-    }
-
-    for wrong_key in [
-        ReceiptKeyEntry {
-            last_height: height - 1,
-            ..key
-        },
-        ReceiptKeyEntry {
-            first_height: height + 1,
-            ..key
-        },
-        ReceiptKeyEntry {
-            public_key: SigningKey::from_bytes(&[99; 32]).verifying_key().to_bytes(),
-            ..key
-        },
-    ] {
-        let (node, endpoint, server) =
-            lookup_server(rotated_keys(wrong_key), response.clone(), false);
-        assert!(matches!(
-            lookup_human_receipt_by_outbox_hash(
-                node.as_ref(),
-                &endpoint,
-                &outbox,
-                idempotency_key,
-                hash
-            ),
-            Err(HumanOperationError::Refused)
-        ));
-        assert_eq!(must(server.join()).len(), 4);
-    }
-
-    let mut altered = response.clone();
-    altered["seq"] = json!("0x8");
-    let (node, endpoint, server) = lookup_server(rotated_keys(key), altered, false);
-    assert!(matches!(
-        lookup_human_receipt_by_outbox_hash(
-            node.as_ref(),
-            &endpoint,
-            &outbox,
-            idempotency_key,
-            hash
-        ),
-        Err(HumanOperationError::Refused)
-    ));
-    assert_eq!(must(server.join()).len(), 4);
-
-    for (id, expected) in [(idempotency_key, [0x88; 32]), ([0x88; 32], hash)] {
-        let (url, server) = serve(vec![("eth_chainId", json!("0x7d"))]);
-        let endpoint = must(SequencerEndpoint::new(&url, &[]));
-        let node = must(NodeRpc::connect(&NodeRpcConfig {
-            url,
-            chain_id: 125,
-            deadline: Duration::from_secs(2),
-        }));
-        assert!(matches!(
-            lookup_human_receipt_by_outbox_hash(&node, &endpoint, &outbox, id, expected),
-            Err(HumanOperationError::Refused)
-        ));
-        assert_eq!(must(server.join()).len(), 1);
-    }
-
-    let (node, endpoint, server) = lookup_server(rotated_keys(key), Value::Null, false);
-    let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
-        node.as_ref(),
-        &endpoint,
-        &outbox,
-        idempotency_key,
+    let case = ReceiptCase {
+        raw,
+        response,
+        canonical,
+        key,
+        height,
         hash,
-    ));
-    assert_eq!(lookup, Lookup::Absent);
-    assert_eq!(
-        must(ReceiptLookupAnswer::decode(
-            &receipt_lookup_not_ready_bytes(&lookup).unwrap()
-        )),
-        ReceiptLookupAnswer::Absent
-    );
-    assert_eq!(must(server.join()).len(), 4);
-    let submitted = json!({"rung": "submitted", "txHash": rpc_hex(&hash), "nonce": format!("{:#x}", transaction.nonce)});
-    let (node, endpoint, server) = lookup_server(rotated_keys(key), submitted, false);
-    let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
-        node.as_ref(),
-        &endpoint,
-        &outbox,
         idempotency_key,
-        hash,
-    ));
-    assert_eq!(
-        lookup,
-        Lookup::Submitted {
-            tx_hash: hash,
-            nonce: transaction.nonce
-        }
-    );
-    assert_eq!(
-        must(ReceiptLookupAnswer::decode(
-            &receipt_lookup_not_ready_bytes(&lookup).unwrap()
-        )),
-        ReceiptLookupAnswer::Submitted {
-            tx_hash: hash,
-            nonce: transaction.nonce
-        }
-    );
-    assert_eq!(must(server.join()).len(), 4);
-    assert_eq!(must(outbox.exact_signed_bytes(idempotency_key)), raw);
+        success,
+        nonce: transaction.nonce,
+    };
+    assert_successful_receipt_lookups(&case, &mut store, &outbox);
+    assert_rejected_receipt_lookups(&case, &outbox);
+    assert_not_ready_receipt_lookups(&case, &outbox);
     drop(store);
     must(std::fs::remove_dir_all(directory));
 }
@@ -603,7 +364,7 @@ fn human_receipt_fixture_missing_payment() {
         assert_eq!(receipt.execution().payment_denom(), "uhpx");
         assert_eq!(receipt.execution().fee_denom, "usid");
         assert_eq!(
-            receipt.receipt().protocol().unwrap().asset(),
+            assert_some(receipt.receipt().protocol(), "expected Some value").asset(),
             sha256(b"uhpx")
         );
         assert_eq!(receipt.execution().success, outcome == "success");
@@ -613,9 +374,7 @@ fn human_receipt_fixture_missing_payment() {
         for missing in [true, false] {
             let mut invalid = view.clone();
             if missing {
-                assert!(invalid
-                    .as_object_mut()
-                    .unwrap()
+                assert!(assert_some(invalid.as_object_mut(), "expected Some value")
                     .remove("paymentDenom")
                     .is_some());
             } else {
@@ -642,4 +401,366 @@ fn human_receipt_fixture_missing_payment() {
         drop(store);
         must(std::fs::remove_dir_all(directory));
     }
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
+}
+
+#[derive(Clone)]
+struct ReceiptCase {
+    raw: Vec<u8>,
+    response: Value,
+    canonical: Vec<u8>,
+    key: ReceiptKeyEntry,
+    height: u64,
+    hash: [u8; 32],
+    idempotency_key: [u8; 32],
+    success: bool,
+    nonce: u64,
+}
+fn assert_successful_receipt_lookups(case: &ReceiptCase, store: &mut Store, outbox: &Outbox) {
+    let ReceiptCase {
+        response,
+        canonical,
+        key,
+        height,
+        hash,
+        idempotency_key,
+        success,
+        ..
+    } = case.clone();
+    {
+        for (first, last) in [(1000, 1999), (height, height)] {
+            let key = ReceiptKeyEntry {
+                first_height: first,
+                last_height: last,
+                ..key
+            };
+            let published = rotated_keys(key);
+            layerx_client::sequencer::decode_receipt_keys(&published)
+                .unwrap_or_else(|reason| panic!("receipt lookup key fixture refused: {reason:?}"));
+            let (node, endpoint, lookup_worker) = lookup_server(published, response.clone(), true);
+            let (lookup, keys) = must(lookup_human_receipt_by_outbox_hash(
+                node.as_ref(),
+                &endpoint,
+                outbox,
+                idempotency_key,
+                hash,
+            ));
+            let Lookup::Verified(receipt) = lookup else {
+                panic!("authenticated receipt required: {lookup:?}")
+            };
+            assert_eq!(receipt.activity_id(), hash);
+            assert_eq!(receipt.canonical_bytes(), canonical);
+            assert_eq!(receipt.height(), height);
+            assert_eq!(receipt.execution().success, success);
+            assert_eq!(receipt.execution().signing_key, key.public_key);
+            assert_eq!(receipt.result_code().raw(), i32::from(!success));
+            assert_eq!(receipt.rung(), Rung::Receipted);
+            let receipt_tenant = must(TenantId::new(format!(
+                "human-receipt-{success}-{first}-{last}"
+            )));
+            let served = must(layerx_agentd::receipt::store_verified_if_absent(
+                store,
+                receipt_tenant.clone(),
+                idempotency_key,
+                receipt.canonical_bytes(),
+                &receipt,
+            ));
+            let protocol = assert_some(receipt.receipt().protocol(), "expected Some value");
+            let authority = AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            );
+            assert_receipt_frames(case, store, &receipt_tenant, &served, authority, &keys, key);
+            assert_eq!(served.canonical_bytes, canonical);
+            assert_eq!(served.metadata.activity_id, hash);
+            assert_eq!(served.metadata.idempotency_key, idempotency_key);
+            assert_eq!(served.metadata.result.code.raw(), i32::from(!success));
+            for selector in [
+                layerx_agentd::receipt::ReceiptLookupKey::Activity(hash),
+                layerx_agentd::receipt::ReceiptLookupKey::Idempotency(idempotency_key),
+                layerx_agentd::receipt::ReceiptLookupKey::GlobalSequence(receipt.global_sequence()),
+            ] {
+                assert_eq!(
+                    must(layerx_agentd::receipt::serve(
+                        store,
+                        receipt_tenant.clone(),
+                        selector
+                    )),
+                    served
+                );
+            }
+            assert!(layerx_agentd::receipt::store_verified_if_absent(
+                store,
+                receipt_tenant.clone(),
+                [0x88; 32],
+                receipt.canonical_bytes(),
+                &receipt,
+            )
+            .is_err());
+            assert!(layerx_agentd::receipt::store_verified_if_absent(
+                store,
+                receipt_tenant,
+                idempotency_key,
+                b"altered",
+                &receipt,
+            )
+            .is_err());
+            assert_receipt_proof(case, receipt.canonical_bytes(), &keys, key);
+            assert_receipt_lookup_traffic(lookup_worker, hash);
+        }
+    }
+}
+
+fn assert_rejected_receipt_lookups(case: &ReceiptCase, outbox: &Outbox) {
+    let ReceiptCase {
+        response,
+        key,
+        height,
+        hash,
+        idempotency_key,
+        ..
+    } = case.clone();
+    for wrong_key in [
+        ReceiptKeyEntry {
+            last_height: height - 1,
+            ..key
+        },
+        ReceiptKeyEntry {
+            first_height: height + 1,
+            ..key
+        },
+        ReceiptKeyEntry {
+            public_key: SigningKey::from_bytes(&[99; 32]).verifying_key().to_bytes(),
+            ..key
+        },
+    ] {
+        let (node, endpoint, server) =
+            lookup_server(rotated_keys(wrong_key), response.clone(), false);
+        assert!(matches!(
+            lookup_human_receipt_by_outbox_hash(
+                node.as_ref(),
+                &endpoint,
+                outbox,
+                idempotency_key,
+                hash
+            ),
+            Err(HumanOperationError::Refused)
+        ));
+        assert_eq!(must(server.join()).len(), 4);
+    }
+
+    let mut altered = response.clone();
+    altered["seq"] = json!("0x8");
+    let (node, endpoint, server) = lookup_server(rotated_keys(key), altered, false);
+    assert!(matches!(
+        lookup_human_receipt_by_outbox_hash(
+            node.as_ref(),
+            &endpoint,
+            outbox,
+            idempotency_key,
+            hash
+        ),
+        Err(HumanOperationError::Refused)
+    ));
+    assert_eq!(must(server.join()).len(), 4);
+
+    for (id, expected) in [(idempotency_key, [0x88; 32]), ([0x88; 32], hash)] {
+        let (url, server) = serve(vec![("eth_chainId", json!("0x7d"))]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let node = must(NodeRpc::connect(&NodeRpcConfig {
+            url,
+            chain_id: 125,
+            deadline: Duration::from_secs(2),
+        }));
+        assert!(matches!(
+            lookup_human_receipt_by_outbox_hash(&node, &endpoint, outbox, id, expected),
+            Err(HumanOperationError::Refused)
+        ));
+        assert_eq!(must(server.join()).len(), 1);
+    }
+}
+
+fn assert_not_ready_receipt_lookups(case: &ReceiptCase, outbox: &Outbox) {
+    let ReceiptCase {
+        raw,
+        key,
+        hash,
+        idempotency_key,
+        nonce,
+        ..
+    } = case.clone();
+    let (node, endpoint, server) = lookup_server(rotated_keys(key), Value::Null, false);
+    let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
+        node.as_ref(),
+        &endpoint,
+        outbox,
+        idempotency_key,
+        hash,
+    ));
+    assert_eq!(lookup, Lookup::Absent);
+    assert_eq!(
+        must(ReceiptLookupAnswer::decode(&assert_some(
+            receipt_lookup_not_ready_bytes(&lookup),
+            "expected Some value"
+        ))),
+        ReceiptLookupAnswer::Absent
+    );
+    assert_eq!(must(server.join()).len(), 4);
+    let submitted =
+        json!({"rung": "submitted", "txHash": rpc_hex(&hash), "nonce": format!("{:#x}", nonce)});
+    let (node, endpoint, server) = lookup_server(rotated_keys(key), submitted, false);
+    let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
+        node.as_ref(),
+        &endpoint,
+        outbox,
+        idempotency_key,
+        hash,
+    ));
+    assert_eq!(
+        lookup,
+        Lookup::Submitted {
+            tx_hash: hash,
+            nonce
+        }
+    );
+    assert_eq!(
+        must(ReceiptLookupAnswer::decode(&assert_some(
+            receipt_lookup_not_ready_bytes(&lookup),
+            "expected Some value"
+        ))),
+        ReceiptLookupAnswer::Submitted {
+            tx_hash: hash,
+            nonce
+        }
+    );
+    assert_eq!(must(server.join()).len(), 4);
+    assert_eq!(must(outbox.exact_signed_bytes(idempotency_key)), raw);
+}
+
+fn assert_receipt_frames(
+    case: &ReceiptCase,
+    store: &mut Store,
+    receipt_tenant: &TenantId,
+    served: &layerx_agentd::receipt::ServedReceipt,
+    authority: AuthorizedBatch,
+    keys: &[ReceiptKeyEntry],
+    key: ReceiptKeyEntry,
+) {
+    let ReceiptCase {
+        raw,
+        canonical,
+        height,
+        hash,
+        idempotency_key,
+        ..
+    } = case.clone();
+    let (first, last) = (key.first_height, key.last_height);
+    let verified = must(VerifiedReceipt::verify(hash, &canonical, keys));
+    let block = committed_block(&raw, height);
+    for committed in [false, true] {
+        let evidence = must(augment_verified(
+            store,
+            receipt_tenant.clone(),
+            idempotency_key,
+            &verified,
+            committed.then_some(&block),
+        ));
+        let answer = must(receipt_lookup_found_bytes(
+            served, &evidence, authority, keys,
+        ));
+        let ReceiptLookupAnswer::Found(frame) = must(ReceiptLookupAnswer::decode(&answer)) else {
+            panic!("found receipt answer required");
+        };
+        assert_eq!(
+            frame,
+            ReceiptLookupFrame {
+                canonical_bytes: served.canonical_bytes.clone(),
+                authorised_batch: authority,
+                verification_level: served.metadata.verification_level,
+                tx_hash: evidence.tx_hash,
+                receipt_hash: sha256(&canonical),
+                block_height: evidence.height,
+                rung: if committed {
+                    Rung::Committed
+                } else {
+                    Rung::Receipted
+                },
+                signed_receipt: evidence.receipt_bytes.clone(),
+                receipt_key_id: key.key_id,
+                public_key: key.public_key,
+                first_height: first,
+                last_height: last,
+                inclusion_height: height,
+            }
+        );
+        assert_eq!(
+            must(ReceiptLookupFrame::decode(&must(frame.encode()))),
+            frame
+        );
+        let mut mismatched = evidence.clone();
+        mismatched.tx_hash[0] ^= 1;
+        assert!(matches!(
+            receipt_lookup_found_bytes(served, &mismatched, authority, keys),
+            Err(HumanOperationError::Refused)
+        ));
+    }
+}
+
+fn assert_receipt_lookup_traffic(server: JoinHandle<Vec<Value>>, hash: [u8; 32]) {
+    let requests = must(server.join());
+    assert_eq!(requests.len(), 5);
+    assert_eq!(requests[1]["params"], json!([]));
+    for request in &requests[2..] {
+        assert_eq!(request["params"], json!([rpc_hex(&hash)]));
+    }
+}
+
+fn assert_receipt_proof(
+    case: &ReceiptCase,
+    canonical_receipt: &[u8],
+    keys: &[ReceiptKeyEntry],
+    key: ReceiptKeyEntry,
+) {
+    let ReceiptCase {
+        raw,
+        canonical,
+        height,
+        hash,
+        ..
+    } = case.clone();
+    let proof = must(receipt_proof_operation(
+        ProofBundleTarget::Receipt(hash),
+        Rung::Receipted,
+        &raw,
+        canonical_receipt,
+        keys,
+        125,
+        2000,
+        [0x55; 32],
+    ));
+    assert_eq!(proof.value.receipt_key, key);
+    assert_eq!(proof.value.raw_transaction.as_bytes(), raw);
+    assert_eq!(proof.value.signed_receipt.as_bytes(), canonical);
+    assert_eq!(proof.freshness.value_height, height);
+    assert_eq!(proof.freshness.chain_head, 2000);
+    assert_eq!(proof.achieved_rung, Rung::Receipted);
+    assert!(proof.value.commit.is_none());
 }

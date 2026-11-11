@@ -1,12 +1,13 @@
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
-use layerx_agentd::prepare::evm::{
+use layerx_agentd::prepare::{
     prepare_bound, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareError,
     PrepareRequest,
 };
 use layerx_wire::encode::Encoder;
 
+#[must_use = "use the constructed fixture value"]
 pub fn state() -> EvmPreparationState {
     EvmPreparationState {
         chain_id: 17,
@@ -16,6 +17,7 @@ pub fn state() -> EvmPreparationState {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn defaults() -> PreparationDefaults {
     PreparationDefaults {
         max_priority_fee_per_gas: 2,
@@ -24,6 +26,7 @@ pub fn defaults() -> PreparationDefaults {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn request() -> PrepareRequest {
     PrepareRequest {
         from: [0x11; 20],
@@ -35,6 +38,9 @@ pub fn request() -> PrepareRequest {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
 pub fn send_payload() -> Vec<u8> {
     let mut encoder = Encoder::new(512);
     encoder
@@ -96,8 +102,9 @@ pub fn send_payload() -> Vec<u8> {
 
 #[test]
 fn canonical_bytes_and_preimage_come_only_from_layerx_wire() {
-    let prepared = prepare_bound(state(), defaults(), request(), 100_000)
-        .unwrap_or_else(|error| panic!("prepare: {error:?}"));
+    let prepared: layerx_agentd::prepare::EvmPrepared =
+        prepare_bound(state(), defaults(), request(), 100_000)
+            .unwrap_or_else(|error| panic!("prepare: {error:?}"));
     assert_eq!(prepared.call.chain_id, 17);
     assert_eq!(prepared.call.nonce, 5);
     assert_eq!(prepared.call.gas_limit, 100_000);
@@ -130,7 +137,12 @@ fn canonical_bytes_and_preimage_come_only_from_layerx_wire() {
     assert_eq!(&data[4..35], &[0; 31]);
     assert_eq!(data[35], 32);
     assert_eq!(&data[36..66], &[0; 30]);
-    assert_eq!(&data[66..68], &(send_payload().len() as u16).to_be_bytes());
+    assert_eq!(
+        &data[66..68],
+        &(u16::try_from(send_payload().len())
+            .unwrap_or_else(|error| panic!("payload length: {error}")))
+        .to_be_bytes()
+    );
     assert_eq!(&data[68..68 + send_payload().len()], send_payload());
     assert!(data[68 + send_payload().len()..]
         .iter()
@@ -168,7 +180,7 @@ fn explicit_bounds_are_never_widened_and_payload_limits_are_exact() {
         Err(PrepareError::InvalidDefaults)
     );
     let mut oversized = request();
-    let actual = oversized.call.encode().unwrap().len();
+    let actual = assert_ok(oversized.call.encode(), "unexpected error").len();
     oversized.declared_payload_limit = actual - 1;
     assert_eq!(
         prepare_bound(state(), defaults(), oversized, 100_000),
@@ -184,4 +196,12 @@ fn explicit_bounds_are_never_widened_and_payload_limits_are_exact() {
         prepare_bound(state(), defaults(), request(), 0),
         Err(PrepareError::InvalidDefaults)
     );
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
 }

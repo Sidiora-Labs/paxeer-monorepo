@@ -1,0 +1,160 @@
+[meta]
+task = "22.39.227"
+decision = "3053, 3218, 3230, 3242, 3250, 3257, 3273, 3276, 3280, 3284"
+base_revision = "c37573e439b277e55125a825299deef2bdeaad94"
+continued_revision = "fb2641be2e565444533819474f1a2bfd9872acd1"
+target_count = 50
+
+[carried_source_inventory]
+provenance = "Prior attempt source inspection; these counts are not compiler diagnostics."
+"clippy::cast_possible_truncation" = 16
+"clippy::cast_possible_wrap" = 3
+"clippy::expect_used" = 340
+"clippy::missing_panics_doc" = 18
+"clippy::unreadable_literal" = 15
+"clippy::unwrap_used" = 393
+
+[initial_compiler_inventory]
+provenance = "Historical attempt-5 keep-going sweep on its merged base before its repairs; these are not current diagnostics."
+reported_diagnostics = 218
+in_scope_diagnostics = 131
+outside_scope_diagnostics = 87
+
+[initial_compiler_inventory.by_kind]
+"clippy::assigning_clones" = 5
+"clippy::cast_possible_truncation" = 7
+"clippy::doc_markdown" = 9
+"clippy::duplicate_mod" = 1
+"clippy::expect_used" = 2
+"clippy::explicit_auto_deref" = 1
+"clippy::large_enum_variant" = 1
+"clippy::manual_assert" = 1
+"clippy::manual_inspect" = 2
+"clippy::manual_let_else" = 3
+"clippy::manual_string_new" = 1
+"clippy::map_entry" = 1
+"clippy::map_unwrap_or" = 1
+"clippy::match_same_arms" = 2
+"clippy::missing_panics_doc" = 1
+"clippy::must_use_candidate" = 8
+"clippy::needless_pass_by_value" = 1
+"clippy::redundant_closure_for_method_calls" = 1
+"clippy::semicolon_if_nothing_returned" = 3
+"clippy::similar_names" = 8
+"clippy::single_element_loop" = 1
+"clippy::struct_field_names" = 1
+"clippy::too_many_arguments" = 3
+"clippy::too_many_lines" = 27
+"clippy::unused_self" = 1
+"clippy::unwrap_used" = 53
+"clippy::used_underscore_binding" = 2
+"clippy::useless_conversion" = 1
+dead_code = 64
+unused_imports = 6
+
+[repairs]
+cast_possible_truncation = "Use checked integer conversions; retain explicitly masked varint payload bits."
+cast_possible_wrap = "Use checked conversions at fixture boundaries."
+expect_used = "Match required values or success, preserving failure and the original context."
+unwrap_used = "Match required values or success, preserving failure and operation order."
+missing_panics_doc = "Document invalid fixture data and failed required operations on the affected public helpers."
+unreadable_literal = "Separate digits without changing numeric values."
+comparison_chain = "Match the existing ordering and retain every branch and assertion."
+doc_markdown = "Quote code identifiers in documentation."
+duplicate_mod = "Reuse the module already loaded by the fixture owner."
+format_collect = "Encode the complete byte slice with the existing hex encoder."
+needless_pass_by_value = "Borrow private RPC parameters and consume owned public payloads into decoding storage."
+needless_raw_string_hashes = "Remove redundant raw-string delimiters."
+semicolon_if_nothing_returned = "Terminate existing unit-returning statements."
+single_match_else = "Use the equivalent if-let transition for the existing socket and pending queue."
+too_many_arguments = "Group private replay sequence and nonce fields or encoder inputs without changing their types."
+too_many_lines = "Extract bounded private functions in the same file, retaining every test name and assertion in execution order."
+dead_code = "Move the authority wrapper to its including consumer; retain lifetime-owned peers and workers; inspect all consumers before removing private unused items."
+unused_imports = "Remove only imports unused by the declaring test; retain imports used by including consumers."
+similar_names = "Use distinct names for verified values, trust material and worker handles."
+items_after_test_module = "Place assertion helpers before the test module also compiled by the host."
+must_use_candidate = "Mark value-producing fixture APIs must_use, retaining their signatures."
+match_wild_err_arm = "Retain the shared-store error in the invariant diagnostic."
+needless_borrows_for_generic_args = "Pass the existing Path reference directly to Store::open in both restart phases."
+manual_string_new = "Construct the same empty string with String::new."
+manual_let_else = "Use let-else while retaining the successful branch panic and the same error value."
+struct_field_names = "Name the private account fixture identifier id."
+manual_assert = "Assert the equivalent worker-join condition with the same failure message."
+assigning_clones = "Use clone_from for existing destination storage."
+redundant_closure_for_method_calls = "Pass ResultCode::raw directly to the existing map."
+explicit_auto_deref = "Bind the mutex guard before borrowing its Store."
+manual_inspect = "Observe and return the original application error with inspect_err."
+map_unwrap_or = "Use map_or_else while preserving the missing-header panic."
+unused_self = "Make the private manifest fixture helper an associated function."
+single_element_loop = "Execute the original single enrollment once with the same actor."
+deprecated = "Retain a reasoned deprecated allowance on the archived checkpoint compatibility test only."
+
+[changed_files]
+root = "services/agent/crates/layerx-agentd/tests"
+files = ["approval_ordering/preparation.rs", "idempotency_height.rs", "identity.rs", "identity_ops_chain.rs", "inference_deals.rs", "inference_enrol.rs", "inference_laps.rs", "inference_profile_boot.rs", "inference_queue.rs", "inference_signal.rs", "inference_serve.rs", "ingest_eth_subscribe.rs", "issue_1752.rs", "managed_agent_evm_tx.rs", "metrics_rungs.rs", "migration.rs", "native_reads_daemon.rs", "native_routes_rpc.rs", "native_send_preview_evm.rs", "no_admission_daemon.rs", "operator_route.rs", "outbox.rs", "outbox_recover.rs", "outbox_tx_hash.rs", "policy_version.rs", "prepare_eip1559.rs", "program_adapters_rungs.rs", "program_balances_eth_call.rs", "program_chain_head.rs", "program_ops_layerxprograms.rs", "proof_agentd.rs", "proof_agentd_env.rs", "proof_agentd_startup.rs", "proof_bundle_v2.rs", "proof_layerx_agentd_metrics.rs", "proof_serve_errors.rs", "protocol2_restart.rs", "protocol_evidence.rs", "repair_22_39_227.kvx"]
+
+[type_repairs]
+lap_server_frame = "The merged LapServerFrame enum also has CanaryRequest; require LapReceipt with let-else and panic on other frames, retaining every receipt assertion and its order."
+option_result = "issue_1752.rs content-length returns Option; use a presence assertion rather than a Result helper."
+hex_argument = "support/mod.rs uses the registry hex encoder, which requires a borrowed byte slice."
+signing_call = "issue_1752.rs constructs Eip1559Call at outer scope; retain its import there."
+openssl_times = "program_chain_head.rs binds owned Asn1Time values before borrowing them for the certificate setters."
+included_authority = "Keep authority_peer in native_send_preview_evm.rs because issue_1752 and repair_22_31_560 include and call it; retain one reasoned dead_code allowance on that function for its own target."
+mutex_guard = "issue_1752.rs binds MutexGuard<Store> before borrowing Store so generic success-helper inference does not incorrectly require Result<Store, _>."
+
+[including_module_allowances]
+program_balances_eth_call = "chain: dead_code, clippy::too_many_lines, clippy::manual_let_else; the registry workspace owns this shared fixture and those are its reported lints in this target."
+program_chain_head = "deployment_support: dead_code, unused_imports, clippy::too_many_lines, clippy::expect_used, clippy::manual_let_else; the registry workspace owns mod.rs and its child chain.rs, which report these lints in this target."
+inference_deals = "signal: dead_code; the host binary uses these signalling, deal and lap items while this test exercises a subset."
+inference_laps = "signal: dead_code; the host binary uses these signalling, deal and lap items while this test exercises a subset."
+inference_serve = "signal: dead_code; the host binary uses these signalling, deal and completion items while this test exercises a subset; decision 3273 permits the allowance on this outer module."
+inference_queue = "signal: dead_code; the host binary uses these signalling, deal and completion items while this test exercises a subset; decision 3273 permits the allowance on this outer module."
+
+[retained_repairs]
+inference_serve = "Use u32::try_from for the token index; distinguish the lap readiness receiver; retain every assertion."
+shared_authority = "Keep the owned-identity authority_peer wrapper with its reasoned item allowance for its including consumers."
+inference_queue = "Keep the outer signal module private with its existing reasoned dead_code allowance; inner modules and production source remain unchanged."
+inference_laps = "Keep the refutable LapReceipt let-else binding because the enum also carries CanaryRequest."
+
+[merge_resolution]
+revision = "c37573e439b277e55125a825299deef2bdeaad94"
+proof_native_reads = "Use the complete main form from task 22.39.229 without carrying any attempt-9 edits; this file has no task diff."
+proof_serve_errors = "Keep main's header and include wrapper; the cases stay in proof_native_reads.rs. Repair only the reported documentation lints."
+other_files = "Retain every other attempt-9 change, including the inference_laps binding."
+
+[current_compiler_inventory]
+reference = "/out/logs/preflight-clippy-10-1.log"
+exit = 101
+reported_diagnostics = 6
+in_scope_diagnostics = 6
+outside_scope_diagnostics = 0
+
+[current_compiler_inventory.by_kind]
+"clippy::doc_markdown" = 6
+
+[current_compiler_inventory.by_file]
+"proof_serve_errors.rs" = 6
+
+[current_repairs]
+file = "proof_serve_errors.rs"
+lint = "clippy::doc_markdown"
+source_lines = [1, 7]
+count = 6
+repair = "Add backticks around route_request, native_read_response, HttpPool, proof::decode_response, NativeReadError and ResultTooLarge in the existing header; retain the include and all cases in their main locations."
+
+[remaining]
+reported_diagnostics = 0
+in_scope_diagnostics = 0
+outside_scope_diagnostics = 0
+reference = "/out/logs/preflight-clippy-10-2.log; full 50-target keep-going sweep exits zero after the six documentation repairs."
+
+[native_http_compatibility]
+command = "cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --test native-reads-http -- -D warnings"
+exit = 0
+reference = "/out/logs/preflight-native-reads-http-10.log"
+
+[result]
+qualification = "Qualification requires a passing verify entry and matching build and verify candidates in the private gate ledger."
+build_reference = "/out/run/gates.jsonl build entry and /out/logs/build-1.log: revision, exact command, exit code and log."
+verify_reference = "/out/run/gates.jsonl verify entry and /out/logs/verify-1.log: revision, exact command, exit code and log."
+revision_reference = "The verified revision is the revision shared by the successful build and verify entries in /out/run/gates.jsonl; this avoids a self-referential revision in the candidate."

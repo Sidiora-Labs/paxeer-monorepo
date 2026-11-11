@@ -6,19 +6,19 @@ from pathlib import Path
 
 from layerx_sdk.bridge import BRIDGE_EVENTS, LAYERX_BRIDGE_PRECOMPILE, bridge_in_call, bridge_out_call, decode_bridge_event
 from layerx_sdk.exchange import (
-    EXCHANGE_EVENTS,
-    LAYERX_EXCHANGE_PRECOMPILE,
+    PRE_V6120_EXCHANGE_EVENTS,
+    PRE_V6120_EXCHANGE_PRECOMPILE,
     PrecompileAbiError,
     abi_selector,
-    decode_exchange_event,
-    exchange_cancel_order_call,
-    exchange_deposit_margin_call,
-    exchange_deposit_margin_token_call,
-    exchange_place_order_call,
-    exchange_request_settlement_call,
-    exchange_withdraw_margin_call,
+    decode_pre_v6120_exchange_event,
+    pre_v6120_exchange_cancel_order_call,
+    pre_v6120_exchange_deposit_margin_call,
+    pre_v6120_exchange_deposit_margin_token_call,
+    pre_v6120_exchange_place_order_call,
+    pre_v6120_exchange_request_settlement_call,
+    pre_v6120_exchange_withdraw_margin_call,
     precompile_transaction_request,
-    send_exchange_deposit_margin,
+    send_pre_v6120_exchange_deposit_margin,
 )
 from layerx_sdk.launchpad import (
     LAUNCHPAD_EVENTS,
@@ -67,7 +67,7 @@ TOPICS = {
     "Swap": "a234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc",
     "TokenDeployed": "ad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237",
 }
-SOURCES = (("layerxexchange", EXCHANGE_EVENTS), ("layerxbridge", BRIDGE_EVENTS), ("launchpad", LAUNCHPAD_EVENTS))
+SOURCES = (("layerxexchange", PRE_V6120_EXCHANGE_EVENTS), ("layerxbridge", BRIDGE_EVENTS), ("launchpad", LAUNCHPAD_EVENTS))
 
 
 def canonical(item: dict) -> str:
@@ -110,16 +110,16 @@ SWAP = address_word("aa") + word(100) + word(90) + word(1700000000)
 # Legacy exchange entries prove encoding compatibility only, never activation.
 WRITES = [
     ("layerxexchange", "placeOrder(bytes32,uint8,uint256,uint256,uint8)",
-     exchange_place_order_call(ident("11"), 2, 18446744073709551618, 5000, 0), LAYERX_EXCHANGE_PRECOMPILE,
+     pre_v6120_exchange_place_order_call(ident("11"), 2, 18446744073709551618, 5000, 0), PRE_V6120_EXCHANGE_PRECOMPILE,
      "11" * 32 + word(2) + word(18446744073709551618) + word(5000) + word(0)),
-    ("layerxexchange", "cancelOrder(bytes32)", exchange_cancel_order_call(ident("31")), LAYERX_EXCHANGE_PRECOMPILE, "31" * 32),
-    ("layerxexchange", "requestSettlement(bytes32)", exchange_request_settlement_call(ident("41")), LAYERX_EXCHANGE_PRECOMPILE, "41" * 32),
-    ("layerxexchange", "depositMargin(bytes32)", exchange_deposit_margin_call(ident("51"), 7), LAYERX_EXCHANGE_PRECOMPILE, "51" * 32),
+    ("layerxexchange", "cancelOrder(bytes32)", pre_v6120_exchange_cancel_order_call(ident("31")), PRE_V6120_EXCHANGE_PRECOMPILE, "31" * 32),
+    ("layerxexchange", "requestSettlement(bytes32)", pre_v6120_exchange_request_settlement_call(ident("41")), PRE_V6120_EXCHANGE_PRECOMPILE, "41" * 32),
+    ("layerxexchange", "depositMargin(bytes32)", pre_v6120_exchange_deposit_margin_call(ident("51"), 7), PRE_V6120_EXCHANGE_PRECOMPILE, "51" * 32),
     ("layerxexchange", "depositMarginToken(address,uint256,bytes32)",
-     exchange_deposit_margin_token_call(address("ab"), 9, ident("51")), LAYERX_EXCHANGE_PRECOMPILE,
+     pre_v6120_exchange_deposit_margin_token_call(address("ab"), 9, ident("51")), PRE_V6120_EXCHANGE_PRECOMPILE,
      address_word("ab") + word(9) + "51" * 32),
     ("layerxexchange", "withdrawMargin(bytes32,bytes32,uint256)",
-     exchange_withdraw_margin_call(ident("51"), ident("61"), 10), LAYERX_EXCHANGE_PRECOMPILE, "51" * 32 + "61" * 32 + word(10)),
+     pre_v6120_exchange_withdraw_margin_call(ident("51"), ident("61"), 10), PRE_V6120_EXCHANGE_PRECOMPILE, "51" * 32 + "61" * 32 + word(10)),
     ("perps", "deposit(address,uint256)", perps_deposit_call(address("ab"), 250000000), PERPS_PRECOMPILE,
      address_word("ab") + word(250000000)),
     ("perps", "withdraw(address,uint256)", perps_withdraw_call(address("ab"), 30000000), PERPS_PRECOMPILE,
@@ -180,11 +180,19 @@ class PrecompileCallsTest(unittest.TestCase):
 
     def test_launchpad_generated_write_mutability_matches_abi(self) -> None:
         launchpad_writes = {
-            signature_of(entry): entry.get("stateMutability") == "payable"
+            signature_of(entry): False
             for entry in abi("launchpad")
             if entry["type"] == "function" and entry.get("stateMutability") not in ("view", "pure")
         }
         self.assertEqual(LAUNCHPAD_WRITES, launchpad_writes)
+        upgrade = next(entry for entry in abi("launchpad")
+                       if entry["type"] == "function" and signature_of(entry) == "upgradeToAndCall(address,bytes)")
+        self.assertEqual(upgrade["stateMutability"], "payable")
+        for signature in launchpad_writes:
+            self.assertIs(LAUNCHPAD_WRITES[signature], False)
+        with self.assertRaises(PrecompileAbiError) as caught:
+            launchpad_call("upgradeToAndCall(address,bytes)", [address("ab"), "0x"], value=1)
+        self.assertEqual(caught.exception.code, "invalid_value")
 
     def test_every_write_encodes_its_abi_calldata(self) -> None:
         self.assertEqual(abi_selector("transfer(address,uint256)"), "0xa9059cbb")
@@ -224,9 +232,9 @@ class PrecompileCallsTest(unittest.TestCase):
             with self.assertRaises(PrecompileAbiError):
                 launchpad_call(signature, values, value)
         with self.assertRaises(PrecompileAbiError):
-            exchange_deposit_margin_call(ident("51"), 0)
+            pre_v6120_exchange_deposit_margin_call(ident("51"), 0)
         with self.assertRaises(PrecompileAbiError):
-            exchange_place_order_call(ident("11"), 256, 1, 1, 0)
+            pre_v6120_exchange_place_order_call(ident("11"), 256, 1, 1, 0)
 
     def test_send_helpers_ask_the_wallet_for_eth_send_transaction(self) -> None:
         sent: list[tuple[str, list[object]]] = []
@@ -235,36 +243,36 @@ class PrecompileCallsTest(unittest.TestCase):
             sent.append((method, params))
             return ident("fe")
 
-        self.assertEqual(send_exchange_deposit_margin(request, FROM, ident("51"), 255), ident("fe"))
+        self.assertEqual(send_pre_v6120_exchange_deposit_margin(request, FROM, ident("51"), 255), ident("fe"))
         self.assertEqual(send_launchpad_nft_write(request, FROM, "executeBurn", 9), ident("fe"))
         self.assertEqual(sent, [
-            ("eth_sendTransaction", [{"from": FROM, "to": LAYERX_EXCHANGE_PRECOMPILE,
+            ("eth_sendTransaction", [{"from": FROM, "to": PRE_V6120_EXCHANGE_PRECOMPILE,
                                       "data": abi_selector("depositMargin(bytes32)") + "51" * 32, "value": "0xff"}]),
             ("eth_sendTransaction", [{"from": FROM, "to": LAUNCHPAD_PRECOMPILE,
                                       "data": abi_selector("executeBurn(uint256)") + word(9), "value": "0x0"}]),
         ])
-        self.assertEqual(precompile_transaction_request(FROM, exchange_cancel_order_call(ident("31")))["value"], "0x0")
+        self.assertEqual(precompile_transaction_request(FROM, pre_v6120_exchange_cancel_order_call(ident("31")))["value"], "0x0")
         with self.assertRaises(PrecompileAbiError) as caught:
-            send_exchange_deposit_margin(lambda method, params: None, FROM, ident("51"), 1)
+            send_pre_v6120_exchange_deposit_margin(lambda method, params: None, FROM, ident("51"), 1)
         self.assertEqual(caught.exception.code, "malformed_wallet_answer")
 
     def test_logs_decode_to_their_typed_fields(self) -> None:
         topics = ["0x" + TOPICS["OrderPlaced"], ident("a1"), ident("11"), "0x" + address_word("12")]
         data = "0x" + word(2) + word(18446744073709551618) + word(5000) + word(0) + word(4)
-        order = decode_exchange_event(LAYERX_EXCHANGE_PRECOMPILE, topics, data)
+        order = decode_pre_v6120_exchange_event(PRE_V6120_EXCHANGE_PRECOMPILE, topics, data)
         self.assertEqual(order.event, "OrderPlaced")
         self.assertEqual(order.fields, {
             "intentId": ident("a1"), "marketId": ident("11"), "owner": FROM, "side": 2,
             "price": 18446744073709551618, "quantity": 5000, "timeInForce": 0, "nonce": 4,
         })
         for code, args in (
-            ("topic_count", (LAYERX_EXCHANGE_PRECOMPILE, topics[:3], data)),
-            ("data_length", (LAYERX_EXCHANGE_PRECOMPILE, topics, data[:-2])),
-            ("non_canonical_word", (LAYERX_EXCHANGE_PRECOMPILE, topics, "0x" + word(256) + data[66:])),
+            ("topic_count", (PRE_V6120_EXCHANGE_PRECOMPILE, topics[:3], data)),
+            ("data_length", (PRE_V6120_EXCHANGE_PRECOMPILE, topics, data[:-2])),
+            ("non_canonical_word", (PRE_V6120_EXCHANGE_PRECOMPILE, topics, "0x" + word(256) + data[66:])),
             ("unknown_event", (LAUNCHPAD_PRECOMPILE, topics, data)),
         ):
             with self.assertRaises(PrecompileAbiError) as caught:
-                decode_exchange_event(*args)
+                decode_pre_v6120_exchange_event(*args)
             self.assertEqual(caught.exception.code, code)
         bridge_in = decode_bridge_event(
             LAYERX_BRIDGE_PRECOMPILE,

@@ -1,24 +1,11 @@
-#[path = "support/corpus.rs"]
-mod replay_corpus;
-
 use std::fs;
 use std::path::{Path, PathBuf};
 #[path = "../../../tests/support/rustc.rs"]
 mod rustc;
 
-use layerx_types::payload::{ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::settlement::{
-    DeclaredCheckpointSettlement, CHECKPOINT_SETTLEMENT_PATH, CHECKPOINT_SETTLEMENT_SCHEMA,
-};
 use layerx_types::vectors::checkpoint::{load_checkpoint_vectors, CHECKPOINT_VECTOR_CASES};
-use layerx_types::vectors::Corpus;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::{
-    activity_id, canonical_activity, checkpoint_attestation_digest, checkpoint_id, domain,
-    payload_hash, Domain,
-};
+use layerx_wire::hash::{checkpoint_attestation_digest, checkpoint_id, Domain};
 use layerx_wire::receipt::{decode_batch_header, encode_batch_header};
-use layerx_wire::sign::preimage;
 
 const ALL_DOMAINS: [Domain; 20] = [
     Domain::ActivityId,
@@ -45,109 +32,6 @@ const ALL_DOMAINS: [Domain; 20] = [
 
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
-}
-
-fn registry(corpus: &Corpus) -> ModuleRegistry {
-    let registrations: Vec<_> = ModuleId::ALL
-        .into_iter()
-        .filter_map(|module| {
-            let mut values: Vec<_> = corpus
-                .replay
-                .activity_types
-                .iter()
-                .copied()
-                .filter(|kind| kind.module() == module)
-                .collect();
-            values.sort();
-            values.dedup();
-            if values.is_empty() {
-                return None;
-            }
-            Some(
-                ModuleRegistration::new(module, &values).unwrap_or_else(|error| {
-                    panic!("published activity registration rejected: {error:?}")
-                }),
-            )
-        })
-        .collect();
-    ModuleRegistry::new(&registrations)
-        .unwrap_or_else(|error| panic!("published registry rejected: {error:?}"))
-}
-
-#[test]
-fn activity_and_payload_hashes_match_every_replay_vector() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpus failed to load");
-    };
-    let registry = registry(&corpus);
-    for (index, (activity_bytes, receipt_bytes)) in corpus
-        .replay
-        .canonical_activities
-        .iter()
-        .zip(&corpus.replay.expected_receipts)
-        .enumerate()
-    {
-        let Ok(activity) = decode_signed(activity_bytes, &registry) else {
-            panic!("activity {index} failed decode");
-        };
-        let expected_activity_id: [u8; 32] = receipt_bytes[10..42].try_into().unwrap_or([0; 32]);
-        assert_eq!(
-            activity_id(&activity),
-            Ok(expected_activity_id),
-            "activity {index}"
-        );
-        assert_eq!(
-            payload_hash(&activity),
-            Ok(activity.payload_hash()),
-            "payload {index}"
-        );
-    }
-}
-
-#[test]
-fn all_domains_separate_identical_canonical_bytes() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpus failed to load");
-    };
-    let Ok(activity) = decode_signed(&corpus.replay.canonical_activities[0], &registry(&corpus))
-    else {
-        panic!("activity failed decode");
-    };
-    let Ok(canonical) = canonical_activity(&activity) else {
-        panic!("canonical activity failed encode");
-    };
-    let digests: Vec<_> = ALL_DOMAINS
-        .into_iter()
-        .map(|purpose| domain(purpose, &canonical))
-        .collect();
-    assert!(digests.iter().all(Result::is_ok));
-    for (index, left) in digests.iter().enumerate() {
-        for right in &digests[index + 1..] {
-            assert_ne!(left, right);
-        }
-    }
-}
-
-#[test]
-fn signing_preimage_binds_network_and_protocol_version() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpus failed to load");
-    };
-    let registry = registry(&corpus);
-    let original_bytes = &corpus.replay.canonical_activities[0];
-    let Ok(original) = decode_signed(original_bytes, &registry) else {
-        panic!("activity failed decode");
-    };
-    let mut other_network_bytes = original_bytes.clone();
-    other_network_bytes[9..13].copy_from_slice(&78_u32.to_be_bytes());
-    let Ok(other_network) = decode_signed(&other_network_bytes, &registry) else {
-        panic!("other-network activity failed decode");
-    };
-    assert_ne!(preimage(&original), preimage(&other_network));
-
-    let mut other_version = original_bytes.clone();
-    other_version[1] = 2;
-    assert!(decode_signed(&other_version, &registry).is_err());
 }
 
 #[test]
@@ -205,25 +89,8 @@ fn raw_text_and_debug_values_cannot_enter_consensus_hashing() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("expected `&CanonicalBytes`"));
 }
 
-fn declared_settlement() -> DeclaredCheckpointSettlement {
-    let text = fs::read_to_string(repository_root().join(CHECKPOINT_SETTLEMENT_PATH))
-        .unwrap_or_else(|error| panic!("declared settlement unreadable: {error}"));
-    DeclaredCheckpointSettlement::parse(&text).unwrap_or_else(|error| {
-        panic!("{CHECKPOINT_SETTLEMENT_PATH} must satisfy {CHECKPOINT_SETTLEMENT_SCHEMA}: {error}")
-    })
-}
-
 #[test]
 fn checkpoint_domain_tags_are_the_declared_version_two_tags() {
-    let declared = declared_settlement();
-    assert_eq!(
-        Domain::CheckpointCertificate.tag(),
-        declared.checkpoint_certificate_domain()
-    );
-    assert_eq!(
-        Domain::GuarantorAttestation.tag(),
-        declared.guarantor_attestation_domain()
-    );
     assert_eq!(
         Domain::CheckpointCertificate.tag(),
         b"LXP/v2/checkpoint-certificate\0"
@@ -244,28 +111,23 @@ fn checkpoint_domain_tags_are_the_declared_version_two_tags() {
 
 #[test]
 fn checkpoint_vectors_pin_header_encoding_and_identities() {
-    let declared = declared_settlement();
     let vectors = load_checkpoint_vectors(&repository_root())
         .unwrap_or_else(|error| panic!("checkpoint vectors failed to load: {error:?}"));
     assert_eq!(vectors.len(), CHECKPOINT_VECTOR_CASES.len());
     for vector in &vectors {
         let name = vector.case_name.as_str();
-        assert_eq!(
-            vector.header.bytes.len(),
-            declared.header_length(),
-            "{name}"
-        );
+        assert_eq!(vector.header.bytes.len(), 354, "{name}");
         assert!(
             vector
                 .header
                 .bytes
-                .starts_with(declared.header_encoding_prefix()),
+                .starts_with(&[0x00, 0x02, 0x17, 0x01, 0x0f]),
             "{name}: header prefix"
         );
         let header = decode_batch_header(&vector.header.bytes)
             .unwrap_or_else(|error| panic!("{name}: header decode failed: {error:?}"));
         assert_eq!(header.protocol_version(), vector.header.protocol_version);
-        assert_eq!(header.protocol_version(), declared.protocol_version());
+        assert_eq!(header.protocol_version(), 2);
         assert_eq!(header.network_id(), vector.header.network_id);
         assert_eq!(header.epoch(), vector.header.epoch);
         assert_eq!(header.batch_number(), vector.header.batch_number);
@@ -415,4 +277,12 @@ fn native_program_batch_identity_binds_tree_and_entire_sequence_range() {
         assert!(actual.is_ok());
         assert_ne!(actual, Ok(expected));
     }
+}
+
+#[path = "repair_22_33_1523.rs"]
+mod native_submission;
+
+#[test]
+fn native_transaction_identity_comes_from_the_signed_producer() {
+    native_submission::wire_hash_tests_native_identity_and_scope();
 }

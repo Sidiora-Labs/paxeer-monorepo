@@ -15,29 +15,38 @@ import (
 
 // geth deliberately accepts omitted/null params for zero-argument callbacks.
 // Receipt-key discovery checks governed state before requiring an explicit [].
+// px_listAssets allows cursor omission but rejects explicit null before pointer decoding.
 // Route refusals to private, unregistered names and translate their errors after dispatch.
 // The dispatcher still owns batch bounds, IDs, notifications and deny lists.
 type pxParamsGuard struct {
 	invalidMethod     string
 	unavailableMethod string
 	receipts          *SequencerReceiptAPI
+	assets            bool
 	connectionType    ConnectionType
 }
 
 func newPxParamsGuard(apis []rpc.API, denyList []string, connectionType ConnectionType) *pxParamsGuard {
-	if slices.Contains(denyList, ReceiptKeysMethod) {
-		return nil
-	}
+	guard := &pxParamsGuard{connectionType: connectionType}
 	for _, api := range apis {
-		if keys, ok := api.Service.(*receiptKeysAPI); api.Namespace == "px" && ok {
-			return &pxParamsGuard{
-				invalidMethod:     "invalid-params:" + string(rpc.NewID()),
-				unavailableMethod: "unavailable-keys:" + string(rpc.NewID()),
-				receipts:          keys.receipts, connectionType: connectionType,
+		if api.Namespace != "px" {
+			continue
+		}
+		switch service := api.Service.(type) {
+		case *receiptKeysAPI:
+			if !slices.Contains(denyList, ReceiptKeysMethod) {
+				guard.receipts = service.receipts
 			}
+		case *pxAccountAPI:
+			guard.assets = !slices.Contains(denyList, "px_listAssets")
 		}
 	}
-	return nil
+	if guard.receipts == nil && !guard.assets {
+		return nil
+	}
+	guard.invalidMethod = "invalid-params:" + string(rpc.NewID())
+	guard.unavailableMethod = "unavailable-keys:" + string(rpc.NewID())
+	return guard
 }
 
 func (g *pxParamsGuard) request(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
@@ -50,21 +59,33 @@ func (g *pxParamsGuard) request(ctx context.Context, raw json.RawMessage) (json.
 			return message, nil
 		}
 		var method, version string
-		if json.Unmarshal(fields["method"], &method) != nil || method != ReceiptKeysMethod || json.Unmarshal(fields["jsonrpc"], &version) != nil || version != "2.0" {
+		if json.Unmarshal(fields["method"], &method) != nil || json.Unmarshal(fields["jsonrpc"], &version) != nil || version != "2.0" {
 			return message, nil
 		}
 		start := time.Now()
 		rejectedMethod := g.unavailableMethod
 		refusal := pxChainUnavailable("receipt_keys_unavailable")
-		if _, err := g.receipts.receiptKeys(); err == nil {
+		switch {
+		case method == "px_listAssets" && g.assets:
+			var params []json.RawMessage
+			if json.Unmarshal(fields["params"], &params) != nil || len(params) == 0 || !bytes.Equal(bytes.TrimSpace(params[0]), []byte("null")) {
+				return message, nil
+			}
+			rejectedMethod, refusal = g.invalidMethod, pxInvalidParams()
+		case method == ReceiptKeysMethod && g.receipts != nil:
+			if _, err := g.receipts.receiptKeys(); err != nil {
+				break
+			}
 			var params []json.RawMessage
 			if json.Unmarshal(fields["params"], &params) == nil && params != nil && len(params) == 0 {
 				return message, nil
 			}
 			rejectedMethod, refusal = g.invalidMethod, pxInvalidParams()
+		default:
+			return message, nil
 		}
 		fields["method"], _ = json.Marshal(rejectedMethod)
-		recordMetricsWithError(ctx, ReceiptKeysMethod, g.connectionType, start, refusal, nil)
+		recordMetricsWithError(ctx, method, g.connectionType, start, refusal, nil)
 		return json.Marshal(fields)
 	})
 }

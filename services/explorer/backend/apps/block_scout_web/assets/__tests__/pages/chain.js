@@ -2,7 +2,10 @@
  * @jest-environment jsdom
  */
 
-import { reducer, initialState, placeHolderBlock } from '../../js/pages/chain'
+import $ from 'jquery'
+import { reducer, initialState, placeHolderBlock, elements, bindBlocksChannel } from '../../js/pages/chain'
+import { createStore, connectElements } from '../../js/lib/redux_helpers'
+import socket from '../../js/socket'
 
 describe('ELEMENTS_LOAD', () => {
   test('loads with skipped blocks', () => {
@@ -44,6 +47,112 @@ test('RECEIVED_NEW_ADDRESS_COUNT', () => {
 })
 
 describe('RECEIVED_NEW_BLOCK', () => {
+  function legacyBlockCounterKeepsHeight () {
+    socket.disconnect()
+    window.localized = {}
+
+    for (const firstBlock of [0, 100]) {
+      for (const blocksLoaded of [true, false]) {
+        document.body.innerHTML = `
+          <div id="indexer-first-block" class="d-none">${firstBlock}</div>
+          <span data-selector="block-count">500</span>
+          <div data-selector="chain-block-list" data-url="/chain-blocks"></div>
+        `
+        const store = createStore(reducer)
+        connectElements({ store, elements })
+        const channel = bindBlocksChannel(store)
+        const $blocks = $('[data-selector="chain-block-list"]')
+
+        function blockMessage (blockNumber, label) {
+          return {
+            average_block_time: '5 seconds',
+            chain_block_html: `<div data-block-number="${blockNumber}">${label}</div>`,
+            block_html: `<div>${label}</div>`,
+            block_number: blockNumber,
+            block_miner_hash: '0x0000000000000000000000000000000000000000'
+          }
+        }
+
+        function expectHeight (height) {
+          expect(store.getState().blockCount).toBe(height)
+          expect($('[data-selector="block-count"]').text()).toBe(String(height))
+        }
+
+        try {
+          expectHeight(500)
+          expect(store.getState().blocks).toEqual([])
+          expect(store.getState().blocksLoading).toBe(true)
+
+          if (blocksLoaded) {
+            store.dispatch({
+              type: 'BLOCKS_FETCHED',
+              msg: {
+                blocks: [500, 499, 498, 497].map(blockNumber => ({
+                  blockNumber,
+                  chainBlockHtml: blockMessage(blockNumber, `block ${blockNumber}`).chain_block_html
+                }))
+              }
+            })
+            expectHeight(500)
+          } else {
+            channel.trigger('new_block', blockMessage(499, 'delayed block 499'))
+            expectHeight(500)
+            expect(store.getState().blocks[0].blockNumber).toBe(499)
+            channel.trigger('new_block', blockMessage(499, 'replacement before loading'))
+            expectHeight(500)
+            expect(store.getState().blocks[0].chainBlockHtml).toContain('replacement before loading')
+            expect($blocks.children()).toHaveLength(0)
+          }
+
+          const nextBlock = blockMessage(501, 'block 501')
+          channel.trigger('new_block', nextBlock)
+          expectHeight(501)
+          expect(store.getState().blocks[0].blockNumber).toBe(501)
+
+          channel.trigger('new_block', nextBlock)
+          expectHeight(501)
+          expect(store.getState().blocks.filter(block => block.blockNumber === 501)).toHaveLength(1)
+
+          const replacement = blockMessage(501, 'replacement block 501')
+          channel.trigger('new_block', replacement)
+          expectHeight(501)
+          expect(store.getState().blocks[0].chainBlockHtml).toBe(replacement.chain_block_html)
+          if (blocksLoaded) {
+            expect($blocks.find('[data-block-number="501"]')).toHaveLength(1)
+            expect($blocks.find('[data-block-number="501"]').text()).toBe('replacement block 501')
+          }
+
+          const olderBlock = blockMessage(499, 'replacement block 499')
+          channel.trigger('new_block', olderBlock)
+          expectHeight(501)
+          expect(store.getState().blocks[0].chainBlockHtml).toBe(replacement.chain_block_html)
+          if (blocksLoaded) {
+            expect(store.getState().blocks.find(block => block.blockNumber === 499).chainBlockHtml).toBe(olderBlock.chain_block_html)
+            expect($blocks.find('[data-block-number="499"]').text()).toBe('replacement block 499')
+          }
+
+          channel.trigger('new_block', blockMessage(502, 'block 502'))
+          expectHeight(502)
+          expect(store.getState().blocks[0].blockNumber).toBe(502)
+          if (!blocksLoaded) {
+            expect(store.getState().blocksLoading).toBe(true)
+            expect($blocks.children()).toHaveLength(0)
+            store.dispatch({ type: 'BLOCKS_FINISH_REQUEST' })
+          }
+          expectHeight(502)
+          expect($blocks.children().first().attr('data-block-number')).toBe('502')
+          expect($blocks.find('[data-block-number="501"]').text()).toBe('replacement block 501')
+        } finally {
+          channel.leave()
+          socket.remove(channel)
+          document.body.innerHTML = ''
+        }
+      }
+    }
+  }
+
+  test(legacyBlockCounterKeepsHeight.name, legacyBlockCounterKeepsHeight)
+
   test('receives new block', () => {
     const state = Object.assign({}, initialState, {
       averageBlockTime: '6 seconds',

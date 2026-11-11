@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -27,34 +28,45 @@ import (
 
 	"github.com/BurntSushi/toml"
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmhttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	sdkcrypto "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keyring"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
 const fixtureChainID = "committed-fixture"
 
 type node struct {
-	home             string
-	paxd             string
-	receiptKeyFile   string
-	receiptPublicKey []byte
-	rpcURL           string
-	p2pAddress       string
-	consensusAddress string
-	client           *rpc.Client
-	ctx              context.Context
-	isStandby        bool
-	standby          *node
-	standbyPrepared  bool
-	bootstrapped     bool
-	stopProcess      func()
-	processDone      <-chan struct{}
-	observer         bool
-	standbyAddress   string
-	gasPrice         *big.Int
-	bootstrapHeight  int64
+	home              string
+	paxd              string
+	receiptKeyFile    string
+	receiptPublicKey  []byte
+	rpcURL            string
+	p2pAddress        string
+	consensusAddress  string
+	client            *rpc.Client
+	ctx               context.Context
+	isStandby         bool
+	standby           *node
+	standbyPrepared   bool
+	bootstrapped      bool
+	stopProcess       func()
+	processDone       <-chan struct{}
+	observer          bool
+	standbyAddress    string
+	gasPrice          *big.Int
+	bootstrapHeight   int64
+	programsAuthority *v1ProgramsAuthority
 }
 
 var vectors = make(map[string]func(*node) (any, error))
@@ -100,7 +112,32 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 	if *vector != "" && vectors[*vector] == nil {
 		return fmt.Errorf("unknown fixture vector: %s", *vector)
 	}
-	n, err := prepareHome(ctx, *paxd)
+	names := make([]string, 0, len(vectors))
+	for name := range vectors {
+		if *vector == "" || name == *vector {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	if *vector == "" && vectors[vectorV7Name] != nil && vectors["vector-v4-committed"] != nil {
+		shared := make([]string, 0, len(names)-1)
+		for _, name := range names {
+			if name != vectorV7Name {
+				shared = append(shared, name)
+			}
+		}
+		if err := recordSelected(ctx, *paxd, *out, *vector, shared, stderr); err != nil {
+			return err
+		}
+		// V4 and V7 deliberately carry the same payment reference. Its global
+		// replay protection requires a fresh chain for the second recording.
+		return recordSelected(ctx, *paxd, *out, *vector, []string{vectorV7Name}, stderr)
+	}
+	return recordSelected(ctx, *paxd, *out, *vector, names, stderr)
+}
+
+func recordSelected(ctx context.Context, paxd, out, selection string, names []string, stderr io.Writer) (err error) {
+	n, err := prepareHome(ctx, paxd)
 	if err != nil {
 		return err
 	}
@@ -110,30 +147,16 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 			n.printLogTail(stderr)
 		}
 	}()
-	if *vector == vectorV6Name {
-		if err := n.configureV6Genesis(); err != nil {
-			return err
-		}
-	}
-	standby, err := n.prepareStandby()
+	standby, observer, err := n.prepareRecordingPeers(selection)
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(standby.home)
-	if *vector == "" || *vector == vectorV2Name || *vector == v1ProgramsName {
-		if err := n.configureV2Genesis(); err != nil {
-			return err
-		}
-	}
 	defer func() {
 		if err != nil {
 			standby.printLogTail(stderr)
 		}
 	}()
-	observer, err := n.prepareObserver(standby)
-	if err != nil {
-		return err
-	}
 	defer os.RemoveAll(observer.home)
 	defer func() {
 		if err != nil {
@@ -161,18 +184,11 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		return err
 	}
 	defer stop()
-	if err := os.MkdirAll(*out, 0755); err != nil {
+	if err := os.MkdirAll(out, 0755); err != nil {
 		return err
 	}
-	names := make([]string, 0, len(vectors))
-	for name := range vectors {
-		if *vector == "" || name == *vector {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
 	for _, name := range names {
-		value, err := vectors[name](n)
+		value, err := n.recordVector(name, selection == "")
 		if err != nil {
 			return fmt.Errorf("record %s: %w", name, err)
 		}
@@ -181,7 +197,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 			if !ok {
 				return errors.New("V1 Programs recorder returned another vector type")
 			}
-			if err := writeV1ProgramsCopies(*out, v); err != nil {
+			if err := writeV1ProgramsCopies(out, v); err != nil {
 				return err
 			}
 			continue
@@ -191,7 +207,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 			if !ok {
 				return errors.New("V2 recorder returned another vector type")
 			}
-			if err := writeVectorV2Copies(*out, v); err != nil {
+			if err := writeVectorV2Copies(out, v); err != nil {
 				return err
 			}
 			continue
@@ -200,11 +216,157 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		if err != nil {
 			return fmt.Errorf("encode %s: %w", name, err)
 		}
-		if err := os.WriteFile(filepath.Join(*out, name+".json"), append(data, '\n'), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(out, name+".json"), append(data, '\n'), 0644); err != nil {
 			return err
 		}
 	}
-	return nil
+	return n.waitForRecordingObserver(observer)
+}
+
+func (n *node) waitForRecordingObserver(observer *node) error {
+	ctx, cancel := context.WithTimeout(n.ctx, 30*time.Second)
+	defer cancel()
+	primary, err := tmhttp.New("http://" + n.consensusAddress)
+	if err != nil {
+		return err
+	}
+	status, err := primary.Status(ctx)
+	if err != nil {
+		return err
+	}
+	height := status.SyncInfo.LatestBlockHeight
+	client, err := tmhttp.New("http://" + observer.consensusAddress)
+	if err != nil {
+		return err
+	}
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		status, err := client.Status(ctx)
+		if err != nil {
+			return fmt.Errorf("recording observer status: %w", err)
+		}
+		if status.SyncInfo.LatestBlockHeight >= height {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("recording observer applied height %d, waiting for %d: %w", status.SyncInfo.LatestBlockHeight, height, ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (n *node) recordVector(name string, all bool) (any, error) {
+	if !all || (name != vectorV2Name && name != "vector-v4-committed" && name != vectorV7Name) {
+		return vectors[name](n)
+	}
+	wallet, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, n.home, nil)
+	if err != nil {
+		return nil, err
+	}
+	secret, err := keyring.NewUnsafe(wallet).UnsafeExportPrivKeyHex("fixture")
+	if err != nil {
+		return nil, err
+	}
+	fixture, err := crypto.HexToECDSA(strings.TrimSpace(secret))
+	if err != nil {
+		return nil, err
+	}
+	defer fixture.D.SetInt64(0)
+	material := append(fixture.D.FillBytes(make([]byte, 32)), []byte("committed-fixture recorder payer/"+name)...)
+	seed := sha256.Sum256(material)
+	clear(material)
+	payer, err := crypto.ToECDSA(seed[:])
+	clear(seed[:])
+	if err != nil {
+		return nil, err
+	}
+	defer payer.D.SetInt64(0)
+
+	// Each binding recorder reads its own payer under the existing fixture key
+	// name; the running node's keyring and its unbound funding account stay intact.
+	home, err := os.MkdirTemp(n.home, name+"-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(home)
+	if err := os.Mkdir(filepath.Join(home, "config"), 0700); err != nil {
+		return nil, err
+	}
+	genesis, err := os.ReadFile(filepath.Join(n.home, "config", "genesis.json"))
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(home, "config", "genesis.json"), genesis, 0600); err != nil {
+		return nil, err
+	}
+	var doc struct {
+		AppState struct {
+			Sequencer struct {
+				ReceiptKeys seqkeeper.ReceiptKeys `json:"receipt_keys"`
+			} `json:"sequencer"`
+		} `json:"app_state"`
+	}
+	if err := json.Unmarshal(genesis, &doc); err != nil {
+		return nil, err
+	}
+	recorderWallet, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, home, nil)
+	if err != nil {
+		return nil, err
+	}
+	private := crypto.FromECDSA(payer)
+	armor := sdkcrypto.EncryptArmorPrivKey(private, "", string(hd.Secp256k1Type))
+	clear(private)
+	if err := recorderWallet.ImportPrivKey("fixture", armor, ""); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(n.ctx, 30*time.Second)
+	defer cancel()
+	var chainID, price hexutil.Big
+	if err := n.client.CallContext(ctx, &chainID, "eth_chainId"); err != nil {
+		return nil, err
+	}
+	if err := v4PendingCall(ctx, n, &price, "eth_gasPrice"); err != nil {
+		return nil, err
+	}
+	_, funded, err := sendV2Call(ctx, n, chainID.ToInt(), price.ToInt(), v2Call{
+		fixture, crypto.PubkeyToAddress(payer.PublicKey), new(big.Int).Exp(big.NewInt(10), big.NewInt(19), nil), nil,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fund recorder payer: %w", err)
+	}
+	if err := funded.Verify(doc.AppState.Sequencer.ReceiptKeys); err != nil {
+		return nil, fmt.Errorf("recorder payer funding authorization: %w", err)
+	}
+	if funded.Status != 1 {
+		return nil, errors.New("recorder payer funding reverted")
+	}
+	recorder := *n
+	recorder.home = home
+	return vectors[name](&recorder)
+}
+
+func (n *node) prepareRecordingPeers(vector string) (*node, *node, error) {
+	if vector == "" || vector == vectorV6Name {
+		if err := n.configureV6Genesis(); err != nil {
+			return nil, nil, err
+		}
+	}
+	standby, err := n.prepareStandby()
+	if err != nil {
+		return nil, nil, err
+	}
+	if vector == "" || vector == vectorV2Name || vector == v1ProgramsName {
+		if err := n.configureV2Genesis(); err != nil {
+			return nil, nil, err
+		}
+	}
+	observer, err := n.prepareObserver(standby)
+	if err != nil {
+		return nil, nil, err
+	}
+	return standby, observer, nil
 }
 
 func (n *node) command(args ...string) ([]byte, error) {
@@ -287,9 +449,6 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool, parent stri
 		"--first-height", "1", "--last-height", fmt.Sprint(uint64(math.MaxInt64))); err != nil {
 		return nil, err
 	}
-	if err = n.configureGenesis(); err != nil {
-		return nil, err
-	}
 	var validator struct {
 		PubKey struct {
 			Value []byte `json:"value"`
@@ -313,6 +472,9 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool, parent stri
 		if _, err = n.command(args...); err != nil {
 			return nil, err
 		}
+	}
+	if err = n.configureGenesis(); err != nil {
+		return nil, err
 	}
 	return n, nil
 }
@@ -351,8 +513,13 @@ func (n *node) configureGenesis() error {
 	if err := keys.Validate(); err != nil {
 		return err
 	}
+	var sequencer map[string]json.RawMessage
+	if err := json.Unmarshal(app[seqtypes.ModuleName], &sequencer); err != nil {
+		return err
+	}
 	var err error
-	app[seqtypes.ModuleName], err = json.Marshal(map[string]any{"receipt_keys": keys, "activation_height": uint64(1)})
+	sequencer["activation_height"] = json.RawMessage("1")
+	app[seqtypes.ModuleName], err = json.Marshal(sequencer)
 	if err != nil {
 		return err
 	}
@@ -372,6 +539,71 @@ func (n *node) configureGenesis() error {
 		return err
 	}
 	app["staking"], err = json.Marshal(stakingState)
+	if err != nil {
+		return err
+	}
+	n.programsAuthority, err = newV1ProgramsAuthority()
+	if err != nil {
+		return err
+	}
+	public, actor, err := n.v1ProgramsGenesisIdentity()
+	if err != nil {
+		return err
+	}
+	var host lxphost.StoreGenesis
+	if err := json.Unmarshal(app[storekeys.LayerXHostStoreKey], &host); err != nil {
+		return err
+	}
+	// Match tests/daemon/recorder's programs governance records before any
+	// peer starts; a running recording chain never receives direct store writes.
+	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	for i := 0; i < 7; i++ {
+		fee = binary.BigEndian.AppendUint64(fee, 1)
+	}
+	occupancyAsset, funding, err := v1ProgramsGenesisFunding(public, actor)
+	if err != nil {
+		return err
+	}
+	fee = append(fee, occupancyAsset[:]...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		fee = binary.BigEndian.AppendUint64(fee, value)
+	}
+	fee = append(fee, actor[:]...)
+	fee = append(fee, make([]byte, 16)...)
+	metering := binary.BigEndian.AppendUint32([]byte("LXMR1"), 1)
+	for _, coefficient := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8} {
+		metering = binary.BigEndian.AppendUint64(metering, coefficient)
+	}
+	metering = binary.BigEndian.AppendUint64(metering, 1)
+	metering = append(metering, 1)
+	metering = append(metering, actor[:]...)
+	for _, record := range []kv.Pair{
+		{Key: []byte("progfee/active/v1"), Value: fee},
+		{Key: binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1), Value: fee},
+		{Key: []byte("progmet/active/v1"), Value: metering},
+		{Key: binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1), Value: metering},
+	} {
+		record.Key = append([]byte{1, 0, 9}, record.Key...)
+		for _, existing := range host.Records {
+			if bytes.Equal(existing.Key, record.Key) {
+				return fmt.Errorf("programs genesis record already exists: %x", record.Key)
+			}
+		}
+		host.Records = append(host.Records, record)
+	}
+	for _, record := range funding {
+		for _, existing := range host.Records {
+			if bytes.Equal(existing.Key, record.Key) {
+				return fmt.Errorf("programs funding genesis record already exists: %x", record.Key)
+			}
+		}
+		host.Records = append(host.Records, record)
+	}
+	sort.Slice(host.Records, func(i, j int) bool { return bytes.Compare(host.Records[i].Key, host.Records[j].Key) < 0 })
+	if err := host.Validate(); err != nil {
+		return err
+	}
+	app[storekeys.LayerXHostStoreKey], err = json.Marshal(host)
 	if err != nil {
 		return err
 	}
@@ -420,6 +652,12 @@ func (n *node) configure() error {
 			"standby-address": n.standbyAddress, "replication-timeout": "5s",
 			"wal-retain-blocks": int64(2), "nonce-queue-max-per-sender": int64(64),
 			"nonce-queue-max-total": int64(1024), "lease-duration": "3s",
+		}
+		if n.observer {
+			// Replay through the same synchronous SDK path as the sequential
+			// recorder, including the hosted Programs precompile.
+			cfg["occ-enabled"] = false
+			cfg["giga_executor"].(map[string]any)["enabled"] = false
 		}
 		evm := cfg["evm"].(map[string]any)
 		evm["http_enabled"], evm["http_address"] = !n.observer, "127.0.0.3"

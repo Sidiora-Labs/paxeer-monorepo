@@ -1,3 +1,7 @@
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -195,7 +199,7 @@ fn approval_time_units_check_unix_expiry_without_a_sequence_change() {
         ),
         Err(ApprovalError::AlreadyDecided(ApprovalState::Expired))
     );
-    let audit = must(registry.audit_entry(ticket.hold_id)).expect("expired audit");
+    let audit = require_some(must(registry.audit_entry(ticket.hold_id)), "expired audit");
     assert_eq!(audit.decision, ApprovalState::Expired);
     assert_eq!(audit.resulting_activity_id, None);
     assert_eq!(audit.approver, None);
@@ -315,7 +319,7 @@ fn approval_time_units_keep_sequence_and_timestamp_bounds_independent() {
 #[test]
 #[allow(deprecated)]
 fn approval_time_units_retire_ambiguous_entries_and_recover_timed_holds() {
-    use layerx_agentd::policy::approval::{decide, hold, hold_reserved, reserve_and_hold};
+    use layerx_agentd::policy::approval::hold;
 
     let root = Root::new();
     let budgets = limiter();
@@ -338,79 +342,109 @@ fn approval_time_units_retire_ambiguous_entries_and_recover_timed_holds() {
             ),
             Err(ApprovalError::ClockRequired)
         );
-        assert_eq!(
-            reserve_and_hold(
-                &registry,
-                &budgets,
-                approval_context(6),
-                prepared(6, NOW + 60),
-                &request,
-                HEIGHT + 20
-            ),
-            Err(ApprovalReservationError::Approval(
-                ApprovalError::ClockRequired
-            ))
-        );
-        assert_eq!(budgets.held_reservations(), Ok(0));
-        assert_eq!(
-            reserve_and_hold_at(
-                &registry,
-                &budgets,
-                approval_context(6),
-                prepared(6, NOW),
-                &request,
-                ApprovalSequence(HEIGHT + 20),
-                TimestampSeconds(NOW)
-            ),
-            Err(ApprovalReservationError::Approval(
-                ApprovalError::InvalidWindow
-            ))
-        );
-        assert_eq!(budgets.held_reservations(), Ok(0));
-        let ticket = must(reserve_and_hold_at(
-            &registry,
-            &budgets,
+        finish_approval_time_units_retire_ambiguous_entries_and_recover_timed_holds_2_repair_22_33_1507(&budgets, &request, &registry);
+    }
+    finish_approval_time_units_retire_ambiguous_entries_and_recover_timed_holds_1_repair_22_33_1507(
+        &root,
+    );
+}
+
+#[allow(
+    deprecated,
+    reason = "Retains archived forms to exercise their compatibility and rejection boundaries."
+)]
+fn finish_approval_time_units_retire_ambiguous_entries_and_recover_timed_holds_2_repair_22_33_1507(
+    budgets: &BudgetLimiter,
+    request: &ReservationRequest,
+    registry: &ApprovalRegistry,
+) {
+    #[allow(
+        deprecated,
+        reason = "Retains archived forms to exercise their compatibility and rejection boundaries."
+    )]
+    use layerx_agentd::policy::approval::{decide, hold_reserved, reserve_and_hold};
+
+    assert_eq!(
+        reserve_and_hold(
+            registry,
+            budgets,
             approval_context(6),
             prepared(6, NOW + 60),
-            &request,
+            request,
+            HEIGHT + 20
+        ),
+        Err(ApprovalReservationError::Approval(
+            ApprovalError::ClockRequired
+        ))
+    );
+    assert_eq!(budgets.held_reservations(), Ok(0));
+    assert_eq!(
+        reserve_and_hold_at(
+            registry,
+            budgets,
+            approval_context(6),
+            prepared(6, NOW),
+            request,
             ApprovalSequence(HEIGHT + 20),
-            TimestampSeconds(NOW),
-        ));
-        assert_eq!(budgets.held_exposure(LimitId([1; 16])), Ok(7));
-        assert_eq!(
-            decide(
-                &registry,
-                ticket.hold_id,
-                approver(),
-                ApprovalChoice::Approve,
-                ticket.disclosure_digest,
-                HEIGHT
-            ),
-            Err(ApprovalError::ClockRequired)
-        );
-        // A borrowed legacy reservation is also refused without consuming or changing it.
-        let other = limiter();
-        let reservation = must(layerx_agentd::budget::reserve(&other, &request));
-        assert_eq!(
-            hold_reserved(
-                &registry,
-                approval_context(7),
-                prepared(7, NOW + 60),
-                HEIGHT,
-                HEIGHT + 20,
-                &reservation
-            ),
-            Err(ApprovalError::ClockRequired)
-        );
-        assert_eq!(other.held_exposure(LimitId([1; 16])), Ok(7));
-    }
+            TimestampSeconds(NOW)
+        ),
+        Err(ApprovalReservationError::Approval(
+            ApprovalError::InvalidWindow
+        ))
+    );
+    assert_eq!(budgets.held_reservations(), Ok(0));
+    let ticket = must(reserve_and_hold_at(
+        registry,
+        budgets,
+        approval_context(6),
+        prepared(6, NOW + 60),
+        request,
+        ApprovalSequence(HEIGHT + 20),
+        TimestampSeconds(NOW),
+    ));
+    assert_eq!(budgets.held_exposure(LimitId([1; 16])), Ok(7));
+    assert_eq!(
+        decide(
+            registry,
+            ticket.hold_id,
+            approver(),
+            ApprovalChoice::Approve,
+            ticket.disclosure_digest,
+            HEIGHT
+        ),
+        Err(ApprovalError::ClockRequired)
+    );
+    // A borrowed legacy reservation is also refused without consuming or changing it.
+    let other = limiter();
+    let reservation = must(layerx_agentd::budget::reserve(&other, request));
+    assert_eq!(
+        hold_reserved(
+            registry,
+            approval_context(7),
+            prepared(7, NOW + 60),
+            HEIGHT,
+            HEIGHT + 20,
+            &reservation
+        ),
+        Err(ApprovalError::ClockRequired)
+    );
+    assert_eq!(other.held_exposure(LimitId([1; 16])), Ok(7));
+}
+
+fn finish_approval_time_units_retire_ambiguous_entries_and_recover_timed_holds_1_repair_22_33_1507(
+    root: &Root,
+) {
+    #[allow(
+        deprecated,
+        reason = "Retains archived forms to exercise their compatibility and rejection boundaries."
+    )]
     let registry = ApprovalRegistry::with_store(root.store());
     let recovered_budgets = limiter();
     assert_eq!(registry.replay_tenant(&tenant(), &recovered_budgets), Ok(1));
     let modules = must(ModuleRegistry::new(&[]));
     assert_eq!(registry.validate_registry(&tenant(), &modules), Ok(()));
     assert_eq!(recovered_budgets.held_exposure(LimitId([1; 16])), Ok(7));
-    let ticket = must(registry.ticket([6; 32])).expect("recovered hold");
+    let ticket = require_some(must(registry.ticket([6; 32])), "recovered hold");
     assert_eq!(ticket.disclosure.expiry, TimestampSeconds(NOW + 60));
     assert_eq!(
         decide_at(
@@ -425,8 +459,7 @@ fn approval_time_units_retire_ambiguous_entries_and_recover_timed_holds() {
         Err(ApprovalError::AlreadyDecided(ApprovalState::Expired))
     );
     assert_eq!(
-        must(registry.audit_entry(ticket.hold_id))
-            .expect("expired audit")
+        require_some(must(registry.audit_entry(ticket.hold_id)), "expired audit")
             .resulting_activity_id,
         None
     );
@@ -507,7 +540,7 @@ fn policy_history_durability_reconstructs_original_decision_after_activation_and
     let original;
     {
         let mut registries = must(load_tenant_registries(&sources));
-        let registry = registries.get_mut(&tenant()).expect("tenant registry");
+        let registry = require_some(registries.get_mut(&tenant()), "tenant registry");
         let snapshot = registry.begin_request();
         id = dry_run_request_id(
             &tenant(),
@@ -552,19 +585,17 @@ fn policy_history_durability_reconstructs_original_decision_after_activation_and
     }
     {
         let mut registries = must(load_tenant_registries(&sources));
-        let registry = registries.get_mut(&tenant()).expect("reopened tenant");
+        let registry = require_some(registries.get_mut(&tenant()), "reopened tenant");
         assert_eq!(registry.active_version(), "second");
         assert_eq!(registry.begin_request().generation(), 2);
         assert_eq!(
-            registry
-                .audit_entry([17; 32])
-                .expect("durable admission decision")
-                .decision,
+            require_some(registry.audit_entry([17; 32]), "durable admission decision").decision,
             original
         );
-        let (entry, recovered) = registry
-            .reconstruct_decision(id)
-            .expect("retained decision and source");
+        let (entry, recovered) = require_some(
+            registry.reconstruct_decision(id),
+            "retained decision and source",
+        );
         assert_eq!(entry.decision, original);
         assert_eq!(entry.tenant.as_ref(), Some(&tenant()));
         assert_eq!(entry.generation, 1);
@@ -584,17 +615,11 @@ fn policy_history_durability_reconstructs_original_decision_after_activation_and
     let registry = &registries[&tenant()];
     assert_eq!(registry.begin_request().generation(), 3);
     assert_eq!(
-        registry
-            .audit_entry(id)
-            .expect("original decision")
-            .decision,
+        require_some(registry.audit_entry(id), "original decision").decision,
         original
     );
     assert_eq!(
-        registry
-            .retained_snapshot("second")
-            .expect("second snapshot")
-            .generation(),
+        require_some(registry.retained_snapshot("second"), "second snapshot").generation(),
         2
     );
 }
@@ -629,16 +654,11 @@ fn policy_history_quotas_refuse_new_publication_without_losing_references() {
     drop(registry);
     let registry = must(PolicyRegistry::open(root.store(), tenant(), SECOND, quotas));
     assert_eq!(
-        registry
-            .audit_entry([11; 32])
-            .expect("preserved decision")
-            .decision,
+        require_some(registry.audit_entry([11; 32]), "preserved decision").decision,
         first.decision
     );
     assert_eq!(
-        registry
-            .reconstruct_decision([11; 32])
-            .expect("source retained")
+        require_some(registry.reconstruct_decision([11; 32]), "source retained")
             .1
             .source(),
         Some(FIRST)
@@ -709,10 +729,7 @@ fn policy_history_failed_persistence_and_stale_owners_never_publish() {
     ));
     assert_eq!(registry.begin_request().generation(), 1);
     assert_eq!(
-        registry
-            .audit_entry([13; 32])
-            .expect("original audit")
-            .decision,
+        require_some(registry.audit_entry([13; 32]), "original audit").decision,
         original.decision
     );
     assert!(registry.audit_entry([14; 32]).is_none());
@@ -733,7 +750,11 @@ fn policy_history_shared_store_loader_preserves_tenant_binding_and_refuses_corru
             PolicyRetentionQuotas::default(),
         ));
         assert_eq!(
-            decision(registries.get_mut(&tenant()).expect("tenant"), [16; 32]).audit_error,
+            decision(
+                require_some(registries.get_mut(&tenant()), "tenant"),
+                [16; 32]
+            )
+            .audit_error,
             None
         );
     }
@@ -746,10 +767,7 @@ fn policy_history_shared_store_loader_preserves_tenant_binding_and_refuses_corru
         ));
         assert_eq!(registries[&tenant()].begin_request().generation(), 2);
         assert_eq!(
-            registries[&tenant()]
-                .audit_entry([16; 32])
-                .expect("original")
-                .generation,
+            require_some(registries[&tenant()].audit_entry([16; 32]), "original").generation,
             1
         );
     }
@@ -758,9 +776,7 @@ fn policy_history_shared_store_loader_preserves_tenant_binding_and_refuses_corru
         ObjectKind::Policy,
         b"policy-history-v1".to_vec(),
     ));
-    let bytes = must(store.lock())
-        .get(&key)
-        .expect("producer history")
+    let bytes = require_some(must(store.lock()).get(&key), "producer history")
         .bytes()
         .to_vec();
     let other_tenant = must(TenantId::new("another-tenant"));
@@ -780,9 +796,7 @@ fn policy_history_shared_store_loader_preserves_tenant_binding_and_refuses_corru
         Err(PolicyHistoryError::CorruptRecord)
     ));
     let mut record: serde_json::Value = must(serde_json::from_slice(&bytes));
-    let original_byte = record["versions"][0]["digest"][0]
-        .as_u64()
-        .expect("digest byte");
+    let original_byte = require_some(record["versions"][0]["digest"][0].as_u64(), "digest byte");
     record["versions"][0]["digest"][0] = serde_json::json!((original_byte + 1) % 256);
     must(must(store.lock()).put_local(key, must(serde_json::to_vec(&record))));
     assert!(matches!(

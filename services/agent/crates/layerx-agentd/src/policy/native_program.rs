@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use crate::capability::{ProgramSpendBound, ProgramValueSource, VerifiedInputs};
-use crate::prepare::Prepared;
+use crate::prepare::EvmPrepared;
 
 const SOURCE_VERSION: &str = "layerx.native-program-policy.v1";
 const MAX_SOURCE: usize = 1024 * 1024;
@@ -179,13 +179,12 @@ struct Route {
 }
 
 impl NativeProgramIntent {
-    pub(crate) fn from_prepared(prepared: &Prepared) -> Result<Self, NativePolicyError> {
+    pub(crate) fn from_prepared(prepared: &EvmPrepared) -> Result<Self, NativePolicyError> {
         use layerx_crypto::disclosure::{
             DisclosedNativeOperation, DisclosedProgramWindDownOperation,
         };
-        crate::prepare::verify_disclosure_binding(prepared)
-            .map_err(|_| NativePolicyError::Disclosure)?;
-        let activity = prepared.envelope.activity_type();
+        crate::prepare::verify_call_binding(prepared).map_err(|_| NativePolicyError::Disclosure)?;
+        let activity = prepared.disclosure.activity_type;
         if activity.module() != ModuleId::Programs {
             return Err(NativePolicyError::Activity);
         }
@@ -216,8 +215,9 @@ impl NativeProgramIntent {
         };
         Ok(Self {
             activity,
-            network_id: prepared.envelope.network_id(),
-            canonical_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+            network_id: u32::try_from(prepared.call.chain_id)
+                .map_err(|_| NativePolicyError::Disclosure)?,
+            canonical_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
             spend: semantic.program_spend_bounds().to_vec(),
             route,
             purpose_commitment: crate::capability::binding::purpose_commitment(
@@ -639,16 +639,16 @@ pub(crate) struct NativeEffectIntent {
 
 impl NativeEffectIntent {
     pub(crate) fn from_prepared(
-        prepared: &Prepared,
+        owner: &layerx_types::ids::Did,
+        prepared: &EvmPrepared,
         fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
             layerx_client::rpc::payments::NativeFeePolicy,
         >,
         purpose_commitment: [u8; 32],
         profile: crate::capability::NativeAdmissionProfile,
     ) -> Result<Self, NativePolicyError> {
-        crate::prepare::verify_disclosure_binding(prepared)
-            .map_err(|_| NativePolicyError::Disclosure)?;
-        if prepared.envelope.activity_type().module() == ModuleId::Programs {
+        crate::prepare::verify_call_binding(prepared).map_err(|_| NativePolicyError::Disclosure)?;
+        if prepared.disclosure.activity_type.module() == ModuleId::Programs {
             return Err(NativePolicyError::Activity);
         }
         if crate::capability::binding::purpose_commitment(&prepared.disclosure)
@@ -659,9 +659,9 @@ impl NativeEffectIntent {
         if let crate::capability::NativeAdmissionProfile::Registration { fee_asset } = profile {
             let commitment = crate::capability::native_registration_commitment(
                 &prepared.disclosure,
-                prepared.envelope.protocol_version(),
-                prepared.envelope.network_id(),
-                Sha256::digest(&prepared.canonical_bytes).into(),
+                3,
+                u32::try_from(prepared.call.chain_id).map_err(|_| NativePolicyError::Disclosure)?,
+                Sha256::digest(prepared.call.encode_unsigned()).into(),
                 fee_asset,
             )
             .map_err(|_| NativePolicyError::Effects)?;
@@ -676,15 +676,17 @@ impl NativeEffectIntent {
             return Err(NativePolicyError::Effects);
         }
         let fee = crate::capability::binding::native_effect_fee(
+            owner,
             prepared,
             fee_policy,
-            prepared.observed_head_sequence,
+            prepared.observed_head_height,
         )
         .map_err(|_| NativePolicyError::Disclosure)?;
         Ok(Self {
-            activity: prepared.envelope.activity_type(),
-            network_id: prepared.envelope.network_id(),
-            canonical_digest: Sha256::digest(&prepared.canonical_bytes).into(),
+            activity: prepared.disclosure.activity_type,
+            network_id: u32::try_from(prepared.call.chain_id)
+                .map_err(|_| NativePolicyError::Disclosure)?,
+            canonical_digest: Sha256::digest(prepared.call.encode_unsigned()).into(),
             effects: semantic.effects().to_vec(),
             fee,
             purpose_commitment,
@@ -843,13 +845,18 @@ mod native_effect_policy_tests {
     }
 
     fn bytes(value: &serde_json::Value) -> Vec<u8> {
-        serde_json::to_vec(value).expect("real configured JSON source")
+        let Ok(encoded) = serde_json::to_vec(value) else {
+            panic!("real configured JSON source");
+        };
+        encoded
     }
 
     #[test]
     fn native_effect_policy_profile_is_closed_and_separate_from_programs() {
         let encoded = bytes(&source());
-        let policy = NativeEffectPolicy::load(&encoded).expect("non-Programs source");
+        let Ok(policy) = NativeEffectPolicy::load(&encoded) else {
+            panic!("non-Programs source");
+        };
         assert_eq!(policy.source(), encoded);
         assert!(policy.parsed.rules[0].required_approval);
         assert!(NativeProgramPolicy::load(&encoded).is_err());
@@ -877,7 +884,9 @@ mod native_effect_policy_tests {
         value["rules"][0]["scope"] = serde_json::json!({ "kind": "Transfer",
             "from": ([1; 32].to_vec()), "to": ([2; 32].to_vec()), "asset": ([3; 32].to_vec()),
             "maximum_amount": "40" });
-        let policy = NativeEffectPolicy::load(&bytes(&value)).expect("complete scope");
+        let Ok(policy) = NativeEffectPolicy::load(&bytes(&value)) else {
+            panic!("complete scope");
+        };
         let scope = &policy.parsed.rules[0].scope;
         assert_eq!(
             scope.matching_amount(&crate::capability::Effect::Transfer {

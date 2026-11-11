@@ -53,10 +53,13 @@ services declared in [the gateway OpenRPC contract](../../../services/platform/h
 
 The global `--rpc` override and the environment endpoint must be an HTTP(S)
 origin at the root path (`/`); the CLI refuses any other path, including the
-retired `/rpc` route, which the hosted gateway answers with HTTP 404. Hosted
-`px_*` methods additionally require the operator's hosted service origin and a
-gateway credential. Bind and program commands additionally depend on their methods
-being admitted by the CLI allowlist; the examples here do not qualify those paths.
+retired `/rpc` route, which the hosted gateway answers with HTTP 404. `--rpc`
+names a node root for node operations; hosted wallet balance and write-account
+queries travel through `--gateway-rpc` with the operator's hosted service origin
+and a gateway credential. Token info and list select the hosted service through
+`--rpc` instead. Bind and program
+commands additionally depend on their methods being admitted by the CLI allowlist;
+the examples here do not qualify those paths.
 
 An operator must supply the hosted service base URL, an independently trusted
 receipt-key anchor, a bearer identity session for faucet/REST calls and a stored
@@ -209,31 +212,38 @@ The following are command-shape examples under the connection prerequisites
 above. `ASSET_ID` is a 64-character hexadecimal asset ID. `RECIPIENT_ACCOUNT`
 is an existing 64-character hexadecimal native account ID, not an EVM address.
 A recipient DID is also accepted, but requires successful hosted account
-resolution for that asset. Amounts are integer base units.
+resolution for that asset. Amounts are integer base units. `--rpc` names the
+node root, while hosted account queries use `--gateway-rpc`.
 
 ```bash
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token create \
   --key payments --symbol PAY --name 'Payment Token' \
   --decimals 6 --supply-cap 1000000000 --salt "$(openssl rand -hex 32)" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet open-account \
   --key payments --asset "$ASSET_ID" --evm-key-file "$EVM_KEY_FILE" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token mint \
   --key payments --asset "$ASSET_ID" --to "$RECIPIENT_ACCOUNT" --amount 100 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token burn \
   --key payments --asset "$ASSET_ID" --amount 1 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet send \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 100 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token transfer \
   --key payments --to "$RECIPIENT_ACCOUNT" --asset "$ASSET_ID" --amount 10 \
+  --gateway-rpc "$HOSTED_SERVICE_URL/" \
   --evm-key-file "$EVM_KEY_FILE" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT" --wait batched
 ```
@@ -260,7 +270,7 @@ execution evidence. The returned identifier is a `0x`-prefixed transaction hash.
 | --- | --- |
 | `executed` (default) | Verifies the signed receipt and bound execution/log fields; returns rung `receipted` |
 | `batched` | Also matches the committed block hash, number, status and transaction index to `eth_getTransactionReceipt`; returns rung `committed` |
-| `finalised` | Returns `MissingFinalityTrust`; this legacy option is unsupported |
+| `finalised` | Alias of `committed`; verifies the same receipt and committed-block evidence as `batched` |
 
 Use `batched` to request committed-block evidence. Commitment is finality on
 this BFT network; it does not require another certificate. Receipt reads use
@@ -300,7 +310,7 @@ layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet watch account \
 native account ID. It maps to `eth_subscribe` with a `logs` address filter and
 requires a stored gateway credential. Although clap still lists `receipts` and
 `checkpoints`, the subscription handler rejects those selectors. The hosted
-service must support the WebSocket upgrade at the configured RPC URL plus `/ws`, using the gateway key. This does not configure a public-node
+service must support the WebSocket upgrade at the configured RPC URL, using the gateway key. This does not configure a public-node
 WebSocket connection.
 
 A watch returns one notification with `verified: false` and exits. Its timeout
@@ -310,20 +320,25 @@ reads before reconnecting ([subscription implementation](src/rpc_subscription.rs
 
 ### Public JSON-RPC reads
 
-Use direct root-node requests for standard Ethereum reads. The CLI's native
-wallet and token reads require hosted methods and the compatible transport
+Use direct root-node requests for standard Ethereum reads. Wallet balance uses
+hosted methods through `--gateway-rpc`, while `--rpc` names the node root.
+Token info and list accept the hosted service URL through `--rpc`; these
+commands have no `--gateway-rpc` option. All require the compatible transport
 described above:
 
 ```bash
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance --did "$WALLET_DID"
+layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance --did "$WALLET_DID" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/"
 layerx --rpc "$CLI_RPC_URL" --gateway-credential beta wallet balance \
-  --did "$WALLET_DID" --asset "$ASSET_ID"
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token info "$ASSET_ID"
-layerx --rpc "$CLI_RPC_URL" --gateway-credential beta token list --limit 16
+  --did "$WALLET_DID" --asset "$ASSET_ID" \
+  --gateway-rpc "$HOSTED_SERVICE_URL/"
+layerx --rpc "$HOSTED_SERVICE_URL/" --gateway-credential beta token info "$ASSET_ID"
+layerx --rpc "$HOSTED_SERVICE_URL/" --gateway-credential beta token list --limit 16
 ```
 
 Balance uses `px_getBalances [did]` and displays the hosted `account`, `height`
-and bank `balances` with `units: base` and `evidence: committed_eth_call`.
+and bank `balances` with `units: base`, `evidence: committed_eth_call` and
+`verification: unverified_node_observation`.
 An asset filter selects the bank denomination `layerx/<asset_id>`; this read
 neither requires nor claims a native state proof. Token listing uses
 `px_listAssets`; token info searches its pages for the requested asset.
@@ -333,6 +348,12 @@ Pages follow registration order, not lexical asset-ID order. Bank custody
 metadata and committed observations are not authenticated native state proofs.
 Unknown methods, malformed responses and unavailable account evidence exit nonzero. Retired `lx_` methods are
 explicitly refused by the CLI RPC allowlist.
+
+EVM sender nonces come from `eth_getTransactionCount [address, "pending"]`.
+Program event readers use node `eth_getLogs` for PLX and xweb events, or the
+chain's LXP Query/ProgramEvents interface. The CLI RPC allowlist does not yet
+admit those event queries. Its inline RPC tests retain negative coverage for
+retired methods; those literals do not enable a transport path.
 
 ## MCP payment surface
 

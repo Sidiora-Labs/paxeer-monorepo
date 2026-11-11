@@ -4,15 +4,20 @@ import hashlib
 import json
 import os
 import socket
+import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 
+import pytest
+
+from tools.qualification import beta_driver
 from tools.qualification.release_runner import EVIDENCE_SPECS, SCHEMA
 
 
@@ -23,6 +28,52 @@ NETWORK_ID = "125"
 SOURCE_IDENTITY = "beta-driver-test-source-identity"
 DRIVER_TIMEOUT_SECONDS = 3600.0
 READY_TIMEOUT_SECONDS = 60.0
+
+
+def test_relocated_adoption_inputs_resolve() -> None:
+    expected_root = ROOT / "services" / "platform" / "examples" / "samples"
+    assert beta_driver.SAMPLES == expected_root
+    assert beta_driver.SAMPLES.resolve() == expected_root.resolve()
+    manifests = {
+        "first-payment-typescript": ("package.json", "@sidiora/layerx-sdk"),
+        "first-payment-python": ("requirements.txt", "layerx-sdk=="),
+        "first-payment-go": ("go.mod", "sdk/platform/go"),
+        "first-payment-jvm": ("pom.xml", "<artifactId>layerx-sdk</artifactId>"),
+        "first-payment-swift": ("Package.swift", "LayerXSDK"),
+        "first-payment-csharp": ("FirstPayment.csproj", "LayerX.Sdk.csproj"),
+    }
+    for identifier, (manifest, dependency) in manifests.items():
+        path = beta_driver.SAMPLES / identifier / manifest
+        assert dependency in path.read_text(encoding="utf-8"), path
+
+    expected_samples = set(manifests) | {
+        "verify-receipt-rust",
+        "paid-endpoint-express",
+        "paid-route-next",
+        "paid-endpoint-fastapi",
+        "paid-endpoint-spring",
+        "mobile-payment-ios",
+        "mobile-payment-android",
+    }
+    documentation_root = ROOT / "docs" / "platform"
+    declared = tomllib.loads((documentation_root / "samples.kvx").read_text(encoding="utf-8"))[
+        "sample"
+    ]
+    assert set(declared) == expected_samples
+    measurements = beta_driver.load_adoption_sample_measurements()
+    assert len(measurements) == 13
+    assert {measurement["sample"] for measurement in measurements} == expected_samples
+    for measurement in measurements:
+        identifier = measurement["sample"]
+        sample = declared[identifier]
+        assert (documentation_root / sample["path"]).resolve() == (
+            beta_driver.SAMPLES / identifier
+        ).resolve()
+        assert measurement["entry"] == sample["entry"]
+        assert measurement["language"] == sample["language"]
+        assert measurement["region"] == sample["measured_region"] == "integration"
+        assert measurement["budget"] == sample["maximum_integration_lines"]
+        assert 0 < measurement["integration_lines"] <= sample["maximum_integration_lines"]
 
 
 def free_port() -> int:
@@ -253,7 +304,8 @@ class BetaDriverTests(unittest.TestCase):
     def assert_manifest_shape(self, gate: str, evidence: dict, output: Path) -> dict[str, dict]:
         self.assertEqual(evidence["schema"], SCHEMA)
         self.assertEqual(evidence["gate"], gate)
-        self.assertIs(evidence["real_stack"], True)
+        self.assertIs(evidence["real_stack"], False)
+        self.assertEqual(evidence["scope"], "local-suites-or-partial-evidence")
         self.assertEqual(evidence["source_identity"], SOURCE_IDENTITY)
         self.assertEqual(evidence["driver_sha256"], hashlib.sha256(DRIVER.read_bytes()).hexdigest())
         self.assertEqual(
@@ -293,27 +345,25 @@ class BetaDriverTests(unittest.TestCase):
         completed, evidence = self.run_driver(gate, output)
         cases = self.assert_manifest_shape(gate, evidence, output)
         rust = cases["rust/first-payment"]
-        self.assertEqual(rust["status"], "passed", rust["reason"])
-        result = json.loads((output / next(
-            artifact["path"] for artifact in rust["artifacts"] if artifact["kind"] == "result"
-        )).read_text(encoding="utf-8"))
-        self.assertEqual(result["journey"]["state"], "done")
-        self.assertEqual(result["journey"]["evidence"][0]["verification"], "receipt-verified")
-        self.assertEqual(result["endpoint"], self.stack.url)
-        timing = json.loads((output / next(
-            artifact["path"] for artifact in rust["artifacts"] if artifact["kind"] == "timing"
-        )).read_text(encoding="utf-8"))
-        self.assertIs(timing["within_bound"], True)
+        self.assertEqual(rust["status"], "failed")
+        self.assertIn("LAYERX_QUALIFICATION_NETWORK_TRUST", rust["reason"])
+        self.assertEqual(rust["artifacts"], [])
+        self.assertIs(rust["real_stack"], False)
+        self.assertEqual(rust["paxd_evidence"], [])
         deploy = cases["programs/five-minute-deploy-and-paid-call"]
         self.assertEqual(deploy["status"], "failed")
+        if shutil.which("layerx") is None:
+            self.assertEqual(deploy["reason"], "layerx CLI not found; set LAYERX_BIN or put layerx on PATH")
+            self.skipTest("missing tool layerx; exact command: cargo build --manifest-path tools/platform/Cargo.toml --bin layerx")
         self.assertIn("registry-list", deploy["reason"])
         failed = sorted(case_id for case_id, record in cases.items() if record["status"] == "failed")
         self.assertTrue(failed)
         self.assertEqual(completed.returncode, 1, completed.stdout[-4000:])
         for case_id in failed:
             self.assertIn(f"case {case_id}: failed: ", completed.stdout)
-        self.assertIn("case rust/first-payment: passed", completed.stdout)
+        self.assertIn("case rust/first-payment: failed:", completed.stdout)
 
+    @pytest.mark.native
     def test_multichain_inventory_reports_absent_infrastructure_as_failed(self) -> None:
         gate = "multichain-qualify"
         output = self.work / gate
@@ -323,7 +373,7 @@ class BetaDriverTests(unittest.TestCase):
         executions = {execution["label"]: execution for execution in one_ledger["executions"]}
         self.assertEqual(executions["schema-check"]["exit_code"], 0, one_ledger["reason"])
         self.assertEqual(
-            executions["settlement-domain-rejections"]["exit_code"], 0, one_ledger["reason"]
+            executions["native-ledger-boundary-rejections"]["exit_code"], 0, one_ledger["reason"]
         )
         self.assertIn("schema-conformance", executions)
         failed_steps = [label for label, execution in executions.items() if execution["exit_code"]]

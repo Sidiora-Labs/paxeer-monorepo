@@ -194,24 +194,29 @@ def test_TestRepairM_1447_journey_router_path(material, tls, tmp_path):
         "eth_estimateGas": "0x5208", "eth_sendRawTransaction": receipt["txHash"],
         "pax_sequencerReceipt": receipt,
     }
-    hosted_results = {"px_getBalances": {"account": document["accounts"]["source"]}}
+    node_results["px_getBalances"] = {"account": document["accounts"]["source"]}
+    hosted_results = {"px_requestFunds": {"funded": True}, "px_register": {"registered": True}}
     with listener(tls, lambda body: {"result": node_results[body["method"]]}) as (node, node_requests):
         with listener(tls, lambda body: {"result": hosted_results[body["method"]]},
                       "LayerX-Key fixture:lxp_live_1234") as (gateway, hosted_requests):
             client = JourneyRpc(gateway, tls[0], gateway_auth, output, node=node)
             for method, expected in node_results.items():
                 assert client.rpc(method, []) == expected
-            assert client.rpc("px_getBalances", [document["accounts"]["source"]["did"]]) == hosted_results["px_getBalances"]
-            assert len(node_requests) == 7 and len(hosted_requests) == 1
-            assert [r[2]["id"] for r in node_requests + hosted_requests] == list(range(1, 9))
+            assert client.rpc("px_requestFunds", [document["accounts"]["source"]["did"]]) == hosted_results["px_requestFunds"]
+            assert client.rpc("px_register", []) == hosted_results["px_register"]
+            assert len(node_requests) == 8 and len(hosted_requests) == 2
+            assert [r[2]["id"] for r in node_requests + hosted_requests] == list(range(1, 11))
             assert all(path == "/" and auth is None for path, auth, _ in node_requests)
-            assert hosted_requests[0][0] == "/"
+            assert all(path == "/" and auth == "LayerX-Key fixture:lxp_live_1234"
+                       for path, auth, _ in hosted_requests)
             for method in ("lx_submit", "eth_unknown", "px_unknown", "pax_unknown"):
                 with pytest.raises(AssertionError):
                     client.rpc(method, [])
             with pytest.raises(AssertionError, match="hosted credentials"):
                 client.rpc("eth_chainId", [], auth_config=source_auth)
-            assert len(node_requests) == 7 and len(hosted_requests) == 1
+            with pytest.raises(AssertionError, match="hosted credentials"):
+                client.rpc("px_getBalances", [], auth_config=source_auth)
+            assert len(node_requests) == 8 and len(hosted_requests) == 2
     # Optional node credentials remain independent of the gateway key.
     node_auth = write(directory / "node.curl", 'header = "Authorization: Bearer node_only"\n')
     with listener(tls, lambda body: {"result": "0x7d"}, "Bearer node_only") as (node, requests):
@@ -222,7 +227,14 @@ def test_TestRepairM_1447_journey_router_path(material, tls, tmp_path):
         assert client.rpc("eth_chainId", []) == "0x7d"
         assert len(requests) == 1
     gateway_source = (ROOT / "services/platform/hosted/gateway/src/main.rs").read_text()
-    assert 'if request.path == "/" && request.method == "POST"' in gateway_source
+    root_reads = (ROOT / "services/platform/hosted/gateway/src/public_reads.rs").read_text()
+    assert 'matches!(request.path.as_str(), "/" | "/openrpc.json")' in root_reads
+    assert 'public_reads::route(config, request)' in gateway_source
+    locations = json.loads((ROOT / "services/platform/hosted/gateway/route-locations.json").read_text())
+    assert locations['rpc_paths'] == ['/'] and locations['node_rpc']['chain_id'] == 125
+    node_source = (ROOT / 'rpc/px_account.go').read_text()
+    assert 'func (a *pxAccountAPI) GetBalances(' in node_source
+    assert 'return nil, pxHosted("px_requestFunds")' in node_source
     assert 'if path == "/rpc"' in gateway_source
 
 

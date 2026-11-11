@@ -245,7 +245,7 @@ def test_lockfile_importers_match_manifests_and_frozen_install_record(directory)
         importer = document["packages"][""]
     else:
         assert command == PNPM_INSTALL
-        manager = "pnpm@9.15.0" if directory == "apps/launchpad" else "pnpm@10.34.9"
+        manager = "pnpm@9.15.0" if directory == "apps/launchpad" else "pnpm@10.34.9" if directory == "contracts/launchpad" else "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
         assert package["packageManager"] == manager
         assert document["overrides"] == package["pnpm"]["overrides"]
         for relative, importer in document["importers"].items():
@@ -295,7 +295,7 @@ def test_gas_reporter_migration_removes_legacy_ethers_chain(directory):
 
 
 def test_stale_perps_npm_lockfile_is_removed():
-    assert manifest("apps/perps")["packageManager"] == "pnpm@10.34.9"
+    assert manifest("apps/perps")["packageManager"] == "pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32"
     assert (ROOT / "apps/perps/pnpm-lock.yaml").is_file()
     assert not (ROOT / "apps/perps/package-lock.json").exists()
 

@@ -3,9 +3,10 @@
 // services. Must survive 500K concurrent. cmd/apid. [SECTION 10, L6]
 module github.com/Sidiora-Technologies/KindleLaunch/core/api
 
-go 1.25.0
+go 1.27.0
 
 require (
+	github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/core/discovery v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/core/notifications v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/protocol v0.0.0-00010101000000-000000000000
@@ -149,3 +150,5 @@ replace github.com/Sidiora-Technologies/KindleLaunch/protocol => ../../../sdk/la
 replace github.com/Sidiora-Technologies/KindleLaunch/core/discovery => ../discovery
 
 replace github.com/Sidiora-Technologies/KindleLaunch/core/notifications => ../notifications
+
+replace github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts => ../trading-charts

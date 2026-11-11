@@ -9,7 +9,7 @@ FROM alpine:3.22 AS base
 ARG LXP_REVISION
 LABEL org.opencontainers.image.revision="$LXP_REVISION"
 RUN apk add --no-cache bubblewrap ca-certificates libgcc openssl python3 util-linux && addgroup -g 4030 layerx && adduser -D -H -u 4030 -G layerx layerx
-COPY docker/platform-registry/chain-trust.py /usr/local/lib/layerx-registry/chain-trust.py
+COPY --chmod=0444 docker/platform-registry/chain-trust.py /usr/local/lib/layerx-registry/chain-trust.py
 COPY --from=build /src/services/platform/target/release/layerx-program-registry /usr/local/bin/layerx-program-registry
 COPY --from=build /src/services/platform/target/release/layerx-cgroup-exec /usr/bin/layerx-cgroup-exec
 

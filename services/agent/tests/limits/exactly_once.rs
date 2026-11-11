@@ -37,7 +37,7 @@ use layerx_agentd::store::{ObjectKind, Store, TenantId};
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::evm_transaction::{decode_signed, transaction_hash};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::send::{encode_send_envelope, send_context_hash, EnvelopeOptions, SendDebit};
+use layerx_crypto::send::{send_context_hash, SendDebit};
 use layerx_crypto::signer::Signer;
 use layerx_types::payload::ModuleRegistry;
 
@@ -179,10 +179,7 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
         &history,
     )?;
 
-    let quota_root = workspace.path("quota");
-    let mut quota_store = step(Store::open(&quota_root), "open quota store", &history)?;
-    let mut quota = quota(&tenant, &history)?;
-    exhaust_quota_and_shed(&mut quota, &mut quota_store, &tenant, &history)?;
+    let (quota, quota_store) = exhaust_scenario_quota(&workspace, &tenant, &history)?;
     hold_reservation_through_refusals(&budget, &tracker, &history)?;
 
     drop(idempotency);
@@ -225,6 +222,16 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
     )?;
     converge_reservation_accounting(&budget, budget_id, &mut tracker, &history)?;
 
+    finish_suite_report(&outbox, tx_hash, &convergence, &economic_effects, history)
+}
+
+fn finish_suite_report(
+    outbox: &Outbox,
+    tx_hash: [u8; 32],
+    convergence: &DuplicateConvergence,
+    economic_effects: &AtomicUsize,
+    history: Vec<String>,
+) -> Result<SuiteReport, SuiteFailure> {
     let final_state = outbox
         .status(tx_hash)
         .map(|status| status.state)
@@ -241,6 +248,18 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
         final_state,
         transition_history: history,
     })
+}
+
+fn exhaust_scenario_quota(
+    workspace: &Workspace,
+    tenant: &TenantId,
+    history: &[String],
+) -> Result<(Quota, Store), SuiteFailure> {
+    let quota_root = workspace.path("quota");
+    let mut quota_store = step(Store::open(&quota_root), "open quota store", history)?;
+    let mut quota = quota(tenant, history)?;
+    exhaust_quota_and_shed(&mut quota, &mut quota_store, tenant, history)?;
+    Ok((quota, quota_store))
 }
 
 fn configure_reservation(
@@ -737,12 +756,12 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
         .into_exact_bytes();
     let tx_hash = transaction_hash(&raw);
     let root = workspace.path("outbox");
-    let mut durable = Store::open(&root).expect("open outbox");
+    let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("open outbox: {error:?}"));
     let mut outbox = Outbox::default();
     assert_eq!(
         outbox
             .enqueue(&mut durable, tenant.clone(), raw.clone())
-            .expect("enqueue signed raw transaction"),
+            .unwrap_or_else(|error| panic!("enqueue signed raw transaction: {error:?}")),
         tx_hash
     );
     outbox
@@ -753,7 +772,7 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
             "first raw submission",
             None,
         )
-        .expect("record transmission");
+        .unwrap_or_else(|error| panic!("record transmission: {error:?}"));
     outbox
         .transition(
             &mut durable,
@@ -762,12 +781,16 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
             "response lost before restart",
             None,
         )
-        .expect("record indeterminate response");
-    let original_status = outbox.status(tx_hash).expect("queued hash").clone();
+        .unwrap_or_else(|error| panic!("record indeterminate response: {error:?}"));
+    let original_status = outbox
+        .status(tx_hash)
+        .unwrap_or_else(|| panic!("queued hash"))
+        .clone();
     drop(outbox);
     drop(durable);
 
-    let mut durable = Store::open(&root).expect("reopen outbox after restart");
+    let mut durable =
+        Store::open(&root).unwrap_or_else(|error| panic!("reopen outbox after restart: {error:?}"));
     let mut outbox = Outbox::default();
     assert!(matches!(
         outbox.enqueue(&mut durable, tenant.clone(), raw.clone()),
@@ -775,9 +798,11 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
     ));
     outbox
         .restore(&durable, tenant.clone(), tx_hash)
-        .expect("restore original raw transaction");
+        .unwrap_or_else(|error| panic!("restore original raw transaction: {error:?}"));
     assert_eq!(
-        outbox.exact_signed_bytes(tx_hash).expect("retained bytes"),
+        outbox
+            .exact_signed_bytes(tx_hash)
+            .unwrap_or_else(|error| panic!("retained bytes: {error:?}")),
         raw
     );
     assert!(matches!(
@@ -796,11 +821,12 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
     drop(outbox);
     drop(durable);
 
-    let durable = Store::open(&root).expect("reopen after duplicate submission");
+    let durable = Store::open(&root)
+        .unwrap_or_else(|error| panic!("reopen after duplicate submission: {error:?}"));
     let mut outbox = Outbox::default();
     outbox
         .restore(&durable, tenant.clone(), tx_hash)
-        .expect("restore unique hash");
+        .unwrap_or_else(|error| panic!("restore unique hash: {error:?}"));
     assert_eq!(
         durable.list_object_ids(&tenant, ObjectKind::Outbox),
         vec![tx_hash.to_vec()]
@@ -809,7 +835,7 @@ fn limits_identical_raw_transaction_keeps_one_hash() {
     assert_eq!(
         outbox
             .exact_signed_bytes(tx_hash)
-            .expect("unchanged raw bytes"),
+            .unwrap_or_else(|error| panic!("unchanged raw bytes: {error:?}")),
         raw
     );
 }
@@ -976,6 +1002,10 @@ fn verified_submission() -> Result<VerifiedSubmission, SuiteFailure> {
     Ok(verified)
 }
 
+fn registry() -> Result<ModuleRegistry, SuiteFailure> {
+    step(ModuleRegistry::new(&[]), "module registry", &[])
+}
+
 fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), SuiteFailure> {
     let account = step(
         derive_from_seed(&[0xa5; 32], 0),
@@ -1000,24 +1030,6 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
     let payload = step(
         ready(debit.sign(&signer)),
         "sign native debit authorization",
-        &[],
-    )?;
-    let disclosed = step(
-        encode_send_envelope(
-            &payload,
-            &EnvelopeOptions {
-                actor: "did:layerx:limits-exactly-once",
-                public_key: signer.public_key(),
-                protocol_version: 2,
-                network_id: 17,
-                identity_sequence: 5,
-                idempotency_key: INTENT,
-                fee_limit: 7,
-                not_before: 995,
-                not_after: 1_010,
-            },
-        ),
-        "disclose transfer authorization",
         &[],
     )?;
     let transaction = step(
@@ -1051,7 +1063,7 @@ fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), S
             transaction,
             actor_address: account.evm_address(),
         },
-        disclosed.registry,
+        registry()?,
         signer,
     ))
 }
@@ -1074,44 +1086,16 @@ fn authoritative_receipt(activity_id: [u8; 32]) -> Result<VerifiedReceiptEvidenc
         "derive receipt execution batch",
         &[],
     )?;
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut encoder = layerx_wire::encode::Encoder::new(4096);
-        assert_eq!(
-            encoder.structure_header_version(0x5201, protocol_version),
-            Ok(())
-        );
-        assert_eq!(encoder.u16(protocol_version), Ok(()));
-        assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
-        assert_eq!(encoder.u64(global_sequence), Ok(()));
-        assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
-        assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
-        assert_eq!(encoder.bytes(&[0x25; 32], 32), Ok(()));
-        assert_eq!(encoder.i32(0), Ok(()));
-        assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-        assert_eq!(encoder.u128(1), Ok(()));
-        assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
-        assert_eq!(encoder.u16(1), Ok(()));
-        assert_eq!(encoder.u32(1), Ok(()));
-        assert_eq!(encoder.u32(1), Ok(()));
-        assert_eq!(encoder.u8(1), Ok(()));
-        assert_eq!(encoder.bytes(&[0x24; 32], 32), Ok(()));
-        assert_eq!(encoder.u128(25), Ok(()));
-        assert_eq!(encoder.bytes(&[0x26; 32], 32), Ok(()));
-        assert_eq!(encoder.u128(1_025), Ok(()));
-        assert_eq!(encoder.u128(1_000), Ok(()));
-        assert_eq!(encoder.u64(1), Ok(()));
-        assert_eq!(encoder.bytes(&[0x27; 32], 32), Ok(()));
-        assert_eq!(encoder.u128(10), Ok(()));
-        assert_eq!(encoder.u128(35), Ok(()));
-        for value in [[0x28; 32], [0x29; 32], [0x2a; 32]] {
-            assert_eq!(encoder.bytes(&value, 32), Ok(()));
-        }
-        assert_eq!(encoder.u64(1_000), Ok(()));
-        assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
-        if let Some(signature) = signature {
-            assert_eq!(encoder.bytes(&signature, 64), Ok(()));
-        }
-        encoder.finish()
+    let encode = |signature| {
+        encode_authoritative_receipt(
+            activity_id,
+            protocol_version,
+            global_sequence,
+            previous_state_root,
+            resulting_state_root,
+            batch_id,
+            signature,
+        )
     };
     let digest = step(
         layerx_wire::hash::receipt_digest(&encode(None)),
@@ -1180,6 +1164,54 @@ fn authoritative_receipt(activity_id: [u8; 32]) -> Result<VerifiedReceiptEvidenc
     step(authority.verify_receipt(&raw), "verify signed receipt", &[])
 }
 
+fn encode_authoritative_receipt(
+    activity_id: [u8; 32],
+    protocol_version: u16,
+    global_sequence: u64,
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
+    batch_id: [u8; 32],
+    signature: Option<[u8; 64]>,
+) -> Vec<u8> {
+    let mut encoder = layerx_wire::encode::Encoder::new(4096);
+    assert_eq!(
+        encoder.structure_header_version(0x5201, protocol_version),
+        Ok(())
+    );
+    assert_eq!(encoder.u16(protocol_version), Ok(()));
+    assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
+    assert_eq!(encoder.u64(global_sequence), Ok(()));
+    assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
+    assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
+    assert_eq!(encoder.bytes(&[0x25; 32], 32), Ok(()));
+    assert_eq!(encoder.i32(0), Ok(()));
+    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
+    assert_eq!(encoder.u128(1), Ok(()));
+    assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
+    assert_eq!(encoder.u16(1), Ok(()));
+    assert_eq!(encoder.u32(1), Ok(()));
+    assert_eq!(encoder.u32(1), Ok(()));
+    assert_eq!(encoder.u8(1), Ok(()));
+    assert_eq!(encoder.bytes(&[0x24; 32], 32), Ok(()));
+    assert_eq!(encoder.u128(25), Ok(()));
+    assert_eq!(encoder.bytes(&[0x26; 32], 32), Ok(()));
+    assert_eq!(encoder.u128(1_025), Ok(()));
+    assert_eq!(encoder.u128(1_000), Ok(()));
+    assert_eq!(encoder.u64(1), Ok(()));
+    assert_eq!(encoder.bytes(&[0x27; 32], 32), Ok(()));
+    assert_eq!(encoder.u128(10), Ok(()));
+    assert_eq!(encoder.u128(35), Ok(()));
+    for value in [[0x28; 32], [0x29; 32], [0x2a; 32]] {
+        assert_eq!(encoder.bytes(&value, 32), Ok(()));
+    }
+    assert_eq!(encoder.u64(1_000), Ok(()));
+    assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
+    if let Some(signature) = signature {
+        assert_eq!(encoder.bytes(&signature, 64), Ok(()));
+    }
+    encoder.finish()
+}
+
 mod node_recovery {
     use super::{tenant, Workspace};
     use layerx_agentd::budget::{
@@ -1192,7 +1224,9 @@ mod node_recovery {
         resolve_unknown, Outbox, OutboxError, ResendObservation, ResolutionObservation,
         SubmissionState,
     };
-    use layerx_agentd::prepare::{DurablePreparation, LifecycleState, PreparationLifecycle};
+    use layerx_agentd::prepare::lifecycle::{
+        DurablePreparation, LifecycleState, PreparationLifecycle,
+    };
     use layerx_agentd::receipt;
     use layerx_agentd::session::SessionRegistry;
     use layerx_agentd::session_control::SessionControl;
@@ -1216,7 +1250,7 @@ mod node_recovery {
         must(hex::decode(
             value
                 .as_str()
-                .expect("recorded hex")
+                .unwrap_or_else(|| panic!("recorded hex"))
                 .trim_start_matches("0x"),
         ))
     }
@@ -1233,10 +1267,10 @@ mod node_recovery {
         assert_eq!(corpus["chainId"], 125);
         corpus["cases"]
             .as_array()
-            .expect("producer cases")
+            .unwrap_or_else(|| panic!("producer cases"))
             .iter()
             .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-            .expect("recorded successful payment")
+            .unwrap_or_else(|| panic!("recorded successful payment"))
             .clone()
     }
 
@@ -1275,7 +1309,7 @@ mod node_recovery {
                         length = Some(must(value.trim().parse::<usize>()));
                     }
                 }
-                let length = length.expect("request content length");
+                let length = length.unwrap_or_else(|| panic!("request content length"));
                 assert!(length <= 64 * 1024);
                 let mut body = vec![0; length];
                 must(reader.read_exact(&mut body));
@@ -1356,7 +1390,9 @@ mod node_recovery {
         assert_eq!(receipt.result_code().raw(), 0);
         assert!(receipt.execution().success);
         let decoded = must(layerx_wire::receipt::decode(receipt.canonical_bytes()));
-        let summary = decoded.protocol().expect("signed node balance summary");
+        let summary = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("signed node balance summary"));
         assert_eq!(summary.activity_id(), receipt.activity_id());
         assert_eq!(summary.debit_sequence(), 2);
         assert_eq!(summary.amount(), 0); // Native value is zero; payExact moves its ledger asset.
@@ -1410,307 +1446,34 @@ mod node_recovery {
             bytes(&case["receiptJson"]["from"])
         );
         let decoded = must(layerx_wire::receipt::decode(&bytes(&case["signedReceipt"])));
-        let summary = decoded.protocol().expect("recorded native balance effects");
+        let summary = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("recorded native balance effects"));
         let charge = summary.fee_charged();
         let workspace = Workspace::new();
         let root = workspace.path("node-and-budget");
         let tenant = must(tenant("tenant-node-recovery"));
         let budget_id = [0x71; 32];
         let limit = daemon_limit_id(budget_id);
-        {
-            let mut store = must(Store::open(&root));
-            let budget = must(BudgetLimiter::new(Vec::new()));
-            must(create_daemon_limit(
-                &mut store,
-                &budget,
-                DaemonLimitRecord {
-                    tenant: tenant.clone(),
-                    budget_id,
-                    limit_id: limit,
-                    agent_digest: [0x72; 32],
-                    asset: summary.asset(),
-                    ceiling: charge * 2,
-                    consumed: 0,
-                    expiry_ms: u64::MAX,
-                    revoked: false,
-                    mutation_key: [0x73; 32],
-                    body_digest: [0x74; 32],
-                    revoke_key: [0; 32],
-                },
-                CoreTimestampMs(1),
-            ));
-            let reservation = must(layerx_agentd::budget::reserve(
-                &budget,
-                &ReservationRequest {
-                    id: hash,
-                    amount: charge,
-                    expiry_sequence: u64::MAX,
-                    current_sequence: 1,
-                    applicable_limits: vec![limit],
-                },
-            ));
-            let preparation = DurablePreparation {
-                tenant: tenant.clone(),
-                preparation_id: hash,
-                session_id: [0x75; 32],
-                generation: 1,
-                not_after: u64::MAX,
-                payload_hash: transaction_hash(&call.data),
-                state: LifecycleState::Unknown,
-                activity_id: Some(hash),
-                holds: reservation
-                    .durable
-                    .into_iter()
-                    .map(|hold| (hold, None))
-                    .collect(),
-                extensions: BTreeMap::from([(4, raw.clone())]),
-            };
-            must(store.put_local(
-                must(DurablePreparation::store_key(&tenant, hash)),
-                must(preparation.encode()),
-            ));
-            let mut outbox = Outbox::default();
-            let (node, _, server) = peer(vec![
-                ("eth_chainId", json!([]), Some(json!("0x7d"))),
-                (
-                    "eth_sendRawTransaction",
-                    json!([case["rawTransaction"]]),
-                    None,
-                ),
-            ]);
-            must(submit_raw_write(
-                &mut outbox,
-                &mut store,
-                tenant.clone(),
-                raw.clone(),
-                &node,
-            ));
-            must(server.join());
-            assert_eq!(
-                outbox.status(hash).expect("unknown send").state,
-                SubmissionState::Unknown
-            );
-            assert_eq!(budget.held_reservations(), Ok(1));
-            assert_eq!(budget.consumed(limit), Ok(0));
-        }
-
+        let scenario = RecoveryScenario {
+            root: root.clone(),
+            tenant: tenant.clone(),
+            raw: raw.clone(),
+            hash,
+            charge,
+            limit,
+            case,
+            nonce: call.nonce,
+        };
+        initialize_recovery(&scenario, &call.data, summary.asset());
         let mut first_balances = None;
         for restart in 0..2 {
-            let (control, budget) = controller(must(Store::open(&root)));
-            assert_eq!(must(control.restore_writes()), usize::from(restart == 0));
-            assert_eq!(budget.held_reservations(), Ok(usize::from(restart == 0)));
-            assert_eq!(
-                budget.consumed(limit),
-                Ok(if restart == 0 { 0 } else { charge })
+            run_recovery_restart(
+                &scenario,
+                restart,
+                persist_receipt_before_restart,
+                &mut first_balances,
             );
-            let store_handle = control.store();
-            let mut store = must(store_handle.lock());
-            let mut outbox = Outbox::default();
-            must(outbox.restore(&store, tenant.clone(), hash));
-            assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
-            if restart == 1 {
-                let recovered = must(receipt::serve_evidence(&store, tenant.clone(), hash))
-                    .expect("receipt must survive without refetching or rewriting");
-                assert_eq!(recovered.canonical_receipt, bytes(&case["signedReceipt"]));
-                assert_eq!(recovered.metadata.transaction_hash, hash);
-                assert!(recovered.metadata.status);
-                assert_eq!(must(daemon_limits(&store, &tenant))[0].consumed, charge);
-            }
-            assert!(matches!(
-                outbox.enqueue(&mut store, tenant.clone(), raw.clone()),
-                Err(OutboxError::Duplicate)
-            ));
-            let mut exchanges = vec![("eth_chainId", json!([]), Some(json!("0x7d")))];
-            if restart == 0 {
-                exchanges.push((
-                    "px_getReceiptKeys",
-                    json!([]),
-                    Some(json!({"keys":[case["pinnedKey"].clone()]})),
-                ));
-                if !persist_receipt_before_restart {
-                    exchanges.extend([
-                        (
-                            "pax_sequencerReceipt",
-                            json!([case["receiptJson"]["txHash"]]),
-                            Some(Value::Null),
-                        ),
-                        (
-                            "eth_getTransactionCount",
-                            json!([case["receiptJson"]["from"], "pending"]),
-                            Some(json!(format!("0x{:x}", call.nonce))),
-                        ),
-                        (
-                            "eth_sendRawTransaction",
-                            json!([case["rawTransaction"]]),
-                            Some(case["receiptJson"]["txHash"].clone()),
-                        ),
-                    ]);
-                }
-                exchanges.extend([
-                    (
-                        "pax_sequencerReceipt",
-                        json!([case["receiptJson"]["txHash"]]),
-                        Some(case["receiptJson"].clone()),
-                    ),
-                    (
-                        "eth_getTransactionReceipt",
-                        json!([case["receiptJson"]["txHash"]]),
-                        Some(Value::Null),
-                    ),
-                ]);
-            }
-            exchanges.extend(lookup_exchanges(&case));
-            let (node, mut endpoint, server) = peer(exchanges);
-            if restart == 0 {
-                assert_eq!(
-                    outbox.status(hash).expect("restored send").state,
-                    SubmissionState::Unknown
-                );
-                let keys = must(endpoint.receipt_keys());
-                if !persist_receipt_before_restart {
-                    let missing = must(resolve_unknown(
-                        &mut outbox,
-                        &mut store,
-                        hash,
-                        1_000,
-                        &keys,
-                        &mut endpoint,
-                    ));
-                    assert_eq!(missing.state, SubmissionState::Unknown);
-                    assert_eq!(missing.observation, ResolutionObservation::ReceiptMissing);
-                    assert_eq!(missing.resend, ResendObservation::Sent);
-                    assert_eq!(missing.age.attempt_count, 1);
-                    assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
-                    assert_eq!(budget.held_reservations(), Ok(1));
-                    assert_eq!(budget.consumed(limit), Ok(0));
-                    let deferred = must(resolve_unknown(
-                        &mut outbox,
-                        &mut store,
-                        hash,
-                        1_001,
-                        &keys,
-                        &mut endpoint,
-                    ));
-                    assert_eq!(deferred.state, SubmissionState::Unknown);
-                    assert_eq!(deferred.observation, ResolutionObservation::Backoff);
-                    assert_eq!(deferred.resend, ResendObservation::NotWarranted);
-                    assert_eq!(deferred.age.attempt_count, missing.age.attempt_count);
-                    assert_eq!(
-                        deferred.age.next_attempt_at_ms,
-                        missing.age.next_attempt_at_ms
-                    );
-                }
-                let found = must(resolve_unknown(
-                    &mut outbox,
-                    &mut store,
-                    hash,
-                    10_000,
-                    &keys,
-                    &mut endpoint,
-                ));
-                assert_eq!(found.state, SubmissionState::Executed);
-                assert_eq!(found.observation, ResolutionObservation::ExecutedReceipt);
-                assert_eq!(found.resend, ResendObservation::NotWarranted);
-                assert_eq!(
-                    found.age.attempt_count,
-                    if persist_receipt_before_restart { 1 } else { 2 }
-                );
-                assert_eq!(budget.held_reservations(), Ok(1));
-                assert_eq!(budget.consumed(limit), Ok(0));
-            }
-            assert_eq!(
-                outbox.status(hash).expect("resolved send").state,
-                SubmissionState::Executed
-            );
-            let verified = authenticated(&node, &endpoint, &outbox, hash);
-            must(server.join());
-            let balances = assert_effect(&verified, &case);
-            if let Some(previous) = first_balances {
-                assert_eq!(balances, previous);
-            }
-            first_balances = Some(balances);
-            let stored = must(receipt::store_verified_if_absent(
-                &mut store,
-                tenant.clone(),
-                hash,
-                verified.canonical_bytes(),
-                &verified,
-            ));
-            assert_eq!(
-                must(receipt::store_verified_if_absent(
-                    &mut store,
-                    tenant.clone(),
-                    hash,
-                    verified.canonical_bytes(),
-                    &verified
-                )),
-                stored
-            );
-            assert_eq!(
-                store.list_object_ids(&tenant, ObjectKind::Outbox),
-                vec![hash.to_vec()]
-            );
-            let inventory = must(receipt::evidence_inventory(&store, &tenant));
-            assert_eq!(inventory.without_evidence.len(), 1);
-            assert!(inventory.with_evidence.is_empty());
-            assert_eq!(
-                must(receipt::serve_evidence(&store, tenant.clone(), hash))
-                    .expect("durable node receipt")
-                    .canonical_receipt,
-                bytes(&case["signedReceipt"])
-            );
-            drop(store);
-            drop(store_handle);
-            if restart == 0 && persist_receipt_before_restart {
-                drop(control);
-                drop(budget);
-                let (reopened, restored_budget) = controller(must(Store::open(&root)));
-                assert_eq!(must(reopened.restore_writes()), 1);
-                assert_eq!(restored_budget.consumed(limit), Ok(0));
-                assert_eq!(restored_budget.held_reservations(), Ok(1));
-                {
-                    let store = reopened.store();
-                    let store = must(store.lock());
-                    assert_eq!(
-                        must(receipt::serve_evidence(&store, tenant.clone(), hash))
-                            .expect("receipt persisted before settlement crash")
-                            .canonical_receipt,
-                        verified.canonical_bytes()
-                    );
-                }
-                assert!(must(reopened.settle_write(
-                    &tenant,
-                    hash,
-                    ReleaseKind::Executed,
-                    verified.global_sequence()
-                )));
-                assert!(!must(reopened.settle_write(
-                    &tenant,
-                    hash,
-                    ReleaseKind::Executed,
-                    verified.global_sequence()
-                )));
-                assert_eq!(restored_budget.consumed(limit), Ok(charge));
-                assert_eq!(restored_budget.held_reservations(), Ok(0));
-            } else {
-                assert_eq!(
-                    must(control.settle_write(
-                        &tenant,
-                        hash,
-                        ReleaseKind::Executed,
-                        verified.global_sequence()
-                    )),
-                    restart == 0
-                );
-                assert!(!must(control.settle_write(
-                    &tenant,
-                    hash,
-                    ReleaseKind::Executed,
-                    verified.global_sequence()
-                )));
-                assert_eq!(budget.consumed(limit), Ok(charge));
-                assert_eq!(budget.held_reservations(), Ok(0));
-            }
         }
         let store = must(Store::open(&root));
         let records = must(daemon_limits(&store, &tenant));
@@ -1719,6 +1482,390 @@ mod node_recovery {
         let preparation = must(DurablePreparation::load_all(&store, &tenant));
         assert_eq!(preparation.len(), 1);
         assert_eq!(preparation[0].state, LifecycleState::Executed);
+    }
+
+    struct RecoveryScenario {
+        root: std::path::PathBuf,
+        tenant: layerx_agentd::store::TenantId,
+        raw: Vec<u8>,
+        hash: [u8; 32],
+        charge: u128,
+        limit: layerx_agentd::budget::LimitId,
+        case: Value,
+        nonce: u64,
+    }
+
+    fn initialize_recovery(scenario: &RecoveryScenario, payload: &[u8], asset: [u8; 32]) {
+        let root = scenario.root.clone();
+        let tenant = scenario.tenant.clone();
+        let raw = scenario.raw.clone();
+        let hash = scenario.hash;
+        let charge = scenario.charge;
+        let limit = scenario.limit;
+        let case = &scenario.case;
+        let mut store = must(Store::open(&root));
+        let budget = must(BudgetLimiter::new(Vec::new()));
+        must(create_daemon_limit(
+            &mut store,
+            &budget,
+            DaemonLimitRecord {
+                tenant: tenant.clone(),
+                budget_id: [0x71; 32],
+                limit_id: limit,
+                agent_digest: [0x72; 32],
+                asset,
+                ceiling: charge * 2,
+                consumed: 0,
+                expiry_ms: u64::MAX,
+                revoked: false,
+                mutation_key: [0x73; 32],
+                body_digest: [0x74; 32],
+                revoke_key: [0; 32],
+            },
+            CoreTimestampMs(1),
+        ));
+        let reservation = must(layerx_agentd::budget::reserve(
+            &budget,
+            &ReservationRequest {
+                id: hash,
+                amount: charge,
+                expiry_sequence: u64::MAX,
+                current_sequence: 1,
+                applicable_limits: vec![limit],
+            },
+        ));
+        let preparation = DurablePreparation {
+            tenant: tenant.clone(),
+            preparation_id: hash,
+            session_id: [0x75; 32],
+            generation: 1,
+            not_after: u64::MAX,
+            payload_hash: transaction_hash(payload),
+            state: LifecycleState::Unknown,
+            activity_id: Some(hash),
+            holds: reservation
+                .durable
+                .into_iter()
+                .map(|hold| (hold, None))
+                .collect(),
+            extensions: BTreeMap::from([(4, raw.clone())]),
+        };
+        must(store.put_local(
+            must(DurablePreparation::store_key(&tenant, hash)),
+            must(preparation.encode()),
+        ));
+        let mut outbox = Outbox::default();
+        let (node, _, server) = peer(vec![
+            ("eth_chainId", json!([]), Some(json!("0x7d"))),
+            (
+                "eth_sendRawTransaction",
+                json!([case["rawTransaction"]]),
+                None,
+            ),
+        ]);
+        must(submit_raw_write(
+            &mut outbox,
+            &mut store,
+            tenant.clone(),
+            raw.clone(),
+            &node,
+        ));
+        must(server.join());
+        assert_eq!(
+            outbox
+                .status(hash)
+                .unwrap_or_else(|| panic!("unknown send"))
+                .state,
+            SubmissionState::Unknown
+        );
+        assert_eq!(budget.held_reservations(), Ok(1));
+        assert_eq!(budget.consumed(limit), Ok(0));
+    }
+
+    fn recovery_exchanges(
+        scenario: &RecoveryScenario,
+        restart: usize,
+        persist_receipt_before_restart: bool,
+    ) -> Vec<Exchange> {
+        let case = &scenario.case;
+        let mut exchanges = vec![("eth_chainId", json!([]), Some(json!("0x7d")))];
+        if restart == 0 {
+            exchanges.push((
+                "px_getReceiptKeys",
+                json!([]),
+                Some(json!({"keys":[case["pinnedKey"].clone()]})),
+            ));
+            if !persist_receipt_before_restart {
+                exchanges.extend([
+                    (
+                        "pax_sequencerReceipt",
+                        json!([case["receiptJson"]["txHash"]]),
+                        Some(Value::Null),
+                    ),
+                    (
+                        "eth_getTransactionCount",
+                        json!([case["receiptJson"]["from"], "pending"]),
+                        Some(json!(format!("0x{:x}", scenario.nonce))),
+                    ),
+                    (
+                        "eth_sendRawTransaction",
+                        json!([case["rawTransaction"]]),
+                        Some(case["receiptJson"]["txHash"].clone()),
+                    ),
+                ]);
+            }
+            exchanges.extend([
+                (
+                    "pax_sequencerReceipt",
+                    json!([case["receiptJson"]["txHash"]]),
+                    Some(case["receiptJson"].clone()),
+                ),
+                (
+                    "eth_getTransactionReceipt",
+                    json!([case["receiptJson"]["txHash"]]),
+                    Some(Value::Null),
+                ),
+            ]);
+        }
+        exchanges.extend(lookup_exchanges(case));
+        exchanges
+    }
+
+    fn resolve_recovery(
+        scenario: &RecoveryScenario,
+        store: &mut Store,
+        outbox: &mut Outbox,
+        endpoint: &mut SequencerEndpoint,
+        budget: &BudgetLimiter,
+        persist_receipt_before_restart: bool,
+    ) {
+        let raw = scenario.raw.clone();
+        let hash = scenario.hash;
+        let limit = scenario.limit;
+        assert_eq!(
+            outbox
+                .status(hash)
+                .unwrap_or_else(|| panic!("restored send"))
+                .state,
+            SubmissionState::Unknown
+        );
+        let keys = must(endpoint.receipt_keys());
+        if !persist_receipt_before_restart {
+            let missing = must(resolve_unknown(outbox, store, hash, 1_000, &keys, endpoint));
+            assert_eq!(missing.state, SubmissionState::Unknown);
+            assert_eq!(missing.observation, ResolutionObservation::ReceiptMissing);
+            assert_eq!(missing.resend, ResendObservation::Sent);
+            assert_eq!(missing.age.attempt_count, 1);
+            assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+            assert_eq!(budget.held_reservations(), Ok(1));
+            assert_eq!(budget.consumed(limit), Ok(0));
+            let deferred = must(resolve_unknown(outbox, store, hash, 1_001, &keys, endpoint));
+            assert_eq!(deferred.state, SubmissionState::Unknown);
+            assert_eq!(deferred.observation, ResolutionObservation::Backoff);
+            assert_eq!(deferred.resend, ResendObservation::NotWarranted);
+            assert_eq!(deferred.age.attempt_count, missing.age.attempt_count);
+            assert_eq!(
+                deferred.age.next_attempt_at_ms,
+                missing.age.next_attempt_at_ms
+            );
+        }
+        let found = must(resolve_unknown(
+            outbox, store, hash, 10_000, &keys, endpoint,
+        ));
+        assert_eq!(found.state, SubmissionState::Executed);
+        assert_eq!(found.observation, ResolutionObservation::ExecutedReceipt);
+        assert_eq!(found.resend, ResendObservation::NotWarranted);
+        assert_eq!(
+            found.age.attempt_count,
+            if persist_receipt_before_restart { 1 } else { 2 }
+        );
+        assert_eq!(budget.held_reservations(), Ok(1));
+        assert_eq!(budget.consumed(limit), Ok(0));
+    }
+
+    fn persist_recovery(
+        scenario: &RecoveryScenario,
+        store: &mut Store,
+        verified: &AuthenticatedReceipt,
+    ) {
+        let tenant = scenario.tenant.clone();
+        let hash = scenario.hash;
+        let case = &scenario.case;
+        let stored = must(receipt::store_verified_if_absent(
+            store,
+            tenant.clone(),
+            hash,
+            verified.canonical_bytes(),
+            verified,
+        ));
+        assert_eq!(
+            must(receipt::store_verified_if_absent(
+                store,
+                tenant.clone(),
+                hash,
+                verified.canonical_bytes(),
+                verified
+            )),
+            stored
+        );
+        assert_eq!(
+            store.list_object_ids(&tenant, ObjectKind::Outbox),
+            vec![hash.to_vec()]
+        );
+        let inventory = must(receipt::evidence_inventory(store, &tenant));
+        assert_eq!(inventory.with_current_evidence.len(), 1);
+        let current = &inventory.with_current_evidence[0];
+        assert_eq!(current.idempotency_key, hash);
+        assert_eq!(current.activity_id, stored.metadata.activity_id);
+        assert!(inventory.with_evidence.is_empty());
+        assert!(inventory.without_evidence.is_empty());
+        assert_eq!(
+            must(receipt::serve_evidence(store, tenant.clone(), hash))
+                .unwrap_or_else(|| panic!("durable node receipt"))
+                .canonical_receipt,
+            bytes(&case["signedReceipt"])
+        );
+    }
+
+    fn settle_recovery(
+        scenario: &RecoveryScenario,
+        restart: usize,
+        persist_receipt_before_restart: bool,
+        control: SessionControl,
+        budget: Arc<BudgetLimiter>,
+        verified: &AuthenticatedReceipt,
+    ) {
+        let root = scenario.root.clone();
+        let tenant = scenario.tenant.clone();
+        let hash = scenario.hash;
+        let charge = scenario.charge;
+        let limit = scenario.limit;
+        if restart == 0 && persist_receipt_before_restart {
+            drop(control);
+            drop(budget);
+            let (reopened, restored_budget) = controller(must(Store::open(&root)));
+            assert_eq!(must(reopened.restore_writes()), 1);
+            assert_eq!(restored_budget.consumed(limit), Ok(0));
+            assert_eq!(restored_budget.held_reservations(), Ok(1));
+            {
+                let store = reopened.store();
+                let store = must(store.lock());
+                assert_eq!(
+                    must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                        .unwrap_or_else(|| panic!("receipt persisted before settlement crash"))
+                        .canonical_receipt,
+                    verified.canonical_bytes()
+                );
+            }
+            assert!(must(reopened.settle_write(
+                &tenant,
+                hash,
+                ReleaseKind::Executed,
+                verified.global_sequence()
+            )));
+            assert!(!must(reopened.settle_write(
+                &tenant,
+                hash,
+                ReleaseKind::Executed,
+                verified.global_sequence()
+            )));
+            assert_eq!(restored_budget.consumed(limit), Ok(charge));
+            assert_eq!(restored_budget.held_reservations(), Ok(0));
+        } else {
+            assert_eq!(
+                must(control.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )),
+                restart == 0
+            );
+            assert!(!must(control.settle_write(
+                &tenant,
+                hash,
+                ReleaseKind::Executed,
+                verified.global_sequence()
+            )));
+            assert_eq!(budget.consumed(limit), Ok(charge));
+            assert_eq!(budget.held_reservations(), Ok(0));
+        }
+    }
+
+    fn run_recovery_restart(
+        scenario: &RecoveryScenario,
+        restart: usize,
+        persist_receipt_before_restart: bool,
+        first_balances: &mut Option<(u128, u128, u128, u128)>,
+    ) {
+        let root = scenario.root.clone();
+        let tenant = scenario.tenant.clone();
+        let raw = scenario.raw.clone();
+        let hash = scenario.hash;
+        let charge = scenario.charge;
+        let limit = scenario.limit;
+        let case = &scenario.case;
+        let (control, budget) = controller(must(Store::open(&root)));
+        assert_eq!(must(control.restore_writes()), usize::from(restart == 0));
+        assert_eq!(budget.held_reservations(), Ok(usize::from(restart == 0)));
+        assert_eq!(
+            budget.consumed(limit),
+            Ok(if restart == 0 { 0 } else { charge })
+        );
+        let store_handle = control.store();
+        let mut store = must(store_handle.lock());
+        let mut outbox = Outbox::default();
+        must(outbox.restore(&store, tenant.clone(), hash));
+        assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+        if restart == 1 {
+            let recovered = must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                .unwrap_or_else(|| panic!("receipt must survive without refetching or rewriting"));
+            assert_eq!(recovered.canonical_receipt, bytes(&case["signedReceipt"]));
+            assert_eq!(recovered.metadata.transaction_hash, hash);
+            assert!(recovered.metadata.status);
+            assert_eq!(must(daemon_limits(&store, &tenant))[0].consumed, charge);
+        }
+        assert!(matches!(
+            outbox.enqueue(&mut store, tenant.clone(), raw.clone()),
+            Err(OutboxError::Duplicate)
+        ));
+        let exchanges = recovery_exchanges(scenario, restart, persist_receipt_before_restart);
+        let (node, mut endpoint, server) = peer(exchanges);
+        if restart == 0 {
+            resolve_recovery(
+                scenario,
+                &mut store,
+                &mut outbox,
+                &mut endpoint,
+                &budget,
+                persist_receipt_before_restart,
+            );
+        }
+        assert_eq!(
+            outbox
+                .status(hash)
+                .unwrap_or_else(|| panic!("resolved send"))
+                .state,
+            SubmissionState::Executed
+        );
+        let verified = authenticated(&node, &endpoint, &outbox, hash);
+        must(server.join());
+        let balances = assert_effect(&verified, case);
+        if let Some(previous) = *first_balances {
+            assert_eq!(balances, previous);
+        }
+        *first_balances = Some(balances);
+        persist_recovery(scenario, &mut store, &verified);
+        drop(store);
+        drop(store_handle);
+        settle_recovery(
+            scenario,
+            restart,
+            persist_receipt_before_restart,
+            control,
+            budget,
+            &verified,
+        );
     }
 
     #[test]

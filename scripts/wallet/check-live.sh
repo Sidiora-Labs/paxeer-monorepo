@@ -18,7 +18,7 @@ Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
   px_resolveAccount  a well-formed address resolves to a result with a boolean
                      bound field, never a transport or read error
-  px_getNetwork      paxeer.chain_id is 0x7d, with consensus an object or
+  px_getNetwork      paxeer.chain_id is 0x7d, with a typed consensus head or
                      null with reason consensus_unavailable
   px_getAccount      an EVM address resolves to an account document with bound
                      and a Paxeer balance, nonce and height
@@ -837,11 +837,25 @@ elif check == "px_resolveAccount":
 elif check == "px_getNetwork":
     network = result if error is None and isinstance(result, dict) else {}
     paxeer, consensus = network.get("paxeer"), network.get("consensus")
+    valid_consensus = (
+        isinstance(consensus, dict)
+        and isinstance(consensus.get("latest_height"), str)
+        and re.fullmatch(r"(?:0|[1-9][0-9]*)", consensus["latest_height"]) is not None
+        and len(consensus["latest_height"]) <= 20
+        and int(consensus["latest_height"]) <= 18446744073709551615
+        and all(
+            isinstance(consensus.get(field), str)
+            and re.fullmatch(r"(?:[0-9a-fA-F]{2})*", consensus[field]) is not None
+            for field in ("latest_block_hash", "latest_app_hash")
+        )
+        and type(consensus.get("catching_up")) is bool
+        and "reason" not in network
+    )
     if (
         isinstance(paxeer, dict)
         and paxeer.get("chain_id") == "0x7d"
         and (
-            isinstance(consensus, dict)
+            valid_consensus
             or (
                 "consensus" in network
                 and consensus is None
@@ -880,9 +894,9 @@ else:
 ' "$check" "$account_address")"
 	fi
 	case "$verdict" in
-	pass\ *) echo "pass $check owner=$owner url=$url ${verdict#pass }" ;;
+	pass\ *) printf 'pass %s owner=%s url=%s %s\n' "$check" "$owner" "$url" "${verdict#pass }" ;;
 	*)
-		echo "fail $check owner=$owner url=$url ${verdict#fail }"
+		printf 'fail %s owner=%s url=%s %s\n' "$check" "$owner" "$url" "${verdict#fail }"
 		failures=$((failures + 1))
 		;;
 	esac

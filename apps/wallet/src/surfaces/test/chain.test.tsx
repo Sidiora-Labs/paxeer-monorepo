@@ -4,6 +4,7 @@ import { webcrypto } from 'node:crypto';
 import { ethers } from 'ethers';
 import { bytesToHex, hexToBytes } from 'viem';
 import { verifySequencerReceipt } from '@sidiora/layerx-sdk/browser';
+import * as layerxSdk from '@sidiora/layerx-sdk';
 import {
   authenticateSequencerReceipt,
   decodeSequencerReceipt,
@@ -100,7 +101,15 @@ test(
 
 async function surface_chain_preserves_node_execution_fields_and_governed_signatures() {
   const entries = nodeReceiptVectors();
-  expect(entries).toHaveLength(6);
+  expect(entries.map(({ id }) => id)).toEqual([
+    'V1-pax-transfer',
+    'V1-erc20-approve',
+    'V1-layerxledger-pay-exact',
+    'V1-layerxbridge-bridge-out',
+    'V1-layerxprograms-call',
+    'V2-layerxledger-revert',
+    'V2-pax-transfer-insufficient-funds',
+  ]);
   for (const entry of entries) {
     const chain = new SurfaceChain();
     const call = nodeReceiptCall(entry);
@@ -251,4 +260,17 @@ async function surface_chain_refuses_unrecorded_calls_and_invented_logs() {
 test(
   surface_chain_refuses_unrecorded_calls_and_invented_logs.name,
   surface_chain_refuses_unrecorded_calls_and_invented_logs
+);
+
+function surface_sdk_uses_the_browser_entry_without_sqlite() {
+  expect(layerxSdk.verifySequencerReceipt).toBe(verifySequencerReceipt);
+  expect(layerxSdk).not.toHaveProperty('PreparedGrantDraws');
+  expect(layerxSdk.bridgeOutCall(1n, ethers.ZeroAddress, 1n, ethers.ZeroAddress).to).toBe(
+    layerxSdk.LAYERX_BRIDGE_PRECOMPILE
+  );
+}
+
+test(
+  surface_sdk_uses_the_browser_entry_without_sqlite.name,
+  surface_sdk_uses_the_browser_entry_without_sqlite
 );

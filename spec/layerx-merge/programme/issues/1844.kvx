@@ -1,0 +1,48 @@
+[issue.1844]
+number = 1844
+title = "[Coherence] The new container-runtime step breaks the explorer test that allows exactly one run step in explorer-backend-test"
+revision = "3520b1428059af90261432778c008a9ce362a0b1"
+verdict = "task"
+evidence = "tests/ci/test_explorer_test_step.py:77 counts every run step and tests/ci/test_explorer_test_step.py:78 requires exactly one, but .github/workflows/explorer-images.yml:45 and .github/workflows/explorer-images.yml:54 supply two after commit 2c0db3df4c89df0005960896681b53bc7d0d84a0 added runtime setup; tests/ci/test_explorer_mix_test_aliases.py:83 already selects the umbrella command explicitly."
+close_comment = "Explorer backend validation rejects the required container-runtime setup because it counts every command step. The check needs to identify the unique umbrella test command while retaining full-umbrella coverage and mandatory failure checks."
+
+[task.18.1844.1]
+title = "Issue #1844: Select the explorer umbrella test step by its command"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181844.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tests/ci/test_explorer_test_step.py:77, select the steps whose parsed command is exactly services/explorer/deploy/tools/mix-in-builder.sh test, following the command selection at tests/ci/test_explorer_mix_test_aliases.py:83; retain the exactly-one assertion for those matching steps and every command, MIX_ENV, failure, conditional and umbrella-app assertion at tests/ci/test_explorer_test_step.py:78 through tests/ci/test_explorer_test_step.py:93, leaving the runtime setup and umbrella command at .github/workflows/explorer-images.yml:44 and .github/workflows/explorer-images.yml:54 intact."
+do_2 = "Run test_explorer_test_step_runs_both_umbrella_apps against the real .github/workflows/explorer-images.yml, which contains both runtime setup at .github/workflows/explorer-images.yml:45 and the umbrella test at .github/workflows/explorer-images.yml:54, to prove exactly one matching umbrella command is required, both umbrella applications remain covered, MIX_ENV stays test and the test step remains unconditional with failures propagated."
+symbols = ["test_explorer_test_step_runs_both_umbrella_apps"]
+touches = ["tests/ci/test_explorer_test_step.py"]
+tests = ["tests/ci/test_explorer_test_step.py::test_explorer_test_step_runs_both_umbrella_apps"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_explorer_test_step.py"
+verify_cmd = "python3 -m pytest tests/ci/test_explorer_test_step.py::test_explorer_test_step_runs_both_umbrella_apps -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181844]
+title = "Explorer umbrella validation accepts required runtime setup and enforces the complete test command"
+ac_1 = "Given the runtime setup and umbrella test commands at .github/workflows/explorer-images.yml:45 and .github/workflows/explorer-images.yml:54, the check at tests/ci/test_explorer_test_step.py:72 selects exactly one umbrella test command and retains the full-umbrella, MIX_ENV, unconditional execution and failure propagation assertions at tests/ci/test_explorer_test_step.py:80 through tests/ci/test_explorer_test_step.py:93."
+
+[acceptance.18.1844.1]
+feature = "18"
+req = "181844.1"
+scenario = "Given the explorer workflow with container-runtime setup and the umbrella test command, when the explorer umbrella-step check reads that workflow, then it requires exactly one matching umbrella test command, both umbrella applications, MIX_ENV test, unconditional execution and failure propagation while accepting the separate setup command."
+contract = "contracts/tools-ops.md#ci-workflows"
+test = "tests/ci/test_explorer_test_step.py::test_explorer_test_step_runs_both_umbrella_apps (planned)"
+qualification = "UNRUN"

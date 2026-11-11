@@ -19,6 +19,7 @@ set -eu
 
 readonly DEFAULT_IMAGE='explorer-elixir-builder:v10.2.6'
 readonly DATABASE_IMAGE='postgres:16'
+readonly REDIS_IMAGE='redis:7.4-alpine'
 readonly CONTAINER_WORKDIR='/app'
 readonly MIX_HOME_IN_IMAGE='/opt/mix'
 readonly DATABASE_READY_ATTEMPTS=60
@@ -35,8 +36,21 @@ readonly DATABASE_PROBE_HOST='localhost'
 CONTAINER_SCRIPT=$(
   cat <<'CONTAINER_SCRIPT_END'
 set -e
+compiler_binaries_available() {
+  command -v node >/dev/null 2>&1 &&
+    node -e "require.resolve('solc', {paths: ['./apps/explorer/priv']})" >/dev/null 2>&1 &&
+    command -v vyper >/dev/null 2>&1
+}
+if [ "${1:-}" = 'test' ] && ! compiler_binaries_available; then
+  echo 'mix-in-builder: compiler tools unavailable; excluding compiler-tagged tests' >&2
+  set -- "$@" --exclude compiler
+fi
 if [ "${MIX_IN_BUILDER_BROWSER_DRIVER:-0}" = "1" ] && ! command -v chromedriver >/dev/null 2>&1; then
   apk add --no-cache chromium-chromedriver >&2
+fi
+if [ "${1:-}" = 'test' ]; then
+  mix ecto.create --quiet
+  mix ecto.migrate
 fi
 exec mix "$@"
 CONTAINER_SCRIPT_END
@@ -60,6 +74,7 @@ reuse_db=0
 check_only=0
 sidecar_started=0
 database_container=''
+redis_container=''
 database_group_suffix=''
 
 log() {
@@ -76,7 +91,7 @@ usage() {
 Usage: services/explorer/deploy/tools/mix-in-builder.sh [options] <mix args>
 
 Runs one mix command against services/explorer/backend inside the pinned Elixir builder
-image, with a disposable PostgreSQL sidecar and a named build volume.
+image, with disposable PostgreSQL and Redis sidecars and a named build volume.
 
   services/explorer/deploy/tools/mix-in-builder.sh compile
   services/explorer/deploy/tools/mix-in-builder.sh format --check-formatted
@@ -84,7 +99,7 @@ image, with a disposable PostgreSQL sidecar and a named build volume.
 
 Options come before the mix arguments; -- ends them.
 
-  --reuse-db      reuse the PostgreSQL sidecar a previous --reuse-db
+  --reuse-db      reuse the PostgreSQL and Redis sidecars a previous --reuse-db
                   invocation left running, and leave it running at exit, so a
                   suite can be run twice against one database
   --image <ref>   builder image reference to run instead of the default
@@ -178,6 +193,7 @@ browser_driver_needed() {
 remove_sidecar() {
   if [ "$sidecar_started" -eq 1 ] && [ "$reuse_db" -eq 0 ] && [ -n "$database_container" ]; then
     sidecar_started=0
+    docker rm --force --volumes "$redis_container" >/dev/null 2>&1 || true
     docker rm --force --volumes "$database_container" >/dev/null 2>&1 || true
   fi
 }
@@ -270,6 +286,18 @@ wait_for_database() {
   log "the database sidecar $database_container is ready"
 }
 
+wait_for_redis() {
+  attempt=0
+  until [ "$(docker exec "$redis_container" redis-cli PING 2>/dev/null)" = 'PONG' ]; do
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge "$DATABASE_READY_ATTEMPTS" ]; then
+      die "the Redis sidecar $redis_container did not become ready"
+    fi
+    sleep 1
+  done
+  log "the Redis sidecar $redis_container is ready"
+}
+
 start_sidecar() {
   if [ "$reuse_db" -eq 1 ] && docker container inspect "$database_container" >/dev/null 2>&1; then
     if [ "$(docker container inspect --format '{{.State.Running}}' "$database_container")" != 'true' ]; then
@@ -294,6 +322,22 @@ start_sidecar() {
   fi
 
   wait_for_database
+
+  if [ "$reuse_db" -eq 1 ] && docker container inspect "$redis_container" >/dev/null 2>&1; then
+    if [ "$(docker container inspect --format '{{.State.Running}}' "$redis_container")" != 'true' ]; then
+      docker start "$redis_container" >/dev/null
+    fi
+    log "reusing the Redis sidecar $redis_container"
+  else
+    docker rm --force --volumes "$redis_container" >/dev/null 2>&1 || true
+    docker run \
+      --detach \
+      --name "$redis_container" \
+      --network "container:$database_container" \
+      "$REDIS_IMAGE" >/dev/null
+  fi
+
+  wait_for_redis
 }
 
 # Builds the docker invocation around the mix arguments, then either prints it
@@ -325,6 +369,7 @@ mix_in_container() {
     --env PAXEER_PRECOMPILES_DIR=/precompiles \
     --env PGUSER="$pguser" \
     --env PGPASSWORD="$pgpassword" \
+    --env ACCOUNT_REDIS_URL=redis://127.0.0.1:6379 \
     --env MIX_IN_BUILDER_BROWSER_DRIVER="$browser_driver" \
     --workdir "$CONTAINER_WORKDIR" \
     "$image" \
@@ -406,6 +451,7 @@ run_test_groups() (
 run_mix_command() {
   build_volume=${MIX_BUILD_VOLUME:-$(default_build_volume)}
   database_container=$(database_container_name)
+  redis_container=explorer-mix-redis-${database_container#explorer-mix-db-}
 
   if browser_driver_needed "$@"; then
     browser_driver=1

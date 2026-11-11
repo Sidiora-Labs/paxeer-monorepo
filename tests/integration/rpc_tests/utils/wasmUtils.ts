@@ -53,10 +53,18 @@ export async function isWasmEnabled(): Promise<boolean> {
         });
         if (!response.ok) throw new Error(`wasm params query failed: HTTP ${response.status}`);
         const body = await response.json();
-        if (body.param?.subspace !== 'wasm' || body.param?.key !== key || typeof body.param?.value !== 'string') {
+        const param = typeof body === 'object' && body !== null && 'param' in body
+            ? body.param
+            : undefined;
+        if (
+            typeof param !== 'object' || param === null ||
+            !('subspace' in param) || param.subspace !== 'wasm' ||
+            !('key' in param) || param.key !== key ||
+            !('value' in param) || typeof param.value !== 'string'
+        ) {
             throw new Error('wasm params query returned an invalid parameter');
         }
-        return JSON.parse(body.param.value);
+        return JSON.parse(param.value);
     };
     const [upload, instantiate] = await Promise.all([query('uploadAccess'), query('instantiateAccess')]);
     const capability = wasmCapability({ code_upload_access: upload, instantiate_default_permission: instantiate });

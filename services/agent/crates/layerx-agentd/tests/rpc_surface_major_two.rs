@@ -1,12 +1,20 @@
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::collections::BTreeSet;
 
-#[path = "../src/lib.rs"]
-mod daemon;
-pub use daemon::*;
-#[path = "../src/agent_rpc_wire.rs"]
-mod agent_rpc_wire;
-#[path = "../src/outbound_tls.rs"]
-mod outbound_tls;
+use layerx_agentd::{agent_rpc, agent_rpc_dispatch, session, store};
 
 use agent_rpc::{
     decode, dispatch_target, error_body, http_status, mcp_result_response, success_body,
@@ -24,18 +32,17 @@ use session::{SessionCredential, SessionId};
 use store::TenantId;
 
 fn envelope(operation: Operation) -> Value {
-    let bootstrap = matches!(operation, Operation::AgentRegister | Operation::SessionOpen);
     let mut body = json!({
         "version": 1,
         "request_id": "7",
         "operation": operation.name(),
         "request": {},
-        "credential": if bootstrap { Value::Null } else { json!({
+        "credential": {
             "tenant": "rpc-surface",
             "session_id": "11".repeat(32),
             "token_id": "22".repeat(32),
             "generation": "1",
-        }) },
+        },
     });
     if operation.mutating() {
         body["idempotency_key"] = json!("33".repeat(32));
@@ -68,46 +75,82 @@ fn every_schema_operation_is_dispatched_retired_or_bootstrap_gated() {
         })
         .collect();
     let generated_operations: BTreeSet<_> = Operation::ALL.iter().map(|op| op.name()).collect();
+    let retired_operations: BTreeSet<_> = AGENT_API_V1_SOURCE
+        .split("\n[")
+        .filter_map(|section| {
+            let (header, body) = section.split_once(']')?;
+            let name = header.strip_prefix("transport.agent_http.operation.")?;
+            body.lines()
+                .any(|line| line.trim() == r#"disposition = "retired""#)
+                .then_some(name)
+        })
+        .collect();
     assert_eq!(generated_operations.len(), Operation::ALL.len());
-    assert_eq!(generated_operations, schema_operations);
+    assert!(generated_operations.is_disjoint(&retired_operations));
+    assert_eq!(
+        generated_operations
+            .union(&retired_operations)
+            .copied()
+            .collect::<BTreeSet<_>>(),
+        schema_operations
+    );
 
-    for &operation in Operation::ALL {
-        let body = envelope(operation).to_string();
-        let decoded = decode(body.as_bytes());
-        let target = dispatch_target(operation, RequestId(7));
-        match operation {
-            Operation::AgentRegister | Operation::SessionOpen => {
-                let decoded = decoded.unwrap_or_else(|error| panic!("bootstrap decode: {error:?}"));
-                assert_eq!(decoded.operation, operation);
-                assert!(decoded.credential.is_none());
-                let error = target
-                    .err()
-                    .unwrap_or_else(|| panic!("bootstrap reached adapter"));
-                assert_refusal(
-                    &error,
-                    ErrorClass::PolicyRefusal,
-                    "refused_pending_bootstrap_artifact",
-                );
-            }
-            _ => {
-                let decoded =
-                    decoded.unwrap_or_else(|error| panic!("{}: {error:?}", operation.name()));
-                assert_eq!(decoded.operation, operation);
-                assert!(decoded.credential.is_some());
-                assert_eq!(
-                    target,
-                    Ok(operation),
-                    "{} must reach the owner dispatcher",
-                    operation.name()
-                );
-                assert_eq!(
-                    dispatch_target(decoded.operation, decoded.request_id),
-                    target
-                );
-            }
-        }
+    for operation in retired_operations {
+        let mut body = envelope(Operation::TenantReadiness);
+        body["operation"] = json!(operation);
+        let error = decode(body.to_string().as_bytes())
+            .err()
+            .unwrap_or_else(|| panic!("retired operation {operation} accepted"));
+        assert_refusal(
+            &error,
+            ErrorClass::UnavailableCapability,
+            &format!("unavailable_capability.{operation}"),
+        );
     }
 
+    for &operation in Operation::ALL {
+        let mut body = envelope(operation);
+        let decoded = decode(body.to_string().as_bytes())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", operation.name()));
+        let target = dispatch_target(operation, RequestId(7));
+        assert_eq!(decoded.operation, operation);
+        assert_eq!(
+            decoded.credential,
+            Some(SessionCredential::new(
+                require_ok(TenantId::new("rpc-surface"), "surface tenant"),
+                SessionId([0x11; 32]),
+                [0x22; 32],
+                1,
+            ))
+        );
+        assert_eq!(
+            target,
+            Ok(operation),
+            "{} must reach the owner dispatcher",
+            operation.name()
+        );
+        assert_eq!(
+            dispatch_target(decoded.operation, decoded.request_id),
+            target
+        );
+
+        body["credential"] = Value::Null;
+        let error = decode(body.to_string().as_bytes())
+            .err()
+            .unwrap_or_else(|| panic!("{} accepted without credentials", operation.name()));
+        assert_refusal(
+            &error,
+            ErrorClass::ProtocolIncompatibility,
+            "envelope.credential",
+        );
+    }
+
+    finish_every_schema_operation_is_dispatched_retired_or_bootstrap_gated_1_rpc_surface_major_two(
+    );
+}
+
+fn finish_every_schema_operation_is_dispatched_retired_or_bootstrap_gated_1_rpc_surface_major_two()
+{
     let mut unknown = envelope(Operation::TenantReadiness);
     unknown["operation"] = json!("unknown.operation");
     let error = decode(unknown.to_string().as_bytes())
@@ -189,6 +232,13 @@ fn version_exchange_reports_contract_major_two() {
     let answer =
         version_exchange(&request).unwrap_or_else(|error| panic!("version exchange: {error:?}"));
     assert_eq!(
+        answer,
+        require_ok(
+            layerx_agentd::test_support::version_exchange(&request),
+            "required test value"
+        )
+    );
+    assert_eq!(
         hex::encode(answer),
         "0002000000000000000000070000000000000200000001"
     );
@@ -226,7 +276,7 @@ fn version_exchange_reports_contract_major_two() {
             supported: ContractVersion { major, minor: 0 },
         }
         .encode();
-        let error = version_exchange(&request).unwrap_err();
+        let error = require_err(version_exchange(&request), "required test value");
         assert_refusal(
             &error,
             ErrorClass::ProtocolIncompatibility,
@@ -235,14 +285,14 @@ fn version_exchange_reports_contract_major_two() {
         assert_eq!(http_status(&error), 400);
     }
     for length in 0..request.len() {
-        let error = version_exchange(&request[..length]).unwrap_err();
+        let error = require_err(version_exchange(&request[..length]), "required test value");
         assert_eq!(error.class, ErrorClass::ProtocolIncompatibility);
         assert_eq!(error.reason, "envelope.malformed");
     }
     let mut trailing = request.to_vec();
     trailing.push(0);
     assert_refusal(
-        &version_exchange(&trailing).unwrap_err(),
+        &require_err(version_exchange(&trailing), "required test value"),
         ErrorClass::ProtocolIncompatibility,
         "envelope.malformed",
     );
@@ -250,7 +300,7 @@ fn version_exchange_reports_contract_major_two() {
         let mut malformed = request;
         malformed[index] = 1;
         assert_refusal(
-            &version_exchange(&malformed).unwrap_err(),
+            &require_err(version_exchange(&malformed), "required test value"),
             ErrorClass::ProtocolIncompatibility,
             "envelope.malformed",
         );
@@ -259,7 +309,7 @@ fn version_exchange_reports_contract_major_two() {
         let mut incompatible = request;
         incompatible[index] = 1;
         assert_refusal(
-            &version_exchange(&incompatible).unwrap_err(),
+            &require_err(version_exchange(&incompatible), "required test value"),
             ErrorClass::ProtocolIncompatibility,
             "envelope.version",
         );
@@ -303,7 +353,7 @@ fn agent_http_envelope_goldens_round_trip() {
     assert_eq!(
         decoded.credential,
         Some(SessionCredential::new(
-            TenantId::new("tenant-a").expect("golden tenant"),
+            require_ok(TenantId::new("tenant-a"), "golden tenant"),
             SessionId([0xcd; 32]),
             [0xab; 32],
             7,
@@ -314,11 +364,12 @@ fn agent_http_envelope_goldens_round_trip() {
         Ok(Operation::TenantReadiness)
     );
 
-    let mut unsupported: Value = serde_json::from_slice(request).expect("request JSON");
+    let mut unsupported: Value = require_ok(serde_json::from_slice(request), "request JSON");
     unsupported["version"] = json!(2);
-    let error = decode(unsupported.to_string().as_bytes())
-        .err()
-        .expect("version-2 request must be refused");
+    let error = require_some(
+        decode(unsupported.to_string().as_bytes()).err(),
+        "version-2 request must be refused",
+    );
     assert_refusal(
         &error,
         ErrorClass::ProtocolIncompatibility,
@@ -351,11 +402,13 @@ fn agent_http_envelope_goldens_round_trip() {
             "absent",
         ),
     ] {
-        let response = success_body(decoded.request_id, &answer, Some(Some(Rung::Receipted)))
-            .expect("not-ready program.receipt envelope");
+        let response = require_ok(
+            success_body(decoded.request_id, &answer, Some(Some(Rung::Receipted))),
+            "not-ready program.receipt envelope",
+        );
         assert_eq!(response.status, 200);
         assert_eq!(response.body.as_slice(), golden);
-        let body: Value = serde_json::from_slice(&response.body).expect("success JSON");
+        let body: Value = require_ok(serde_json::from_slice(&response.body), "success JSON");
         assert_eq!(body["verification_status"]["state"], state);
         assert_eq!(body["verification_status"]["requested"], "receipted");
         assert!(body["verification_status"].get("rung").is_none());

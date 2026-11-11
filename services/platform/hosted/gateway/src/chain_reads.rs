@@ -392,7 +392,7 @@ pub(super) fn dispatch(
     ) {
         return None;
     }
-    if !public_reads::consume_read() {
+    if !public_reads::consume_read(&config.read_windows) {
         let mut answer = rpc::error(id, -32005, "Read unavailable");
         answer["error"]["data"] = json!({"code": "public_read_rate_limit"});
         return Some(answer);

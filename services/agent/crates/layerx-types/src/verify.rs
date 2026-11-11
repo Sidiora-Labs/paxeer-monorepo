@@ -27,6 +27,10 @@ pub struct VerificationLevel(VerificationRank);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct InvalidVerificationRank(pub u8);
 
+/// A string label outside the current verification lattice.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InvalidVerificationLabel(pub String);
+
 impl VerificationLevel {
     /// No local evidence has passed.
     pub const UNVERIFIED: Self = Self(VerificationRank::Unverified);
@@ -92,6 +96,35 @@ impl VerificationLevel {
             3 => Ok(Self::STATE_PROVEN),
             6 => Ok(Self::COMMITTED),
             _ => Err(InvalidVerificationRank(rank)),
+        }
+    }
+
+    /// Returns the stable label, including reserved archive spellings.
+    #[must_use]
+    pub const fn wire_label(self) -> &'static str {
+        match self.0 {
+            VerificationRank::Unverified => "unverified",
+            VerificationRank::SequencerSigned => "sequencer_signed",
+            VerificationRank::BatchIncluded => "batch_included",
+            VerificationRank::StateProven => "state_proven",
+            VerificationRank::CheckpointFinalised => "checkpoint_finalised",
+            VerificationRank::SettlementAnchored => "settlement_anchored",
+            VerificationRank::Committed => "committed",
+        }
+    }
+
+    /// Decodes a current observation label without constructing verified evidence.
+    ///
+    /// # Errors
+    /// Rejects retired and unknown labels, retaining the offending string.
+    pub fn from_wire_label(label: &str) -> Result<Self, InvalidVerificationLabel> {
+        match label {
+            "unverified" => Ok(Self::UNVERIFIED),
+            "sequencer_signed" => Ok(Self::SEQUENCER_SIGNED),
+            "batch_included" => Ok(Self::BATCH_INCLUDED),
+            "state_proven" => Ok(Self::STATE_PROVEN),
+            "committed" => Ok(Self::COMMITTED),
+            _ => Err(InvalidVerificationLabel(label.to_owned())),
         }
     }
 
@@ -241,5 +274,63 @@ impl<T> Projection<T> {
     #[must_use]
     pub fn into_value(self) -> T {
         self.value
+    }
+}
+
+#[cfg(test)]
+mod wire_label_tests {
+    use super::{InvalidVerificationLabel, VerificationLevel};
+
+    #[test]
+    fn wire_label_round_trips_current_levels() {
+        for (level, label) in [
+            (VerificationLevel::UNVERIFIED, "unverified"),
+            (VerificationLevel::SEQUENCER_SIGNED, "sequencer_signed"),
+            (VerificationLevel::BATCH_INCLUDED, "batch_included"),
+            (VerificationLevel::STATE_PROVEN, "state_proven"),
+            (VerificationLevel::COMMITTED, "committed"),
+        ] {
+            assert_eq!(level.wire_label(), label);
+            assert_eq!(VerificationLevel::from_wire_label(label), Ok(level));
+        }
+    }
+
+    #[test]
+    #[allow(
+        deprecated,
+        reason = "Verify the retained legacy decoder cannot manufacture a current verification level."
+    )]
+    fn wire_label_names_archives_but_refuses_retired_and_unknown_labels() {
+        assert_eq!(
+            VerificationLevel::CHECKPOINT_FINALISED.wire_label(),
+            "checkpoint_finalised"
+        );
+        assert_eq!(
+            VerificationLevel::SETTLEMENT_ANCHORED.wire_label(),
+            "settlement_anchored"
+        );
+        for archived in [
+            VerificationLevel::CHECKPOINT_FINALISED,
+            VerificationLevel::SETTLEMENT_ANCHORED,
+        ] {
+            assert!(!archived.is_current());
+            assert!(VerificationLevel::from_wire_rank(archived.wire_rank()).is_err());
+            assert_eq!(archived.rung(), None);
+            assert!(archived.compare(VerificationLevel::COMMITTED).is_lt());
+            assert!(VerificationLevel::COMMITTED.compare(archived).is_lt());
+        }
+        for label in [
+            "checkpoint_finalised",
+            "settlement_anchored",
+            "unknown",
+            "",
+            "COMMITTED",
+            " committed",
+        ] {
+            assert_eq!(
+                VerificationLevel::from_wire_label(label),
+                Err(InvalidVerificationLabel(label.to_owned()))
+            );
+        }
     }
 }

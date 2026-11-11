@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -23,14 +25,23 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
+	paykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
+	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
+	sdksecp256k1 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -232,9 +243,18 @@ type receiptHarness struct {
 // heights 1..1000.
 func newReceiptHarness(t *testing.T, openMs int64, setup func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *receiptHarness {
 	t.Helper()
+	return newReceiptHarnessWithPrecompiles(t, openMs, false, setup, nil, funded...)
+}
+
+func newReceiptHarnessWithPrecompiles(t *testing.T, openMs int64, enabled bool, setup, afterFinalize func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *receiptHarness {
+	t.Helper()
 	tm := time.Now().UTC()
 	valPub := sdked25519.GenPrivKey().PubKey()
-	tw := app.NewTestWrapper(t, tm, valPub, false)
+	if enabled {
+		tm = time.Unix(1_700_000_000, 0).UTC()
+		valPub = (&sdked25519.PrivKey{Key: ed25519.NewKeyFromSeed(label("restart validator"))}).PubKey()
+	}
+	tw := app.NewTestWrapper(t, tm, valPub, enabled)
 	a := tw.App
 	require.NoError(t, a.SequencerKeeper.SetLeaders(tw.Ctx, [][32]byte{[32]byte(valPub.Bytes())}))
 	public := publicOf(testKeySeed)
@@ -252,6 +272,17 @@ func newReceiptHarness(t *testing.T, openMs int64, setup func(ctx sdk.Context, a
 		Header: &tmproto.Header{ChainID: testChainID, Height: committedTip},
 	})
 	require.NoError(t, err)
+	if afterFinalize != nil {
+		blockMs := openMs
+		if blockMs == 0 {
+			blockMs = tm.Add(time.Second).UnixMilli()
+		}
+		ctx := a.GetContextForDeliverTx(nil).WithChainID(testChainID).
+			WithBlockHeight(openHeight).WithBlockTime(time.UnixMilli(blockMs).UTC())
+		setupCtx, write := ctx.CacheContext()
+		afterFinalize(setupCtx, a)
+		write()
+	}
 	a.SetDeliverStateToCommit()
 	_, err = a.Commit(context.Background())
 	require.NoError(t, err)
@@ -386,6 +417,415 @@ func TestReceiptActivityIdIsTxHash(t *testing.T) {
 	in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, [32]byte{})
 	_, err := sequencer.BuildReceipt(in, testKeyID)
 	require.ErrorIs(t, err, sequencer.ErrReceiptInput)
+}
+
+func TestCurrentReceiptRestartFixture(t *testing.T) {
+	signer := func(name string) utils.TestAcct {
+		private := &sdksecp256k1.PrivKey{Key: label(name)}
+		evmKey, err := crypto.ToECDSA(private.Bytes())
+		require.NoError(t, err)
+		return utils.TestAcct{PrivateKey: private, PublicKey: private.PubKey(),
+			AccountAddress: sdk.AccAddress(private.PubKey().Address()),
+			EvmPrivateKey:  evmKey, EvmAddress: crypto.PubkeyToAddress(evmKey.PublicKey)}
+	}
+	sender, recipient := signer("restart sender"), signer("restart recipient")
+	var envelopes [][]byte
+	var capture map[string]interface{}
+	budgetID := [32]byte(repeat(0x51, 32))
+	var budgetRecipient [32]byte
+	rh := newReceiptHarnessWithPrecompiles(t, 0, true, func(ctx sdk.Context, a *app.App) {
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(committedTip), app.MergeUpgrade)
+	}, func(ctx sdk.Context, a *app.App) {
+		budgetRecipient = setupCurrentReceiptRestartBudget(t, ctx, a, sender, recipient, budgetID)
+	}, sender)
+	value := big.NewInt(25)
+	payABI, err := layerxpay.GetABI()
+	require.NoError(t, err)
+	calldata, err := payABI.Pack("budgetSpend", budgetID, budgetRecipient, value)
+	require.NoError(t, err)
+	pay := common.HexToAddress(layerxpay.PayAddress)
+	require.Contains(t, rh.app.EvmKeeper.CustomPrecompiles(rh.openCtx()), pay)
+	require.NoError(t, rh.app.LayerXPayKeeper.CheckWrite(rh.openCtx(), "budgetSpend"),
+		"committed restart setup must enable the budget module in the executing block")
+	initialBudget, found, err := rh.app.LayerXPayKeeper.GetBudget(rh.openCtx(), budgetID)
+	require.NoError(t, err)
+	require.True(t, found, "committed restart budget must be visible in the executing block")
+	require.Zero(t, initialBudget.SpentThisPeriod)
+
+	for nonce, call := range []struct {
+		to    common.Address
+		data  []byte
+		value *big.Int
+	}{
+		{to: recipient.EvmAddress, value: value},
+		{to: pay, data: calldata, value: new(big.Int)},
+	} {
+		transaction, envelope := evmTx(t, sender, dynamicTx(uint64(nonce), &call.to, call.value, 500_000, call.data))
+		envelopes = append(envelopes, envelope)
+		raw, err := transaction.MarshalBinary()
+		require.NoError(t, err)
+		var decoded ethtypes.Transaction
+		require.NoError(t, decoded.UnmarshalBinary(raw))
+		require.Equal(t, ethtypes.DynamicFeeTxType, int(decoded.Type()))
+		require.Equal(t, transaction.Hash(), crypto.Keccak256Hash(raw))
+		require.Equal(t, transaction.Hash(), decoded.Hash())
+		require.NoError(t, rh.app.LayerXPayKeeper.CheckWrite(rh.openCtx(), "budgetSpend"),
+			"restart budget enablement must survive accepted transactions")
+		accepted, receipt, signed := rh.accept(t, envelope)
+		t.Logf("restart capture: hash=%s transaction_value=%s requested_amount=%s receipt_amount=%v result_code=%d", decoded.Hash(), decoded.Value(), value, receipt.Amount, receipt.ResultCode)
+		if accepted.Result.Code != abci.CodeTypeOK {
+			var result sdk.TxMsgData
+			require.NoError(t, result.Unmarshal(accepted.Result.Data))
+			require.Len(t, result.Data, 1)
+			var response evmtypes.MsgEVMTransactionResponse
+			require.NoError(t, response.Unmarshal(result.Data[0].Data))
+			reason, err := abi.UnpackRevert(response.ReturnData)
+			require.NoError(t, err)
+			t.Logf("producer refused nonzero restart capture: to=%s value=%s code=%d vm_error=%s revert=%s", call.to, decoded.Value(), accepted.Result.Code, response.VmError, reason)
+		}
+		require.Equal(t, abci.CodeTypeOK, accepted.Result.Code)
+		require.Equal(t, [32]byte(decoded.Hash()), accepted.ActivityID)
+		require.Equal(t, accepted.ActivityID, receipt.ActivityID)
+		require.Equal(t, codec.U128{Lo: decoded.Value().Uint64()}, receipt.Amount)
+		require.Equal(t, signed, receipt.CanonicalBytes())
+		executed := rh.transient(t, transaction, accepted)
+		require.Zero(t, receipt.ResultCode,
+			"nonzero restart capture requires successful execution: to=%s value=%s vm_error=%s; Receipter.beforeEVM signs tx.Value(), but layerxpay.Executor.Execute calls ValidateNonPayable before budgetSpend",
+			call.to, decoded.Value(), executed.VmError)
+		if call.to == pay {
+			budget, found, err := rh.app.LayerXPayKeeper.GetBudget(rh.openCtx(), budgetID)
+			require.NoError(t, err)
+			require.True(t, found, "restart capture requires producer-derived budget state")
+			t.Logf("restart budget producer: spent=%v receipt_amount=%v transaction_value=%s", budget.SpentThisPeriod, receipt.Amount, decoded.Value())
+			require.Equal(t, u128(value), budget.SpentThisPeriod)
+			require.Zero(t, decoded.Value().Sign(), "budgetSpend is non-payable")
+			require.Zero(t, receipt.Amount, "Receipter.beforeEVM records tx.Value(), not the calldata spend")
+			var result sdk.TxMsgData
+			require.NoError(t, result.Unmarshal(accepted.Result.Data))
+			require.Len(t, result.Data, 1)
+			var response evmtypes.MsgEVMTransactionResponse
+			require.NoError(t, response.Unmarshal(result.Data[0].Data))
+			body := receipt.Effects[0].Body
+			public := rh.key.PublicKey()
+			fee := receipt.FeeCharged.Bytes()
+			view := &evmrpc.SequencerReceiptResult{
+				Rung: evmrpc.RungReceipted, TxHash: decoded.Hash(), Nonce: hexutil.Uint64(decoded.Nonce()),
+				SequencerReceiptView: &evmrpc.SequencerReceiptView{
+					Seq: hexutil.Uint64(receipt.GlobalSequence), Height: hexutil.Uint64(accepted.Height),
+					Index: hexutil.Uint(accepted.TxIndex), Timestamp: hexutil.Uint64(receipt.Timestamp),
+					Status: hexutil.Uint64(executed.Status), ReturnData: hexutil.Bytes(response.ReturnData),
+					Logs:    make([]evmrpc.SequencerReceiptLog, 0, len(executed.Logs)),
+					GasUsed: hexutil.Uint64(executed.GasUsed), CumulativeGasUsed: hexutil.Uint64(binary.BigEndian.Uint64(body[8:16])),
+					EffectiveGasPrice: hexutil.Uint64(executed.EffectiveGasPrice), PaymentDenom: "uhpx", FeeDenom: string(body[109:]),
+					FeeAmount: (*hexutil.Big)(new(big.Int).SetBytes(fee[:])), Sponsor: common.BytesToAddress(body[48:68]),
+					From: sender.EvmAddress, To: pay, ContractAddress: common.BytesToAddress(body[28:48]),
+					VMError: executed.VmError, KeyID: common.Hash(receipt.ContextHash), SigningKey: public[:], Receipt: signed,
+				},
+			}
+			for i, log := range executed.Logs {
+				topics := make([]common.Hash, len(log.Topics))
+				for j, topic := range log.Topics {
+					topics[j] = common.HexToHash(topic)
+				}
+				view.Logs = append(view.Logs, evmrpc.SequencerReceiptLog{
+					Address: common.HexToAddress(log.Address), Topics: topics, Data: log.Data, LogIndex: hexutil.Uint(i),
+				})
+			}
+			pins, err := rh.app.SequencerKeeper.ReceiptKeys(rh.openCtx())
+			require.NoError(t, err)
+			require.Len(t, pins, 1)
+			keys := make(seqkeeper.ReceiptKeys, len(pins))
+			for i, pin := range pins {
+				keys[i] = seqkeeper.ReceiptKeyEntry{KeyId: pin.KeyId[:], PublicKey: pin.PublicKey[:], FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight}
+			}
+			require.NoError(t, view.Verify(keys))
+			capture = map[string]interface{}{
+				"signed_transaction": hexutil.Encode(raw), "transaction_value": decoded.Value().String(),
+				"receipt_amount": new(big.Int).SetBytes(sliceU128(receipt.Amount)).String(), "budget_spent": new(big.Int).SetBytes(sliceU128(budget.SpentThisPeriod)).String(), "budget_id": hexutil.Encode(budgetID[:]),
+				"receipt_view": view,
+				"receipt_keys": map[string]interface{}{"keys": []interface{}{map[string]interface{}{
+					"keyId": hexutil.Encode(pins[0].KeyId[:]), "publicKey": hexutil.Encode(pins[0].PublicKey[:]),
+					"firstHeight": pins[0].FirstHeight, "lastHeight": pins[0].LastHeight,
+				}}},
+			}
+		} else {
+			requireWei(t, value, decoded.Value())
+			require.Positive(t, decoded.Value().Sign())
+		}
+	}
+	response, err := rh.app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
+		Txs: envelopes, Header: &tmproto.Header{ChainID: testChainID, Height: openHeight, Time: time.UnixMilli(rh.openMs).UTC()},
+	})
+	require.NoError(t, err)
+	require.Len(t, response.TxResults, len(envelopes))
+	for _, result := range response.TxResults {
+		require.Equal(t, abci.CodeTypeOK, result.Code)
+	}
+	rh.app.SetDeliverStateToCommit()
+	_, err = rh.app.Commit(context.Background())
+	require.NoError(t, err)
+	committed := sdk.NewContext(rh.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{
+		ChainID: testChainID, Height: openHeight, Time: time.UnixMilli(rh.openMs).UTC()}, false)
+	budget, found, err := rh.app.LayerXPayKeeper.GetBudget(committed, budgetID)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, u128(value), budget.SpentThisPeriod)
+	capture["budget_spent"] = new(big.Int).SetBytes(sliceU128(budget.SpentThisPeriod)).String()
+	budgetKey := append([]byte("budget:"), budgetID[:]...)
+	record := committed.KVStore(rh.app.GetKey(app.LayerXHostStoreKey)).Get(paytypes.KernelKVKey(paytypes.BudgetModuleID, budgetKey))
+	capturedBudget, err := paytypes.DecodeBudgetRecord(record)
+	require.NoError(t, err)
+	require.Equal(t, budget, capturedBudget)
+	capture["budget_record"] = hexutil.Encode(record)
+	precompile, err := layerxpay.NewPrecompile(rh.app.LayerXPayKeeper)
+	require.NoError(t, err)
+	method := payABI.Methods["getBudget"]
+	result, err := precompile.GetExecutor().Execute(committed, &method, common.Address{}, common.Address{}, []interface{}{budgetID}, new(big.Int), true, nil, nil)
+	require.NoError(t, err)
+	capture["budget_result"] = hexutil.Encode(result)
+	encoded, err := json.MarshalIndent(capture, "", "  ")
+	require.NoError(t, err)
+	t.Logf("CURRENT_RECEIPT_RESTART_CAPTURE=%s", mustRestartCaptureJSON(t, capture))
+	path := filepath.Join("..", "..", "services", "agent", "crates", "layerx-agentd", "tests", "fixtures", "current-receipt-restart.json")
+	if os.Getenv("UPDATE_CURRENT_RECEIPT_RESTART_FIXTURE") == "1" {
+		require.NoError(t, os.WriteFile(path, append(encoded, '\n'), 0o600))
+	}
+	expected, err := os.ReadFile(path)
+	require.NoError(t, err, "commit the node-produced capture printed above before consumer replay")
+	require.JSONEq(t, string(expected), string(encoded), "committed restart capture must match real execution and committed keeper state")
+}
+
+func mustRestartCaptureJSON(t *testing.T, capture map[string]interface{}) string {
+	t.Helper()
+	encoded, err := json.Marshal(capture)
+	require.NoError(t, err)
+	return string(encoded)
+}
+
+func setupCurrentReceiptRestartBudget(t *testing.T, ctx sdk.Context, a *app.App, sender, recipient utils.TestAcct, budgetID [32]byte) [32]byte {
+	t.Helper()
+	private := ed25519.NewKeyFromSeed(label("restart budget owner"))
+	public := [32]byte(private.Public().(ed25519.PublicKey))
+	did := []byte(evmtypes.LayerXDid(public))
+	actor, err := lxphost.DIDID(did)
+	require.NoError(t, err)
+	message, err := evmtypes.LayerXBindMessage(a.EvmKeeper.ChainID(ctx), sender.EvmAddress, 0)
+	require.NoError(t, err)
+	_, err = a.EvmKeeper.BindLayerX(ctx, sender.EvmAddress, public, [64]byte(ed25519.Sign(private, message)))
+	require.NoError(t, err)
+	boundKey, bound := a.EvmKeeper.GetLayerXDid(ctx, sender.EvmAddress)
+	require.True(t, bound)
+	require.Equal(t, public, boundKey)
+	hostKey := a.GetKey(app.LayerXHostStoreKey)
+	execute := func(activityType uint32, payload []byte) {
+		sequence, err := a.LayerXHost.ReadIdentitySequence(ctx, did)
+		require.NoError(t, err)
+		next, err := lxphost.NextSequence(ctx, hostKey)
+		require.NoError(t, err)
+		activity := lxphost.Activity{
+			ProtocolVersion: 3, Type: activityType, ActorDID: did, AuthorityKey: public,
+			AccountSequence: sequence, NotBefore: uint64(ctx.BlockTime().UnixMilli()),
+			NotAfter:       uint64(ctx.BlockTime().UnixMilli()) + a.LayerXHost.TimestampWindowMs(),
+			IdempotencyKey: sha256.Sum256(binary.BigEndian.AppendUint64(nil, next)), Payload: payload,
+		}
+		digest, err := a.LayerXHost.SigningHash(activity)
+		require.NoError(t, err)
+		activity.Signature = ed25519.Sign(private, digest[:])
+		receipt, err := a.LayerXHost.HostExecute(lxphost.WithSequence(ctx, next), activity, lxphost.KernelAuthority{
+			Actor: actor, Principal: actor, VerifiedKey: public,
+		})
+		require.NoError(t, err)
+		require.Zero(t, receipt.ResultCode)
+	}
+	registration := append(append([]byte{0x71, 1, 0, 2}, actor[:]...), public[:]...)
+	execute(0x00070001, registration)
+	salt := [32]byte{0x73}
+	asset := sha256.Sum256(append(append([]byte("LX:ASSET:v1"), actor[:]...), salt[:]...))
+	require.NoError(t, a.LayerXLedgerKeeper.SetParams(ctx, ledgertypes.Params{}))
+	ledgerActor, err := a.LayerXLedgerKeeper.Actor(ctx, sender.EvmAddress)
+	require.NoError(t, err)
+	registered, err := a.LayerXLedgerKeeper.RegisterAsset(ctx, ledgerActor, ledgertypes.RegisterArgs{
+		AssetID: asset, Salt: salt, Symbol: "T", Name: "T", Decimals: 6,
+		SupplyCap: sdk.NewInt(1000), IssuerKind: ledgertypes.AssetIssuerNative,
+	}, [32]byte{0x74})
+	require.NoError(t, err)
+	require.Zero(t, registered.Receipt.ResultCode)
+	opened, err := a.LayerXLedgerKeeper.OpenAccount(ctx, ledgerActor, asset, [32]byte{0x75})
+	require.NoError(t, err)
+	require.Zero(t, opened.Receipt.ResultCode)
+	sourceName, source, err := lxphost.AssetAccountID(public, asset)
+	require.NoError(t, err)
+	minted, err := a.LayerXLedgerKeeper.Mint(ctx, ledgerActor, asset, source, sdk.NewInt(1000), [32]byte{0x76})
+	require.NoError(t, err)
+	require.Zero(t, minted.Receipt.ResultCode)
+	mainName, main, err := lxphost.MainAccountID(public)
+	require.NoError(t, err)
+	field := func(out, value []byte) []byte {
+		return append(binary.BigEndian.AppendUint32(out, uint32(len(value))), value...)
+	}
+	putMain := func(key [32]byte) (string, [32]byte) {
+		name, id, err := lxphost.MainAccountID(key)
+		require.NoError(t, err)
+		account := field(nil, id[:])
+		account = field(account, []byte(name))
+		account = append(account, 1)
+		account = append(account, make([]byte, 16)...)
+		account = field(account, asset[:])
+		account = append(account, 1)
+		account = binary.BigEndian.AppendUint64(account, 0)
+		account = binary.BigEndian.AppendUint64(account, 1)
+		account = append(account, 0, 0)
+		account = field(account, key[:])
+		ctx.KVStore(hostKey).Set(append([]byte{6}, id[:]...), append(account, 1))
+		return name, id
+	}
+	putMain(public)
+	a.LayerXPayKeeper.SetParams(ctx, paytypes.Params{BudgetEnabled: true})
+	gate, err := paytypes.KernelModuleEnableKey(paytypes.BudgetModuleID)
+	require.NoError(t, err)
+	enabled := [32]byte{31: 1}
+	ctx.KVStore(hostKey).Set(gate, enabled[:])
+	budgetAccount, err := codec.DeriveAccountID([]byte("agent:" + string(did) + ":budget:" + hex.EncodeToString(budgetID[:])))
+	require.NoError(t, err)
+	sourceAccount, err := a.LayerXHost.ReadAccount(ctx, sourceName, source)
+	require.NoError(t, err)
+	require.Equal(t, source, sourceAccount.ID)
+	require.True(t, sourceAccount.HasAuthorityKey)
+	require.Equal(t, public, sourceAccount.AuthorityKey)
+	fundingKey := [32]byte{0x77}
+	funding := ledgertypes.SendArgs{
+		From: source, To: main, Asset: asset, Amount: sdk.NewInt(1000),
+		Sequence: sourceAccount.NextSequence, IdempotencyKey: fundingKey,
+		ExpiresAt: uint64(ctx.BlockTime().UnixMilli()) + 10000,
+		PublicKey: public, NetworkID: uint32(config.DefaultChainID), ProtocolVersion: 3,
+	}
+	transfer, err := ledgertypes.EncodeSendPayload(funding)
+	require.NoError(t, err)
+	funding.ContextHash, err = codec.DomainHash(codec.DomainContextHash,
+		append(append([]byte(nil), transfer[4:116]...), fundingKey[:]...))
+	require.NoError(t, err)
+	transfer, err = ledgertypes.EncodeSendPayload(funding)
+	require.NoError(t, err)
+	funded, err := a.LayerXLedgerKeeper.Send(ctx, ledgerActor, transfer, fundingKey)
+	require.NoError(t, err)
+	require.Zero(t, funded.Receipt.ResultCode)
+	balance, err := a.LayerXHost.ReadBalance(ctx, main, asset)
+	require.NoError(t, err)
+	require.Equal(t, sdk.NewInt(1000), balance)
+	ownerAccount, err := a.LayerXHost.ReadAccount(ctx, mainName, main)
+	require.NoError(t, err)
+	identitySequence, err := a.LayerXHost.ReadIdentitySequence(ctx, did)
+	require.NoError(t, err)
+	require.Equal(t, openHeight, ctx.BlockHeight())
+	require.Equal(t, uint64(5), identitySequence)
+	require.Equal(t, main, ownerAccount.ID)
+	require.True(t, ownerAccount.HasAuthorityKey)
+	require.Equal(t, public, ownerAccount.AuthorityKey)
+	authority, err := a.LayerXPayKeeper.AuthorityFor(ctx, sender.EvmAddress)
+	require.NoError(t, err)
+	require.Equal(t, did, authority.ActorDID)
+	require.Equal(t, actor, authority.Kernel.Actor)
+	require.Equal(t, public, authority.AuthorityKey)
+	require.Equal(t, public, authority.Kernel.VerifiedKey)
+	args := paykeeper.BudgetCreateArgs{
+		BudgetID: budgetID, BudgetAccount: budgetAccount, AssetID: asset,
+		PerPeriodLimit: codec.U128{Lo: 1000}, Amount: codec.U128{Lo: 1000},
+		PeriodLengthMs: 60000, PeriodStartMs: uint64(ctx.BlockTime().UnixMilli()),
+		ExpiryMs: uint64(ctx.BlockTime().UnixMilli()) + 120000, RolloverPolicy: 1,
+	}
+	payload, err := paytypes.EncodeBudgetCreate(args.BudgetID, args.BudgetAccount, args.AssetID, args.PurposeHash,
+		args.PerPeriodLimit, args.CarryCap, args.Amount, args.PeriodLengthMs, args.PeriodStartMs,
+		args.ExpiryMs, args.RevocationSequence, args.RolloverPolicy)
+	require.NoError(t, err)
+	require.Len(t, payload, 211)
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(payload[:2]))
+	mapping := paytypes.MethodActivity["budgetCreate"]
+	require.Equal(t, uint32(0x00030001), mapping.Type)
+	last, err := a.LayerXHost.ReadLastSequence(ctx, did)
+	require.NoError(t, err)
+	activity := lxphost.Activity{
+		ProtocolVersion: 3, Type: mapping.Type, ActorDID: authority.ActorDID,
+		AuthorityKey: authority.AuthorityKey, AccountSequence: identitySequence,
+		NotBefore:      uint64(ctx.BlockTime().UnixMilli()),
+		NotAfter:       uint64(ctx.BlockTime().UnixMilli()) + a.LayerXHost.TimestampWindowMs(),
+		IdempotencyKey: budgetID, Payload: payload,
+	}
+	authority.Kernel.Bound, authority.Kernel.Principal = true, main
+	expectedCtx, _ := ctx.CacheContext()
+	expected, expectedErr := a.LayerXHost.HostExecute(lxphost.WithSequence(expectedCtx, last+1), activity, authority.Kernel)
+	created, err := a.LayerXPayKeeper.BudgetCreate(ctx, sender.EvmAddress, args)
+	diagnostic := func(receipt lxphost.Receipt) string {
+		var binding [32]byte
+		if len(receipt.Encoded) != 0 {
+			decoded, decodeErr := codec.DecodeReceipt(receipt.Encoded)
+			require.NoError(t, decodeErr)
+			binding = decoded.ActivityID
+		}
+		return fmt.Sprintf("activity_type=%#x binding=%x account_id=%x verified_key=%x next_sequence=%d actor_did=%s",
+			activity.Type, binding, ownerAccount.ID, authority.Kernel.VerifiedKey, ownerAccount.NextSequence, activity.ActorDID)
+	}
+	facts := fmt.Sprintf("budgetCreate at height=%d encoding_version=%d identity_sequence=%d global_sequence=%d: restart supplies {%s}; keeper case supplies {%s}; expected_error=%v actual_error=%v",
+		ctx.BlockHeight(), binary.BigEndian.Uint16(payload[:2]), identitySequence, last+1,
+		diagnostic(created), diagnostic(expected), expectedErr, err)
+	require.NoError(t, err, facts)
+	require.Zero(t, created.ResultCode, facts)
+	require.NoError(t, expectedErr, facts)
+	require.Zero(t, expected.ResultCode, facts)
+	require.Equal(t, expected, created, facts)
+	expectedBudget, expectedFound, err := a.LayerXPayKeeper.GetBudget(expectedCtx, budgetID)
+	require.NoError(t, err)
+	require.True(t, expectedFound)
+	budget, found, err := a.LayerXPayKeeper.GetBudget(ctx, budgetID)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, expectedBudget, budget)
+	recipientPrivate := ed25519.NewKeyFromSeed(label("restart budget recipient"))
+	recipientPublic := [32]byte(recipientPrivate.Public().(ed25519.PublicKey))
+	recipientDID := []byte(evmtypes.LayerXDid(recipientPublic))
+	recipientActor, err := lxphost.DIDID(recipientDID)
+	require.NoError(t, err)
+	message, err = evmtypes.LayerXBindMessage(a.EvmKeeper.ChainID(ctx), recipient.EvmAddress, 0)
+	require.NoError(t, err)
+	_, err = a.EvmKeeper.BindLayerX(ctx, recipient.EvmAddress, recipientPublic, [64]byte(ed25519.Sign(recipientPrivate, message)))
+	require.NoError(t, err)
+	boundRecipient, bound := a.EvmKeeper.GetLayerXDid(ctx, recipient.EvmAddress)
+	require.True(t, bound)
+	require.Equal(t, recipientPublic, boundRecipient)
+	next, err := lxphost.NextSequence(ctx, hostKey)
+	require.NoError(t, err)
+	registration = append(append([]byte{0x71, 1, 0, 2}, recipientActor[:]...), recipientPublic[:]...)
+	recipientActivity := lxphost.Activity{
+		ProtocolVersion: 3, Type: 0x00070001, ActorDID: recipientDID, AuthorityKey: recipientPublic,
+		NotBefore:      uint64(ctx.BlockTime().UnixMilli()),
+		NotAfter:       uint64(ctx.BlockTime().UnixMilli()) + a.LayerXHost.TimestampWindowMs(),
+		IdempotencyKey: sha256.Sum256(recipientDID), Payload: registration,
+	}
+	digest, err := a.LayerXHost.SigningHash(recipientActivity)
+	require.NoError(t, err)
+	recipientActivity.Signature = ed25519.Sign(recipientPrivate, digest[:])
+	registeredRecipient, err := a.LayerXHost.HostExecute(lxphost.WithSequence(ctx, next), recipientActivity, lxphost.KernelAuthority{
+		Actor: recipientActor, Principal: recipientActor, VerifiedKey: recipientPublic,
+	})
+	require.NoError(t, err)
+	require.Zero(t, registeredRecipient.ResultCode)
+	recipientName, recipientMain := putMain(recipientPublic)
+	recipientAccount, err := a.LayerXHost.ReadAccount(ctx, recipientName, recipientMain)
+	require.NoError(t, err)
+	require.Equal(t, recipientMain, recipientAccount.ID)
+	require.True(t, recipientAccount.HasAuthorityKey)
+	require.Equal(t, recipientPublic, recipientAccount.AuthorityKey)
+	kind, canonical := codec.AccountKind([]byte(recipientName))
+	require.True(t, canonical)
+	require.Equal(t, uint8(1), uint8(kind), "budgetSpend requires an agent-main recipient for this non-native-source budget")
+	require.Equal(t, kind, recipientAccount.Kind)
+	budgetAccountName := "agent:" + string(did) + ":budget:" + hex.EncodeToString(budgetID[:])
+	budgetAccountRecord, err := a.LayerXHost.ReadAccount(ctx, budgetAccountName, budget.BudgetAccount)
+	require.NoError(t, err)
+	require.Equal(t, uint8(2), budgetAccountRecord.Kind)
+	require.Equal(t, budget.Owner, main, "the owner spend path does not load delegate capabilities")
+	t.Logf("restart budgetSpend setup: budget_account=%x recipient_evm=%s recipient_main=%x recipient_kind=%d native_source=%t owner=%x signer_main=%x spent=%v limit=%v",
+		budget.BudgetAccount, recipient.EvmAddress, recipientMain, kind, budget.NativeSource, budget.Owner, main, budget.SpentThisPeriod, budget.PerPeriodLimit)
+	return recipientMain
 }
 
 func TestReceiptSeqHashChain(t *testing.T) {

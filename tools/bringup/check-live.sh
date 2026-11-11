@@ -158,28 +158,22 @@ wallet    reads the public wallet endpoint name from the wallet_endpoint
 
 kernel-value-loop pipes tools/bringup/value-loop.sh into a machine of the
           app of services/wallet/deploy/human.toml and prints one line per step:
-  precondition "fail precondition <name> <detail>" when a genesis output
-             (genesis-ids, custody-profile, publication-policy), the
-             sequencer's LNI socket (kernel-node), the receipt authority, a
-             kernel image binary (image) or the opening deposit (deposit-tx)
-             is absent; no other line follows
-  asset      "pass asset PAX id=<hex>" when the genesis asset id equals the
-             custody precompile's nativeAssetId()
+  precondition "fail precondition <name> <detail>" when the genesis asset,
+             authenticated node RPC, trust anchor, probe or inspector is
+             absent; no other line follows
+  asset      "pass asset PAX id=<hex>" when the registered genesis asset id
+             agrees with the chain-125 asset identity
   account    "pass account sender|recipient did=<did> main=<id>"
-  credit     "pass credit deposit=<hash> amount=<n>" when the sender was
-             opened by the first-credit path from DEPOSIT_TX
-  activity   "pass activity id=<hex>" for the SEND sealed by the sequencer
-  balance    "pass balance sender|recipient <json>"
-  batch      "pass batch id=<hex> sealed=<n>" when the receipt authority's
-             /v1/authorized-batches/by-activity answers for the SEND
-  checkpoint "pass checkpoint batch=<n> status=submitted|final" when the
-             anchor precompile's statusOf answers 1 or 2 for a sealed batch at
-             or after it; a failing step prints its fail line and stops
-          CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX names the owner's deposit
-          transaction for the sender's opening credit and
-          CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS bounds the checkpoint wait,
-          default 600; the whole run is bounded by
-          CHECK_LIVE_VALUE_LOOP_TIMEOUT, default 840.
+  transaction "pass transaction hash=<hash> chain_id=125" for the retained
+             signed transaction submitted through the node root JSON-RPC
+  balance    "pass balance sender|recipient <json>" for committed account
+             balances at or after the transaction inclusion height
+  block      "pass block hash=<hash> committed_height=<height>" after the
+             canonical block inclusion and governed signed receipt agree;
+             a failing step prints its fail line and stops
+          Sender and recipient keys and the signed transaction journal are
+          retained across retries. The sender must already be funded.
+          CHECK_LIVE_VALUE_LOOP_TIMEOUT bounds the whole run, default 840.
 
 registry-plan  prints the registry/hosted-gateway bring-up order from this checkout's
           tomls, no network, no host map, exactly four lines in order:
@@ -371,6 +365,23 @@ fly_app() {
 	local app
 	app="$(sed -n 's/^app[[:space:]]*=[[:space:]]*"\([a-z0-9-]*\)"[[:space:]]*$/\1/p' "$repo_root/$1" 2>/dev/null | head -n 1)"
 	[ -n "$app" ] && printf '%s' "$app"
+}
+
+# private_host <certificate row>: read the host from deployment data.
+# Missing, duplicate or malformed rows are errors; no provider name is inferred.
+private_host() {
+	local row="${1^^}" host
+	row="${row//-/_}"
+	host="$(awk -F= -v row="$row" '
+		$1 == row { count++; split($2, names, ","); host = names[1] }
+		END {
+			if (count != 1 || host !~ /^DNS:[a-z0-9][a-z0-9.-]*$/) exit 1
+			print substr(host, 5)
+		}' "${LAYERX_CA_NAMES_FILE:-$repo_root/tools/bringup/railway-names.env}")" || {
+		echo "check-live: missing or invalid private network host for $1" >&2
+		return 1
+	}
+	printf '%s' "$host"
 }
 
 # railway_service <rollout row>: resolve the deployed service, failing when
@@ -1437,7 +1448,8 @@ check_identity() {
 		echo "fail public-domains service=$app count=${answer:-none}"
 		failures=$((failures + 1))
 	fi
-	url="https://$app.railway.internal:9443/readyz"
+	answer="$(private_host identity)" || finish 1
+	url="https://$answer:9443/readyz"
 	from="$app"
 	if [ ! -r "$ca_dir/ca.pem" ]; then
 		echo "fail readiness app=$app ca=absent"
@@ -2340,10 +2352,11 @@ echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr
 # An explicit private connect target can override routing while preserving the
 # service URL's TLS identity. Never move the Human key to the target role.
 internal_probe() {
-	local app="$1" group="$2" command reply status=0 variable connect
+	local app="$1" group="$2" command reply status=0 variable connect host
 	variable="CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
 	connect="${!variable:-}"
-	printf -v command '%q internal-readiness %q %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "https://$app.railway.internal:9443/readyz" "$tls_dir/human-event-client" "$connect"
+	host="$(private_host "internal-$group")" || return 1
+	printf -v command '%q internal-readiness %q %q %q' "${BRINGUP_INSPECT_BIN:-bringup-inspect}" "https://$host:9443/readyz" "$tls_dir/human-event-client" "$connect"
 	reply="$(ssh_read "$KERNEL_HOST" "$command")" || status=$?
 	if [ "$status" -eq 0 ] && [ "$reply" = 'pass readiness http=200 ready=true identity=human-event-client' ]; then
 		echo "@@$group 0 200 {\"ready\":true}"
@@ -2431,7 +2444,8 @@ check_internal() {
 	for group in kms journeys payments approvals programs; do
 		app="$(railway_service "internal-$group")"
 		kernel=KERNEL_HOST
-		url="https://$app.railway.internal:9443/readyz"
+		answer="$(private_host "internal-$group")" || finish 1
+		url="https://$answer:9443/readyz"
 		reply="$(internal_probe "$app" "$group")" || reply=""
 		line="$(sed -n "s/^@@$group //p" <<<"$reply" | head -n 1)"
 		read -r status code body <<<"${line:-none none}"
@@ -2681,7 +2695,7 @@ check_router() {
 # services/wallet/deploy/human.toml, the core boundary (9443), its admin plane
 # (9444), the receipt authority (9445) and the agent boundary (9446) each
 # answer /readyz 200 with "ready":true over TLS verified under the internal CA
-# at the app's .internal name, presenting the agentd-client identity that
+# at the app's private network host, presenting the agentd-client identity that
 # tools/bringup/ca.sh issued to the app's volume; and no service of any
 # machine of the app exposes one of those ports. One line per check.
 check_kernel_boundaries() {
@@ -2805,7 +2819,6 @@ paxeer-hop-1 4020 - -
 paxeer-boundary-loopback 4020 - /data/tls/paxeer-boundary-loopback=4020:4020
 paxeer-hop-2 4020 - -
 paxeer-boundary-public 4020 - /data/tls/paxeer-boundary-public=4020:4020
-paxeer-relay 4020 - -
 core-boundary 4021 genesis /data/layerx/core=4021:4020:2700,/data/tls/pending-core=4021:4020,/data/tls/pending-core-admin=4021:4020
 agent-boundary 4021 genesis /data/layerx/agent-boundary=4021:4020:2700,/data/tls/agent-boundary=4021:4020
 human-kms 4026 genesis /run/human-private/kms=4026:4020:700,/data/human-state/kms=4026:4020:700,/run/layerx/human-material/human-kms=4026:4020:2500
@@ -3292,7 +3305,7 @@ check_indexer() {
 	local gateway_url="${CHECK_LIVE_INDEXER_RPC:-}"
 	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer unit w reply line side want url pin host
 	local subject status code earliest start cutover backfilled live listen method params failures=0
-	local script
+	local script private_name
 	if ! [[ "$account" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
 		echo "check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history" >&2
 		exit 2
@@ -3317,6 +3330,7 @@ check_indexer() {
 		failures=$((failures + 1))
 	fi
 	railway_deployment "$app" /data || failures=$((failures + 1))
+	private_name="$(private_host indexer)" || finish 1
 
 	# shellcheck disable=SC2016 # the script expands on the machine
 	script='pid=
@@ -3341,7 +3355,7 @@ listen=$(env_of LAYERX_INDEXER_LISTEN)
 echo "@@start $(env_of LAYERX_INDEXER_START_BLOCK)"
 echo "@@listen $listen"
 status=0
-answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" -w "\n%{http_code}" "https://$app.railway.internal:${listen##*:}/healthz" 2>&1) || status=$?
+answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" -w "\n%{http_code}" "https://$private_name:${listen##*:}/healthz" 2>&1) || status=$?
 echo "@@health $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 echo "@@cutover $(cat "$(dirname "$db")/cutover-height" 2>/dev/null)"
 echo "@@retained-start $(cat "$(dirname "$db")/start-block" 2>/dev/null)"
@@ -3352,7 +3366,7 @@ if cursors=$(sqlite3 -readonly -separator " " "$db" "ATTACH DATABASE '\''$snapsh
     echo "@@database $(base64 <"$snapshot" | tr -d "\n")"
 fi
 rm -f "$snapshot"'
-	reply="$(printf '%s\n' "$script" | railway_ssh "$app" "tls=$tls_dir/indexer app=$app limit=$timeout sh -s")" || reply=""
+	reply="$(printf '%s\n' "$script" | railway_ssh "$app" "tls=$tls_dir/indexer app=$app private_name=$private_name limit=$timeout sh -s")" || reply=""
 	if [ -z "$reply" ] || grep -q '^@@process none' <<<"$reply"; then
 		[ -n "$reply" ] && answer=none || answer=unreachable
 		echo "fail indexer app=$app process=$answer"
@@ -3362,7 +3376,7 @@ rm -f "$snapshot"'
 	listen="$(sed -n 's/^@@listen //p' <<<"$reply" | head -n 1)"
 	read -r status code answer <<<"$(sed -n 's/^@@health //p' <<<"$reply" | head -n 1)"
 	if [[ "$listen" == "[::]:"* ]] && [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$answer" == *'"status":"ok"'* ]]; then
-		echo "pass listener url=https://$app.railway.internal:${listen##*:}/healthz listen=$listen tls=internal-ca http=200"
+		echo "pass listener url=https://$private_name:${listen##*:}/healthz listen=$listen tls=internal-ca http=200"
 	else
 		echo "fail listener app=$app listen=${listen:-none} curl=${status:-none} http=${code:-none}"
 		failures=$((failures + 1))
@@ -3560,11 +3574,9 @@ check_search() {
 # passthrough; from the kernel machine of services/wallet/deploy/human.toml,
 # https://index.paxeer.network/healthz refuses a request without a client
 # certificate and answers 200 ready to one with the kernel's internal-CA
-# client identity; the hosted gateway's lx_getProgramEvents returns, on the reference
-# escrow's event topic, an event of the program CHECK_LIVE_REGISTRY_PROGRAM_ID
-# names (the deploy step records it); and the hosted gateway's /readyz reports
-# program_registry ready. CHECK_LIVE_ROUTER_URL must name the hosted gateway
-# origin for the full check. One line per check.
+# client identity; registry-observe reads the committed node receipt and
+# canonical eth_getLogs event for CHECK_LIVE_REGISTRY_PROGRAM_ID, then
+# durably advances the program cursor. One line per check.
 check_registry() {
 	local row target service host_key unit health host command reply status=0
 	local program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
@@ -3887,8 +3899,6 @@ check_kernel_value_loop() {
 		echo "fail kernel-value-loop toml=absent"
 		finish 1
 	fi
-	[ -z "${CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX:-}" ] || arguments+=("DEPOSIT_TX=$CHECK_LIVE_VALUE_LOOP_DEPOSIT_TX")
-	[ -z "${CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS:-}" ] || arguments+=("CHECKPOINT_SECONDS=$CHECK_LIVE_VALUE_LOOP_CHECKPOINT_SECONDS")
 	if [ -n "${CHECK_LIVE_VALUE_LOOP_ASSET:-}" ]; then
 		case "$CHECK_LIVE_VALUE_LOOP_ASSET" in
 		PAX|SID|USDC|USDL) arguments+=("ASSET=$CHECK_LIVE_VALUE_LOOP_ASSET") ;;
@@ -3904,7 +3914,7 @@ check_kernel_value_loop() {
 			echo "fail precondition $value"
 			finish 1
 			;;
-		asset | account | credit | activity | balance | batch | checkpoint)
+		asset | account | transaction | balance | block)
 			if [ "$status" -ne 1 ] || [ "$key $value" != "$(tail -n 1 <<<"$answer")" ]; then
 				echo "pass $key $value"
 			else
@@ -3918,8 +3928,8 @@ check_kernel_value_loop() {
 		echo "fail kernel-value-loop app=$app exit=$status"
 		failures=1
 	fi
-	if [ "$status" -eq 0 ] && ! grep -q '^checkpoint ' <<<"$answer"; then
-		echo "fail checkpoint status=absent"
+	if [ "$status" -eq 0 ] && ! grep -Eq '^block hash=0x[0-9a-fA-F]{64} committed_height=[1-9][0-9]*$' <<<"$answer"; then
+		echo "fail block committed-evidence=absent"
 		failures=1
 	fi
 	finish "$failures"

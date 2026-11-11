@@ -9,7 +9,7 @@ use layerx_agent_api::subscription::{
 use layerx_agent_api::track::ReceiptRef;
 use sha2::{Digest, Sha256};
 
-use super::ingestion::{durable_event, durable_sequences, CoreEvent, IngestError};
+use super::ingestion::{durable_anchor, durable_event, durable_sequences, CoreEvent, IngestError};
 use super::outbound::StopSignal;
 use super::subscription::{
     Continuity, Cursor, Store as SubscriptionStore, SubscriptionError, Termination,
@@ -618,11 +618,11 @@ impl DeliveryEngine {
         };
         let durable = self.subscriptions.durable()?;
         let core_event = durable_event(&durable, &self.tenant, sequence)?;
+        let cursor = event_cursor(&durable, &self.tenant, &core_event)?;
         drop(durable);
         let next_sequence = sequence
             .checked_add(1)
             .ok_or(DeliveryError::SequenceExhausted)?;
-        let cursor = event_cursor(&core_event)?;
         let identity = event_identity(&self.tenant, &core_event)?;
         let receipt_reference = match core_event.receipt_reference {
             Some(reference) => ReceiptReference::Verified {
@@ -702,7 +702,9 @@ impl DeliveryEngine {
         let durable = self.subscriptions.durable()?;
         for sequence in durable_sequences(&durable, &self.tenant)? {
             let event = durable_event(&durable, &self.tenant, sequence)?;
-            if event_cursor(&event)? > acknowledged && matches_filter(filter, &event.attributes) {
+            if event_cursor(&durable, &self.tenant, &event)? > acknowledged
+                && matches_filter(filter, &event.attributes)
+            {
                 eligible.push(sequence);
             }
         }
@@ -794,22 +796,30 @@ fn authorize_subscription(
         .map_err(DeliveryError::Authorization)
 }
 
-fn event_cursor(event: &CoreEvent) -> Result<ApiCursor, DeliveryError> {
-    if let Some(position) = event.position() {
-        return Ok(ApiCursor {
-            block_height: position.block_height,
-            tx_index: position.tx_index,
-            log_index: position.log_index,
-        });
-    }
-    // Non-log daemon events retain their existing ordinal cursor contract.
+fn event_cursor(
+    store: &crate::store::Store,
+    tenant: &TenantId,
+    event: &CoreEvent,
+) -> Result<ApiCursor, DeliveryError> {
+    let cursor = if let Some(position) = event.position() {
+        position
+    } else if let Some(anchor) = durable_anchor(store, tenant, event.global_sequence)? {
+        anchor.cursor()
+    } else {
+        // Pre-anchor local records retain their original ordinal cursor.
+        crate::read::Cursor {
+            block_height: event
+                .global_sequence
+                .checked_add(1)
+                .ok_or(DeliveryError::SequenceExhausted)?,
+            tx_index: 0,
+            log_index: 0,
+        }
+    };
     Ok(ApiCursor {
-        block_height: event
-            .global_sequence
-            .checked_add(1)
-            .ok_or(DeliveryError::SequenceExhausted)?,
-        tx_index: 0,
-        log_index: 0,
+        block_height: cursor.block_height,
+        tx_index: cursor.tx_index,
+        log_index: cursor.log_index,
     })
 }
 
@@ -827,22 +837,19 @@ fn event_identity(tenant: &TenantId, event: &CoreEvent) -> Result<EventIdentity,
     hasher.update((tenant.as_str().len() as u64).to_be_bytes());
     hasher.update(tenant.as_str().as_bytes());
     let log = event.log()?;
-    match log.transaction_hash {
-        Some(transaction_hash) => {
-            hasher.update(b"transaction-log");
-            hasher.update(log.block_height.to_be_bytes());
-            hasher.update(transaction_hash);
-            hasher.update(log.log_index.to_be_bytes());
-        }
-        None => {
-            // Ingestion admits hashless transactions only with a block
-            // hash and refuses replacement of their canonical log bytes.
-            hasher.update(b"block-log");
-            hasher.update(log.block_hash.ok_or(DeliveryError::InvalidEvent)?);
-            hasher.update(log.block_height.to_be_bytes());
-            hasher.update(log.tx_index.to_be_bytes());
-            hasher.update(log.log_index.to_be_bytes());
-        }
+    if let Some(transaction_hash) = log.transaction_hash {
+        hasher.update(b"transaction-log");
+        hasher.update(log.block_height.to_be_bytes());
+        hasher.update(transaction_hash);
+        hasher.update(log.log_index.to_be_bytes());
+    } else {
+        // Ingestion admits hashless transactions only with a block
+        // hash and refuses replacement of their canonical log bytes.
+        hasher.update(b"block-log");
+        hasher.update(log.block_hash.ok_or(DeliveryError::InvalidEvent)?);
+        hasher.update(log.block_height.to_be_bytes());
+        hasher.update(log.tx_index.to_be_bytes());
+        hasher.update(log.log_index.to_be_bytes());
     }
     Ok(EventIdentity::new(hasher.finalize().into()))
 }

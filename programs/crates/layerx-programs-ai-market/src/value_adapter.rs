@@ -1,18 +1,18 @@
 //! Value boundary between the F06 reward ledger and the registered
 //! Program-derived rewards account. The ledger moves no funds; this adapter
 //! turns one committed `RewardEffect` into at most one native 402LXP action
-//! under an exact grant ceiling and checks that the proof-bound sight balance
-//! covers `F + R + C` after the staged action.
+//! under an exact grant ceiling.
+use crate::types::GuestIndex as _;
 use layerx_program_sdk::{
-    payments::{PaymentGrant, PreparedProgramAccount},
-    Bytes, Capability, HostRefusal, ProgramAccountPayment, ProgramDeposit, ProgramError,
+    payments::PaymentGrant, Bytes, Capability, HostRefusal, ProgramAccountPayment, ProgramDeposit,
+    ProgramError,
 };
 
 use crate::{
     errors::{
         ApplicationError, CodecResult, ACCOUNT_BINDING, ARITHMETIC, F06_INVALID_AMOUNT,
         F06_LEDGER_INVARIANT_VIOLATION, F06_REFUND_RECIPIENT_MISMATCH, F06_WRONG_ASSET,
-        HOST_CAPABILITY, HOST_TRANSFER, READINESS_BLOCKED,
+        HOST_CAPABILITY, HOST_TRANSFER,
     },
     rewards::{RewardEffect, RewardLedger},
     types::{AccountId, Amount, AssetId, Digest32, ProgramId},
@@ -31,7 +31,6 @@ pub const REGISTRATION_PAYLOAD_BYTES: usize = 32 + 5 + 32 + 4 + REWARDS_ACCOUNT_
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardsAccount {
-    prepared: PreparedProgramAccount<'static>,
     program: ProgramId,
     account: AccountId,
     asset: AssetId,
@@ -41,12 +40,11 @@ impl RewardsAccount {
     /// # Errors
     /// `ACCOUNT_BINDING` when the SDK refuses the program, asset or derived account.
     pub fn derive(program: ProgramId, asset: AssetId) -> CodecResult<Self> {
-        let prepared = crate::registry::prepare_rewards_account(program, asset)
-            .map_err(|_| ACCOUNT_BINDING)?;
+        let account =
+            crate::registry::derive_rewards_account(program, asset).map_err(|_| ACCOUNT_BINDING)?;
         Ok(Self {
-            prepared,
             program,
-            account: AccountId::new(prepared.account().bytes()).map_err(|_| ACCOUNT_BINDING)?,
+            account,
             asset,
         })
     }
@@ -94,7 +92,8 @@ impl RewardsAccount {
     /// # Errors
     /// `ACCOUNT_BINDING` when the SDK cannot encode the payload.
     pub fn registration_payload(&self) -> CodecResult<Bytes<201>> {
-        self.prepared
+        crate::registry::prepare_rewards_account(self.program, self.asset)
+            .map_err(|_| ACCOUNT_BINDING)?
             .registration_payload()
             .map_err(|_| ACCOUNT_BINDING)
     }
@@ -105,8 +104,7 @@ impl RewardsAccount {
     /// # Errors
     /// `F06_INVALID_AMOUNT` for a zero amount.
     pub fn funding_grant(&self, amount: Amount) -> CodecResult<Capability> {
-        self.prepared
-            .funding_grant(sdk_amount(amount)?)
+        Capability::transfer(self.sdk_asset()?, self.sdk_account()?, sdk_amount(amount)?)
             .map_err(|_| F06_INVALID_AMOUNT)
     }
 
@@ -122,7 +120,8 @@ impl RewardsAccount {
     ) -> CodecResult<PaymentGrant<'static>> {
         let payment = self.payment(recipient, amount)?;
         Ok(PaymentGrant::ProgramSpend {
-            account: self.prepared,
+            account: crate::registry::prepare_rewards_account(self.program, self.asset)
+                .map_err(|_| ACCOUNT_BINDING)?,
             to: payment.to(),
             maximum: payment.amount(),
         })
@@ -132,19 +131,26 @@ impl RewardsAccount {
     #[must_use]
     pub fn balance_sight(&self, receipt: Digest32) -> [u8; BALANCE_SIGHT_BYTES] {
         let mut out = [0; BALANCE_SIGHT_BYTES];
-        out[0] = BALANCE_VIEW_TAG;
-        out[1..33].copy_from_slice(self.account.as_bytes());
-        out[33..65].copy_from_slice(self.asset.as_bytes());
-        out[65..].copy_from_slice(receipt.as_bytes());
+        *out.guest_index_mut(0) = BALANCE_VIEW_TAG;
+        out.guest_index_mut(1..33)
+            .guest_copy_from_slice(self.account.as_bytes());
+        out.guest_index_mut(33..65)
+            .guest_copy_from_slice(self.asset.as_bytes());
+        out.guest_index_mut(65..)
+            .guest_copy_from_slice(receipt.as_bytes());
         out
     }
 
     /// # Errors
     /// `F06_INVALID_AMOUNT` for a zero amount.
     pub fn deposit(&self, amount: Amount) -> CodecResult<ProgramDeposit<'static>> {
-        self.prepared
-            .deposit(sdk_amount(amount)?)
-            .map_err(|_| F06_INVALID_AMOUNT)
+        ProgramDeposit::new(
+            self.seed()?,
+            self.sdk_account()?,
+            self.sdk_asset()?,
+            sdk_amount(amount)?,
+        )
+        .map_err(|_| F06_INVALID_AMOUNT)
     }
 
     /// # Errors
@@ -159,9 +165,26 @@ impl RewardsAccount {
         }
         let to =
             layerx_program_sdk::AccountId::new(recipient.bytes()).map_err(|_| ACCOUNT_BINDING)?;
-        self.prepared
-            .payment(to, sdk_amount(amount)?)
-            .map_err(|_| F06_INVALID_AMOUNT)
+        ProgramAccountPayment::new(
+            self.seed()?,
+            self.sdk_account()?,
+            self.sdk_asset()?,
+            to,
+            sdk_amount(amount)?,
+        )
+        .map_err(|_| F06_INVALID_AMOUNT)
+    }
+    fn seed(&self) -> CodecResult<layerx_program_sdk::ProgramAccountSeed<'static>> {
+        layerx_program_sdk::ProgramAccountSeed::new(REWARDS_ACCOUNT_SEED)
+            .map_err(|_| ACCOUNT_BINDING)
+    }
+
+    fn sdk_account(&self) -> CodecResult<layerx_program_sdk::AccountId> {
+        layerx_program_sdk::AccountId::new(self.account.bytes()).map_err(|_| ACCOUNT_BINDING)
+    }
+
+    fn sdk_asset(&self) -> CodecResult<layerx_program_sdk::AssetId> {
+        layerx_program_sdk::AssetId::new(self.asset.bytes()).map_err(|_| ACCOUNT_BINDING)
     }
 }
 
@@ -260,9 +283,9 @@ pub fn plan(
     }
 }
 
-/// Post-transition cover: the observed sight balance plus the staged deposit,
-/// or minus the staged payout, must cover `F + R + C` of the next ledger.
-/// Returns the unsolicited surplus `U`, which never raises a ledger counter.
+/// State audit law: the observed balance plus the staged deposit, or minus the
+/// staged payout, must cover `F + R + C` of the next ledger. No operation
+/// enforces this law. Returns the unsolicited surplus `U` for an audit.
 ///
 /// # Errors
 /// `ARITHMETIC` on overflow; `F06_LEDGER_INVARIANT_VIOLATION` when the physical balance cannot cover the ledger.
@@ -293,35 +316,20 @@ pub const fn transfer_refusal(error: ProgramError) -> ApplicationError {
     }
 }
 
-/// A missing sight grant is `HOST_CAPABILITY`; absent, unverifiable or
-/// otherwise refused evidence is `READINESS_BLOCKED`, never a zero balance.
-#[must_use]
-pub const fn balance_refusal(error: ProgramError) -> ApplicationError {
-    match error {
-        ProgramError::Host(HostRefusal::Denied) => HOST_CAPABILITY,
-        ProgramError::Host(_) | ProgramError::Value(_) => READINESS_BLOCKED,
-    }
-}
-
 /// Applies one committed reward transition's value effect inside the same
-/// Program activity: plan, read the proof-bound sight balance, check cover,
-/// then stage exactly one funding or Program-account payment. Returns `U`.
+/// Program activity: plan, then stage at most one funding or Program-account
+/// payment under its spending grant.
 ///
 /// # Errors
-/// Every `plan` and `cover` refusal, `balance_refusal` of the sight read and `transfer_refusal` of the staged transfer.
+/// Every `plan` refusal and `transfer_refusal` of the staged transfer.
 #[cfg(target_arch = "wasm32")]
 pub fn settle(
     bound: &RewardsAccount,
     prev: &RewardLedger,
     next: &RewardLedger,
     effect: RewardEffect,
-) -> CodecResult<Amount> {
+) -> CodecResult<()> {
     let action = plan(bound, prev, next, effect)?;
-    let observed =
-        layerx_program_sdk::balance::read(bound.prepared.account(), bound.prepared.asset())
-            .map_err(balance_refusal)?
-            .value();
-    let surplus = cover(next, observed, action)?;
     match action {
         ValueAction::None => {}
         ValueAction::Fund { amount } => {
@@ -335,5 +343,5 @@ pub fn settle(
             .map_err(transfer_refusal)?;
         }
     }
-    Ok(surplus)
+    Ok(())
 }

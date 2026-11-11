@@ -7,7 +7,7 @@ decision_2600 = "Decode current verification wire ranks with VerificationLevel::
 decision_2601 = "The persisted MCP invocation decoder belongs to 22.31.539, which coordinates current COMMITTED receipts with legacy ranks 4 and 5; this task changes only the two hosted-authority budget guards."
 
 [sites]
-approval_budget_after = "src/human_runtime.rs: replace the literal 4..=5 guard with the private committed_budget_rank helper; every other guard condition is preserved."
+approval_budget_after = "src/human_runtime.rs: use crate::budget::budget_state_is_committed to require COMMITTED, refusing BudgetVerificationError::NotCommitted and BudgetVerificationError::RetiredOrUnknown; every other guard condition is preserved."
 program_presentation = "src/budget/program_sources.rs: compare proof.verification() with VerificationLevel::COMMITTED; preserve ProgramSourceError::Snapshot."
 additional_consumer = "src/session_control.rs: McpInvocationRecord::decode checks verification_rank < 3 or > 5. Handed to 22.31.539: its writer takes receipt.metadata.verification_level.wire_rank(), and receipt.rs currently labels committed receipts CHECKPOINT_FINALISED (rank 4). Restored the decoder and removed only the attempt-1 test of the reverted change, as directed."
 
@@ -18,7 +18,7 @@ result = "The two named sites and the persisted MCP receipt range were the only 
 excluded = "The four assertions owned by 22.31.516 in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs are untouched."
 
 [tests]
-approval = "repair_22_31_538_approval_budget_accepts_committed_rank and repair_22_31_538_approval_budget_refuses_other_ranks accept COMMITTED.wire_rank() and refuse 0, 1, 2, 3, 4, 5, 7 and u8::MAX."
+approval = "repair_22_31_538_approval_budget_accepts_committed_rank and repair_22_31_538_approval_budget_refuses_other_ranks directly call crate::budget::budget_state_is_committed, asserting Ok(()) for COMMITTED.wire_rank(), BudgetVerificationError::NotCommitted for labels 0 through 3, and BudgetVerificationError::RetiredOrUnknown for labels 4, 5 and 7 through u8::MAX."
 program = "repair_22_31_538_program_presentation_binds_committed_proof_and_sequence verifies the recorded authority export through verify_budget_proof against its signed checkpoint and recorded node answers, then asserts binding Ok(()) at the proof sequence and Snapshot for a later allocation sequence."
 reservation = "The cfg(test) presentation_budget_reservation helper constructs a principal charge naming the verified proof asset and source, resolves its allocation rows with budget_allocations, creates BudgetLimiter with LimitConfig, binds ProgramLimitDenomination, stages ProgramReservationRequest with stage_program_allocation, publishes it, then round-trips ProgramBudgetReservation::encode/decode. The future reservation uses the same constructors with sequence + 1."
 dependencies = "No credential, environment variable, external process or live endpoint; recorded node answers are replayed over an in-process loopback listener (gotcha 2962)."

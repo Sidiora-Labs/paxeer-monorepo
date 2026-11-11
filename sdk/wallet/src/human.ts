@@ -31,6 +31,8 @@ export const JOURNEY_STATES: readonly JourneyState[] = [
   'still-checking',
   'refused',
   'waiting-for-you',
+  'closed',
+  'awaiting-approval',
 ];
 
 const JOURNEY_KINDS: readonly JourneyKind[] = [
@@ -46,7 +48,12 @@ const JOURNEY_KINDS: readonly JourneyKind[] = [
   'agent-retire',
 ];
 
-const ENDPOINT_KINDS: readonly IntentEndpointKind[] = ['paxeer-wallet', 'human', 'agent', 'agent-budget'];
+const ENDPOINT_KINDS: readonly IntentEndpointKind[] = [
+  'paxeer-wallet',
+  'human',
+  'agent',
+  'agent-budget',
+];
 const DOMAINS: readonly IntentDomain[] = ['paxeer', 'layerx'];
 const EVIDENCE_CLASSES: readonly EvidenceClass[] = [
   'local-journey-state',
@@ -64,7 +71,12 @@ const VERIFICATION_LEVELS: readonly VerificationLevel[] = [
   'checkpoint-finalised',
   'paxeer-finalised',
 ];
-const RETRIES: readonly HumanErrorBody['retry'][] = ['retriable', 'retriable-after', 'structural', 'final'];
+const RETRIES: readonly HumanErrorBody['retry'][] = [
+  'retriable',
+  'retriable-after',
+  'structural',
+  'final',
+];
 const HEX32 = /^[0-9a-f]{64}$/;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 const AMOUNT = /^(0|[1-9][0-9]*)$/;
@@ -123,9 +135,13 @@ export class HumanClient {
     return decodeIntentPlan(await this.send('POST', '/v1/intents/plan', request, undefined));
   }
 
-  async submitPlan(request: SubmitPlanRequest, idempotencyKey: string): Promise<KernelRead<IntentSubmission>> {
+  async submitPlan(
+    request: SubmitPlanRequest,
+    idempotencyKey: string
+  ): Promise<KernelRead<IntentSubmission>> {
     if (!IDEMPOTENCY_KEY.test(idempotencyKey)) throw new RangeError('idempotency key is malformed');
-    if (request.bindings.length === 0) throw new RangeError('a submission carries one binding per leg');
+    if (request.bindings.length === 0)
+      throw new RangeError('a submission carries one binding per leg');
     const state = await this.kernel.current();
     if (!state.available) return state;
     const result = await this.send('POST', '/v1/intents/submit', request, idempotencyKey);
@@ -141,7 +157,7 @@ export class HumanClient {
     method: 'GET' | 'POST',
     path: string,
     body: unknown,
-    idempotencyKey: string | undefined,
+    idempotencyKey: string | undefined
   ): Promise<unknown> {
     const headers: Record<string, string> = { accept: 'application/json' };
     if (body !== undefined) headers['content-type'] = 'application/json';
@@ -167,29 +183,42 @@ export class HumanClient {
 
 export function decodeEnvelope(status: number, value: unknown): unknown {
   const envelope = record(value, 'response envelope');
-  if (typeof envelope.trace !== 'string' || envelope.trace.length === 0) throw new HumanDecodeError('envelope trace');
+  if (typeof envelope.trace !== 'string' || envelope.trace.length === 0)
+    throw new HumanDecodeError('envelope trace');
   if (envelope.ok === true) {
-    if (status < 200 || status >= 300 || !('result' in envelope)) throw new HumanDecodeError('success envelope');
+    if (status < 200 || status >= 300 || !('result' in envelope))
+      throw new HumanDecodeError('success envelope');
     return envelope.result;
   }
-  if (envelope.ok !== false || status < 400 || status >= 600) throw new HumanDecodeError('failure envelope');
+  if (envelope.ok !== false || status < 400 || status >= 600)
+    throw new HumanDecodeError('failure envelope');
   throw new HumanServiceError(status, decodeErrorBody(envelope.error), envelope.trace);
 }
 
 function decodeErrorBody(value: unknown): HumanErrorBody {
   const error = record(value, 'error body');
-  if (typeof error.code !== 'string' || typeof error.copy_key !== 'string') throw new HumanDecodeError('error body');
+  if (typeof error.code !== 'string' || typeof error.copy_key !== 'string')
+    throw new HumanDecodeError('error body');
   if (typeof error.retry !== 'string' || !(RETRIES as readonly string[]).includes(error.retry)) {
     throw new HumanDecodeError('error retry');
   }
-  const body: HumanErrorBody = { code: error.code, copy_key: error.copy_key, retry: error.retry as HumanErrorBody['retry'] };
+  const body: HumanErrorBody = {
+    code: error.code,
+    copy_key: error.copy_key,
+    retry: error.retry as HumanErrorBody['retry'],
+  };
   if ('retry_after_ms' in error) {
-    if (typeof error.retry_after_ms !== 'number' || !Number.isInteger(error.retry_after_ms) || error.retry_after_ms <= 0) {
+    if (
+      typeof error.retry_after_ms !== 'number' ||
+      !Number.isInteger(error.retry_after_ms) ||
+      error.retry_after_ms <= 0
+    ) {
       throw new HumanDecodeError('error retry_after_ms');
     }
     body.retry_after_ms = error.retry_after_ms;
   }
-  if ((body.retry === 'retriable-after') !== (body.retry_after_ms !== undefined)) throw new HumanDecodeError('error retry_after_ms');
+  if ((body.retry === 'retriable-after') !== (body.retry_after_ms !== undefined))
+    throw new HumanDecodeError('error retry_after_ms');
   if ('field' in error) {
     if (typeof error.field !== 'string') throw new HumanDecodeError('error field');
     body.field = error.field;
@@ -208,7 +237,8 @@ function text(value: unknown, what: string): string {
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], what: string): T {
-  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value)) throw new HumanDecodeError(what);
+  if (typeof value !== 'string' || !(allowed as readonly string[]).includes(value))
+    throw new HumanDecodeError(what);
   return value as T;
 }
 
@@ -218,13 +248,15 @@ function hex32(value: unknown, what: string): string {
 }
 
 function index(value: unknown, what: string): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) throw new HumanDecodeError(what);
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0)
+    throw new HumanDecodeError(what);
   return value;
 }
 
 function money(value: unknown, what: string): HumanMoney {
   const doc = record(value, what);
-  if (typeof doc.amount !== 'string' || !AMOUNT.test(doc.amount)) throw new HumanDecodeError(`${what} amount`);
+  if (typeof doc.amount !== 'string' || !AMOUNT.test(doc.amount))
+    throw new HumanDecodeError(`${what} amount`);
   return { amount: doc.amount, currency: text(doc.currency, `${what} currency`) };
 }
 
@@ -240,7 +272,8 @@ function endpoint(value: unknown, what: string): IntentEndpoint {
 
 export function decodeIntentPlan(value: unknown): IntentPlan {
   const plan = record(value, 'intent plan');
-  if (!Array.isArray(plan.legs) || plan.legs.length === 0) throw new HumanDecodeError('intent plan legs');
+  if (!Array.isArray(plan.legs) || plan.legs.length === 0)
+    throw new HumanDecodeError('intent plan legs');
   const legs: IntentLeg[] = plan.legs.map((entry, position) => {
     const leg = record(entry, 'intent leg');
     const legIndex = index(leg.index, 'intent leg index');
@@ -254,20 +287,54 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
       money: money(leg.money, 'intent leg money'),
       fee: money(leg.fee, 'intent leg fee'),
     };
+    if ('to' in leg) {
+      if (typeof leg.to !== 'string' || leg.to.length !== 42 || !/^0x[0-9a-fA-F]{40}$/.test(leg.to))
+        throw new HumanDecodeError('intent leg to');
+      decoded.to = leg.to as `0x${string}`;
+    }
+    if ('calldata' in leg) {
+      if (
+        typeof leg.calldata !== 'string' ||
+        leg.calldata.length % 2 !== 0 ||
+        !/^0x(?:[0-9a-fA-F]{2})*$/.test(leg.calldata)
+      )
+        throw new HumanDecodeError('intent leg calldata');
+      decoded.calldata = leg.calldata as `0x${string}`;
+    }
+    for (const field of ['value', 'max_fee_per_gas', 'max_priority_fee_per_gas'] as const) {
+      const value = leg[field];
+      if (field in leg) {
+        if (typeof value !== 'string' || value.trim() !== value || !AMOUNT.test(value))
+          throw new HumanDecodeError(`intent leg ${field}`);
+        decoded[field] = value;
+      }
+    }
+    for (const field of ['nonce', 'chain_id', 'gas_limit'] as const) {
+      if (field in leg) {
+        if (!Number.isSafeInteger(leg[field])) throw new HumanDecodeError(`intent leg ${field}`);
+        decoded[field] = index(leg[field], `intent leg ${field}`);
+      }
+    }
     if ('tx_hash' in leg) {
-      if (typeof leg.tx_hash !== 'string' || leg.tx_hash.length !== 66 || !TX_HASH.test(leg.tx_hash)) {
+      if (
+        typeof leg.tx_hash !== 'string' ||
+        leg.tx_hash.length !== 66 ||
+        !TX_HASH.test(leg.tx_hash)
+      ) {
         throw new HumanDecodeError('intent leg tx_hash');
       }
       decoded.tx_hash = leg.tx_hash;
     }
     return decoded;
   });
-  if (!Array.isArray(plan.signing_requirements)) throw new HumanDecodeError('intent signing requirements');
+  if (!Array.isArray(plan.signing_requirements))
+    throw new HumanDecodeError('intent signing requirements');
   const seen = new Set<number>();
   const signing: IntentSigningRequirement[] = plan.signing_requirements.map((entry) => {
     const requirement = record(entry, 'signing requirement');
     const legIndex = index(requirement.leg_index, 'signing requirement leg_index');
-    if (legIndex >= legs.length || seen.has(legIndex)) throw new HumanDecodeError('signing requirement leg_index');
+    if (legIndex >= legs.length || seen.has(legIndex))
+      throw new HumanDecodeError('signing requirement leg_index');
     seen.add(legIndex);
     return {
       leg_index: legIndex,
@@ -278,7 +345,8 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
   });
   const totalFee = money(plan.total_fee, 'intent total_fee');
   const summed = legs.reduce((sum, leg) => sum + BigInt(leg.fee.amount), 0n);
-  if (summed !== BigInt(totalFee.amount)) throw new HumanDecodeError('intent total_fee does not equal the leg fees');
+  if (summed !== BigInt(totalFee.amount))
+    throw new HumanDecodeError('intent total_fee does not equal the leg fees');
   return {
     plan_digest: hex32(plan.plan_digest, 'intent plan_digest'),
     journey_kind: text(plan.journey_kind, 'intent journey_kind'),
@@ -310,12 +378,15 @@ function evidence(value: unknown, what: string): EvidenceRef[] {
       verification: oneOf(ref.verification, VERIFICATION_LEVELS, `${what} verification`),
     };
     if ('tx_hash' in ref) {
-      if (typeof ref.tx_hash !== 'string' || ref.tx_hash.length !== 66 || !TX_HASH.test(ref.tx_hash)) {
+      if (
+        typeof ref.tx_hash !== 'string' ||
+        ref.tx_hash.length !== 66 ||
+        !TX_HASH.test(ref.tx_hash)
+      ) {
         throw new HumanDecodeError(`${what} tx_hash`);
       }
       decoded.tx_hash = ref.tx_hash;
     }
-    if ('settlement_domain' in ref) decoded.settlement_domain = text(ref.settlement_domain, `${what} settlement_domain`);
     return decoded;
   });
 }
@@ -325,12 +396,22 @@ export function decodeJourney(value: unknown): Journey {
   if (!Array.isArray(journey.stages)) throw new HumanDecodeError('journey stages');
   const stages: JourneyStage[] = journey.stages.map((entry) => {
     const stage = record(entry, 'journey stage');
-    return {
+    const decoded: JourneyStage = {
       stage_id: text(stage.stage_id, 'journey stage id'),
       copy_key: text(stage.copy_key, 'journey stage copy_key'),
       state: oneOf(stage.state, JOURNEY_STATES, 'journey stage state'),
       evidence: evidence(stage.evidence, 'journey stage evidence'),
     };
+    if ('tx_hash' in stage) {
+      if (typeof stage.tx_hash !== 'string' || !TX_HASH.test(stage.tx_hash))
+        throw new HumanDecodeError('journey stage tx_hash');
+      decoded.tx_hash = stage.tx_hash as `0x${string}`;
+    }
+    if ('nonce' in stage) {
+      if (!Number.isSafeInteger(stage.nonce)) throw new HumanDecodeError('journey stage nonce');
+      decoded.nonce = index(stage.nonce, 'journey stage nonce');
+    }
+    return decoded;
   });
   const decoded: Journey = {
     journey_id: text(journey.journey_id, 'journey id'),
@@ -343,6 +424,7 @@ export function decodeJourney(value: unknown): Journey {
     updated_at: text(journey.updated_at, 'journey updated_at'),
   };
   if ('refusal' in journey) decoded.refusal = record(journey.refusal, 'journey refusal');
-  if ('wallet_request' in journey) decoded.wallet_request = record(journey.wallet_request, 'journey wallet_request');
+  if ('wallet_request' in journey)
+    decoded.wallet_request = record(journey.wallet_request, 'journey wallet_request');
   return decoded;
 }

@@ -5,6 +5,7 @@ from copy import deepcopy
 import importlib.util
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -18,6 +19,9 @@ sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
 from mcp_recovery_recording import (
     CREDENTIAL,
     RECORDING,
+    PRODUCER,
+    TRANSCRIPT_SHA256,
+    produce_recording,
     RecordedAgentd,
     producer_recording,
     recorded_phase,
@@ -51,7 +55,19 @@ def serving(qualifier, tmp_path):
 
 
 def test_committed_recording_is_the_real_producers_signed_receipt(qualifier):
+    source_match = re.search(
+        r'const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"(.*?)"#;',
+        PRODUCER.read_text(), re.S,
+    )
+    assert source_match is not None
+    source_text = source_match[1]
+    assert hashlib.sha256(source_text.encode()).hexdigest() == TRANSCRIPT_SHA256
+    native_source = json.loads(source_text)
     recording = producer_recording()
+    assert recording == native_source == produce_recording()
+    replay = json.loads(RECORDING.read_text())
+    native_reference = native_source["committed"]["submission"]["receipt_ref"]
+    assert replay["recording"] == native_source
     key = recording["receipt_key"]
     verified = verify_sequencer_receipt(
         bytes.fromhex(recording["committed"]["receipt"]["canonical_bytes"]),
@@ -79,8 +95,10 @@ def test_committed_recording_is_the_real_producers_signed_receipt(qualifier):
         "signed_canonical_hex": signed.hex(),
         "recorded_submission": recording["committed"]["submission"],
     }, sort_keys=True)
-    assert derived == verified.receipt_digest.hex() == recorded, diagnostic
+    assert derived == verified.receipt_digest.hex() == native_reference == recorded, diagnostic
+    assert replay["exchanges"][2]["response"]["value"]["receipt_ref"] == native_reference
     assert derived != hashlib.sha256(domain + signed).hexdigest()
+    assert derived != hashlib.sha256(signed).hexdigest()
     header = recording["committed"]["receipt"]["authorised_batch"]
     assert header["sequencer_public_key"] == key["publicKey"][2:]
     assert header["previous_state_root"] == facts["previous_state_root"]
@@ -118,7 +136,19 @@ def test_unknown_recovers_committed_receipt_across_stop_and_reopen(qualifier, tm
             submission = qualifier.tracked_evidence(tracked, reference)
             _, receipt = restored.rpc(reopened.envelope("unknown_receipt"), verified=True)
             facts = qualifier.recovered_receipt(receipt, submission)
-            assert facts["receipt_ref"] == submission["receipt_ref"]
+            native_source = json.loads(re.search(
+                r'const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"(.*?)"#;',
+                PRODUCER.read_text(), re.S,
+            )[1])
+            native_reference = native_source["committed"]["submission"]["receipt_ref"]
+            key = native_source["receipt_key"]
+            sdk = verify_sequencer_receipt(
+                bytes.fromhex(native_source["committed"]["receipt"]["canonical_bytes"]),
+                bytes.fromhex(native_source["raw_transaction"]),
+                (ReceiptKey(bytes.fromhex(key["keyId"][2:]), bytes.fromhex(key["publicKey"][2:]),
+                            int(key["firstHeight"], 16), int(key["lastHeight"], 16)),),
+            )
+            assert facts["receipt_ref"] == submission["receipt_ref"] == native_reference == sdk.receipt_digest.hex()
             assert reopened.state.read_bytes() == before
             assert [request["operation"] for request in reopened.requests] == ["track", "program.receipt"]
         finally:
@@ -178,7 +208,7 @@ def test_receipt_lookup_keeps_every_credential_coordinate(qualifier, tmp_path, f
 
 
 @pytest.mark.parametrize("change", [
-    "transaction", "reference", "digest", "missing-digest", "rung", "state", "request-id"
+    "transaction", "reference", "digest", "domain-signed", "untagged-signed", "missing-digest", "rung", "state", "request-id"
 ])
 def test_restart_rejects_misbound_submission(qualifier, tmp_path, change):
     with serving(qualifier, tmp_path) as (peer, phase):
@@ -192,6 +222,10 @@ def test_restart_rejects_misbound_submission(qualifier, tmp_path, change):
                 submission["submission_ref"] = "99" * 32
             elif change == "digest":
                 submission["receipt_ref"] = "99" * 32
+            elif change in ("domain-signed", "untagged-signed"):
+                signed = bytes.fromhex(peer.recording["committed"]["receipt"]["canonical_bytes"])
+                preimage = b"LXP/v1/receipt\0" + signed if change == "domain-signed" else signed
+                submission["receipt_ref"] = hashlib.sha256(preimage).hexdigest()
             elif change == "missing-digest":
                 del submission["receipt_ref"]
             elif change == "rung":
@@ -210,6 +244,9 @@ def test_restart_rejects_misbound_submission(qualifier, tmp_path, change):
     "missing", "transaction", "canonical-identity", "truncated", "receipt-rung", "status-rung",
     "retired-level", "retired-receipt-level", "header-missing", "header-before", "header-after",
     "header-key", "header-batch", "header-asset", "request-id", "signature-framing",
+    "receipt-hash", "block-height", "signed-copy", "key-id", "public-key",
+    "first-height", "last-height", "inclusion-height", "wire-rank", "extra-field",
+    "missing-key", "noncanonical-height", "signature",
 ])
 def test_recovery_rejects_missing_or_misbound_receipt_and_header(qualifier, tmp_path, change):
     with serving(qualifier, tmp_path) as (peer, phase):
@@ -231,6 +268,35 @@ def test_recovery_rejects_missing_or_misbound_receipt_and_header(qualifier, tmp_
                 raw = bytearray.fromhex(receipt["canonical_bytes"])
                 raw[-69] = 0
                 receipt["canonical_bytes"] = raw.hex()
+            elif change == "receipt-hash":
+                receipt["receipt_hash"] = "99" * 32
+            elif change == "block-height":
+                receipt["block_height"] = "8"
+            elif change == "signed-copy":
+                receipt["signed_receipt"] = "00"
+            elif change == "key-id":
+                receipt["receipt_key_id"] = "99" * 32
+            elif change == "public-key":
+                receipt["public_key"] = "99" * 32
+            elif change == "first-height":
+                receipt["first_height"] = "8"
+            elif change == "last-height":
+                receipt["last_height"] = "6"
+            elif change == "inclusion-height":
+                receipt["inclusion_height"] = "8"
+            elif change == "wire-rank":
+                receipt["verification_level"] = "committed"
+            elif change == "extra-field":
+                receipt["unrecognised"] = "value"
+            elif change == "missing-key":
+                del receipt["receipt_key_id"]
+            elif change == "noncanonical-height":
+                receipt["block_height"] = "07"
+            elif change == "signature":
+                raw = bytearray.fromhex(receipt["canonical_bytes"])
+                raw[-1] ^= 1
+                receipt["canonical_bytes"] = receipt["signed_receipt"] = raw.hex()
+                receipt["receipt_hash"] = hashlib.sha256(raw).hexdigest()
             elif change == "receipt-rung":
                 receipt["rung"] = "receipted"
             elif change == "status-rung":

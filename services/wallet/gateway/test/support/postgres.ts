@@ -9,6 +9,10 @@ export interface EphemeralPostgres {
   stop(): Promise<void>;
 }
 
+export interface RestartablePostgres extends EphemeralPostgres {
+  restart(): Promise<void>;
+}
+
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = createServer();
@@ -28,16 +32,18 @@ function freePort(): Promise<number> {
 
 function runAsOwner(bin: string, args: string[]): void {
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
-  const [cmd, argv] = isRoot ? ['runuser', ['-u', 'postgres', '--', bin, ...args]] : [bin, args];
+  const [cmd, argv] = isRoot
+    ? ['runuser', ['-u', 'postgres', '--', bin, ...args]]
+    : [bin, args];
   const res = spawnSync(cmd, argv, { encoding: 'utf8' });
   if (res.status !== 0) {
     throw new Error(
-      `${bin} ${args.join(' ')} failed with ${res.status}:\nstderr: ${res.stderr ?? ''}\nstdout: ${res.stdout ?? ''}`,
+      `${bin} ${args.join(' ')} failed with ${res.status}:\nstderr: ${res.stderr ?? ''}\nstdout: ${res.stdout ?? ''}`
     );
   }
 }
 
-export async function startPostgres(): Promise<EphemeralPostgres> {
+export async function startPostgresEngine(): Promise<RestartablePostgres> {
   const binDir = process.env.PG_BIN_DIR ?? '/usr/lib/postgresql/16/bin';
   const initdb = join(binDir, 'initdb');
   const pgCtl = join(binDir, 'pg_ctl');
@@ -53,18 +59,20 @@ export async function startPostgres(): Promise<EphemeralPostgres> {
     execFileSync('chown', ['postgres', dir]);
   }
   const port = await freePort();
-  runAsOwner(initdb, ['-D', dataDir, '-U', 'postgres', '-A', 'trust', '--no-sync', '-E', 'UTF8']);
+  const listenOptions = `-p ${port} -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c fsync=off -c max_connections=200`;
+  runAsOwner(initdb, [
+    '-D',
+    dataDir,
+    '-U',
+    'postgres',
+    '-A',
+    'trust',
+    '--no-sync',
+    '-E',
+    'UTF8'
+  ]);
   try {
-    runAsOwner(pgCtl, [
-      '-D',
-      dataDir,
-      '-l',
-      logFile,
-      '-w',
-      '-o',
-      `-p ${port} -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c fsync=off -c max_connections=200`,
-      'start',
-    ]);
+    runAsOwner(pgCtl, ['-D', dataDir, '-l', logFile, '-w', '-o', listenOptions, 'start']);
   } catch (err) {
     let serverLog: string;
     try {
@@ -83,7 +91,16 @@ export async function startPostgres(): Promise<EphemeralPostgres> {
       rmSync(dir, { recursive: true, force: true });
     }
   };
+  const restart = async (): Promise<void> => {
+    runAsOwner(pgCtl, ['-D', dataDir, '-m', 'immediate', '-w', 'stop']);
+    runAsOwner(pgCtl, ['-D', dataDir, '-l', logFile, '-w', '-o', listenOptions, 'start']);
+  };
+  return { url, stop, restart };
+}
 
+export async function startPostgres(): Promise<EphemeralPostgres> {
+  const database = await startPostgresEngine();
+  const { url, stop } = database;
   try {
     process.env.DATABASE_URL = url;
     const { env } = await import('../../src/env.js');
@@ -96,5 +113,5 @@ export async function startPostgres(): Promise<EphemeralPostgres> {
     await stop();
     throw err;
   }
-  return { url, stop };
+  return database;
 }

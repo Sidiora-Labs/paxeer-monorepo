@@ -1,3 +1,4 @@
+use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{
@@ -30,6 +31,7 @@ pub struct SegmentBinding {
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s `NON_CANONICAL`/`F07_SEGMENT_MISMATCH` refusals; returns `NON_CANONICAL` when `height` is zero or before the last transition; `F07_BINDING_MISMATCH` when the config moves backwards or `reason` disagrees with the binding change; `WRONG_EPOCH` when the last applied epoch is not completed; `ARITHMETIC` when the generation overflows; propagates the digest and validation refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn reset_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -98,6 +100,7 @@ pub fn reset_segment(
 ///
 /// # Errors
 /// Propagates `ReputationCurrent::matches_segment`'s and `reset_segment`'s refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn rollover_segment(
     old: &ReputationCurrent,
     old_key: SegmentKey,
@@ -107,11 +110,33 @@ pub fn rollover_segment(
     latest_completed: Presence<u64>,
     height: u64,
 ) -> CodecResult<Presence<(SegmentKey, ReputationCurrent)>> {
+    rollover_bound(
+        old,
+        old_key,
+        &SegmentBinding {
+            config,
+            policy,
+            model,
+        },
+        latest_completed,
+        height,
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn rollover_bound(
+    old: &ReputationCurrent,
+    old_key: SegmentKey,
+    next: &SegmentBinding,
+    latest_completed: Presence<u64>,
+    height: u64,
+) -> CodecResult<Presence<(SegmentKey, ReputationCurrent)>> {
     old.matches_segment(old_key)?;
-    if old_key.config == config && old_key.policy == policy && old_key.model == model {
+    if old_key.config == next.config && old_key.policy == next.policy && old_key.model == next.model
+    {
         return Ok(Presence::Absent);
     }
-    let reason = if old_key.model == model {
+    let reason = if old_key.model == next.model {
         ClosureReason::PolicyChanged
     } else {
         ClosureReason::ModelChanged
@@ -119,11 +144,7 @@ pub fn rollover_segment(
     Ok(Presence::Present(reset_segment(
         old,
         old_key,
-        SegmentBinding {
-            config,
-            policy,
-            model,
-        },
+        *next,
         reason,
         latest_completed,
         height,
@@ -149,6 +170,7 @@ pub(crate) struct EpochTally {
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn update_record(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -158,12 +180,41 @@ pub(crate) fn update_record(
     history_allowed: bool,
     height: u64,
 ) -> CodecResult<ReputationCurrent> {
+    update_record_inner(
+        record,
+        key,
+        frozen,
+        worker,
+        tally,
+        history_allowed,
+        height,
+        false,
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn update_record_inner(
+    record: &ReputationCurrent,
+    key: SegmentKey,
+    frozen: FrozenBinding,
+    worker: &WorkerRosterEntry,
+    tally: EpochTally,
+    history_allowed: bool,
+    height: u64,
+    committed: bool,
+) -> CodecResult<ReputationCurrent> {
     let EpochTally {
         median,
         support,
         eligible,
     } = tally;
-    record.matches_segment(key)?;
+    if committed {
+        if record.worker != key.worker || record.reset_generation != key.reset_generation {
+            return Err(F07_SEGMENT_MISMATCH);
+        }
+    } else {
+        record.matches_segment(key)?;
+    }
     if key.market != frozen.market
         || key.config != frozen.config
         || worker.worker != key.worker
@@ -227,21 +278,23 @@ pub(crate) enum CompletionStart {
 )]
 pub(crate) struct CompletionDraft {
     staged: ReputationState,
-    original: ReputationState,
     frozen: FrozenBinding,
     result: Digest32,
     height: u64,
     roster: [Option<WorkerRosterEntry>; LIMIT],
     roster_len: usize,
+    record_cursor: usize,
     cursor: usize,
     observed: u8,
     covered: u8,
+    committed: bool,
 }
 #[allow(
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
 impl CompletionDraft {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn begin(
         state: &ReputationState,
         frozen: FrozenBinding,
@@ -249,10 +302,26 @@ impl CompletionDraft {
         height: u64,
         roster: &[WorkerRosterEntry],
     ) -> CodecResult<CompletionStart> {
+        Self::begin_inner(state, frozen, result, height, roster, false)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn begin_inner(
+        state: &ReputationState,
+        frozen: FrozenBinding,
+        result: Digest32,
+        height: u64,
+        roster: &[WorkerRosterEntry],
+        committed: bool,
+    ) -> CodecResult<CompletionStart> {
         if state.market != frozen.market {
             return Err(F07_BINDING_MISMATCH);
         }
-        match state.assess_completion(frozen.epoch, result)? {
+        let identity = if committed {
+            state.assess_committed_completion(frozen.epoch, result)?
+        } else {
+            state.assess_completion(frozen.epoch, result)?
+        };
+        match identity {
             CompletionIdentity::Retained(record) => {
                 if record.config != frozen.config {
                     return Err(F07_BINDING_MISMATCH);
@@ -284,33 +353,39 @@ impl CompletionDraft {
         }
         let mut previous = None;
         let mut bounded_roster = [None; LIMIT];
+        let mut record_cursor = 0;
         for (i, worker) in roster.iter().enumerate() {
             if previous.is_some_and(|id| id >= worker.worker) {
                 return Err(NON_CANONICAL);
             }
+            let index = state.ordered_position(worker.worker, &mut record_cursor);
             let current = state
-                .records()
-                .find(|r| r.worker == worker.worker)
+                .current
+                .get(index)
+                .and_then(Option::as_ref)
+                .filter(|r| r.worker == worker.worker)
                 .ok_or(F07_UNKNOWN_WORKER)?;
             if current.owner != worker.owner {
                 return Err(F07_BINDING_MISMATCH);
             }
             previous = Some(worker.worker);
-            bounded_roster[i] = Some(*worker);
+            *bounded_roster.guest_index_mut(i) = Some(*worker);
         }
         Ok(CompletionStart::Pending(Self {
             staged: state.clone(),
-            original: state.clone(),
             frozen,
             result,
             height,
             roster: bounded_roster,
             roster_len: roster.len(),
+            record_cursor: 0,
             cursor: 0,
             observed: 0,
             covered: 0,
+            committed,
         }))
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn apply_worker(
         &mut self,
         key: SegmentKey,
@@ -326,22 +401,27 @@ impl CompletionDraft {
             .ok_or(WRONG_EPOCH)?;
         let index = self
             .staged
-            .records()
-            .position(|r| r.worker == worker.worker)
-            .ok_or(F07_UNKNOWN_WORKER)?;
-        let old = self.staged.current[index].ok_or(NON_CANONICAL)?;
-        let next = update_record(
-            &old,
+            .ordered_position(worker.worker, &mut self.record_cursor);
+        let old = self
+            .staged
+            .current
+            .guest_index(index)
+            .as_ref()
+            .ok_or(NON_CANONICAL)?;
+        let tally = EpochTally {
+            median,
+            support,
+            eligible,
+        };
+        let next = update_record_inner(
+            old,
             key,
             self.frozen,
             worker,
-            EpochTally {
-                median,
-                support,
-                eligible,
-            },
+            tally,
             history_allowed,
             self.height,
+            self.committed,
         )?;
         let observed = self
             .observed
@@ -353,12 +433,13 @@ impl CompletionDraft {
             .covered
             .checked_add(u8::from(eligible > 0))
             .ok_or(ARITHMETIC)?;
-        self.staged.current[index] = Some(next);
+        *self.staged.current.guest_index_mut(index) = Some(next);
         self.cursor += 1;
         self.observed = observed;
         self.covered = covered;
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn finish(mut self) -> CodecResult<(ReputationState, CompletedHistory)> {
         if self.cursor != self.roster_len {
             return Err(F07_EPOCH_NOT_SEALED);
@@ -374,14 +455,17 @@ impl CompletionDraft {
             total_workers: u8::try_from(self.roster_len).map_err(|_| CAPACITY)?,
             covered_workers: self.covered,
         };
-        // Append's precondition validates committed state, not the staged pending epoch.
-        let mut ring = self.original;
-        ring.append(record)?;
-        self.staged.history = ring.history;
-        self.staged.history_len = ring.history_len;
-        self.staged.completed_through = ring.completed_through;
-        self.staged.validate()?;
-        self.staged.encoded_len()?;
+        // begin checked completion identity, retention and monotonic height against
+        // the original state. apply_worker changes only current records; append to
+        // that unchanged history, then validate the complete pending epoch once.
+        let at = usize::from(self.staged.history_len);
+        *self.staged.history.get_mut(at).ok_or(RETENTION_FULL)? = Some(record);
+        self.staged.history_len = self.staged.history_len.checked_add(1).ok_or(ARITHMETIC)?;
+        self.staged.completed_through = Presence::Present(record.epoch);
+        // Every replacement was validated by update_record. The unchanged
+        // records/history came from the checked input; validate the appended row.
+        record.validate()?;
+        self.staged.encoded_size()?;
         Ok((self.staged, record))
     }
 }
@@ -445,18 +529,76 @@ pub struct Region {
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        static DECODED: crate::guest_cell::GuestCell<
+            crate::guest_cell::Cached<(&'static [u8], Option<Region>, usize)>,
+        > = crate::guest_cell::GuestCell::new(crate::guest_cell::Cached::Empty);
+        let mut decoded = DECODED.try_borrow_mut().ok_or(NON_CANONICAL)?;
+        if let Some((bytes, region, offset)) = decoded.as_ref() {
+            if core::ptr::eq(*bytes, section) {
+                return Ok((region.clone(), &section[*offset..]));
+            }
+            if let Some(region) = region {
+                let base_len = *offset
+                    - if matches!(region.seal, Presence::Present(_)) {
+                        SEAL_BYTES
+                    } else {
+                        0
+                    };
+                if section
+                    .get(..base_len)
+                    .is_some_and(|prefix| crate::codec::equal_bytes(&bytes[..base_len], prefix))
+                {
+                    // Only the base reputation bytes are reused. Always parse the current
+                    // optional seal, including when a producer adds or removes it.
+                    return joint_tail(region.state.clone(), &section[base_len..]);
+                }
+            }
+        }
+        if let Some(frozen) = crate::state::current_slice(section) {
+            let (region, table) = split_joint_uncached(section)?;
+            *decoded = crate::guest_cell::Cached::Value((
+                frozen,
+                region.clone(),
+                section.len() - table.len(),
+            ));
+            return Ok((region, table));
+        }
+    }
+    split_joint_uncached(section)
+}
+
+fn split_joint_uncached(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
+    split_joint_inner(section, false)
+}
+
+pub(crate) fn split_committed_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
+    split_joint_inner(section, true)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn split_joint_inner(section: &[u8], committed: bool) -> CodecResult<(Option<Region>, &[u8])> {
     if section.get(..4) != Some(SECTION_MAGIC.as_slice()) {
         return Ok((None, section));
     }
     let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
-    let (current, history) = (usize::from(counts[0]), usize::from(counts[1]));
+    let (current, history) = (
+        usize::from(*counts.guest_index(0)),
+        usize::from(*counts.guest_index(1)),
+    );
     if current > LIMIT || history > LIMIT {
         return Err(CAPACITY);
     }
     let len = HEADER_BYTES + current * CURRENT_BYTES + history * HISTORY_BYTES;
     let (bytes, rest) = section.split_at_checked(len).ok_or(NON_CANONICAL)?;
-    let state = decode_section(bytes)?;
+    let state = crate::reputation_codec::decode_section_records(bytes, committed)?;
+    joint_tail(state, rest)
+}
+
+fn joint_tail(state: ReputationState, rest: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
     if rest.get(..4) != Some(SEAL_MAGIC.as_slice()) {
         return Ok((
             Some(Region {
@@ -486,6 +628,364 @@ pub fn split_joint(section: &[u8]) -> CodecResult<(Option<Region>, &[u8])> {
     ))
 }
 
+/// A bounded opening pass. Unchanged participant records and history remain encoded.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn open_segments_chunk(
+    original: &[u8],
+    staged: &[u8],
+    previous: SegmentBinding,
+    next: SegmentBinding,
+    roster: &[WorkerRosterEntry],
+    departed: impl Fn(WorkerId) -> CodecResult<bool>,
+    height: u64,
+    start: usize,
+    end: usize,
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    // Bind each committed frame and reject an unfinished history seal.
+    for section in [original, staged] {
+        if !framed_admission_table(section)?.is_empty() {
+            return Err(NON_CANONICAL);
+        }
+        let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
+        if section.len()
+            != HEADER_BYTES
+                + usize::from(*counts.guest_index(0)) * CURRENT_BYTES
+                + usize::from(*counts.guest_index(1)) * HISTORY_BYTES
+        {
+            return Err(NON_CANONICAL);
+        }
+    }
+    if roster.len() > LIMIT || start > end || end > LIMIT {
+        return Err(NON_CANONICAL);
+    }
+    let mut r = Reader::new(original.guest_index(8..49));
+    let market = r.market_id()?;
+    let completed = r.boolean()?;
+    let epoch = r.u64()?;
+    #[cfg(target_arch = "wasm32")]
+    let same_header =
+        crate::codec::equal_bytes(staged.guest_index(8..49), original.guest_index(8..49));
+    #[cfg(not(target_arch = "wasm32"))]
+    let same_header = staged.guest_index(8..49) == original.guest_index(8..49);
+    if !same_header {
+        return Err(F07_BINDING_MISMATCH);
+    }
+    let latest = if completed {
+        Presence::Present(epoch)
+    } else {
+        Presence::Absent
+    };
+    let mut len = staged.len();
+    out.get_mut(..len)
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(staged);
+    let count = usize::from(*original.get(6).ok_or(NON_CANONICAL)?);
+    let records = original
+        .get(HEADER_BYTES..HEADER_BYTES + count * CURRENT_BYTES)
+        .ok_or(NON_CANONICAL)?;
+    for bytes in records
+        .chunks_exact(CURRENT_BYTES)
+        .skip(start)
+        .take(end - start)
+    {
+        let old = crate::reputation_codec::decode_current(bytes)?;
+        if old.status == HistoryStatus::Retired {
+            continue;
+        }
+        if height == 0 || height < old.last_transition_height {
+            return Err(NON_CANONICAL);
+        }
+        let mut record = old;
+        if departed(old.worker)? {
+            record.status = HistoryStatus::Retired;
+            record.last_transition_height = height;
+        } else if previous != next {
+            let key = SegmentKey {
+                market,
+                worker: old.worker,
+                config: previous.config,
+                policy: previous.policy,
+                model: previous.model,
+                reset_generation: old.reset_generation,
+            };
+            if let Presence::Present((_, rolled)) =
+                rollover_bound(&old, key, &next, latest, height)?
+            {
+                record = rolled;
+            }
+        }
+        write_opened_record(out, &mut len, &record)?;
+    }
+    for entry in roster.guest_index(start.min(roster.len())..end.min(roster.len())) {
+        let (at, present) = opened_record_position(out.guest_index(..len), &entry.worker);
+        if present {
+            let r = crate::reputation_codec::decode_current(
+                out.get(at..at + CURRENT_BYTES).ok_or(NON_CANONICAL)?,
+            )?;
+            if r.owner != entry.owner || r.status == HistoryStatus::Retired {
+                return Err(F07_BINDING_MISMATCH);
+            }
+        } else {
+            let key = SegmentKey {
+                market,
+                worker: entry.worker,
+                config: next.config,
+                policy: next.policy,
+                model: next.model,
+                reset_generation: Version::new(1)?,
+            };
+            write_opened_record(
+                out,
+                &mut len,
+                &ReputationCurrent::bootstrap(key, entry.owner, height)?,
+            )?;
+        }
+    }
+    check_storage_budget(len, 0, 0)?;
+    Ok(len)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn opened_record_position(bytes: &[u8], worker: &WorkerId) -> (usize, bool) {
+    // Both input frames were bounded and length-checked; insertion preserves
+    // that invariant and refuses the thirty-third participant.
+    let count = usize::from(*bytes.guest_index(6));
+    #[cfg(target_arch = "wasm32")]
+    let target = worker.as_bytes();
+    #[cfg(not(target_arch = "wasm32"))]
+    let target: &[u8] = worker.as_bytes();
+    let records = bytes.guest_index(HEADER_BYTES..HEADER_BYTES + count * CURRENT_BYTES);
+    for (i, row) in records.chunks_exact(CURRENT_BYTES).enumerate() {
+        let id = row.guest_index(..32);
+        if id >= target {
+            return (HEADER_BYTES + i * CURRENT_BYTES, id == target);
+        }
+    }
+    (HEADER_BYTES + count * CURRENT_BYTES, false)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn write_opened_record(
+    out: &mut [u8],
+    len: &mut usize,
+    record: &ReputationCurrent,
+) -> CodecResult<()> {
+    let (at, present) = opened_record_position(out.guest_index(..*len), &record.worker);
+    if !present {
+        if usize::from(*out.guest_index(6)) == LIMIT {
+            return Err(CAPACITY);
+        }
+        let end = len.checked_add(CURRENT_BYTES).ok_or(ARITHMETIC)?;
+        out.get_mut(..end)
+            .ok_or(CAPACITY)?
+            .guest_copy_within(at..*len, at + CURRENT_BYTES);
+        *len = end;
+        *out.guest_index_mut(6) += 1;
+    }
+    crate::reputation_codec::write_current(
+        record,
+        &mut Writer::new(out.get_mut(at..at + CURRENT_BYTES).ok_or(CAPACITY)?),
+    )
+}
+
+/// Retain the same history suffix as `prune_released`, carrying current bytes verbatim.
+#[inline(always)]
+pub(crate) fn prune_opened_history(
+    out: &mut [u8],
+    len: usize,
+    retained: impl Fn(u64) -> CodecResult<bool>,
+) -> CodecResult<usize> {
+    let start = HEADER_BYTES + usize::from(*out.guest_index(6)) * CURRENT_BYTES;
+    let mut removed = 0;
+    for bytes in out
+        .get(start..len)
+        .ok_or(NON_CANONICAL)?
+        .chunks_exact(HISTORY_BYTES)
+    {
+        // Only the epoch selects retained committed history; every other
+        // field is carried byte-for-byte from its validated producer.
+        if retained(Reader::new(bytes).u64()?)? {
+            break;
+        }
+        removed += 1;
+    }
+    *out.guest_index_mut(7) = (*out.guest_index(7))
+        .checked_sub(removed as u8)
+        .ok_or(NON_CANONICAL)?;
+    if usize::from(*out.guest_index(7)) == LIMIT {
+        return Err(RETENTION_FULL);
+    }
+    let removed = removed * HISTORY_BYTES;
+    out.guest_copy_within(start + removed..len, start);
+    Ok(len - removed)
+}
+
+/// Resume a completion draft whose prior participant replacements are privately journaled.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn complete_epoch_chunk(
+    original: &ReputationState,
+    staged: &ReputationState,
+    seal: Presence<HistorySeal>,
+    frozen: FrozenBinding,
+    binding: SegmentBinding,
+    result: Digest32,
+    height: u64,
+    roster: &[WorkerRosterEntry],
+    observations: &[WorkerObservation],
+    cursor: usize,
+    observed: u8,
+    covered: u8,
+) -> CodecResult<(ReputationState, usize, u8, u8)> {
+    let seal = match seal {
+        Presence::Present(seal) if seal.epoch == frozen.epoch => seal,
+        _ => return Err(F07_EPOCH_NOT_SEALED),
+    };
+    if original.market != frozen.market
+        || observations.len() != roster.len()
+        || binding.config != frozen.config
+        || cursor > roster.len()
+    {
+        return Err(F07_BINDING_MISMATCH);
+    }
+    match original.assess_committed_completion(frozen.epoch, result)? {
+        CompletionIdentity::New => {}
+        CompletionIdentity::Retained(_) => return Err(NON_CANONICAL),
+    }
+    if height == 0 {
+        return Err(NON_CANONICAL);
+    }
+    if original.history_len as usize == LIMIT {
+        return Err(RETENTION_FULL);
+    }
+    if original
+        .completed()
+        .last()
+        .is_some_and(|last| height < last.execution_height)
+    {
+        return Err(NON_CANONICAL);
+    }
+    for record in original.records() {
+        if matches!(record.last_applied, Presence::Present(epoch) if epoch >= frozen.epoch) {
+            return Err(WRONG_EPOCH);
+        }
+    }
+    let mut state = staged.clone();
+    let end = (cursor + crate::reputation::participant_chunk_size(roster.len())).min(roster.len());
+    let mut observed = observed;
+    let mut covered = covered;
+    let mut record_cursor = 0;
+    for i in cursor..end {
+        let entry = roster.guest_index(i);
+        let at = state.ordered_position(entry.worker, &mut record_cursor);
+        let old = state
+            .current
+            .guest_index(at)
+            .as_ref()
+            .filter(|r| r.worker == entry.worker)
+            .ok_or(F07_UNKNOWN_WORKER)?;
+        let key = SegmentKey {
+            market: original.market,
+            worker: entry.worker,
+            config: binding.config,
+            policy: binding.policy,
+            model: binding.model,
+            reset_generation: old.reset_generation,
+        };
+        let observation = observations.guest_index(i);
+        let tally = EpochTally {
+            median: observation.median,
+            support: observation.support,
+            eligible: seal.eligible,
+        };
+        let next =
+            update_record_inner(old, key, frozen, entry, tally, seal.allows(i), height, true)?;
+        *state.current.guest_index_mut(at) = Some(next);
+        observed = observed
+            .checked_add(u8::from(
+                seal.allows(i) && matches!(observation.median, Presence::Present(_)),
+            ))
+            .ok_or(ARITHMETIC)?;
+        covered = covered
+            .checked_add(u8::from(seal.eligible > 0))
+            .ok_or(ARITHMETIC)?;
+    }
+    if end == roster.len() {
+        let root = state_root(&state, frozen.epoch)?;
+        let record = CompletedHistory {
+            epoch: frozen.epoch,
+            execution_height: height,
+            config: frozen.config,
+            result,
+            root,
+            observed_workers: observed,
+            total_workers: roster.len() as u8,
+            covered_workers: covered,
+        };
+        record.validate()?;
+        let at = usize::from(state.history_len);
+        *state.history.get_mut(at).ok_or(RETENTION_FULL)? = Some(record);
+        state.history_len = state.history_len.checked_add(1).ok_or(ARITHMETIC)?;
+        state.completed_through = Presence::Present(frozen.epoch);
+        state.encoded_size()?;
+    }
+    Ok((state, end, observed, covered))
+}
+
+/// Validated F08 suffix of the joint reputation/admission section.
+///
+/// # Errors
+/// Preserves every framing, reputation and history-seal refusal of `split_joint`.
+#[allow(dead_code, reason = "also compiled by reputation vector tests")]
+pub fn joint_table(section: &[u8]) -> CodecResult<&[u8]> {
+    split_joint(section).map(|(_, table)| table)
+}
+
+/// Locates the admission suffix without materializing reputation records. Callers
+/// that carry this prefix bind its exact bytes by length and digest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn framed_admission_table(section: &[u8]) -> CodecResult<&[u8]> {
+    if section.get(..4) != Some(SECTION_MAGIC.as_slice()) {
+        return Ok(section);
+    }
+    let header = section.get(..HEADER_BYTES).ok_or(NON_CANONICAL)?;
+    if header.guest_index(4..6) != &1u16.to_be_bytes() {
+        return Err(crate::errors::BAD_VERSION);
+    }
+    let current = usize::from(*header.guest_index(6));
+    let history = usize::from(*header.guest_index(7));
+    if current > LIMIT || history > LIMIT {
+        return Err(CAPACITY);
+    }
+    #[cfg(target_arch = "wasm32")]
+    Reader::new(header.guest_index(8..40)).checked_identity()?;
+    #[cfg(not(target_arch = "wasm32"))]
+    Reader::new(header.guest_index(8..40)).market_id()?;
+    let mut r = Reader::new(header.guest_index(40..));
+    let completed = r.boolean()?;
+    let epoch = r.u64()?;
+    if !completed && epoch != 0 {
+        return Err(NON_CANONICAL);
+    }
+    r.reserved(15)?;
+    let rest = section
+        .get(HEADER_BYTES + current * CURRENT_BYTES + history * HISTORY_BYTES..)
+        .ok_or(NON_CANONICAL)?;
+    if rest.get(..4) != Some(SEAL_MAGIC.as_slice()) {
+        return Ok(rest);
+    }
+    let mut r = Reader::new(rest);
+    r.take(4)?;
+    let sealed_epoch = r.u64()?;
+    r.take(4)?;
+    let eligible = r.u8()?;
+    r.reserved(3)?;
+    if eligible > MAX_ELIGIBLE || completed && sealed_epoch <= epoch {
+        return Err(NON_CANONICAL);
+    }
+    r.take(r.remaining())
+}
+
 fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
     if seal.eligible > MAX_ELIGIBLE {
         return Err(F07_BINDING_MISMATCH);
@@ -496,6 +996,26 @@ fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
         }
     }
     Ok(())
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn write_seal(seal: HistorySeal, w: &mut Writer<'_>) -> CodecResult<()> {
+    #[cfg(target_arch = "wasm32")]
+    return crate::codec::write_fields!(w;
+        put: &SEAL_MAGIC;
+        u64: seal.epoch;
+        u32: seal.allowed;
+        u8: seal.eligible;
+        put: &[0; 3];
+    );
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        w.put(&SEAL_MAGIC)?;
+        w.u64(seal.epoch)?;
+        w.u32(seal.allowed)?;
+        w.u8(seal.eligible)?;
+        w.put(&[0; 3])
+    }
 }
 
 /// Encodes `region` followed by the F08 `table` into `out` and returns the written length.
@@ -510,22 +1030,30 @@ fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
 )]
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResult<usize> {
-    let mut len = encode_section(&region.state, out)?;
+    region.state.validate()?;
+    encode_produced_joint(region, table, out)
+}
+
+/// For the epoch composer: its input was decoded and each replacement/append
+/// was checked by the transition that produced it. Public encoders stay strict.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_produced_joint(
+    region: &Region,
+    table: &[u8],
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    let mut len = crate::reputation_codec::encode_produced_section(&region.state, out)?;
     if let Presence::Present(seal) = region.seal {
         check_seal(&region.state, seal).map_err(|_| NON_CANONICAL)?;
         let mut w = Writer::new(out.get_mut(len..).ok_or(CAPACITY)?);
-        w.put(&SEAL_MAGIC)?;
-        w.u64(seal.epoch)?;
-        w.u32(seal.allowed)?;
-        w.u8(seal.eligible)?;
-        w.put(&[0; 3])?;
+        write_seal(seal, &mut w)?;
         len += SEAL_BYTES;
     }
     check_storage_budget(len, table.len(), 0)?;
     let end = len.checked_add(table.len()).ok_or(ARITHMETIC)?;
     out.get_mut(len..end)
         .ok_or(CAPACITY)?
-        .copy_from_slice(table);
+        .guest_copy_from_slice(table);
     Ok(end)
 }
 
@@ -540,6 +1068,7 @@ pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResul
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn seal_history(
     state: &ReputationState,
     epoch: u64,
@@ -556,14 +1085,18 @@ pub fn seal_history(
     };
     check_seal(state, seal)?;
     let mut previous = None;
+    let mut cursor = 0;
     for (i, worker) in workers.iter().enumerate() {
         if previous.is_some_and(|id| id >= *worker) {
             return Err(NON_CANONICAL);
         }
         previous = Some(*worker);
+        let index = state.ordered_position(*worker, &mut cursor);
         let record = state
-            .records()
-            .find(|r| r.worker == *worker)
+            .current
+            .get(index)
+            .and_then(Option::as_ref)
+            .filter(|r| r.worker == *worker)
             .ok_or(F07_UNKNOWN_WORKER)?;
         if record.status == HistoryStatus::Active {
             seal.allowed |= 1u32 << i;
@@ -587,6 +1120,7 @@ pub fn seal_history(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn open_segments(
     state: &ReputationState,
     previous: SegmentBinding,
@@ -595,8 +1129,40 @@ pub fn open_segments(
     departed: impl Fn(WorkerId) -> bool,
     height: u64,
 ) -> CodecResult<ReputationState> {
+    open_segments_inner::<false>(
+        state,
+        previous,
+        next,
+        roster,
+        |worker| Ok(departed(worker)),
+        height,
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn open_segments_with(
+    state: &ReputationState,
+    previous: SegmentBinding,
+    next: SegmentBinding,
+    roster: &[WorkerRosterEntry],
+    departed: impl Fn(WorkerId) -> CodecResult<bool>,
+    height: u64,
+) -> CodecResult<ReputationState> {
+    open_segments_inner::<true>(state, previous, next, roster, departed, height)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn open_segments_inner<const COMMITTED: bool>(
+    state: &ReputationState,
+    previous: SegmentBinding,
+    next: SegmentBinding,
+    roster: &[WorkerRosterEntry],
+    departed: impl Fn(WorkerId) -> CodecResult<bool>,
+    height: u64,
+) -> CodecResult<ReputationState> {
     let mut opened = state.clone();
     let latest = state.latest_completed();
+    let unchanged = COMMITTED && previous == next;
     for slot in opened.current.iter_mut().flatten() {
         if slot.status == HistoryStatus::Retired {
             continue;
@@ -604,9 +1170,12 @@ pub fn open_segments(
         if height == 0 || height < slot.last_transition_height {
             return Err(NON_CANONICAL);
         }
-        if departed(slot.worker) {
+        if departed(slot.worker)? {
             slot.status = HistoryStatus::Retired;
             slot.last_transition_height = height;
+            continue;
+        }
+        if unchanged {
             continue;
         }
         let key = SegmentKey {
@@ -629,28 +1198,55 @@ pub fn open_segments(
             *slot = rolled;
         }
     }
-    for entry in roster {
-        let existing = opened.records().find(|r| r.worker == entry.worker).copied();
-        match existing {
-            Some(r) if r.owner != entry.owner || r.status == HistoryStatus::Retired => {
-                return Err(F07_BINDING_MISMATCH)
-            }
-            Some(_) => (),
-            None => {
-                let key = SegmentKey {
-                    market: state.market,
-                    worker: entry.worker,
-                    config: next.config,
-                    policy: next.policy,
-                    model: next.model,
-                    reset_generation: Version::new(1)?,
-                };
-                opened.insert(ReputationCurrent::bootstrap(key, entry.owner, height)?)?;
+    bind_opened_roster(&mut opened, next, roster, height, COMMITTED)?;
+    Ok(opened)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn bind_opened_roster(
+    opened: &mut ReputationState,
+    next: SegmentBinding,
+    roster: &[WorkerRosterEntry],
+    height: u64,
+    committed: bool,
+) -> CodecResult<()> {
+    let market = opened.market;
+    {
+        let mut editor = if committed {
+            opened.edit_produced()?
+        } else {
+            opened.edit()?
+        };
+        let mut cursor = 0;
+        for entry in roster {
+            let existing = editor.ordered_record(entry.worker, &mut cursor);
+            match existing {
+                Some(r) if r.owner != entry.owner || r.status == HistoryStatus::Retired => {
+                    return Err(F07_BINDING_MISMATCH)
+                }
+                Some(_) => (),
+                None => {
+                    let key = SegmentKey {
+                        market,
+                        worker: entry.worker,
+                        config: next.config,
+                        policy: next.policy,
+                        model: next.model,
+                        reset_generation: Version::new(1)?,
+                    };
+                    editor.insert_ordered(
+                        ReputationCurrent::bootstrap(key, entry.owner, height)?,
+                        &mut cursor,
+                    )?;
+                }
             }
         }
     }
-    opened.validate()?;
-    Ok(opened)
+    if !committed {
+        opened.validate()?;
+    }
+    opened.encoded_size()?;
+    Ok(())
 }
 
 /// The record of `worker` and its segment key under the current `binding`.
@@ -661,6 +1257,7 @@ pub fn open_segments(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn bound_record(
     state: &ReputationState,
     worker: WorkerId,
@@ -715,6 +1312,7 @@ pub fn check_expected(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn set_status(
     record: &ReputationCurrent,
     key: SegmentKey,
@@ -817,6 +1415,7 @@ pub struct WorkerObservation {
     clippy::too_many_arguments,
     reason = "every input is a distinct authenticated producer value of the completion"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn complete_epoch(
     state: &ReputationState,
     seal: Presence<HistorySeal>,
@@ -827,6 +1426,53 @@ pub(crate) fn complete_epoch(
     roster: &[WorkerRosterEntry],
     observations: &[WorkerObservation],
 ) -> CodecResult<(ReputationState, CompletedHistory)> {
+    complete_epoch_inner(
+        state,
+        seal,
+        frozen,
+        binding,
+        result,
+        height,
+        roster,
+        observations,
+        false,
+    )
+}
+
+pub(crate) fn complete_committed_epoch(
+    state: &ReputationState,
+    seal: Presence<HistorySeal>,
+    frozen: FrozenBinding,
+    binding: SegmentBinding,
+    result: Digest32,
+    height: u64,
+    roster: &[WorkerRosterEntry],
+    observations: &[WorkerObservation],
+) -> CodecResult<(ReputationState, CompletedHistory)> {
+    complete_epoch_inner(
+        state,
+        seal,
+        frozen,
+        binding,
+        result,
+        height,
+        roster,
+        observations,
+        true,
+    )
+}
+
+fn complete_epoch_inner(
+    state: &ReputationState,
+    seal: Presence<HistorySeal>,
+    frozen: FrozenBinding,
+    binding: SegmentBinding,
+    result: Digest32,
+    height: u64,
+    roster: &[WorkerRosterEntry],
+    observations: &[WorkerObservation],
+    committed: bool,
+) -> CodecResult<(ReputationState, CompletedHistory)> {
     let seal = match seal {
         Presence::Present(seal) if seal.epoch == frozen.epoch => seal,
         _ => return Err(F07_EPOCH_NOT_SEALED),
@@ -834,12 +1480,24 @@ pub(crate) fn complete_epoch(
     if observations.len() != roster.len() || binding.config != frozen.config {
         return Err(F07_BINDING_MISMATCH);
     }
-    let mut draft = match CompletionDraft::begin(state, frozen, result, height, roster)? {
+    let start = CompletionDraft::begin_inner(state, frozen, result, height, roster, committed)?;
+    let mut draft = match start {
         CompletionStart::Pending(draft) => draft,
         CompletionStart::Retained(_) => return Err(NON_CANONICAL),
     };
+    let mut record_cursor = 0;
     for (i, (entry, observation)) in roster.iter().zip(observations).enumerate() {
-        let (_, key) = bound_record(state, entry.worker, binding)?;
+        let at = state.ordered_position(entry.worker, &mut record_cursor);
+        let record = state.current.guest_index(at).ok_or(F07_UNKNOWN_WORKER)?;
+        let key = SegmentKey {
+            market: state.market,
+            worker: entry.worker,
+            config: binding.config,
+            policy: binding.policy,
+            model: binding.model,
+            reset_generation: record.reset_generation,
+        };
+        // apply_worker checks this exact key against the same record before mutation.
         draft.apply_worker(
             key,
             observation.median,

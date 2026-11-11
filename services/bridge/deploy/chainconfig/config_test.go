@@ -318,6 +318,7 @@ func TestRequireDeployableRefusesEachPlaceholder(t *testing.T) {
 			chain: "ethereum",
 			change: func(decoded map[string]any) {
 				decoded["owner"] = realOwner
+				decoded["attestors"] = []any{"PLACEHOLDER:attestor-1"}
 			},
 			field: "attestors[0]",
 		},
