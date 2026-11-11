@@ -1,3 +1,4 @@
+import { copyEntry } from "../../../copy/runtime";
 import { Badge } from "../../kit/collection";
 
 import {
@@ -36,7 +37,7 @@ export async function ActivityFeed({
   if (account === undefined) {
     return (
       <ExplorerPanel title={title}>
-        <StateEmpty title="No account yet" description="Connect a wallet to see its history." />
+        <StateEmpty title={copyEntry("markets.copy.no_account_yet").message} description="Connect a wallet to see its history." />
       </ExplorerPanel>
     );
   }
@@ -59,7 +60,7 @@ export async function ActivityFeed({
   };
   return (
     <ExplorerPanel title={title}>
-      <nav aria-label="History source" className="flex flex-wrap gap-3 text-sm">
+      <nav aria-label={copyEntry("markets.copy.history_source").message} className="flex flex-wrap gap-3 text-sm">
         {(["unified", "paxeer"] as const).map((option) => (
           <ExplorerLink key={option} href={query({ side: option })}>
             {option === side ? `[${METHOD[option]}]` : METHOD[option]}
@@ -70,7 +71,7 @@ export async function ActivityFeed({
         {`Indexed to height ${history.indexedHeight === null ? "none yet" : history.indexedHeight.toString()} of chain height ${history.chainHeight.toString()}`}
       </p>
       {history.items.length === 0 ? (
-        <StateEmpty title="No activity" description="The indexer has no rows for this account yet." />
+        <StateEmpty title={copyEntry("markets.copy.no_activity").message} description="The indexer has no rows for this account yet." />
       ) : (
         <ExplorerTable
           caption={title}
@@ -92,7 +93,7 @@ export async function ActivityFeed({
         />
       )}
       {history.nextCursor === null ? null : (
-        <ExplorerLink href={query({ cursor: history.nextCursor })}>Older activity</ExplorerLink>
+        <ExplorerLink href={query({ cursor: history.nextCursor })}>{copyEntry("markets.copy.older_activity").message}</ExplorerLink>
       )}
     </ExplorerPanel>
   );

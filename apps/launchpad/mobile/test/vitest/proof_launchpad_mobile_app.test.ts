@@ -443,8 +443,9 @@ class RpcWallet implements WalletExecutionProvider {
       this.connectedAccount,
       signal,
     );
+    expect(request.chainId).toBe('125');
     return this.submitApproval(
-      request,
+      { ...request, chainId: '125' },
       await fixture.client.getTransactionCount({
         address: this.connectedAccount,
       }),

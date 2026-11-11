@@ -21095,3 +21095,38 @@ fix = "Decision 3325; task 22.38.36 carries the source and its cases."
 title = "A list that a check reads is kept with the producer of its entries"
 symptom = "Three checks of the workspace read a list: the type set PrecompileAbiType of the TypeScript SDK and the type list of the Python SDK are read against the generated precompile tables, the copy check of the web app reads apps/web/copy/catalog.ts, and tests/programs/runtime-module-boundaries.sh holds the list of the host modules of the runtime. The generated tables name the type uint32 for the chain field of the launchpad chain events, the sources of the web app carry text for the explorer, exchange, bridge and launchpad pages, and the host directory of the runtime carries market.rs. Each list takes the entries of its producer."
 fix = "Decision 3326; tasks 22.39.396, 22.39.397 and 22.39.398."
+
+[gotcha.4255]
+title = "The type check of the launchpad web application covers its test files and the built types of the SDK packages"
+symptom = "The command tsc --noEmit of apps/launchpad/web includes every TypeScript file of the application through its tsconfig.json, test files included, and resolves the types of the SDK packages from their built output. A change of a type that a test file reads, such as the stored draft of the chain flow, reaches each test file that builds a value of that type. A type that one SDK package generates and the other widens is read where the application passes one to the other, as the pool detail is in apps/launchpad/web/src/core/market/pool-resolver.ts."
+fix = "Decision 3327 and task 22.39.399; the build of task 22.40.10 reads the type check for the files of its flow, and its touches name the test file that builds the stored draft."
+
+[gotcha.4256]
+title = "The followers of the hosted indexer write to one database file through separate connections"
+symptom = "The hosted indexer opens its database file through more than one connection: the main store (services/platform/hosted/indexer/src/store.rs:724) and the AI views (ai_market.rs:1395, ai_reputation.rs:384 and ai_health.rs:1216 of the same directory). With the AI capture configured, the AI follower and the chain follower write to that file in the same period, so each writing transaction has to take the write lock of the file and wait for it. The follow loop of main.rs records every observation of a follower in the main store."
+fix = "Decision 3328; task 22.38.36 carries the wait of the writers with its case, and its verification runs that case before the journey."
+
+[gotcha.4257]
+title = "The in-process executor of the processor cases of the launchpad indexer names each statement of the store"
+symptom = "The cases of services/launchpad/indexer/internal/processor/repair_54_test.go run the legacy projection through an in-process executor that accepts the statements of the store by their text (:1081). The store sets the home chain of a pool from the launched chains when a market is created (services/launchpad/indexer/internal/store/store.go:105). A statement that the store gains is therefore read by that executor as well as by the database."
+fix = "Decision 3329; task 22.39.117 carries the statement in the executor of the cases."
+
+[gotcha.4258]
+title = "The message table of the web app is generated from its copy catalog"
+symptom = "The file apps/web/copy/messages.generated.ts holds the runtime messages of the web app and is written by apps/web/copy/generate-runtime.ts from apps/web/copy/catalog.ts. A change of the catalog changes the generated table in the same step, and both files are kept in the tree."
+fix = "Decision 3330; the touches of task 22.39.397 name the generated table."
+
+[gotcha.4259]
+title = "The settlement section of the AI market holds the reward state and then the room market tail"
+symptom = "The settlement section of the shared state of programs/crates/layerx-programs-ai-market carries the reward state first. Once a room is open the room book follows it, closed by its length and the tail mark, as encode_room_market_parts of src/state.rs writes it. The reward state may be empty while the tail is present, which is the state of a market that opens a room before its first epoch. The function room_market of the shared state returns the two parts."
+fix = "Decision 3331 and task 22.39.400."
+
+[gotcha.4260]
+title = "Program recipes build guest modules into the Cargo output directory of the caller"
+symptom = "The recipes programs-interpreter-conformance, programs-sdk-rust and programs-porting-v2-references of the Makefile, and the build scripts under programs/sdk/rust, build guest modules with Cargo and then read each module from a path. Cargo writes to the directory that CARGO_TARGET_DIR names when a caller sets it and to the target directory of the manifest otherwise."
+fix = "Decision 3332 and task 22.39.407."
+
+[gotcha.4261]
+title = "The Hardhat projects compile with Solidity compilers held in the local compiler cache"
+symptom = "The projects contracts, tests/integration/dapp_tests and tests/integration/rpc_tests compile offline. The target paxeer-hardhat-compilers-ready runs scripts/workspace/check-hardhat-compilers.mjs, which reads the compiler versions the projects pin and requires each in the compiler cache of Hardhat."
+fix = "Decision 3333 and task 22.39.408."
