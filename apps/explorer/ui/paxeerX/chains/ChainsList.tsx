@@ -1,18 +1,50 @@
 import { Box, Flex, Text } from '@chakra-ui/react';
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import paxeerX from 'configs/app/features/paxeerX';
 import useApiQuery from 'lib/api/useApiQuery';
+import { publicClient } from 'lib/web3/client';
 import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import { ScanTableCard } from 'ui/shared/scan';
 
-import { parseChainsResponse, sortChains, statusLabel } from './model';
+import { readChainLaunch } from './launch';
+import type { ChainRecord } from './model';
+import { chainListRow, parseChainsResponse, sortChains, statusLabel } from './model';
 
 function chainRows(json: unknown) {
   return sortChains(parseChainsResponse(json));
+}
+
+function ChainRow({ chain }: { chain: ChainRecord }) {
+  const launch = useQuery({
+    queryKey: [ 'chainLaunch', chain.id ],
+    queryFn: () => {
+      if (!publicClient) throw new Error('Chain launch data is unavailable');
+      return readChainLaunch(chain, publicClient);
+    },
+    enabled: paxeerX.isEnabled,
+    retry: false,
+  });
+  const row = chainListRow(chain, launch.data?.tokenSymbol ?? null);
+
+  return (
+    <TableRow data-chain-id={ row.id }>
+      <TableCell><Link href={ `/chains/${ row.id }` }>{ row.name }</Link></TableCell>
+      <TableCell>{ row.chain_id }</TableCell>
+      <TableCell>{ row.launchSymbol || (launch.isError ? 'Unavailable' : '') }</TableCell>
+      <TableCell><Text wordBreak="break-all">{ row.operator }</Text></TableCell>
+      <TableCell>{ statusLabel(row.status) }</TableCell>
+      <TableCell>
+        <Text>{ row.gas_allowance.toLocaleString() } gas</Text>
+        <Text>{ row.byte_allowance.toLocaleString() } bytes</Text>
+      </TableCell>
+      <TableCell>{ row.created_height }</TableCell>
+    </TableRow>
+  );
 }
 
 export function ChainsList() {
@@ -42,6 +74,7 @@ export function ChainsList() {
                   <TableRow>
                     <TableColumnHeader>Name</TableColumnHeader>
                     <TableColumnHeader>Chain ID</TableColumnHeader>
+                    <TableColumnHeader>Launch asset</TableColumnHeader>
                     <TableColumnHeader>Operator</TableColumnHeader>
                     <TableColumnHeader>Status</TableColumnHeader>
                     <TableColumnHeader>Allowance</TableColumnHeader>
@@ -49,19 +82,7 @@ export function ChainsList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  { query.data.map((chain) => (
-                    <TableRow key={ chain.id } data-chain-id={ chain.id }>
-                      <TableCell><Link href={ `/chains/${ chain.id }` }>{ chain.name }</Link></TableCell>
-                      <TableCell>{ chain.chain_id }</TableCell>
-                      <TableCell><Text wordBreak="break-all">{ chain.operator }</Text></TableCell>
-                      <TableCell>{ statusLabel(chain.status) }</TableCell>
-                      <TableCell>
-                        <Text>{ chain.gas_allowance.toLocaleString() } gas</Text>
-                        <Text>{ chain.byte_allowance.toLocaleString() } bytes</Text>
-                      </TableCell>
-                      <TableCell>{ chain.created_height }</TableCell>
-                    </TableRow>
-                  )) }
+                  { query.data.map((chain) => <ChainRow key={ chain.id } chain={ chain }/>) }
                 </TableBody>
               </TableRoot>
             </Box>
