@@ -453,6 +453,7 @@ impl VerifiedReplay {
     /// under the lxphost root authenticated by `host_multistore_proof` against
     /// the caller-trusted `commit.app_hash`. This also derives batch authority
     /// with [`crate::VerifiedReplayAuthority::derive`] and checks native bytes.
+    #[allow(clippy::too_many_arguments)]
     pub fn verify_with_batch_context(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,
@@ -489,6 +490,7 @@ impl VerifiedReplay {
     /// metadata, code catalogue and native input digests are authenticated before
     /// consumption. The catalogue must come from
     /// [`AuthenticatedCatalogue::verify_with_module`] at `commit.app_hash`.
+    #[allow(clippy::too_many_arguments)]
     pub fn verify(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,
