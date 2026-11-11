@@ -21085,3 +21085,8 @@ fix = "Decision 3323; task 22.38.13 carries the case in its touched paths."
 title = "The hosted programs fixture of the node tests holds the occupancy asset of its payer in an agent asset account"
 symptom = "The fixture newHostedProgramsABIFixture of node/upgrades_merge_programs_abi_test.go registers an asset, mints it into the agent asset account of its actor and installs the Programs schedules with that asset as the occupancy asset. The agent main account of the actor holds another asset. The program payment lookup returns the agent asset account for that payer and the occupancy asset, and it returns a context mismatch when two accounts of one identity hold the asset."
 fix = "Decision 3324; task 22.39.394 follows task 22.39.395."
+
+[gotcha.4253]
+title = "A node gives the canonical commit of a height once the next block exists and takes a store key as hexadecimal text without a prefix"
+symptom = "The commit that a node returns for its latest height is marked not canonical until the block above it exists; the commit of every lower height is canonical. The JSON-RPC interface of the node takes the data of a store query as hexadecimal text without the 0x prefix. The committed read of services/platform/hosted/indexer/src/ai_source.rs asks for the commit of the latest height and requires it canonical, and sends the store key with the prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers a canonical commit at its latest height and accepts the prefixed key."
+fix = "Decision 3325; task 22.38.36 carries the source and its cases."
