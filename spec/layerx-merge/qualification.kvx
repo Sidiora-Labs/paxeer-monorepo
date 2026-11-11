@@ -40594,3 +40594,11 @@ symbol = "merged_runtime_fixture.py"
 observed = "Attempt 7 at 7758669f073c on base 4e0c32c6ac68: build 1 exits 0 at 3cc322196072; verification 1 exits 1 at 3cc322196072, the registration of the rewards account reverts with LXP_VERSION_UNSUPPORTED: registerAccount: LXP_ERR_VERSION_UNSUPPORTED; log /out/logs/verify-1.log."
 assumption = "A program deployed directly at ABI 5 holds no account profile record, and the driver of a live chain cannot write one into the store."
 severity = "high"
+
+[finding.22.38.36.7]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 8 at 949f22eb4b3b on base 6a436ad48594: builds 1 to 3 exit 0; verification 1 exits 1 at c2141b9f8116, the CreateMarket call reverts with execution reverted: LXP_NON_CANONICAL: call: LXP_ERR_NON_CANONICAL after the deployment at ABI 2, the registration with profile 2 and the upgrade to ABI 5 committed; log /out/logs/verify-1.log."
+assumption = "The example sends empty capability bytes and an empty access declaration, which the runtime refuses before the guest runs."
+severity = "high"
