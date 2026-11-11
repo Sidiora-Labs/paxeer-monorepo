@@ -6,6 +6,7 @@ mod custody;
 
 use custody::TreasurySigner as DidSigner;
 pub use custody::{did_for_public_key, SendError};
+use layerx_crypto::payments::{ledger_payment_call, CallOptions};
 use layerx_crypto::signer::{
     AgentSignature, SignError, SignFuture, Signer, SigningRequest, TransactionSignFuture,
 };
@@ -14,6 +15,8 @@ use std::sync::Arc;
 
 pub trait TreasurySigner: Send + Sync {
     fn public_key(&self) -> [u8; 32];
+    /// # Errors
+    /// Returns an error when the signer cannot authorize the digest.
     fn sign_digest(&self, digest: &[u8; 32]) -> Result<[u8; 64], String>;
     fn transaction_signer(&self) -> &dyn Signer;
 }
@@ -47,10 +50,14 @@ impl SeedSigner {
 }
 
 impl SocketSigner {
+    /// # Errors
+    /// Returns an error when the signer socket cannot be opened.
     pub fn connect(path: &std::path::Path) -> Result<Self, String> {
         Self::connect_with_timeout(path, custody::SIGNER_TIMEOUT)
     }
 
+    /// # Errors
+    /// Returns an error when the signer socket cannot be opened within the timeout.
     pub fn connect_with_timeout(
         path: &std::path::Path,
         timeout: std::time::Duration,
@@ -62,6 +69,8 @@ impl SocketSigner {
         Ok(Self { did, evm })
     }
 
+    /// # Errors
+    /// Returns an error when the signer socket cannot be opened.
     pub fn connect_with_evm_sender(path: &std::path::Path, evm: EvmSender) -> Result<Self, String> {
         Ok(Self {
             did: custody::SocketSigner::connect(path)?,
@@ -342,7 +351,6 @@ fn build_send_for_accounts(
             "compiled intent is not an asset send".into(),
         ));
     }
-    use layerx_crypto::payments::{ledger_payment_call, CallOptions};
     let transaction_signer = signer.transaction_signer();
     let sender = transaction_signer
         .evm_address()
@@ -518,6 +526,8 @@ impl RegisteredCustodyAsset {
     pub fn trusted_height(&self) -> u64 {
         self.trusted_height
     }
+    /// # Errors
+    /// Returns an error when the derived asset account name is invalid.
     pub fn account_name(&self, did: &str) -> Result<String, String> {
         let name = format!("agent:{did}:asset:{}", hex_encode(&self.asset));
         AccountId::parse(&name).map_err(|error| format!("asset account is invalid: {error:?}"))?;
@@ -555,6 +565,8 @@ impl AuthenticatedCustodyAsset {
     pub const fn state_root(&self) -> [u8; 32] {
         self.registered.state_root
     }
+    /// # Errors
+    /// Returns an error when the derived asset account name is invalid.
     pub fn account_name(&self, did: &str) -> Result<String, String> {
         self.registered.account_name(did)
     }
@@ -680,6 +692,9 @@ fn decode_custody_asset(
 }
 
 /// The native committed block replaces the retired checkpoint authority.
+///
+/// # Errors
+/// Returns an error when the committed block or its state root is unavailable or changes.
 pub fn custody_latest_finalized(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     committed_height: u64,
@@ -688,6 +703,8 @@ pub fn custody_latest_finalized(
     Ok(committed_height)
 }
 
+/// # Errors
+/// Returns an error when the committed block or its state root is unavailable or changes.
 pub fn native_committed_state(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     height: u64,
@@ -715,6 +732,8 @@ pub fn native_committed_state(
     Ok((block, root))
 }
 
+/// # Errors
+/// Returns an error when the requested block is outside the committed range or cannot be read.
 pub fn custody_checkpoint_state_root(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     committed_height: u64,
@@ -762,6 +781,8 @@ fn native_abi_string(bytes: &[u8]) -> Result<String, String> {
         .map_err(|_| "invalid native metadata text".into())
 }
 
+/// # Errors
+/// Returns an error when the native asset identity, metadata, or committed snapshot is invalid.
 pub fn read_native_asset_profile(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     network_id: u32,
@@ -830,6 +851,8 @@ pub fn read_native_asset_profile(
     })
 }
 
+/// # Errors
+/// Returns an error when the asset denomination is unbound or its profile cannot be read.
 pub fn read_custody_profile(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     network_id: u32,
@@ -849,6 +872,8 @@ pub fn read_custody_profile(
     read_native_asset_profile(sequencer, network_id, committed_height, asset, denom)
 }
 
+/// # Errors
+/// Returns an error when the source DID is invalid or has no bound EVM address.
 pub fn custody_source_address(
     network: &layerx_client::px::PxEndpoint,
     source_did: &str,
@@ -859,6 +884,8 @@ pub fn custody_source_address(
         .ok_or_else(|| "custody DID has no bound evm_address".to_owned())
 }
 
+/// # Errors
+/// Returns an error when the asset profile or source account cannot be authenticated.
 pub fn read_custody_asset(
     sequencer: &layerx_client::sequencer::SequencerEndpoint,
     network: &layerx_client::px::PxEndpoint,
@@ -887,6 +914,8 @@ pub fn read_custody_asset(
     })
 }
 
+/// # Errors
+/// Returns an error when the signer or request cannot produce a valid asset send.
 pub fn build_asset_send_with_identity_sequence(
     seed: &[u8; 32],
     identity_sequence: u64,
@@ -897,6 +926,8 @@ pub fn build_asset_send_with_identity_sequence(
         .map_err(|error| error.to_string())
 }
 
+/// # Errors
+/// Returns an error when the request differs from the authenticated asset or signer.
 pub fn build_asset_send_with_signer(
     signer: &dyn TreasurySigner,
     identity_sequence: u64,
@@ -925,13 +956,13 @@ pub fn build_asset_send_with_signer(
             .map_err(SendError::Invalid)?,
     )
     .map_err(|error| SendError::Invalid(format!("destination asset account: {error:?}")))?;
-    let signed = build_send_for_accounts(signer, identity_sequence, request, from, to)?;
-    if signed.source_account != asset.source_account {
+    let signed_send = build_send_for_accounts(signer, identity_sequence, request, from, to)?;
+    if signed_send.source_account != asset.source_account {
         return Err(SendError::Invalid(
             "source asset account substitution".into(),
         ));
     }
-    Ok(signed)
+    Ok(signed_send)
 }
 
 #[cfg(test)]

@@ -26,60 +26,43 @@ fn rpc_response(encoded: &[u8]) -> Vec<u8> {
         "jsonrpc": "2.0", "id": 1,
         "result": format!("0x{}", hex::encode(encoded)),
     }))
-    .unwrap()
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-#[test]
-fn registry_reads_program_state_through_eth_call() {
-    let manifest = include_str!("../Cargo.toml");
-    assert!(!manifest.contains("layerx-programs-protocol-adapter"));
-    let root = Root(std::env::temp_dir().join(format!(
-        "registry-program-state-{}-{}",
-        std::process::id(),
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
-    )));
-    let journal = FileProgramStateJournal::open(root.0.clone()).unwrap();
-    let program = repair_22_33_1470::program();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
-    let endpoint = format!("http://{}/", listener.local_addr().unwrap());
-    // Observe the actual client request; closing without an answer also proves
-    // that a transport failure cannot publish cached program state.
-    let observer = thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let mut stream = loop {
-            match listener.accept() {
-                Ok((stream, _)) => break stream,
-                Err(error)
-                    if error.kind() == std::io::ErrorKind::WouldBlock
-                        && Instant::now() < deadline =>
-                {
-                    thread::sleep(Duration::from_millis(5));
-                }
-                Err(error) => panic!("program-state request observer: {error}"),
+fn observe_program_state_request(listener: &TcpListener) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut stream = loop {
+        match listener.accept() {
+            Ok((stream, _)) => break stream,
+            Err(error)
+                if error.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline =>
+            {
+                thread::sleep(Duration::from_millis(5));
             }
-        };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        let message = layerx_platform_internal::http::read_http_message(
-            &mut stream,
-            layerx_platform_internal::http::MAX_REQUEST_BYTES,
-        )
-        .unwrap();
-        assert_eq!(message.headers.get("").unwrap(), "POST / HTTP/1.1");
-        serde_json::from_slice::<Value>(&message.body).unwrap()
-    });
-    assert!(journal
-        .store(
-            &endpoint,
-            program,
-            32,
-            Instant::now() + Duration::from_secs(5)
-        )
-        .is_err());
-    let request = observer.join().unwrap();
-    let selector = hash_bytes(HashAlgorithm::Keccak256, b"getStateHead(bytes32)").unwrap();
+            Err(error) => panic!("program-state request observer: {error}"),
+        }
+    };
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let message = layerx_platform_internal::http::read_http_message(
+        &mut stream,
+        layerx_platform_internal::http::MAX_REQUEST_BYTES,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        message
+            .headers
+            .get("")
+            .unwrap_or_else(|| panic!("expected a value")),
+        "POST / HTTP/1.1"
+    );
+    serde_json::from_slice::<Value>(&message.body).unwrap_or_else(|error| panic!("{error:?}"))
+}
+
+fn assert_program_state_call(request: &Value, program: layerx_programs::ProgramId) {
+    let selector = hash_bytes(HashAlgorithm::Keccak256, b"getStateHead(bytes32)")
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(request["jsonrpc"], "2.0");
     assert_eq!(request["id"], 1);
     assert_eq!(request["method"], "eth_call");
@@ -93,8 +76,56 @@ fn registry_reads_program_state_through_eth_call() {
             "0x20",
         ])
     );
-    assert_eq!(fs::read_dir(&root.0).unwrap().count(), 0);
-    assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
+}
+
+#[test]
+fn registry_reads_program_state_through_eth_call() {
+    let manifest = include_str!("../Cargo.toml");
+    assert!(!manifest.contains("layerx-programs-protocol-adapter"));
+    let root = Root(std::env::temp_dir().join(format!(
+            "registry-program-state-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .as_nanos(),
+        )));
+    let journal =
+        FileProgramStateJournal::open(root.0.clone()).unwrap_or_else(|error| panic!("{error:?}"));
+    let program = repair_22_33_1470::program();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let endpoint = format!(
+        "http://{}/",
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+    );
+    // Observe the actual client request; closing without an answer also proves
+    // that a transport failure cannot publish cached program state.
+    let observer = thread::spawn(move || observe_program_state_request(&listener));
+    assert!(journal
+        .store(
+            &endpoint,
+            program,
+            32,
+            Instant::now() + Duration::from_secs(5)
+        )
+        .is_err());
+    let request = observer.join().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_program_state_call(&request, program);
+    assert_eq!(
+        fs::read_dir(&root.0)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        0
+    );
+    assert_eq!(
+        journal.cursor().unwrap_or_else(|error| panic!("{error:?}")),
+        ProgramStateCursor::default()
+    );
 
     let encoded = repair_22_33_1470::storage_head_abi();
     let state = encoded[64..102].to_vec();
@@ -107,25 +138,54 @@ fn registry_reads_program_state_through_eth_call() {
                 32,
                 Instant::now() + Duration::from_secs(5),
             )
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         state
     );
     drop(peer);
     let response = rpc_response(&encoded);
-    assert_eq!(journal.store_response(program, &response).unwrap(), state);
+    assert_eq!(
+        journal
+            .store_response(program, &response)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        state
+    );
     let digest = Sha256::digest(&state);
     let record = root.0.join(format!(
         "{}.{}.program-state",
         hex::encode(&program.bytes()),
         hex::encode(&digest),
     ));
-    assert_eq!(fs::read(&record).unwrap(), state);
+    assert_eq!(
+        fs::read(&record).unwrap_or_else(|error| panic!("{error:?}")),
+        state
+    );
     drop(journal);
-    let journal = FileProgramStateJournal::open(root.0.clone()).unwrap();
-    assert_eq!(fs::read(&record).unwrap(), state);
-    journal.audit().unwrap();
-    assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
+    let journal =
+        FileProgramStateJournal::open(root.0.clone()).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        fs::read(&record).unwrap_or_else(|error| panic!("{error:?}")),
+        state
+    );
+    journal.audit().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        journal.cursor().unwrap_or_else(|error| panic!("{error:?}")),
+        ProgramStateCursor::default()
+    );
 
+    assert_program_state_refusals(
+        &journal, program, &encoded, &endpoint, &root, &record, &state,
+    );
+}
+
+fn assert_program_state_refusals(
+    journal: &FileProgramStateJournal,
+    program: layerx_programs::ProgramId,
+    encoded: &[u8],
+    endpoint: &str,
+    root: &Root,
+    record: &std::path::Path,
+    state: &[u8],
+) {
     for (index, value) in [
         (0, 1),
         (31, 64),
@@ -135,7 +195,7 @@ fn registry_reads_program_state_through_eth_call() {
         (102, 1),
         (101, 0),
     ] {
-        let mut invalid = encoded.clone();
+        let mut invalid = encoded.to_vec();
         invalid[index] = value;
         assert!(journal
             .store_response(program, &rpc_response(&invalid))
@@ -144,36 +204,48 @@ fn registry_reads_program_state_through_eth_call() {
     assert!(journal
         .store_response(program, &rpc_response(&encoded[..127]))
         .is_err());
-    let mut trailing = encoded.clone();
+    let mut trailing = encoded.to_vec();
     trailing.extend_from_slice(&[0; 32]);
     assert!(journal
         .store_response(program, &rpc_response(&trailing))
         .is_err());
     for invalid in [
         json!({"jsonrpc": "2.0", "id": 1, "error": {"code": 3, "message": "execution reverted"}}),
-        json!({"jsonrpc": "2.0", "id": 2, "result": format!("0x{}", hex::encode(&encoded))}),
+        json!({"jsonrpc": "2.0", "id": 2, "result": format!("0x{}", hex::encode(encoded))}),
         json!({"jsonrpc": "1.0", "id": 1, "result": "0x"}),
         json!({"jsonrpc": "2.0", "id": 1, "result": "0xzz"}),
         json!({"jsonrpc": "2.0", "id": 1, "result": null}),
     ] {
         assert!(journal
-            .store_response(program, &serde_json::to_vec(&invalid).unwrap())
+            .store_response(
+                program,
+                &serde_json::to_vec(&invalid).unwrap_or_else(|error| panic!("{error:?}"))
+            )
             .is_err());
     }
     assert!(journal.store_response(program, b"{").is_err());
+    assert!(journal.store(endpoint, program, 0, Instant::now()).is_err());
     assert!(journal
-        .store(&endpoint, program, 0, Instant::now())
-        .is_err());
-    assert!(journal
-        .store(&endpoint, program, 32, Instant::now())
+        .store(endpoint, program, 32, Instant::now())
         .is_err());
     assert!(journal
         .store("http://chain.example/rpc", program, 32, Instant::now())
         .is_err());
-    assert_eq!(fs::read_dir(&root.0).unwrap().count(), 1);
-    assert_eq!(fs::read(&record).unwrap(), state);
-    assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
-    fs::write(&record, b"corrupt").unwrap();
+    assert_eq!(
+        fs::read_dir(&root.0)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        fs::read(record).unwrap_or_else(|error| panic!("{error:?}")),
+        state
+    );
+    assert_eq!(
+        journal.cursor().unwrap_or_else(|error| panic!("{error:?}")),
+        ProgramStateCursor::default()
+    );
+    fs::write(record, b"corrupt").unwrap_or_else(|error| panic!("{error:?}"));
     assert!(journal.audit().is_err());
 }
 

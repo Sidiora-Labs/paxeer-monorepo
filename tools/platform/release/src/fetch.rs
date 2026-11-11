@@ -452,27 +452,33 @@ fn run_git(
             }
         }
     })();
-    if result.is_err() {
-        // Kill the whole group: remote-http and index-pack may still own output sockets.
-        let killed = Command::new("/bin/sh")
-            .args(["-c", "kill -KILL \"-$1\"", "release-git-kill"])
-            .arg(child.id().to_string())
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-        let direct_kill = child.kill();
-        let reaped = child.wait();
-        let exited = matches!(child.try_wait(), Ok(Some(_)));
-        if !matches!(killed, Ok(status) if status.success()) && direct_kill.is_err() && !exited {
-            return Err(format!(
-                "{}; failed to terminate Git process group",
-                result.unwrap_err()
-            ));
-        }
-        reaped.map_err(|error| format!("reap {what}: {error}"))?;
+    if let Err(error) = &result {
+        terminate_git_group(&mut child, error, what)?;
     }
     result
+}
+
+fn terminate_git_group(
+    child: &mut std::process::Child,
+    error: &str,
+    what: &str,
+) -> Result<(), String> {
+    // Kill the whole group: remote-http and index-pack may still own output sockets.
+    let killed = Command::new("/bin/sh")
+        .args(["-c", "kill -KILL \"-$1\"", "release-git-kill"])
+        .arg(child.id().to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    let direct_kill = child.kill();
+    let reaped = child.wait();
+    let exited = matches!(child.try_wait(), Ok(Some(_)));
+    if !matches!(killed, Ok(status) if status.success()) && direct_kill.is_err() && !exited {
+        return Err(format!("{error}; failed to terminate Git process group"));
+    }
+    reaped.map_err(|error| format!("reap {what}: {error}"))?;
+    Ok(())
 }
 
 #[cfg(test)]

@@ -1,0 +1,175 @@
+[repair]
+members = ["layerx-ramp-toolkit", "layerx-reference-ramp"]
+behavior = "Ramp library, command, and integration targets preserve order, receipt, journal, and HTTP response bindings."
+
+[lint.1]
+name = "clippy::assigning_clones"
+files = ["toolkit/src/journal.rs", "toolkit/tests/contracts.rs", "toolkit/tests/evm_submit.rs", "toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/source_settlement.rs"]
+
+[lint.2]
+name = "clippy::cast_possible_wrap"
+files = ["toolkit/src/bin/ramp-verify-receipt.rs", "toolkit/src/clients.rs"]
+
+[lint.3]
+name = "clippy::clone_on_copy"
+files = ["toolkit/tests/repair_22_31_211.rs"]
+
+[lint.4]
+name = "clippy::collapsible_if"
+files = ["toolkit/src/evm.rs"]
+
+[lint.5]
+name = "clippy::doc_markdown"
+files = ["reference/tests/proof_ramp_reference_http_routes.rs", "reference/tests/repair_22_33_1487.rs", "toolkit/src/evm.rs", "toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs", "toolkit/tests/proof_ramp_layerx_config.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/repair_22_33_1490.rs"]
+
+[lint.6]
+name = "clippy::duplicate_mod"
+files = ["reference/tests/rebalance_routes.rs", "reference/tests/repair_22_33_1487.rs"]
+
+[lint.7]
+name = "clippy::elidable_lifetime_names"
+files = ["toolkit/src/engine.rs"]
+
+[lint.8]
+name = "clippy::expect_used"
+files = ["reference/src/main.rs", "reference/src/repair_support.rs", "reference/src/required.rs", "reference/tests/config_validation.rs", "reference/tests/plain_listener.rs", "reference/tests/proof_ramp_reference_http_routes.rs", "reference/tests/rebalance_routes.rs", "reference/tests/repair_22_33_1487.rs", "reference/tests/work_routes.rs", "toolkit/src/clients.rs", "toolkit/src/journal.rs", "toolkit/tests/config_example.rs", "toolkit/tests/contracts.rs", "toolkit/tests/custody_rungs.rs", "toolkit/tests/engine_legs.rs", "toolkit/tests/evm_config.rs", "toolkit/tests/evm_ledger.rs", "toolkit/tests/evm_order.rs", "toolkit/tests/evm_submit.rs", "toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs", "toolkit/tests/proof_ramp_layerx_config.rs", "toolkit/tests/recovery_settlement.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/support/required.rs", "toolkit/tests/verify_receipt_cli.rs"]
+
+[lint.9]
+name = "clippy::format_collect"
+files = ["toolkit/src/bin/ramp-verify-receipt.rs", "toolkit/tests/proof_ramp_layerx_config.rs"]
+
+[lint.10]
+name = "clippy::if_not_else"
+files = ["toolkit/src/engine.rs"]
+
+[lint.11]
+name = "clippy::items_after_statements"
+files = ["toolkit/src/clients.rs", "toolkit/tests/contracts.rs"]
+
+[lint.12]
+name = "clippy::large_enum_variant"
+files = ["toolkit/src/journal.rs", "toolkit/tests/engine_legs.rs"]
+
+[lint.13]
+name = "clippy::manual_let_else"
+files = ["toolkit/src/journal.rs"]
+
+[lint.14]
+name = "clippy::match_same_arms"
+files = ["toolkit/src/journal.rs"]
+
+[lint.15]
+name = "clippy::missing_errors_doc"
+files = ["toolkit/src/clients.rs", "toolkit/src/engine.rs", "toolkit/src/evm.rs", "toolkit/src/journal.rs", "toolkit/src/lib.rs", "toolkit/src/migration.rs"]
+
+[lint.16]
+name = "clippy::missing_panics_doc"
+files = ["reference/src/repair_support.rs", "toolkit/src/journal.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.17]
+name = "clippy::must_use_candidate"
+files = ["reference/src/repair_support.rs", "toolkit/src/journal.rs", "toolkit/src/migration.rs"]
+
+[lint.18]
+name = "clippy::needless_borrow"
+files = ["toolkit/tests/engine_legs.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/source_settlement.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.19]
+name = "clippy::needless_borrows_for_generic_args"
+files = ["toolkit/tests/engine_legs.rs"]
+
+[lint.20]
+name = "clippy::needless_pass_by_value"
+files = ["toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.21]
+name = "clippy::needless_raw_string_hashes"
+files = ["reference/tests/proof_ramp_reference_http_routes.rs"]
+
+[lint.22]
+name = "clippy::redundant_closure_for_method_calls"
+files = ["reference/src/main.rs", "toolkit/tests/repair_22_31_211.rs"]
+
+[lint.23]
+name = "clippy::ref_option"
+files = ["toolkit/src/journal.rs", "toolkit/src/lib.rs"]
+
+[lint.24]
+name = "clippy::semicolon_if_nothing_returned"
+files = ["toolkit/tests/contracts.rs", "toolkit/tests/source_settlement.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.25]
+name = "clippy::single_match_else"
+files = ["toolkit/src/journal.rs"]
+
+[lint.26]
+name = "clippy::struct_excessive_bools"
+files = ["toolkit/src/journal.rs"]
+
+[lint.27]
+name = "clippy::too_many_lines"
+files = ["reference/src/main.rs", "reference/tests/plain_listener.rs", "reference/tests/proof_ramp_reference_http_routes.rs", "toolkit/src/clients.rs", "toolkit/src/migration.rs", "toolkit/tests/contracts.rs", "toolkit/tests/engine_legs.rs", "toolkit/tests/evm_order.rs", "toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/source_settlement.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.28]
+name = "clippy::trivially_copy_pass_by_ref"
+files = ["toolkit/src/journal.rs", "toolkit/src/lib.rs"]
+
+[lint.29]
+name = "clippy::type_complexity"
+files = ["toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.30]
+name = "clippy::unnecessary_lazy_evaluations"
+files = ["toolkit/src/clients.rs"]
+
+[lint.31]
+name = "clippy::unnecessary_semicolon"
+files = ["toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.32]
+name = "clippy::unnested_or_patterns"
+files = ["toolkit/src/engine.rs"]
+
+[lint.33]
+name = "clippy::unreadable_literal"
+files = ["reference/tests/config_validation.rs", "reference/tests/plain_listener.rs", "reference/tests/proof_ramp_reference_http_routes.rs", "reference/tests/rebalance_routes.rs", "reference/tests/repair_22_33_1487.rs", "reference/tests/work_routes.rs", "toolkit/tests/evm_config.rs", "toolkit/tests/evm_submit.rs", "toolkit/tests/recovery_settlement.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.34]
+name = "clippy::unused_self"
+files = ["reference/tests/plain_listener.rs"]
+
+[lint.35]
+name = "clippy::unwrap_used"
+files = ["toolkit/tests/evm_order.rs", "toolkit/tests/proof_ramp_layerx_config.rs", "toolkit/tests/repair_22_31_211.rs", "toolkit/tests/repair_22_33_1486.rs", "toolkit/tests/support/repair_22_33_1490.rs", "toolkit/tests/support/required.rs"]
+
+[lint.36]
+name = "clippy::used_underscore_binding"
+files = ["toolkit/src/journal.rs"]
+
+[lint.37]
+name = "clippy::while_let_loop"
+files = ["reference/src/repair_support.rs"]
+
+[lint.38]
+name = "dead_code"
+files = ["reference/src/main.rs", "reference/src/repair_support.rs", "toolkit/src/clients.rs", "toolkit/tests/contracts.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.39]
+name = "deprecated"
+files = ["toolkit/tests/engine_legs.rs"]
+
+[lint.40]
+name = "non_snake_case"
+files = ["toolkit/src/engine.rs", "toolkit/tests/proof_ramp_layerx_config.rs"]
+
+[lint.41]
+name = "unused_imports"
+files = ["toolkit/tests/evm_order.rs", "toolkit/tests/support/repair_22_33_1490.rs"]
+
+[lint.42]
+name = "unused_mut"
+files = ["reference/tests/plain_listener.rs"]
+
+[lint.43]
+name = "unused_variables"
+files = ["toolkit/tests/evm_order.rs"]

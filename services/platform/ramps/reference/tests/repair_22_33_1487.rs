@@ -1,18 +1,7 @@
-//! Task 22.33.1487 / audit 22.30.88 repair record.
-//! unused-custody-cadence -> custody_cadence_controls_real_pending_reconciliation.
-//! listener-timeouts -> slow_tls_releases_permits_and_serves_healthy_clients,
-//!                      slow_reader_releases_permits_and_serves_healthy_clients.
-//! order-purpose-idempotency -> order_purpose_replay_preserves_the_http_binding.
-//! Baseline: not run; the explicit implementation-first, hf-build/hf-done-only
-//! gate order supersedes do_7's conflicting unchanged-tree verification request.
-//! No pre-change test failures are claimed. No out-of-path wiring is required.
-//! Initial qualification: five tests passed; the slow-reader case failed because
-//! the TLS backend translated the expired write deadline into unexpected EOF.
-//! The response writer now preserves the deadline's TimedOut classification;
-//! the original error remains its cause and every test assertion is unchanged.
-//! Qualification revision and private evidence are recorded by hf-done's ledger.
-//! TLS fixture: committed localhost test identity, valid 2020-2100; public test
-//! password only. Tests neither invoke openssl nor read any runtime environment.
+//! The TLS listener bounds concurrent work and preserves journal state during recovery.
+//! The reconciler uses the configured custody polling cadence.
+
+include!("../src/required.rs");
 
 use std::fs;
 use std::io::{Read, Write};
@@ -31,7 +20,7 @@ use native_tls::{Certificate, Identity, TlsAcceptor, TlsConnector, TlsStream};
 use serde_json::{json, Value};
 
 #[path = "../src/main.rs"]
-mod reference;
+pub mod reference;
 use reference::repair_support::Server;
 
 const CERT: &[u8] = include_bytes!("fixtures/repair_fixtures/localhost.pem");
@@ -48,9 +37,9 @@ impl Workspace {
         let id = NEXT_WORKSPACE.fetch_add(1, Ordering::Relaxed);
         let dir =
             std::env::temp_dir().join(format!("repair-22-33-1487-{}-{id}", std::process::id()));
-        fs::create_dir(&dir).expect("private workspace");
+        fs::create_dir(&dir).required("private workspace");
         fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))
-            .expect("directory permissions");
+            .required("directory permissions");
         let workspace = Self(dir);
         for (name, bytes) in [
             ("ca.pem", CERT),
@@ -61,9 +50,9 @@ impl Workspace {
             ("operator-token", b"repair-operator"),
         ] {
             let path = workspace.0.join(name);
-            fs::write(&path, bytes).expect("fixture file");
+            fs::write(&path, bytes).required("fixture file");
             fs::set_permissions(path, fs::Permissions::from_mode(0o600))
-                .expect("fixture permissions");
+                .required("fixture permissions");
         }
         workspace
     }
@@ -102,7 +91,7 @@ impl Workspace {
                 "receipt_keys": [{"keyId": "01".repeat(32),
                     "publicKey": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
                     "firstHeight": 1, "lastHeight": 10}],
-                "max_fee_per_gas": 1000, "max_priority_fee_per_gas": 2, "gas_limit_cap": 100000,
+                "max_fee_per_gas": 1000, "max_priority_fee_per_gas": 2, "gas_limit_cap": 100_000,
                 "signer_endpoint": endpoint, "signer_token_file": p("service-token"),
                 "actor_did": "did:layerx:repair-operator"
             },
@@ -121,27 +110,27 @@ impl Workspace {
 
 impl Drop for Workspace {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove fixture workspace");
+        fs::remove_dir_all(&self.0).required("remove fixture workspace");
     }
 }
 
 fn identity() -> Identity {
-    Identity::from_pkcs12(IDENTITY, PASSWORD).expect("committed test identity")
+    Identity::from_pkcs12(IDENTITY, PASSWORD).required("committed test identity")
 }
 
 fn connect(address: SocketAddr) -> TlsStream<TcpStream> {
-    let tcp = TcpStream::connect(address).expect("connect loopback");
+    let tcp = TcpStream::connect(address).required("connect loopback");
     tcp.set_read_timeout(Some(Duration::from_secs(15)))
-        .expect("client read bound");
+        .required("client read bound");
     tcp.set_write_timeout(Some(Duration::from_secs(3)))
-        .expect("client write bound");
+        .required("client write bound");
     let mut builder = TlsConnector::builder();
     builder.disable_built_in_roots(true);
-    builder.add_root_certificate(Certificate::from_pem(CERT).expect("fixture CA"));
+    builder.add_root_certificate(Certificate::from_pem(CERT).required("fixture CA"));
     builder.identity(identity());
     builder
         .build()
-        .expect("TLS connector")
+        .required("TLS connector")
         .connect("localhost", tcp)
         .unwrap_or_else(|_| panic!("authenticated TLS connection"))
 }
@@ -154,39 +143,39 @@ fn request(
     body: &[u8],
 ) -> (u16, Value) {
     let mut tls = connect(address);
-    write!(tls, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("request headers");
-    tls.write_all(body).expect("request body");
-    tls.flush().expect("request flush");
+    write!(tls, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).required("request headers");
+    tls.write_all(body).required("request body");
+    tls.flush().required("request flush");
     let mut response = Vec::new();
     let boundary = loop {
         let mut byte = [0];
         tls.read_exact(&mut byte)
-            .expect("bounded HTTP response headers");
+            .required("bounded HTTP response headers");
         response.push(byte[0]);
         assert!(response.len() <= 32 * 1024);
         if response.ends_with(b"\r\n\r\n") {
             break response.len() - 4;
         }
     };
-    let header = std::str::from_utf8(&response[..boundary]).expect("response headers");
+    let header = std::str::from_utf8(&response[..boundary]).required("response headers");
     let status = header
         .split_ascii_whitespace()
         .nth(1)
-        .expect("status")
+        .required("status")
         .parse()
-        .expect("status code");
+        .required("status code");
     let length: usize = header
         .lines()
         .find_map(|line| line.strip_prefix("Content-Length: "))
-        .expect("response length")
+        .required("response length")
         .parse()
-        .expect("length integer");
+        .required("length integer");
     response.resize(boundary + 4 + length, 0);
     tls.read_exact(&mut response[boundary + 4..])
-        .expect("bounded HTTP response body");
+        .required("bounded HTTP response body");
     (
         status,
-        serde_json::from_slice(&response[boundary + 4..]).expect("response JSON"),
+        serde_json::from_slice(&response[boundary + 4..]).required("response JSON"),
     )
 }
 
@@ -201,14 +190,15 @@ impl Peer {
     fn start() -> Self {
         // Bind localhost's IPv4 address; Endpoint resolves localhost the same way
         // on this host, and the certificate covers both localhost and loopback.
-        let tcp = TcpListener::bind("localhost:0").expect("fixture peer");
-        let address = tcp.local_addr().expect("peer address");
-        tcp.set_nonblocking(true).expect("peer nonblocking accept");
+        let tcp = TcpListener::bind("localhost:0").required("fixture peer");
+        let address = tcp.local_addr().required("peer address");
+        tcp.set_nonblocking(true)
+            .required("peer nonblocking accept");
         let (events_tx, events) = mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let worker = thread::spawn(move || {
-            let acceptor = TlsAcceptor::new(identity()).expect("peer TLS");
+            let acceptor = TlsAcceptor::new(identity()).required("peer TLS");
             while !stopped.load(Ordering::Acquire) {
                 let (stream, _) = match tcp.accept() {
                     Ok(pair) => pair,
@@ -220,42 +210,42 @@ impl Peer {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("peer read bound");
+                    .required("peer read bound");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(3)))
-                    .expect("peer write bound");
+                    .required("peer write bound");
                 let mut tls = acceptor
                     .accept(stream)
                     .unwrap_or_else(|_| panic!("peer handshake"));
                 let mut bytes = Vec::new();
                 let boundary = loop {
                     let mut byte = [0];
-                    tls.read_exact(&mut byte).expect("peer HTTP headers");
+                    tls.read_exact(&mut byte).required("peer HTTP headers");
                     bytes.push(byte[0]);
                     assert!(bytes.len() <= 32 * 1024);
                     if bytes.ends_with(b"\r\n\r\n") {
                         break bytes.len();
                     }
                 };
-                let headers = std::str::from_utf8(&bytes).expect("peer header text");
+                let headers = std::str::from_utf8(&bytes).required("peer header text");
                 let line = headers
                     .lines()
                     .next()
-                    .expect("peer request line")
+                    .required("peer request line")
                     .to_owned();
                 assert!(headers.contains("Authorization: Bearer repair-service\r\n"));
                 let length: usize = headers
                     .lines()
                     .find_map(|line| line.strip_prefix("Content-Length: "))
-                    .expect("request length")
+                    .required("request length")
                     .parse()
-                    .expect("peer length");
+                    .required("peer length");
                 bytes.resize(boundary + length, 0);
                 tls.read_exact(&mut bytes[boundary..])
-                    .expect("peer request body");
+                    .required("peer request body");
                 let (status, response) = if line == "POST /v1/introspect HTTP/1.1" {
-                    let body: Value =
-                        serde_json::from_slice(&bytes[boundary..]).expect("introspection request");
+                    let body: Value = serde_json::from_slice(&bytes[boundary..])
+                        .required("introspection request");
                     assert_eq!(
                         body,
                         json!({"token": "customer-token", "audience": "repair-ramp"})
@@ -274,7 +264,7 @@ impl Peer {
                     );
                     if line.starts_with("POST") {
                         let body: Value =
-                            serde_json::from_slice(&bytes[boundary..]).expect("custody request");
+                            serde_json::from_slice(&bytes[boundary..]).required("custody request");
                         assert_eq!(body["operator_account"], OPERATOR);
                         assert_eq!(body["amount"], 100);
                         assert_eq!(body["idempotency_key"], json!(([7_u8; 32])));
@@ -285,12 +275,12 @@ impl Peer {
                 };
                 events_tx
                     .send((line, Instant::now()))
-                    .expect("record peer request");
-                let body = serde_json::to_vec(&response).expect("peer response");
-                write!(tls, "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("peer headers");
-                tls.write_all(&body).expect("peer body");
-                tls.flush().expect("peer flush");
-                tls.shutdown().expect("peer TLS close notify");
+                    .required("record peer request");
+                let body = serde_json::to_vec(&response).required("peer response");
+                write!(tls, "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).required("peer headers");
+                tls.write_all(&body).required("peer body");
+                tls.flush().required("peer flush");
+                tls.shutdown().required("peer TLS close notify");
             }
         });
         Self {
@@ -306,7 +296,7 @@ impl Drop for Peer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("fixture peer shutdown");
+            worker.join().required("fixture peer shutdown");
         }
     }
 }
@@ -346,10 +336,10 @@ fn order_purpose_replay_preserves_the_http_binding() {
             "POST",
             "/v1/orders",
             "customer-token",
-            &serde_json::to_vec(value).expect("encode CreateOrder"),
+            &serde_json::to_vec(value).required("encode CreateOrder"),
         )
     };
-    let original = serde_json::to_value(&create).expect("real order producer");
+    let original = serde_json::to_value(&create).required("real order producer");
     let (status, initial) = send(&original);
     assert_eq!(status, 201, "{initial}");
     let bound = server.order(&create.order_id);
@@ -359,11 +349,11 @@ fn order_purpose_replay_preserves_the_http_binding() {
     for purpose in [Some([6; 32]), None] {
         let mut conflicting = create.clone();
         conflicting.payer_grant_purpose = purpose;
-        let mut value = serde_json::to_value(&conflicting).expect("changed request");
+        let mut value = serde_json::to_value(&conflicting).required("changed request");
         if purpose.is_none() {
             value
                 .as_object_mut()
-                .expect("request object")
+                .required("request object")
                 .remove("customer_budget_purpose");
         }
         let (status, body) = send(&value);
@@ -373,8 +363,8 @@ fn order_purpose_replay_preserves_the_http_binding() {
     }
     // Both maintained wire names and the supported legacy aliases bind purpose.
     let mut legacy = original.clone();
-    let object = legacy.as_object_mut().expect("order object");
-    let purpose = object.remove("customer_budget_purpose").expect("purpose");
+    let object = legacy.as_object_mut().required("order object");
+    let purpose = object.remove("customer_budget_purpose").required("purpose");
     object.insert("payer_grant_purpose".into(), purpose);
     assert_eq!(send(&legacy), (201, initial.clone()));
     legacy["payer_grant_purpose"] = json!(([9_u8; 32]));
@@ -402,13 +392,13 @@ fn custody_cadence_controls_real_pending_reconciliation() {
         let server = Server::start(workspace.config(peer.address, seconds), 2, true);
         let started = Instant::now();
         let (status, body) = request(server.address, "POST", "/internal/v1/rebalances", "repair-operator",
-            &serde_json::to_vec(&json!({"action": "submit", "asset": ([1_u8;32]), "amount": 100, "idempotency_key": ([7_u8;32])})).expect("rebalance request"));
+            &serde_json::to_vec(&json!({"action": "submit", "asset": ([1_u8;32]), "amount": 100, "idempotency_key": ([7_u8;32])})).required("rebalance request"));
         assert_eq!(status, 503, "{body}");
         assert!(server.pending_custody([7; 32]));
         assert_eq!(
             peer.events
                 .recv_timeout(Duration::from_secs(1))
-                .expect("broadcast")
+                .required("broadcast")
                 .0,
             "POST /rebalances HTTP/1.1"
         );
@@ -417,7 +407,7 @@ fn custody_cadence_controls_real_pending_reconciliation() {
             let (line, observed) = peer
                 .events
                 .recv_timeout(Duration::from_secs(seconds + 2))
-                .expect("configured custody poll");
+                .required("configured custody poll");
             assert_eq!(
                 line,
                 format!(
@@ -458,16 +448,16 @@ fn slow_tls_releases_permits_and_serves_healthy_clients() {
     let peer = Peer::start();
     let workspace = Workspace::new();
     let server = Server::start(workspace.config(peer.address, 1), 2, false);
-    let mut stalled = TcpStream::connect(server.address).expect("slow TLS peer");
+    let mut stalled = TcpStream::connect(server.address).required("slow TLS peer");
     let started = Instant::now();
     // An incomplete TLS record stalls negotiation before any HTTP parser runs.
     stalled
         .write_all(&[0x16, 0x03, 0x03, 0x00, 0x80])
-        .expect("partial TLS hello");
+        .required("partial TLS hello");
     wait_active(&server, 1, Duration::from_secs(1));
     healthy(&server);
     wait_active(&server, 1, Duration::from_secs(1));
-    let _second = TcpStream::connect(server.address).expect("second slow TLS peer");
+    let _second = TcpStream::connect(server.address).required("second slow TLS peer");
     wait_active(&server, 2, Duration::from_secs(1));
     wait_active(&server, 0, Duration::from_secs(12));
     assert!(started.elapsed() >= Duration::from_secs(9));
@@ -486,16 +476,17 @@ fn slow_reader_releases_permits_and_serves_healthy_clients() {
     let mut stalled = connect(address);
     stalled
         .write_all(b"GET /livez HTTP/1.1\r\nHost: localhost\r\n\r\n")
-        .expect("slow reader request");
-    stalled.flush().expect("send request");
+        .required("slow reader request");
+    stalled.flush().required("send request");
     wait_active(&server, 1, Duration::from_secs(1));
     healthy(&server);
     // Keep the TLS peer alive without draining its TCP receive window.
     wait_active(&server, 0, Duration::from_secs(12));
     let failure = worker
         .join()
-        .expect("response writer")
-        .expect_err("slow reader must hit the deadline");
+        .required("response writer")
+        .err()
+        .required("slow reader must hit the deadline");
     assert!(
         matches!(
             failure.kind(),

@@ -507,6 +507,8 @@ impl JobService {
         &self.runner
     }
 
+    /// # Errors
+    /// Returns a store or signature error when the delegate key cannot be loaded.
     pub fn signing_key(&self, delegate: PublicKey32) -> Result<SigningKey, ServiceError> {
         if self.key.verifying_key().to_bytes() == delegate.0 {
             Ok(self.key.clone())
@@ -516,6 +518,10 @@ impl JobService {
     }
 
     /// Recover an exact signed admission without consulting mutable task or input files.
+    ///
+    /// # Errors
+    /// Returns an envelope, binding, authorization, or store error when recovery cannot
+    /// establish the saved admission.
     pub fn replay_submit(
         &self,
         signed: &[u8],
@@ -1090,6 +1096,10 @@ impl JobService {
     }
 
     /// Returns the exact authorized admission alongside its cancellation state.
+    ///
+    /// # Errors
+    /// Returns an envelope, binding, authorization, store, or signing error when the
+    /// cancellation cannot be recorded.
     pub fn cancel_record(
         &self,
         signed: &[u8],
@@ -1165,6 +1175,8 @@ impl JobService {
         })?
     }
 
+    /// # Errors
+    /// Returns a store or commitment error when the final record cannot be read or committed.
     pub fn commit_record_or_retain(
         &self,
         key: JobKey,
@@ -1215,6 +1227,9 @@ impl JobService {
     }
 
     /// Persist the expired fence in the job itself before cancellation or reconciliation.
+    ///
+    /// # Errors
+    /// Returns a store error when the job state cannot be updated.
     pub fn fence_expired(&self, key: JobKey, fence: u64, now_ms: u64) -> Result<(), ServiceError> {
         self.store.update(key, |job, _| {
             let state =
@@ -1235,6 +1250,9 @@ impl JobService {
 
     /// Finalized settlement or an elapsed chain deadline releases retention eligibility.
     /// Unfinished and unknown executions are always preserved by the store.
+    ///
+    /// # Errors
+    /// Returns a store or settlement error when retention cannot be applied.
     pub fn purge_settled(
         &self,
         now_ms: u64,
