@@ -196465,7 +196465,7 @@ do_4 = "do_4 Decision 3341, gotcha 4265. The verification now lints the member w
 
 [task.22.39.412]
 title = "Bring the agent boundary member of the platform through the workspace lint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
