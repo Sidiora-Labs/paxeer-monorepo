@@ -62,15 +62,15 @@ fn fixture() -> &'static Fixture {
     static FIXTURE: OnceLock<Fixture> = OnceLock::new();
     FIXTURE.get_or_init(|| {
         let root = std::env::temp_dir().join(format!("layerx-repair-22-31-265-{}", std::process::id()));
-        fs::create_dir_all(root.join("host/src")).unwrap();
+        fs::create_dir_all(root.join("host/src")).unwrap_or_else(|error| panic!("test value: {error:?}"));
         let programs = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
-            .unwrap();
+            .unwrap_or_else(|error| panic!("test value: {error:?}"));
         // A separate harness avoids adding a runtime dependency to the guest SDK.
         write(root.join("host/Cargo.toml"), format!(
-            "[package]\nname = \"repair-265-host\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[workspace]\n[dependencies]\nlayerx-programs-runtime = {{ path = {:?} }}\n[profile.dev]\ndebug = 0\n",
-            programs.join("crates/layerx-programs-runtime")
+            "[package]\nname = \"repair-265-host\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[workspace]\n[dependencies]\nlayerx-programs-runtime = {{ path = \"{}\" }}\n[profile.dev]\ndebug = 0\n",
+            programs.join("crates/layerx-programs-runtime").display()
         ));
         write(root.join("host/src/main.rs"), HOST);
         run(Command::new("cargo")
@@ -79,7 +79,7 @@ fn fixture() -> &'static Fixture {
             .arg(root.join("host/Cargo.toml"))
             .arg("--target-dir")
             .arg(root.join("host/target")));
-        let generator = BindingGenerator::from_interface(&interface()).unwrap();
+        let generator = BindingGenerator::from_interface(&interface()).unwrap_or_else(|error| panic!("test value: {error:?}"));
         write(root.join("client.py"), generator.generate_python());
         run(Command::new("python3").current_dir(&root).args(["-c", "import client as c; from pathlib import Path; Path('output.bin').write_bytes(c._frame(c._Entry_01020304_OUTPUT, bytes([0x5a])*1048570))"]));
         Fixture {
@@ -93,22 +93,34 @@ fn fixture() -> &'static Fixture {
 fn directory(language: &str) -> (&'static Fixture, PathBuf) {
     let fixture = fixture();
     let directory = fixture.root.join(language);
-    fs::create_dir_all(&directory).unwrap();
+    fs::create_dir_all(&directory).unwrap_or_else(|error| panic!("test value: {error:?}"));
     (fixture, directory)
 }
 
 fn transport(fixture: &Fixture, directory: &Path) {
-    let bytes = fs::read(directory.join("call.bin")).unwrap();
+    let bytes = fs::read(directory.join("call.bin"))
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(bytes.len(), LIMIT);
     assert_eq!(&bytes[..6], &[1, 2, 3, 4, 1, 0x20]);
-    assert_eq!(&bytes[6..10], &(MAX_VALUE as u32).to_be_bytes());
+    assert_eq!(
+        &bytes[6..10],
+        &u32::try_from(MAX_VALUE)
+            .unwrap_or_else(|error| panic!("payload length: {error}"))
+            .to_be_bytes()
+    );
     assert!(bytes[10..].iter().all(|byte| *byte == 0x5a));
-    assert_eq!(CallInput::new(&bytes).unwrap().bytes(), bytes);
+    assert_eq!(
+        CallInput::new(&bytes)
+            .unwrap_or_else(|error| panic!("test value: {error:?}"))
+            .bytes(),
+        bytes
+    );
     let mut too_long = bytes.clone();
     too_long.push(0x5a);
     assert!(CallInput::new(&too_long).is_err());
     run(Command::new(&fixture.host).arg(directory.join("call.bin")));
-    let output = fs::read(directory.join("output.bin")).unwrap();
+    let output = fs::read(directory.join("output.bin"))
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(output.len(), LIMIT);
     assert_eq!(&output[..2], &[1, 0x20]);
     assert_eq!(&output[2..6], &SCHEMA_MAX.to_be_bytes());
@@ -147,8 +159,10 @@ fn finding_004_rust_and_typescript_complete_call_budget() {
     run(Command::new("node").current_dir(&directory).arg("main.js"));
     transport(fixture, &directory);
     assert_eq!(
-        fs::read(directory.join("call.bin")).unwrap(),
-        fs::read(fixture.root.join("rust/call.bin")).unwrap()
+        fs::read(directory.join("call.bin"))
+            .unwrap_or_else(|error| panic!("test value: {error:?}")),
+        fs::read(fixture.root.join("rust/call.bin"))
+            .unwrap_or_else(|error| panic!("test value: {error:?}"))
     );
 }
 
@@ -268,7 +282,7 @@ fn main() {
 }
 "#;
 
-const TYPESCRIPT: &str = r#"
+const TYPESCRIPT: &str = r"
 declare function require(name:string): { writeFileSync(path:string, bytes:Uint8Array):void; readFileSync(path:string):Uint8Array };
 const fs = require('fs');
 const input = boundedBytes(1048570, new Uint8Array(1048566).fill(0x5a));
@@ -285,7 +299,7 @@ const outputFrame=fs.readFileSync('../output.bin');
 if (outputFrame.length!==1048576 || decodeBlobOutput(outputFrame).length!==1048570) throw new Error('output budget');
 decodeBlobFailure(7,outputFrame);
 fs.writeFileSync('output.bin',outputFrame);
-"#;
+";
 
 const GO: &str = r#"
 package bindings
@@ -361,7 +375,7 @@ fun main() {
 }
 "#;
 
-const PYTHON: &str = r#"
+const PYTHON: &str = r"
 from pathlib import Path
 import client as c
 input=c.Entry_01020304Input(bytes([0x5a])*1048566)
@@ -383,7 +397,7 @@ assert len(frame)==1048576
 assert c.decode_entry_blob_01020304_output(frame)==output
 assert c.decode_entry_blob_01020304_failure(7,frame).detail==output
 Path('output.bin').write_bytes(frame)
-"#;
+";
 
 const SWIFT: &str = r#"
 import Foundation

@@ -8,8 +8,16 @@ impl BindingGenerator {
     #[must_use]
     pub fn generate_swift(&self) -> String {
         let mut out = String::from(SWIFT_RUNTIME);
-        let _ = writeln!(out, "public let layerXInterfaceDigest: [UInt8] = {:?}", self.digest);
-        let _ = writeln!(out, "public let layerXCodeHash: [UInt8] = {:?}", self.code_hash);
+        let _ = writeln!(
+            out,
+            "public let layerXInterfaceDigest: [UInt8] = {:?}",
+            self.digest
+        );
+        let _ = writeln!(
+            out,
+            "public let layerXCodeHash: [UInt8] = {:?}",
+            self.code_hash
+        );
         for entry in &self.entries {
             swift_entry(&mut out, entry);
         }
@@ -17,7 +25,7 @@ impl BindingGenerator {
     }
 }
 
-const SWIFT_RUNTIME: &str = r#"public enum LxBindingRefusal: Error, Equatable {
+const SWIFT_RUNTIME: &str = r"public enum LxBindingRefusal: Error, Equatable {
     case codeHashMismatch
     case staleInterface
     case invalidLength
@@ -124,7 +132,7 @@ fileprivate struct LxReader {
         guard remaining == 0 else { throw LxBindingRefusal.trailingBytes }
     }
 }
-"#;
+";
 
 fn swift_entry(out: &mut String, entry: &Entry) {
     let mut discriminator = String::new();
@@ -135,11 +143,19 @@ fn swift_entry(out: &mut String, entry: &Entry) {
     swift_type(out, &entry.input, "Input");
     swift_type(out, &entry.output, "Output");
     for failure in &entry.failures {
-        swift_type(out, &failure.detail, &format!("Failure{}Detail", failure.code));
+        swift_type(
+            out,
+            &failure.detail,
+            &format!("Failure{}Detail", failure.code),
+        );
     }
     out.push_str("public enum Failure: Error, Equatable {\n");
     for failure in &entry.failures {
-        let _ = writeln!(out, "case code{}(Failure{}Detail)", failure.code, failure.code);
+        let _ = writeln!(
+            out,
+            "case code{}(Failure{}Detail)",
+            failure.code, failure.code
+        );
     }
     if !entry.failures.is_empty() {
         out.push_str("public var code: UInt32 { switch self {\n");
@@ -148,7 +164,11 @@ fn swift_entry(out: &mut String, entry: &Entry) {
         }
         out.push_str("} }\npublic var name: String { switch self {\n");
         for failure in &entry.failures {
-            let _ = writeln!(out, "case .code{}: return \"{}\"", failure.code, failure.name);
+            let _ = writeln!(
+                out,
+                "case .code{}: return \"{}\"",
+                failure.code, failure.name
+            );
         }
         out.push_str("} }\n");
     }
@@ -164,7 +184,11 @@ fn swift_entry(out: &mut String, entry: &Entry) {
 }
 
 fn swift_convention(value: &Type) -> u8 {
-    if matches!(value, Type::EvmHead) { 2 } else { 1 }
+    if matches!(value, Type::EvmHead) {
+        2
+    } else {
+        1
+    }
 }
 
 fn swift_scalar(value: &Type) -> Option<(&'static str, u8, usize, bool)> {
@@ -186,7 +210,10 @@ fn swift_type(out: &mut String, value: &Type, name: &str) {
         let _ = writeln!(out, "public typealias {name} = {scalar}\nfileprivate static func encode{name}(_ value: {name}, _ writer: inout LxWriter) throws {{\ntry writer.byte({tag})\ntry writer.unsigned(UInt64(truncatingIfNeeded: value), width: {width})\n}}\nfileprivate static func decode{name}Value(_ reader: inout LxReader) throws -> {name} {{\ntry reader.tag({tag})\nlet value = try reader.unsigned(width: {width})");
         if signed {
             let unsigned = format!("UInt{}", width * 8);
-            let _ = writeln!(out, "return {scalar}(bitPattern: {unsigned}(truncatingIfNeeded: value))\n}}");
+            let _ = writeln!(
+                out,
+                "return {scalar}(bitPattern: {unsigned}(truncatingIfNeeded: value))\n}}"
+            );
         } else {
             let _ = writeln!(out, "return {scalar}(value)\n}}");
         }
@@ -207,7 +234,11 @@ fn swift_type(out: &mut String, value: &Type, name: &str) {
         Type::Fixed(element, bound) | Type::Variable(element, bound) => {
             let child = format!("{name}Element");
             swift_type(out, element, &child);
-            let (tag, comparison) = if matches!(value, Type::Fixed(_, _)) { (0x30, "==") } else { (0x31, "<=") };
+            let (tag, comparison) = if matches!(value, Type::Fixed(_, _)) {
+                (0x30, "==")
+            } else {
+                (0x31, "<=")
+            };
             let _ = writeln!(out, "public struct {name}: Equatable, Sendable {{\npublic let values: [{child}]\npublic init(_ values: [{child}]) throws {{\nguard UInt64(values.count) {comparison} {bound} else {{ throw LxBindingRefusal.invalidLength }}\nself.values = values\n}}\n}}\nfileprivate static func encode{name}(_ value: {name}, _ writer: inout LxWriter) throws {{\ntry writer.byte({tag})\ntry writer.count(value.values.count)\nfor element in value.values {{ try encode{child}(element, &writer) }}\n}}\nfileprivate static func decode{name}Value(_ reader: inout LxReader) throws -> {name} {{\ntry reader.tag({tag})\nlet count = try reader.count()\nguard UInt64(count) {comparison} {bound} && count <= reader.remaining else {{ throw LxBindingRefusal.invalidLength }}\nvar values: [{child}] = []\nfor _ in 0..<count {{ values.append(try decode{child}Value(&reader)) }}\nreturn try {name}(values)\n}}");
         }
         Type::Option(element) => {
@@ -229,21 +260,33 @@ fn swift_type(out: &mut String, value: &Type, name: &str) {
             }
             let _ = writeln!(out, "}}\n}}\nfileprivate static func decode{name}Value(_ reader: inout LxReader) throws -> {name} {{\ntry reader.tag(0x50)\nswitch try reader.unsigned(width: 4) {{");
             for variant in variants {
-                let _ = writeln!(out, "case {}: return .tag{}(try decode{name}Tag{}Value(&reader))", variant.tag, variant.tag, variant.tag);
+                let _ = writeln!(
+                    out,
+                    "case {}: return .tag{}(try decode{name}Tag{}Value(&reader))",
+                    variant.tag, variant.tag, variant.tag
+                );
             }
             out.push_str("default: throw LxBindingRefusal.malformed\n}\n}\n");
         }
         Type::EvmHead => {
             let _ = writeln!(out, "public typealias {name} = LxEvmHead\nfileprivate static func encode{name}(_ value: {name}, _ writer: inout LxWriter) throws {{ try writer.raw(value.bytes) }}\nfileprivate static func decode{name}Value(_ reader: inout LxReader) throws -> {name} {{\nlet count = reader.remaining\nreturn try LxEvmHead(reader.raw(count))\n}}");
         }
-        Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::I8 | Type::I16 | Type::I32 | Type::I64 => unreachable!(),
+        Type::U8
+        | Type::U16
+        | Type::U32
+        | Type::U64
+        | Type::I8
+        | Type::I16
+        | Type::I32
+        | Type::I64 => unreachable!(),
     }
 }
 
 impl BindingGenerator {
     #[must_use]
     pub fn generate_swift_consumer(&self) -> String {
-        let mut out = String::from(r#"
+        let mut out = String::from(
+            r"
 enum LxConformanceFailure: Error { case assertion }
 func lxAssert(_ value: Bool) throws { if !value { throw LxConformanceFailure.assertion } }
 func lxExpectRefusal(_ expected: LxBindingRefusal, _ body: () throws -> Void) throws {
@@ -253,18 +296,27 @@ func lxExpectRefusal(_ expected: LxBindingRefusal, _ body: () throws -> Void) th
     }
     throw LxConformanceFailure.assertion
 }
-"#);
+",
+        );
         for entry in &self.entries {
             let namespace = swift_namespace(entry);
             let (input, input_bytes) = swift_sample(&entry.input, &format!("{namespace}.Input"));
-            let (output, output_bytes) = swift_sample(&entry.output, &format!("{namespace}.Output"));
+            let (output, output_bytes) =
+                swift_sample(&entry.output, &format!("{namespace}.Output"));
             let _ = writeln!(out, "do {{\nlet input: {namespace}.Input = {input}\nlet call = try {namespace}.call(input, deployedCodeHash: layerXCodeHash, publishedDigest: layerXInterfaceDigest)\nlet expected: [UInt8] = {:?} + [{}] + ({input_bytes})\ntry lxAssert(call.bytes == expected)\nlet output: {namespace}.Output = {output}\nlet outputBytes: [UInt8] = [{}] + ({output_bytes})\ntry lxAssert(try {namespace}.decodeOutput(outputBytes) == output)\nswitch try {namespace}.decodeResponse(code: nil, bytes: outputBytes) {{\ncase .success(let decoded): try lxAssert(decoded == output)\ncase .failure: throw LxConformanceFailure.assertion\n}}", entry.discriminator, swift_convention(&entry.input), swift_convention(&entry.output));
             for failure in &entry.failures {
-                let (detail, detail_bytes) = swift_sample(&failure.detail, &format!("{namespace}.Failure{}Detail", failure.code));
+                let (detail, detail_bytes) = swift_sample(
+                    &failure.detail,
+                    &format!("{namespace}.Failure{}Detail", failure.code),
+                );
                 let _ = writeln!(out, "do {{\nlet detail: {namespace}.Failure{}Detail = {detail}\nlet bytes: [UInt8] = [{}] + ({detail_bytes})\nlet failure = try {namespace}.decodeFailure(code: {}, bytes: bytes)\ntry lxAssert(failure == .code{}(detail))\ntry lxAssert(failure.code == {} && failure.name == \"{}\")\nswitch try {namespace}.decodeResponse(code: {}, bytes: bytes) {{\ncase .failure(let decoded): try lxAssert(decoded == failure)\ncase .success: throw LxConformanceFailure.assertion\n}}\n}}", failure.code, swift_convention(&failure.detail), failure.code, failure.code, failure.code, failure.name, failure.code);
             }
             let mut unknown_code = 0u32;
-            while entry.failures.iter().any(|failure| failure.code == unknown_code) {
+            while entry
+                .failures
+                .iter()
+                .any(|failure| failure.code == unknown_code)
+            {
                 unknown_code += 1;
             }
             let _ = writeln!(out, "try lxExpectRefusal(.unknownFailure({unknown_code})) {{ _ = try {namespace}.decodeFailure(code: {unknown_code}, bytes: []) }}\nvar stale = layerXInterfaceDigest\nstale[0] ^= 1\ntry lxExpectRefusal(.staleInterface) {{ _ = try {namespace}.call(input, deployedCodeHash: layerXCodeHash, publishedDigest: stale) }}\nvar wrongCode = layerXCodeHash\nwrongCode[0] ^= 1\ntry lxExpectRefusal(.codeHashMismatch) {{ _ = try {namespace}.call(input, deployedCodeHash: wrongCode, publishedDigest: layerXInterfaceDigest) }}\ntry lxExpectRefusal(.codeHashMismatch) {{ _ = try {namespace}.call(input, deployedCodeHash: [], publishedDigest: layerXInterfaceDigest) }}\ntry lxExpectRefusal(.staleInterface) {{ _ = try {namespace}.call(input, deployedCodeHash: layerXCodeHash, publishedDigest: []) }}\ntry lxExpectRefusal(.truncated) {{ _ = try {namespace}.decodeOutput([]) }}\nvar wrongConvention = outputBytes\nwrongConvention[0] = 255\ntry lxExpectRefusal(.wrongConvention) {{ _ = try {namespace}.decodeOutput(wrongConvention) }}");
@@ -310,7 +362,9 @@ fn swift_sample(value: &Type, name: &str) -> (String, String) {
         let mut wire = alloc::vec![tag];
         if signed {
             wire.extend(core::iter::repeat_n(255, width));
-            if let Some(last) = wire.last_mut() { *last = 253; }
+            if let Some(last) = wire.last_mut() {
+                *last = 253;
+            }
             return ("-3".into(), format!("{wire:?}"));
         }
         wire.extend(core::iter::repeat_n(255, width));
@@ -330,48 +384,86 @@ fn swift_sample(value: &Type, name: &str) -> (String, String) {
                 _ => (0x15, 32),
             };
             let mut bytes = alloc::vec![255u8; width];
-            if matches!(value, Type::I128) { bytes[width - 1] = 253; }
-            (format!("try {name}(bigEndian: {bytes:?})"), format!("[{tag}] + {bytes:?}"))
+            if matches!(value, Type::I128) {
+                bytes[width - 1] = 253;
+            }
+            (
+                format!("try {name}(bigEndian: {bytes:?})"),
+                format!("[{tag}] + {bytes:?}"),
+            )
         }
         Type::Bytes(bound) => {
             let count = core::cmp::min(*bound, 2);
             let bytes = &([18u8, 52])[..count as usize];
-            (format!("try {name}({bytes:?})"), format!("[32] + {:?} + {bytes:?}", count.to_be_bytes()))
+            (
+                format!("try {name}({bytes:?})"),
+                format!("[32] + {:?} + {bytes:?}", count.to_be_bytes()),
+            )
         }
         Type::Fixed(child, bound) | Type::Variable(child, bound) => {
-            let (count, tag) = if matches!(value, Type::Fixed(_, _)) { (*bound, 48) } else { (core::cmp::min(*bound, 2), 49) };
+            let (count, tag) = if matches!(value, Type::Fixed(_, _)) {
+                (*bound, 48)
+            } else {
+                (core::cmp::min(*bound, 2), 49)
+            };
             let (element, bytes) = swift_sample(child, &format!("{name}Element"));
-            (format!("try {name}(Array(repeating: {element}, count: {count}))"), format!("[{tag}] + {:?} + Array(repeating: ({bytes}), count: {count}).flatMap {{ $0 }}", count.to_be_bytes()))
+            (
+                format!("try {name}(Array(repeating: {element}, count: {count}))"),
+                format!(
+                    "[{tag}] + {:?} + Array(repeating: ({bytes}), count: {count}).flatMap {{ $0 }}",
+                    count.to_be_bytes()
+                ),
+            )
         }
         Type::Option(child) => {
             let (element, bytes) = swift_sample(child, &format!("{name}Some"));
-            (format!("Optional<{name}Some>.some({element})"), format!("[64, 1] + ({bytes})"))
+            (
+                format!("Optional<{name}Some>.some({element})"),
+                format!("[64, 1] + ({bytes})"),
+            )
         }
         Type::Union(variants) => {
             let variant = &variants[0];
-            let (element, bytes) = swift_sample(&variant.value, &format!("{name}Tag{}", variant.tag));
-            (format!("{name}.tag{}({element})", variant.tag), format!("[80] + {:?} + ({bytes})", variant.tag.to_be_bytes()))
+            let (element, bytes) =
+                swift_sample(&variant.value, &format!("{name}Tag{}", variant.tag));
+            (
+                format!("{name}.tag{}({element})", variant.tag),
+                format!("[80] + {:?} + ({bytes})", variant.tag.to_be_bytes()),
+            )
         }
         Type::EvmHead => {
             let mut bytes = [0u8; 32];
             bytes[31] = 7;
             (format!("try {name}({bytes:?})"), format!("{bytes:?}"))
         }
-        Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::I8 | Type::I16 | Type::I32 | Type::I64 => unreachable!(),
+        Type::U8
+        | Type::U16
+        | Type::U32
+        | Type::U64
+        | Type::I8
+        | Type::I16
+        | Type::I32
+        | Type::I64 => unreachable!(),
     }
 }
 
 fn swift_bound_consumer(out: &mut String, value: &Type, name: &str) {
     match value {
         Type::U128 | Type::I128 | Type::U256 => {
-            let _ = writeln!(out, "try lxExpectRefusal(.invalidLength) {{ _ = try {name}(bigEndian: []) }}");
+            let _ = writeln!(
+                out,
+                "try lxExpectRefusal(.invalidLength) {{ _ = try {name}(bigEndian: []) }}"
+            );
         }
         Type::Bytes(bound) => {
             let count = u64::from(*bound) + 1;
             let _ = writeln!(out, "try lxExpectRefusal(.invalidLength) {{ _ = try {name}(Array(repeating: UInt8(0), count: {count})) }}");
         }
         Type::Fixed(child, _) => {
-            let _ = writeln!(out, "try lxExpectRefusal(.invalidLength) {{ _ = try {name}([]) }}");
+            let _ = writeln!(
+                out,
+                "try lxExpectRefusal(.invalidLength) {{ _ = try {name}([]) }}"
+            );
             swift_bound_consumer(out, child, &format!("{name}Element"));
         }
         Type::Variable(child, bound) => {
@@ -400,7 +492,10 @@ fn swift_alternate_inputs(out: &mut String, entry: &Entry, namespace: &str) {
         }
         Type::Union(variants) => {
             for variant in variants {
-                let (element, bytes) = swift_sample(&variant.value, &format!("{namespace}.InputTag{}", variant.tag));
+                let (element, bytes) = swift_sample(
+                    &variant.value,
+                    &format!("{namespace}.InputTag{}", variant.tag),
+                );
                 let _ = writeln!(out, "do {{\nlet variant: {namespace}.Input = .tag{}({element})\nlet variantCall = try {namespace}.call(variant, deployedCodeHash: layerXCodeHash, publishedDigest: layerXInterfaceDigest)\nlet variantBytes: [UInt8] = {:?} + [1, 80] + {:?} + ({bytes})\ntry lxAssert(variantCall.bytes == variantBytes)\n}}", variant.tag, entry.discriminator, variant.tag.to_be_bytes());
             }
         }

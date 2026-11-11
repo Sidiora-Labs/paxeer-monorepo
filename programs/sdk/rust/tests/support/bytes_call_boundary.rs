@@ -16,6 +16,7 @@ use layerx_programs_runtime::{
 };
 
 #[allow(dead_code)]
+#[allow(clippy::all, clippy::pedantic)]
 mod client {
     include!("../fixtures/repair_22_33_242/client.inc");
 }
@@ -117,7 +118,12 @@ fn finding_010_exact_limit_generated_call_survives_runtime_transport() {
     let bytes = call.as_bytes();
     assert_eq!(bytes.len(), LIMIT);
     assert_eq!(&bytes[..6], &[1, 2, 3, 4, 1, 0x20]);
-    assert_eq!(&bytes[6..10], &(MAX_PAYLOAD as u32).to_be_bytes());
+    assert_eq!(
+        &bytes[6..10],
+        &u32::try_from(MAX_PAYLOAD)
+            .unwrap_or_else(|error| panic!("payload length: {error}"))
+            .to_be_bytes()
+    );
     assert_eq!(&bytes[10..], value.as_slice());
     assert_eq!(CallInput::new(bytes).map(CallInput::bytes), Ok(bytes));
     let frame = Calldata::from_bytes(&bytes[4..])
