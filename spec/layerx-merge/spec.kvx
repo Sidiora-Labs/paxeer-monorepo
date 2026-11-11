@@ -13042,6 +13042,24 @@ value = "A task that changes precompiles/launchpad/abi.json brings the package t
 basis = "Gotcha 4249, decisions 3046 and 3316."
 affects = ["22.40.7", "22.40.19", "22.40.20", "22.40.18", "22.39.117", "22.39.170"]
 
+[decision.3322]
+title = "The occupancy responsibility debit of the ledger accepts the account of the program payment lookup"
+value = "The occupancy responsibility debit of the ledger accepts as its paying account an agent main account, or an agent asset account whose asset is the asset of the leg. Every other condition stays: the protocol capability, the origin module Programs, the reason storage occupancy and a paying account equal to the authorised source. An account of any other kind and an agent asset account of another asset are refused with LXP_ERR_UNAUTHORIZED_DEBIT. The debit leaves the sequence of the paying account as it is. Task 22.39.395 owns the change. Task 22.38.36 follows it and task 22.39.394, and the release report follows both."
+basis = "Gotcha 4250, decisions 3308 and 3320."
+affects = ["22.39.395", "22.38.36", "22.39.182"]
+
+[decision.3323]
+title = "A task that changes the source of the AI market guest carries the measured fuel bound of the Fund case"
+value = "The measured bound of the Fund operation in rpc/repair_478_test.go states the CPU fuel of the committed guest. A task that changes the guest source measures the Fund operation again with that case, sets the bound to the measured value in the same commit and writes the earlier and the new value into its record. The bounds of the same case against the CPU allowance and against the earlier stop stay as they are, and a change that brings the Fund operation over either of them is not accepted. Task 22.38.13 carries the case."
+basis = "Gotcha 4251, decisions 3046 and 3321."
+affects = ["22.38.13"]
+
+[decision.3324]
+title = "The node cases of the occupancy debit at a call pay from the account that the hosted fixture funds"
+value = "The node cases of task 22.39.394 use the payer of the hosted programs fixture as the fixture funds it, with the occupancy asset in the agent asset account, and add no second account of that asset to the identity. Task 22.39.394 follows task 22.39.395, with which the occupancy responsibility debit of the ledger accepts that account (decision 3322). The call requires the payment account that the program payment lookup returns for the payer and the asset and states no kind of account of its own."
+basis = "Gotcha 4252, decisions 3320 and 3322."
+affects = ["22.39.394", "22.39.395"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42702,6 +42720,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+reqs = ["22998.1"]
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+verification_contract = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+symbols = []
 
 [capability.22.40.20]
 title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
@@ -163016,7 +163043,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -186038,7 +186065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.19]
 title = "Bring the generated readers of the launchpad ABI to the chain launch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -187205,7 +187232,7 @@ title = "Drive an isolated chain, one host, two native peers and one asker throu
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -187251,7 +187278,7 @@ interfaces = []
 do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
 do_2 = "do_2 Extend tests/programs/test_ai_host_boundary.c with one native CALL per F11 operation through the built guest and assert status 0 and a present replay record; bring any operation over the cap under it through the joint-section readers."
 symbols = ["f11_fuel_table", "test_f11_host_boundary"]
-touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml", "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs", "programs/crates/layerx-programs-ai-market/src", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.kvx", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.hex", "programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-aggregation-baseline.kvx", "rpc/repair_478_test.go"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
 planned_paths = []
 build_cmd = "go test -count=1 -timeout 45m ./rpc/ -run '^(TestRepair478_FundWithinProductionAllowance|TestFundConsumptionAttribution)$' && make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
@@ -187263,7 +187290,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 300
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -187279,6 +187306,7 @@ do_11 = "Attempt 9 (continue, gotcha 4160, decision 3233): the attempt-8 tree a7
 do_12 = "Attempt 10 (continue after 22.39.365 lands, gotcha 4189, decisions 3260, 3258 and 3233): the attempt-9 tree c98a277c6018 stands (the changes of the guest source in src/lib.rs, src/placement.rs, src/rewards.rs, src/rooms.rs and src/state.rs, the module f11_budget of tests/fuel_budget.rs, tests/repair_22_33_260.rs, tests/programs/test_ai_host_boundary.c, programs/Cargo.toml). It builds with a guest of 523159 bytes and no verification saw it. The task now requires task 22.39.365, which changes the check of the RecordDeal operation in src/rooms.rs and regenerates the committed guest: rebase on main once it is on it and keep its change whole. The touches now name the committed guest and the aggregation baseline pair. Before the counted gates: regenerate the committed guest with tests/fixtures/build-guest.sh, run the three targets of the verification outside the counted gates, and repair until the nine cases that stopped at tests/support/guest.rs:163 and the table at tests/fuel_budget.rs:4019 pass; the room opening operation (selector 0x0b01) measured 1000037 of 1000000 at fb504f884432, and the bounds of attempt 9 stand (no change of DEFAULT_CPU_FUEL, of the bound of the table, of the measured state, of the set of selectors, of a wire form or of the stored layout, every existing case unchanged). Regenerate the guest again after the last change of the source and record its size; it must stay inside 524184 bytes. Regenerate the aggregation baseline pair with the option --aggregation-probe only when a case reports it stale. Search tools/qualification/audit_repairs/test_repair_22_33_219.py and test_repair_22_33_788.py, which read the metadata of the committed guest, for a pinned value and record a pin with file and line. When the table cannot pass inside the bounds, record the fuel by stage for each overrunning selector and stop. Run the build once and the verification once at the final revision."
 do_13 = "do_13 Decision 3282, gotcha 4210: the helpers open and settle of tests/repair_22_33_260.rs are repaired on main by task 22.39.365, which this task requires. On the rebase keep the form of main for those two helpers and drop the copy of the attempt-9 tree where both do the same; keep every other change of the tree. Run every target that takes in the file once before the counted gates."
 do_14 = "Attempt 11 (continue, gotcha 4230, decision 3300): the attempt-10 tree 52b3dca95be5 stands (the readers and the room opening path of the guest source, the fuel table and its cases, the two fixture pairs, the native harness, the fixture repair, the record). The room opening operation (selector 0x0b01) stays under the cap; the one red case is red because the table asked for a whole replay record, which decision 3300 withdraws. Rebase on main first: another task changes the guest source for the bids of a further deal of an ask; keep its change whole. In tests/programs/test_ai_host_boundary.c the call function sends every F11 envelope in the plain call form again, and the short CALL case keeps its profile of 256 boundaries; give the f11 command one way to ask for a single call wrapped with the profile of 4096 boundaries and 1048576 bytes. In tests/fuel_budget.rs the table asserts for every F11 selector status 0 of the kernel and of the receipt, fuel under 1000000 and the equality of result, stored state and events with the in-process path, and asserts no record for an F11 call. Add the case f11_whole_record_is_refused_on_the_full_state: the room opening operation on the full state, wrapped with that profile, ends with the bounds refusal of the record (check capture witness bytes) and the stored state of the program is unchanged; write into the record of the task what the receipt of that call charges. Change nothing under programs/crates/layerx-programs-runtime and no bound of decision 3233. The fuel marks stay under the build variable of the diagnostic entry. Regenerate the committed guest without that variable with tests/fixtures/build-guest.sh (decision 3260) and write its size into the record; it stays inside 524184 bytes, and when it does not after the rebase, bring it inside with the means of the earlier attempts of this task and remove no check. Run the three targets of the verification outside the counted gates until all are clean (decisions 3286 and 3287), then run the build once and the verification once at the final revision."
+do_15 = "do_15 Decision 3323, gotcha 4251. The case TestRepair478_FundWithinProductionAllowance of rpc/repair_478_test.go bounds the CPU fuel of the Fund operation by the value measured for the committed guest. After the last change of the guest source measure the Fund operation with that case, set the measured bound of the case to the measured value and write the earlier and the new value into the record of the task. Change no other line of that file and keep its bounds against the CPU allowance and the earlier stop."
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
@@ -226918,7 +226946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.9]
 title = "Decode and store the chain launch events in the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -226978,7 +227006,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.7]
 title = "Serve the chain launch at the launchpad address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.40.4", "22.40.5", "22.40.6", "22.40.1"]
@@ -228694,7 +228722,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394"]
+requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []
@@ -309900,12 +309928,43 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.395]
+title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.395"]
+interfaces = []
+do_1 = "do_1 Decision 3322, gotcha 4250. In lxp_precondition_check of src/ledger/lxp_apply.c the occupancy mandate accepts a paying account of kind LX_ACCOUNT_AGENT_MAIN, or of kind LX_ACCOUNT_AGENT_ASSET that has an asset equal to the asset of the leg. Keep every other condition of the mandate and the result LXP_ERR_UNAUTHORIZED_DEBIT for every other account. Read the other two sites of the authority, the sequence step of the same file and the terminal sequence check of src/ledger/lxp_journal.c, and keep them as they are unless a case of do_2 shows that one of them reads the kind of the account. Change nothing in src/modules/programs, src/protocol, modules/lxphost or node/app.go."
+do_2 = "do_2 Extend tests/ledger/test_apply_transfer.c next to its occupancy cases with four cases under the authority LXP_AUTH_OCCUPANCY_RESPONSIBILITY: an agent asset account of the asset of the leg pays and its sequence stays; an agent asset account of another asset is refused; an account of a third kind is refused; an agent asset account of the asset of the leg is refused when the origin module is not Programs. Keep every existing case of the file."
+do_3 = "do_3 Write node/programs_occupancy_payer_test.go in the package of node/programs_block_end_test.go and keep the helpers it adds in that file. TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount: a payer that holds the asset of the charge only in an agent asset account creates a namespace of a program through the real call path at the protocol version of the state commitment, then at least three further blocks finalize and commit, and the balance of that account falls by the charge that each block states. TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount states the same for a payer that holds the asset in its agent main account. Use real blocks and real state and no stand-in for the ledger."
+do_4 = "do_4 Record in src/ledger/repair_22_39_395.kvx the changed condition, the cases added, the commands run and their results. Where a file outside the touched paths states the kind of the paying account of this debit, record it with file and line and leave it. Run the build once and the verification once at the final revision. Never stop to ask."
+symbols = []
+touches = ["src/ledger/lxp_apply.c", "src/ledger/lxp_journal.c", "tests/ledger/test_apply_transfer.c"]
+tests = ["node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount", "node/programs_occupancy_payer_test.go::TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount"]
+planned_paths = ["node/programs_occupancy_payer_test.go", "src/ledger/repair_22_39_395.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./node/ && CGO_ENABLED=1 go vet ./node/"
+verify_cmd = "test -s src/ledger/repair_22_39_395.kvx && make test-ledger-transfer test-ledger-set && for c in TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount; do grep -q -e 'func '$c'(' node/programs_occupancy_payer_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 -timeout 40m ./node/ -run '^(TestBlockEndChargesAPayerHoldingTheAssetInAnAssetAccount|TestBlockEndChargesAPayerHoldingTheAssetInTheMainAccount|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.394]
 title = "Check the occupancy debit of a program call at the call"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.394"]
 interfaces = []
@@ -309925,10 +309984,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 360
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3324, gotcha 4252. The cases of node/programs_occupancy_call_test.go use the payer of the hosted programs fixture as the fixture funds it and add no further account of the occupancy asset. The call requires the payment account that lxp_kernel_program_payment_account returns for the payer and the asset and states no kind of account of its own; the record modules/lxphost/repair_22_39_394.kvx says so."
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
@@ -355544,7 +355604,7 @@ do_3 = "do_3 Decision 3321: the test file also asserts that services/wallet/atte
 
 [task.22.40.12]
 title = "Document the chain launch for users and integrators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]

@@ -1378,7 +1378,8 @@ func receiptFromOutcome(module uint16, outcome *lxphost_outcome) Receipt {
 }
 
 // FinalizeProgramsOccupancy runs the kernel's block-end occupancy transition
-// and persists its account and module changes without advancing an actor nonce.
+// for positions admitted by calls and persists its account and module changes
+// without advancing an actor nonce.
 func (h *Host) FinalizeProgramsOccupancy(ctx sdk.Context, protocolVersion uint16) ([]byte, error) {
 	node, err := h.borrowNode()
 	if err != nil {
