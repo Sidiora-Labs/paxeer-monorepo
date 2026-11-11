@@ -186360,7 +186360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.401]
 title = "Bring the generated files of the agent TypeScript SDK into line with their generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -310630,7 +310630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.406]
 title = "Register the migration owner of the lifecycle cases once"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
