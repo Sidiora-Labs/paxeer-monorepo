@@ -260,6 +260,32 @@ func repair478Run(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool)
 }
 
 func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool, observationDir string) lxphost.Receipt {
+	return repair478RunWithProbe(t, wasm, cpuAllowance, evidence, observationDir, nil)
+}
+
+type repair478ProbeFixture struct {
+	Host         *lxphost.Host
+	Context      sdk.Context
+	DID          []byte
+	PublicKey    [32]byte
+	Authority    lxphost.KernelAuthority
+	Asset        [32]byte
+	Fixture      map[string][]byte
+	Registration []byte
+	Created      lxphost.Receipt
+	Execute      func(uint32, []byte) lxphost.Receipt
+	ExecuteAt    func(sdk.Context, uint32, []byte) lxphost.Receipt
+}
+
+func FinalizeProgramsOccupancy(t *testing.T, host *lxphost.Host, ctx sdk.Context, next uint64) []byte {
+	t.Helper()
+	finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, next), codec.StateCommitmentProtocolVersion)
+	require.NoError(t, err, "finalize occupancy for block %d", ctx.BlockHeight())
+	require.NotEmpty(t, finalized)
+	return finalized
+}
+
+func repair478RunWithProbe(t *testing.T, wasm []byte, cpuAllowance uint64, evidence bool, observationDir string, probe func(repair478ProbeFixture)) lxphost.Receipt {
 	t.Helper()
 	b := newSeqVecBuilder(t)
 	a := app.Setup(t, false, false, false)
@@ -330,15 +356,15 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 	require.NoError(t, err)
 	require.Equal(t, int64(1000000000), mainAccount.Balance.Int64())
 
-	execute := func(activityType uint32, payload []byte) lxphost.Receipt {
-		sequence, err := host.ReadIdentitySequence(ctx, did)
+	executeAt := func(callCtx sdk.Context, activityType uint32, payload []byte) lxphost.Receipt {
+		sequence, err := host.ReadIdentitySequence(callCtx, did)
 		require.NoError(t, err)
-		last, err := host.ReadLastSequence(ctx, did)
+		last, err := host.ReadLastSequence(callCtx, did)
 		require.NoError(t, err)
 		var feeLimit [16]byte
 		binary.BigEndian.PutUint64(feeLimit[8:], 100000000)
-		timestamp := uint64(ctx.BlockTime().UnixMilli())
-		receipt, err := host.Execute(lxphost.WithSequence(ctx, last+1), lxphost.Activity{
+		timestamp := uint64(callCtx.BlockTime().UnixMilli())
+		receipt, err := host.Execute(lxphost.WithSequence(callCtx, last+1), lxphost.Activity{
 			ProtocolVersion: codec.StateCommitmentProtocolVersion, Type: activityType,
 			ActorDID: did, AuthorityKey: publicKey, AccountSequence: sequence,
 			NotBefore: timestamp, NotAfter: timestamp,
@@ -351,6 +377,9 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 		}
 		require.Zero(t, receipt.ResultCode, "activity=%08x candidate=%t", activityType, evidence)
 		return receipt
+	}
+	execute := func(activityType uint32, payload []byte) lxphost.Receipt {
+		return executeAt(ctx, activityType, payload)
 	}
 	occupancyRegistration := append([]byte{0, 1}, occupancyAsset[:]...)
 	occupancyRegistration = append(occupancyRegistration, occupancySalt...)
@@ -409,9 +438,7 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 	for ctx.BlockHeight() < seqVecFirstHeight+2 {
 		last, err := host.ReadLastSequence(ctx, did)
 		require.NoError(t, err)
-		finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, last+1), codec.StateCommitmentProtocolVersion)
-		require.NoError(t, err, "finalize empty block %d", ctx.BlockHeight())
-		require.NotEmpty(t, finalized)
+		FinalizeProgramsOccupancy(t, host, ctx, last+1)
 		ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
 		ctx = ctx.WithBlockTime(time.UnixMilli(seqVecTimeBase + ctx.BlockHeight()*seqVecBlockMs))
 	}
@@ -457,13 +484,19 @@ func repair478RunObserved(t *testing.T, wasm []byte, cpuAllowance uint64, eviden
 		return nil
 	}
 	require.Equal(t, fixture["current"], readState())
+	if probe != nil {
+		probe(repair478ProbeFixture{
+			Host: host, Context: ctx, DID: did, PublicKey: publicKey,
+			Authority: authority, Asset: asset, Fixture: fixture,
+			Registration: registration, Created: created, Execute: execute, ExecuteAt: executeAt,
+		})
+		return created
+	}
 	sequence, err := host.ReadIdentitySequence(ctx, did)
 	require.NoError(t, err)
 	last, err := host.ReadLastSequence(ctx, did)
 	require.NoError(t, err)
-	finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, last+1), codec.StateCommitmentProtocolVersion)
-	require.NoError(t, err, "finalize occupancy for block %d", ctx.BlockHeight())
-	require.NotEmpty(t, finalized)
+	FinalizeProgramsOccupancy(t, host, ctx, last+1)
 	last, err = host.ReadLastSequence(ctx, did)
 	require.NoError(t, err)
 	nextIdentity, err := host.ReadIdentitySequence(ctx, did)

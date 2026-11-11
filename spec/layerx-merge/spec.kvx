@@ -12928,6 +12928,66 @@ value = "The contracts mars, saturn and venus under tools/benchmark/loadtest/con
 basis = "Gotcha 4232, decisions 3130, 3211, 3293 and 3298."
 affects = ["22.39.377", "17.5.7"]
 
+[decision.3303]
+title = "The verification of the launchpad fixture task proves the test stage, and the remaining stages of the ci target stay with task 22.39.170"
+value = "The verification of task 22.39.117 runs the cases of the five shared packages and the targets test, build, vet and fmt-check of services/launchpad/Makefile under the test time limit that the public workflow sets (GOFLAGS -timeout=15m). The targets lint, race and cover-check leave that verification: they are the subject of task 22.39.170, which now requires task 22.39.117. The repair of the build line of the Makefile in the attempt-21 tree stands: no recipe line passes a test flag to go build. No case is shortened, skipped or removed for the limit."
+basis = "Gotcha 4233, decisions 3130, 3183, 3211 and 3286."
+affects = ["22.39.117", "22.39.170"]
+
+[decision.3304]
+title = "The remaining stages of the launchpad ci target run under the limit of the public workflow, with a lint tool that reads the modules, repeatable cases and an ignored profile directory"
+value = "Four rules hold for task 22.39.170. The ci target is run with GOFLAGS -timeout=15m, and the job the task adds to the public workflow sets the same value. The lint recipe names one release of golangci-lint that reads the export data of the Go release of the modules, installed with that Go release as do_2 of the task states; release 2.8.0 is not such a release, and the task records the release it pins and how it was found. Every Go test case of the launchpad modules is repeatable on one database server: a case that creates a role, a user or a database of the server removes it before it creates it and at cleanup, with no change of an assertion and no skip, because the three passes of the ci target run on one server; a case that takes a fresh name on every run is repeatable already. The directory .cover that the cover target writes is ignored through the file services/launchpad/.gitignore."
+basis = "Gotcha 4233, decisions 2917, 3052, 3053, 3183 and 3293."
+affects = ["22.39.170"]
+
+[decision.3305]
+title = "The unit cases of the library of the agent daemon come under the workspace lints in six tasks by file"
+value = "The test build of the library of layerx-agentd (cargo clippy with the lib option under the test profile) is linted to clean by tasks 22.39.380 to 22.39.385. Each of them owns a list of files, changes only those files and counts only the messages in them, so the six run side by side. The repair rules of decisions 3053 and 3230 hold: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion; no lint level change, no allow attribute at crate or module level, no assertion and no case removed. Task 22.39.211 requires the six tasks, repairs what remains outside their lists and proves the whole workspace with the keep going option (decision 3242)."
+basis = "Gotcha 4234, decisions 3053, 3183, 3211, 3230 and 3242."
+affects = ["22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385", "22.39.211"]
+
+[decision.3306]
+title = "On a live chain a program above ABI 2 receives its account profile through the registration with profile 2 at ABI 2 and an upgrade"
+value = "The account module writes the account profile record of a program only for a registration with profile 2 that the owner makes while the program is at ABI 2 (decisions 2646 and 2736). A proof on a live chain writes no record into the store and puts no such record into the genesis. It walks the order of the module with transactions of the owner: a deployment at ABI 2 of a guest that the ABI 2 validation admits, under the authority policy and with an empty interface; the registration with profile 2; an upgrade to ABI 5 that installs the AI market guest; then every further registration with profile 1. The account module, the admission case and the precompile are not changed for it. The same order is today the only route by which the AI market program of a public network can hold an account; whether the public deployment follows it or the module gains a registration with profile 2 for a program deployed above ABI 2 is an owner point, and until it is ruled the order above stands."
+basis = "Gotcha 4235, decisions 2646, 2654, 2736 and 3286; tests/programs/test_programs_abi5_admission.c:504."
+affects = ["22.38.36"]
+
+[decision.3307]
+title = "The call terms of a market operation are built by one function of the client library"
+value = "The capability bytes and the access declaration of a native call of the AI market program are built in one place, a public function of services/agent/crates/layerx-client/src/ai_market.rs. The function takes the capability set that the program crate states for the kind of the operation, READ_CAPABILITIES for a read and MUTATION_CAPABILITIES for an operation that writes, encodes it with the capability set encoder of the program SDK, and encodes the absent access declaration with the access encoder of the program SDK. No caller writes such a byte by hand and no caller passes empty bytes: the agent daemon, the examples of the client library and every proof driver take both fields from this function. The response capacity of a market call is 16384, as in the kernel case. The terms of an operation that moves value, which carry a transfer or spend grant, a balance sight and a receipt authority, are not built by this function until decision 3309 is settled; the function refuses such an operation by name and never returns terms that the runtime would refuse."
+basis = "Gotcha 4236, decisions 3046, 3211, 3212 and 3306; rpc/repair_478_test.go:429."
+affects = ["22.39.386", "22.38.36"]
+
+[decision.3308]
+title = "The node runs the block-end occupancy transition of Programs in its block flow"
+value = "From the first block in which the host store holds the Programs schedules, the application runs the block-end occupancy transition once in every block, after the last transaction and before the commit, in the state that commits, with the next global sequence read through the host, the block height as the batch number and the block time. It runs on every node alike and never in a check or a simulation. A block before the schedules exist runs no transition and leaves the host store as it is. A failure of the transition fails the block, as a failure of any block-end step does; it is never swallowed, because a block that is left out leaves every later program call refused with a batch gap. The kernel and src/modules/programs do not change for it. Decision 2913 is amended: its presumption that the product finalizes occupancy through a sequenced batch was wrong. Only a test that drives the host directly, without the application, finalizes by hand; a test that passes through the block flow of the application places no such call. Two owner points stay open and until they are ruled the text above stands: whether the transition runs in every block or is caught up at the first program activity of a block, and whether a failure fails the block or leaves Programs refused while the chain goes on."
+basis = "Gotcha 4237, gotcha 3621, decisions 2913, 3183, 3301 and 3306."
+affects = ["22.39.387", "22.38.36", "22.39.116"]
+
+[decision.3309]
+title = "A value operation of a program is proven at the host level against the block flow of a live chain before a room proof relies on it"
+value = "The balance sight rule binds a value operation to the receipt of the activity immediately before it in the global sequence (gotcha 4238). Task 22.39.388 proves at the host level, with the fixture of the kernel case and the block-end transition placed where decision 3308 places it, which receipt admits a FUND at the next height and whether a sender can know that receipt before the block executes. That task changes neither the kernel nor the host. Tasks 22.38.37 and 22.38.38 require it. A room proof never works around the rule with an anchor placed by hand between the transition and the call or with a write into the store. When no receipt that a sender can know admits a value operation, the sight rule is an owner point and the value operations of the AI market do not ship as proven until it is ruled."
+basis = "Gotcha 4238, decisions 3306, 3307 and 3308; src/modules/programs/accounts.c:824."
+affects = ["22.39.388", "22.38.37", "22.38.38"]
+
+[decision.3310]
+title = "The value operations of the AI market program are derived from its source"
+value = "An operation of the AI market program is a value operation when its apply path can stage a deposit or a payment: it reaches value_adapter::settle through stage_value of rewards.rs or through the close step with an effect that is a deposit or a payout, or it reaches the canary staging of canary.rs. Gotcha 4240 lists the paths on main. On main FUND, CLAIM, REFUND_FREE, the LockBond and RefundBond operations, ChallengeLap and ResolveChallenge belong to the set; ADVANCE_CLOSE, the SlashBond operation and every other operation are decided by reading the path. The function market_call_terms refuses every value operation by name. Task 22.39.386 derives the set from the program source and records each member with the file and line of its path; a list of four names is not the set. The signing of a stream meter reading takes no call terms and stays as it is. This amends decision 3307 on the set of refused operations and corrects the last sentence of gotcha 4238."
+basis = "Gotchas 4239 and 4240, decisions 3307 and 3309."
+affects = ["22.39.386", "22.38.36"]
+
+[decision.3311]
+title = "The AI market program settles value without the balance sight"
+value = "Task 22.39.388 proves that no receipt a sender can know admits a balance sight on a chain whose blocks end with the occupancy transition (gotcha 4241). Under decision 3309 that makes the sight rule an owner point. Until the owner rules otherwise the program stops reading the sight: value_adapter::settle runs the plan and stages the one deposit or payment, and reads no balance. The spending paths of the runtime never consult the sight grant, and the rules of the kernel accounts for a transfer stay unchanged, so no value moves that the ledger of the program and the kernel accounts do not both allow. What is lost is the refusal of the program when the physical balance of its account has fallen below the free, reserved and liability counters of its ledger; such a shortfall then shows at the payment that the account cannot cover. The cover function stays as the stated law for an audit of the state, and no operation enforces it. The kernel, the host and the balance read of the program SDK stay unchanged. Task 22.39.389 makes the change, regenerates the two committed guests, records the kernel site that refuses a transfer above the balance of the source account, and turns the proof of task 22.39.388 into the proof that a FUND with a transfer grant alone is admitted after a block-end transition. Owner point A (in force): the program settles without the sight. B: the sight rule of the kernel changes so that a sender can name a receipt it can know, in a task of its own before the upgrade height. C: the upgrade ships with the value operations of the AI market unusable, and no room forms until a later upgrade."
+basis = "Gotcha 4241, decisions 3308 and 3309."
+affects = ["22.39.389", "22.38.36", "22.38.37", "22.38.38"]
+
+[decision.3312]
+title = "The call terms of a value operation carry one spending grant and no sight"
+value = "For a value operation the client library builds the capability bytes from MUTATION_CAPABILITIES and one spending grant. A deposit carries a Transfer402 grant that names the asset, the rewards account of the program and the amount of the deposit as its ceiling. A payment carries a ProgramSpend grant that names the owner program, the derivation bytes and the identifier of the program account, the asset, the recipient and the ceiling. The terms carry no BalanceView grant, and the call carries no receipt authority and follows no anchor. The bytes are written by the canonical encoder of the runtime ABI (CapabilitySet::new and canonical_encoding of programs/crates/layerx-programs-runtime/src/abi/capability.rs:295 and :321), because the encoder of the program SDK has no ProgramSpend grant; the manifest of the client library lists the runtime crate at line 29 as a test dependency and takes it as an ordinary one, which the daemon crate already does. One public function market_value_call_terms of services/agent/crates/layerx-client/src/ai_market.rs builds the terms, refuses an operation outside the set of decision 3310 by name and refuses a grant whose direction does not fit the operation. The function market_call_terms keeps refusing a value operation. Task 22.39.390 writes the function and its callers. This settles the part of decision 3307 that waited on decision 3309."
+basis = "Gotchas 4240 and 4241, decisions 3307, 3310 and 3311."
+affects = ["22.39.390", "22.39.386", "22.38.36"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42588,6 +42648,105 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.390]
+title = "Build the call terms of a value operation of the AI market in the client library"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
+do_1 = "do_1 Decision 3312, gotchas 4240 and 4241. services/agent/crates/layerx-client/src/ai_market.rs gains the public function market_value_call_terms beside market_call_terms. It takes the operation, the program, the principal and the spending grant of the call: for a deposit the asset, the rewards account of the program and the amount, for a payment the fields of the ProgramSpend grant. It returns the same two fields as market_call_terms. The capability bytes hold MUTATION_CAPABILITIES of the program crate and the one spending grant and are written by CapabilitySet::new and canonical_encoding of the runtime ABI; no byte is written by hand. The access declaration is built as in market_call_terms. The function refuses by name an operation outside the set of value operations that task 22.39.386 recorded (decision 3310), refuses a zero amount and refuses a grant whose direction does not fit the operation. The terms carry no BalanceView grant. The manifest of the client library takes the runtime crate as an ordinary dependency, and lib.rs exports the function."
+symbols = []
+
+[capability.22.39.389]
+title = "Settle the value of the AI market program without the balance sight"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/value_adapter.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs", "programs/crates/layerx-programs-ai-market/tests", "rpc/repair_22_39_388_test.go", "rpc/repair_22_39_388.kvx", "rpc/repair_478_test.go"]
+tests = []
+verification_contract = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx && ! grep -q 'balance::read' programs/crates/layerx-programs-ai-market/src/value_adapter.rs && ! grep -rq --include='*.rs' balance_refusal programs/crates/layerx-programs-ai-market/src programs/crates/layerx-programs-ai-market/tests && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test value_boundary --test rewards_native --test repair_22_33_261 --test market_protocol_boundary --test fuel_budget --test repair_22_33_223 && CGO_ENABLED=1 go test -count=1 -run '^(TestRepair22_39_388_|TestRepair478_)' ./rpc/"
+do_1 = "do_1 Decision 3311, gotcha 4241. In programs/crates/layerx-programs-ai-market/src/value_adapter.rs the function settle (:337) runs the plan and stages the one deposit or payment; the balance read at :344 and the cover call at :347 leave it, and its comment is rewritten to what it does. Its callers discard the returned amount (rewards.rs:2938 and the close step of the entry module of the program), so the return type follows what remains. The function balance_refusal has no caller afterwards and is removed with its cases (tests/value_boundary.rs:503 and :513, tests/rewards_native.rs:2438). The function cover stays, and its comment states that it is the law for an audit of the state and that no operation enforces it. Change nothing in canary.rs, in the kernel, in modules/lxphost or in the program SDK."
+symbols = []
+
+[capability.22.39.388]
+title = "Prove at the host level which receipt admits a value operation after a block-end transition"
+reqs = ["22998.1"]
+touches = ["rpc/repair_478_test.go"]
+tests = ["rpc/repair_22_39_388_test.go::TestRepair22_39_388_BalanceSightAfterBlockEndTransition"]
+verification_contract = "test -s rpc/repair_22_39_388.kvx && CGO_ENABLED=1 go test -count=1 -run '^(TestRepair22_39_388_|TestRepair478_)' ./rpc/"
+do_1 = "do_1 Decision 3309, gotcha 4238. The balance sight of a value operation names the receipt whose global sequence is the next global sequence minus one and whose resulting state root is the current root (src/modules/programs/accounts.c:824 and :839 to :848). The kernel case TestRepair478_FundWithinProductionAllowance of rpc/repair_478_test.go meets the rule by hand: block-end transition at :464, an anchor that registers the existing account again at :474, and FUND as the first activity of the next height at :489 to :501 with the digest of the anchor receipt in its sight grant and the receipt of the anchor as its receipt authority. A live chain runs the transition as the last step of every block (decision 3308), so nothing follows it inside the block."
+symbols = ["FinalizeProgramsOccupancy"]
+
+[capability.22.39.387]
+title = "Run the block-end occupancy transition of Programs in the block flow of the node"
+reqs = ["22998.1"]
+touches = ["modules/lxphost", "node"]
+tests = ["node/programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow", "node/programs_block_end_test.go::TestProgramCallAfterIdleBlocksPasses", "node/programs_block_end_test.go::TestBlockEndTransitionRunsOncePerBlock", "node/programs_block_end_test.go::TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched", "node/programs_block_end_test.go::TestBlockEndTransitionSurvivesRestart"]
+verification_contract = "test -s modules/lxphost/repair_22_39_387.kvx && ! grep -q FinalizeProgramsOccupancy node/upgrades_merge_programs_abi_test.go && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ ./node/ -run '^(TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart|TestMergeUpgradeInstallsProgramsSchedules|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade|TestHostedKernelProgramsABISurvivesRestart)$'"
+do_1 = "do_1 Decision 3308, gotcha 4237. Host.FinalizeProgramsOccupancy (modules/lxphost/host.go:1382) has no caller outside tests, and the kernel refuses a program call whose batch number is not the finalized batch plus one (src/modules/programs/occupancy.c:435), so on a live chain a program call at a later height than the first is refused. Read FinalizeBlocker of node/app.go:1958 with FinalizeBlock of node/abci.go:289 and EndBlock of node/abci.go:92, the context of the host (modules/lxphost/ctx.go:87 to :110, where the sequence comes from the context and the batch number is the block height), the two batch checks of occupancy.c at :430 to :438 and :858 to :868, and the batch snapshot path of modules/lxphost/simulate.go:131. State in the record which state of FinalizeBlocker commits and whether the result of the path of simulate.go ever commits."
+symbols = ["FinalizeProgramsOccupancy", "FinalizeBlocker"]
+
+[capability.22.39.386]
+title = "Build the call terms of a market operation in the client library and use them in the agent daemon"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+tests = ["services/agent/crates/layerx-client/tests/market_call_terms.rs::market_mutation_terms_match_the_kernel_case", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_read_terms_hold_the_shared_read_grant", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_call_terms_are_admitted_by_the_runtime_decoders", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_value_operation_terms_are_refused"]
+verification_contract = "test -s services/agent/crates/layerx-client/repair_22_39_386.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_call_terms && cargo test --locked -p layerx-agentd-host --bin layerx-agentd lap_and_deal_terms_carry_market_call_terms 2>&1 | grep 'test result: ok. 1 passed'"
+do_1 = "do_1 Decision 3307, gotcha 4236. The agent daemon passes empty capability bytes and an empty access declaration in both builders of the native terms of a market operation (services/agent/crates/layerx-agentd/src/main.rs:2370 and :2939), and the runtime refuses both before the guest runs (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2756, access.rs:816, abi/capability.rs:602). Read the capability sets of the program crate (programs/crates/layerx-programs-ai-market/src/host_adapter.rs:22 to :28), the value actions of value_adapter.rs of the same crate, the capability set encoder of the program SDK (programs/sdk/rust/src/capability.rs:282), its access encoder (programs/sdk/rust/src/access.rs:201) and the terms of the passing kernel case (rpc/repair_478_test.go:429 to :432)."
+symbols = ["sign_market_envelope"]
+
+[capability.22.39.385]
+title = "Bring the unit cases of the checkpoint, proof bundle, approval and policy files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "services/agent/crates/layerx-agentd/src/approval", "services/agent/crates/layerx-agentd/src/policy", "programs/crates/layerx-programs-registry/tests/support"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-385.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-385.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-385.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(read/checkpoint[.]rs|read/proof_bundle[.]rs|approval/|policy/|read/[./]+programs/crates/layerx-programs-registry/tests/support/)' /tmp/lint-22-39-385.log) || (tail -40 /tmp/lint-22-39-385.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: read/checkpoint.rs (26 messages in attempt 2 of task 22.39.211), read/proof_bundle.rs (6), the files of the directories approval (17) and policy (17), and the two support files mod.rs and chain.rs under programs/crates/layerx-programs-registry/tests/support (5). The two support files are included by path by read/program_node.rs:934, by the entry file of the daemon at main.rs:3490 and by the test targets of the programs registry crate: change in them only what a recorded message names, and keep the host package layerx-agentd-host with all targets and the test targets of the registry crate compiling, which the build of this task checks. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
+
+[capability.22.39.384]
+title = "Bring the unit cases of the agent RPC, event ingest and capability binding files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-384.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-384.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-384.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(agent_rpc[a-z_]*|events/ingest|capability/binding)[.]rs:' /tmp/lint-22-39-384.log) || (tail -40 /tmp/lint-22-39-384.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: the four agent RPC files of the library, agent_rpc.rs (3 messages in attempt 2 of task 22.39.211), agent_rpc_adapters.rs (9), agent_rpc_wire.rs (21) and the entry file of the agent RPC beside them (53), then events/ingest.rs (48) and capability/binding.rs (3). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
+
+[capability.22.39.383]
+title = "Bring the unit cases of the budget files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-383.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-383.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-383.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/budget/[a-z_]+[.]rs:' /tmp/lint-22-39-383.log) || (tail -40 /tmp/lint-22-39-383.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: the files of the directory budget: budget_proof.rs (64 messages in attempt 2 of task 22.39.211), hold.rs (54), fee_policy.rs (36), program_sources.rs (16), program_lifecycle_settlement.rs (10), reserve.rs (5), mod.rs (4), execution_state.rs (2) and program_settlement.rs (1). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
+
+[capability.22.39.382]
+title = "Bring the unit cases of the Human runtime and program account fixture files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject", "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-382.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-382.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-382.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(human_runtime|human_runtime/subject/[a-z_]+|read/program_account_fixture)[.]rs:' /tmp/lint-22-39-382.log) || (tail -40 /tmp/lint-22-39-382.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: human_runtime.rs (83 messages in attempt 2 of task 22.39.211), read/program_account_fixture.rs (60) and the files tests.rs (4) and registration_tests.rs (1) of the directory human_runtime/subject. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
+
+[capability.22.39.381]
+title = "Bring the unit cases of the committed read and program node files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/read/program_node_tests.rs", "services/agent/crates/layerx-agentd/src/read/history.rs", "services/agent/crates/layerx-agentd/src/read/program_balances.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-381.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-381.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-381.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/read/(committed|program_node|program_node_tests|history|program_balances)[.]rs:' /tmp/lint-22-39-381.log) || (tail -40 /tmp/lint-22-39-381.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: read/committed.rs (88 messages in attempt 2 of task 22.39.211), read/program_node.rs (43), read/program_node_tests.rs (3), read/history.rs (3) and read/program_balances.rs (1). The support file of the programs registry tests that read/program_node.rs includes at :934 belongs to task 22.39.385 and is not changed here. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
+
+[capability.22.39.380]
+title = "Bring the unit cases of the program operation and protocol evidence files of the agent daemon under the workspace lints"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/tenant.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/enrolment.rs"]
+tests = []
+verification_contract = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-380.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-380.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-380.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(ops/program|protocol_evidence|protocol_evidence_native_tests|outbox/mod|tenant|session_control|config|enrolment)[.]rs:' /tmp/lint-22-39-380.log) || (tail -40 /tmp/lint-22-39-380.log; exit 1)"
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: ops/program.rs (110 messages in attempt 2 of task 22.39.211), protocol_evidence_native_tests.rs (16), protocol_evidence.rs (6), enrolment.rs (3), config.rs (2), outbox/mod.rs, tenant.rs and session_control.rs (1 each). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+symbols = []
 
 [capability.22.39.379]
 title = "Install the fee schedule and the metering schedule of Programs in the merge upgrade"
@@ -186507,7 +186666,7 @@ title = "Prove ask to stream to lap settlement to claim"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.36", "22.31.620"]
+requires = ["22.38.36", "22.31.620", "22.39.388"]
 reqs = ["22380.6"]
 capabilities = ["22.38.38"]
 interfaces = []
@@ -186529,13 +186688,15 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_2 = "do_2 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first CLAIM of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
+do_3 = "do_3 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_2 orders for that case. Take the two fields of every value operation, the CLAIM among them, from the function market_value_call_terms of the client library with a ProgramSpend grant; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 
 [task.22.38.37]
 title = "Prove that a canary failure slashes the faulty peer bond"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.36", "22.38.28", "22.38.7", "22.31.620", "22.39.370"]
+requires = ["22.38.36", "22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388"]
 reqs = ["22380.6"]
 capabilities = ["22.38.37"]
 interfaces = []
@@ -186558,13 +186719,15 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_2 = "do_2 Decisions 3271 and 3272, gotcha 4200: the task now requires task 22.39.370. In the canary proof the peers enrol through the route POST /enrol_peer of the host with the enrolment function of the peer package and an enrolment document that the driver prepares and signs for each peer; the driver submits no enrolment record of a peer itself in this proof. The room proof keeps its own writes (decision 3259). The driver starts the source process, the indexer and the gateway as the room proof does."
+do_3 = "do_3 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first value operation of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
+do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_3 orders for that case. Take the two fields of every value operation from the function market_value_call_terms of the client library; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -186593,6 +186756,9 @@ do_5 = "Attempt 3 (continue, gotcha 4187, decision 3259): the attempt-2 tree 343
 do_6 = "Attempt 4 (continue after 22.39.368 and 22.39.369 land, gotcha 4199, decisions 3270 and 3272): the attempt-3 tree 96837d75c253 stands (the room driver, the example inference_room_writes, the record). The check of the dependent packages stopped at the target repair_22_31_549, which task 22.39.368 repairs; the task now requires it and task 22.39.369, which adds the executable layerx-ai-source. Rebase on main once both are on it. Then bring the driver to the product path of decision 3272. Its build step also builds the executables layerx-indexer and layerx-ai-source of the package layerx-indexer and layerx-gateway of the package layerx-platform-gateway with the locked option. Its configuration step writes what the support processes need, so that the run reads no member that nothing writes. The run starts, in this order and each with a readiness check and a log file: the source process against the node of the isolated chain; the indexer with LAYERX_INDEXER_AI_CONFIG naming a configuration with the chain, the program, the consensus chain id, the validator of the isolated chain with its voting power and the source; the services the gateway needs for its keys, as the gateway tests start them (tests/chain_only_readiness.rs, tests/support and tests/key-store.py of services/platform/hosted/gateway); and the gateway with the AI views configured through LAYERX_GATEWAY_AI_PROJECTION_DB, LAYERX_GATEWAY_AI_CURSOR_KEY_FILE and LAYERX_GATEWAY_AI_CURSOR_GENERATION, a TLS certificate made in the run whose authority file the daemon gets through LAYERX_AGENT_INFERENCE_GATEWAY_CA_FILE, and a key for the daemon. The source check of the driver asks the source process and not the node RPC. No stand-in replaces the source process, the indexer or the gateway. A process that cannot start in the qualification environment is recorded with its first message and the proof stops. Decision 3259 stands: the driver prepares the chain writes of the peers itself. The time limit is now 420 minutes. Run the room proof outside the counted gates until it passes or a cause outside the paths is found and recorded with file and line; then run the build once and the verification once at the final revision."
 do_7 = "Attempt 5 (continue, gotcha 4225, decisions 3286 and 3287): the attempt-4 tree e94789f96a5d stands (inference_market_room.py, merged_runtime_fixture.py, agent_operation_envelope.py, the manifest of layerx-client with the example inference_room_writes, and the example). Both counted verifications were the first runs of the proof and stopped where the isolated node starts: the first at a flag the node does not register, the second at sequencer.nonce-queue-max-per-sender must be positive. The three bounds of the sequencer have the default 0 and must be positive when the sequencer is enabled (node/sequencer/config.go:220 to :231, contracts/sequencer.md:51); the final tree passes them to the node (merged_runtime_fixture.py:305 to :308) and no run has seen that. The manifest change adds one line to the lock of the agent workspace for the test dependency native-tls of layerx-client; the touches now name services/agent/Cargo.lock, and that one line is committed with the manifest. Finish what the final message of the attempt names as open: the configuration of the daemon, the chain writes of the peers and the chain writes of the ask (decisions 3259 and 3272). Run the proof command of the verification outside the counted gates, as often as needed, until the proof room passes; no counted build and no counted verification before that. Lint the example with the short message format and read only the messages that name examples/inference_room_writes.rs: the library of layerx-client reports 21 lint messages in src/ai_market.rs that task 22.39.211 owns, and they are not repaired here. When the proof stops at a cause outside the paths, record the command, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
 do_8 = "Attempt 6 (continue, gotcha 4231, decision 3301): the attempt-5 tree d361e917edb0 stands (the room driver, the example inference_room_writes, the manifest and the lock line of layerx-client, the envelope program, merged_runtime_fixture.py). The proof now starts the isolated node and stops in the deploy step because the chain holds no metering schedule: the host module starts from an empty genesis and nothing on a chain started from a genesis file writes the schedules. For such a chain the schedules belong into the host section of its genesis file. In merged_runtime_fixture.py, before the node starts, add to the host section of the genesis of the isolated chain the four rows of the version 1 fee schedule and the version 1 metering schedule (the active row and the history row of each), formed exactly as daemon/committed-fixture/main.go:553 to :584 forms them, with the key prefix used there, the rows in ascending key order, the authority and the occupancy asset of the isolated chain, and the accounts the fee schedule needs as v1ProgramsGenesisFunding of daemon/committed-fixture/vector_v1_programs.go:140 states them. Keep the check of the metering view before the deployment. Change no file under modules, node, precompiles or src. Then continue as do_7 states: run the proof command of the verification outside the counted gates, as often as needed, until the proof room passes; no counted build and no counted verification before that. When the proof stops at a cause outside the paths, record the command, the first failing message and its file, and stop. Run the build once and the verification once at the final revision."
+do_9 = "Attempt 8 (continue, gotcha 4235, decision 3306): the attempt-7 tree 7758669f073c stands (the fee schedule, the metering schedule and the funding accounts in the genesis of the isolated chain, the driver, the example of layerx-client, the changes of the envelope program). The room proof deploys the program and stops at the first account registration with LXP_ERR_VERSION_UNSUPPORTED, because a program deployed at ABI 5 holds no account profile record (src/modules/programs/accounts.c:432). Do not change the account module, the precompile or any product source, and write no record into the store or the genesis. Change the deploy step of the driver to the order that the case abi5_registered_before_deploy of tests/programs/test_programs_abi5_admission.c:504 states, one transaction of the host account per step. First the deploy method at ABI 2 with policy 1, an empty interface and a small guest that the ABI 2 validation admits. Then the registerAccount method with profile 2 for the rewards account of the market, which writes the profile record (accounts.c:1077; the deployment binds the owner at deploy.c:534, and the asset of the registration must be registered on the chain before this step). Then the upgrade method of the precompile (precompiles/layerxprograms/LayerXPrograms.sol:292) to ABI 5, without the migration flag and without the breaking flag, with the code hash of the first guest as the old hash, the code hash of the AI market guest as the new hash, an empty migration argument, an empty interface and the AI market guest of programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex. After the upgrade the driver reads getProgram and requires ABI 5, the code hash of the AI market guest and the active flag, and the registration in the market opening keeps profile 1 (decision 2736). The small guest is held as bytes in the driver or produced by the example of layerx-client; integer_guest of programs/crates/layerx-programs-runtime/src/market_tests.rs:424 is a module that the ABI 2 validation admits. Prove the three steps against the loopback chain outside the counted gates before the counted verification (decision 3286). A refusal of the deployment at ABI 2, of the registration with profile 2 or of the upgrade whose cause sits in a product source is recorded with the method, the revert text, the file and the line, and the attempt stops there. When the proof passes the registration and stops at a later step of the room for a cause inside the paths, repair it within the allowed cycle; a cause outside the paths is recorded the same way. Save the three transactions and the read after the upgrade in the evidence directory beside the deployment record. Run the build once and the verification once at the final revision."
+do_10 = "Attempt 9 (continue after 22.39.386 and 22.39.387 land, gotchas 4236 and 4237, decisions 3307 and 3308): the attempt-8 tree 949f22eb4b3b stands (the deployment at ABI 2, the registration with profile 2, the upgrade to ABI 5, the fee limit taken from quoteCallFee, the example of layerx-client, the changes of the envelope program and of the fixture). The three steps of decision 3306 commit on the isolated chain. The CreateMarket call is refused as non canonical because the example builds the native call with empty capability bytes and an empty access declaration (services/agent/crates/layerx-client/examples/inference_room_writes.rs:392 to :412). The task now requires tasks 22.39.386 and 22.39.387; rebase on main once both are on it, and settle services/agent/Cargo.lock by letting cargo write it again, never by hand. In the example take the capability bytes and the access declaration of every operation from the function market_call_terms of the client library and write no such byte by hand; set the response capacity to 16384. Change nothing for the block-end occupancy transition: the node runs it after task 22.39.387, so a call at a later height is admitted. When a call at a later height is still refused, record the height, the result code and the last 150 lines of the native log of the node, and stop. The tail of the verification command found no native log, so the driver itself prints the last 150 lines of the native log of the node when a transaction reverts, and the record names the path of that log. The room proof funds through the pay stream and runs no value operation of the program; when a step needs a FUND, a CLAIM or a payout of the program, record it and stop (decision 3309). Change no product source outside the paths. Run every part of the chained verification outside the counted gates until clean (decision 3286), then run the build once and the verification once at the final revision."
+do_11 = "do_11 Decisions 3310 to 3312, gotchas 4240 and 4241: the note for attempt 9 is wrong where it says that the room proof runs no value operation of the program. The driver sends the LockBond operation for each peer, and that operation is a deposit. The task now requires tasks 22.39.389 and 22.39.390. Take the two fields of every value operation from the function market_value_call_terms of the client library, with a Transfer402 grant for the amount of the bond, and the two fields of every other operation from market_call_terms. A value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -194862,6 +195028,250 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.390]
+title = "Build the call terms of a value operation of the AI market in the client library"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.386", "22.39.389"]
+reqs = ["22998.1"]
+capabilities = ["22.39.390"]
+interfaces = []
+do_1 = "do_1 Decision 3312, gotchas 4240 and 4241. services/agent/crates/layerx-client/src/ai_market.rs gains the public function market_value_call_terms beside market_call_terms. It takes the operation, the program, the principal and the spending grant of the call: for a deposit the asset, the rewards account of the program and the amount, for a payment the fields of the ProgramSpend grant. It returns the same two fields as market_call_terms. The capability bytes hold MUTATION_CAPABILITIES of the program crate and the one spending grant and are written by CapabilitySet::new and canonical_encoding of the runtime ABI; no byte is written by hand. The access declaration is built as in market_call_terms. The function refuses by name an operation outside the set of value operations that task 22.39.386 recorded (decision 3310), refuses a zero amount and refuses a grant whose direction does not fit the operation. The terms carry no BalanceView grant. The manifest of the client library takes the runtime crate as an ordinary dependency, and lib.rs exports the function."
+do_2 = "do_2 Search the client library, the daemon and every other product caller under services/agent for a send of a value operation. A caller inside the paths takes its two fields from the function. A caller outside the paths is recorded with file and line in services/agent/crates/layerx-client/repair_22_39_390.kvx and is not changed (decision 3283). Record also when no product caller sends a value operation today."
+do_3 = "do_3 Cases in services/agent/crates/layerx-client/tests/market_value_call_terms.rs. The bytes of a deposit decode with CapabilitySet::decode_canonical of the runtime to the three mutation capabilities and one Transfer402 grant with the given asset, account and ceiling. The bytes of a payment decode to the three mutation capabilities and one ProgramSpend grant with the given fields. Encoding the decoded grants again gives the same bytes. No output holds a BalanceView grant. An operation outside the set, a zero amount and a grant of the wrong direction are refused. Every value operation of the recorded set is covered by a case."
+do_4 = "do_4 Decisions 3286, 3287 and 3212: before the counted build compile every target of the build command and run the verification command outside the counted gates until clean, then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-client/tests/market_value_call_terms.rs", "services/agent/crates/layerx-client/repair_22_39_390.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.386]
+title = "Build the call terms of a market operation in the client library and use them in the agent daemon"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.386"]
+interfaces = []
+do_1 = "do_1 Decision 3307, gotcha 4236. The agent daemon passes empty capability bytes and an empty access declaration in both builders of the native terms of a market operation (services/agent/crates/layerx-agentd/src/main.rs:2370 and :2939), and the runtime refuses both before the guest runs (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2756, access.rs:816, abi/capability.rs:602). Read the capability sets of the program crate (programs/crates/layerx-programs-ai-market/src/host_adapter.rs:22 to :28), the value actions of value_adapter.rs of the same crate, the capability set encoder of the program SDK (programs/sdk/rust/src/capability.rs:282), its access encoder (programs/sdk/rust/src/access.rs:201) and the terms of the passing kernel case (rpc/repair_478_test.go:429 to :432)."
+do_2 = "do_2 Add to services/agent/crates/layerx-client/src/ai_market.rs the public function market_call_terms. For the kind of an operation it returns the capability bytes and the access declaration: the set READ_CAPABILITIES for a read and the set MUTATION_CAPABILITIES for an operation that writes, encoded with the capability set encoder of the program SDK, and the absent access declaration encoded with the access encoder of the program SDK. Write no byte of either field by hand. The client library may take the package layerx-program-sdk as a direct dependency by path. An operation for which the program runs a value action is refused with a typed error of the client library that names the operation (decision 3309). Change nothing under programs."
+do_3 = "do_3 Write services/agent/crates/layerx-client/tests/market_call_terms.rs with four cases. market_mutation_terms_match_the_kernel_case: the capability bytes of an operation that writes equal 00 03 03 07 08 and the access declaration equals the 37 characters LayerX/programs/access-declaration/v1 followed by two zero bytes, both written out in the case as the kernel case has them. market_read_terms_hold_the_shared_read_grant: the capability bytes of a read equal 00 01 07. market_call_terms_are_admitted_by_the_runtime_decoders: decode_canonical of abi/capability.rs:590 and canonical_decode of access.rs:816 of the runtime, which is a development dependency of the client library, admit the terms of a read and of a write and return the grants of the program crate. market_value_operation_terms_are_refused: the refusal of do_2 with the name of the operation."
+do_4 = "do_4 In services/agent/crates/layerx-agentd/src/main.rs take both fields from market_call_terms at both builders and keep the response capacity 16384. Shape the two builders so that a unit case of the entry file can read the terms they produce, and add the case lap_and_deal_terms_carry_market_call_terms: neither builder returns an empty field and each returns the terms of the function for its operation. When one of the two places sends an operation with a value action, record it with file and line and leave that place refusing by the typed error."
+do_5 = "do_5 Search services, sdk, apps and tools for a further builder of native terms or of a native program call of the AI market outside tests that passes empty or hand written capability bytes or access declaration. Repair one inside the paths and record one outside them with file and line. A daemon case that is red for a cause outside the paths is recorded with its first failing message and is not changed. Compile, lint and run the cases outside the counted gates until clean (decisions 3286 and 3287). Record in services/agent/crates/layerx-client/repair_22_39_386.kvx the function, the bytes of both kinds, the two places of the daemon, the operations refused as value operations and the result of the search. Run the build once and the verification once at the final revision."
+symbols = ["sign_market_envelope"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+tests = ["services/agent/crates/layerx-client/tests/market_call_terms.rs::market_mutation_terms_match_the_kernel_case", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_read_terms_hold_the_shared_read_grant", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_call_terms_are_admitted_by_the_runtime_decoders", "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_value_operation_terms_are_refused"]
+planned_paths = ["services/agent/crates/layerx-client/tests/market_call_terms.rs", "services/agent/crates/layerx-client/repair_22_39_386.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
+verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_386.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_call_terms && cargo test --locked -p layerx-agentd-host --bin layerx-agentd lap_and_deal_terms_carry_market_call_terms 2>&1 | grep 'test result: ok. 1 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotchas 4239 and 4240, decision 3310): the attempt-1 tree 6612bd53354c stands (market_call_terms and its result type in ai_market.rs, the export of lib.rs, the two thin functions and the unit case of the daemon, the four cases of tests/market_call_terms.rs, the record). Change one thing: the set of refused value operations is derived from the program source as decision 3310 states. FUND, CLAIM, REFUND_FREE, the LockBond and RefundBond operations, ChallengeLap and ResolveChallenge belong to it on main; decide ADVANCE_CLOSE, the SlashBond operation and every other operation by reading its apply path. The refusal case covers every member, and the record lists each member with the file and line of its path in place of the four names. The stream meter call that passes two empty fields stays as it is (gotcha 4239). Before the counted build compile every target of the build command and run both parts of the verification command outside the counted gates until clean (decisions 3286 and 3287), then run the build once and the verification once."
+
+[task.22.39.385]
+title = "Bring the unit cases of the checkpoint, proof bundle, approval and policy files of the agent daemon under the workspace lints"
+status = "done"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.385"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: read/checkpoint.rs (26 messages in attempt 2 of task 22.39.211), read/proof_bundle.rs (6), the files of the directories approval (17) and policy (17), and the two support files mod.rs and chain.rs under programs/crates/layerx-programs-registry/tests/support (5). The two support files are included by path by read/program_node.rs:934, by the entry file of the daemon at main.rs:3490 and by the test targets of the programs registry crate: change in them only what a recorded message names, and keep the host package layerx-agentd-host with all targets and the test targets of the registry crate compiling, which the build of this task checks. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "services/agent/crates/layerx-agentd/src/approval", "services/agent/crates/layerx-agentd/src/policy", "programs/crates/layerx-programs-registry/tests/support"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets && cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_385.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-385.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-385.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-385.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(read/checkpoint[.]rs|read/proof_bundle[.]rs|approval/|policy/|read/[./]+programs/crates/layerx-programs-registry/tests/support/)' /tmp/lint-22-39-385.log) || (tail -40 /tmp/lint-22-39-385.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.384]
+title = "Bring the unit cases of the agent RPC, event ingest and capability binding files of the agent daemon under the workspace lints"
+status = "done"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.384"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: the four agent RPC files of the library, agent_rpc.rs (3 messages in attempt 2 of task 22.39.211), agent_rpc_adapters.rs (9), agent_rpc_wire.rs (21) and the entry file of the agent RPC beside them (53), then events/ingest.rs (48) and capability/binding.rs (3). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_384.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-384.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-384.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-384.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(agent_rpc[a-z_]*|events/ingest|capability/binding)[.]rs:' /tmp/lint-22-39-384.log) || (tail -40 /tmp/lint-22-39-384.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.383]
+title = "Bring the unit cases of the budget files of the agent daemon under the workspace lints"
+status = "done"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.383"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: the files of the directory budget: budget_proof.rs (64 messages in attempt 2 of task 22.39.211), hold.rs (54), fee_policy.rs (36), program_sources.rs (16), program_lifecycle_settlement.rs (10), reserve.rs (5), mod.rs (4), execution_state.rs (2) and program_settlement.rs (1). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/budget"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_383.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-383.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-383.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-383.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/budget/[a-z_]+[.]rs:' /tmp/lint-22-39-383.log) || (tail -40 /tmp/lint-22-39-383.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.382]
+title = "Bring the unit cases of the Human runtime and program account fixture files of the agent daemon under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.382"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: human_runtime.rs (83 messages in attempt 2 of task 22.39.211), read/program_account_fixture.rs (60) and the files tests.rs (4) and registration_tests.rs (1) of the directory human_runtime/subject. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject", "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_382.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-382.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-382.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-382.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(human_runtime|human_runtime/subject/[a-z_]+|read/program_account_fixture)[.]rs:' /tmp/lint-22-39-382.log) || (tail -40 /tmp/lint-22-39-382.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.381]
+title = "Bring the unit cases of the committed read and program node files of the agent daemon under the workspace lints"
+status = "done"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.381"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: read/committed.rs (88 messages in attempt 2 of task 22.39.211), read/program_node.rs (43), read/program_node_tests.rs (3), read/history.rs (3) and read/program_balances.rs (1). The support file of the programs registry tests that read/program_node.rs includes at :934 belongs to task 22.39.385 and is not changed here. Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "services/agent/crates/layerx-agentd/src/read/program_node_tests.rs", "services/agent/crates/layerx-agentd/src/read/history.rs", "services/agent/crates/layerx-agentd/src/read/program_balances.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_381.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-381.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-381.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-381.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/read/(committed|program_node|program_node_tests|history|program_balances)[.]rs:' /tmp/lint-22-39-381.log) || (tail -40 /tmp/lint-22-39-381.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.380]
+title = "Bring the unit cases of the program operation and protocol evidence files of the agent daemon under the workspace lints"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.39.222"]
+reqs = ["22998.1"]
+capabilities = ["22.39.380"]
+interfaces = []
+do_1 = "do_1 Decision 3305, gotcha 4234. Task 22.39.222 linted the library of layerx-agentd without its unit cases, and the test build of the library reports 828 messages. This task owns these files under services/agent/crates/layerx-agentd/src: ops/program.rs (110 messages in attempt 2 of task 22.39.211), protocol_evidence_native_tests.rs (16), protocol_evidence.rs (6), enrolment.rs (3), config.rs (2), outbox/mod.rs, tenant.rs and session_control.rs (1 each). Outside the counted gates run the lint of the verification command of this task once on the unchanged tree and record every message it reports in the files of this task by file, line and lint name in services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx. Then run the unit cases of the library once (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib) and record the counts of passed, failed and ignored cases; a case that is red before any change is recorded and left."
+do_2 = "do_2 Repair every recorded message at its source as decisions 3053 and 3230 state: an unwrap or an expect in a case becomes the question mark operator on a case that returns a Result or the matching assertion, a case over the line bound is divided into helpers that keep every assertion, and the other forms follow decision 3053 (digit separators, fallible conversions or the bounded allowance on the expression with a reason, distinct names, written Errors and Panics sections). No lint level change, no allow attribute at crate or module level, no public signature change, no assertion removed or weakened and no case removed. Change only the files of this task: five other tasks repair the other files of the library at the same time, and a message in a file of another task is left to it. An item reported unused is first searched in every target that includes the file, the host package layerx-agentd-host among them (decision 3242)."
+do_3 = "do_3 Lint outside the counted gates until the files of this task report nothing (decision 3242), then run the unit cases of the library again: the counts equal those of do_1, and a case that was green before and is red after is repaired. Record each message with its repair and the final count of zero in the record. Run the build once and the verification once at the final revision. If messages remain in the files of this task after the allowed repair cycles, record the remaining count by file and stop the attempt."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/tenant.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/enrolment.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --profile test"
+verify_cmd = "test -s services/agent/crates/layerx-agentd/src/repair_22_39_380.kvx && (cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings > /tmp/lint-22-39-380.log 2>&1 || true) && grep -q -E 'Finished|could not compile .layerx-agentd. ' /tmp/lint-22-39-380.log && ! grep -q -E 'error[[]E[0-9]+' /tmp/lint-22-39-380.log && test 0 -eq $(grep -c -E '^crates/layerx-agentd/src/(ops/program|protocol_evidence|protocol_evidence_native_tests|outbox/mod|tenant|session_control|config|enrolment)[.]rs:' /tmp/lint-22-39-380.log) || (tail -40 /tmp/lint-22-39-380.log; exit 1)"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.373]
 title = "Bring the library and the executables of the indexer package to a clean lint"
 status = "done"
@@ -197571,7 +197981,7 @@ title = "Bring the agent workspace lint target to green under the workspace lint
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229"]
+requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385"]
 reqs = ["22998.1"]
 capabilities = ["22.39.211"]
 interfaces = []
@@ -197583,7 +197993,7 @@ touches = ["services/agent/crates"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-types/src/repair_22_39_211.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml --workspace"
-verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
+verify_cmd = "test -s services/agent/crates/layerx-types/src/repair_22_39_211.kvx && cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml --workspace --all-targets -- -D warnings && sh services/agent/tools/dependency-policy.sh"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -197597,6 +198007,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after tasks 22.39.215 to 22.39.229 land; gotcha 3749, decisions 3039 and 3053): the attempt-1 tree 227acaa1fe0d stands as the starting point (the eight repairs in layerx-types, the layerx-crypto repairs, the record). Merge main once every per-crate lint task is on it, run the lint target once as the verification states, and repair at the source only what the whole-workspace run still reports (a lint that appears only when the members are linted together), following the repair rules of decision 3053 with the same prohibitions. Record the count by crate at the start and the end of the attempt in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed repair cycles, record the remaining count by crate and stop the attempt."
 do_5 = "do_5 Gotcha 4225: at revision cb8c8ad4b426 the library of layerx-client reports 21 lint messages under the lints of the workspace with warnings denied, all in services/agent/crates/layerx-client/src/ai_market.rs (:110, :113, :116, :122, :132, :160, :212, :328, :332, :595, :610, :650, :714, :762, :2931, :3209, :3217, :3239, :3255, :3258 and :3312): fourteen functions that return a Result and have no Errors section in their documentation, four items that could carry the must_use attribute, one Ok around the question mark operator that is not needed, one if statement that can be collapsed and one implicit clone of a vector through to_vec. They came to main with the inference market series. Repair each at its source (decisions 3052 and 3053); no allowance."
+do_6 = "Attempt 3 (continue after tasks 22.39.380 to 22.39.385 land, gotcha 4234, decision 3305): the attempt-2 tree b8de14815ac5 stands for layerx-client src/ai_market.rs, layerx-crypto src/disclosure/call.rs and the record. The verification stopped at the test build of the library of layerx-agentd with 828 messages; tasks 22.39.380 to 22.39.385 repair them by file and the task now requires them. Rebase on main once the six tasks are on it. The five files of the library of the agent daemon that attempt 2 changed (approval/mod.rs, budget/program_lifecycle_settlement.rs, human_runtime.rs, ops/program.rs and policy/approval.rs) take the version of main at the rebase; a repair of attempt 2 that main does not hold is made again only when the lint still reports its message. The verification now passes the keep going option. Before the counted gates run the lint of the verification command and repair every message it still reports anywhere in services/agent/crates until it is clean (decision 3242), under the repair rules of decisions 3053 and 3230: no lint level change and no allow attribute at crate or module level. Extend the record with the count per package before and after. Run the build once and the verification once at the final revision."
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"
@@ -198927,7 +199338,7 @@ do_5 = "do_5 Attempt 3 (continue, decisions 3211 and 3212): the attempt-2 tree 4
 
 [task.22.38.20]
 title = "Recover a room from peer loss by re-planning the layer split"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.17", "22.31.620", "22.39.353", "22.39.365", "22.39.364", "22.39.375"]
@@ -225904,7 +226315,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.376]
 title = "Give the development trade read of the launchpad the watermark of the head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -227500,7 +227911,7 @@ title = "Bring the remaining stages of the launchpad Makefile ci target to green
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.39.168", "22.39.154", "22.39.162"]
+requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
 interfaces = []
@@ -227511,9 +227922,9 @@ do_4 = "do_4 Record per stage the findings repaired, the files touched and the m
 symbols = []
 touches = ["services/launchpad", "sdk/launchpad/shared", "sdk/launchpad/protocol", "tools/launchpad/coverage-gate.sh", ".github/workflows/launchpad-test.yml"]
 tests = ["tests/ci/test_launchpad_go_tests_wired.py"]
-planned_paths = ["services/launchpad/repair_22_39_170.kvx"]
+planned_paths = ["services/launchpad/repair_22_39_170.kvx", "services/launchpad/.gitignore"]
 build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py && cd services/launchpad/api && go vet ./..."
-verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && make -C services/launchpad ci"
+verify_cmd = "anvil --version > /dev/null && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && GOFLAGS=-timeout=15m make -C services/launchpad ci"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -227521,10 +227932,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 300
+time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decisions 3303 and 3304, gotcha 4233. The task now requires task 22.39.117, which brings the test target to green and repairs the build line of the Makefile, and the verification now sets GOFLAGS -timeout=15m; the job of do_3 sets the same value. Facts from a run of the stages at 6d0bb29124e2: build, vet and fmt-check pass. The lint stage fails in the first module, because golangci-lint 2.8.0, also when built with go1.27.3, cannot read the modules (export data version 5 is greater than maximum supported version 2): name in the lint recipe one release that reads them, install it as do_2 states with the toolchain of the modules, and record the release and how it was found. The race stage passed the shared module, the protocol module, the api module and the indexer module up to its package internal/source and stopped at TestHistoricalRealRangeExplorerSuffixAndParity, historical_integration_test.go:286, role explorer_reader already exists: canonicalExplorerSchema at :44 of that file creates a role of the database server and never removes it, and the test stage ran the case on the same server before. Make every such case repeatable as decision 3304 states. These test files create a role, a user or a database of the server and hold no statement that removes it: services/launchpad/indexer/internal/source/historical_integration_test.go, services/launchpad/gateway/internal/app/identity_peers_test.go, services/launchpad/livestream/internal/app/platform_test.go, services/launchpad/notifications/repair_40_test.go, the files proof_launchpad_pnl_tracker_test.go, repair_29_test.go and repair_m917_peer_test.go of services/launchpad/pnl-tracker/internal/app, services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go, services/launchpad/pnl-tracker/internal/referral/localfixture_test.go, services/launchpad/social/internal/app/platform_test.go, the files repair_68_peer_test.go and repair_68_test.go of services/launchpad/social/internal/social, and the three test files of the package internal/search of the launchpad statistics module. The test files of sdk/launchpad/shared/db/production and services/launchpad/api/internal/app/repair_m913_test.go create such objects as well and passed a second pass; change them only when a second run fails. The cover target writes services/launchpad/.cover, which no ignore file names: add services/launchpad/.gitignore with that directory and leave no profile untracked at the end. Before the counted verification run every stage once outside the counted gates (decision 3286)."
 
 [task.22.39.168]
 title = "Bring the twelve remaining launchpad Go modules to green and retire their baseline entries"
@@ -227873,7 +228285,7 @@ touches = ["sdk/launchpad/shared", "sdk/launchpad/protocol", "services/launchpad
 tests = ["sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool", "sdk/launchpad/shared/db/production::TestPhase2ReaderCompatibility", "sdk/launchpad/shared/storage::TestArchiveActualCanonicalPostgresAndObjectStorage", "sdk/launchpad/shared/delivery/natsdriver"]
 planned_paths = ["tests/ci/data/launchpad_go_test_baseline.json"]
 build_cmd = "cd sdk/launchpad/shared && go vet ./..."
-verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./chain/... ./db/... ./delivery/... ./storage/... && cd ../../.. && make -C services/launchpad ci"
+verify_cmd = "cd sdk/launchpad/shared && go test -count=1 ./chain/... ./db/... ./delivery/... ./storage/... && cd ../../.. && GOFLAGS=-timeout=15m make -C services/launchpad test build vet fmt-check"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -227907,6 +228319,7 @@ do_21 = "Attempt 18 (continue, gotchas 4171 and 4172, decisions 3243, 3244 and 3
 do_22 = "Attempt 19 (continue, gotcha 4191, decisions 3262 and 3183): the attempt-18 tree 1f397b9aea73 stands (the three repairs of the indexer module, MatchesApproved of the role and its calls, the staged pin, the fixtures and configured skips of the shared packages, the retired baseline entries, the record). The verification stopped in the first module at the case TestDecodeIdentitySigningKeyForms of sdk/launchpad/shared/auth/mtls_identity_client_test.go, which draws a random key and asserts that its padded URL form is refused; that form equals the standard form for about one key in fifteen and the decoder is right to accept it then. Repair the case and not the decoder: draw keys through testpki.Ed25519 until the standard form of the key holds a plus sign or a slash, at most 64 draws, fail the case with a message when no draw meets it, and keep every assertion and every input of the two lists. Run that case 200 times with the count option of go test outside the counted gates and record the result. Then run the test target of services/launchpad/Makefile once outside the counted gates, because the modules after the first one have not run at this tree: a red case whose cause sits inside the paths is repaired in this attempt, and a red site outside the paths is recorded with file, line and message and the attempt stops. Extend the record. Run the build once and the verification once at the final revision."
 do_23 = "Attempt 20 (continue after 22.39.374 lands, gotcha 4211, decision 3283): the attempt-19 tree a26f513fc045 stands (the repaired signing key case, everything of the earlier attempts, the record). The run of the test target outside the counted gates passed the modules before the profit tracker and stopped there at TestRepair_63_RecordedReplayHeaders, internal/production/l16/repair_63_test.go:217: the case pins the checksum of the producer transcript that task 22.39.162 extended by one record. The directory is outside the paths and task 22.39.374 repairs it; the task now requires it. Rebase on main once that task is on it and change nothing under services/launchpad/pnl-tracker. The modules after the profit tracker in the list of the test target have still not run at this tree: run the test target once more outside the counted gates. A red case whose cause sits inside the paths is repaired in this attempt, and a red site outside the paths is recorded with file, line and message and the attempt stops. Run the build once and the verification once at the final revision."
 do_24 = "Attempt 21 (continue, gotcha 4217, decision 3289): the attempt-20 tree ba77c1f483af stands (the repair of the connection cleanup at the start of a transaction, everything of the earlier attempts, the record). The test target passed every module before the launchpad statistics module and stopped in its package projectionstats at TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery, phase2_test.go:182: the case creates a stream with three replicas and the broker that L13_PHASE3_NATS_URL named was a single node. The case is right and the public workflow runs it against three nodes (.github/workflows/launchpad-test.yml:296). Three nodes now answer on the same ports. Change nothing in that case, add no skip and change no file of the launchpad statistics module. Rebase on main. The targets build, vet, fmt-check, lint, race and cover-check of the ci target have not run at this tree. Before the counted verification run the test target and then each of those targets once outside the counted gates, in the order of the ci target (decision 3286). Repair a red result whose cause sits inside the paths. For a cause outside the paths record the target, the module, the first failing message and its file, go on with the remaining targets, and record all such causes together. The time limit is now 300 minutes. When no cause outside the paths remains, run the build once and the verification once at the final revision. When one remains, commit the record, do not start the counted verification, and stop."
+do_25 = "Attempt 22 (continue, gotcha 4233, decision 3303): the attempt-21 tree 6d0bb29124e2 stands (the build line of the Makefile that leaves the test time limit out of go build, everything of the earlier attempts, the record). The verification now runs the cases of the five shared packages and the targets test, build, vet and fmt-check under GOFLAGS -timeout=15m; the targets lint, race and cover-check left it and belong to task 22.39.170. Rebase on main. Change nothing for the lint tool, for the role of the indexer case or for the profile directory, and leave no file under services/launchpad/.cover in the tree. In the record replace the results of the lint, race and cover stages with one sentence that names decision 3303 and gotcha 4233. Outside the counted gates run the test target for the trading-charts module once under the limit (GOFLAGS=-timeout=15m make -C services/launchpad test MODULES=trading-charts) and confirm that TestFaultBrokerTenMinuteOutageAndPostPublishCrash passes inside it; shorten, skip or remove no case. The other modules passed the test target at this tree and are run again outside the counted gates only when the rebase changes a file they read. A red case whose cause sits inside the paths is repaired in this attempt; a red site outside the paths is recorded with file, line and message and the attempt stops. Run the build once and the verification once at the final revision."
 
 [task.22.39.116]
 title = "Make the three merge-plan and hosted-program ABI node tests pass and retire their baseline"
@@ -308642,9 +309055,105 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.389]
+title = "Settle the value of the AI market program without the balance sight"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.388"]
+reqs = ["22998.1"]
+capabilities = ["22.39.389"]
+interfaces = []
+do_1 = "do_1 Decision 3311, gotcha 4241. In programs/crates/layerx-programs-ai-market/src/value_adapter.rs the function settle (:337) runs the plan and stages the one deposit or payment; the balance read at :344 and the cover call at :347 leave it, and its comment is rewritten to what it does. Its callers discard the returned amount (rewards.rs:2938 and the close step of the entry module of the program), so the return type follows what remains. The function balance_refusal has no caller afterwards and is removed with its cases (tests/value_boundary.rs:503 and :513, tests/rewards_native.rs:2438). The function cover stays, and its comment states that it is the law for an audit of the state and that no operation enforces it. Change nothing in canary.rs, in the kernel, in modules/lxphost or in the program SDK."
+do_2 = "do_2 Record in programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx the kernel site that refuses a transfer above the balance of the source account, for the deposit path and for the payment path of a program account, each with file and line. When no such site exists, change nothing, record that, and stop: the sight rule then returns to the owner."
+do_3 = "do_3 Search the repository for every reader of the sight read of the settlement before changing it (decision 3283): the cases and examples of the crate, tests/programs/test_monetary_law.c, tools/qualification/paxeer-x/program_transfer_authority.py, the cases under rpc and the documents under docs. A reader inside the paths of the task is corrected. A reader outside them is recorded with file and line and is not changed."
+do_4 = "do_4 Regenerate the two committed guests with programs/crates/layerx-programs-ai-market/tests/fixtures/build-guest.sh, once without an argument and once with --aggregation-probe (decisions 3192 and 3260). The deployment guest stays within the bound 524184. A size or fuel value pinned in a case of the crate that moves with the guest is set to the measured value and recorded with the old and the new value."
+do_5 = "do_5 The case of rpc/repair_22_39_388_test.go becomes the proof that a FUND is admitted after a block-end transition when its capability bytes hold the mutation capabilities and one Transfer402 grant for the rewards account and the amount, with no BalanceView grant, no receipt authority and no anchor: once as the first activity of the next block and once after another activity of that block. Each asserts result 0, a program outcome with status 0 and one transfer of the amount of the asset to the rewards account. The candidates that named a receipt are removed. The FUND of TestRepair478_FundWithinProductionAllowance in rpc/repair_478_test.go drops its anchor, its BalanceView grant and its receipt authority in the same way, and an allowance figure that moves is set to the measured value and recorded (decision 2675). The record rpc/repair_22_39_388.kvx is rewritten to the new results, and its line that names a verification tool in place of a revision is replaced by a sentence that the result holds at the revision that carries the record."
+do_6 = "do_6 Decisions 3286 and 3287: before the counted build compile every target of the build command, run the whole test set of the crate once and repair every case inside the paths that the change turned red, and run every part of the verification command until clean, all outside the counted gates. Then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market/src/value_adapter.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs", "programs/crates/layerx-programs-ai-market/tests", "rpc/repair_22_39_388_test.go", "rpc/repair_22_39_388.kvx", "rpc/repair_478_test.go"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market && make -s paxd-native-libs && CGO_ENABLED=1 go vet ./rpc/"
+verify_cmd = "test -s programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx && ! grep -q 'balance::read' programs/crates/layerx-programs-ai-market/src/value_adapter.rs && ! grep -rq --include='*.rs' balance_refusal programs/crates/layerx-programs-ai-market/src programs/crates/layerx-programs-ai-market/tests && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test value_boundary --test rewards_native --test repair_22_33_261 --test market_protocol_boundary --test fuel_budget --test repair_22_33_223 && CGO_ENABLED=1 go test -count=1 -run '^(TestRepair22_39_388_|TestRepair478_)' ./rpc/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.388]
+title = "Prove at the host level which receipt admits a value operation after a block-end transition"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.388"]
+interfaces = []
+do_1 = "do_1 Decision 3309, gotcha 4238. The balance sight of a value operation names the receipt whose global sequence is the next global sequence minus one and whose resulting state root is the current root (src/modules/programs/accounts.c:824 and :839 to :848). The kernel case TestRepair478_FundWithinProductionAllowance of rpc/repair_478_test.go meets the rule by hand: block-end transition at :464, an anchor that registers the existing account again at :474, and FUND as the first activity of the next height at :489 to :501 with the digest of the anchor receipt in its sight grant and the receipt of the anchor as its receipt authority. A live chain runs the transition as the last step of every block (decision 3308), so nothing follows it inside the block."
+do_2 = "do_2 Add rpc/repair_22_39_388_test.go in the package of the kernel case with the case TestRepair22_39_388_BalanceSightAfterBlockEndTransition. It builds the program, the account and the market with the fixture of the kernel case; a builder of that fixture may move into a helper of rpc/repair_478_test.go as long as the kernel case asserts what it asserts today. At a height H it runs the creation and then the block-end transition as the last step of H. For each candidate below it then runs FUND on its own branch of the state, so that no candidate disturbs another, and reads the result code. Candidate one: FUND first at H plus 1 naming the receipt of the last activity of H. Candidate two: FUND first at H plus 1 naming the bytes that the transition returned, when the receipt decoder admits them, and otherwise the refusal of the decoder is the result. Candidate three: an anchor before the transition of H and FUND first at H plus 1 naming the anchor. Candidate four: an anchor first at H plus 1 and FUND second in the same block naming the anchor. Candidate five, the control: the order of the kernel case, which must be admitted."
+do_3 = "do_3 The case asserts for every candidate the result code that it observed, so that the record cannot drift from the kernel. Change nothing under src and nothing in modules/lxphost, and repair nothing. Record in rpc/repair_22_39_388.kvx one row per candidate with the receipt named, its global sequence, the next global sequence at the call, the result code and whether a sender who learns receipts only from committed blocks can name that receipt before the block of the call executes; for candidate four state whether the digest of the anchor receipt can be computed before the block executes. Close the record with one sentence that says whether any candidate that such a sender can use is admitted. Compile, vet and run the case outside the counted gates until clean (decisions 3286 and 3287). Run the build once and the verification once at the final revision."
+symbols = ["FinalizeProgramsOccupancy"]
+touches = ["rpc/repair_478_test.go"]
+tests = ["rpc/repair_22_39_388_test.go::TestRepair22_39_388_BalanceSightAfterBlockEndTransition"]
+planned_paths = ["rpc/repair_22_39_388_test.go", "rpc/repair_22_39_388.kvx"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./rpc/"
+verify_cmd = "test -s rpc/repair_22_39_388.kvx && CGO_ENABLED=1 go test -count=1 -run '^(TestRepair22_39_388_|TestRepair478_)' ./rpc/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.387]
+title = "Run the block-end occupancy transition of Programs in the block flow of the node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.387"]
+interfaces = []
+do_1 = "do_1 Decision 3308, gotcha 4237. Host.FinalizeProgramsOccupancy (modules/lxphost/host.go:1382) has no caller outside tests, and the kernel refuses a program call whose batch number is not the finalized batch plus one (src/modules/programs/occupancy.c:435), so on a live chain a program call at a later height than the first is refused. Read FinalizeBlocker of node/app.go:1958 with FinalizeBlock of node/abci.go:289 and EndBlock of node/abci.go:92, the context of the host (modules/lxphost/ctx.go:87 to :110, where the sequence comes from the context and the batch number is the block height), the two batch checks of occupancy.c at :430 to :438 and :858 to :868, and the batch snapshot path of modules/lxphost/simulate.go:131. State in the record which state of FinalizeBlocker commits and whether the result of the path of simulate.go ever commits."
+do_2 = "do_2 Run the transition in the block flow of the application: once per block, after the last transaction and before the commit, in the state that commits, with the last global sequence of the host plus one, the block height as the batch number, the block time and the protocol version that the tests pass. Start at the first block in which the host store holds the Programs schedules that the merge upgrade installs (modules/lxphost/programs_schedules.go); a block before that runs no transition and writes nothing. Never run it in a check, a simulation or a proposal path whose state is thrown away, and never twice for one height. A failure of the transition fails the block and is not swallowed. Change nothing under src; when the wiring needs a change of the kernel, record the site and stop."
+do_3 = "do_3 Add node/programs_block_end_test.go with cases that pass through the block flow of the application and place no call of the transition by hand. TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow: a program call at the height of the merge upgrade and at each of the next three heights passes. TestProgramCallAfterIdleBlocksPasses: a call, 20 blocks without program activity, and a call that passes. TestBlockEndTransitionRunsOncePerBlock: the last global sequence of the host grows by exactly one in a block without activity, and a second run for the same height is refused as a replay. TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched: before the schedules exist no block changes the host store. TestBlockEndTransitionSurvivesRestart: after a restart of the application from its committed state the next block runs the transition and a program call passes. Remove the hand call from the block loop of node/upgrades_merge_programs_abi_test.go:269 to :273 and let that test reach the transition the way a node does."
+do_4 = "do_4 Measure the transition in a block without activity over 1000 blocks and record the mean and the largest duration and the keys of the host store that such a block writes. Search modules, precompiles, rpc and node for readers of the global sequence or of the last sequence key that presume that every global sequence belongs to the receipt of an activity; repair one inside the paths with a case and record one outside them with file and line. A committed expected value inside the paths that changes because every block now advances the global sequence is regenerated by its own generator and named in the record. The tests of rpc that drive the host directly keep their hand calls and are not changed."
+do_5 = "do_5 Record in modules/lxphost/repair_22_39_387.kvx the place of the call in the block flow, the first block that runs it, the handling of a failure, the measured cost, the readers found and the answers of do_1. Compile, vet and run the cases outside the counted gates until clean (decisions 3286 and 3287). Run the build once and the verification once at the final revision."
+symbols = ["FinalizeProgramsOccupancy", "FinalizeBlocker"]
+touches = ["modules/lxphost", "node"]
+tests = ["node/programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow", "node/programs_block_end_test.go::TestProgramCallAfterIdleBlocksPasses", "node/programs_block_end_test.go::TestBlockEndTransitionRunsOncePerBlock", "node/programs_block_end_test.go::TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched", "node/programs_block_end_test.go::TestBlockEndTransitionSurvivesRestart"]
+planned_paths = ["node/programs_block_end_test.go", "modules/lxphost/repair_22_39_387.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./node/ && CGO_ENABLED=1 go vet ./modules/lxphost/ ./node/"
+verify_cmd = "test -s modules/lxphost/repair_22_39_387.kvx && ! grep -q FinalizeProgramsOccupancy node/upgrades_merge_programs_abi_test.go && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ ./node/ -run '^(TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart|TestMergeUpgradeInstallsProgramsSchedules|TestHostedKernelProgramsABIFollowsTheMergeUpgrade|TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade|TestHostedKernelProgramsABISurvivesRestart)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 4242, decisions 3308, 3286 and 3287): the attempt-1 tree 2814328058c8 is the starting point (ProgramsSchedulesPresent of modules/lxphost/programs_schedules.go, the call sites in FinalizeBlocker, the cases of node/programs_block_end_test.go, the record). The transition is refused at the first block that runs it with LXP_ERR_CONTEXT_MISMATCH. Find the cause before changing the flow again: the kernel returns that code at src/modules/programs/occupancy.c:442 when the open ledger names another occupancy asset and at :446 when it names other prices under the same schedule version. Compare both sides at the first failing block with the hand call that passes at the base (node/upgrades_merge_programs_abi_test.go:271), and record the cause with file and line. A diagnostic line added to the kernel or the host is removed before the build; the kernel and src/modules/programs stay unchanged. Decision 3308 stands: the transition runs once per block after the last transaction and before the commit, in the state that commits, with the next global sequence, the block height as batch number and the block time, and its failure fails the block. Running it on a context built after the state of the block was written, followed by a second selection of the commit state, is not required by the task and is replaced when it is the cause. The last change of attempt 1 was seen by no gate and counts as unverified. Run every case of the verification command and the 1000 block measurement outside the counted gates until clean, then run the build once and the verification once."
+
 [task.22.39.379]
 title = "Install the fee schedule and the metering schedule of Programs in the merge upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
