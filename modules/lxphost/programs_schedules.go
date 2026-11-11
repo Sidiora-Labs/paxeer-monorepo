@@ -109,6 +109,14 @@ type ProgramsSchedulesInstalled struct {
 	Metering bool
 }
 
+// ProgramsSchedulesPresent reports whether both active schedules needed by the
+// block-end occupancy transition are in the host store.
+func ProgramsSchedulesPresent(ctx sdk.Context, key sdk.StoreKey) bool {
+	store := ctx.KVStore(key)
+	return store.Has(moduleKVKey(9, []byte("progfee/active/v1"))) &&
+		store.Has(moduleKVKey(9, []byte("progmet/active/v1")))
+}
+
 // InstallProgramsSchedules installs each missing kind from native genesis
 // producers. A present active row, including its history, is left untouched.
 func InstallProgramsSchedules(ctx sdk.Context, key sdk.StoreKey, p ProgramsScheduleParameters) (ProgramsSchedulesInstalled, error) {

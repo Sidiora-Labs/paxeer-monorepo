@@ -195061,7 +195061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.386]
 title = "Build the call terms of a market operation in the client library and use them in the agent daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -309120,7 +309120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.387]
 title = "Run the block-end occupancy transition of Programs in the block flow of the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

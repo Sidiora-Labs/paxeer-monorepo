@@ -72,11 +72,15 @@ func hostedProgramsABIReceiptVersion(t *testing.T, receipt lxphost.Receipt, vers
 	require.Equal(t, version, decoded.ModuleVersion)
 }
 
-func newHostedProgramsABIFixture(t *testing.T) *hostedProgramsABIFixture {
+func newHostedProgramsABIFixture(t *testing.T, firstHeight ...int64) *hostedProgramsABIFixture {
 	t.Helper()
 	valPub := secp256k1.GenPrivKey().PubKey()
 	w := NewTestWrapper(t, time.UnixMilli(1700000000000).UTC(), valPub, true)
-	f := &hostedProgramsABIFixture{app: w.App, ctx: w.Ctx.WithBlockHeight(mergeHeight - 1), program: [32]byte{0x76}, proposer: sdk.ConsAddress(valPub.Address())}
+	height := mergeHeight - 1
+	if len(firstHeight) != 0 {
+		height = firstHeight[0]
+	}
+	f := &hostedProgramsABIFixture{app: w.App, ctx: w.Ctx.WithBlockHeight(height), program: [32]byte{0x76}, proposer: sdk.ConsAddress(valPub.Address())}
 	t.Cleanup(func() { require.NoError(t, f.app.Close()) })
 	rewindBeforeMerge(t, f.app, f.ctx)
 	f.private = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x75}, ed25519.SeedSize))
@@ -179,10 +183,14 @@ func (f *hostedProgramsABIFixture) call(t *testing.T) lxphost.Receipt {
 	return f.execute(t, 0x00090003, payload)
 }
 
-func (f *hostedProgramsABIFixture) merge(t *testing.T) {
+func (f *hostedProgramsABIFixture) merge(t *testing.T, planInfo ...string) {
 	t.Helper()
 	f.ctx = f.ctx.WithBlockHeight(mergeHeight)
-	f.app.UpgradeKeeper.ApplyUpgrade(f.ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)})
+	info := activationInfo(t)
+	if len(planInfo) != 0 {
+		info = planInfo[0]
+	}
+	f.app.UpgradeKeeper.ApplyUpgrade(f.ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: info})
 	require.Equal(t, []byte{0, 5}, f.ctx.KVStore(f.app.GetKey(LayerXHostStoreKey)).Get([]byte(hostedProgramsGuestABIKey)))
 	require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
 	require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
@@ -230,7 +238,7 @@ func TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade(t *testing.T) {
 }
 
 func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
-	f := newHostedProgramsABIFixture(t)
+	f := newHostedProgramsABIFixture(t, 1)
 	info, err := f.app.UpgradeKeeper.GetUpgradeInfoPath()
 	require.NoError(t, err)
 	home := filepath.Dir(filepath.Dir(info))
@@ -257,23 +265,20 @@ func TestHostedKernelProgramsABISurvivesRestart(t *testing.T) {
 				Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t),
 			}))
 		}
+		f.app.SetDeliverStateToCommit()
+		_, err = f.app.Commit(context.Background())
+		require.NoError(t, err)
 		if height == mergeHeight {
 			require.Equal(t, uint16(5), f.app.hostedProgramsGuestABI)
-			require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.ctx, MergeUpgrade))
+			require.Equal(t, mergeHeight, f.app.UpgradeKeeper.GetDoneHeight(f.app.GetCheckCtx(), MergeUpgrade))
+			probe, _ := f.app.GetCheckCtx().WithBlockHeight(mergeHeight + 1).CacheContext()
+			f.ctx = probe
 			before := f.call(t)
 			require.Zero(t, before.ResultCode, before.ResultCode.Error())
 			require.NotNil(t, before.ProgramOutcome)
 			require.Zero(t, before.ProgramOutcome.Status)
 			hostedProgramsABIReceiptVersion(t, before, 5)
 		}
-		last, err := f.app.LayerXHost.ReadLastSequence(f.ctx, f.did)
-		require.NoError(t, err)
-		occupancy, err := f.app.LayerXHost.FinalizeProgramsOccupancy(lxphost.WithSequence(f.ctx, last+1), codec.StateCommitmentProtocolVersion)
-		require.NoError(t, err, "finalize occupancy at height %d", height)
-		require.NotEmpty(t, occupancy)
-		f.app.SetDeliverStateToCommit()
-		_, err = f.app.Commit(context.Background())
-		require.NoError(t, err)
 	}
 	require.Equal(t, mergeHeight, f.app.LastBlockHeight())
 	committedID := f.app.LastBlockID()

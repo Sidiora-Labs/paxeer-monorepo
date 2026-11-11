@@ -425,13 +425,15 @@ impl<'a> NodeProgramSimulationTransport<'a> {
     pub fn new(
         client: &'a mut layerx_client::sequencer::SequencerEndpoint,
         registry: ModuleRegistry,
-        _correlation_id: u64,
+        correlation_id: u64,
     ) -> Self {
+        #[cfg(not(test))]
+        let _ = correlation_id;
         Self {
             client,
             registry,
             #[cfg(test)]
-            correlation_id: _correlation_id,
+            correlation_id,
         }
     }
 
@@ -763,16 +765,15 @@ pub struct ProgramTransactionSubmission {
 
 #[cfg(test)]
 mod node_simulation_transport_contract {
-    use super::ProgramSimulationTransport;
-
     #[test]
-    fn node_simulation_transport_holds_a_sequencer_endpoint() {
+    fn node_simulation_transport_holds_a_sequencer_endpoint(
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut endpoint =
             layerx_client::sequencer::SequencerEndpoint::new("http://127.0.0.1:1", &[])
-                .expect("loopback sequencer endpoint");
-        let registry =
-            layerx_types::payload::ModuleRegistry::new(&[]).expect("empty module registry");
-        let endpoint_ptr = &endpoint as *const _;
+                .map_err(|error| format!("{error:?}"))?;
+        let registry = layerx_types::payload::ModuleRegistry::new(&[])
+            .map_err(|error| format!("{error:?}"))?;
+        let endpoint_ptr = &raw const endpoint;
         let mut transport = super::NodeProgramSimulationTransport::new(&mut endpoint, registry, 42);
         assert_eq!(transport.correlation_id, 42);
         assert!(std::ptr::eq(transport.client, endpoint_ptr));
@@ -780,6 +781,7 @@ mod node_simulation_transport_contract {
             transport.simulate_signed_activity(&[]),
             Err(super::ProgramOperationError::InvalidRequest)
         ));
+        Ok(())
     }
 }
 
@@ -788,10 +790,6 @@ pub struct ProgramOperations<R = LayerxdProgramBalanceReader> {
 }
 
 pub(crate) struct ProgramActivityExecution {
-    #[cfg(test)]
-    pub(crate) program_id: [u8; 32],
-    #[cfg(test)]
-    pub(crate) guest_abi_version: u16,
     pub(crate) execution: ProgramExecution,
     pub(crate) terminal_payload: Vec<u8>,
 }
@@ -953,10 +951,6 @@ impl ProgramOperations {
         )
         .map_err(|_| ProgramOperationError::UnverifiedReceipt)?;
         Ok(ProgramActivityExecution {
-            #[cfg(test)]
-            program_id,
-            #[cfg(test)]
-            guest_abi_version,
             execution: ProgramExecution {
                 committed: true,
                 result_code: verified.result_code(),
@@ -2153,14 +2147,67 @@ mod evm_program_tests {
     use std::time::{Duration, Instant};
 
     type Exchange = (&'static str, Value);
+    #[derive(Debug)]
+    struct TestFailure(String);
 
-    fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<Vec<Value>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let endpoint =
-            SequencerEndpoint::new(&format!("http://{}", listener.local_addr().unwrap()), &[])
-                .unwrap();
-        let worker = std::thread::spawn(move || {
+    impl std::fmt::Display for TestFailure {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            self.0.fmt(formatter)
+        }
+    }
+
+    macro_rules! test_failure_from {
+        ($($source:ty),+ $(,)?) => {
+            $(impl From<$source> for TestFailure {
+                fn from(error: $source) -> Self {
+                    Self(format!("{error:?}"))
+                }
+            })+
+        };
+    }
+
+    test_failure_from!(
+        std::io::Error,
+        std::num::ParseIntError,
+        serde_json::Error,
+        layerx_client::sequencer::SequencerError,
+        layerx_types::payload::PayloadError,
+        layerx_types::program_call::InvalidNativeCall,
+        crate::prepare::evm::PrepareError,
+        layerx_wire::WireError,
+        layerx_proof::receipt::VerificationFailure,
+        layerx_crypto::evm_transaction::InvalidEvmKey,
+        layerx_crypto::evm_transaction::EvmTransactionError,
+        layerx_programs::InterfaceRefusal,
+        layerx_programs_runtime::StorageError,
+        layerx_crypto::disclosure::DisclosureError,
+    );
+
+    impl<E: std::fmt::Debug> From<ProgramOperationError<E>> for TestFailure {
+        fn from(error: ProgramOperationError<E>) -> Self {
+            Self(format!("{error:?}"))
+        }
+    }
+
+    impl From<&'static str> for TestFailure {
+        fn from(message: &'static str) -> Self {
+            Self(message.to_owned())
+        }
+    }
+
+    type TestResult<T> = Result<T, TestFailure>;
+
+    fn joined<T>(worker: JoinHandle<TestResult<T>>) -> TestResult<T> {
+        worker.join().map_err(|_| "RPC worker panicked")?
+    }
+
+    fn serve(
+        exchanges: Vec<Exchange>,
+    ) -> TestResult<(SequencerEndpoint, JoinHandle<TestResult<Vec<Value>>>)> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let endpoint = SequencerEndpoint::new(&format!("http://{}", listener.local_addr()?), &[])?;
+        let worker = std::thread::spawn(move || -> TestResult<Vec<Value>> {
             let mut requests = Vec::new();
             for (method, response) in exchanges {
                 let deadline = Instant::now() + Duration::from_secs(10);
@@ -2171,45 +2218,44 @@ mod evm_program_tests {
                             if error.kind() == std::io::ErrorKind::WouldBlock
                                 && Instant::now() < deadline =>
                         {
-                            std::thread::sleep(Duration::from_millis(2))
+                            std::thread::sleep(Duration::from_millis(2));
                         }
                         other => panic!("RPC double did not receive {method}: {other:?}"),
                     }
                 };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+                stream.set_write_timeout(Some(Duration::from_secs(5)))?;
                 let mut reader = BufReader::new(stream);
                 let mut length = None;
                 loop {
                     let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                    assert_ne!(reader.read_line(&mut line)?, 0);
                     if line == "\r\n" {
                         break;
                     }
                     if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(value.trim().parse::<usize>().unwrap());
+                        length = Some(value.trim().parse::<usize>()?);
                     }
                 }
-                let mut body = vec![0; length.unwrap()];
-                reader.read_exact(&mut body).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
+                let mut body = vec![0; length.ok_or("missing content length")?];
+                reader.read_exact(&mut body)?;
+                let request: Value = serde_json::from_slice(&body)?;
                 assert_eq!(request["jsonrpc"], "2.0");
                 assert_eq!(request["method"], method);
-                let mut answer = response.as_object().unwrap().clone();
+                let mut answer = response
+                    .as_object()
+                    .ok_or("RPC response is not an object")?
+                    .clone();
                 answer.insert("jsonrpc".to_owned(), json!("2.0"));
                 answer.insert("id".to_owned(), request["id"].clone());
-                let answer = serde_json::to_string(&answer).unwrap();
+                let answer = serde_json::to_string(&answer)?;
                 let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len())?;
                 requests.push(request);
             }
-            requests
+            Ok(requests)
         });
-        (endpoint, worker)
+        Ok((endpoint, worker))
     }
 
     fn hex(bytes: &[u8]) -> String {
@@ -2218,34 +2264,30 @@ mod evm_program_tests {
     fn result(bytes: &[u8]) -> Value {
         json!({"result": hex(bytes)})
     }
-    fn registry() -> ModuleRegistry {
-        ModuleRegistry::new(&[ModuleRegistration::new(
+    fn registry() -> TestResult<ModuleRegistry> {
+        Ok(ModuleRegistry::new(&[ModuleRegistration::new(
             ModuleId::Programs,
-            &[ActivityType::new(ModuleId::Programs, 3).unwrap()],
-        )
-        .unwrap()])
-        .unwrap()
+            &[ActivityType::new(ModuleId::Programs, 3)?],
+        )?])?)
     }
-    fn fixture() -> (Vec<u8>, Vec<u8>) {
+    fn fixture() -> TestResult<(Vec<u8>, Vec<u8>)> {
         let value: Value = serde_json::from_str(include_str!(
             "../../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
+        ))?;
+        Ok((
+            decode_hex_json(&value, "payload_hex")?,
+            decode_hex_json(&value, "signed_activity_hex")?,
         ))
-        .unwrap();
-        (
-            decode_hex_json(&value, "payload_hex").unwrap(),
-            decode_hex_json(&value, "signed_activity_hex").unwrap(),
-        )
     }
     fn transaction(
         payload: &[u8],
-    ) -> (
+    ) -> TestResult<(
         layerx_crypto::evm_transaction::Eip1559Call,
         Vec<u8>,
         [u8; 20],
-    ) {
-        let call = NativeProgramCall::decode(payload).unwrap();
-        let precompile =
-            ProgramOperations::<SequencerEndpoint>::call_precompile(call, 1000).unwrap();
+    )> {
+        let call = NativeProgramCall::decode(payload)?;
+        let precompile = ProgramOperations::<SequencerEndpoint>::call_precompile(call, 1000)?;
         let transaction = layerx_crypto::evm_transaction::Eip1559Call {
             chain_id: 125,
             nonce: 7,
@@ -2253,13 +2295,12 @@ mod evm_program_tests {
             max_fee_per_gas: 10,
             gas_limit: 1_000_000,
             to: precompile.target.address(),
-            data: precompile.encode().unwrap(),
+            data: precompile.encode()?,
         };
-        let raw = transaction.sign(&[0xa5; 32]).unwrap();
-        let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw).unwrap();
-        let sender =
-            layerx_crypto::evm_transaction::recover_sender(&transaction, &signature).unwrap();
-        (transaction, raw, sender)
+        let raw = transaction.sign(&[0xa5; 32])?;
+        let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&transaction, &signature)?;
+        Ok((transaction, raw, sender))
     }
     fn call_result(code: i32, kind: u8, response: &[u8]) -> Vec<u8> {
         let mut bytes = vec![if code < 0 { 0xff } else { 0 }; 28];
@@ -2275,7 +2316,7 @@ mod evm_program_tests {
         json!({"result": {"number": "0x7", "hash": hex(&hash), "parentHash": hex(&[4;32]),
             "timestamp": "0x64", "transactionsRoot": hex(&[5;32]), "receiptsRoot": hex(&[6;32]), "transactions": []}})
     }
-    fn interface() -> ProgramInterface {
+    fn interface() -> TestResult<ProgramInterface> {
         use layerx_programs::{InterfaceEntryPoint, ValueSchema, ValueType};
         let wasm = [
             0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127, 3,
@@ -2283,7 +2324,7 @@ mod evm_program_tests {
             b'y', b'e', b'r', b'x', b'_', b'r', b'e', b's', b'e', b'r', b'v', b'e', 0, 1, 6, b'm',
             b'e', b'm', b'o', b'r', b'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
         ];
-        ProgramInterface::bind(
+        Ok(ProgramInterface::bind(
             &wasm,
             1,
             vec![InterfaceEntryPoint {
@@ -2295,8 +2336,7 @@ mod evm_program_tests {
                 event_topics: Vec::new(),
                 failures: Vec::new(),
             }],
-        )
-        .unwrap()
+        )?)
     }
     fn record_bytes(interface: &ProgramInterface) -> Vec<u8> {
         let mut bytes = program_word(1).to_vec();
@@ -2337,18 +2377,17 @@ mod evm_program_tests {
     }
 
     #[test]
-    fn committed_lie_is_refused_before_signature_authority() {
-        let (payload, _) = fixture();
-        let (transaction, raw, sender) = transaction(&payload);
+    fn committed_lie_is_refused_before_signature_authority() -> TestResult<()> {
+        let (payload, _) = fixture()?;
+        let (transaction, raw, sender) = transaction(&payload)?;
         let bytes = call_result(0, 1, b"answer");
         let (mut endpoint, server) = serve(vec![
             ("eth_estimateGas", json!({"result":"0x5208"})),
             ("eth_call", result(&bytes)),
-        ]);
-        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry(), 42);
-        let simulation = transport
-            .simulate_native_exact(NativeProgramCall::decode(&payload).unwrap(), 1000, &raw)
-            .unwrap();
+        ])?;
+        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry()?, 42);
+        let simulation =
+            transport.simulate_native_exact(NativeProgramCall::decode(&payload)?, 1000, &raw)?;
         assert!(simulation.receipt.is_empty());
         assert_eq!(simulation.terminal_payload, bytes);
         assert_eq!(simulation.evidence.signing_digest(), None);
@@ -2379,9 +2418,11 @@ mod evm_program_tests {
                     }
                 );
             }
-            other => panic!("pending call acquired signature authority: {other:?}"),
+            other @ ProgramSimulationEvidence::SequencerSigned { .. } => {
+                panic!("pending call acquired signature authority: {other:?}")
+            }
         }
-        let requests = server.join().unwrap();
+        let requests = joined(server)?;
         let expected = json!({"from": hex(&sender), "to": hex(&transaction.to), "data": hex(&transaction.data)});
         assert_eq!(requests[0]["params"], json!([expected, "pending"]));
         assert_eq!(requests[1]["params"], requests[0]["params"]);
@@ -2390,30 +2431,31 @@ mod evm_program_tests {
         let (mut endpoint, server) = serve(vec![
             ("eth_estimateGas", json!({"result":"0x5208"})),
             ("eth_call", result(&lie)),
-        ]);
-        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry(), 42);
+        ])?;
+        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry()?, 42);
         assert!(matches!(
             transport.simulate_signed_activity(&raw),
             Err(ProgramOperationError::UnverifiedReceipt)
         ));
-        assert_eq!(server.join().unwrap().len(), 2);
+        assert_eq!(joined(server)?.len(), 2);
+        Ok(())
     }
 
     #[test]
-    fn stale_discovery_root_is_refused() {
-        let interface = interface();
+    fn stale_discovery_root_is_refused() -> TestResult<()> {
+        let interface = interface()?;
         let mut exchanges = discovery_exchanges(&interface);
         exchanges.extend(read_exchanges(&interface_bytes(&interface), [8; 32]));
-        let (endpoint, server) = serve(exchanges);
+        let (endpoint, server) = serve(exchanges)?;
         let programs = ProgramOperations::from_endpoint(endpoint);
-        let program = ProgramId::new([0x11; 32]).unwrap();
-        let discovery = programs.discover(program).unwrap();
+        let program = ProgramId::new([0x11; 32])?;
+        let discovery = programs.discover(program)?;
         assert_eq!(discovery.pin.block_hash, [7; 32]);
         assert_eq!(
             programs.interface_at(program, &discovery),
             Err(ProgramOperationError::HeadAdvanced)
         );
-        let requests = server.join().unwrap();
+        let requests = joined(server)?;
         let reads: Vec<_> = requests
             .iter()
             .filter(|r| r["method"] == "eth_call")
@@ -2434,14 +2476,15 @@ mod evm_program_tests {
             ]
             .concat())
         );
+        Ok(())
     }
 
     #[test]
-    fn stale_sequence_and_freshness_are_refused() {
-        let (endpoint, server) = serve(discovery_exchanges(&interface()));
+    fn stale_sequence_and_freshness_are_refused() -> TestResult<()> {
+        let (endpoint, server) = serve(discovery_exchanges(&interface()?))?;
         let programs = ProgramOperations::from_endpoint(endpoint);
-        let program = ProgramId::new([0x11; 32]).unwrap();
-        let discovery = programs.discover(program).unwrap();
+        let program = ProgramId::new([0x11; 32])?;
+        let discovery = programs.discover(program)?;
         assert_eq!(discovery.pin.observed_at, 100_000);
         for (now, minimum) in [(100_000, 8), (99_999, 7), (105_001, 7), (u64::MAX, 7)] {
             assert_eq!(
@@ -2454,13 +2497,14 @@ mod evm_program_tests {
             discovery.pin.check_freshness(100_000, 7, u64::MAX),
             Err(ProgramOperationError::Stale)
         );
-        assert_eq!(server.join().unwrap().len(), 5);
+        assert_eq!(joined(server)?.len(), 5);
+        Ok(())
     }
 
     #[test]
-    fn node_simulation_refusals_keep_their_existing_paths() {
-        let (payload, _) = fixture();
-        let (_, raw, _) = transaction(&payload);
+    fn node_simulation_refusals_keep_their_existing_paths() -> TestResult<()> {
+        let (payload, _) = fixture()?;
+        let (_, raw, _) = transaction(&payload)?;
         for (error, expected) in [
             (
                 json!({"code":-32601,"message":"method unavailable"}),
@@ -2503,13 +2547,13 @@ mod evm_program_tests {
                         ("eth_call", json!({"error":error})),
                     ]
                 };
-                let (mut endpoint, server) = serve(exchanges);
+                let (mut endpoint, server) = serve(exchanges)?;
                 let mut transport =
-                    NodeProgramSimulationTransport::new(&mut endpoint, registry(), 42);
+                    NodeProgramSimulationTransport::new(&mut endpoint, registry()?, 42);
                 assert!(
                     matches!(transport.simulate_signed_activity(&raw), Err(actual) if actual==expected)
                 );
-                assert_eq!(server.join().unwrap().len(), if estimate { 1 } else { 2 });
+                assert_eq!(joined(server)?.len(), if estimate { 1 } else { 2 });
             }
         }
         let mut revert = vec![0x08, 0xc3, 0x79, 0xa0];
@@ -2517,106 +2561,118 @@ mod evm_program_tests {
         let (mut endpoint, server) = serve(vec![(
             "eth_estimateGas",
             json!({"error":{"code":3,"message":"execution reverted","data":hex(&revert)}}),
-        )]);
-        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry(), 42);
+        )])?;
+        let mut transport = NodeProgramSimulationTransport::new(&mut endpoint, registry()?, 42);
         assert!(matches!(
             transport.simulate_signed_activity(&raw),
             Err(ProgramOperationError::ProgramStateAbsent)
         ));
-        assert_eq!(server.join().unwrap().len(), 1);
+        assert_eq!(joined(server)?.len(), 1);
+        Ok(())
     }
 
-    fn executed_receipt(raw: &[u8], sender: &[u8; 20], success: bool, committed: bool) -> Value {
-        use ed25519_dalek::{Signer as _, SigningKey};
+    fn encode_receipt(
+        tx_hash: [u8; 32],
+        sender: &[u8; 20],
+        success: bool,
+        signature: Option<[u8; 64]>,
+    ) -> TestResult<Vec<u8>> {
         use layerx_wire::encode::Encoder;
-
-        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(raw);
         let to = crate::prepare::evm::PrecompileTarget::Programs.address();
         let vm_error = if success { "" } else { "execution reverted" };
+        let mut summary = Encoder::new(256);
+        summary.u64(21_000)?;
+        summary.u64(21_000)?;
+        summary.u64(1)?;
+        summary.u32(0)?;
+        summary.fixed(&[0; 20])?;
+        summary.fixed(&[0; 20])?;
+        summary.fixed(&Sha256::digest(vm_error.as_bytes()))?;
+        summary.u32(2)?;
+        summary.u32(0)?;
+        summary.u8(4)?;
+        summary.fixed(b"upax")?;
+        let previous = [4; 32];
+        let resulting = Sha256::digest(
+            [
+                b"PAXEER/v1/sequence\0".as_slice(),
+                &previous,
+                &42_u64.to_be_bytes(),
+                &tx_hash,
+            ]
+            .concat(),
+        );
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&7_u64.to_be_bytes());
+        let mut from = [0; 32];
+        from[12..].copy_from_slice(sender);
+        let mut destination = [0; 32];
+        destination[12..].copy_from_slice(&to);
+        let mut encoder = Encoder::new(4096);
+        encoder.structure_header_version(0x5201, 3)?;
+        encoder.u16(3)?;
+        encoder.bytes(&tx_hash, 32)?;
+        encoder.u64(42)?;
+        encoder.bytes(&previous, 32)?;
+        encoder.bytes(&resulting, 32)?;
+        encoder.bytes(&Sha256::digest([0xaa, 0xbb]), 32)?;
+        encoder.i32(i32::from(!success))?;
+        encoder.sequence_length(1, 512)?;
+        encoder.u16(12)?;
+        encoder.u16(0)?;
+        encoder.u16(0)?;
+        encoder.u8(1)?;
+        encoder.u8(0)?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(&summary.finish(), 256)?;
+        encoder.u128(21_000)?;
+        encoder.bytes(&height, 32)?;
+        encoder.u16(12)?;
+        encoder.u32(1)?;
+        encoder.u32(0)?;
+        encoder.u8(2)?;
+        encoder.bytes(&Sha256::digest(b"upax"), 32)?;
+        encoder.u128(1)?;
+        encoder.bytes(&from, 32)?;
+        encoder.u128(21_002)?;
+        encoder.u128(if success { 1 } else { 2 })?;
+        encoder.u64(7)?;
+        encoder.bytes(&destination, 32)?;
+        encoder.u128(0)?;
+        encoder.u128(u128::from(success))?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(&[0; 32], 32)?;
+        encoder.bytes(&[1; 32], 32)?;
+        encoder.u64(100)?;
+        encoder.u8(u8::from(signature.is_some()))?;
+        if let Some(signature) = signature {
+            encoder.bytes(&signature, 64)?;
+        }
+        Ok(encoder.finish())
+    }
+
+    fn executed_receipt(
+        raw: &[u8],
+        sender: &[u8; 20],
+        success: bool,
+        committed: bool,
+    ) -> TestResult<Value> {
+        use ed25519_dalek::{Signer as _, SigningKey};
+
+        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(raw);
         let signer = SigningKey::from_bytes(&[2; 32]);
-        let encode = |signature: Option<[u8; 64]>| {
-            let mut summary = Encoder::new(256);
-            summary.u64(21_000).unwrap();
-            summary.u64(21_000).unwrap();
-            summary.u64(1).unwrap();
-            summary.u32(0).unwrap();
-            summary.fixed(&[0; 20]).unwrap();
-            summary.fixed(&[0; 20]).unwrap();
-            summary.fixed(&Sha256::digest(vm_error.as_bytes())).unwrap();
-            summary.u32(2).unwrap();
-            summary.u32(0).unwrap();
-            summary.u8(4).unwrap();
-            summary.fixed(b"upax").unwrap();
-            let previous = [4; 32];
-            let resulting = Sha256::digest(
-                [
-                    b"PAXEER/v1/sequence\0".as_slice(),
-                    &previous,
-                    &42_u64.to_be_bytes(),
-                    &tx_hash,
-                ]
-                .concat(),
-            );
-            let mut height = [0; 32];
-            height[24..].copy_from_slice(&7_u64.to_be_bytes());
-            let mut from = [0; 32];
-            from[12..].copy_from_slice(sender);
-            let mut destination = [0; 32];
-            destination[12..].copy_from_slice(&to);
-            let mut encoder = Encoder::new(4096);
-            encoder.structure_header_version(0x5201, 3).unwrap();
-            encoder.u16(3).unwrap();
-            encoder.bytes(&tx_hash, 32).unwrap();
-            encoder.u64(42).unwrap();
-            encoder.bytes(&previous, 32).unwrap();
-            encoder.bytes(&resulting, 32).unwrap();
-            encoder.bytes(&Sha256::digest([0xaa, 0xbb]), 32).unwrap();
-            encoder.i32(i32::from(!success)).unwrap();
-            encoder.sequence_length(1, 512).unwrap();
-            encoder.u16(12).unwrap();
-            encoder.u16(0).unwrap();
-            encoder.u16(0).unwrap();
-            encoder.u8(1).unwrap();
-            encoder.u8(0).unwrap();
-            encoder.bytes(&[0; 32], 32).unwrap();
-            encoder.bytes(&summary.finish(), 256).unwrap();
-            encoder.u128(21_000).unwrap();
-            encoder.bytes(&height, 32).unwrap();
-            encoder.u16(12).unwrap();
-            encoder.u32(1).unwrap();
-            encoder.u32(0).unwrap();
-            encoder.u8(2).unwrap();
-            encoder.bytes(&Sha256::digest(b"upax"), 32).unwrap();
-            encoder.u128(1).unwrap();
-            encoder.bytes(&from, 32).unwrap();
-            encoder.u128(21_002).unwrap();
-            encoder.u128(if success { 1 } else { 2 }).unwrap();
-            encoder.u64(7).unwrap();
-            encoder.bytes(&destination, 32).unwrap();
-            encoder.u128(0).unwrap();
-            encoder.u128(u128::from(success)).unwrap();
-            encoder.bytes(&[0; 32], 32).unwrap();
-            encoder.bytes(&[0; 32], 32).unwrap();
-            encoder.bytes(&[1; 32], 32).unwrap();
-            encoder.u64(100).unwrap();
-            encoder.u8(u8::from(signature.is_some())).unwrap();
-            if let Some(signature) = signature {
-                encoder.bytes(&signature, 64).unwrap();
-            }
-            encoder.finish()
-        };
-        let unsigned = encode(None);
+        let unsigned = encode_receipt(tx_hash, sender, success, None)?;
         let signature = signer
-            .sign(&layerx_wire::hash::receipt_digest(&unsigned).unwrap())
+            .sign(&layerx_wire::hash::receipt_digest(&unsigned)?)
             .to_bytes();
-        let bytes = encode(Some(signature));
+        let bytes = encode_receipt(tx_hash, sender, success, Some(signature))?;
         let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
             [1; 32],
             signer.verifying_key().to_bytes(),
             7,
             7,
         );
-        layerx_proof::receipt::verify_sequencer_signature(&bytes, &[authorization]).unwrap();
+        layerx_proof::receipt::verify_sequencer_signature(&bytes, &[authorization])?;
         let mut value = json!({"rung":"receipted", "txHash":hex(&layerx_crypto::evm_transaction::transaction_hash(raw)),
             "nonce":"0x7", "seq":"0x2a", "height":"0x7", "index":"0x0", "timestamp":"0x64",
             "status":if success {"0x1"} else {"0x0"}, "returnData":"0xaabb", "logs":[],
@@ -2629,21 +2685,21 @@ mod evm_program_tests {
             value["blockNumber"] = json!("0x7");
             value["blockHash"] = json!(hex(&[7; 32]));
         }
-        value
+        Ok(value)
     }
 
     #[test]
-    fn program_submission_reads_its_receipt_at_the_submitted_rung() {
-        let (payload, _) = fixture();
-        let (transaction, raw, sender) = transaction(&payload);
-        let registry = registry();
-        let disclosure = layerx_crypto::disclosure::call::bind_call(&transaction, sender).unwrap();
+    fn program_submission_reads_its_receipt_at_the_submitted_rung() -> TestResult<()> {
+        let (payload, _) = fixture()?;
+        let (transaction, raw, sender) = transaction(&payload)?;
+        let registry = registry()?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&transaction, sender)?;
         let prepared = crate::sign::SigningPreparation {
             transaction: crate::prepare::EvmPrepared {
                 signing_hash: transaction.signing_hash(),
                 call: transaction.clone(),
                 from: sender,
-                disclosure_digest: disclosure.signing_digest().unwrap(),
+                disclosure_digest: disclosure.signing_digest()?,
                 disclosure,
                 observed_head_height: 7,
             },
@@ -2651,21 +2707,19 @@ mod evm_program_tests {
         };
         for (success, committed) in [(true, false), (false, false), (false, true)] {
             let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
-            let receipt = executed_receipt(&raw, &sender, success, committed);
+            let receipt = executed_receipt(&raw, &sender, success, committed)?;
             let (endpoint, server) = serve(vec![
                 ("eth_sendRawTransaction", json!({"result":hex(&hash)})),
                 ("pax_sequencerReceipt", json!({"result":receipt})),
-            ]);
+            ])?;
             let programs = ProgramOperations::from_endpoint(endpoint);
-            let submitted = programs
-                .submit(
-                    NativeProgramCall::decode(&payload).unwrap(),
-                    1000,
-                    &prepared,
-                    &raw,
-                    &registry,
-                )
-                .unwrap();
+            let submitted = programs.submit(
+                NativeProgramCall::decode(&payload)?,
+                1000,
+                &prepared,
+                &raw,
+                &registry,
+            )?;
             assert_eq!(
                 submitted.submission,
                 layerx_client::rpc::submit::Submission::Submitted {
@@ -2673,7 +2727,7 @@ mod evm_program_tests {
                     rung: layerx_types::rung::Rung::Submitted
                 }
             );
-            let execution = submitted.execution.unwrap();
+            let execution = submitted.execution.ok_or("missing program execution")?;
             assert_eq!(execution.success, success);
             assert_eq!(execution.return_data, [0xaa, 0xbb]);
             assert_eq!(
@@ -2683,20 +2737,21 @@ mod evm_program_tests {
             assert_eq!(execution.tx_hash, hash);
             assert_eq!(execution.from, sender);
             assert_eq!(execution.payment_denom, "upax");
-            let receipt = layerx_wire::receipt::decode(&execution.receipt).unwrap();
-            let protocol = receipt.protocol().unwrap();
+            let receipt = layerx_wire::receipt::decode(&execution.receipt)?;
+            let protocol = receipt.protocol().ok_or("missing protocol receipt")?;
             assert_eq!(protocol.activity_id(), hash);
             assert_eq!(protocol.result_code(), i32::from(!success));
             assert_eq!(protocol.asset(), <[u8; 32]>::from(Sha256::digest(b"upax")));
-            let requests = server.join().unwrap();
+            let requests = joined(server)?;
             assert_eq!(requests[0]["params"], json!([hex(&raw)]));
             assert_eq!(requests[1]["params"], json!([hex(&hash)]));
         }
+        Ok(())
     }
 
     #[test]
-    fn program_state_methods_share_the_discovery_pin() {
-        let interface = interface();
+    fn program_state_methods_share_the_discovery_pin() -> TestResult<()> {
+        let interface = interface()?;
         let mut exchanges = discovery_exchanges(&interface);
         exchanges.extend(read_exchanges(&record_bytes(&interface), [7; 32]));
         exchanges.extend(read_exchanges(&interface_bytes(&interface), [7; 32]));
@@ -2707,18 +2762,16 @@ mod evm_program_tests {
             [7; 32],
         ));
         exchanges.push(("eth_getBlockByNumber", block([7; 32])));
-        let (endpoint, server) = serve(exchanges);
+        let (endpoint, server) = serve(exchanges)?;
         let programs = ProgramOperations::from_endpoint(endpoint);
-        let program = ProgramId::new([0x11; 32]).unwrap();
-        let discovery = programs.discover(program).unwrap();
-        let read = programs
-            .current_program(program, &discovery, 105_000, 7, 5000)
-            .unwrap();
+        let program = ProgramId::new([0x11; 32])?;
+        let discovery = programs.discover(program)?;
+        let read = programs.current_program(program, &discovery, 105_000, 7, 5000)?;
         assert_eq!(read.record, discovery);
         assert_eq!(read.interface.interface, interface);
         assert_eq!(read.interface.pin, discovery.pin);
         assert_eq!(read.state_head, state_head);
-        let requests = server.join().unwrap();
+        let requests = joined(server)?;
         let calls: Vec<_> = requests
             .iter()
             .filter(|r| r["method"] == "eth_call")
@@ -2736,5 +2789,6 @@ mod evm_program_tests {
                 hex(&[program_selector(signature).as_slice(), &program.bytes()].concat())
             );
         }
+        Ok(())
     }
 }
