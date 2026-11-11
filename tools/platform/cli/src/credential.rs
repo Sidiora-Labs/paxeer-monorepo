@@ -16,6 +16,7 @@ const MAX_STDIN_SECRET_BYTES: u64 = 16 * 1024;
 const STORE_VARIABLE: &str = "LAYERX_CREDENTIAL_STORE";
 const FILE_STORE_HELP: &str = "For headless hosts, set LAYERX_CREDENTIAL_STORE=file and supply LAYERX_CREDENTIAL_PASSPHRASE (at least 12 bytes).";
 
+#[must_use]
 pub fn store_label() -> &'static str {
     if std::env::var(STORE_VARIABLE).as_deref() == Ok("file") {
         "encrypted-file-credential-store"
@@ -86,6 +87,9 @@ impl Entry {
 }
 
 /// Stable identity for a configuration path, including paths that do not yet exist.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn profile_namespace(path: &Path) -> Result<String, String> {
     let absolute = if path.is_absolute() {
         path.to_owned()
@@ -126,6 +130,9 @@ pub fn profile_namespace(path: &Path) -> Result<String, String> {
     )))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn key_entry_identity(path: &Path, name: &str) -> Result<String, String> {
     validate_name(name)?;
     Ok(format!("key:v2:{}:{name}", profile_namespace(path)?))
@@ -212,6 +219,9 @@ fn read_secret_from(reader: impl Read) -> Result<Zeroizing<String>, String> {
     Ok(trimmed)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn create_key(
     configuration: &mut Configuration,
     name: &str,
@@ -227,6 +237,9 @@ pub fn create_key(
     import_seed(configuration, name, did, seed)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn import_key(
     configuration: &mut Configuration,
     name: &str,
@@ -293,6 +306,9 @@ fn import_seed(
     Ok(metadata)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn migrate_legacy_key(configuration: &Configuration, name: &str) -> Result<(), String> {
     validate_name(name)?;
     if std::env::var(STORE_VARIABLE).as_deref() == Ok("file") {
@@ -322,6 +338,9 @@ pub fn migrate_legacy_key(configuration: &Configuration, name: &str) -> Result<(
         .map_err(|error| format!("legacy key migration failed: {error}"))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn delete_key(configuration: &mut Configuration, name: &str) -> Result<(), String> {
     let _lock = lock_profile()?;
     if !configuration.keys.contains_key(name) {
@@ -337,6 +356,9 @@ pub fn delete_key(configuration: &mut Configuration, name: &str) -> Result<(), S
     configuration.save()
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn set_default_key(configuration: &mut Configuration, name: &str) -> Result<(), String> {
     if !configuration.keys.contains_key(name) {
         return Err(format!("key {name} does not exist"));
@@ -345,6 +367,9 @@ pub fn set_default_key(configuration: &mut Configuration, name: &str) -> Result<
     configuration.save()
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn set_token(environment: &str) -> Result<(), String> {
     let environment = Configuration::canonical_environment_name(environment)?;
     let mut token = read_secret()?;
@@ -358,6 +383,9 @@ pub fn set_token(environment: &str) -> Result<(), String> {
     Ok(())
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn delete_token(environment: &str) -> Result<(), String> {
     let environment = Configuration::canonical_environment_name(environment)?;
     entry("token", &environment)?
@@ -365,6 +393,9 @@ pub fn delete_token(environment: &str) -> Result<(), String> {
         .map_err(|error| format!("could not delete token from credential storage: {error}"))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn token(environment: &str) -> Result<Option<Zeroizing<String>>, String> {
     match entry("token", environment)?.get_password() {
         Ok(value) => {
@@ -389,6 +420,9 @@ fn validate_bearer_secret(value: &str) -> Result<(), String> {
     Ok(())
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn key_seed(name: &str) -> Result<Zeroizing<[u8; 32]>, String> {
     validate_name(name)?;
     let encoded = entry("key", name)?
@@ -398,6 +432,9 @@ pub fn key_seed(name: &str) -> Result<Zeroizing<[u8; 32]>, String> {
     fixed_hex::<32>("private seed", &encoded).map(Zeroizing::new)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn set_gateway(alias: &str, credential: &mut Zeroizing<String>) -> Result<(), String> {
     validate_alias(alias)?;
     validate_gateway_credential(credential)?;
@@ -408,6 +445,9 @@ pub fn set_gateway(alias: &str, credential: &mut Zeroizing<String>) -> Result<()
         })
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn gateway(alias: &str) -> Result<Option<Zeroizing<String>>, String> {
     validate_alias(alias)?;
     match entry("gateway", alias)?.get_password() {
@@ -423,6 +463,9 @@ pub fn gateway(alias: &str) -> Result<Option<Zeroizing<String>>, String> {
     }
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn delete_gateway(alias: &str) -> Result<(), String> {
     validate_alias(alias)?;
     match entry("gateway", alias)?.delete_credential() {

@@ -1,15 +1,21 @@
 //! Shared hosted wallet query producers. Native calls must be pinned to `height` by the caller.
 use serde_json::{json, Value};
 
-#[path = "../../../../services/platform/hosted/gateway/src/evm.rs"]
+#[path = "wallet_gateway/evm.rs"]
 pub mod evm;
 
 pub const ASSET_PAGE_LIMIT: usize = 16;
 
+pub type LedgerQuery<'a> = dyn FnMut(&[u8]) -> Result<Vec<u8>, &'static str> + 'a;
+
+#[must_use]
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::encoding::hex_encode(bytes)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn key(text: &str) -> Result<[u8; 32], &'static str> {
     if text.len() != 64
         || !text
@@ -32,11 +38,14 @@ pub fn key(text: &str) -> Result<[u8; 32], &'static str> {
     Ok(bytes)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn ledger_account(
     did: &str,
     asset_text: &str,
     height: u64,
-    call: &mut dyn FnMut(&[u8]) -> Result<Vec<u8>, &'static str>,
+    call: &mut LedgerQuery<'_>,
 ) -> Result<Value, &'static str> {
     let owner = key(did.strip_prefix("did:layerx:").ok_or("invalid_did")?)?;
     let asset = key(asset_text)?;
@@ -95,17 +104,24 @@ pub fn account_document(
     did_public_key: Option<[u8; 32]>,
     layerx_account: Option<[u8; 32]>,
 ) -> Value {
+    let pax_address = pax_address.map_or(Value::Null, Value::String);
     json!({"evm_address":evm_address.as_ref().map(evm::address_hex),"pax_address":pax_address,
         "layerx_did":did_public_key.map(|key| format!("did:layerx:{}",hex(&key))),
         "layerx_account":layerx_account.as_ref().map(|id|hex(id)),
         "bound":evm_address.is_some() && did_public_key.is_some()})
 }
 
+#[must_use]
 pub fn balances(account: Value, height: u64, balances: Vec<Value>) -> Value {
-    json!({"account":account,"height":height,"balances":balances,"units":"base",
-        "evidence":"committed_eth_call"})
+    let mut result = json!({"height":height,"units":"base","evidence":"committed_eth_call"});
+    result["account"] = account;
+    result["balances"] = Value::Array(balances);
+    result
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn registration_cursor(text: &str) -> Result<u64, &'static str> {
     text.parse::<u64>()
         .ok()
@@ -114,6 +130,9 @@ pub fn registration_cursor(text: &str) -> Result<u64, &'static str> {
         .ok_or("invalid_page")
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn page_params(params: Option<&Value>) -> Result<(Option<u64>, usize), &'static str> {
     let empty = Vec::new();
     let args = match params {
@@ -140,6 +159,9 @@ pub fn page_params(params: Option<&Value>) -> Result<(Option<u64>, usize), &'sta
     Ok((cursor, limit))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn assets_page(
     assets: Vec<Value>,
     height: u64,
@@ -166,12 +188,17 @@ pub fn assets_page(
             return Err("duplicate_asset");
         }
     }
-    Ok(json!({"height":height,"assets":assets,
+    let mut result = json!({"height":height,
         "next_cursor":next_cursor.map(|cursor| cursor.to_string()),
         "joined_limit":ASSET_PAGE_LIMIT,"order":"registration",
-        "units":"base","evidence":"committed_eth_call"}))
+        "units":"base","evidence":"committed_eth_call"});
+    result["assets"] = Value::Array(assets);
+    Ok(result)
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn ledger_asset_metadata(answer: &[u8], expected: [u8; 32]) -> Result<Value, &'static str> {
     let asset = evm::decode_ledger_asset(answer).map_err(|_| "invalid_ledger_asset")?;
     if asset.asset_id != expected {

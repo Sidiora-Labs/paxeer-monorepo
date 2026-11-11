@@ -1,0 +1,31 @@
+[meta]
+name = "Agent boundary lint coverage"
+member = "layerx-platform-agent-boundary"
+
+[lint.dead_code]
+files = ["src/main.rs", "src/artifacts.rs"]
+product = "The server serves receipt routes; artifact validation runs with its owned tests."
+
+[lint.cast_possible_truncation]
+files = ["src/chain_receipt.rs"]
+product = "Receipt key decoding and response bounds use checked conversions."
+
+[lint.too_many_lines]
+files = ["src/chain_receipt.rs", "src/lifecycle_tests.rs", "tests/chain_receipt.rs", "tests/repair_22_31_191.rs"]
+product = "Receipt connection, key loading, and test setup use focused functions."
+
+[lint.unwrap_used]
+files = ["tests/repair_22_31_191.rs"]
+product = "Receipt fixtures require their declared fields and prefixes."
+
+[lint.expect_used]
+files = ["src/lifecycle_tests.rs"]
+product = "Route cases require valid test setup and response values."
+
+[lint.semicolon_if_nothing_returned]
+files = ["tests/chain_receipt.rs"]
+product = "The receipt listener loop treats its delay as a statement."
+
+[lint.unnecessary_filter_map]
+files = ["tests/retired_client_modules_w2.rs"]
+product = "Retired path checks retain matching paths through a filter."

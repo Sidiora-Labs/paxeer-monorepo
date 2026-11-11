@@ -4,7 +4,10 @@ mod native;
 mod record;
 
 use self::record::{number, Record};
-use crate::{digest, hex, human_policy::PrincipalPolicy, json, refusal, Response};
+use crate::{
+    digest, hex, human_policy::PrincipalPolicy, json, refusal, AuthorityError, AuthorityResult,
+    Response,
+};
 use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 
 use layerx_client::rpc::account::{balance, ReadContext, Requested, Rung};
@@ -49,39 +52,53 @@ fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
     bytes
 }
 
-pub fn identity_key(did: &str) -> Result<[u8; 32], ()> {
+/// # Errors
+/// Returns an error when the DID length exceeds the encoded length limit.
+pub fn identity_key(did: &str) -> AuthorityResult<[u8; 32]> {
     let mut preimage = b"LXP/v1/did-id\0".to_vec();
-    preimage.extend_from_slice(&u16::try_from(did.len()).map_err(|_| ())?.to_be_bytes());
+    preimage.extend_from_slice(
+        &u16::try_from(did.len())
+            .map_err(|_| AuthorityError)?
+            .to_be_bytes(),
+    );
     preimage.extend_from_slice(did.as_bytes());
     Ok(digest(&preimage))
 }
 
 impl Session {
-    fn budget_call(&self, signature: &[u8], id: &[u8; 32]) -> Result<Vec<u8>, ()> {
+    fn budget_call(&self, signature: &[u8], id: &[u8; 32]) -> AuthorityResult<Vec<u8>> {
         self.sequencer
             .call_at(self.finality.state_height, &PAY, &data(signature, Some(id)))
-            .map_err(|_| ())
+            .map_err(|_| AuthorityError)
     }
 
-    pub fn open(config: &impl Configuration) -> Result<Self, ()> {
-        let sequencer = SequencerEndpoint::new(config.chain_rpc_url(), &[]).map_err(|_| ())?;
+    /// # Errors
+    /// Returns an error when the committed chain state cannot be read or verified.
+    pub fn open(config: &impl Configuration) -> AuthorityResult<Self> {
+        let sequencer =
+            SequencerEndpoint::new(config.chain_rpc_url(), &[]).map_err(|_| AuthorityError)?;
         let finality = crate::committed::CommittedHeader::open(config.chain_rpc_url())?;
         let block = sequencer
             .block_by_number(finality.height)
-            .map_err(|_| ())?
-            .ok_or(())?;
+            .map_err(|_| AuthorityError)?
+            .ok_or(AuthorityError)?;
         let sequence = native::read(config.chain_rpc_url(), &finality, &[2])?;
-        let receipt_sequence =
-            u64::from_be_bytes(sequence.value.as_slice().try_into().map_err(|_| ())?);
+        let receipt_sequence = u64::from_be_bytes(
+            sequence
+                .value
+                .as_slice()
+                .try_into()
+                .map_err(|_| AuthorityError)?,
+        );
         if receipt_sequence == 0 || block.number != finality.height {
-            return Err(());
+            return Err(AuthorityError);
         }
         Ok(Self {
             sequencer,
             rpc_url: config.chain_rpc_url().to_owned(),
             committed_height: finality.height,
             checkpoint_id: finality.block_hash,
-            timestamp: block.timestamp.checked_mul(1000).ok_or(())?,
+            timestamp: block.timestamp.checked_mul(1000).ok_or(AuthorityError)?,
             state_root: finality.app_hash,
             finality,
             receipt_sequence,
@@ -89,7 +106,10 @@ impl Session {
         })
     }
 
-    fn account(&self, id: [u8; 32]) -> Result<(layerx_proof::state::CanonicalAccount, Value), ()> {
+    fn account(
+        &self,
+        id: [u8; 32],
+    ) -> AuthorityResult<(layerx_proof::state::CanonicalAccount, Value)> {
         let mut key = vec![6];
         key.extend_from_slice(&id);
         let proof = native::read(&self.rpc_url, &self.finality, &key)?;
@@ -97,9 +117,11 @@ impl Session {
         Ok((account, proof.document))
     }
 
-    pub fn identity(&self, did: &str, owner: [u8; 32]) -> Result<(Value, Value), ()> {
+    /// # Errors
+    /// Returns an error when the account or identity binding is invalid.
+    pub fn identity(&self, did: &str, owner: [u8; 32]) -> AuthorityResult<(Value, Value)> {
         let (account, proof) = self.account(owner)?;
-        let name = std::str::from_utf8(&account.name).map_err(|_| ())?;
+        let name = std::str::from_utf8(&account.name).map_err(|_| AuthorityError)?;
         if account.frozen
             || ![
                 format!("agent:{did}:main"),
@@ -108,18 +130,19 @@ impl Session {
             .iter()
             .any(|expected| expected == name)
         {
-            return Err(());
+            return Err(AuthorityError);
         }
-        let public = hex::decode32(did.strip_prefix("did:layerx:").ok_or(())?).map_err(|_| ())?;
+        let public = hex::decode32(did.strip_prefix("did:layerx:").ok_or(AuthorityError)?)
+            .map_err(|_| AuthorityError)?;
         let mut addr = [0; 20];
         addr[18..].copy_from_slice(&[0x10, 0x04]);
         let call = data(b"getEvmAddrByLayerX(bytes32)", Some(&public));
         let answer = self
             .sequencer
             .call_at(self.finality.state_height, &addr, &call)
-            .map_err(|_| ())?;
+            .map_err(|_| AuthorityError)?;
         if answer.len() != 32 || answer[..12] != [0; 12] || answer[12..] == [0; 20] {
-            return Err(());
+            return Err(AuthorityError);
         }
         let row = value!({"bound":true, "layerx_account":hex::encode(&owner), "evm_address":format!("0x{}",hex::encode(&answer[12..])),
             "kind":account.kind,"frozen":account.frozen,"asset_id":hex::encode(&account.asset_id())});
@@ -129,10 +152,10 @@ impl Session {
         Ok((row, evidence))
     }
 
-    fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> Result<Value, ()> {
+    fn balance(&self, id: [u8; 32], asset: [u8; 32]) -> AuthorityResult<Value> {
         let (account, proof) = self.account(id)?;
         if account.frozen || account.asset_id() != asset {
-            return Err(());
+            return Err(AuthorityError);
         }
         let amount = balance(
             &self.sequencer,
@@ -140,47 +163,51 @@ impl Session {
             asset,
             ReadContext {
                 committed_height: self.finality.state_height,
-                requested: Requested::new(Rung::Committed).map_err(|_| ())?,
+                requested: Requested::new(Rung::Committed).map_err(|_| AuthorityError)?,
             },
         )
-        .map_err(|_| ())?;
+        .map_err(|_| AuthorityError)?;
         if amount.value() != account.balance() {
-            return Err(());
+            return Err(AuthorityError);
         }
         Ok(
             value!({"account_id":hex::encode(&id),"asset_id":hex::encode(&asset),"amount":amount.value().to_string(),"proof":proof}),
         )
     }
 
-    pub fn unchanged(&self) -> Result<(), ()> {
+    /// # Errors
+    /// Returns an error when the committed checkpoint has changed.
+    pub fn unchanged(&self) -> AuthorityResult<()> {
         let block = self
             .sequencer
             .block_by_number(self.committed_height)
-            .map_err(|_| ())?
-            .ok_or(())?;
-        if self.sequencer.block_number().map_err(|_| ())? != self.committed_height
+            .map_err(|_| AuthorityError)?
+            .ok_or(AuthorityError)?;
+        if self.sequencer.block_number().map_err(|_| AuthorityError)? != self.committed_height
             || block.hash != self.checkpoint_id
             || self
                 .sequencer
                 .state_root(self.committed_height)
-                .map_err(|_| ())?
+                .map_err(|_| AuthorityError)?
                 != self.state_root
         {
-            return Err(());
+            return Err(AuthorityError);
         }
         Ok(())
     }
 
-    pub fn fresh(&self, maximum_age_seconds: u64) -> Result<(), ()> {
+    /// # Errors
+    /// Returns an error when the clock is unavailable or the checkpoint is too old.
+    pub fn fresh(&self, maximum_age_seconds: u64) -> AuthorityResult<()> {
         self.fresh_at(maximum_age_seconds, now_ms()?)
     }
 
-    fn fresh_at(&self, maximum_age_seconds: u64, now_ms: u128) -> Result<(), ()> {
+    fn fresh_at(&self, maximum_age_seconds: u64, now_ms: u128) -> AuthorityResult<()> {
         if now_ms
             .checked_sub(u128::from(self.timestamp))
             .is_none_or(|age| age > u128::from(maximum_age_seconds) * 1000)
         {
-            return Err(());
+            return Err(AuthorityError);
         }
         Ok(())
     }
@@ -191,9 +218,9 @@ fn accounts(
     record: &Record,
     policy: &PrincipalPolicy,
     owner_did: Option<&str>,
-) -> Result<([u8; 32], Value), ()> {
+) -> AuthorityResult<([u8; 32], Value)> {
     if hex::encode(&record.owner) != policy.account_id {
-        return Err(());
+        return Err(AuthorityError);
     }
     let (identity, mut evidence) = if let Some(did) = owner_did {
         let (_, evidence) = session.identity(did, record.owner)?;
@@ -206,9 +233,9 @@ fn accounts(
             }
         }
         if bound.len() != 1 {
-            return Err(());
+            return Err(AuthorityError);
         }
-        bound.pop().ok_or(())?
+        bound.pop().ok_or(AuthorityError)?
     };
     let mut balances = vec![
         session.balance(record.owner, record.asset)?,
@@ -221,11 +248,11 @@ fn accounts(
     Ok((identity, evidence))
 }
 
-fn now_ms() -> Result<u128, ()> {
+fn now_ms() -> AuthorityResult<u128> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
-        .map_err(|_| ())
+        .map_err(|_| AuthorityError)
 }
 
 fn produce(
@@ -234,7 +261,7 @@ fn produce(
     id: [u8; 32],
     export: bool,
     owner_did: Option<&str>,
-) -> Result<Response, ()> {
+) -> AuthorityResult<Response> {
     produce_at(config, p, id, export, owner_did, now_ms()?)
 }
 
@@ -245,7 +272,7 @@ fn produce_at(
     export: bool,
     owner_did: Option<&str>,
     now_ms: u128,
-) -> Result<Response, ()> {
+) -> AuthorityResult<Response> {
     let session = Session::open(config)?;
     produce_session(config, p, id, export, owner_did, now_ms, &session)
 }
@@ -258,40 +285,44 @@ fn produce_session(
     owner_did: Option<&str>,
     now_ms: u128,
     session: &Session,
-) -> Result<Response, ()> {
+) -> AuthorityResult<Response> {
     let budget_call = session.budget_call(b"getBudget(bytes32)", &id)?;
     let record = Record::from_call(id, &budget_call)?;
     if hex::encode(&record.asset) != p.asset_id
         || record.revocation == 0
         || record.revocation > session.receipt_sequence
     {
-        return Err(());
+        return Err(AuthorityError);
     }
     let remaining_call = session.budget_call(b"budgetRemaining(bytes32)", &id)?;
     if remaining_call.len() != 32 {
-        return Err(());
+        return Err(AuthorityError);
     }
     let remaining = number(&remaining_call, 0, 16)?;
     let (identity, account_join) = accounts(session, &record, p, owner_did)?;
     session.fresh_at(p.maximum_age_seconds, now_ms)?;
     if p.maximum_age_sequences == 0 {
-        return Err(());
+        return Err(AuthorityError);
     }
     session.unchanged()?;
     let mut evidence = Sha256::new();
     evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
     evidence.update(session.checkpoint_id);
-    let join_bytes = serde_json::to_vec(&account_join).map_err(|_| ())?;
+    let join_bytes = serde_json::to_vec(&account_join).map_err(|_| AuthorityError)?;
     let material_bytes = [&budget_call, &remaining_call, &join_bytes]
         .iter()
         .try_fold(0_usize, |total, bytes| {
-            total.checked_add(bytes.len()).ok_or(())
+            total.checked_add(bytes.len()).ok_or(AuthorityError)
         })?;
     if material_bytes > MAX_EXPORT_MATERIAL_BYTES {
-        return Err(());
+        return Err(AuthorityError);
     }
     for bytes in [&budget_call, &remaining_call, &join_bytes] {
-        evidence.update(u64::try_from(bytes.len()).map_err(|_| ())?.to_be_bytes());
+        evidence.update(
+            u64::try_from(bytes.len())
+                .map_err(|_| AuthorityError)?
+                .to_be_bytes(),
+        );
         evidence.update(bytes);
     }
     let evidence: [u8; 32] = evidence.finalize().into();
@@ -325,11 +356,13 @@ fn produce_session(
     };
     let response = json(200, &document);
     if response.body.len() > MAX_EXPORT_BYTES {
-        return Err(());
+        return Err(AuthorityError);
     }
     Ok(response)
 }
 
+/// # Errors
+/// Returns a refusal response when the budget is unbound or its proof is unavailable.
 pub fn read(
     config: &impl Configuration,
     p: &PrincipalPolicy,
@@ -339,9 +372,12 @@ pub fn read(
         return Err(refusal(404, "budget_not_bound", None));
     }
     let id = hex::decode32(id).map_err(|_| refusal(400, "invalid_budget_id", None))?;
-    produce(config, p, id, false, None).map_err(|()| unavailable("budget_state_proof_unavailable"))
+    produce(config, p, id, false, None)
+        .map_err(|AuthorityError| unavailable("budget_state_proof_unavailable"))
 }
 
+/// # Errors
+/// Returns a refusal response when the dynamic budget proof is unavailable.
 pub fn read_dynamic(
     config: &impl Configuration,
     p: &PrincipalPolicy,
@@ -356,21 +392,25 @@ pub fn read_dynamic(
         id,
         false,
         Some(owner_did),
-        now_ms().map_err(|()| unavailable("clock_unavailable"))?,
+        now_ms().map_err(|AuthorityError| unavailable("clock_unavailable"))?,
         session,
     )
-    .map_err(|()| unavailable("budget_state_proof_unavailable"))
+    .map_err(|AuthorityError| unavailable("budget_state_proof_unavailable"))
 }
 
+/// # Errors
+/// Returns a refusal response when the budget export is unbound or unavailable.
 pub fn export(
     config: &impl Configuration,
     p: &PrincipalPolicy,
     id: &str,
 ) -> Result<Response, Response> {
-    let now = now_ms().map_err(|()| unavailable("budget_proof_export_unavailable"))?;
+    let now = now_ms().map_err(|AuthorityError| unavailable("budget_proof_export_unavailable"))?;
     export_at(config, p, id, now)
 }
 
+/// # Errors
+/// Returns a refusal response when the budget export is unbound or unavailable.
 pub fn export_at(
     config: &impl Configuration,
     p: &PrincipalPolicy,
@@ -382,9 +422,11 @@ pub fn export_at(
     }
     let id = hex::decode32(id).map_err(|_| refusal(400, "invalid_budget_id", None))?;
     produce_at(config, p, id, true, None, now_ms)
-        .map_err(|()| unavailable("budget_proof_export_unavailable"))
+        .map_err(|AuthorityError| unavailable("budget_proof_export_unavailable"))
 }
 
+/// # Errors
+/// Returns a refusal response when the dynamic budget export is unavailable.
 pub fn export_dynamic(
     config: &impl Configuration,
     p: &PrincipalPolicy,
@@ -399,8 +441,8 @@ pub fn export_dynamic(
         id,
         true,
         Some(owner_did),
-        now_ms().map_err(|()| unavailable("clock_unavailable"))?,
+        now_ms().map_err(|AuthorityError| unavailable("clock_unavailable"))?,
         session,
     )
-    .map_err(|()| unavailable("budget_proof_export_unavailable"))
+    .map_err(|AuthorityError| unavailable("budget_proof_export_unavailable"))
 }

@@ -38,6 +38,9 @@ fn fixed_key_bytes<const N: usize>(name: &str, text: &str) -> Result<[u8; N], St
 }
 
 impl EvmSigningKey {
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn read(path: &std::path::Path, actor: &str, public_key: [u8; 32]) -> Result<Self, String> {
         use std::io::Read as _;
         use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
@@ -107,6 +110,9 @@ pub struct PreparedTransaction {
 }
 
 impl PreparedTransaction {
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn new(
         call: layerx_crypto::evm_transaction::Eip1559Call,
         from: [u8; 20],
@@ -140,6 +146,9 @@ impl PreparedTransaction {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn sign(self, key: &EvmSigningKey) -> Result<(Vec<u8>, [u8; 32]), String> {
         use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
         if key.address != self.from

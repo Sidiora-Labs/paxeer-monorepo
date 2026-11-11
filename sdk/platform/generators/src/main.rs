@@ -20,6 +20,13 @@ const RUST_RECEIPT_GENERATED_PATH: &str =
     "services/agent/crates/layerx-sdk/src/receipt_generated.rs";
 const TYPESCRIPT_RECEIPT_GENERATED_PATH: &str =
     "services/agent/sdk/typescript/src/generated/receipt.ts";
+const AGENT_TYPESCRIPT_GENERATED_FILES: &[&str] = &[
+    "client.ts",
+    "guarantees.md",
+    "mirror.ts",
+    "precompile-writes.ts",
+    "receipt.ts",
+];
 const PYTHON_RECEIPT_GENERATED_PATH: &str =
     "services/agent/sdk/python/layerx_sdk/generated/receipt.py";
 const PYTHON_RECEIPT_STUB_GENERATED_PATH: &str =
@@ -104,7 +111,7 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
         "agent-typescript",
         "typescript",
         "services/agent/sdk/typescript/src/generated",
-        None,
+        Some(AGENT_TYPESCRIPT_GENERATED_FILES),
     ),
     (
         "agent-python",
@@ -463,6 +470,17 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
     if failure_checks.is_empty() || unique.len() != failure_checks.len() {
         return Err("receipt.failure_checks must be non-empty and unique".to_owned());
     }
+    let program_abis = program_abi_policy(repo_root)?;
+    Ok(ReceiptContract {
+        receipt_versions,
+        receipt_domain,
+        sequence_domain,
+        failure_checks,
+        program_abis,
+    })
+}
+
+fn program_abi_policy(repo_root: &Path) -> Result<[u16; 5], String> {
     let program_source =
         fs::read_to_string(repo_root.join("services/agent/schema/agent-api/programs.kvx"))
             .map_err(|error| format!("read Programs schema: {error}"))?;
@@ -513,13 +531,7 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
             "Programs ABI capability encoding differs from the canonical policy".to_owned(),
         );
     }
-    Ok(ReceiptContract {
-        receipt_versions,
-        receipt_domain,
-        sequence_domain,
-        failure_checks,
-        program_abis,
-    })
+    Ok(program_abis)
 }
 
 fn variants(sections: &Sections, section: &str) -> Result<Vec<String>, String> {
@@ -603,10 +615,7 @@ fn screaming_identifier(value: &str) -> String {
         .collect()
 }
 
-fn render_program_abi_policy(contract: &ReceiptContract, language: &str) -> Result<String, String> {
-    let template = match language {
-        "rust" => {
-            r#"
+const PROGRAM_ABI_RUST_TEMPLATE: &str = r"
 pub const PROGRAM_ABI_V1: u16 = {V1};
 pub const PROGRAM_ABI_V2: u16 = {V2};
 pub const PROGRAM_ABI_V3: u16 = {V3};
@@ -619,10 +628,8 @@ pub const fn supports_program_guest_abi(version: u16) -> bool {
         PROGRAM_ABI_V1 | PROGRAM_ABI_V2 | PROGRAM_ABI_V3 | PROGRAM_ABI_V4 | PROGRAM_ABI_V5
     )
 }
-"#
-        }
-        "typescript" => {
-            r#"
+";
+const PROGRAM_ABI_TYPESCRIPT_TEMPLATE: &str = r"
 export const PROGRAM_ABI_V1 = {V1};
 export const PROGRAM_ABI_V2 = {V2};
 export const PROGRAM_ABI_V3 = {V3};
@@ -634,10 +641,8 @@ export function supportsProgramGuestAbi(version: number): boolean {
     default: return false;
   }
 }
-"#
-        }
-        "python" => {
-            r#"
+";
+const PROGRAM_ABI_PYTHON_TEMPLATE: &str = r"
 PROGRAM_ABI_V1 = {V1}
 PROGRAM_ABI_V2 = {V2}
 PROGRAM_ABI_V3 = {V3}
@@ -645,20 +650,16 @@ PROGRAM_ABI_V4 = {V4}
 PROGRAM_ABI_V5 = {V5}
 def supports_program_guest_abi(version: int) -> bool:
     return type(version) is int and version in (PROGRAM_ABI_V1, PROGRAM_ABI_V2, PROGRAM_ABI_V3, PROGRAM_ABI_V4, PROGRAM_ABI_V5)
-"#
-        }
-        "python-stub" => {
-            r#"
+";
+const PROGRAM_ABI_PYTHON_STUB_TEMPLATE: &str = r"
 PROGRAM_ABI_V1: int
 PROGRAM_ABI_V2: int
 PROGRAM_ABI_V3: int
 PROGRAM_ABI_V4: int
 PROGRAM_ABI_V5: int
 def supports_program_guest_abi(version: int) -> bool: ...
-"#
-        }
-        "go" => {
-            r#"
+";
+const PROGRAM_ABI_GO_TEMPLATE: &str = r"
 const ProgramAbiV1 uint16 = {V1}
 const ProgramAbiV2 uint16 = {V2}
 const ProgramAbiV3 uint16 = {V3}
@@ -672,10 +673,8 @@ func SupportsProgramGuestAbi(version uint16) bool {
         return false
     }
 }
-"#
-        }
-        "jvm" => {
-            r#"
+";
+const PROGRAM_ABI_JVM_TEMPLATE: &str = r"
     public static final int PROGRAM_ABI_V1 = {V1};
     public static final int PROGRAM_ABI_V2 = {V2};
     public static final int PROGRAM_ABI_V3 = {V3};
@@ -687,10 +686,8 @@ func SupportsProgramGuestAbi(version uint16) bool {
             default -> false;
         };
     }
-"#
-        }
-        "swift" => {
-            r#"
+";
+const PROGRAM_ABI_SWIFT_TEMPLATE: &str = r"
 let programAbiV1: UInt16 = {V1}
 let programAbiV2: UInt16 = {V2}
 let programAbiV3: UInt16 = {V3}
@@ -702,10 +699,8 @@ func supportsProgramGuestAbi(_ version: UInt16) -> Bool {
     default: return false
     }
 }
-"#
-        }
-        "dotnet" => {
-            r#"
+";
+const PROGRAM_ABI_DOTNET_TEMPLATE: &str = r"
     public const ushort ProgramAbiV1 = {V1};
     public const ushort ProgramAbiV2 = {V2};
     public const ushort ProgramAbiV3 = {V3};
@@ -716,8 +711,18 @@ func supportsProgramGuestAbi(_ version: UInt16) -> Bool {
         ProgramAbiV1 or ProgramAbiV2 or ProgramAbiV3 or ProgramAbiV4 or ProgramAbiV5 => true,
         _ => false,
     };
-"#
-        }
+";
+
+fn render_program_abi_policy(contract: &ReceiptContract, language: &str) -> Result<String, String> {
+    let template = match language {
+        "rust" => PROGRAM_ABI_RUST_TEMPLATE,
+        "typescript" => PROGRAM_ABI_TYPESCRIPT_TEMPLATE,
+        "python" => PROGRAM_ABI_PYTHON_TEMPLATE,
+        "python-stub" => PROGRAM_ABI_PYTHON_STUB_TEMPLATE,
+        "go" => PROGRAM_ABI_GO_TEMPLATE,
+        "jvm" => PROGRAM_ABI_JVM_TEMPLATE,
+        "swift" => PROGRAM_ABI_SWIFT_TEMPLATE,
+        "dotnet" => PROGRAM_ABI_DOTNET_TEMPLATE,
         _ => return Err("unknown Programs ABI projection".to_owned()),
     };
     let mut output = template.to_owned();
@@ -1263,9 +1268,9 @@ fn go_human_operations(human: &Sections) -> (Vec<String>, BTreeSet<String>) {
     let operations = human
         .iter()
         .filter(|(_, entries)| {
-            !entries
+            entries
                 .get("retired")
-                .is_some_and(|value| value == "\"true\"")
+                .is_none_or(|value| value != "\"true\"")
         })
         .filter_map(|(section, _)| section.strip_prefix("operation.").map(str::to_owned))
         .collect::<Vec<_>>();
@@ -1542,8 +1547,7 @@ fn jvm_verification_status_contract(repo_root: &Path, write: bool) -> Result<(),
     }
 }
 
-fn generate_jvm_pom() -> &'static str {
-    r#"<?xml version="1.0" encoding="UTF-8"?>
+const JVM_POM: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -1700,7 +1704,10 @@ fn generate_jvm_pom() -> &'static str {
     </profile>
   </profiles>
 </project>
-"#
+"#;
+
+fn generate_jvm_pom() -> &'static str {
+    JVM_POM
 }
 
 fn check_jvm_pom(repo_root: &Path) -> Result<(), String> {
@@ -1728,9 +1735,9 @@ fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
             .iter()
             .filter(|(section, entries)| {
                 section.starts_with("operation.")
-                    && !entries
+                    && entries
                         .get("retired")
-                        .is_some_and(|value| value == "\"true\"")
+                        .is_none_or(|value| value != "\"true\"")
             })
             .count())
     };
