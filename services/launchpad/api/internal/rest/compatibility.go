@@ -76,6 +76,9 @@ func RegisterProductionReads(r chi.Router, o ProductionReadOptions) error {
 		r.Method(method, path, ResponseMetadata(o.Admission.Middleware(class)(h)))
 	}
 	register("GET", "/v2/pools", AdmissionAggregate, poolList(o))
+	register("GET", "/v2/chains", AdmissionAggregate, chainsList(o.Store))
+	register("GET", "/v2/chains/{chain}", AdmissionCached, chainsDetail(o.Store))
+	register("GET", "/v2/chains/{chain}/revenue", AdmissionAggregate, chainsRevenue(o.Store))
 	register("GET", "/v2/pools/{poolAddress}", AdmissionCached, poolDetail(o))
 	register("GET", "/v2/pools/{poolAddress}/holders", AdmissionAggregate, holdersProxy(holders))
 	register("GET", "/v2/pools/{poolAddress}/stats", AdmissionCached, projectionStats(o.Model))
