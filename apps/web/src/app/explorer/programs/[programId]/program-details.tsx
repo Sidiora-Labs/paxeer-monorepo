@@ -44,7 +44,7 @@ export function ProgramDetails({
       description={program.program}
     >
       <ExplorerFreshness
-        title="Reported program observation"
+        title={copyEntry("explorer.copy.reported_program_observation").message}
         description={`Reported sequence ${program.observedSequence} at ${program.observedAt} (Unix milliseconds). Reported age: ${reportedObservationAge(program.observedAt, now)} Currentness unknown.`}
         current={false}
       />

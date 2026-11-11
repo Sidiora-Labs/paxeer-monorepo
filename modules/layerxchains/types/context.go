@@ -14,3 +14,12 @@ func DomainFrom(ctx sdk.Context) (uint32, bool) {
 	id, ok := ctx.Value(DomainContextKey).(uint32)
 	return id, ok && id != 0
 }
+
+// ChainIDFrom returns the transaction's virtual chain ID, or zero on the root network.
+func ChainIDFrom(ctx sdk.Context) uint64 {
+	id, ok := DomainFrom(ctx)
+	if !ok {
+		return 0
+	}
+	return ChainIDOf(id).Uint64()
+}
