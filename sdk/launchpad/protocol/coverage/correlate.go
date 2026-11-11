@@ -150,7 +150,7 @@ func (c *Correlator) Correlate(ctx context.Context, header *types.Header, tx *ty
 		d := c.Registry.Decode(125, l)
 		event := strings.SplitN(d.Signature, "(", 2)[0]
 		record := Record{Identity: identity(125, l), Decoded: d, Event: event, Authority: Authority(d.EmitterRole, event), Status: d.Status}
-		if d.Status != "decoded" {
+		if d.Status != statusDecoded {
 			out.Records = append(out.Records, record)
 			continue
 		}
@@ -161,24 +161,24 @@ func (c *Correlator) Correlate(ctx context.Context, header *types.Header, tx *ty
 				expected, ok := TypedSelector(event)
 				if e == nil && ok && expected == selector && CallerAllowedAt(epochs, 125, l.Address, caller, selector, position(l)) {
 					record.Caller = caller
-					record.Status = "authorized"
+					record.Status = statusAuthorized
 				} else if e == nil {
 					record.Status = "typed_permission_mismatch"
 				}
 			}
 		} else {
-			record.Status = "authorized"
+			record.Status = statusAuthorized
 		}
 		out.Records = append(out.Records, record)
-		if record.Status != "authorized" || record.Authority.Effect == "none" || record.Authority.Kind == "declared_not_emitted" {
-			if record.Authority.Effect == "core_fill" && record.Status != "authorized" {
+		if record.Status != statusAuthorized || record.Authority.Effect == effectNone || record.Authority.Kind == "declared_not_emitted" {
+			if record.Authority.Effect == effectCoreFill && record.Status != statusAuthorized {
 				out.Diagnostics = append(out.Diagnostics, "core_swap_coverage_gap")
 			}
 			continue
 		}
 		effect := Effect{Identity: record.Identity, Position: position(l), Role: d.EmitterRole, Event: event, Kind: record.Authority.Effect, Fields: d.Fields, RouteID: receipt.TxHash.Hex()}
 		effect.Actors = actors(from, tx.To(), l.Address, d.Fields)
-		if effect.Kind == "core_fill" || effect.Kind == "market_attachment" {
+		if effect.Kind == effectCoreFill || effect.Kind == effectMarketAttachment {
 			if c.Source == nil {
 				out.Diagnostics = append(out.Diagnostics, "coverage_gap:"+effect.Kind)
 				continue
@@ -190,11 +190,11 @@ func (c *Correlator) Correlate(ctx context.Context, header *types.Header, tx *ty
 				out.Diagnostics = append(out.Diagnostics, "pool_registration_unavailable")
 				continue
 			}
-			if effect.Kind == "market_attachment" && !creationMatches(d.Fields, registration) {
+			if effect.Kind == effectMarketAttachment && !creationMatches(d.Fields, registration) {
 				out.Diagnostics = append(out.Diagnostics, "registry_attachment_mismatch")
 				continue
 			}
-			if effect.Kind == "core_fill" && (registration.PoolID != poolID || record.Caller != registration.Pool) {
+			if effect.Kind == effectCoreFill && (registration.PoolID != poolID || record.Caller != registration.Pool) {
 				out.Diagnostics = append(out.Diagnostics, "unauthorized_pool_swap")
 				continue
 			}
@@ -256,7 +256,7 @@ func equalNumber(a, b any) bool {
 }
 func (c *Correlator) correlateCompanions(out *ReceiptResult) {
 	for _, record := range out.Records {
-		if record.Status != "authorized" || record.Authority.Kind != "corroboration" {
+		if record.Status != statusAuthorized || record.Authority.Kind != kindCorroboration {
 			continue
 		}
 		matches := []int{}
@@ -312,7 +312,7 @@ func companionMatches(n Effect, m Record) bool {
 func (out *ReceiptResult) reconcileReserves(ctx context.Context, source AuthoritySource) {
 	last := map[string]int{}
 	for i, e := range out.Effects {
-		if e.Role != "PECORVault" || (e.Kind != "funding_movement" && e.Kind != "reserve_state") {
+		if e.Role != rolePECORVault || (e.Kind != effectFundingMovement && e.Kind != effectReserveState) {
 			continue
 		}
 		token, _ := e.Fields["token"].(common.Address)
@@ -473,7 +473,7 @@ func (s *RPCSource) CallerAt(ctx context.Context, id Identity, at Position) (com
 		return fail(fmt.Errorf("caller raw log absent"))
 	}
 	dep, ok := s.Registry.DeploymentAt(125, id.Emitter, at.Block)
-	if !ok || dep.Family != "EventEmitter" {
+	if !ok || dep.Family != roleEventEmitter {
 		return fail(fmt.Errorf("unregistered emitter getter"))
 	}
 	var caller common.Address
@@ -561,7 +561,7 @@ func (s *RPCSource) PoolAt(ctx context.Context, block common.Hash, id common.Has
 	return PoolRegistration{Pool: pool, Token: m.Token, Creator: m.Creator, Optical: m.Optical, Settlement: asset, NFTID: m.NftId, PoolID: common.BytesToHash(pool.Bytes())}, nil
 }
 func (s *RPCSource) ReserveAt(ctx context.Context, block common.Hash, vault, asset common.Address) (*big.Int, error) {
-	out, err := s.call(ctx, block, vault, "PECORVault", "getReserves", asset)
+	out, err := s.call(ctx, block, vault, rolePECORVault, "getReserves", asset)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +571,7 @@ func (s *RPCSource) ReserveAt(ctx context.Context, block common.Hash, vault, ass
 	return unsigned(out[0])
 }
 func (s *RPCSource) WrappedNativeAt(ctx context.Context, block common.Hash, vault common.Address) (common.Address, error) {
-	out, err := s.call(ctx, block, vault, "PECORVault", "weth")
+	out, err := s.call(ctx, block, vault, rolePECORVault, "weth")
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -587,16 +587,16 @@ func (s *RPCSource) WrappedNativeAt(ctx context.Context, block common.Hash, vaul
 
 func (out *ReceiptResult) correlateRoutes() {
 	for _, route := range out.Effects {
-		if route.Role != "Router" || (route.Event != "Buy" && route.Event != "Sell") {
+		if route.Role != "Router" || (route.Event != eventBuy && route.Event != "Sell") {
 			continue
 		}
 		matches := []int{}
 		for i, fill := range out.Effects {
-			if fill.Kind != "core_fill" || fill.Fields["pool"] != route.Fields["pool"] {
+			if fill.Kind != effectCoreFill || fill.Fields["pool"] != route.Fields["pool"] {
 				continue
 			}
 			isBuy, ok := fill.Fields["isBuy"].(bool)
-			if !ok || isBuy != (route.Event == "Buy") {
+			if !ok || isBuy != (route.Event == eventBuy) {
 				continue
 			}
 			actor, in, outField := "buyer", "usdlIn", "tokensOut"
@@ -629,7 +629,7 @@ func (out *ReceiptResult) ResolveCreation(submitted common.Hash) (MarketCreation
 	}
 	matches := []Effect{}
 	for _, e := range out.Effects {
-		if e.Role == "SidioraFactory" && e.Kind == "market_attachment" {
+		if e.Role == roleSidioraFactory && e.Kind == effectMarketAttachment {
 			matches = append(matches, e)
 		}
 	}

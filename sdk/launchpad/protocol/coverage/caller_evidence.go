@@ -291,7 +291,7 @@ func (s *RPCSource) nativeCaller(ctx context.Context, header *types.Header, tx *
 	}
 	decoded := s.Registry.Decode(125, log)
 	selector, ok := TypedSelector("Swap")
-	if !ok || decoded.Status != "decoded" || decoded.EmitterRole != "EventEmitter" || decoded.Signature != "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)" {
+	if !ok || decoded.Status != statusDecoded || decoded.EmitterRole != roleEventEmitter || decoded.Signature != "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)" {
 		return fail(fmt.Errorf("unsupported native caller evidence"))
 	}
 	timestamp, timeOK := decoded.Fields["timestamp"].(*big.Int)
