@@ -138,7 +138,7 @@ func measurementHashValid(h string) bool {
 	b, e := hex.DecodeString(h)
 	return e == nil && len(b) == 32 && strings.ToLower(h) == h
 }
-func measurementRead(a MeasurementArtifact, out any) error {
+func measurementRead(a MeasurementArtifact, out any) (resultErr error) {
 	if !measurementHashValid(a.SHA256) || !filepath.IsAbs(a.Path) {
 		return errors.New("measurement artifact authority missing")
 	}
@@ -146,7 +146,11 @@ func measurementRead(a MeasurementArtifact, out any) error {
 	if e != nil {
 		return errors.New("measurement artifact unavailable")
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil && resultErr == nil {
+			resultErr = errors.New("measurement artifact unavailable")
+		}
+	}()
 	raw, e := io.ReadAll(io.LimitReader(f, 1048577))
 	if e != nil || len(raw) > 1048576 || measurementSHA(raw) != a.SHA256 {
 		return errors.New("measurement artifact digest mismatch")
@@ -173,14 +177,14 @@ func (c MediaMeasurementConfig) validate() (MediaLicenseAuthority, BudgetPolicy,
 		return license, budget, errors.New("measurement configuration incomplete")
 	}
 	origin, e := url.Parse(c.Origin)
-	if e != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || strings.HasSuffix(c.Origin, "/") {
+	if e != nil || origin.Scheme != httpsScheme || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || strings.HasSuffix(c.Origin, "/") {
 		return license, budget, errors.New("exact TLS origin required")
 	}
 	provider, e := url.Parse(c.ProviderURL)
-	if e != nil || provider.Scheme != "https" || provider.Host != "livepeer.studio" || provider.Path != "/api" || provider.RawQuery != "" || provider.Fragment != "" || provider.User != nil || !identityPattern.MatchString(c.ProviderKeyEnvironment) {
+	if e != nil || provider.Scheme != httpsScheme || provider.Host != "livepeer.studio" || provider.Path != "/api" || provider.RawQuery != "" || provider.Fragment != "" || provider.User != nil || !identityPattern.MatchString(c.ProviderKeyEnvironment) {
 		return license, budget, errors.New("actual provider account binding required")
 	}
-	if len(c.ReadWeights) != 3 || c.ReadWeights["live"] < 1 || c.ReadWeights["pool"] < 1 || c.ReadWeights["detail"] < 1 {
+	if len(c.ReadWeights) != 3 || c.ReadWeights[statusLive] < 1 || c.ReadWeights[poolCategory] < 1 || c.ReadWeights[detailCategory] < 1 {
 		return license, budget, errors.New("all actual origin read categories required")
 	}
 	weightTotal := 0
@@ -207,6 +211,7 @@ func (c MediaMeasurementConfig) validate() (MediaLicenseAuthority, BudgetPolicy,
 		if filepath.IsAbs(path) || filepath.Clean(path) != path || strings.HasPrefix(path, "..") || !measurementHashValid(hash) {
 			return license, budget, errors.New("invalid source binding")
 		}
+		//nolint:gosec // The relative source path is checked above and its content is verified by digest.
 		raw, err := os.ReadFile(filepath.Join(c.SourceRoot, path))
 		if err != nil || measurementSHA(raw) != hash {
 			return license, budget, errors.New("current source binding mismatch")
@@ -243,7 +248,7 @@ func (c MediaMeasurementConfig) validate() (MediaLicenseAuthority, BudgetPolicy,
 	}
 	for i, raw := range c.SegmentURLs {
 		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host != "livepeercdn.studio" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !strings.HasPrefix(u.Path, "/hls/"+license.PlaybackID+"/") || raw != license.SegmentURLs[i] || !measurementHashValid(license.SegmentHashes[raw]) {
+		if err != nil || u.Scheme != httpsScheme || u.Host != "livepeercdn.studio" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !strings.HasPrefix(u.Path, "/hls/"+license.PlaybackID+"/") || raw != license.SegmentURLs[i] || !measurementHashValid(license.SegmentHashes[raw]) {
 			return license, budget, errors.New("licensed CDN segment binding invalid")
 		}
 	}
@@ -283,10 +288,10 @@ func (w *mediaCapture) append(v MediaRequestSample) {
 	if v.Reason != "ok" {
 		w.failures++
 	}
-	if v.Category == "cdn_segment" {
+	if v.Category == cdnSegmentCategory {
 		w.cdnBytes += v.Bytes
 	}
-	if v.Category == "live" || v.Category == "pool" || v.Category == "detail" {
+	if v.Category == statusLive || v.Category == poolCategory || v.Category == detailCategory {
 		w.latencies = append(w.latencies, v.LatencyNS)
 	}
 }
@@ -299,7 +304,7 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 	req, e := http.NewRequestWithContext(bounded, method, target, bytes.NewReader(body))
 	var raw []byte
 	if e == nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", jsonMediaType)
 		req.Header.Set("X-Request-ID", id)
 		for k, value := range headers {
 			req.Header.Set(k, value)
@@ -309,10 +314,10 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 		if err == nil {
 			v.Status = resp.StatusCode
 			limit := int64(1048576)
-			if category == "cdn_segment" {
+			if category == cdnSegmentCategory {
 				limit = 16 << 20
 			}
-			if category == "cdn_segment" {
+			if category == cdnSegmentCategory {
 				sum := sha256.New()
 				v.Bytes, e = io.Copy(sum, io.LimitReader(resp.Body, limit+1))
 				v.BodySHA256 = hex.EncodeToString(sum.Sum(nil))
@@ -320,12 +325,14 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 				raw, e = io.ReadAll(io.LimitReader(resp.Body, limit+1))
 				v.Bytes = int64(len(raw))
 			}
-			resp.Body.Close()
+			if closeErr := resp.Body.Close(); closeErr != nil && e == nil {
+				e = closeErr
+			}
 			if v.Bytes > limit {
 				e = errors.New("response_limit")
 			}
 			mime := strings.Split(resp.Header.Get("Content-Type"), ";")[0]
-			if category != "cdn_segment" && (mime != "application/json" || !json.Valid(raw)) {
+			if category != cdnSegmentCategory && (mime != jsonMediaType || !json.Valid(raw)) {
 				e = errors.New("origin_content_type")
 			}
 			if category == "viewer_heartbeat" && v.Status >= 200 && v.Status < 300 {
@@ -333,7 +340,7 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 					e = err
 				}
 			}
-			if category != "cdn_segment" && (strings.Contains(string(raw), "streamKey") || strings.Contains(string(raw), "rtmp://") || strings.Contains(string(raw), "rtmps://")) {
+			if category != cdnSegmentCategory && (strings.Contains(string(raw), "streamKey") || strings.Contains(string(raw), "rtmp://") || strings.Contains(string(raw), "rtmps://")) {
 				e = errors.New("public_credential_leak")
 			}
 		}
@@ -344,7 +351,7 @@ func mediaFetch(ctx context.Context, client *http.Client, run, category, target,
 	if v.Status < 200 || v.Status >= 300 {
 		v.Reason = "http_failure"
 	}
-	if category != "cdn_segment" {
+	if category != cdnSegmentCategory {
 		v.BodySHA256 = measurementSHA(raw)
 	}
 	v.EndedUTCNS = fmt.Sprint(time.Now().UnixNano())
@@ -359,8 +366,8 @@ func mediaPercentile(samples []int64, q float64) int64 {
 	return samples[int(math.Ceil(float64(len(samples))*q))-1]
 }
 
-func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMeasurementSummary, error) {
-	summary := MediaMeasurementSummary{RunID: c.RunID, Candidate: c.Candidate, Interface: c.Interface, Topology: c.Topology, Generator: c.Generator, Scope: "isolated_component", FinalGate: "9.1", Artifacts: map[string]string{}, Blockers: []string{}}
+func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (summary MediaMeasurementSummary, resultErr error) {
+	summary = MediaMeasurementSummary{RunID: c.RunID, Candidate: c.Candidate, Interface: c.Interface, Topology: c.Topology, Generator: c.Generator, Scope: "isolated_component", FinalGate: "9.1", Artifacts: map[string]string{}, Blockers: []string{}}
 	license, budget, e := c.validate()
 	if e != nil {
 		return summary, e
@@ -397,12 +404,17 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 	if e = os.Mkdir(runRoot, 0700); e != nil {
 		return summary, errors.New("exclusive measurement output directory required")
 	}
+	//nolint:gosec // The output root is configured and the run ID is validated before this exclusive create.
 	file, e := os.OpenFile(filepath.Join(runRoot, "http-arrivals.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if e != nil {
 		return summary, e
 	}
 	capture := &mediaCapture{file: file, encoder: json.NewEncoder(file)}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil && resultErr == nil {
+			resultErr = err
+		}
+	}()
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = c.MaxFlights
 	transport.MaxIdleConnsPerHost = c.MaxFlights
@@ -479,7 +491,7 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 			defer wg.Done()
 			for job := range queue {
 				v, _ := mediaFetch(runCtx, client, c.RunID, job.category, job.target, job.method, job.session, job.body, job.scheduled, job.headers)
-				if job.category == "cdn_segment" && v.Reason == "ok" && v.BodySHA256 != license.SegmentHashes[job.target] {
+				if job.category == cdnSegmentCategory && v.Reason == "ok" && v.BodySHA256 != license.SegmentHashes[job.target] {
 					v.Reason = "licensed_segment_digest_mismatch"
 				}
 				capture.append(v)
@@ -487,7 +499,7 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 		}()
 	}
 	categories := []string{}
-	for _, category := range []string{"live", "pool", "detail"} {
+	for _, category := range []string{statusLive, poolCategory, detailCategory} {
 		for n := 0; n < c.ReadWeights[category]; n++ {
 			categories = append(categories, category)
 		}
@@ -515,10 +527,10 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 			}
 			category := categories[n%len(categories)]
 			path := "/v2/streams/live"
-			if category == "pool" {
+			if category == poolCategory {
 				path = "/v2/streams/pool/" + c.Pool
 			}
-			if category == "detail" {
+			if category == detailCategory {
 				path = "/v2/streams/" + c.StreamID
 			}
 			dispatch(request{category: category, target: c.Origin + path, method: "GET", scheduled: due})
@@ -544,7 +556,7 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 					wait.Stop()
 					return
 				}
-				dispatch(request{category: "cdn_segment", target: c.SegmentURLs[(round+i)%len(c.SegmentURLs)], method: "GET", session: s.ID, scheduled: arrival, headers: map[string]string{"Livepeer-Access-Key": s.Token}})
+				dispatch(request{category: cdnSegmentCategory, target: c.SegmentURLs[(round+i)%len(c.SegmentURLs)], method: "GET", session: s.ID, scheduled: arrival, headers: map[string]string{"Livepeer-Access-Key": s.Token}})
 			}
 		}
 	}()
@@ -590,13 +602,14 @@ func RunMediaMeasurement(ctx context.Context, c MediaMeasurementConfig) (MediaMe
 	if summary.OriginP95NS > 150000000 || summary.OriginP99NS > 400000000 || len(latencies) != c.OriginRPS*c.DurationSeconds {
 		summary.Blockers = append(summary.Blockers, "origin latency or scheduled arrival bound failed")
 	}
+	//nolint:gosec // The path points to the file created in this run's validated output directory.
 	rawFile, e := os.Open(filepath.Join(runRoot, "http-arrivals.ndjson"))
 	if e != nil {
 		return summary, e
 	}
 	rawHash := sha256.New()
 	_, e = io.Copy(rawHash, rawFile)
-	rawFile.Close()
+	e = errors.Join(e, rawFile.Close())
 	if e != nil {
 		return summary, e
 	}
