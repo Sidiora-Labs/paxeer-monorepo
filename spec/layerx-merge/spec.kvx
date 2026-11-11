@@ -355443,7 +355443,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.1]
 title = "Write the contract of the chain launchpad and its planned interface rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
