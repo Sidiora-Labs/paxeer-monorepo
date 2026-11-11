@@ -261,7 +261,8 @@ enum {
 };
 
 /* Governed schedule validation, activation and occupancy pricing share these
- * APIs with the chain host and the governance module. */
+ * APIs with the chain host and the governance module. A call's occupancy
+ * responsibility uses the fee schedule's seventh price. */
 lxp_result lxp_programs_fee_governance_proposal_validate(
     const uint8_t *payload, size_t payload_length);
 lxp_result lxp_programs_fee_governance_stage(

@@ -535,6 +535,8 @@ static lxp_result validate_evidence(
             status = LXP_OK;
         if (status != LXP_OK) return status;
         if (transition && !lxp_u128_is_zero(added)) {
+            /* This path runs for the call publication as well as for the
+             * block transition, so an unauthorised position never commits. */
             if (!bridge->call_authorized || bridge->finalizing ||
                 memcmp(charge.payer, bridge->authorized_payer, 32U) != 0 ||
                 memcmp(charge.root_program,
@@ -550,6 +552,7 @@ static lxp_result validate_evidence(
                     authorized_added,
                     bridge->authorized_responsibility_ceiling) > 0)
                 return status == LXP_OK ? LXP_ERR_UNAUTHORIZED_DEBIT : status;
+            bridge->call_added_responsibility = true;
         }
         if (!lxp_u128_is_zero(added)) {
             status = mandate_matches(&charge, maximum_bytes, maximum_price,
