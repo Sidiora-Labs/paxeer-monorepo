@@ -13174,6 +13174,24 @@ value = "The lint result_unit_err names a public function whose error type is th
 basis = "Gotcha 4266, decisions 3339 and 3340."
 affects = ["22.39.414"]
 
+[decision.3344]
+title = "The member lint task of the core member verifies with the option --no-deps"
+value = "Decision 3342 holds for task 22.39.415. Its verification runs clippy with the package option, all targets, the option --no-deps and warnings denied."
+basis = "Gotcha 4265, decisions 3341 and 3342."
+affects = ["22.39.415"]
+
+[decision.3345]
+title = "Task 22.39.424 lints the emulator, the release member and the SDK generator, and task 22.39.425 lints the cli member"
+value = "Task 22.39.424 brings the members emulator and release of tools/platform/Cargo.toml and the generator manifest through the lint, repairs the shared file services/platform/tests/support/tls_boundary.rs in place and writes the digest of the generator sources to sdk/platform/pipeline.kvx. Task 22.39.425 follows it and brings the member cli through the lint. Task 22.39.403 requires both."
+basis = "Gotcha 4267, decisions 3337, 3340 and 3341."
+affects = ["22.39.424", "22.39.425", "22.39.403"]
+
+[decision.3346]
+title = "A module declaration that includes a source file by path in a test target may carry the attribute allow(dead_code)"
+value = "A test target that includes a source file of its member or a shared test file by path uses a part of the items of that file. The module declaration of the target may carry the attribute allow(dead_code). The item stays, and no other allow attribute is added. Every other finding in the file is repaired in the file."
+basis = "Gotcha 4267, decision 3340."
+affects = ["22.39.424", "22.39.425"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42834,6 +42852,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.425]
+title = "Bring the cli member of the platform tools through the lint of the recipe"
+reqs = ["22998.1"]
+touches = ["tools/platform/cli"]
+tests = []
+verification_contract = "test -s tools/platform/cli/repair_22_39_425.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets --no-deps -- -D warnings"
+do_1 = "do_1 Decisions 3345 and 3346, gotchas 4265 and 4267. Run clippy by hand over the member cli of tools/platform/Cargo.toml with the package option, all targets, the options --no-deps and --keep-going and warnings denied, and list the findings by file and lint. A source file of the member that a test target includes by path is reported once for each target that includes it, so count the distinct locations."
+symbols = []
 
 [capability.22.39.424]
 title = "Bring the manifests of the platform tools and of the SDK generators through the lint of the recipe"
@@ -196096,6 +196123,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.425]
+title = "Bring the cli member of the platform tools through the lint of the recipe"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.424"]
+reqs = ["22998.1"]
+capabilities = ["22.39.425"]
+interfaces = []
+do_1 = "do_1 Decisions 3345 and 3346, gotchas 4265 and 4267. Run clippy by hand over the member cli of tools/platform/Cargo.toml with the package option, all targets, the options --no-deps and --keep-going and warnings denied, and list the findings by file and lint. A source file of the member that a test target includes by path is reported once for each target that includes it, so count the distinct locations."
+do_2 = "do_2 Repair each finding in the code. A finding that an item is never used, reported only in a test target for a source file that the target includes by path, is settled on the module declaration of that test target with the attribute allow(dead_code); the item stays. That is the only allow attribute the task adds. Change no lint level and no manifest. Every command, option, output and exit status of the program stays as it is, and every assertion of a test keeps what it asserts."
+do_3 = "do_3 Record in tools/platform/cli/repair_22_39_425.kvx as product facts: each lint and the files changed for it, and each module declaration that carries the attribute. Run the tests of the member once by hand before and after the repair and keep the result of every case as it is at the base revision. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/platform/cli"]
+tests = []
+planned_paths = ["tools/platform/cli/repair_22_39_425.kvx"]
+build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets"
+verify_cmd = "test -s tools/platform/cli/repair_22_39_425.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --all-targets --no-deps -- -D warnings"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.424]
 title = "Bring the manifests of the platform tools and of the SDK generators through the lint of the recipe"
 status = "pending"
@@ -196109,11 +196166,11 @@ do_1 = "do_1 Decision 3340. After the workspace of services/platform/Cargo.toml 
 do_2 = "do_2 Repair each finding in the code as decision 3340 states: no allow attribute, no change of a lint level or of a manifest, every public name, public signature and answer kept. The generated SDK files and the lock file sdk/platform/pipeline.kvx stay as the generator writes them; where a repair changes the output of a generator, write the files and the lock with the recipe platform-sdk-generate (decision 3337). Run the tests of each changed member by hand."
 do_3 = "do_3 Record in tools/platform/repair_22_39_424.kvx as product facts: each member, each lint and the files changed for it, or that a manifest held no finding. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["tools/platform", "sdk/platform/generators"]
+touches = ["tools/platform", "sdk/platform/generators", "sdk/platform/pipeline.kvx", "services/platform/tests/support/tls_boundary.rs"]
 tests = []
 planned_paths = ["tools/platform/repair_22_39_424.kvx"]
 build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml --workspace --all-targets && cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets"
-verify_cmd = "test -s tools/platform/repair_22_39_424.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml --workspace --all-targets -- -D warnings && cargo clippy --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets -- -D warnings"
+verify_cmd = "test -s tools/platform/repair_22_39_424.kvx && cargo clippy --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-emulator -p layerx-platform-release --all-targets --no-deps -- -D warnings && cargo clippy --locked --manifest-path sdk/platform/generators/Cargo.toml --workspace --all-targets -- -D warnings && cargo run --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen -- --check"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -196125,6 +196182,8 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3345, gotchas 4265 and 4267. The task now brings the members emulator and release of tools/platform/Cargo.toml and the generator manifest through the lint; the member cli follows in task 22.39.425. The file services/platform/tests/support/tls_boundary.rs, which the release member and a test of the cli member include by path, is repaired in place and is not copied. Decision 3346 holds for a test target that includes a source file by path."
+do_5 = "do_5 Decision 3337. The file sdk/platform/pipeline.kvx records a digest of the generator sources. After the last change to a source under sdk/platform/generators run the generator with the option --write the way the recipe platform-sdk-generate runs it, so the file records the new digest. The text the generator writes for every SDK stays the same, and the verification runs the generator with the option --check."
 
 [task.22.39.423]
 title = "Bring the three tool members of the platform through the workspace lint"
@@ -196387,7 +196446,7 @@ touches = ["services/platform/hosted/core"]
 tests = []
 planned_paths = ["services/platform/hosted/core/repair_22_39_415.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets"
-verify_cmd = "test -s services/platform/hosted/core/repair_22_39_415.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets -- -D warnings"
+verify_cmd = "test -s services/platform/hosted/core/repair_22_39_415.kvx && cargo clippy --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --all-targets --no-deps -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -196399,6 +196458,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3344, gotcha 4265. The verification now lints the member with the option --no-deps, so a finding in a member it depends on is outside this task and is not changed here."
 
 [task.22.39.414]
 title = "Bring the authority member of the platform through the workspace lint"
@@ -196528,7 +196588,7 @@ title = "Pass the lint of the platform crates with warnings denied"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424"]
+requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424", "22.39.425"]
 reqs = ["22998.1"]
 capabilities = ["22.39.403"]
 interfaces = []
@@ -196554,6 +196614,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3339, gotcha 4263. The task now also owns services/platform/hosted/identity/src and services/platform/hosted/paxeer/src. Run the first clippy command of the recipe by hand with the option --keep-going so that every member is linted in one run. Treat each finding in the three owned directories as in do_1: change the code, add the documentation a lint asks for where it states a fact about the function, add no allow attribute, and keep every public name and every answer. The tests of the three members pass unchanged. Name each member outside the three in the closing report with its lints and their counts, and do not change it."
 do_5 = "do_5 Decision 3340, gotcha 4264. The task now owns the whole directories of the members internal, identity and paxeer under services/platform/hosted, their tests included, and requires tasks 22.39.412 to 22.39.424, which bring the other members and the two other manifests through the same lint. After them run the whole recipe platform-lint. A step after the clippy steps that stops is named in the closing report with its file and its message."
+do_6 = "do_6 Decision 3345. The task now requires task 22.39.425, which brings the member cli of the platform tools through the lint."
 
 [task.22.39.398]
 title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
