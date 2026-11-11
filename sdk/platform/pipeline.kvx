@@ -17,7 +17,7 @@ digest = "de5e350540972ac952d0235bb0d27ce83f391457eee74178bda8642a044d2655"
 
 [generator.platform-sdkgen]
 root = "sdk/platform/generators"
-digest = "1ad5ec5bf49717d200f213c3c2530c3f79be3928e9738b670680a76dbc25e3c1"
+digest = "ae43b9c6662085f0cdae74e1f9de6c96215fb59621b6ddd5dcc78275f2100edc"
 
 [generator.agent-sdk-gen]
 root = "services/agent/tools/sdk-gen"

@@ -120,6 +120,9 @@ fn bind_error(error: BindError) -> String {
     }
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn bind(rpc: &RpcClient, account: &DerivedAccount) -> Result<Value, String> {
     let chain_id = u64::try_from(quantity(&rpc.call("eth_chainId", &json!([]))?, "chain id")?)
         .map_err(|_| "chain id exceeds 64 bits".to_owned())?;
@@ -185,6 +188,9 @@ fn path_text(path: &[u32]) -> String {
     text
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn run(
     arguments: &DeriveArgs,
     rpc: Option<&str>,
