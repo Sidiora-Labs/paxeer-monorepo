@@ -18,6 +18,7 @@ func Index() ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	bs = append(bs, nativeLaunchpadBundle())
 	type Entry struct {
 		Kind, Signature, Selector string
 		Inputs                    abi.Arguments
@@ -52,7 +53,7 @@ func Index() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-//go:embed *.go reviewed.json
+//go:embed *.go reviewed.json native_launchpad.json
 var compiledCatalogSources embed.FS
 
 func CompiledSourceSHA256() (map[string]string, error) {

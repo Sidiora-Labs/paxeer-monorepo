@@ -1745,8 +1745,6 @@ struct VerifiedCumulativeReceipt {
     result_code: i32,
     amount: u128,
     module_id: u16,
-    #[cfg(test)]
-    operation: u8,
     header: BatchHeader,
     leaf_index: u32,
     leaf_count: u32,
@@ -1761,8 +1759,6 @@ impl VerifiedCumulativeReceipt {
             result_code: receipt.result_code(),
             amount: receipt.amount(),
             module_id: receipt.module_id(),
-            #[cfg(test)]
-            operation: receipt.operation(),
             header,
             leaf_index: proof.leaf_index(),
             leaf_count: proof.leaf_count(),
@@ -1780,8 +1776,6 @@ impl VerifiedCumulativeReceipt {
             result_code: protocol.result_code(),
             amount: protocol.amount(),
             module_id: protocol.module_id(),
-            #[cfg(test)]
-            operation: protocol.operation(),
             header,
             leaf_index: proof.leaf_index(),
             leaf_count: proof.leaf_count(),
@@ -1806,11 +1800,6 @@ impl VerifiedCumulativeReceipt {
 
     const fn module_id(&self) -> u16 {
         self.module_id
-    }
-
-    #[cfg(test)]
-    const fn operation(&self) -> u8 {
-        self.operation
     }
 
     const fn header(&self) -> &BatchHeader {
@@ -2356,6 +2345,7 @@ mod tests {
         RawTimeWindowBatch,
         AuthenticatedCoreTime,
     ) {
+        use ed25519_dalek::Signer as _;
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../../tests/fixtures/custody/daemon-light-credit-receipt");
         let read = |name: &str| checked(std::fs::read(root.join(name)));
@@ -2390,16 +2380,16 @@ mod tests {
         );
         let mut checkpoint = crate::read::ServedCheckpoint::test_fixture(
             header.last_sequence(),
-            (header.timestamp_ms() / 1_000) as i64,
+            checked(i64::try_from(header.timestamp_ms() / 1_000)),
             (header.timestamp_ms() % 1_000) as u32 * 1_000_000,
         );
         checkpoint.header.chain_id = header.network_id().to_string();
         checkpoint.header.app_hash = header.resulting_state_root();
         checkpoint.commit.block_id.hash = checkpoint.header.block_hash();
-        use ed25519_dalek::Signer as _;
         for index in 0..checkpoint.commit.votes.len() {
             let vote = checkpoint.commit.votes[index];
-            let key = ed25519_dalek::SigningKey::from_bytes(&[index as u8 + 1; 32]);
+            let key =
+                ed25519_dalek::SigningKey::from_bytes(&[checked(u8::try_from(index)) + 1; 32]);
             checkpoint.commit.votes[index].signature = key
                 .sign(
                     &checkpoint
@@ -2549,7 +2539,7 @@ mod tests {
             checked(EvidenceAuthority::pinned_to_handshake(
                 header.protocol_version(),
                 header.network_id() + 1,
-                authority.verifier.handshake_pin.expect("fixture pin"),
+                checked(authority.verifier.handshake_pin.ok_or("fixture pin")),
             ))
             .pin_committed_validators(
                 observed.checkpoint.header.chain_id.clone(),

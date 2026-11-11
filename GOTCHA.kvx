@@ -21035,3 +21035,63 @@ fix = "Decision 3311 and task 22.39.389."
 title = "The block-end transition of the block flow is refused at the first block that runs it"
 symptom = "Task 22.39.387 attempt 1 at 2814328058c8 on base 730e92f12467: builds 1 and 2 exit 0 (trees 2b598859ae0c and 08db8fc9d314); verification 1 exits 1 at 2b598859ae0c and verification 2 exits 1 at 08db8fc9d314 (log /out/logs/verify-2.log). In verification 2 five cases stop at the first block that runs the transition with Programs occupancy at height 2: LXP_ERR_CONTEXT_MISMATCH: TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow, TestProgramCallAfterIdleBlocksPasses, TestBlockEndTransitionRunsOncePerBlock, TestBlockEndTransitionSurvivesRestart and TestHostedKernelProgramsABISurvivesRestart. The tree runs the transition in a new method of node/app.go after the state of the block is written, on a context built from the request header, and then selects the state for the commit a second time. The kernel returns that code in the transition when the open occupancy ledger names another occupancy asset (src/modules/programs/occupancy.c:442) or other prices under the same schedule version (:446). The hand call that main carries at node/upgrades_merge_programs_abi_test.go:271 passes on the context of the fixture. The attempt reports a last change to the selection of the commit state that it made after its repair cycles were spent, so no gate saw it, and the 1000 block measurement did not run."
 fix = "The note for attempt 2 of task 22.39.387."
+
+[gotcha.4243]
+title = "The record of the block-end transition task carries the wording of a verification tool"
+symptom = "The record modules/lxphost/repair_22_39_387.kvx on main at 6e50fba5bf holds sixteen keys. Thirteen state product facts: the cause, the selected state, the call site, the first block, the inputs, the failure, the measured cost, the host keys that an idle block rewrites and the readers. Three keys (evidence, qualification_repair and qualification_repair_2) name a verification tool, its commands and log paths of the qualification environment and narrate the attempts, and the key cost names a log file under a temporary directory that no reader of the repository can open."
+fix = "Decision 3313 and task 22.39.391."
+
+[gotcha.4244]
+title = "The first block-end transition of task 22.39.387 was refused by the fee receipt check and not by the occupancy bridge"
+symptom = "Gotcha 4242 placed the LXP_ERR_CONTEXT_MISMATCH of task 22.39.387 attempt 1 in src/modules/programs/occupancy.c. The attempt that qualified at a3b79971b83c found another site. Attempt 1 wrote the selected state before it looked for the schedules, so the root context at height 1 saw no schedule and skipped the transition. At height 2 validate_occupancy_receipt (src/modules/programs/fees.c:1491) refused the receipt at :1503, because its batch number was not last_occupancy_batch plus one (:1500). The repair runs the transition on the selected state before that state is written, in each of the three branches of FinalizeBlocker in node/app.go."
+fix = "Corrects the site that gotcha 4242 names. The key cause of the record modules/lxphost/repair_22_39_387.kvx states the cause. No task."
+
+[gotcha.4245]
+title = "Sixteen lock files that carry the client library went stale when it gained a dependency"
+symptom = "Task 22.39.386 at 39c4673cba6e made layerx-program-sdk an ordinary dependency of the client library (services/agent/crates/layerx-client/Cargo.toml:17) and refreshed services/agent/Cargo.lock. Its paths named no other lock file. Sixteen other lock files on main at 6e50fba5bf carry the package layerx-client by path and do not list the new dependency in its block: cmd/layerxctl/Cargo.lock, services/agent/fuzz/Cargo.lock, services/agent/qualification/pay2/Cargo.lock, services/agent/tests/boundary/Cargo.lock, services/agent/tests/isolation/Cargo.lock, services/agent/tests/parity/Cargo.lock, services/agent/tests/qualify/Cargo.lock, services/agent/tools/audit-verify/Cargo.lock, services/agent/tools/policy-harness/Cargo.lock, services/human/Cargo.lock, services/human/crates/layerx-intents/fuzz/Cargo.lock, services/interop/Cargo.lock, services/platform/Cargo.lock, services/platform/examples/samples/verify-receipt-rust/Cargo.lock, services/platform/hosted/node/tests/probe/Cargo.lock and tools/platform/Cargo.lock. Every cargo command with the locked option in those workspaces is refused with the message that the lock file needs to be updated. Task 22.39.377 attempt 4 at 733e686765a1 met five of them in the recipe of workspace-install (the manifests of services/human, services/platform, tools/platform and services/interop and the sample verify-receipt-rust) and ran no verification."
+fix = "Decision 3314 and task 22.39.392; task 22.39.390 refreshes the same files for its own change; task 22.39.377 continues after 22.39.392."
+
+[gotcha.4246]
+title = "The agent dependency policy refuses crates that only test targets of the workspace link"
+symptom = "Task 22.39.211 attempt 3 at 5f91a115b291 on base 790e967d7423: the build exits 0 at 733347168a88 (log /out/logs/build-1.log) and the verification exits 1 at 733347168a88 (log /out/logs/verify-1.log). The lint of the workspace over all targets finishes clean, and the last part of the command, services/agent/tools/dependency-policy.sh, stops with the message dependency policy: forbidden boundary or global-initialisation crate. The script refuses when the name of any package in the cargo metadata of the workspace is on its list (:11 to :15), and that metadata holds the packages of development dependencies as well. The host package of the agent daemon takes layerx-platform-gateway and layerx-indexer as development dependencies (services/agent/crates/layerx-agentd-host/Cargo.toml:61 and :64) and the client library takes layerx-platform-gateway as one (services/agent/crates/layerx-client/Cargo.toml:28), for the cases that read what the platform produces. The indexer takes rusqlite (services/platform/hosted/indexer/Cargo.toml:26), so services/agent/Cargo.lock carries rusqlite and libsqlite3-sys, both on the list. No member of the workspace names either platform package outside its development dependencies. The refusal does not come from the tree of the attempt: the target agent-lint of the Makefile ends with the same script (:1997), and the ban list of services/agent/deny.toml names the same two crates (:31 and :32) for the audit step of the public agent workflow (.github/workflows/agent.yml:83). The unsafe part of the script finds no hit under services/agent/crates on main."
+fix = "Decision 3315 and task 22.39.393; task 22.39.211 requires it and continues on its attempt-3 tree."
+
+[gotcha.4247]
+title = "No single call launches a virtual chain together with its token"
+symptom = "The launchpad creates a market through createMarket at its address 0x0000000000000000000000000000000000001017 and the chain registry creates a chain through createChain at its address 0x000000000000000000000000000000000000101E. The two are separate transactions, no record binds a chain to a market, and the launchpad web application offers them as two separate flows. A client cannot launch a chain with its token in one step, a market has no chain of its own, and no rule ties the operator share of a chain to a token."
+fix = "Decisions 3316, 3317 and 3318 and tasks 22.40.1 to 22.40.18."
+
+[gotcha.4248]
+title = "The debit of an occupancy position of Programs is checked at the call and at the end of the block"
+symptom = "The call path of Programs binds the fee authorisation of a call in src/modules/programs/occupancy.c, and the block-end transition of decision 3308 reads the positions that the calls of the block opened through src/modules/programs/occupancy_evidence.c. Both places apply the rule that decision 3320 states once."
+fix = "Decision 3320 and task 22.39.394."
+
+[gotcha.4249]
+title = "The ABI of the launchpad precompile is read by package tests, a copy, generated tables and recorded source hashes"
+symptom = "The package precompiles/launchpad states the entries of its ABI in abi_test.go, abi_direct_test.go, run_test.go and proof_precompile_go_test.go and compiles the launchpad contracts with solc 0.8.27 in optical_test.go. Outside the package the file services/wallet/attestor/internal/policy/evm/abi/launchpad.json is a byte copy of abi.json, the write tables of the agent SDKs are generated from it by services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs, the signature sources of the explorer are generated by generate_precompiles.py of the signature provider, and the records under sdk/launchpad/protocol/bindings/testdata/repair_m948 carry the sha256 of sources of the launchpad keeper and precompile."
+fix = "Decision 3321; tasks 22.40.7, 22.40.19 and 22.40.20."
+
+[gotcha.4250]
+title = "The occupancy charge of a program is paid from the account that the program payment lookup returns"
+symptom = "The Programs module pays the occupancy charge of a program at the end of a block from the account that lxp_kernel_program_payment_account of src/protocol/lxp_kernel.c returns for the payer and the asset of the charge. At the protocol version of the state commitment that account is the agent main account or the agent asset account of that asset. The ledger states the conditions of the occupancy responsibility debit in lxp_precondition_check of src/ledger/lxp_apply.c, and its cases stand in tests/ledger/test_apply_transfer.c."
+fix = "Decision 3322 and task 22.39.395."
+
+[gotcha.4251]
+title = "The Fund case of the RPC package bounds the CPU fuel of the committed AI market guest"
+symptom = "The case TestRepair478_FundWithinProductionAllowance of rpc/repair_478_test.go compiles the source of the AI market guest and bounds the CPU fuel of the Fund operation by the value measured for the committed guest, next to its bounds against the CPU allowance and the earlier stop. The measured value moves with a change of the guest source. The record programs/crates/layerx-programs-ai-market/repair_22_39_389.kvx states the value."
+fix = "Decision 3323; task 22.38.13 carries the case in its touched paths."
+
+[gotcha.4252]
+title = "The hosted programs fixture of the node tests holds the occupancy asset of its payer in an agent asset account"
+symptom = "The fixture newHostedProgramsABIFixture of node/upgrades_merge_programs_abi_test.go registers an asset, mints it into the agent asset account of its actor and installs the Programs schedules with that asset as the occupancy asset. The agent main account of the actor holds another asset. The program payment lookup returns the agent asset account for that payer and the occupancy asset, and it returns a context mismatch when two accounts of one identity hold the asset."
+fix = "Decision 3324; task 22.39.394 follows task 22.39.395."
+
+[gotcha.4253]
+title = "A node gives the canonical commit of a height once the next block exists and takes a store key as hexadecimal text without a prefix"
+symptom = "The commit that a node returns for its latest height is marked not canonical until the block above it exists; the commit of every lower height is canonical. The JSON-RPC interface of the node takes the data of a store query as hexadecimal text without the 0x prefix. The committed read of services/platform/hosted/indexer/src/ai_source.rs asks for the commit of the latest height and requires it canonical, and sends the store key with the prefix. The node double of services/platform/hosted/indexer/tests/ai_source.rs answers a canonical commit at its latest height and accepts the prefixed key."
+fix = "Decision 3325; task 22.38.36 carries the source and its cases."
+
+[gotcha.4254]
+title = "A list that a check reads is kept with the producer of its entries"
+symptom = "Three checks of the workspace read a list: the type set PrecompileAbiType of the TypeScript SDK and the type list of the Python SDK are read against the generated precompile tables, the copy check of the web app reads apps/web/copy/catalog.ts, and tests/programs/runtime-module-boundaries.sh holds the list of the host modules of the runtime. The generated tables name the type uint32 for the chain field of the launchpad chain events, the sources of the web app carry text for the explorer, exchange, bridge and launchpad pages, and the host directory of the runtime carries market.rs. Each list takes the entries of its producer."
+fix = "Decision 3326; tasks 22.39.396, 22.39.397 and 22.39.398."

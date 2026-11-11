@@ -2308,6 +2308,61 @@ fn lap_market_call_terms(
     layerx_client::ai_market::market_call_terms(operation, program, actor)
 }
 
+fn lap_market_spending_grant(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    payload: &[u8],
+    state: &layerx_client::ai_market::market_program::state::SharedState<'_>,
+    program: [u8; 32],
+) -> Result<layerx_client::MarketSpendingGrant, layerx_client::ai_market::AiClientError> {
+    use layerx_client::ai_market::market_program as market;
+    use layerx_client::MarketSpendingGrant;
+
+    let header = market::registry_ops::PolicySection::decode(
+        state.section(market::state::Section::PolicyLifecycle)?,
+    )?
+    .header;
+    let mut reader = market::codec::Reader::new(payload);
+    let deal = reader.digest32()?;
+    let lap = reader.u64()?;
+    let commitment = reader.digest32()?;
+    let amount_or_recipient = if operation == market::dispatch::ChallengeLap {
+        let amount = reader.u128()?;
+        reader.finish()?;
+        return Ok(MarketSpendingGrant::Deposit {
+            asset: header.funding_asset.bytes(),
+            rewards_account: header.rewards_account.bytes(),
+            amount,
+        });
+    } else if operation == market::dispatch::ResolveChallenge {
+        let _: [u8; 32] = reader.fixed()?;
+        reader.finish()?;
+        let record = market::canary::CanaryRegion::decode(state.control.feature_bytes)?
+            .get(commitment)?
+            .ok_or(market::errors::NOT_FOUND)?;
+        if record.task.deal != deal || record.task.lap != lap {
+            return Err(market::errors::CONFLICT.into());
+        }
+        (
+            record.challenger.ok_or(market::errors::NOT_FOUND)?.bytes(),
+            record.deposit,
+        )
+    } else {
+        return Err(
+            layerx_client::ai_market::AiClientError::MarketNonValueOperation {
+                operation: operation.metadata().name,
+            },
+        );
+    };
+    Ok(MarketSpendingGrant::Payment {
+        owner_program: program,
+        seed: market::REWARDS_ACCOUNT_SEED.to_vec(),
+        source_account: header.rewards_account.bytes(),
+        asset: header.funding_asset.bytes(),
+        recipient: amount_or_recipient.0,
+        amount: amount_or_recipient.1,
+    })
+}
+
 fn deal_market_call_terms(
     operation: layerx_client::ai_market::market_program::dispatch::Operation,
     program: [u8; 32],
@@ -2317,6 +2372,45 @@ fn deal_market_call_terms(
 }
 
 impl InferenceLapTransport<'_> {
+    fn signer_for(
+        &self,
+        operation: &layerx_client::ai_market::inference_market::MarketOperation,
+        shared: &layerx_client::ai_market::market_program::state::SharedState<'_>,
+        epoch: u64,
+    ) -> Result<&layerx_human_kms::attestor::AttestorSigner, inference_signal::deals::laps::LapError>
+    {
+        use inference_signal::deals::laps::LapError;
+        use layerx_client::ai_market::market_program as market;
+
+        if operation.operation() != market::dispatch::SealEvidence {
+            return Ok(&self.0.signer);
+        }
+        let region = market::evaluators::authority::evaluator_region(
+            shared.section(market::state::Section::IdentityRoster)?,
+        )?;
+        let roster = region
+            .snapshot()
+            .ok_or(LapError::Invalid("missing evaluator snapshot"))?;
+        let seals = market::evidence::SealRegion::decode(shared.control.feature_bytes)?;
+        self.0
+            .laps
+            .evidence_signers
+            .iter()
+            .find(|signer| {
+                let mut actor = [0; 32];
+                actor[12..].copy_from_slice(&signer.evm_address());
+                roster.entries().any(|entry| {
+                    entry.entry.owner.bytes() == actor
+                        && !seals.seals(epoch).any(|seal| {
+                            seal.is_ok_and(|seal| seal.evaluator == entry.entry.evaluator)
+                        })
+                })
+            })
+            .ok_or(LapError::Invalid(
+                "no unsealed admitted evaluator available",
+            ))
+    }
+
     fn deliver(
         &self,
         identity: &[u8],
@@ -2419,34 +2513,7 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
         let frozen = market::epoch::captured_roster(&shared)?
             .ok_or(LapError::Invalid("missing frozen roster"))?
             .binding;
-        let signer = if operation.operation() == market::dispatch::SealEvidence {
-            let region = market::evaluators::authority::evaluator_region(
-                shared.section(market::state::Section::IdentityRoster)?,
-            )?;
-            let roster = region
-                .snapshot()
-                .ok_or(LapError::Invalid("missing evaluator snapshot"))?;
-            let seals = market::evidence::SealRegion::decode(shared.control.feature_bytes)?;
-            self.0
-                .laps
-                .evidence_signers
-                .iter()
-                .find(|signer| {
-                    let mut actor = [0; 32];
-                    actor[12..].copy_from_slice(&signer.evm_address());
-                    roster.entries().any(|entry| {
-                        entry.entry.owner.bytes() == actor
-                            && !seals.seals(frozen.epoch).any(|seal| {
-                                seal.is_ok_and(|seal| seal.evaluator == entry.entry.evaluator)
-                            })
-                    })
-                })
-                .ok_or(LapError::Invalid(
-                    "no unsealed admitted evaluator available",
-                ))?
-        } else {
-            &self.0.signer
-        };
+        let signer = self.signer_for(operation, &shared, frozen.epoch)?;
         let mut actor = [0; 32];
         actor[12..].copy_from_slice(&signer.evm_address());
         let mut identity = operation.operation().selector().to_be_bytes().to_vec();
@@ -2475,8 +2542,25 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 .endpoint
                 .pending_nonce(&signer.evm_address())
                 .map_err(|_| LapError::Invalid("lap nonce unavailable"))?;
-            let call_terms =
-                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?;
+            let call_terms = if matches!(
+                operation.operation(),
+                market::dispatch::ChallengeLap | market::dispatch::ResolveChallenge
+            ) {
+                let grant = lap_market_spending_grant(
+                    operation.operation(),
+                    operation.payload(),
+                    &shared,
+                    self.0.program.bytes(),
+                )?;
+                layerx_client::market_value_call_terms(
+                    operation.operation(),
+                    self.0.program.bytes(),
+                    actor,
+                    grant,
+                )?
+            } else {
+                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?
+            };
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,

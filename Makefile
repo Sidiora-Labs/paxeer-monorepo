@@ -2710,8 +2710,11 @@ workspace-install:
 	cargo fetch --manifest-path sdk/platform/generators/Cargo.toml --locked
 	cd programs && cargo fetch --locked
 	cargo fetch --manifest-path services/interop/Cargo.toml --locked
-	$(MAKE) platform-js-install programs-js-install
-	$(MAKE) developer-dashboard-install paxeer-manifest-install platform-dependencies-install
+	$(MAKE) platform-js-install
+	$(MAKE) programs-js-install
+	$(MAKE) developer-dashboard-install
+	$(MAKE) paxeer-manifest-install
+	$(MAKE) platform-dependencies-install
 	go mod download
 
 workspace-build: build agent-build human-build platform-build-all programs-build interop-build \
