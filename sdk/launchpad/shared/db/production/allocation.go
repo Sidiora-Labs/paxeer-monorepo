@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"math"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 )
@@ -152,7 +153,7 @@ func digest64(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -341,7 +342,7 @@ func (b ConnectionBudget) Reconcile() (BudgetAllocation, error) {
 			return out, fmt.Errorf("invalid or duplicate operational backend")
 		}
 		switch o.Category {
-		case "migration":
+		case valueMigration:
 			migration = true
 		case "admin", "monitor", "backup", "operator", "health", "auth":
 		default:
@@ -383,6 +384,7 @@ func (b ConnectionBudget) BudgetPoolOptions(role, poolID, instance string) (db.P
 	for _, c := range b.Clients {
 		if c.Role == role && c.PoolID == poolID {
 			service := strings.ReplaceAll(role, ":", "_")
+			//nolint:gosec // Budget validation bounds runtime connections to MaxInt32.
 			opts := db.PoolOptions{MaxConns: int32(c.MaxConnections), QueryClass: c.QueryClass, Service: service, Instance: instance, PoolID: poolID, BudgetIdentity: b.Identity, Transport: c.Transport, DatabaseAlias: c.Alias, DatabaseUser: c.User}
 			if c.Transport == db.TransportDirect {
 				for _, t := range b.Targets {
@@ -408,17 +410,18 @@ func (b ConnectionBudget) MigrationPoolOptions(id, alias, user, instance string)
 		return db.PoolOptions{}, err
 	}
 	for _, o := range b.Operational {
-		if o.ID != id || o.Category != "migration" {
+		if o.ID != id || o.Category != valueMigration {
 			continue
 		}
-		if o.Connections > math.MaxInt32 {
+		if o.Connections < 1 || o.Connections > math.MaxInt32 {
 			return db.PoolOptions{}, fmt.Errorf("migration pool exceeds pgx capacity")
 		}
 		for _, t := range b.Targets {
 			if t.ID != o.Target {
 				continue
 			}
-			opts := db.PoolOptions{MaxConns: int32(o.Connections), QueryClass: db.Migration, Service: "migration", Instance: instance, PoolID: id, BudgetIdentity: b.Identity, Transport: db.TransportDirect, DatabaseAlias: alias, DatabaseUser: user, DatabaseHost: t.Host, DatabasePort: t.Port}
+			//nolint:gosec // Migration connections are bounded to MaxInt32 above.
+			opts := db.PoolOptions{MaxConns: int32(o.Connections), QueryClass: db.Migration, Service: valueMigration, Instance: instance, PoolID: id, BudgetIdentity: b.Identity, Transport: db.TransportDirect, DatabaseAlias: alias, DatabaseUser: user, DatabaseHost: t.Host, DatabasePort: t.Port}
 			return opts, opts.Validate()
 		}
 	}

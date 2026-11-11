@@ -9,15 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"log/slog"
 	"math/big"
@@ -28,6 +19,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ContractBackend serves block-pinned reads on chain 125. Block identity is
@@ -115,20 +116,20 @@ type WalletProof struct {
 }
 
 func VerifyProof(ctx context.Context, backend ContractBackend, proof WalletProof, message string, observe ObserveVerification) (result ProofResult, err error) {
-	if proof.Kind == "eoa_eip191" {
+	if proof.Kind == valueEoaEip191 {
 		start := time.Now()
 		defer func() {
 			if observe != nil {
-				category := "accepted"
+				category := valueAccepted
 				var failure *VerificationError
 				if errors.As(err, &failure) {
 					category = failure.Category
 				}
-				observe("eip191", category, time.Since(start))
+				observe(valueEip191, category, time.Since(start))
 			}
 		}()
 		if backend == nil {
-			return ProofResult{}, &VerificationError{Category: "upstream", Retryable: true}
+			return ProofResult{}, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		normalized, err := NormalizeWallet(proof.Wallet)
 		if err != nil {
@@ -138,22 +139,22 @@ func VerifyProof(ctx context.Context, backend ContractBackend, proof WalletProof
 		defer cancel()
 		chain, err := backend.ChainID(bounded)
 		if err != nil {
-			return ProofResult{}, &VerificationError{Category: "upstream", Retryable: true}
+			return ProofResult{}, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		if chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
-			return ProofResult{}, &VerificationError{Category: "chain"}
+			return ProofResult{}, &VerificationError{Category: valueChain}
 		}
 		code, err := codeAtLatest(bounded, backend, common.HexToAddress(normalized))
 		if err != nil {
-			return ProofResult{}, &VerificationError{Category: "upstream", Retryable: true}
+			return ProofResult{}, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 		if len(code) != 0 {
-			return ProofResult{}, &VerificationError{Category: "proof_kind"}
+			return ProofResult{}, &VerificationError{Category: valueProofKind}
 		}
 		return VerifyEOA(proof.Wallet, message, proof.Signature, nil)
 	}
-	if proof.Kind != "erc1271" {
-		return ProofResult{}, &VerificationError{Category: "proof_kind"}
+	if proof.Kind != valueErc1271 {
+		return ProofResult{}, &VerificationError{Category: valueProofKind}
 	}
 	return VerifyContract(ctx, backend, proof.Wallet, message, proof.Signature, observe)
 }
@@ -161,11 +162,11 @@ func VerifyContract(ctx context.Context, backend ContractBackend, wallet, messag
 	start := time.Now()
 	defer func() {
 		if observe != nil {
-			category := "accepted"
+			category := valueAccepted
 			if e, ok := err.(*VerificationError); ok {
 				category = e.Category
 			}
-			observe("eip1271", category, time.Since(start))
+			observe(valueEip1271, category, time.Since(start))
 		}
 	}()
 	normalized, err := NormalizeWallet(wallet)
@@ -173,27 +174,27 @@ func VerifyContract(ctx context.Context, backend ContractBackend, wallet, messag
 		return result, err
 	}
 	if len(signature) > 8194 {
-		return result, &VerificationError{Category: "signature_length"}
+		return result, &VerificationError{Category: valueSignatureLength}
 	}
 	sig, e := hexutil.Decode(signature)
 	if e != nil || len(sig) > 4096 || len(message) > 8192 {
-		return result, &VerificationError{Category: "signature_length"}
+		return result, &VerificationError{Category: valueSignatureLength}
 	}
 	if backend == nil {
-		return result, &VerificationError{Category: "upstream", Retryable: true}
+		return result, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	chain, e := backend.ChainID(ctx)
 	if e != nil {
-		return result, &VerificationError{Category: "upstream", Retryable: true}
+		return result, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
-		return result, &VerificationError{Category: "chain"}
+		return result, &VerificationError{Category: valueChain}
 	}
 	pin, e := latestReportedBlock(ctx, backend)
 	if e != nil {
-		return result, &VerificationError{Category: "upstream", Retryable: true}
+		return result, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	address := common.HexToAddress(normalized)
 	b32, _ := abi.NewType("bytes32", "", nil)
@@ -213,7 +214,7 @@ func VerifyContract(ctx context.Context, backend ContractBackend, wallet, messag
 		return err
 	})
 	if e != nil {
-		return result, &VerificationError{Category: "upstream", Retryable: true}
+		return result, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if len(code) == 0 {
 		return result, &VerificationError{Category: "contract_missing"}
@@ -221,7 +222,7 @@ func VerifyContract(ctx context.Context, backend ContractBackend, wallet, messag
 	if len(out) != 32 || !bytes.Equal(out[:4], []byte{0x16, 0x26, 0xba, 0x7e}) || !bytes.Equal(out[4:], make([]byte, 28)) {
 		return result, &VerificationError{Category: "contract_rejected"}
 	}
-	return ProofResult{Method: "eip1271", Wallet: normalized, ChallengeDigest: hexutil.Encode(hash), ChainID: 125, BlockHeight: pin.Header.Number.Uint64(), BlockHash: pin.Hash.Hex(), CodeHash: crypto.Keccak256Hash(code).Hex()}, nil
+	return ProofResult{Method: valueEip1271, Wallet: normalized, ChallengeDigest: hexutil.Encode(hash), ChainID: 125, BlockHeight: pin.Header.Number.Uint64(), BlockHash: pin.Hash.Hex(), CodeHash: crypto.Keccak256Hash(code).Hex()}, nil
 }
 
 type MetadataV2Action struct {
@@ -243,7 +244,7 @@ func (v MetadataV2Verifier) AuthorizeInTx(ctx context.Context, tx pgx.Tx, a Meta
 		return ErrScopeDenied
 	}
 	wallet, err := NormalizeWallet(a.Wallet)
-	if err != nil || wallet != a.Wallet || a.Method != "PATCH" || !strings.HasPrefix(a.Path, "/v2/tokens/") || !strings.HasSuffix(a.Path, "/metadata") || strings.ContainsAny(a.Audience+a.Path, "\r\n") {
+	if err != nil || wallet != a.Wallet || a.Method != valuePATCH || !strings.HasPrefix(a.Path, "/v2/tokens/") || !strings.HasSuffix(a.Path, "/metadata") || strings.ContainsAny(a.Audience+a.Path, "\r\n") {
 		return ErrScopeDenied
 	}
 	target := strings.TrimSuffix(strings.TrimPrefix(a.Path, "/v2/tokens/"), "/metadata")
@@ -278,18 +279,18 @@ func (v MetadataV2Verifier) AuthorizeInTx(ctx context.Context, tx pgx.Tx, a Meta
 	defer cancel()
 	chain, err := v.Backend.ChainID(bounded)
 	if err != nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
 		return ErrScopeDenied
 	}
 	code, err := codeAtLatest(bounded, v.Backend, common.HexToAddress(wallet))
 	if err != nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
-	kind := "eoa_eip191"
+	kind := valueEoaEip191
 	if len(code) > 0 {
-		kind = "erc1271"
+		kind = valueErc1271
 	}
 	statement := MetadataV2SigningMessage(a)
 	if _, err = VerifyProof(bounded, v.Backend, WalletProof{Kind: kind, Wallet: wallet, Signature: a.Signature}, statement, nil); err != nil {
@@ -334,7 +335,7 @@ func ValidateStreamBinding(p StreamPrincipal, b StreamTicketBinding) error {
 		return ErrScopeDenied
 	}
 	origin, err := url.Parse(b.Origin)
-	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+	if err != nil || origin.Scheme != valueHttps || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
 		return ErrScopeDenied
 	}
 	raw, err := hex.DecodeString(b.FilterDigest)
@@ -407,7 +408,8 @@ func (a HTTPStreamAuthority) call(ctx context.Context, path string, request any,
 	if err != nil || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Path != "" || len(a.ServiceToken) < 32 {
 		return ErrScopeDenied
 	}
-	if endpoint.Scheme != "https" && !(endpoint.Scheme == "http" && (a.AllowPlainHTTP || endpoint.Hostname() == "127.0.0.1" || endpoint.Hostname() == "localhost" || endpoint.Hostname() == "::1")) {
+	plainAllowed := a.AllowPlainHTTP || endpoint.Hostname() == "127.0.0.1" || endpoint.Hostname() == "localhost" || endpoint.Hostname() == "::1"
+	if endpoint.Scheme != valueHttps && (endpoint.Scheme != "http" || !plainAllowed) {
 		return ErrScopeDenied
 	}
 	raw, err := json.Marshal(request)
@@ -416,7 +418,7 @@ func (a HTTPStreamAuthority) call(ctx context.Context, path string, request any,
 	}
 	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(bounded, "POST", a.Endpoint+path, bytes.NewReader(raw))
+	req, err := http.NewRequestWithContext(bounded, valuePOST, a.Endpoint+path, bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
@@ -501,7 +503,7 @@ func ValidateChatStreamBinding(p StreamPrincipal, b StreamTicketBinding) error {
 		return ErrScopeDenied
 	}
 	origin, err := url.Parse(b.Origin)
-	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+	if err != nil || origin.Scheme != valueHttps || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
 		return ErrScopeDenied
 	}
 	seen := map[string]bool{}
@@ -556,10 +558,11 @@ type MTLSIdentityAuthority struct {
 func (a MTLSIdentityAuthority) validate() error {
 	endpoint, err := url.Parse(a.Endpoint)
 	pin, pinErr := hex.DecodeString(a.PeerCertSHA256)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.Path != "" || endpoint.RawPath != "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Opaque != "" || endpoint.ForceQuery || pinErr != nil || len(pin) != 32 || strings.ToLower(a.PeerCertSHA256) != a.PeerCertSHA256 || a.Client == nil {
+	if err != nil || endpoint.Scheme != valueHttps || endpoint.Host == "" || endpoint.Path != "" || endpoint.RawPath != "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Opaque != "" || endpoint.ForceQuery || pinErr != nil || len(pin) != 32 || strings.ToLower(a.PeerCertSHA256) != a.PeerCertSHA256 || a.Client == nil {
 		return ErrScopeDenied
 	}
 	transport, ok := a.Client.Transport.(*http.Transport)
+	//nolint:staticcheck // Legacy custom TLS dialers remain disallowed by the verifier.
 	if !ok || transport.TLSClientConfig == nil || transport.DialTLS != nil || transport.DialTLSContext != nil {
 		return ErrScopeDenied
 	}
@@ -736,7 +739,7 @@ func (a MTLSIdentityAuthority) AuthenticateStreamHTTP(ctx context.Context, beare
 	if !strings.HasPrefix(bearer, "Bearer ") {
 		bearer = "Bearer " + bearer
 	}
-	p, err := a.authenticate(ctx, IdentityAuthenticationRequest{Authorization: bearer, Method: "GET"})
+	p, err := a.authenticate(ctx, IdentityAuthenticationRequest{Authorization: bearer, Method: valueGET})
 	return p.StreamPrincipal(), err
 }
 func (a MTLSIdentityAuthority) ConsumeStreamTicket(ctx context.Context, ticket string, binding StreamTicketBinding) (StreamPrincipal, error) {
@@ -825,7 +828,7 @@ func ValidateIdentityAuthenticationRequest(r IdentityAuthenticationRequest) erro
 		return ErrScopeDenied
 	}
 	switch r.Method {
-	case "GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE":
+	case valueGET, "HEAD", "OPTIONS", valuePOST, valuePUT, valuePATCH, valueDELETE:
 	default:
 		return ErrScopeDenied
 	}
@@ -876,7 +879,7 @@ func (a HTTPStreamAuthority) AuthenticateStreamHTTP(ctx context.Context, bearer 
 	if !strings.HasPrefix(bearer, "Bearer ") {
 		bearer = "Bearer " + bearer
 	}
-	p, err := HTTPIdentityAuthority(a).authenticate(ctx, IdentityAuthenticationRequest{Authorization: bearer, Method: "GET"})
+	p, err := HTTPIdentityAuthority(a).authenticate(ctx, IdentityAuthenticationRequest{Authorization: bearer, Method: valueGET})
 	if err != nil {
 		return StreamPrincipal{}, err
 	}
@@ -897,18 +900,18 @@ func (v WalletOperationVerifier) Verify(ctx context.Context, wallet, message, si
 	defer cancel()
 	chain, err := v.Backend.ChainID(bounded)
 	if err != nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	if chain == nil || chain.Cmp(big.NewInt(125)) != 0 {
 		return ErrScopeDenied
 	}
 	code, err := codeAtLatest(bounded, v.Backend, common.HexToAddress(wallet))
 	if err != nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
-	kind := "eoa_eip191"
+	kind := valueEoaEip191
 	if len(code) > 0 {
-		kind = "erc1271"
+		kind = valueErc1271
 	}
 	_, err = VerifyProof(bounded, v.Backend, WalletProof{Kind: kind, Wallet: wallet, Signature: signature}, message, v.Observe)
 	return err
@@ -983,7 +986,7 @@ func (v CommittedProofVerifier) Verify(ctx context.Context, wallet, message, sig
 		}
 	}()
 	if v.Backend == nil || v.Blocks == nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	wallet, err = NormalizeWallet(wallet)
 	if err != nil {
@@ -993,22 +996,22 @@ func (v CommittedProofVerifier) Verify(ctx context.Context, wallet, message, sig
 	defer cancel()
 	height, hash, err := v.Blocks.CommittedBlock(bounded)
 	if err != nil || height == nil || height.Sign() < 0 || !height.IsUint64() || hash == (common.Hash{}) {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	// The committed hash is the node-reported hash the indexer recorded; it
 	// must be what the node reports for the committed height.
 	block, err := v.Backend.ReportedBlockByNumber(bounded, height)
 	if err != nil || !block.valid() || block.Header.Number.Cmp(height) != 0 || block.Hash != hash {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	backend := committedBackend{ContractBackend: v.Backend, pin: block}
 	code, err := codeAtLatest(bounded, backend, common.HexToAddress(wallet))
 	if err != nil {
-		return &VerificationError{Category: "upstream", Retryable: true}
+		return &VerificationError{Category: valueUpstream, Retryable: true}
 	}
-	kind := "eoa_eip191"
+	kind := valueEoaEip191
 	if len(code) > 0 {
-		kind = "erc1271"
+		kind = valueErc1271
 	}
 	_, err = VerifyProof(bounded, backend, WalletProof{Kind: kind, Wallet: wallet, Signature: signature}, message, func(method, category string, duration time.Duration) {
 		observed = true

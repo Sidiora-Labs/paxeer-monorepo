@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 )
 
 type MeasurementBinding struct {
@@ -195,7 +197,7 @@ func NewMeasurementCapture(directory string, binding MeasurementBinding, maxRows
 	if err := os.Mkdir(directory, 0700); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(filepath.Join(directory, "chain-samples.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := util.OpenFilePath(filepath.Join(directory, "chain-samples.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
