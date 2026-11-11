@@ -226999,7 +226999,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.3]
 title = "Launch a chain and its market in one state transition of the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.40.2"]
