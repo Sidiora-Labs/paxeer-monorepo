@@ -601,7 +601,7 @@ func migratedRoleEpoch(manifest deployment.Manifest, e RPCCodeEpoch) RPCCodeEpoc
 		return e
 	}
 	approved, ok := deployment.Approved(manifest.ActivationHeight)
-	if !ok || approved.Roles[e.Deployment.Role] != e.Identity || e.Identity.Kind != "surface" || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
+	if !ok || !e.Identity.MatchesApproved(approved.Roles[e.Deployment.Role]) || e.Identity.Kind != "surface" || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
 		return e
 	}
 	e.Identity.RuntimeHash = crypto.Keccak256Hash(common.FromHex(migratedSurfaceRuntime)).Hex()
