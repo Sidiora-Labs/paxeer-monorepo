@@ -930,7 +930,7 @@ pub fn apply_record_deal(
     let ask = book.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
     if ask.room_id != room.room_id
         || ask.model_digest != room.model_digest
-        || ask.state != AskState::Open
+        || ask.state == AskState::Closed
     {
         return Err(CONFLICT);
     }

@@ -1,0 +1,61 @@
+[meta]
+task = "22.39.368"
+criterion = "22998.1"
+base_revision = "9a170ec2b4e5bd319f888e441167a0f2d01ab790"
+status = "implemented; all-target inventory and all six cases passed; bounded gate evidence is external"
+
+[baseline]
+target = "layerx-agentd/test/repair_22_31_549"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test bootstrap_bind_layerx --test repair_22_31_549"
+source = "GOTCHA.kvx gotchas 4185 and 4196; the task requires implementation before any local build, so the failing baseline was not rerun here."
+historical_revision = "6b424283ec28"
+historical_exit = 101
+historical_log = "/out/logs/build-1.log (prior attempt, as recorded in gotcha 4185)"
+errors = 12
+e0609 = ["repair_22_31_549.rs:9 credential", "repair_22_31_549.rs:31 labels", "repair_22_31_549.rs:65 labels", "repair_22_31_549.rs:78 labels", "repair_22_31_549.rs:93 labels", "repair_22_31_549.rs:95 peer", "repair_22_31_549.rs:108 labels", "repair_22_31_549.rs:110 peer"]
+e0308 = ["repair_22_31_549.rs:40 envelope request expects &Value", "repair_22_31_549.rs:40 assert_prepared response expects &AgentRpcResponse", "repair_22_31_549.rs:71 envelope request expects &Value", "repair_22_31_549.rs:70 assert_refused response expects &AgentRpcResponse"]
+
+[change]
+history = "OwnerFixture before lint repair 6561d46fa78085f3a8c64f2f8453bcb24d0db049"
+fields = ["peer: HumanPeer", "labels: Arc<Mutex<ServedLabels>>", "credential: layerx_agentd::session::SessionCredential"]
+initialization = "Restore peer, labels and credential from the existing constructor locals with their original ownership."
+allowances = "Each restored field has its own dead_code allowance naming the including target repair_22_31_549."
+borrows = "Borrow the two envelope requests and the two assertion-helper responses at their existing call sites."
+invariants = "Every assertion, verification-label case and test remains intact."
+
+[all_targets]
+command = "cargo check --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets --message-format=json"
+revision = "9a170ec2b4e5bd319f888e441167a0f2d01ab790 with the scoped Rust repair applied"
+exit = 0
+log = "/out/logs/repair_22_39_368-all-targets.jsonl"
+status = "passed"
+targets_observed = 209
+compiler_errors = 0
+failed_targets = []
+first_errors = []
+
+[cases]
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 -- --test-threads=1"
+revision = "9a170ec2b4e5bd319f888e441167a0f2d01ab790 with the scoped Rust repair applied"
+exit = 0
+log = "/out/logs/repair_22_39_368-cases-resumed.log"
+status = "passed"
+fixture = "Real Anvil node and local TLS authority started successfully."
+passed = 6
+failed = 0
+ignored = 0
+filtered_out = 0
+failed_cases = []
+first_messages = []
+interruption = "The gateway interruption ended the initial command during compilation before any cases executed; compilation resumed and all six cases executed exactly once."
+interrupted_log = "/out/logs/repair_22_39_368-cases.log"
+
+[qualification]
+status = "Source record frozen before hf-build and hf-done; their append-only evidence binds the result to the final candidate revision."
+evidence = "/out/run/gates.jsonl records the exact revision, command, exit and private log for both gates."
+verified_revision = "The successful hf-done revision in /out/run/gates.jsonl; the runner publishes that candidate."
+
+[source]
+bootstrap_bind_layerx_sha256 = "92b507e67ce1c13f94b6269170cbe47761e12b990cd185a6e65fc0413b1b6425"
+repair_22_31_549_sha256 = "430918b9cea40a4d1ef60d9e2d8ca9a2aaa6b9c5683f27b70b13f447898f793c"
+identity = "The Rust source hashes apply to the all-target inventory, case run and final bounded gates; only this repair record was finalized after the outside checks."

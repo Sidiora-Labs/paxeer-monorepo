@@ -1066,3 +1066,38 @@ fn book_read_envelopes_enforce_native_identity_domain_expiry_and_canonical_read_
         Err(NON_CANONICAL)
     ));
 }
+
+#[test]
+fn shared_bids_remain_consumed_after_every_deal_of_the_same_ask() {
+    let mut h = Harness::ready(123);
+    h.priced_ask(60, 64, 20, 124);
+    h.priced_bid(60, 72, 5);
+    let first = h.deal_request(digest(60), digest(61), digest(62));
+    h.deal(&first);
+    let before = h.view(50);
+    for (id, end) in [(59, 12), (63, 10)] {
+        let mut further = h.deal_request(first.room_id, first.ask_id, digest(id));
+        further.layers[0].as_mut().unwrap().end_layer = end;
+        further.layers[1].as_mut().unwrap().first_layer = end;
+        h.deal(&further);
+        assert_eq!(h.view(50), before);
+        let view = BookView::decode(&before).unwrap();
+        assert_eq!(view.counts(), [1, 1]);
+        assert_eq!(view.ask(0).unwrap().order_id, digest(64));
+        assert_eq!(view.bid(0).unwrap().order_id, digest(72));
+        let shared = h.state();
+        assert_eq!(
+            PlacementBook::decode(shared.room_market().unwrap().1, digest(50))
+                .unwrap()
+                .counts(),
+            [1, 1]
+        );
+    }
+    assert_eq!(h.book().counts(), [1, 2, 3, 3]);
+    let mut bytes = [0; DEAL_RECORD_BYTES];
+    let first = h.book().deal(first.deal_id).unwrap().unwrap();
+    first.encode(&mut bytes).unwrap();
+    let mut duplicate = first;
+    duplicate.layers[1].as_mut().unwrap().bid_id = duplicate.layers[0].unwrap().bid_id;
+    assert_eq!(duplicate.encode(&mut bytes), Err(NON_CANONICAL));
+}

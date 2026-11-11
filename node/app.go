@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/admin"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/tasks"
+	layerxcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/grpc/tmservice"
@@ -33,6 +34,7 @@ import (
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/api"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
+	servergrpc "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/grpc"
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	storev2_rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
@@ -577,6 +579,7 @@ type App struct {
 
 	optimisticProcessingInfo      OptimisticProcessingInfo
 	optimisticProcessingInfoMutex sync.RWMutex
+	programsOccupancyDuration     time.Duration
 
 	txDecoder         sdk.TxDecoder
 	AnteHandler       sdk.AnteHandler
@@ -992,6 +995,7 @@ func New(
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
+	app.LaunchpadKeeper.SetChainRegistry(app.LayerXChainsKeeper)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
 	// The module and served spot precompiles share this stateless keeper;
@@ -1591,7 +1595,9 @@ func (app *App) HandleClose() error {
 
 	// Stop admin gRPC server
 	if app.adminServer != nil {
-		app.adminServer.GracefulStop()
+		if !servergrpc.StopGRPCServer(app.adminServer, 5*time.Second) {
+			logger.Warn("admin gRPC shutdown grace period elapsed; canceled outstanding RPCs")
+		}
 	}
 
 	// Note: stateStore (ssStore) is already closed by cms.Close() in BaseApp.Close()
@@ -1895,6 +1901,7 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 			Height:     req.Header.Height,
 			Hash:       req.Hash,
 			Completion: completionSignal,
+			StateCtx:   ctx,
 		}
 	}
 	app.optimisticProcessingInfoMutex.Unlock()
@@ -2017,6 +2024,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
 				return &abci.ResponseFinalizeBlock{}, nil
 			}
+			if err := app.finalizeProgramsOccupancy(sealedCtx); err != nil {
+				return nil, err
+			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
 			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
@@ -2040,6 +2050,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		events := app.optimisticProcessingInfo.Events
 		txRes := app.optimisticProcessingInfo.TxRes
 		endBlockResp := app.optimisticProcessingInfo.EndBlockResp
+		stateCtx := app.optimisticProcessingInfo.StateCtx
 		app.optimisticProcessingInfoMutex.RUnlock()
 
 		if app.sequencerSource == nil && !aborted && bytes.Equal(finalHash, req.Hash) {
@@ -2049,6 +2060,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			app.SetProcessProposalStateToCommit()
 			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
 				return &abci.ResponseFinalizeBlock{}, nil
+			}
+			if err := app.finalizeProgramsOccupancy(stateCtx.WithBlockHeader(*req.Header)); err != nil {
+				return nil, err
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
@@ -2080,6 +2094,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
 		return &abci.ResponseFinalizeBlock{}, nil
 	}
+	if err := app.finalizeProgramsOccupancy(ctx.WithBlockHeader(*req.Header)); err != nil {
+		return nil, err
+	}
 	consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 	cms := app.WriteState()
 	if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
@@ -2093,6 +2110,27 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		}
 	}
 	return &resp, nil
+}
+
+func (app *App) finalizeProgramsOccupancy(ctx sdk.Context) error {
+	app.programsOccupancyDuration = 0
+	key := app.GetKey(LayerXHostStoreKey)
+	if !lxphost.ProgramsSchedulesPresent(ctx, key) {
+		return nil
+	}
+	sequence, err := lxphost.NextSequence(ctx, key)
+	if err != nil {
+		return fmt.Errorf("Programs occupancy at height %d: next sequence: %w", ctx.BlockHeight(), err)
+	}
+	start := time.Now()
+	_, err = app.LayerXHost.FinalizeProgramsOccupancy(
+		lxphost.WithSequence(ctx, sequence), layerxcodec.StateCommitmentProtocolVersion,
+	)
+	app.programsOccupancyDuration = time.Since(start)
+	if err != nil {
+		return fmt.Errorf("Programs occupancy at height %d: %w", ctx.BlockHeight(), err)
+	}
+	return nil
 }
 
 func (app *App) stashBlockHeader(notifier *evmrpc.BlockHeaderNotifier, req *abci.RequestFinalizeBlock, resp *abci.ResponseFinalizeBlock) error {

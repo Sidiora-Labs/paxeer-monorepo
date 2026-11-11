@@ -14,6 +14,8 @@ layerx-types = { path = "../layerx-types" }
 layerx-wire = { path = "../layerx-wire" }
 layerx-proof = { path = "../layerx-proof" }
 layerx-programs-ai-market = { path = "../../../../programs/crates/layerx-programs-ai-market" }
+layerx-program-sdk = { path = "../../../../programs/sdk/rust" }
+layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 sha2 = "=0.10.9"
 rustls = { version = "0.23.32", default-features = false, features = ["ring", "std", "tls12"] }
 serde_json = "=1.0.151"
@@ -26,7 +28,6 @@ rustix = { version = "=1.1.4", features = ["net", "process"] }
 [dev-dependencies]
 layerx-platform-gateway = { path = "../../../platform/hosted/gateway" }
 getrandom = "=0.4.3"
-layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 
 [lints]
 workspace = true

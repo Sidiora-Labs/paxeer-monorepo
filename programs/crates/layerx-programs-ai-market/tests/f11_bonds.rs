@@ -399,28 +399,7 @@ impl Market {
     }
 }
 fn batch(first: u64, count: usize, bitmap: u32) -> ReceiptBatch {
-    let ranges = [digest(80), digest(81)];
-    let key = SigningKey::from_bytes(&[12; 32]);
-    let receipts: Vec<_> = (0..count)
-        .map(|i| {
-            let mut receipt = LapReceipt {
-                deal_id: digest(62),
-                lap_index: first + i as u64,
-                prompt_tokens: 10,
-                generated_tokens: 90,
-                cumulative_tokens: (first + i as u64 + 1) * 100,
-                layer_range_digests: &ranges,
-                host_signature: Signature64([1; 64]),
-                peer_countersignatures: bitmap,
-            };
-            receipt.host_signature = Signature64(
-                key.sign(receipt.signing_digest().unwrap().as_bytes())
-                    .to_bytes(),
-            );
-            receipt
-        })
-        .collect();
-    ReceiptBatch::from_receipts(&receipts).unwrap()
+    producers::lap_batch(digest(62), first, count, bitmap).unwrap()
 }
 
 use layerx_programs_ai_market::{
@@ -1041,4 +1020,223 @@ fn refund_after_window_returns_remainder_once_and_preserves_reward_claims() {
         START + 113,
         F11_BOND_LOCKED,
     );
+}
+
+#[test]
+fn the_bond_of_a_bid_named_by_two_deals_is_refunded_once() {
+    for first_settled in [62, 63] {
+        let mut m = Market::new();
+        let mut layers = [None; MAX_DEAL_PEERS];
+        layers[0] = Some(LayerSplit {
+            bid_id: digest(70),
+            first_layer: 0,
+            end_layer: 8,
+        });
+        layers[1] = Some(LayerSplit {
+            bid_id: digest(71),
+            first_layer: 8,
+            end_layer: 16,
+        });
+        m.call(
+            dispatch::RecordDeal,
+            owner(),
+            &encoded(1400, |out| {
+                RecordDealRequest {
+                    room_id: digest(60),
+                    deal_id: digest(63),
+                    ask_id: digest(61),
+                    agreed_price_per_thousand_tokens: 1000,
+                    roster_digest: m.roster,
+                    layers,
+                }
+                .encode(out)
+            }),
+            AT,
+        );
+        assert_eq!(m.bond(70).amount, 100);
+        assert_eq!(bonds::held_from_state(&m.bytes).unwrap(), 200);
+        let refund = m.refund_request().encode().unwrap();
+        m.refused_call(
+            dispatch::RefundBond,
+            actor(20),
+            &refund,
+            AT,
+            F11_BOND_LOCKED,
+        );
+        m.refused_call(
+            dispatch::CloseRoom,
+            owner(),
+            digest(60).as_bytes(),
+            AT,
+            F11_BOND_LOCKED,
+        );
+        let other = if first_settled == 62 { 63 } else { 62 };
+        for (index, deal) in [first_settled, other].into_iter().enumerate() {
+            let batch = producers::lap_batch(digest(deal), 0, 1, 2).unwrap();
+            let manifest = m.manifest(&batch);
+            m.seal(&manifest, 2 + index as u8);
+            m.call(
+                dispatch::SettleLaps,
+                owner(),
+                &m.settle_payload(batch, &manifest),
+                AT,
+            );
+            let settled = settlement_from_state(&m.bytes, digest(deal))
+                .unwrap()
+                .unwrap();
+            assert_eq!(settled.batch, batch);
+            assert_eq!(settled.settled_amount_owed, 100);
+            if index == 0 {
+                m.call(
+                    dispatch::SplitPayout,
+                    owner(),
+                    &SplitPayoutRequest {
+                        deal: digest(deal),
+                        batch: batch.batch_digest,
+                        amount: 100,
+                    }
+                    .encode()
+                    .unwrap(),
+                    AT,
+                );
+                assert!(settlement_from_state(&m.bytes, digest(other))
+                    .unwrap()
+                    .is_none());
+                m.refused_call(
+                    dispatch::RefundBond,
+                    actor(20),
+                    &refund,
+                    AT,
+                    F11_BOND_LOCKED,
+                );
+                m.refused_call(
+                    dispatch::CloseRoom,
+                    owner(),
+                    digest(60).as_bytes(),
+                    AT,
+                    F11_BOND_LOCKED,
+                );
+            }
+        }
+        // Each deal's missed countersignature slashes the same bond once.
+        for deal in [62, 63] {
+            let batch = settlement_from_state(&m.bytes, digest(deal))
+                .unwrap()
+                .unwrap()
+                .batch;
+            let slash = SlashBondRequest {
+                deal: digest(deal),
+                bid: digest(70),
+                lap: 0,
+                evidence: batch.batch_digest,
+            }
+            .encode()
+            .unwrap();
+            m.call(dispatch::SlashBond, owner(), &slash, START + 96);
+            m.refused_call(dispatch::SlashBond, owner(), &slash, START + 96, CONFLICT);
+        }
+        assert_eq!(m.bond(70).slashed, 20);
+        assert_eq!(m.bond(70).remaining().unwrap(), 80);
+        let batch = settlement_from_state(&m.bytes, digest(other))
+            .unwrap()
+            .unwrap()
+            .batch;
+        m.refused_call(
+            dispatch::CloseRoom,
+            owner(),
+            digest(60).as_bytes(),
+            START + 96,
+            F11_BOND_LOCKED,
+        );
+        m.call(
+            dispatch::SplitPayout,
+            owner(),
+            &SplitPayoutRequest {
+                deal: digest(other),
+                batch: batch.batch_digest,
+                amount: 100,
+            }
+            .encode()
+            .unwrap(),
+            START + 96,
+        );
+        m.refused_call(
+            dispatch::RefundBond,
+            actor(20),
+            &refund,
+            START + 99,
+            F11_BOND_LOCKED,
+        );
+        m.close(START + 100);
+        let shared = decode_shared_state(&m.bytes).unwrap();
+        let book = RoomBook::decode(shared.room_market().unwrap().1).unwrap();
+        assert_eq!(
+            book.room(digest(60)).unwrap().unwrap().state,
+            RoomState::Closed
+        );
+        for deal in [62, 63] {
+            assert_eq!(
+                book.deal(digest(deal)).unwrap().unwrap().state,
+                DealState::Settled
+            );
+        }
+        m.refused_call(
+            dispatch::RefundBond,
+            actor(20),
+            &refund,
+            START + 115,
+            F11_BOND_LOCKED,
+        );
+        let before = m.reward_state().ledger().unwrap();
+        let held_before = bonds::held_from_state(&m.bytes).unwrap();
+        let honest = m.balance(m.peer(21).worker);
+        let envelope = m.call(dispatch::RefundBond, actor(20), &refund, START + 116);
+        let after = m.reward_state().ledger().unwrap();
+        let held_after = bonds::held_from_state(&m.bytes).unwrap();
+        assert!(m.bond(70).refunded);
+        assert_eq!(m.bond(70).remaining().unwrap(), 0);
+        assert_eq!(m.bond(70).slashed, 20);
+        assert_eq!(held_before - held_after, 80);
+        assert_eq!(held_after, 100);
+        assert_eq!(after.total_claimed - before.total_claimed, 80);
+        assert_eq!(after.tracked_deposits - before.tracked_deposits, 80);
+        assert_eq!(after.liability, before.liability);
+        assert_eq!(m.balance(m.peer(21).worker), honest);
+        let bound = RewardsAccount::for_ledger(ProgramId::new([11; 32]).unwrap(), &before).unwrap();
+        let mut covered_before = before;
+        covered_before.tracked_deposits += held_before;
+        covered_before.free += held_before;
+        let mut covered_after = after;
+        covered_after.tracked_deposits += held_after;
+        covered_after.free += held_after;
+        assert_eq!(
+            value_adapter::plan(
+                &bound,
+                &covered_before,
+                &covered_after,
+                rewards::RewardEffect::Payout {
+                    recipient: m.bond(70).recipient,
+                    amount: 80
+                }
+            )
+            .unwrap(),
+            ValueAction::Pay {
+                recipient: m.bond(70).recipient,
+                amount: 80
+            }
+        );
+        let persisted = m.bytes.clone();
+        let replay = producers::compose(&persisted, &envelope, actor(20), START + 116).unwrap();
+        assert!(matches!(replay.routed, Routed::Unchanged { .. }));
+        assert!(replay.state.is_empty());
+        assert!(replay.event.is_empty());
+        m.refused_call(
+            dispatch::RefundBond,
+            actor(20),
+            &refund,
+            START + 117,
+            F11_BOND_LOCKED,
+        );
+        assert_eq!(m.bytes, persisted);
+    }
 }

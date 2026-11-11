@@ -872,6 +872,12 @@ impl<'a> RecordDecoder<'a> {
     }
 }
 
+pub(crate) struct TransitionEvidence<'a> {
+    pub(crate) receipt: Option<VerifiedReceiptEvidence>,
+    pub(crate) location: Option<(u64, u64)>,
+    pub(crate) committed: Option<&'a SequencerBlock>,
+}
+
 #[cfg(test)]
 mod origin_codec_tests {
     use super::{
@@ -968,10 +974,4 @@ mod origin_codec_tests {
         with_origin_tag.push(0);
         assert!(decode_record(&with_origin_tag, tenant()).is_err());
     }
-}
-
-pub(crate) struct TransitionEvidence<'a> {
-    pub(crate) receipt: Option<VerifiedReceiptEvidence>,
-    pub(crate) location: Option<(u64, u64)>,
-    pub(crate) committed: Option<&'a SequencerBlock>,
 }

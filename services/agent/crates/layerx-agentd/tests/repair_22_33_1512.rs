@@ -1,6 +1,10 @@
 //! Real audit writer/recovery proofs for audit record 22.30.91.
 //! Finding/test mapping and the baseline-gate constraint are recorded in
-//! src/audit/repair_22_33_1512.kvx.
+//! `src/audit/repair_22_33_1512.kvx`.
+
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
 
 use std::cell::Cell;
 use std::collections::BTreeSet;
@@ -98,7 +102,10 @@ fn audit_concurrent_writers_mcp_record_and_operator_handles_share_one_chain() {
                     let mut receipts = Vec::new();
                     barrier.wait();
                     for request in 0..16 {
-                        let value = entry(tenant(), writer as u8 * 16 + request);
+                        let value = entry(
+                            tenant(),
+                            require_ok(u8::try_from(writer), "test value fits u8") * 16 + request,
+                        );
                         let (receipt, ()) = must(record(log, &mut coverage, &value, || ()));
                         receipts.push(receipt.sequence);
                     }
@@ -232,9 +239,7 @@ fn interrupt(stage: AppendStage) -> Interrupted {
         let _ = log.before_operation_observed(
             b"interrupted append with bounded recovery",
             |observed| {
-                if observed == stage {
-                    panic!("stop at {stage:?}");
-                }
+                assert!(observed != stage, "stop at {stage:?}");
             },
             || operation_ran.set(true),
         );

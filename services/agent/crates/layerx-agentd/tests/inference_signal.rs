@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The host binary and enrolment route use signalling items that this target does not call (decision 3292)"
+)]
 #[path = "../src/inference_market/signal.rs"]
 mod signal;
 
@@ -284,7 +288,7 @@ impl SignalChain for TestChain {
             }
             "px_getInferenceRoom" => {
                 assert_eq!(params, json!([self.room["room_id"]]));
-                let key = must(hex::decode(params[0].as_str().expect("room id")));
+                let key = must(hex::decode(lint_present(params[0].as_str(), "room id")));
                 let mut out = vec![0; queries::ROOM_VIEW_BYTES];
                 let length = must(queries::answer_room_view(&self.state, &key, &mut out));
                 let view = must(queries::RoomView::decode(&out[..length]));
@@ -302,13 +306,19 @@ impl SignalChain for TestChain {
                 );
                 assert_eq!(
                     view.room.state as u8,
-                    self.room["state"].as_u64().expect("room state") as u8
+                    lint_success(
+                        u8::try_from(lint_present(self.room["state"].as_u64(), "room state")),
+                        "integer fits u8"
+                    )
                 );
                 assert_eq!(room_answer(&view), self.room);
                 Ok(self.room.clone())
             }
             "px_getInferencePeer" => {
-                let key = must(hex::decode(params[0].as_str().expect("peer principal")));
+                let key = must(hex::decode(lint_present(
+                    params[0].as_str(),
+                    "peer principal",
+                )));
                 assert_eq!(key.len(), 32);
                 let mut out = vec![0; queries::PEER_VIEW_BYTES];
                 let length = match queries::answer_peer_view(&self.state, &key, &mut out) {
@@ -376,8 +386,8 @@ impl LiveContext {
             .enumerate()
             .map(|(index, seed)| LayerAssignment {
                 peer_key: SigningKey::from_bytes(seed).verifying_key().to_bytes(),
-                first_layer: (index as u32) * 16,
-                end_layer: (index as u32 + 1) * 16,
+                first_layer: (lint_success(u32::try_from(index), "integer fits u32")) * 16,
+                end_layer: (lint_success(u32::try_from(index), "integer fits u32") + 1) * 16,
             })
             .collect();
         let directory = Directory::new();
@@ -472,7 +482,11 @@ fn hello_admitted_with_the_chain_anchored_offer() {
 #[test]
 fn hello_is_admitted_against_the_room_fields_the_node_serves() {
     let context = LiveContext::load();
-    let fields = context.chain.room.as_object().expect("room answer");
+    let fields = context
+        .chain
+        .room
+        .as_object()
+        .unwrap_or_else(|| panic!("room answer"));
     assert_eq!(
         fields.keys().map(String::as_str).collect::<Vec<_>>(),
         vec![
@@ -861,8 +875,7 @@ mod enrolled_chain {
                 dispatch::CREATE,
                 &payload,
                 fixture.header.owner_principal,
-                1,
-                0,
+                (1, 0),
                 &fixture.owner,
                 false,
             );
@@ -906,8 +919,7 @@ mod enrolled_chain {
                 dispatch::OpenRoom,
                 &payload,
                 fixture.header.owner_principal,
-                fixture.next_sequence(fixture.header.owner_principal),
-                20,
+                (fixture.next_sequence(fixture.header.owner_principal), 20),
                 &fixture.owner,
                 false,
             );
@@ -976,7 +988,14 @@ mod enrolled_chain {
             } else {
                 self.next_sequence(actor)
             };
-            let record = self.sign(operation, payload, actor, sequence, sequence, signer, false);
+            let record = self.sign(
+                operation,
+                payload,
+                actor,
+                (sequence, sequence),
+                signer,
+                false,
+            );
             self.apply_signed(&record, height);
         }
 
@@ -1026,8 +1045,7 @@ mod enrolled_chain {
                 dispatch::ApproveAdmission,
                 &payload,
                 self.header.owner_principal,
-                sequence,
-                sequence,
+                (sequence, sequence),
                 &owner_signer,
                 false,
             );
@@ -1135,7 +1153,7 @@ mod enrolled_chain {
 
         fn bootstrap_roster(&mut self) {
             let mut bootstrap = Self::new(1);
-            bootstrap.state = self.state.clone();
+            bootstrap.state.clone_from(&self.state);
             bootstrap.header = self.header;
             bootstrap.bootstrap_peer(0);
             let owner = LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)));
@@ -1311,8 +1329,7 @@ mod enrolled_chain {
             operation: Operation,
             payload: &[u8],
             actor: PrincipalId,
-            sequence: u64,
-            nonce: u64,
+            (sequence, nonce): (u64, u64),
             signer: &LocalSigner,
             delegate: bool,
         ) -> OperationRecord {
@@ -1447,8 +1464,7 @@ mod enrolled_chain {
                     dispatch::EnrollWorker,
                     &proposal,
                     self.header.owner_principal,
-                    owner_sequence,
-                    owner_sequence - 1,
+                    (owner_sequence, owner_sequence - 1),
                     &self.owner,
                     false,
                 ),
@@ -1456,8 +1472,7 @@ mod enrolled_chain {
                     dispatch::AcceptEnrollment,
                     &acceptance,
                     self.peer_principal,
-                    1,
-                    0,
+                    (1, 0),
                     &self.peer,
                     false,
                 ),
@@ -1465,8 +1480,7 @@ mod enrolled_chain {
                     dispatch::PublishMetadata,
                     &publication,
                     self.peer_principal,
-                    2,
-                    1,
+                    (2, 1),
                     &self.peer,
                     true,
                 ),
@@ -1522,8 +1536,7 @@ mod enrolled_chain {
                 dispatch::CloseRoom,
                 &[60; 32],
                 fixture.header.owner_principal,
-                fixture.next_sequence(fixture.header.owner_principal),
-                21,
+                (fixture.next_sequence(fixture.header.owner_principal), 21),
                 &fixture.owner,
                 false,
             );
@@ -1539,7 +1552,7 @@ mod enrolled_chain {
         for index in 0..4 {
             let peer =
                 LocalSigner::from_derived_account(&must(derive_from_seed(&[40 + index; 32], 0)));
-            let owner = principal(peer.evm_address().expect("peer owner"));
+            let owner = principal(super::lint_present(peer.evm_address(), "peer owner"));
             let worker = must(codec::derive_worker(
                 fixture.header.market_id,
                 owner,
@@ -1575,5 +1588,21 @@ mod enrolled_chain {
             seeds.push([60 + index; 32]);
         }
         (fixture.state, manifests, seeds)
+    }
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
 }

@@ -40,6 +40,9 @@ func loadDirectRoles() map[string]string {
 			}
 		}
 	}
+	for _, method := range chainLaunchABI.Methods {
+		owners[method.Sig] = chainLaunchRole
+	}
 	return owners
 }
 
@@ -79,6 +82,7 @@ type call struct {
 	method   *abi.Method
 	args     []interface{}
 	readOnly bool
+	value    *big.Int
 	// market is the market of a pool surface; role surfaces and direct calls
 	// carry none.
 	market *types.Market
@@ -287,6 +291,9 @@ func (p PrecompileExecutor) resolveDirect(selector []byte) (string, *abi.Method,
 		return "", nil, fmt.Errorf("launchpad: %s at %s is declared by no direct role", merged.Sig, p.address.Hex())
 	}
 	roleABI := roleABIs[role]
+	if role == chainLaunchRole {
+		roleABI = chainLaunchABI
+	}
 	method, err := roleABI.MethodById(selector)
 	if err != nil {
 		return "", nil, fmt.Errorf("launchpad: %s at %s is not in the %s ABI", merged.Sig, p.address.Hex(), role)
@@ -312,15 +319,16 @@ func decodeWhole(method *abi.Method, data []byte) ([]interface{}, error) {
 	return args, nil
 }
 
-// callKindRefusal refuses a delegatecall, any attached value and a state
-// change under staticcall, in that order, so a value call to the payable
-// upgradeToAndCall reverts on the value check as every other function does.
+// callKindRefusal refuses a delegatecall, value on functions other than chain
+// launch, and a state change under staticcall, in that order.
 func callKindRefusal(ctx sdk.Context, method *abi.Method, value *big.Int, readOnly bool) error {
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
 		return errors.New("cannot delegatecall launchpad")
 	}
-	if err := pcommon.ValidateNonPayable(value); err != nil {
-		return err
+	if method.RawName != "launchChain" && method.RawName != "launchChainWithPermit" {
+		if err := pcommon.ValidateNonPayable(value); err != nil {
+			return err
+		}
 	}
 	if readOnly && !method.IsConstant() {
 		return errors.New("cannot call a launchpad state change from staticcall")
@@ -339,6 +347,7 @@ func (p PrecompileExecutor) serve(c *call, value *big.Int) (ret []byte, err erro
 	if err := callKindRefusal(c.ctx, c.method, value, c.readOnly); err != nil {
 		return nil, err
 	}
+	c.value = value
 	handler, ok := roleHandlers[c.role]
 	if !ok {
 		return nil, fmt.Errorf("launchpad: the %s role serves no handler for %s", c.role, c.method.Sig)

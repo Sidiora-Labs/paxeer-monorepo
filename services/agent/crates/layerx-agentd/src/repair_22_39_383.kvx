@@ -1,0 +1,1163 @@
+[repair]
+task = "22.39.383"
+acceptance = "22998.1"
+baseline_revision = "533ee54968469214acfdbae61f61df17b31c9efc"
+baseline_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+baseline_lint_exit = 101
+baseline_lint_log = "/tmp/budget-383-baseline-clippy.log"
+baseline_owned_messages = 189
+baseline_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+baseline_test_exit = 101
+baseline_test_log = "/tmp/budget-383-baseline-test.log"
+baseline_passed = 334
+baseline_failed = 3
+baseline_ignored = 0
+baseline_failed_cases = "agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer; outbound_tls::private_ca_checks_the_actual_server_identity; ops::program::simulation_tls_checks_the_actual_server_identity"
+final_owned_messages = 0
+final_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+final_lint_exit = 101
+final_lint_log = "/tmp/budget-383-final-clippy.log"
+final_lint_other_file_messages = 636
+final_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+final_test_exit = 101
+final_test_log = "/tmp/budget-383-final-test.log"
+final_passed = 334
+final_failed = 3
+final_ignored = 0
+final_failed_cases = "agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer; outbound_tls::private_ca_checks_the_actual_server_identity; ops::program::simulation_tls_checks_the_actual_server_identity"
+qualified_revision_ref = "task/22.39.383"
+qualification_evidence = "The hf-build and hf-done gate ledger records the exact candidate hash, command, exit code and private log at the same revision."
+
+[message.001]
+file = "budget/program_lifecycle_settlement.rs"
+line = 13
+lint = "unused_imports"
+repair = "Remove the unused import after checking included targets."
+
+[message.002]
+file = "budget/budget_proof.rs"
+line = 597
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.003]
+file = "budget/budget_proof.rs"
+line = 649
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.004]
+file = "budget/budget_proof.rs"
+line = 656
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.005]
+file = "budget/budget_proof.rs"
+line = 701
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.006]
+file = "budget/budget_proof.rs"
+line = 706
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.007]
+file = "budget/budget_proof.rs"
+line = 707
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.008]
+file = "budget/budget_proof.rs"
+line = 712
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.009]
+file = "budget/budget_proof.rs"
+line = 732
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.010]
+file = "budget/budget_proof.rs"
+line = 759
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.011]
+file = "budget/budget_proof.rs"
+line = 762
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.012]
+file = "budget/budget_proof.rs"
+line = 762
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.013]
+file = "budget/budget_proof.rs"
+line = 764
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.014]
+file = "budget/budget_proof.rs"
+line = 767
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.015]
+file = "budget/budget_proof.rs"
+line = 781
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.016]
+file = "budget/budget_proof.rs"
+line = 782
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.017]
+file = "budget/budget_proof.rs"
+line = 796
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.018]
+file = "budget/budget_proof.rs"
+line = 806
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.019]
+file = "budget/budget_proof.rs"
+line = 810
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.020]
+file = "budget/budget_proof.rs"
+line = 811
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.021]
+file = "budget/budget_proof.rs"
+line = 814
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.022]
+file = "budget/budget_proof.rs"
+line = 828
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.023]
+file = "budget/budget_proof.rs"
+line = 834
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.024]
+file = "budget/budget_proof.rs"
+line = 837
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.025]
+file = "budget/budget_proof.rs"
+line = 838
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.026]
+file = "budget/budget_proof.rs"
+line = 843
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.027]
+file = "budget/budget_proof.rs"
+line = 847
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.028]
+file = "budget/budget_proof.rs"
+line = 848
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.029]
+file = "budget/budget_proof.rs"
+line = 849
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.030]
+file = "budget/budget_proof.rs"
+line = 864
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.031]
+file = "budget/budget_proof.rs"
+line = 869
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.032]
+file = "budget/budget_proof.rs"
+line = 877
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.033]
+file = "budget/budget_proof.rs"
+line = 877
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.034]
+file = "budget/budget_proof.rs"
+line = 900
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.035]
+file = "budget/budget_proof.rs"
+line = 900
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.036]
+file = "budget/budget_proof.rs"
+line = 903
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.037]
+file = "budget/budget_proof.rs"
+line = 904
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.038]
+file = "budget/budget_proof.rs"
+line = 906
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.039]
+file = "budget/budget_proof.rs"
+line = 908
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.040]
+file = "budget/budget_proof.rs"
+line = 908
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.041]
+file = "budget/budget_proof.rs"
+line = 910
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.042]
+file = "budget/budget_proof.rs"
+line = 917
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.043]
+file = "budget/budget_proof.rs"
+line = 930
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.044]
+file = "budget/budget_proof.rs"
+line = 936
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.045]
+file = "budget/budget_proof.rs"
+line = 950
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.046]
+file = "budget/budget_proof.rs"
+line = 968
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.047]
+file = "budget/budget_proof.rs"
+line = 970
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.048]
+file = "budget/budget_proof.rs"
+line = 970
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.049]
+file = "budget/budget_proof.rs"
+line = 972
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.050]
+file = "budget/budget_proof.rs"
+line = 974
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.051]
+file = "budget/budget_proof.rs"
+line = 976
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.052]
+file = "budget/budget_proof.rs"
+line = 978
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.053]
+file = "budget/budget_proof.rs"
+line = 978
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.054]
+file = "budget/budget_proof.rs"
+line = 980
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.055]
+file = "budget/budget_proof.rs"
+line = 983
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.056]
+file = "budget/budget_proof.rs"
+line = 990
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.057]
+file = "budget/budget_proof.rs"
+line = 1005
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.058]
+file = "budget/budget_proof.rs"
+line = 1010
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.059]
+file = "budget/budget_proof.rs"
+line = 1026
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.060]
+file = "budget/budget_proof.rs"
+line = 1036
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.061]
+file = "budget/budget_proof.rs"
+line = 1045
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.062]
+file = "budget/budget_proof.rs"
+line = 1045
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.063]
+file = "budget/budget_proof.rs"
+line = 1063
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.064]
+file = "budget/execution_state.rs"
+line = 168
+lint = "type_complexity"
+repair = "Name the exact type with a local alias."
+
+[message.065]
+file = "budget/fee_policy.rs"
+line = 307
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.066]
+file = "budget/fee_policy.rs"
+line = 310
+lint = "needless_pass_by_value"
+repair = "Consume the owned argument in the fixture."
+
+[message.067]
+file = "budget/fee_policy.rs"
+line = 313
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.068]
+file = "budget/fee_policy.rs"
+line = 314
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.069]
+file = "budget/fee_policy.rs"
+line = 316
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.070]
+file = "budget/fee_policy.rs"
+line = 320
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.071]
+file = "budget/fee_policy.rs"
+line = 328
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.072]
+file = "budget/fee_policy.rs"
+line = 329
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.073]
+file = "budget/fee_policy.rs"
+line = 337
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.074]
+file = "budget/fee_policy.rs"
+line = 337
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.075]
+file = "budget/fee_policy.rs"
+line = 347
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.076]
+file = "budget/fee_policy.rs"
+line = 348
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.077]
+file = "budget/fee_policy.rs"
+line = 353
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.078]
+file = "budget/fee_policy.rs"
+line = 357
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.079]
+file = "budget/fee_policy.rs"
+line = 364
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.080]
+file = "budget/fee_policy.rs"
+line = 368
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.081]
+file = "budget/fee_policy.rs"
+line = 369
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.082]
+file = "budget/fee_policy.rs"
+line = 370
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.083]
+file = "budget/fee_policy.rs"
+line = 371
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.084]
+file = "budget/fee_policy.rs"
+line = 402
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.085]
+file = "budget/fee_policy.rs"
+line = 403
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.086]
+file = "budget/fee_policy.rs"
+line = 404
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.087]
+file = "budget/fee_policy.rs"
+line = 414
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.088]
+file = "budget/fee_policy.rs"
+line = 422
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.089]
+file = "budget/fee_policy.rs"
+line = 426
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.090]
+file = "budget/fee_policy.rs"
+line = 445
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.091]
+file = "budget/fee_policy.rs"
+line = 449
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.092]
+file = "budget/fee_policy.rs"
+line = 450
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.093]
+file = "budget/fee_policy.rs"
+line = 466
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.094]
+file = "budget/fee_policy.rs"
+line = 466
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.095]
+file = "budget/fee_policy.rs"
+line = 477
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.096]
+file = "budget/fee_policy.rs"
+line = 480
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.097]
+file = "budget/fee_policy.rs"
+line = 481
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.098]
+file = "budget/fee_policy.rs"
+line = 485
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.099]
+file = "budget/fee_policy.rs"
+line = 502
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.100]
+file = "budget/fee_policy.rs"
+line = 518
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.101]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1072
+lint = "items_after_test_module"
+repair = "Move the test module below the production items."
+
+[message.102]
+file = "budget/program_lifecycle_settlement.rs"
+line = 379
+lint = "needless_lifetimes"
+repair = "Elide the redundant lifetime."
+
+[message.103]
+file = "budget/program_lifecycle_settlement.rs"
+line = 404
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.104]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1057
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.105]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1113
+lint = "type_complexity"
+repair = "Name the exact type with a local alias."
+
+[message.106]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1318
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.107]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1330
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.108]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1331
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.109]
+file = "budget/program_lifecycle_settlement.rs"
+line = 1393
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.110]
+file = "budget/program_settlement.rs"
+line = 71
+lint = "too_many_arguments"
+repair = "Group related test inputs without changing production semantics."
+
+[message.111]
+file = "budget/program_sources.rs"
+line = 773
+lint = "items_after_test_module"
+repair = "Move the test module below the production items."
+
+[message.112]
+file = "budget/program_sources.rs"
+line = 242
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.113]
+file = "budget/program_sources.rs"
+line = 244
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.114]
+file = "budget/program_sources.rs"
+line = 260
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.115]
+file = "budget/program_sources.rs"
+line = 263
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.116]
+file = "budget/program_sources.rs"
+line = 271
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.117]
+file = "budget/program_sources.rs"
+line = 288
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.118]
+file = "budget/program_sources.rs"
+line = 292
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.119]
+file = "budget/program_sources.rs"
+line = 296
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.120]
+file = "budget/program_sources.rs"
+line = 296
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.121]
+file = "budget/program_sources.rs"
+line = 314
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.122]
+file = "budget/program_sources.rs"
+line = 782
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.123]
+file = "budget/program_sources.rs"
+line = 784
+lint = "type_complexity"
+repair = "Name the exact type with a local alias."
+
+[message.124]
+file = "budget/program_sources.rs"
+line = 986
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.125]
+file = "budget/program_sources.rs"
+line = 1024
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.126]
+file = "budget/program_sources.rs"
+line = 1218
+lint = "too_many_arguments"
+repair = "Group related test inputs without changing production semantics."
+
+[message.127]
+file = "budget/hold.rs"
+line = 299
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.128]
+file = "budget/hold.rs"
+line = 317
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.129]
+file = "budget/hold.rs"
+line = 321
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.130]
+file = "budget/hold.rs"
+line = 324
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.131]
+file = "budget/hold.rs"
+line = 345
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.132]
+file = "budget/hold.rs"
+line = 346
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.133]
+file = "budget/hold.rs"
+line = 347
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.134]
+file = "budget/hold.rs"
+line = 348
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.135]
+file = "budget/hold.rs"
+line = 349
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.136]
+file = "budget/hold.rs"
+line = 355
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.137]
+file = "budget/hold.rs"
+line = 357
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.138]
+file = "budget/hold.rs"
+line = 374
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.139]
+file = "budget/hold.rs"
+line = 378
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.140]
+file = "budget/hold.rs"
+line = 385
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.141]
+file = "budget/hold.rs"
+line = 385
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.142]
+file = "budget/hold.rs"
+line = 388
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.143]
+file = "budget/hold.rs"
+line = 389
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.144]
+file = "budget/hold.rs"
+line = 395
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.145]
+file = "budget/hold.rs"
+line = 412
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.146]
+file = "budget/hold.rs"
+line = 414
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.147]
+file = "budget/hold.rs"
+line = 415
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.148]
+file = "budget/hold.rs"
+line = 416
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.149]
+file = "budget/hold.rs"
+line = 417
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.150]
+file = "budget/hold.rs"
+line = 421
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.151]
+file = "budget/hold.rs"
+line = 427
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.152]
+file = "budget/hold.rs"
+line = 429
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.153]
+file = "budget/hold.rs"
+line = 430
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.154]
+file = "budget/hold.rs"
+line = 442
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.155]
+file = "budget/hold.rs"
+line = 445
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.156]
+file = "budget/hold.rs"
+line = 449
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.157]
+file = "budget/hold.rs"
+line = 454
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.158]
+file = "budget/hold.rs"
+line = 456
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.159]
+file = "budget/hold.rs"
+line = 460
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.160]
+file = "budget/hold.rs"
+line = 461
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.161]
+file = "budget/hold.rs"
+line = 463
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.162]
+file = "budget/hold.rs"
+line = 480
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.163]
+file = "budget/hold.rs"
+line = 482
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.164]
+file = "budget/hold.rs"
+line = 488
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.165]
+file = "budget/hold.rs"
+line = 492
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.166]
+file = "budget/hold.rs"
+line = 494
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.167]
+file = "budget/hold.rs"
+line = 497
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.168]
+file = "budget/hold.rs"
+line = 509
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.169]
+file = "budget/hold.rs"
+line = 513
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.170]
+file = "budget/hold.rs"
+line = 517
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.171]
+file = "budget/hold.rs"
+line = 519
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.172]
+file = "budget/hold.rs"
+line = 521
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.173]
+file = "budget/hold.rs"
+line = 527
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.174]
+file = "budget/hold.rs"
+line = 532
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.175]
+file = "budget/hold.rs"
+line = 534
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.176]
+file = "budget/hold.rs"
+line = 536
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.177]
+file = "budget/hold.rs"
+line = 545
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.178]
+file = "budget/hold.rs"
+line = 547
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.179]
+file = "budget/hold.rs"
+line = 561
+lint = "expect_used"
+repair = "Replace the checked extraction with an explicit case assertion that preserves the failure context and value."
+
+[message.180]
+file = "budget/reserve.rs"
+line = 3049
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.181]
+file = "budget/reserve.rs"
+line = 3165
+lint = "bool_assert_comparison"
+repair = "Use the matching boolean assertion."
+
+[message.182]
+file = "budget/reserve.rs"
+line = 3217
+lint = "bool_assert_comparison"
+repair = "Use the matching boolean assertion."
+
+[message.183]
+file = "budget/reserve.rs"
+line = 3228
+lint = "redundant_closure_for_method_calls"
+repair = "Pass the method directly."
+
+[message.184]
+file = "budget/reserve.rs"
+line = 3231
+lint = "redundant_closure_for_method_calls"
+repair = "Pass the method directly."
+
+[message.185]
+file = "budget/mod.rs"
+line = 2309
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.186]
+file = "budget/mod.rs"
+line = 2343
+lint = "cloned_ref_to_slice_refs"
+repair = "Use slice::from_ref for the borrowed singleton."
+
+[message.187]
+file = "budget/mod.rs"
+line = 2388
+lint = "cloned_ref_to_slice_refs"
+repair = "Use slice::from_ref for the borrowed singleton."
+
+[message.188]
+file = "budget/mod.rs"
+line = 2430
+lint = "too_many_lines"
+repair = "Extract contiguous steps into a helper while retaining every assertion and its order."
+
+[message.189]
+file = "budget/execution_state.rs"
+line = 860
+lint = "useless_vec"
+repair = "Use the fixed array directly."

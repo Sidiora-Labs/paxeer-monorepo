@@ -16,6 +16,7 @@ use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
 use layerx_crypto::payments::bind_call;
 use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_crypto::VerifyError;
+use layerx_program_sdk::{ActivityAccess, CapabilitySet, Principal, ProgramError};
 use layerx_programs_ai_market::codec::{
     decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
 };
@@ -26,6 +27,7 @@ use layerx_programs_ai_market::errors::{
     F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_RECIPIENT, NON_CANONICAL, NOT_FOUND,
     UNAUTHORIZED, WRONG_CONFIG, WRONG_MARKET, WRONG_ROSTER,
 };
+use layerx_programs_ai_market::host_adapter::{MUTATION_CAPABILITIES, READ_CAPABILITIES};
 use layerx_programs_ai_market::policy::{TaskPolicyV1, TASK_POLICY_BYTES};
 use layerx_programs_ai_market::queries::{
     bind_snapshot, participant_rows, read_header, Availability, CaptureFacts, FinalityEvidence,
@@ -44,6 +46,10 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
+use layerx_programs_runtime::abi::{
+    AbiError, Capability as RuntimeCapability, CapabilitySet as RuntimeCapabilitySet,
+};
+use layerx_programs_runtime::storage::ProgramId as RuntimeProgramId;
 use layerx_types::activity::ActivityBuildError;
 use layerx_types::ids::{Did, LengthError};
 use layerx_types::intent;
@@ -69,7 +75,9 @@ use layerx_programs_registry::chain_proof::{
 
 pub mod inference_market {
     pub use layerx_programs_ai_market as program;
-    pub use program::canary::{ChallengeLapPayload, ResolveChallengePayload};
+    pub use program::canary::{
+        CanaryLogits, CanaryReveal, CanaryTask, ChallengeLapPayload, ResolveChallengePayload,
+    };
     pub use program::laps::{LapReceipt, ReceiptBatch, SettleLapsRequest};
     pub use program::placement::BookView;
     pub use program::policy::RoomProfile;
@@ -100,6 +108,339 @@ pub mod inference_market {
         pub expiry: u64,
         pub request: RequestId,
         pub required_rank: u8,
+    }
+
+    pub struct HostMeterKey(ed25519_dalek::SigningKey);
+
+    impl HostMeterKey {
+        #[must_use]
+        pub fn from_seed(seed: &[u8; 32]) -> Self {
+            Self(ed25519_dalek::SigningKey::from_bytes(seed))
+        }
+        #[must_use]
+        pub fn public_key(&self) -> [u8; 32] {
+            self.0.verifying_key().to_bytes()
+        }
+        #[must_use]
+        pub fn sign(&self, digest: &[u8; 32]) -> [u8; 64] {
+            use ed25519_dalek::Signer as _;
+            self.0.sign(digest).to_bytes()
+        }
+    }
+
+    #[must_use]
+    pub fn meter_digest(stream: [u8; 32], reading: u64, key: [u8; 32]) -> [u8; 32] {
+        let mut hash = sha2::Sha256::new();
+        hash.update(b"LXP/v1/signature-preimage\0");
+        hash.update(b"LXP:STREAM:METER:v1");
+        hash.update(stream);
+        hash.update(reading.to_be_bytes());
+        hash.update(key);
+        hash.finalize().into()
+    }
+
+    /// # Errors
+    ///
+    /// Returns a noncanonical-data error for a zero stream or authority, or a signature error
+    /// when the meter attestation does not verify.
+    pub fn stream_meter_calldata(
+        stream: [u8; 32],
+        reading: u64,
+        authority: [u8; 32],
+        signature: [u8; 64],
+    ) -> Result<Vec<u8>, AiClientError> {
+        if stream == [0; 32] || authority == [0; 32] {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        layerx_crypto::ed25519::verify_digest(
+            &authority,
+            &signature,
+            &meter_digest(stream, reading, authority),
+        )?;
+        let selector = layerx_crypto::evm_transaction::transaction_hash(
+            b"streamMeter(bytes32,uint64,bytes32,bytes)",
+        );
+        let mut out = vec![0; 4 + 7 * 32];
+        out[..4].copy_from_slice(&selector[..4]);
+        out[4..36].copy_from_slice(&stream);
+        out[60..68].copy_from_slice(&reading.to_be_bytes());
+        out[68..100].copy_from_slice(&authority);
+        out[131] = 128;
+        out[163] = 64;
+        out[164..228].copy_from_slice(&signature);
+        Ok(out)
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error for invalid transaction terms or noncanonical meter calldata, an
+    /// invalid attestation, an unauthorized signing key, signing failure, or invalid signed
+    /// transaction bytes.
+    pub async fn sign_stream_meter(
+        calldata: &[u8],
+        terms: &NativeTerms<'_>,
+        signer: &dyn layerx_crypto::signer::Signer,
+    ) -> Result<super::OperationRecord, AiClientError> {
+        use layerx_crypto::evm_transaction::Eip1559Call;
+        if terms.network_id != 125
+            || terms.owner_public_key != signer.public_key()
+            || terms.gas_limit == 0
+            || terms.not_after == 0
+            || terms.not_before != 0
+            || calldata.len() != 228
+            || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+            || u128::from(terms.gas_limit)
+                .checked_mul(terms.max_fee_per_gas)
+                .is_none()
+        {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1b]);
+        let call = Eip1559Call {
+            chain_id: 125,
+            nonce: terms.account_sequence,
+            max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+            max_fee_per_gas: terms.max_fee_per_gas,
+            gas_limit: terms.gas_limit,
+            to: target,
+            data: calldata.to_vec(),
+        };
+        let stream = calldata[4..36]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        let reading = u64::from_be_bytes(
+            calldata[60..68]
+                .try_into()
+                .map_err(|_| AiClientError::CorruptRecord)?,
+        );
+        let authority = calldata[68..100]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        let attestation = calldata[164..228]
+            .try_into()
+            .map_err(|_| AiClientError::CorruptRecord)?;
+        if stream_meter_calldata(stream, reading, authority, attestation)? != calldata {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let from = signer.evm_address().ok_or(AiClientError::UnauthorizedKey)?;
+        let signature = signer.sign_transaction(&call).await?;
+        if layerx_crypto::evm_transaction::recover_sender(&call, &signature)? != from {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        super::OperationRecord::from_signed_transaction(
+            layerx_crypto::evm_transaction::assemble(&call, &signature),
+            sha2::Sha256::digest(calldata).into(),
+            terms.not_after,
+        )
+    }
+
+    /// Secret-keyed, deterministic sampling; the signature is never sent to peers.
+    #[must_use]
+    pub fn canary_sampling_key(host: &HostMeterKey, deal: [u8; 32], lap: u64) -> [u8; 32] {
+        let mut hash = sha2::Sha256::new();
+        hash.update(b"PAXAI/canary-sampling/v1\0");
+        hash.update(deal);
+        hash.update(lap.to_be_bytes());
+        let signature = host.sign(&hash.finalize().into());
+        sha2::Sha256::digest(signature).into()
+    }
+
+    #[must_use]
+    pub fn canary_answer_context(
+        binding: &program::types::FrozenBinding,
+        deal: Digest32,
+        lap: u64,
+        peer: program::types::WorkerId,
+        prompt: Digest32,
+    ) -> Vec<u8> {
+        let mut context = Vec::with_capacity(248);
+        context.extend_from_slice(binding.chain.as_bytes());
+        context.extend_from_slice(binding.program.as_bytes());
+        context.extend_from_slice(binding.market.as_bytes());
+        context.extend_from_slice(&binding.epoch.to_be_bytes());
+        context.extend_from_slice(&binding.config.get().to_be_bytes());
+        context.extend_from_slice(binding.roster.as_bytes());
+        context.extend_from_slice(deal.as_bytes());
+        context.extend_from_slice(&lap.to_be_bytes());
+        context.extend_from_slice(peer.as_bytes());
+        context.extend_from_slice(prompt.as_bytes());
+        context
+    }
+
+    /// Bind the peer's logits to the frozen deal, lap and prompt context.
+    ///
+    /// # Errors
+    /// Returns an error if the context length or logits encoding is noncanonical.
+    pub fn canary_answer_attestation(
+        context: &[u8],
+        answer: &CanaryLogits,
+    ) -> Result<Digest32, AiClientError> {
+        if context.len() != 248 {
+            return Err(program::errors::NON_CANONICAL.into());
+        }
+        let mut preimage = context.to_vec();
+        preimage.extend_from_slice(program::canary::logits_digest(answer)?.as_bytes());
+        Ok(program::codec::domain_hash(
+            "PAXAI/canary-answer/v1",
+            &preimage,
+        )?)
+    }
+
+    /// Prepare a canary expectation commitment for native submission.
+    ///
+    /// # Errors
+    /// Returns an error if the task cannot be encoded or its operation is invalid.
+    pub fn commit_canary(task: &CanaryTask) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::CommitScore, task.encode()?.to_vec())
+    }
+
+    /// Prepare the committed canary expectation for revelation.
+    ///
+    /// # Errors
+    /// Returns an error if the reveal cannot be encoded or its operation is invalid.
+    pub fn reveal_canary(reveal: &CanaryReveal) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::RevealScore, reveal.encode()?.to_vec())
+    }
+
+    /// Encode a market operation using its canonical ordinary or canary score framing.
+    ///
+    /// # Errors
+    /// Returns an error if the envelope is invalid or the output buffer is too small.
+    pub fn encode_operation_envelope(
+        envelope: &program::codec::Envelope<'_>,
+        out: &mut [u8],
+    ) -> Result<usize, AiClientError> {
+        if matches!(
+            envelope.operation,
+            dispatch::CommitScore | dispatch::RevealScore
+        ) && envelope
+            .payload
+            .starts_with(program::canary::CANARY_TASK_KIND)
+        {
+            Ok(program::commit_reveal::encode_canary_envelope(
+                envelope, out,
+            )?)
+        } else {
+            Ok(program::codec::encode_envelope(envelope, out)?)
+        }
+    }
+
+    /// Decode and validate ordinary and canary score operation envelopes.
+    ///
+    /// # Errors
+    /// Returns an error if the envelope or its request digest is noncanonical.
+    pub fn decode_operation_envelope(
+        bytes: &[u8],
+    ) -> Result<(program::codec::Envelope<'_>, program::types::RequestDigest), AiClientError> {
+        if program::commit_reveal::is_canary_score(bytes) {
+            let validated = program::commit_reveal::decode_canary_envelope(bytes)?;
+            let digest = validated.request_digest()?;
+            Ok((validated.envelope, digest))
+        } else {
+            let validated = program::codec::decode_envelope(bytes)?;
+            let digest = validated.request_digest()?;
+            Ok((validated.envelope, digest))
+        }
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the payload fails the seal-evidence operation codec validation.
+    pub fn seal_evidence(payload: &[u8]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::SealEvidence, payload.to_vec())
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error for a stale snapshot, invalid shared state, absent or mismatched
+    /// captured roster, expired request, unauthorized actor, sequence overflow, or invalid
+    /// envelope fields.
+    pub fn lap_envelope(
+        snapshot: &FinalizedSnapshot,
+        operation: &MarketOperation,
+        actor: PrincipalId,
+        roster: program::types::RosterDigest,
+        request: RequestId,
+        expiry: u64,
+    ) -> Result<Vec<u8>, AiClientError> {
+        use program::{
+            codec::Envelope,
+            state::ActorSlot,
+            types::{Authentication, Presence},
+        };
+        snapshot.require_current(snapshot.binding().execution_height)?;
+        let state = program::state::decode_shared_state(snapshot.state_bytes())?;
+        let frozen =
+            program::epoch::captured_roster(&state)?.ok_or(program::errors::WRONG_ROSTER)?;
+        if roster != frozen.binding.roster || expiry <= snapshot.binding().execution_height {
+            return Err(program::errors::WRONG_ROSTER.into());
+        }
+        let operation_roster = match operation.operation() {
+            dispatch::SealEvidence
+            | dispatch::CommitScore
+            | dispatch::RevealScore
+            | dispatch::ChallengeLap
+            | dispatch::ResolveChallenge => roster,
+            dispatch::SettleLaps => {
+                let batch = program::laps::ReceiptBatch::decode(
+                    operation
+                        .payload()
+                        .get(..program::laps::BATCH_BYTES)
+                        .ok_or(program::errors::NON_CANONICAL)?,
+                )?;
+                let book = program::rooms::RoomBook::decode(state.room_market()?.1)?;
+                let deal = book
+                    .deal(batch.deal_id)?
+                    .ok_or(program::errors::NOT_FOUND)?;
+                let admission = program::admission::AdmissionTable::decode(
+                    program::reputation_transition::joint_table(
+                        state.section(program::state::Section::ReputationAdmission)?,
+                    )?,
+                )?;
+                if program::roster::roster_digest(&admission, frozen.binding.epoch)?.bytes()
+                    != deal.roster_digest.bytes()
+                {
+                    return Err(program::errors::WRONG_ROSTER.into());
+                }
+                deal.roster_digest
+            }
+            _ => return Err(program::errors::UNKNOWN_OPERATION.into()),
+        };
+        let authority = (0..43)
+            .filter_map(|i| state.control.replay.actor(ActorSlot::from_index(i).ok()?))
+            .find(|entry| entry.principal == actor)
+            .ok_or(program::errors::UNAUTHORIZED)?;
+        let sequence = if operation.operation().metadata().sequence
+            == program::dispatch::SequencePolicy::ObjectLocal
+        {
+            0
+        } else {
+            authority.last.map_or(Ok(1), |last| {
+                last.sequence
+                    .checked_add(1)
+                    .ok_or(program::errors::ARITHMETIC)
+            })?
+        };
+        let envelope = Envelope {
+            operation: operation.operation(),
+            chain: snapshot.binding().chain,
+            program: snapshot.binding().program,
+            market: snapshot.binding().market,
+            actor,
+            epoch: frozen.binding.epoch,
+            config: frozen.binding.config.get(),
+            roster: Presence::Present(operation_roster),
+            sequence,
+            expiry,
+            request,
+            payload: operation.payload(),
+            authentication: Authentication::Native,
+        };
+        let mut out = vec![0; program::MAX_ENVELOPE_BYTES];
+        let length = encode_operation_envelope(&envelope, &mut out)?;
+        out.truncate(length);
+        Ok(out)
     }
 
     impl MarketOperation {
@@ -278,6 +619,10 @@ pub mod inference_market {
         Ok(BookView::decode(bytes)?)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the shared state or model query is invalid, or the resulting book
+    /// view is malformed.
     pub fn book_view(
         snapshot: &FinalizedSnapshot,
         model: Digest32,
@@ -293,6 +638,10 @@ pub mod inference_market {
         Ok(bytes)
     }
 
+    /// # Errors
+    ///
+    /// Returns a sequencer error if the lookup fails, or `FinalityMismatch` if the recorded
+    /// deal fields differ from the request.
     pub fn verify_recorded_deal(
         endpoint: &crate::sequencer::SequencerEndpoint,
         request: &RecordDealRequest,
@@ -333,6 +682,11 @@ pub mod inference_market {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for malformed shared state or admission data, a missing epoch or room,
+    /// a mismatched roster, expired request, sequence overflow, invalid deal payload, or
+    /// invalid envelope fields.
     pub fn deal_envelope(
         snapshot: &FinalizedSnapshot,
         deal: &RecordDealRequest,
@@ -397,6 +751,12 @@ pub mod inference_market {
 
     /// Read content-addressed namespace artifacts at H-1 and authenticate them under
     /// the independently pinned validator commit at H before exposing a snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if committed headers or namespace artifacts are unavailable, their
+    /// proofs or content digests fail verification, the state is malformed, or the captured
+    /// snapshot cannot be finalized.
     pub fn poll_finalized_market(
         endpoint: &crate::sequencer::SequencerEndpoint,
         verifier: &layerx_programs_registry::chain_proof::ChainProofVerifier,
@@ -445,10 +805,8 @@ pub mod inference_market {
             let name = reader.take(length)?;
             let digest: [u8; 32] = reader.fixed()?;
             let _length = reader.u32()?;
-            if name == program::SHARED_STATE_KEY {
-                if state_digest.replace(digest).is_some() {
-                    return Err(invalid());
-                }
+            if name == program::SHARED_STATE_KEY && state_digest.replace(digest).is_some() {
+                return Err(invalid());
             }
         }
         reader.finish()?;
@@ -696,6 +1054,179 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
+/// Canonical authority and access fields for a market program call.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MarketCallTerms {
+    pub capabilities: Vec<u8>,
+    pub access_declaration: Vec<u8>,
+}
+
+/// The single spending authority required by a market value action.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MarketSpendingGrant {
+    Deposit {
+        asset: [u8; 32],
+        rewards_account: [u8; 32],
+        amount: u128,
+    },
+    Payment {
+        owner_program: [u8; 32],
+        seed: Vec<u8>,
+        source_account: [u8; 32],
+        asset: [u8; 32],
+        recipient: [u8; 32],
+        amount: u128,
+    },
+}
+
+/// Builds canonical runtime authority and access fields for one value action.
+///
+/// # Errors
+/// Refuses a nonvalue operation, a grant in the wrong direction, a zero amount,
+/// invalid authority fields, or invalid program and principal identifiers.
+pub fn market_value_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+    grant: MarketSpendingGrant,
+) -> Result<MarketCallTerms, AiClientError> {
+    let deposit = matches!(
+        operation,
+        dispatch::FUND | dispatch::LockBond | dispatch::ChallengeLap
+    );
+    let payment = matches!(
+        operation,
+        dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::RefundBond
+            | dispatch::ResolveChallenge
+    );
+    if !deposit && !payment {
+        return Err(AiClientError::MarketNonValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let spending = match grant {
+        MarketSpendingGrant::Deposit {
+            asset,
+            rewards_account,
+            amount,
+        } if deposit => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::Transfer402 {
+                asset,
+                to: rewards_account,
+                maximum_amount: amount,
+            }
+        }
+        MarketSpendingGrant::Payment {
+            owner_program,
+            seed,
+            source_account,
+            asset,
+            recipient,
+            amount,
+        } if payment => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::ProgramSpend {
+                owner_program: RuntimeProgramId::new(owner_program).map_err(AbiError::from)?,
+                seed,
+                source_account,
+                asset,
+                to: recipient,
+                maximum_amount: amount,
+            }
+        }
+        _ => {
+            return Err(AiClientError::MarketValueGrantDirection {
+                operation: operation.metadata().name,
+            })
+        }
+    };
+    let mut grants = MUTATION_CAPABILITIES
+        .into_iter()
+        .map(|capability| match capability {
+            layerx_program_sdk::Capability::SharedStorageRead => {
+                Ok(RuntimeCapability::SharedStorageRead)
+            }
+            layerx_program_sdk::Capability::SharedStorageWrite => {
+                Ok(RuntimeCapability::SharedStorageWrite)
+            }
+            layerx_program_sdk::Capability::EmitEvent => Ok(RuntimeCapability::EmitEvent),
+            _ => Err(AbiError::InvalidCapability),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    grants.push(spending);
+    let capabilities = RuntimeCapabilitySet::new(grants)?.canonical_encoding();
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
+/// Builds the host-admitted fields for a market operation.
+///
+/// # Errors
+/// Refuses value actions and invalid program or principal identifiers, or an SDK encoding error.
+pub fn market_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+) -> Result<MarketCallTerms, AiClientError> {
+    if matches!(
+        operation,
+        dispatch::FUND
+            | dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::LockBond
+            | dispatch::RefundBond
+            | dispatch::ChallengeLap
+            | dispatch::ResolveChallenge
+    ) {
+        return Err(AiClientError::MarketValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let grants = if operation.metadata().boundary == CallBoundary::ProgramRead {
+        READ_CAPABILITIES.as_slice()
+    } else {
+        MUTATION_CAPABILITIES.as_slice()
+    };
+    let set = CapabilitySet::<3>::from_grants(grants)?;
+    let mut capabilities = vec![0; set.encoded_len()];
+    let length = set.encode_into(&mut capabilities)?;
+    capabilities.truncate(length);
+
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
 const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP3";
 const LEGACY_RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
@@ -706,6 +1237,18 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 pub enum AiClientError {
     Query(QueryError),
     MissingOperation(&'static str),
+    MarketValueOperation {
+        operation: &'static str,
+    },
+    MarketNonValueOperation {
+        operation: &'static str,
+    },
+    MarketValueGrantDirection {
+        operation: &'static str,
+    },
+    MarketValueAmountZero,
+    MarketAbi(AbiError),
+    ProgramSdk(ProgramError),
     ProgramRefused {
         operation: &'static str,
         code: u16,
@@ -753,6 +1296,8 @@ macro_rules! from_refusal {
 }
 
 from_refusal!(
+    AbiError => MarketAbi,
+    ProgramError => ProgramSdk,
     QueryError => Query,
     InvalidNativeCall => NativeCall,
     ActivityBuildError => Activity,
@@ -2614,6 +3159,11 @@ impl OperationJournal {
         Ok(record.state)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the journal cannot be locked or read, the record is stale or in an
+    /// invalid state, receipt authentication fails, its digest or transaction fields mismatch,
+    /// or the updated record cannot be persisted.
     pub fn resolve_receipt(
         &self,
         record: &mut OperationRecord,
@@ -2892,6 +3442,9 @@ impl EpochHistoryEntry {
     }
 }
 
+/// # Errors
+///
+/// Returns `MissingOperation` when no dispatch entry has the supplied name.
 pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientError> {
     dispatch::OPERATIONS
         .iter()
@@ -2900,6 +3453,10 @@ pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientE
         .ok_or(AiClientError::MissingOperation(name))
 }
 
+/// # Errors
+///
+/// Returns a codec error for malformed result bytes, or `CorruptRecord` when a refusal code is
+/// absent from the application error registry.
 pub fn program_refusal(
     operation: Operation,
     bytes: &[u8],
@@ -2922,6 +3479,11 @@ pub fn program_refusal(
         .transpose()
 }
 
+/// # Errors
+///
+/// Returns an error for invalid signed transaction bytes, a different chain or target,
+/// malformed program-call or envelope bytes, or mismatched program, ABI, entrypoint or expiry
+/// fields.
 pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientError> {
     let (call, _) = evm_transaction::decode_signed(record.signed_bytes())?;
     let mut target = [0; 20];
@@ -2930,24 +3492,28 @@ pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientErro
         return Err(AiClientError::NotNativeProgramCall);
     }
     let (native, _) = decode_program_call(&call.data)?;
-    let envelope = decode_envelope(&native.calldata)?;
+    let (envelope, _) = inference_market::decode_operation_envelope(&native.calldata)?;
     if native.guest_abi != GUEST_ABI
         || native.entrypoint != ENTRYPOINT
-        || native.program_id.bytes() != envelope.envelope.program.bytes()
-        || envelope.envelope.expiry != record.not_after()
+        || native.program_id.bytes() != envelope.program.bytes()
+        || envelope.expiry != record.not_after()
     {
         return Err(AiClientError::NotNativeProgramCall);
     }
-    Ok(native.calldata.to_vec())
+    Ok(native.calldata)
 }
 
+/// # Errors
+///
+/// Returns an error for an invalid envelope, a nonmutation operation, mismatched transaction
+/// terms, invalid actor DID, unauthorized key, disclosure or signing failure, or invalid signed
+/// transaction bytes.
 pub async fn sign_market_envelope(
     envelope: &[u8],
     terms: &NativeTerms<'_>,
     signer: &dyn Signer,
 ) -> Result<OperationRecord, AiClientError> {
-    let validated = decode_envelope(envelope)?;
-    let env = validated.envelope;
+    let (env, request_digest) = inference_market::decode_operation_envelope(envelope)?;
     if env.operation.metadata().boundary != CallBoundary::Mutation {
         return Err(AiClientError::NotMutation);
     }
@@ -2991,18 +3557,23 @@ pub async fn sign_market_envelope(
     let signature = sign_disclosed_call(signer, &call, &disclosure, from).await?;
     OperationRecord::from_signed_transaction(
         evm_transaction::assemble(&call, &signature),
-        validated.request_digest()?.bytes(),
+        request_digest.bytes(),
         env.expiry,
     )
 }
 
+/// # Errors
+///
+/// Returns an error if the signed envelope is invalid, journal persistence or reload fails,
+/// retained bytes or intent differ, submission fails, or the program reports a refusal.
 pub fn submit_market_operation(
     journal: &OperationJournal,
     record: &mut OperationRecord,
     endpoint: &SequencerEndpoint,
 ) -> Result<OperationState, AiClientError> {
     let envelope = market_envelope(record)?;
-    let operation = decode_envelope(&envelope)?.envelope.operation;
+    let (envelope, _) = inference_market::decode_operation_envelope(&envelope)?;
+    let operation = envelope.operation;
     journal.record_signed(record)?;
     let registry = ModuleRegistry::new(&[])?;
     let retained = journal.load(&record.activity_id(), &registry)?;

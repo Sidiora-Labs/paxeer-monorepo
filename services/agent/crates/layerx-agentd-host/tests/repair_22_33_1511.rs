@@ -1,7 +1,7 @@
-//! Finding/test mapping and fixture provenance: repair_22_33_1511.kvx.
+//! Finding/test mapping and fixture provenance: `repair_22_33_1511.kvx`.
 
 #[path = "support/payer_audit.rs"]
-mod payer_audit;
+pub mod payer_audit;
 
 #[test]
 fn payer_equal_denom_fixture_accepts_independent_receipt_and_rejects_either_change() {

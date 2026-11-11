@@ -1311,6 +1311,38 @@ fn decode_pending(bytes: &[u8]) -> Result<CoreEvent, IngestError> {
 }
 
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+type DecodedMetadata = (
+    Option<[u8; 32]>,
+    legacy::VerificationLevel,
+    EventAttributes,
+    Option<CursorAnchor>,
+);
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::read::ServedCheckpoint;
@@ -1350,7 +1382,7 @@ mod tests {
                 result_code: 0,
             },
         )
-        .unwrap()
+        .assert_value("expected value")
     }
 
     #[test]
@@ -1365,7 +1397,7 @@ mod tests {
                 decode_metadata(&metadata),
                 Err(IngestError::CorruptEvent)
             ));
-            let mut pending = encode_pending(&event).unwrap();
+            let mut pending = encode_pending(&event).assert_value("expected value");
             pending[4 + event.canonical_bytes.len() + 4] = 5;
             assert!(matches!(
                 decode_pending(&pending),
@@ -1377,107 +1409,165 @@ mod tests {
     #[test]
     fn committed_promotion_validates_and_reopens_pending_and_retained_logs() {
         let root = directory();
-        let tenant = TenantId::new("committed-promotion").unwrap();
+        let tenant = TenantId::new("committed-promotion").assert_value("expected value");
         let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
         let mut retained = receipted_log(&checkpoint, 0);
         retained.receipt_reference = Some([9; 32]);
         let mut pending = receipted_log(&checkpoint, 1);
         pending.receipt_reference = Some([10; 32]);
-        let position = pending.position().unwrap();
-        let mut ingestor =
-            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
-        ingestor.queue_log(pending.clone()).unwrap();
+        let position = pending.position().assert_value("expected value");
+        let mut ingestor = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant.clone(),
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        ingestor
+            .queue_log(pending.clone())
+            .assert_value("expected value");
         ingest_with_class(
             &mut ingestor,
             retained.clone(),
             StorageClass::CoreProducedCache,
         )
-        .unwrap();
+        .assert_value("expected value");
 
-        ingestor.commit_block(&checkpoint).unwrap();
+        ingestor
+            .commit_block(&checkpoint)
+            .assert_value("expected value");
         retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         assert_eq!(ingestor.pending.get(&position), Some(&pending));
-        validate_event(ingestor.pending.get(&position).unwrap()).unwrap();
+        validate_event(
+            ingestor
+                .pending
+                .get(&position)
+                .assert_value("expected value"),
+        )
+        .assert_value("expected value");
         assert_eq!(ingestor.buffered.front(), Some(&retained));
-        validate_event(ingestor.buffered.front().unwrap()).unwrap();
-        assert_eq!(ingestor.retained_event(0).unwrap(), retained);
+        validate_event(ingestor.buffered.front().assert_value("expected value"))
+            .assert_value("expected value");
+        assert_eq!(
+            ingestor.retained_event(0).assert_value("expected value"),
+            retained
+        );
         let metadata = ingestor
             .store()
-            .get(&metadata_key(tenant.clone(), 0).unwrap())
-            .unwrap();
+            .get(&metadata_key(tenant.clone(), 0).assert_value("expected value"))
+            .assert_value("expected value");
         assert_eq!(metadata.bytes()[4], 6);
         let encoded_pending = ingestor
             .store()
-            .get(&pending_key(tenant.clone(), position).unwrap())
-            .unwrap();
+            .get(&pending_key(tenant.clone(), position).assert_value("expected value"))
+            .assert_value("expected value");
         assert_eq!(
             encoded_pending.bytes()[4 + pending.canonical_bytes.len() + 4],
             6
         );
-        assert_eq!(decode_pending(encoded_pending.bytes()).unwrap(), pending);
+        assert_eq!(
+            decode_pending(encoded_pending.bytes()).assert_value("expected value"),
+            pending
+        );
         assert_eq!(ingestor.take_next(), Some(retained.clone()));
         drop(ingestor);
 
-        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
-        let restored = reopened.pending.get(&position).unwrap();
+        let reopened = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant,
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        let restored = reopened
+            .pending
+            .get(&position)
+            .assert_value("expected value");
         assert_eq!(restored, &pending);
         assert_eq!(restored.rung(), Some(Rung::Committed));
-        validate_event(restored).unwrap();
-        assert_eq!(reopened.retained_event(0).unwrap(), retained);
+        validate_event(restored).assert_value("expected value");
+        assert_eq!(
+            reopened.retained_event(0).assert_value("expected value"),
+            retained
+        );
         drop(reopened);
-        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(root).assert_value("expected value");
     }
 
     #[test]
     fn legacy_rank_four_durable_records_migrate_to_committed_on_read() {
         let root = directory();
-        let tenant = TenantId::new("legacy-commit").unwrap();
+        let tenant = TenantId::new("legacy-commit").assert_value("expected value");
         let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
         let mut retained = receipted_log(&checkpoint, 0);
         retained.receipt_reference = Some([9; 32]);
         retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         let mut pending = receipted_log(&checkpoint, 1);
         pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
-        let position = pending.position().unwrap();
-        let mut ingestor =
-            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
+        let position = pending.position().assert_value("expected value");
+        let mut ingestor = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant.clone(),
+            4,
+            0,
+        )
+        .assert_value("expected value");
         ingest_with_class(
             &mut ingestor,
             retained.clone(),
             StorageClass::CoreProducedCache,
         )
-        .unwrap();
+        .assert_value("expected value");
         let mut metadata = encode_metadata(&retained);
         metadata[4] = 4;
-        let mut encoded_pending = encode_pending(&pending).unwrap();
+        let mut encoded_pending = encode_pending(&pending).assert_value("expected value");
         encoded_pending[4 + pending.canonical_bytes.len() + 4] = 4;
         ingestor
             .store
-            .put_local(metadata_key(tenant.clone(), 0).unwrap(), metadata)
-            .unwrap();
+            .put_local(
+                metadata_key(tenant.clone(), 0).assert_value("expected value"),
+                metadata,
+            )
+            .assert_value("expected value");
         ingestor
             .store
             .put_local(
-                pending_key(tenant.clone(), position).unwrap(),
+                pending_key(tenant.clone(), position).assert_value("expected value"),
                 encoded_pending,
             )
-            .unwrap();
+            .assert_value("expected value");
         drop(ingestor);
 
-        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
-        assert_eq!(reopened.retained_event(0).unwrap(), retained);
-        let restored = reopened.pending.get(&position).unwrap();
+        let reopened = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant,
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        assert_eq!(
+            reopened.retained_event(0).assert_value("expected value"),
+            retained
+        );
+        let restored = reopened
+            .pending
+            .get(&position)
+            .assert_value("expected value");
         assert_eq!(restored, &pending);
         assert_eq!(restored.rung(), Some(Rung::Committed));
-        validate_event(restored).unwrap();
-        assert_eq!(encode_metadata(&reopened.retained_event(0).unwrap())[4], 6);
+        validate_event(restored).assert_value("expected value");
         assert_eq!(
-            encode_pending(restored).unwrap()[4 + restored.canonical_bytes.len() + 4],
+            encode_metadata(&reopened.retained_event(0).assert_value("expected value"))[4],
+            6
+        );
+        assert_eq!(
+            encode_pending(restored).assert_value("expected value")
+                [4 + restored.canonical_bytes.len() + 4],
             6
         );
         drop(reopened);
-        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(root).assert_value("expected value");
     }
 
     #[test]
@@ -1486,10 +1576,14 @@ mod tests {
         let mut event = receipted_log(&checkpoint, 0);
         event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         assert!(event.receipt_reference.is_none());
-        assert_eq!(event.log().unwrap().rung, Rung::Committed);
-        validate_event(&event).unwrap();
         assert_eq!(
-            decode_pending(&encode_pending(&event).unwrap()).unwrap(),
+            event.log().assert_value("expected value").rung,
+            Rung::Committed
+        );
+        validate_event(&event).assert_value("expected value");
+        assert_eq!(
+            decode_pending(&encode_pending(&event).assert_value("expected value"))
+                .assert_value("expected value"),
             event
         );
 
@@ -1500,10 +1594,3 @@ mod tests {
         ));
     }
 }
-
-type DecodedMetadata = (
-    Option<[u8; 32]>,
-    legacy::VerificationLevel,
-    EventAttributes,
-    Option<CursorAnchor>,
-);

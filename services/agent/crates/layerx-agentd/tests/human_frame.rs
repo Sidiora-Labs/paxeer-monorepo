@@ -1,50 +1,11 @@
 use layerx_agentd::human::frame::{
     read_frame, write_frame, FrameViolation, TransportError, LENGTH_PREFIX_BYTES,
 };
-use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use serde_json::Value;
 use std::fmt::Debug;
-use std::io::{BufRead, BufReader, Cursor, Read, Write};
-use std::net::TcpListener;
-use std::time::Duration;
+use std::io::Cursor;
 
 fn checked<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
-}
-
-fn loopback_chain() -> NodeRpc {
-    let listener = checked(TcpListener::bind("127.0.0.1:0"));
-    let url = format!("http://{}/", checked(listener.local_addr()));
-    let worker = std::thread::spawn(move || {
-        let (stream, _) = checked(listener.accept());
-        checked(stream.set_read_timeout(Some(Duration::from_secs(2))));
-        let mut reader = BufReader::new(stream);
-        let mut length = None;
-        loop {
-            let mut line = String::new();
-            assert_ne!(checked(reader.read_line(&mut line)), 0);
-            if line == "\r\n" {
-                break;
-            }
-            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                length = Some(checked(value.trim().parse::<usize>()));
-            }
-        }
-        let mut body = vec![0; length.expect("content length")];
-        checked(reader.read_exact(&mut body));
-        let request: Value = checked(serde_json::from_slice(&body));
-        assert_eq!(request["method"], "eth_chainId");
-        let answer =
-            serde_json::json!({"jsonrpc":"2.0", "id":request["id"], "result":"0x7d"}).to_string();
-        checked(write!(reader.into_inner(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
-    });
-    let chain = checked(NodeRpc::connect(&NodeRpcConfig {
-        url,
-        chain_id: 125,
-        deadline: Duration::from_secs(2),
-    }));
-    checked(worker.join());
-    chain
 }
 
 #[test]

@@ -105,7 +105,7 @@ fn prepared() -> SigningPreparation {
         },
         100_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     SigningPreparation {
         transaction,
         actor_address,
@@ -115,10 +115,15 @@ fn prepared() -> SigningPreparation {
 #[test]
 fn verified_wrapper_preserves_the_exact_signed_input_and_activity_id() {
     let prepared = prepared();
-    let signed_bytes = prepared.transaction.call.sign(&[0xa5; 32]).unwrap();
-    let (_, signature) = decode_signed(&signed_bytes).unwrap();
-    let attached =
-        layerx_agentd::sign::attach_external_signature(&prepared, *signature.as_bytes()).unwrap();
+    let signed_bytes = prepared
+        .transaction
+        .call
+        .sign(&[0xa5; 32])
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (_, signature) = decode_signed(&signed_bytes)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let attached = layerx_agentd::sign::attach_external_signature(&prepared, *signature.as_bytes())
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(attached, signed_bytes);
     let verified = layerx_agentd::sign::verify_before_submit(
         &attached,
@@ -126,7 +131,7 @@ fn verified_wrapper_preserves_the_exact_signed_input_and_activity_id() {
         &session_address([0xa5; 32]),
         &registry(),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     assert_eq!(verified.exact_bytes(), signed_bytes);
     assert_eq!(verified.signed_byte_length(), signed_bytes.len());
     assert_ne!(verified.activity_id(), [0; 32]);
@@ -143,8 +148,13 @@ fn verified_wrapper_preserves_the_exact_signed_input_and_activity_id() {
 #[test]
 fn amount_recipient_and_fee_alterations_cannot_ride_an_old_signature() {
     let original = prepared();
-    let signed_bytes = original.transaction.call.sign(&[0xa5; 32]).unwrap();
-    let (_, signature) = decode_signed(&signed_bytes).unwrap();
+    let signed_bytes = original
+        .transaction
+        .call
+        .sign(&[0xa5; 32])
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
+    let (_, signature) = decode_signed(&signed_bytes)
+        .unwrap_or_else(|error| panic!("test operation failed: {error:?}"));
     // Payload fields contain the 32-byte sender, recipient and asset, then the amount.
     let mut amount = original.clone();
     amount.transaction.call.data[68 + 4 + 32 * 3 + 15] ^= 1;

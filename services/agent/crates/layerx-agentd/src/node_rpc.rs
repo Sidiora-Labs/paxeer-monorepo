@@ -201,6 +201,108 @@ pub struct NodeRpc {
     deadline: Duration,
 }
 
+/// The metered stream returned by the payment precompile at one node height.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AskStreamState {
+    pub stream_id: [u8; 32],
+    pub recipient: [u8; 32],
+    pub mode: u8,
+    pub rate: u128,
+    pub rate_unit: u64,
+    pub total_cap: u128,
+    pub accrued_total: u128,
+    pub settled_total: u128,
+    pub remainder_carry: u128,
+    pub cumulative_meter: u64,
+    pub meter_authorities: Vec<[u8; 32]>,
+    pub underfunded: bool,
+    pub paused: bool,
+    pub closed: bool,
+}
+
+impl AskStreamState {
+    /// Decode the canonical ABI answer of `getStream(bytes32)`.
+    ///
+    /// # Errors
+    /// Returns an error if the stream ID is zero, the ABI answer is malformed or noncanonical,
+    /// or the decoded values violate the metered stream constraints.
+    pub fn decode(stream_id: [u8; 32], bytes: &[u8]) -> Result<Self, NodeRpcError> {
+        let malformed = || NodeRpcError::from(SequencerError::Malformed);
+        let word = |index: usize| -> Result<&[u8], NodeRpcError> {
+            bytes
+                .get(index * 32..(index + 1) * 32)
+                .ok_or_else(malformed)
+        };
+        let number = |index: usize| -> Result<u128, NodeRpcError> {
+            let value = word(index)?;
+            if value[..16] != [0; 16] {
+                return Err(malformed());
+            }
+            Ok(u128::from_be_bytes(
+                value[16..].try_into().map_err(|_| malformed())?,
+            ))
+        };
+        let small = |index: usize| -> Result<u64, NodeRpcError> {
+            u64::try_from(number(index)?).map_err(|_| malformed())
+        };
+        let boolean = |index: usize| -> Result<bool, NodeRpcError> {
+            match number(index)? {
+                0 => Ok(false),
+                1 => Ok(true),
+                _ => Err(malformed()),
+            }
+        };
+        // The dynamic tuple has nineteen head words and one dynamic key array.
+        if stream_id == [0; 32] || number(0)? != 32 || number(16)? != 19 * 32 {
+            return Err(malformed());
+        }
+        let count = usize::try_from(number(20)?).map_err(|_| malformed())?;
+        if !(1..=8).contains(&count) || bytes.len() != (21 + count) * 32 {
+            return Err(malformed());
+        }
+        let mut keys = Vec::with_capacity(count);
+        for index in 0..count {
+            let key: [u8; 32] = word(21 + index)?.try_into().map_err(|_| malformed())?;
+            if key == [0; 32] || keys.last().is_some_and(|previous| previous >= &key) {
+                return Err(malformed());
+            }
+            keys.push(key);
+        }
+        let state = Self {
+            stream_id,
+            recipient: word(3)?.try_into().map_err(|_| malformed())?,
+            mode: u8::try_from(number(5)?).map_err(|_| malformed())?,
+            rate: number(6)?,
+            rate_unit: small(7)?,
+            total_cap: number(11)?,
+            accrued_total: number(12)?,
+            settled_total: number(13)?,
+            remainder_carry: number(14)?,
+            cumulative_meter: small(15)?,
+            meter_authorities: keys,
+            underfunded: boolean(17)?,
+            paused: boolean(18)?,
+            closed: boolean(19)?,
+        };
+        if state.recipient == [0; 32]
+            || state.mode != 2
+            || state.rate == 0
+            || state.rate_unit == 0
+            || state.total_cap == 0
+            || state.accrued_total > state.total_cap
+            || state.settled_total > state.accrued_total
+            || state.remainder_carry >= u128::from(state.rate_unit)
+        {
+            return Err(malformed());
+        }
+        // Reject noncanonical uint64 fields even when they do not affect admission.
+        for index in 8..=10 {
+            small(index)?;
+        }
+        Ok(state)
+    }
+}
+
 impl NodeRpc {
     /// # Errors
     /// Returns an error if node configuration, transport or RPC fails, or required node evidence
@@ -305,6 +407,35 @@ impl NodeRpc {
         let to = *to;
         let data = data.to_vec();
         self.request(move |endpoint| endpoint.call_at(height, &to, &data))
+    }
+
+    /// Read the ask binding and stream at the same committed node height.
+    ///
+    /// # Errors
+    /// Returns an error if the ask ID is zero, a node transport or RPC request fails or exceeds
+    /// its deadline, or the returned binding or stream state is malformed or invalid.
+    pub fn ask_stream(&self, ask: &[u8; 32]) -> Result<Option<AskStreamState>, NodeRpcError> {
+        if *ask == [0; 32] {
+            return Err(SequencerError::Malformed.into());
+        }
+        let height = self.block_number()?;
+        let mut payment = [0; 20];
+        payment[18..].copy_from_slice(&[0x10, 0x1b]);
+        let call = |signature: &[u8], argument: &[u8; 32]| {
+            let digest = layerx_crypto::evm_transaction::transaction_hash(signature);
+            let mut data = digest[..4].to_vec();
+            data.extend_from_slice(argument);
+            self.call_at(height, &payment, &data)
+        };
+        let answer = call(b"askStreamOf(bytes32)", ask)?;
+        let id: [u8; 32] = answer
+            .as_slice()
+            .try_into()
+            .map_err(|_| SequencerError::Malformed)?;
+        if id == [0; 32] {
+            return Ok(None);
+        }
+        AskStreamState::decode(id, &call(b"getStream(bytes32)", &id)?).map(Some)
     }
 
     /// # Errors
