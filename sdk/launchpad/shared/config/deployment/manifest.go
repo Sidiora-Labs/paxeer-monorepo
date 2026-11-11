@@ -56,6 +56,8 @@ type Role struct {
 	Address               string `json:"address"`
 	Kind                  string `json:"kind"`
 	RuntimeHash           string `json:"runtimeHash"`
+	StagedRuntimeHash     string `json:"stagedRuntimeHash,omitempty"`
+	StagedUpgrade         string `json:"stagedUpgrade,omitempty"`
 	ImplementationAddress string `json:"implementationAddress,omitempty"`
 	ImplementationHash    string `json:"implementationHash,omitempty"`
 	BeaconAddress         string `json:"beaconAddress,omitempty"`
@@ -223,6 +225,11 @@ func (m Manifest) Validate() error {
 		if !hashExempt && !validHash(r.RuntimeHash) {
 			add("runtime_hash_invalid", name)
 		}
+		if r.StagedRuntimeHash != "" || r.StagedUpgrade != "" {
+			if r.Kind != "surface" || !validHash(r.RuntimeHash) || !validHash(r.StagedRuntimeHash) || !versionRE.MatchString(r.StagedUpgrade) || equalHash(r.RuntimeHash, r.StagedRuntimeHash) {
+				add("staged_runtime_identity_invalid", name)
+			}
+		}
 		switch r.Kind {
 		case "erc1967", "beacon", "beacon_proxy":
 			if !validAddress(r.ImplementationAddress) || !validHash(r.ImplementationHash) {
@@ -253,6 +260,20 @@ func (m Manifest) Validate() error {
 	}
 	return errors.Join(errs...)
 }
+
+func (r Role) MatchesApproved(approved Role) bool {
+	if (r.StagedRuntimeHash != "" || r.StagedUpgrade != "") && (r.StagedRuntimeHash != approved.StagedRuntimeHash || r.StagedUpgrade != approved.StagedUpgrade) {
+		return false
+	}
+	r.StagedRuntimeHash, r.StagedUpgrade = "", ""
+	approved.StagedRuntimeHash, approved.StagedUpgrade = "", ""
+	return r == approved
+}
+
+func (r Role) AcceptsRuntimeHash(hash string) bool {
+	return equalHash(hash, r.RuntimeHash) || (r.Kind == "surface" && versionRE.MatchString(r.StagedUpgrade) && equalHash(hash, r.StagedRuntimeHash))
+}
+
 func (m Manifest) Hash() (string, error) {
 	if err := m.Validate(); err != nil {
 		return "", err

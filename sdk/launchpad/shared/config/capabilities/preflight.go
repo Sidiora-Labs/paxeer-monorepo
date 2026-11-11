@@ -776,7 +776,7 @@ func (e *PreflightEngine) nativeDeployment() (bool, error) {
 	}
 	for _, name := range []string{"SidioraFactory", "Router", "Quoter", "PoolRegistry", "ProtocolConfig", "FeeAccumulator", "EventEmitter", "USDL", deployment.LaunchpadPrecompileRole} {
 		role, exists := e.manifest.Roles[name]
-		if !exists || role != approved.Roles[name] {
+		if !exists || !role.MatchesApproved(approved.Roles[name]) {
 			return false, refuse("identity_unverified", name)
 		}
 	}
@@ -808,7 +808,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	}
 	version := e.manifest.Roles["PoolBeacon"].ImplementationHash
 	if native {
-		if e.poolRuntime != common.HexToHash(e.manifest.Roles["SidioraFactory"].RuntimeHash) {
+		if !e.manifest.Roles["SidioraFactory"].AcceptsRuntimeHash(e.poolRuntime.Hex()) {
 			return PoolState{}, bad
 		}
 		version = e.manifest.DeploymentVersion + "/Pool/" + e.poolRuntime.Hex()
@@ -1185,7 +1185,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		return CreationFeeReconciliation{}, bad
 	}
 	code, err := pinnedReader.CodeAtHash(ctx, treasury, blockHash)
-	if err != nil || len(code) == 0 || len(code) > 128<<10 || crypto.Keccak256Hash(code).Hex() != treasuryIdentity.RuntimeHash {
+	if err != nil || len(code) == 0 || len(code) > 128<<10 || !treasuryIdentity.AcceptsRuntimeHash(crypto.Keccak256Hash(code).Hex()) {
 		return CreationFeeReconciliation{}, bad
 	}
 	if treasuryIdentity.Kind == "erc1967" {
