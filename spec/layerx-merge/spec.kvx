@@ -288763,7 +288763,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
