@@ -16,6 +16,7 @@ use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
 use layerx_crypto::payments::bind_call;
 use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_crypto::VerifyError;
+use layerx_program_sdk::{ActivityAccess, CapabilitySet, Principal, ProgramError};
 use layerx_programs_ai_market::codec::{
     decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
 };
@@ -26,6 +27,7 @@ use layerx_programs_ai_market::errors::{
     F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_RECIPIENT, NON_CANONICAL, NOT_FOUND,
     UNAUTHORIZED, WRONG_CONFIG, WRONG_MARKET, WRONG_ROSTER,
 };
+use layerx_programs_ai_market::host_adapter::{MUTATION_CAPABILITIES, READ_CAPABILITIES};
 use layerx_programs_ai_market::policy::{TaskPolicyV1, TASK_POLICY_BYTES};
 use layerx_programs_ai_market::queries::{
     bind_snapshot, participant_rows, read_header, Availability, CaptureFacts, FinalityEvidence,
@@ -1010,6 +1012,62 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
+/// Canonical authority and access fields for a market program call.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MarketCallTerms {
+    pub capabilities: Vec<u8>,
+    pub access_declaration: Vec<u8>,
+}
+
+/// Builds the host-admitted fields for a market operation.
+///
+/// # Errors
+/// Refuses value actions and invalid program or principal identifiers, or an SDK encoding error.
+pub fn market_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+) -> Result<MarketCallTerms, AiClientError> {
+    if matches!(
+        operation,
+        dispatch::FUND
+            | dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::LockBond
+            | dispatch::RefundBond
+            | dispatch::ChallengeLap
+            | dispatch::ResolveChallenge
+    ) {
+        return Err(AiClientError::MarketValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let grants = if operation.metadata().boundary == CallBoundary::ProgramRead {
+        READ_CAPABILITIES.as_slice()
+    } else {
+        MUTATION_CAPABILITIES.as_slice()
+    };
+    let set = CapabilitySet::<3>::from_grants(grants)?;
+    let mut capabilities = vec![0; set.encoded_len()];
+    let length = set.encode_into(&mut capabilities)?;
+    capabilities.truncate(length);
+
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
 const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP3";
 const LEGACY_RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
@@ -1020,6 +1078,10 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 pub enum AiClientError {
     Query(QueryError),
     MissingOperation(&'static str),
+    MarketValueOperation {
+        operation: &'static str,
+    },
+    ProgramSdk(ProgramError),
     ProgramRefused {
         operation: &'static str,
         code: u16,
@@ -1067,6 +1129,7 @@ macro_rules! from_refusal {
 }
 
 from_refusal!(
+    ProgramError => ProgramSdk,
     QueryError => Query,
     InvalidNativeCall => NativeCall,
     ActivityBuildError => Activity,

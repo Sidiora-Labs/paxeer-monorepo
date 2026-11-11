@@ -2300,6 +2300,22 @@ impl InferenceLapRuntime {
     }
 }
 struct InferenceLapTransport<'a>(&'a InferenceDealRuntime);
+fn lap_market_call_terms(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    program: [u8; 32],
+    actor: [u8; 32],
+) -> Result<layerx_client::ai_market::MarketCallTerms, layerx_client::ai_market::AiClientError> {
+    layerx_client::ai_market::market_call_terms(operation, program, actor)
+}
+
+fn deal_market_call_terms(
+    operation: layerx_client::ai_market::market_program::dispatch::Operation,
+    program: [u8; 32],
+    actor: [u8; 32],
+) -> Result<layerx_client::ai_market::MarketCallTerms, layerx_client::ai_market::AiClientError> {
+    layerx_client::ai_market::market_call_terms(operation, program, actor)
+}
+
 impl InferenceLapTransport<'_> {
     fn deliver(
         &self,
@@ -2356,6 +2372,8 @@ impl InferenceLapTransport<'_> {
         nonce: u64,
         expiry: u64,
         request: [u8; 32],
+        capabilities: &'a [u8],
+        access_declaration: &'a [u8],
     ) -> layerx_client::ai_market::NativeTerms<'a> {
         let terms = &self.0.terms;
         layerx_client::ai_market::NativeTerms {
@@ -2367,8 +2385,8 @@ impl InferenceLapTransport<'_> {
             not_before: 0,
             not_after: expiry,
             fee_limit: terms.fee_limit,
-            capabilities: &[],
-            access_declaration: &[],
+            capabilities,
+            access_declaration,
             response_capacity: 16_384,
             resources: layerx_types::program_call::Resources(terms.resources),
             gas_limit: terms.gas_limit,
@@ -2457,10 +2475,19 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
                 .endpoint
                 .pending_nonce(&signer.evm_address())
                 .map_err(|_| LapError::Invalid("lap nonce unavailable"))?;
+            let call_terms =
+                lap_market_call_terms(operation.operation(), self.0.program.bytes(), actor)?;
             Ok(inference_wait(
                 layerx_client::ai_market::sign_market_envelope(
                     &envelope,
-                    &self.terms(signer, nonce, expiry, request),
+                    &self.terms(
+                        signer,
+                        nonce,
+                        expiry,
+                        request,
+                        &call_terms.capabilities,
+                        &call_terms.access_declaration,
+                    ),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2495,7 +2522,7 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
             Ok(inference_wait(
                 layerx_client::ai_market::inference_market::sign_stream_meter(
                     &calldata,
-                    &self.terms(signer, nonce, expiry, request),
+                    &self.terms(signer, nonce, expiry, request, &[], &[]),
                     &InferenceDealSigner(signer),
                 ),
             )?)
@@ -2925,6 +2952,12 @@ impl InferenceDealRuntime {
             .endpoint
             .pending_nonce(&from)
             .map_err(|error| format!("inference deal nonce: {error:?}"))?;
+        let (deal_envelope, _) =
+            layerx_client::ai_market::inference_market::decode_operation_envelope(&envelope)
+                .map_err(|error| format!("inference deal envelope: {error:?}"))?;
+        let call_terms =
+            deal_market_call_terms(deal_envelope.operation, self.program.bytes(), actor)
+                .map_err(|error| format!("inference deal call terms: {error:?}"))?;
         let mut record = inference_wait(layerx_client::ai_market::sign_market_envelope(
             &envelope,
             &layerx_client::ai_market::NativeTerms {
@@ -2936,8 +2969,8 @@ impl InferenceDealRuntime {
                 not_before: 0,
                 not_after: expiry,
                 fee_limit: self.terms.fee_limit,
-                capabilities: &[],
-                access_declaration: &[],
+                capabilities: &call_terms.capabilities,
+                access_declaration: &call_terms.access_declaration,
                 response_capacity: 16_384,
                 resources: layerx_types::program_call::Resources(self.terms.resources),
                 gas_limit: self.terms.gas_limit,
@@ -3563,6 +3596,32 @@ fn main() {
     ) {
         eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
         std::process::exit(2);
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn lap_and_deal_terms_carry_market_call_terms() {
+    use layerx_client::ai_market::{market_call_terms, market_program::dispatch::Operation};
+
+    let program = [1; 32];
+    let actor = [2; 32];
+    for (operation, built) in [
+        (
+            Operation::SettleLaps,
+            lap_market_call_terms(Operation::SettleLaps, program, actor),
+        ),
+        (
+            Operation::RecordDeal,
+            deal_market_call_terms(Operation::RecordDeal, program, actor),
+        ),
+    ] {
+        let terms = built.unwrap_or_else(|error| panic!("daemon terms: {error:?}"));
+        let expected = market_call_terms(operation, program, actor)
+            .unwrap_or_else(|error| panic!("client terms: {error:?}"));
+        assert!(!terms.capabilities.is_empty());
+        assert!(!terms.access_declaration.is_empty());
+        assert_eq!(terms, expected);
     }
 }
 
