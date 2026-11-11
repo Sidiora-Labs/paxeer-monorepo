@@ -20,6 +20,13 @@ const RUST_RECEIPT_GENERATED_PATH: &str =
     "services/agent/crates/layerx-sdk/src/receipt_generated.rs";
 const TYPESCRIPT_RECEIPT_GENERATED_PATH: &str =
     "services/agent/sdk/typescript/src/generated/receipt.ts";
+const AGENT_TYPESCRIPT_GENERATED_FILES: &[&str] = &[
+    "client.ts",
+    "guarantees.md",
+    "mirror.ts",
+    "precompile-writes.ts",
+    "receipt.ts",
+];
 const PYTHON_RECEIPT_GENERATED_PATH: &str =
     "services/agent/sdk/python/layerx_sdk/generated/receipt.py";
 const PYTHON_RECEIPT_STUB_GENERATED_PATH: &str =
@@ -104,7 +111,7 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
         "agent-typescript",
         "typescript",
         "services/agent/sdk/typescript/src/generated",
-        None,
+        Some(AGENT_TYPESCRIPT_GENERATED_FILES),
     ),
     (
         "agent-python",
