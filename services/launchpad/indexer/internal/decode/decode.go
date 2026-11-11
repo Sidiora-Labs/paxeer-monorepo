@@ -61,7 +61,14 @@ func (d *Decoder) Decode(l ethtypes.Log) (*Event, error) {
 	}
 	def, ok := protocol.LookupEvent(l.Topics[0])
 	if !ok {
-		return nil, nil
+		if l.Address != LaunchpadPrecompileAddress {
+			return nil, nil
+		}
+		event, exists := chainLaunchEvents[l.Topics[0]]
+		if !exists {
+			return nil, nil
+		}
+		def = &protocol.EventDef{Topic0: event.ID, Name: event.Name, Sig: event.Sig, Event: event}
 	}
 	args, err := d.unpackArgs(l.Topics[0], def.Event, l.Topics, l.Data)
 	if err != nil {
