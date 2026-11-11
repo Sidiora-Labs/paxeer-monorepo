@@ -195061,7 +195061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.392]
 title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.386"]
