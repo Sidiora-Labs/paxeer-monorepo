@@ -2642,11 +2642,12 @@ developer-dashboard-install:
 		ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules
 
 developer-dashboard-build:
-	npm --prefix apps/web run build --workspace @layerx/ui
-	npm --prefix services/platform/hosted/dashboard/web run build
+	npm --prefix apps/web run build:ui
+	DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build
 
 developer-dashboard-static-test:
 	npm --prefix services/platform/hosted/dashboard/web run test:static
+	rm -rf apps/web/packages/layerx-ui/dist
 
 specgen-build:
 	go build -o /dev/null ./tools/specgen
@@ -2834,6 +2835,10 @@ PROGRAMS_CARGO ?= cargo
 PROGRAMS_DIR ?= $(CURDIR)/programs
 PROGRAMS_TARGET_DIR := $(CURDIR)/programs/target
 PROGRAMS_WORKSPACE_CARGO = env CARGO_TARGET_DIR='$(PROGRAMS_TARGET_DIR)' $(PROGRAMS_CARGO)
+PROGRAMS_INTERPRETER_TARGET_DIR := $(if $(CARGO_TARGET_DIR),$(if $(filter /%,$(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(abspath $(PROGRAMS_DIR)/$(CARGO_TARGET_DIR))),$(abspath $(PROGRAMS_DIR)/target))
+PROGRAMS_PORTING_EVM_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/evm/reference-v2/target))
+PROGRAMS_PORTING_SOLANA_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/solana/reference-v2/target))
+PROGRAMS_PORTING_COSMWASM_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/cosmwasm/reference-v2/target))
 PROGRAMS_RUNTIME_LIB := programs/target/debug/liblayerx_programs_sandbox.a
 PROGRAMS_RELEASE_RUNTIME_LIB := programs/target/release/liblayerx_programs_sandbox.a
 PROGRAMS_NATIVE_LDLIBS := -lssl
@@ -3105,29 +3110,29 @@ programs-differential: $(BUILD_DIR)/tests/programs_parallel_differential
 
 programs-interpreter-conformance:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-interpreter
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm $(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test interpreter_program
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test interpreter_program
 
 programs-bench: programs-interpreter-bench
 
 programs-interpreter-bench:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-interpreter
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-interpreter-compiled-equivalent
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm LAYERX_COMPILED_EQUIVALENT_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' LAYERX_COMPILED_EQUIVALENT_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm' $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
 
 programs-test: programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm $(PROGRAMS_CARGO) test --locked --workspace
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked --workspace
 
 programs-porting-v2-references: $(BUILD_DIR)/tests/programs_call_activity
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/evm/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/solana/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/cosmwasm/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/evm/reference-v2 porting/evm/reference-v2/target/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/solana/reference-v2 porting/solana/reference-v2/target/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/cosmwasm/reference-v2 porting/cosmwasm/reference-v2/target/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/evm/reference-v2 '$(PROGRAMS_PORTING_EVM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm'
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/solana/reference-v2 '$(PROGRAMS_PORTING_SOLANA_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm'
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/cosmwasm/reference-v2 '$(PROGRAMS_PORTING_COSMWASM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm'
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_call_activity \
-		programs/porting/evm/reference-v2/target/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm \
-		programs/porting/solana/reference-v2/target/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm \
-		programs/porting/cosmwasm/reference-v2/target/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm
+		'$(PROGRAMS_PORTING_EVM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm' \
+		'$(PROGRAMS_PORTING_SOLANA_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm' \
+		'$(PROGRAMS_PORTING_COSMWASM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm'
 
 programs-sdk-c:
 	STRICT=1 sh programs/sdk/c/examples/paid-counter/build.sh all
