@@ -6,9 +6,15 @@ use layerx_wire::encode::Encoder;
 
 fn header(version: u16, kind: u16) -> Vec<u8> {
     let mut encoder = Encoder::new(6);
-    encoder.u16(version).expect("version");
-    encoder.u16(kind).expect("kind");
-    encoder.fixed(&[0xde, 0xad]).expect("trailing bytes");
+    encoder
+        .u16(version)
+        .unwrap_or_else(|error| panic!("version: {error:?}"));
+    encoder
+        .u16(kind)
+        .unwrap_or_else(|error| panic!("kind: {error:?}"));
+    encoder
+        .fixed(&[0xde, 0xad])
+        .unwrap_or_else(|error| panic!("trailing bytes: {error:?}"));
     encoder.finish()
 }
 
@@ -16,7 +22,9 @@ fn assert_retired_tag(tag: u16) {
     for version in [1, 2] {
         let input = header(version, tag);
         for bytes in [&input[..4], input.as_slice()] {
-            let rejected = inspect_intent(bytes).expect_err("retired kind accepted");
+            let rejected = inspect_intent(bytes)
+                .err()
+                .unwrap_or_else(|| panic!("retired kind accepted"));
             assert_eq!(rejected.reason(), RejectReason::RetiredShape, "tag {tag}");
             assert_eq!(rejected.input(), bytes);
             assert_eq!(rejected.input().as_ptr(), bytes.as_ptr());
@@ -52,7 +60,8 @@ fn retired_bridge_tags_answer_retired_shape() {
     let input = header(1, 18);
     assert_eq!(
         inspect_intent(&input)
-            .expect_err("unknown kind accepted")
+            .err()
+            .unwrap_or_else(|| panic!("unknown kind accepted"))
             .reason(),
         RejectReason::UnknownKind(18)
     );
