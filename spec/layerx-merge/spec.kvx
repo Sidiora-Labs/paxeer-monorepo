@@ -12988,6 +12988,12 @@ value = "For a value operation the client library builds the capability bytes fr
 basis = "Gotchas 4240 and 4241, decisions 3307, 3310 and 3311."
 affects = ["22.39.390", "22.39.386", "22.38.36"]
 
+[decision.3313]
+title = "The record of a task states product facts and names no verification tool"
+value = "A record file that a task commits states what a reader of the repository can check: the cause, the change, the call sites, the measured values, and the readers found inside and outside the paths of the task. A measured value is tied to the test case that prints it and not to a log file. The record names no verification tool and none of its commands, no path of the qualification environment, no log file and no file under a temporary directory. It does not narrate the attempts and it does not name its own revision: the commit that carries the record is its revision. A record on main that breaks this rule is repaired by a task of its own. The place of record files in the repository stays an open owner point and is not changed here."
+basis = "Gotcha 4243, decisions 3052 and 3255."
+affects = ["22.39.391", "22.38.36"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42648,6 +42654,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.391]
+title = "Strip the wording of the verification tool from the record of the block-end transition task"
+reqs = ["22998.1"]
+touches = ["modules/lxphost/repair_22_39_387.kvx"]
+tests = []
+verification_contract = "test -s modules/lxphost/repair_22_39_387.kvx && ! grep -q -E '^(evidence|qualification_repair)' modules/lxphost/repair_22_39_387.kvx && ! grep -q -E '[/]tmp[/]|[/]work[/]|[/]out[/]|spec done' modules/lxphost/repair_22_39_387.kvx && for k in task cause selected_state simulation call_site first_block inputs failure cost idle_block_keys inside_reader outside_reader generated_expectations; do grep -q -e ^$k.= modules/lxphost/repair_22_39_387.kvx || exit 1; done"
+do_1 = "do_1 Decision 3313, gotcha 4243. In modules/lxphost/repair_22_39_387.kvx remove the keys evidence, qualification_repair and qualification_repair_2. In the key cost keep the two measured values and the name of the case TestBlockEndTransitionRunsOncePerBlock and remove the clause that names a log file under a temporary directory. Change no other key and no other file."
+symbols = []
 
 [capability.22.39.390]
 title = "Build the call terms of a value operation of the AI market in the client library"
@@ -186759,6 +186774,7 @@ do_8 = "Attempt 6 (continue, gotcha 4231, decision 3301): the attempt-5 tree d36
 do_9 = "Attempt 8 (continue, gotcha 4235, decision 3306): the attempt-7 tree 7758669f073c stands (the fee schedule, the metering schedule and the funding accounts in the genesis of the isolated chain, the driver, the example of layerx-client, the changes of the envelope program). The room proof deploys the program and stops at the first account registration with LXP_ERR_VERSION_UNSUPPORTED, because a program deployed at ABI 5 holds no account profile record (src/modules/programs/accounts.c:432). Do not change the account module, the precompile or any product source, and write no record into the store or the genesis. Change the deploy step of the driver to the order that the case abi5_registered_before_deploy of tests/programs/test_programs_abi5_admission.c:504 states, one transaction of the host account per step. First the deploy method at ABI 2 with policy 1, an empty interface and a small guest that the ABI 2 validation admits. Then the registerAccount method with profile 2 for the rewards account of the market, which writes the profile record (accounts.c:1077; the deployment binds the owner at deploy.c:534, and the asset of the registration must be registered on the chain before this step). Then the upgrade method of the precompile (precompiles/layerxprograms/LayerXPrograms.sol:292) to ABI 5, without the migration flag and without the breaking flag, with the code hash of the first guest as the old hash, the code hash of the AI market guest as the new hash, an empty migration argument, an empty interface and the AI market guest of programs/crates/layerx-programs-ai-market/tests/fixtures/ai-market-opt-z.hex. After the upgrade the driver reads getProgram and requires ABI 5, the code hash of the AI market guest and the active flag, and the registration in the market opening keeps profile 1 (decision 2736). The small guest is held as bytes in the driver or produced by the example of layerx-client; integer_guest of programs/crates/layerx-programs-runtime/src/market_tests.rs:424 is a module that the ABI 2 validation admits. Prove the three steps against the loopback chain outside the counted gates before the counted verification (decision 3286). A refusal of the deployment at ABI 2, of the registration with profile 2 or of the upgrade whose cause sits in a product source is recorded with the method, the revert text, the file and the line, and the attempt stops there. When the proof passes the registration and stops at a later step of the room for a cause inside the paths, repair it within the allowed cycle; a cause outside the paths is recorded the same way. Save the three transactions and the read after the upgrade in the evidence directory beside the deployment record. Run the build once and the verification once at the final revision."
 do_10 = "Attempt 9 (continue after 22.39.386 and 22.39.387 land, gotchas 4236 and 4237, decisions 3307 and 3308): the attempt-8 tree 949f22eb4b3b stands (the deployment at ABI 2, the registration with profile 2, the upgrade to ABI 5, the fee limit taken from quoteCallFee, the example of layerx-client, the changes of the envelope program and of the fixture). The three steps of decision 3306 commit on the isolated chain. The CreateMarket call is refused as non canonical because the example builds the native call with empty capability bytes and an empty access declaration (services/agent/crates/layerx-client/examples/inference_room_writes.rs:392 to :412). The task now requires tasks 22.39.386 and 22.39.387; rebase on main once both are on it, and settle services/agent/Cargo.lock by letting cargo write it again, never by hand. In the example take the capability bytes and the access declaration of every operation from the function market_call_terms of the client library and write no such byte by hand; set the response capacity to 16384. Change nothing for the block-end occupancy transition: the node runs it after task 22.39.387, so a call at a later height is admitted. When a call at a later height is still refused, record the height, the result code and the last 150 lines of the native log of the node, and stop. The tail of the verification command found no native log, so the driver itself prints the last 150 lines of the native log of the node when a transaction reverts, and the record names the path of that log. The room proof funds through the pay stream and runs no value operation of the program; when a step needs a FUND, a CLAIM or a payout of the program, record it and stop (decision 3309). Change no product source outside the paths. Run every part of the chained verification outside the counted gates until clean (decision 3286), then run the build once and the verification once at the final revision."
 do_11 = "do_11 Decisions 3310 to 3312, gotchas 4240 and 4241: the note for attempt 9 is wrong where it says that the room proof runs no value operation of the program. The driver sends the LockBond operation for each peer, and that operation is a deposit. The task now requires tasks 22.39.389 and 22.39.390. Take the two fields of every value operation from the function market_value_call_terms of the client library, with a Transfer402 grant for the amount of the bond, and the two fields of every other operation from market_call_terms. A value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
+do_12 = "do_12 Decision 3313, gotcha 4243: the record of this task states product facts only. It names no verification tool and none of its commands, no path of the qualification environment, no log file and no file under a temporary directory, and it does not narrate the attempts."
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
@@ -354636,6 +354652,35 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.39.391]
+title = "Strip the wording of the verification tool from the record of the block-end transition task"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.387"]
+reqs = ["22998.1"]
+capabilities = ["22.39.391"]
+interfaces = []
+do_1 = "do_1 Decision 3313, gotcha 4243. In modules/lxphost/repair_22_39_387.kvx remove the keys evidence, qualification_repair and qualification_repair_2. In the key cost keep the two measured values and the name of the case TestBlockEndTransitionRunsOncePerBlock and remove the clause that names a log file under a temporary directory. Change no other key and no other file."
+do_2 = "do_2 Read the kept keys once against the tree. Where a line number that the keys cause, inside_reader or outside_reader name no longer holds on the base of the attempt, correct the number and nothing else. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["modules/lxphost/repair_22_39_387.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "test -s modules/lxphost/repair_22_39_387.kvx"
+verify_cmd = "test -s modules/lxphost/repair_22_39_387.kvx && ! grep -q -E '^(evidence|qualification_repair)' modules/lxphost/repair_22_39_387.kvx && ! grep -q -E '[/]tmp[/]|[/]work[/]|[/]out[/]|spec done' modules/lxphost/repair_22_39_387.kvx && for k in task cause selected_state simulation call_site first_block inputs failure cost idle_block_keys inside_reader outside_reader generated_expectations; do grep -q -e ^$k.= modules/lxphost/repair_22_39_387.kvx || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.345]
 title = "Describe the version 2 account-bound evidence and identity destinations in the programs documents"
