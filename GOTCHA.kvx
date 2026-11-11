@@ -21195,3 +21195,8 @@ fix = "Decision 3354."
 title = "A source file that a test target of another member includes by path resolves crate paths in the including crate"
 symptom = "A reference written as crate::name inside such a file names a module of the including crate, which need not hold that module."
 fix = "Decision 3356."
+
+[gotcha.4275]
+title = "The library, an example and the fuel cases of the AI market program compile one support fixture source through a path include"
+symptom = "The file tests/support/repair_478_fixture.rs of the program is declared by path in src/lib.rs, in the example of the same name and in tests/fuel_budget.rs."
+fix = "Decision 3358."
