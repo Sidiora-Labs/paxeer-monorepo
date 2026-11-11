@@ -2887,46 +2887,71 @@ programs-check-capability-fixture:
 		(cd programs && $(PROGRAMS_CARGO) run --locked -p layerx-programs-runtime --example capability_fixture) > "$$temporary" && \
 		cmp "$$temporary" sdk/platform/conformance/fixtures/native-program-capabilities-v2.json
 
+PROGRAMS_TEST_TARGETS := \
+	$(BUILD_DIR)/tests/programs_registration \
+	$(BUILD_DIR)/tests/programs_lifecycle \
+	$(BUILD_DIR)/tests/programs_monetary_law \
+	$(BUILD_DIR)/tests/programs_transfer_principal \
+	$(BUILD_DIR)/tests/programs_call_escrow_principal \
+	$(BUILD_DIR)/tests/programs_call_activity \
+	$(BUILD_DIR)/tests/programs_metered_call \
+	$(BUILD_DIR)/tests/test_programs_oracle_read \
+	$(BUILD_DIR)/tests/test_web_program_path \
+	$(BUILD_DIR)/tests/programs_metering_schedule \
+	$(BUILD_DIR)/tests/programs_accounts \
+	$(BUILD_DIR)/tests/programs_winddown \
+	$(BUILD_DIR)/tests/lxp_test_blob_lifecycle \
+	$(BUILD_DIR)/tests/test_programs_abi5_admission \
+	$(BUILD_DIR)/tests/paxai_host_boundary \
+	$(BUILD_DIR)/tests/lxp_test_blob_admission \
+	$(BUILD_DIR)/tests/lxp_test_paxai_native_gaps \
+	$(BUILD_DIR)/tests/programs_parallel_differential \
+	$(BUILD_DIR)/tests/test_call_builders
+PROGRAMS_TEST_DEPFLAGS = -MMD -MP -MF $@.d -MT $@
+
+$(PROGRAMS_TEST_TARGETS): Makefile
+-include $(PROGRAMS_TEST_TARGETS:=.d)
+
 $(BUILD_DIR)/tests/programs_registration: tests/programs/test_registration.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_lifecycle: tests/programs/test_lifecycle.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_monetary_law: tests/programs/test_monetary_law.c \
 		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_transfer_principal: tests/programs/test_transfer_principal.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_call_escrow_principal: tests/programs/test_call_escrow_principal.c \
 		src/modules/programs/call.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_call_activity: tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_metered_call: tests/programs/test_metered_call.c \
 		tests/programs/test_call_activity.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 .PHONY: test-programs-metered-call
@@ -2937,7 +2962,7 @@ $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c 
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2961,7 +2986,7 @@ $(BUILD_DIR)/tests/test_web_program_path: tests/test_web_program_path.c \
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2984,25 +3009,25 @@ programs-check-executed-v4-fixture: programs-build
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_accounts: tests/programs/test_accounts.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_winddown: tests/programs/test_winddown.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/lxp_test_blob_lifecycle: tests/programs/test_blob_lifecycle.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-paxai-blob-lifecycle: $(BUILD_DIR)/tests/lxp_test_blob_lifecycle
@@ -3011,7 +3036,7 @@ test-paxai-blob-lifecycle: $(BUILD_DIR)/tests/lxp_test_blob_lifecycle
 $(BUILD_DIR)/tests/test_programs_abi5_admission: tests/programs/test_programs_abi5_admission.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 .PHONY: test-programs-abi5-admission
@@ -3024,7 +3049,7 @@ PAXAI_HOST_BOUNDARY_DIR := $(BUILD_DIR)/paxai-host-boundary
 $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 paxai-host-boundary: paxai-host-boundary-build
@@ -3042,7 +3067,7 @@ paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
 $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3051,7 +3076,7 @@ PAXAI_FUNDED_SCRIPT ?=
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3101,7 +3126,7 @@ $(BUILD_DIR)/tests/programs_parallel_differential: programs/tests/differential/p
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) programs/tests/differential/parallel.c \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) programs/tests/differential/parallel.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -3258,7 +3283,7 @@ test-module-registry: layerx-module-registry
 .PHONY: test-program-call-builders
 $(BUILD_DIR)/tests/test_call_builders: tests/programs/test_call_builders.c src/modules/programs/call.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-program-call-builders: $(BUILD_DIR)/tests/test_call_builders
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_call_builders
