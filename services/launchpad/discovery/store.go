@@ -6,9 +6,10 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"time"
 )
 
 //go:embed schema.sql
@@ -23,7 +24,7 @@ func lock(ctx context.Context, tx *sql.Tx, key string) error {
 	_, e := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,210021))`, key)
 	return e
 }
-func (s Store) transaction(ctx context.Context, fn func(*sql.Tx) error) error {
+func (s Store) transaction(ctx context.Context, fn func(*sql.Tx) error) (err error) {
 	if s.DB == nil {
 		return ErrUnavailable
 	}
@@ -31,7 +32,11 @@ func (s Store) transaction(ctx context.Context, fn func(*sql.Tx) error) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback()
+	defer func() {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+			err = errors.Join(err, rollbackErr)
+		}
+	}()
 	if e = fn(tx); e != nil {
 		return e
 	}
@@ -72,13 +77,13 @@ func (s Store) Apply(ctx context.Context, consumer, event string, next SourceRef
 		return e
 	})
 }
-func (s Store) Sources(ctx context.Context, now time.Time) ([]SourceRef, error) {
+func (s Store) Sources(ctx context.Context, now time.Time) (out []SourceRef, err error) {
 	rows, e := s.DB.QueryContext(ctx, `SELECT document FROM narrative_discovery.sources WHERE observed_at>=$1 AND observed_at<=$2 ORDER BY published_at DESC,event_id LIMIT 2000`, now.Add(-60*time.Second), now)
 	if e != nil {
 		return nil, e
 	}
-	defer rows.Close()
-	out := []SourceRef{}
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	out = []SourceRef{}
 	for rows.Next() {
 		var b []byte
 		var ref SourceRef
@@ -132,13 +137,11 @@ func (s Store) DeleteAccount(ctx context.Context, account string) error {
 				e = json.Unmarshal(b, &c)
 			}
 			if e != nil {
-				rows.Close()
-				return e
+				return errors.Join(e, rows.Close())
 			}
 			callouts = append(callouts, c)
 		}
-		e = rows.Err()
-		rows.Close()
+		e = errors.Join(rows.Err(), rows.Close())
 		if e != nil {
 			return e
 		}
