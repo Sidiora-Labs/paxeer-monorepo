@@ -1,0 +1,48 @@
+[repair.22.39.388]
+criterion = "22998.1"
+base_revision = "730e92f124673aff9fe357c3db535e66f226e647"
+verified_revision = "HEAD at hf-done, whose candidate hash is recorded in its gate evidence"
+fixture = "The production packaged AI market guest and the host fixture of TestRepair478_FundWithinProductionAllowance; each candidate starts with independent state."
+height_h = 1002
+result = "No candidate whose receipt a sender can name from committed blocks and whose ordering a live block can produce is admitted."
+
+[candidate.last_activity_of_H]
+receipt_named = "CREATE_MARKET, the last activity of H"
+receipt_global_sequence = 1008
+next_global_sequence_at_call = 1010
+result_code = -3
+sender_can_name_before_call_block = true
+live_order = true
+
+[candidate.transition_bytes]
+receipt_named = "The occupancy transition bytes returned at the end of H; the canonical receipt decoder refuses their occupancy-specific shape."
+receipt_global_sequence = 1009
+next_global_sequence_at_call = 1010
+result_code = "decoder: layerx codec: not a full protocol receipt"
+sender_can_name_before_call_block = false
+live_order = true
+
+[candidate.anchor_before_transition]
+receipt_named = "Existing account registration anchor before the transition of H"
+receipt_global_sequence = 1009
+next_global_sequence_at_call = 1011
+result_code = -3
+sender_can_name_before_call_block = true
+live_order = true
+
+[candidate.anchor_first_in_next_block]
+receipt_named = "Existing account registration anchor first in H+1"
+receipt_global_sequence = 1010
+next_global_sequence_at_call = 1011
+result_code = -3
+sender_can_name_before_call_block = false
+anchor_receipt_digest_computable_before_call_block = false
+live_order = true
+
+[candidate.kernel_control]
+receipt_named = "Existing account registration anchor after the transition of H"
+receipt_global_sequence = 1010
+next_global_sequence_at_call = 1011
+result_code = 0
+sender_can_name_before_call_block = true
+live_order = false
