@@ -1,12 +1,4 @@
-// Repair record 22.33.1436: release-go-fixture-module is covered by
-// go_fixture_matches_the_canonical_publication and go_archive_fetch_preserves_digest_refusals.
-// Baseline: not executed; the ordered bounded gates prohibit a pre-change verify run.
-// main.rs re-exports the production library fetcher; its TLS qualification helper
-// is not included in this integration target (see the repair record).
-// Wiring request (domain 8): tools/platform/release/src/fetch.rs needs an injectable
-// TLS trust/resolver interface for an offline proof at the canonical HTTPS locator.
-// The loopback proof below uses the existing simple-index transport explicitly;
-// it does not certify Go's external proxy or the workflow's Go/Git toolchains.
+// The Go module fixture checks publication and registry download behavior.
 
 #[allow(dead_code)]
 #[path = "../src/main.rs"]
@@ -19,6 +11,7 @@ mod fixture;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::path::Path;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -45,18 +38,21 @@ impl Registry {
     fn start(canonical_location: &str, bytes: Vec<u8>, status: u16) -> Self {
         let path = canonical_location
             .strip_prefix("https://")
-            .expect("canonical registry HTTPS URL")
+            .unwrap_or_else(|| panic!("canonical registry HTTPS URL"))
             .split_once('/')
-            .expect("canonical module path")
+            .unwrap_or_else(|| panic!("canonical module path"))
             .1;
         let path = format!("/{path}");
         let archive_path = path;
         let index_path = format!("/publications/{}/", GoFixture::load(VERSION).tag);
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback registry");
-        let address = listener.local_addr().expect("registry address");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("loopback registry: {error:?}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("registry address: {error:?}"));
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .unwrap_or_else(|error| panic!("nonblocking listener: {error:?}"));
         let requests = Arc::new(Mutex::new(Vec::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let location = format!("simple+http://{address}{index_path}");
@@ -74,21 +70,25 @@ impl Registry {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("request deadline");
+                    .unwrap_or_else(|error| panic!("request deadline: {error:?}"));
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("response deadline");
+                    .unwrap_or_else(|error| panic!("response deadline: {error:?}"));
                 let mut reader = BufReader::new(&mut stream);
                 let mut line = String::new();
-                reader.read_line(&mut line).expect("HTTP request line");
+                reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("HTTP request line: {error:?}"));
                 let requested = line
                     .split_whitespace()
                     .nth(1)
-                    .expect("request target")
+                    .unwrap_or_else(|| panic!("request target"))
                     .to_owned();
                 loop {
                     line.clear();
-                    reader.read_line(&mut line).expect("HTTP request headers");
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("HTTP request headers: {error:?}"));
                     if line == "\r\n" || line.is_empty() {
                         break;
                     }
@@ -96,7 +96,7 @@ impl Registry {
                 drop(reader);
                 recorded
                     .lock()
-                    .expect("request log")
+                    .unwrap_or_else(|error| panic!("request log: {error:?}"))
                     .push(requested.clone());
                 let (code, body) = if requested == index_path {
                     (
@@ -112,8 +112,10 @@ impl Registry {
                     "HTTP/1.1 {code} Fixture\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 )
-                .expect("registry response headers");
-                stream.write_all(&body).expect("registry response body");
+                .unwrap_or_else(|error| panic!("registry response headers: {error:?}"));
+                stream
+                    .write_all(&body)
+                    .unwrap_or_else(|error| panic!("registry response body: {error:?}"));
             }
         });
         Self {
@@ -130,9 +132,9 @@ impl Drop for Registry {
         self.stop.store(true, Ordering::SeqCst);
         self.worker
             .take()
-            .expect("registry thread")
+            .unwrap_or_else(|| panic!("registry thread"))
             .join()
-            .expect("registry completed");
+            .unwrap_or_else(|error| panic!("registry completed: {error:?}"));
     }
 }
 
@@ -157,14 +159,15 @@ fn go_fixture_matches_the_canonical_publication() {
         .artifacts
         .iter()
         .find(|entry| entry.registry == "go-modules")
-        .expect("emitted Go artifact");
+        .unwrap_or_else(|| panic!("emitted Go artifact"));
     assert_eq!(entry.name, go.module);
     assert_eq!(entry.location, go.location);
     assert_eq!(entry.artifact, format!("v{VERSION}.zip"));
     assert_eq!(entry.digest_of, "registry-bytes");
     assert_eq!(entry.digest, release::sha256_digest(ARCHIVE));
     assert_eq!(
-        fs::read(produced.release_dir.join(&entry.retained)).expect("retained Go zip"),
+        fs::read(produced.release_dir.join(&entry.retained))
+            .unwrap_or_else(|error| panic!("retained Go zip: {error:?}")),
         ARCHIVE
     );
 }
@@ -179,16 +182,18 @@ fn go_archive_fetch_preserves_digest_refusals() {
         .artifacts
         .iter()
         .find(|entry| entry.registry == "go-modules")
-        .expect("published Go archive");
+        .unwrap_or_else(|| panic!("published Go archive"));
     assert_eq!(published.location, go.location);
     let archive = fs::read(produced.release_dir.join(&published.retained))
-        .expect("archive retained by the manifest producer");
+        .unwrap_or_else(|error| panic!("archive retained by the manifest producer: {error:?}"));
     assert_eq!(archive, ARCHIVE);
     let into = produced.downloads.join("fetched");
     for (case, status) in [("matching", 200), ("tampered", 200), ("missing", 404)] {
         let mut bytes = archive.clone();
         if case == "tampered" {
-            *bytes.last_mut().expect("nonempty Go archive") ^= 1;
+            *bytes
+                .last_mut()
+                .unwrap_or_else(|| panic!("nonempty Go archive")) ^= 1;
         }
         let registry = Registry::start(&go.location, bytes, status);
         let mut manifest = canonical.clone();
@@ -201,13 +206,15 @@ fn go_archive_fetch_preserves_digest_refusals() {
         manifest.artifacts[0]
             .location
             .clone_from(&registry.location);
-        let wire = render_artifact_manifest(&manifest).expect("real manifest encoder");
-        let received = parse_artifact_manifest(&wire).expect("real manifest decoder");
+        let wire = render_artifact_manifest(&manifest)
+            .unwrap_or_else(|error| panic!("real manifest encoder: {error:?}"));
+        let received = parse_artifact_manifest(&wire)
+            .unwrap_or_else(|error| panic!("real manifest decoder: {error:?}"));
         let destination = into
             .join("go-modules")
             .join(&received.artifacts[0].artifact);
         if destination.exists() {
-            fs::remove_file(&destination).expect("fresh fetch");
+            fs::remove_file(&destination).unwrap_or_else(|error| panic!("fresh fetch: {error:?}"));
         }
         let result = release_pipeline_verify(
             &received,
@@ -215,16 +222,23 @@ fn go_archive_fetch_preserves_digest_refusals() {
             Some(REVISION),
         );
         if case == "matching" {
-            let verified = result.expect("matching fetched module");
+            let verified =
+                result.unwrap_or_else(|error| panic!("matching fetched module: {error:?}"));
             assert_eq!(verified.artifacts.len(), 1);
             assert_eq!(verified.artifacts[0].name, go.module);
             assert_eq!(
                 verified.artifacts[0].digest,
                 release::sha256_digest(ARCHIVE)
             );
-            assert_eq!(fs::read(&destination).expect("downloaded archive"), ARCHIVE);
+            assert_eq!(
+                fs::read(&destination)
+                    .unwrap_or_else(|error| panic!("downloaded archive: {error:?}")),
+                ARCHIVE
+            );
         } else {
-            let error = result.expect_err("registry refusal must halt release");
+            let error = result
+                .err()
+                .unwrap_or_else(|| panic!("registry refusal must halt release"));
             assert!(
                 error.contains(&format!("{}@{VERSION} from go-modules", go.module)),
                 "{error}"
@@ -247,16 +261,23 @@ fn go_archive_fetch_preserves_digest_refusals() {
             "/{}",
             go.location
                 .strip_prefix("https://")
-                .expect("published HTTPS locator")
+                .unwrap_or_else(|| panic!("published HTTPS locator"))
                 .split_once('/')
-                .expect("published module path")
+                .unwrap_or_else(|| panic!("published module path"))
                 .1
         );
         assert_eq!(
-            *registry.requests.lock().expect("request log"),
+            *registry
+                .requests
+                .lock()
+                .unwrap_or_else(|error| panic!("request log: {error:?}")),
             [format!("/publications/{}/", go.tag), archive_path]
         );
     }
+    assert_go_publication_prerequisites(&canonical, &into);
+}
+
+fn assert_go_publication_prerequisites(canonical: &release::ArtifactManifest, into: &Path) {
     for reason in ["unpublished", "unchecked", "source-archive"] {
         let mut manifest = canonical.clone();
         manifest
@@ -266,15 +287,16 @@ fn go_archive_fetch_preserves_digest_refusals() {
         match reason {
             "unpublished" => entry.published = false,
             "unchecked" => entry.install_check = false,
-            "source-archive" => entry.digest_of = "source-archive".to_owned(),
+            "source-archive" => "source-archive".clone_into(&mut entry.digest_of),
             _ => unreachable!(),
         }
         let error = release_pipeline_verify(
             &manifest,
-            ArtifactSource::Registries { into: &into },
+            ArtifactSource::Registries { into },
             Some(REVISION),
         )
-        .expect_err("publication prerequisites must halt before any fetch");
+        .err()
+        .unwrap_or_else(|| panic!("publication prerequisites must halt before any fetch"));
         let expected = match reason {
             "unpublished" => "was not published",
             "unchecked" => "install check from the registry did not pass",
