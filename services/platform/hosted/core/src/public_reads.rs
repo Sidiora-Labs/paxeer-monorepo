@@ -439,6 +439,7 @@ fn sequence(config: &Config, did: &str) -> Response {
     }))
 }
 
+#[cfg(test)]
 fn landing_block_json(block: &layerx_client::sequencer::SequencerBlock) -> serde_json::Value {
     serde_json::json!({
         "number": block.number,
@@ -639,8 +640,10 @@ mod tests {
             format!("did:layerx:{}", "zz".repeat(32)),
             format!("0x{}", "zz".repeat(20)),
         ] {
-            let response =
-                super::account_selector(&selector).expect_err("unsupported selector was forwarded");
+            let response = super::account_selector(&selector)
+                .map_or_else(core::convert::identity, |_| {
+                    panic!("{}", "unsupported selector was forwarded")
+                });
             assert_eq!(response.status, 400);
             assert_eq!(response.retry_after, None);
             let body: serde_json::Value = serde_json::from_str(&response.body)

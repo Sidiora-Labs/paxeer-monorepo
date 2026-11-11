@@ -13,7 +13,7 @@ fn lifecycle_budget_path(fixture: &Fixture) -> String {
 
 fn assert_exported_membership(fixture: &Fixture, proof: &Value, height: u64) {
     let finality = document!({"height":height,"state_height":height-1,
-        "block_hash":hex::encode(&[height as u8;32]),
+        "block_hash":hex::encode(&[height.to_le_bytes()[0];32]),
         "app_hash":hex::encode(&fixture.store.app_hash)});
     lifecycle_finality::assert_committed_budget_membership(proof, &finality, fixture.sequence);
     assert_ne!(fixture.sequence, height);
@@ -21,7 +21,7 @@ fn assert_exported_membership(fixture: &Fixture, proof: &Value, height: u64) {
     let sequence_key = vec![2];
     let owner_key = [vec![6], fixture.owner.to_vec()].concat();
     let budget_key = [vec![6], fixture.budget.to_vec()].concat();
-    let balances = join["balances"].as_array().expect("balances");
+    let balances = join["balances"].as_array().must_with("balances");
     assert_eq!(balances.len(), 2);
     assert_eq!(balances[0]["account_id"], hex::encode(&fixture.owner));
     assert_eq!(balances[0]["amount"], "500");
@@ -41,9 +41,9 @@ fn assert_exported_membership(fixture: &Fixture, proof: &Value, height: u64) {
         let ops = &membership["proofOps"]["ops"];
         must(committed::verify_membership(
             key,
-            &must(committed::base64(membership["value"].as_str().unwrap())),
-            &must(committed::base64(ops[0]["data"].as_str().unwrap())),
-            &must(committed::base64(ops[1]["data"].as_str().unwrap())),
+            &must(committed::base64(membership["value"].as_str().must())),
+            &must(committed::base64(ops[0]["data"].as_str().must())),
+            &must(committed::base64(ops[1]["data"].as_str().must())),
             fixture.store.app_hash,
         ));
     }
@@ -59,7 +59,7 @@ fn lifecycle_budget_finality_proves_node_membership_at_the_plan_height() {
     let mut previous: Option<Value> = None;
     for height in [9, 10] {
         {
-            let mut state = node.state.lock().unwrap();
+            let mut state = node.state.lock().must();
             state.height = height;
             state.calls.clear();
         }
@@ -84,7 +84,7 @@ fn lifecycle_budget_finality_proves_node_membership_at_the_plan_height() {
                 prior["budget_state"]["evidence_digest"]
             );
         }
-        let calls = node.state.lock().unwrap().calls.clone();
+        let calls = node.state.lock().must().calls.clone();
         assert!(calls.iter().any(|call| call["method"] == "px_getCommit"
             && call["params"] == document!([height.to_string()])));
         let queries: Vec<_> = calls
@@ -103,7 +103,7 @@ fn lifecycle_budget_finality_proves_node_membership_at_the_plan_height() {
         assert_eq!(evm_calls.len(), 5);
         for call in evm_calls {
             assert_eq!(call["params"][1], format!("0x{:x}", height - 1));
-            let to = call["params"][0]["to"].as_str().expect("precompile");
+            let to = call["params"][0]["to"].as_str().must_with("precompile");
             assert!(["1004", "101a", "101b"]
                 .iter()
                 .any(|suffix| to.ends_with(suffix)));

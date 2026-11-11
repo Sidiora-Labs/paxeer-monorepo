@@ -231,6 +231,3 @@ fn malformed_state_module_version_and_signature_are_refused() {
         Err(EvidenceRefusal::ReceiptDecode)
     );
 }
-
-#[path = "lifecycle_finality.rs"]
-mod lifecycle_finality;

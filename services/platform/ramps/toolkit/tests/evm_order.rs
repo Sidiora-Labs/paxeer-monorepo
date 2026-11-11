@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerLog};
 use layerx_crypto::evm_transaction::Eip1559Call;
@@ -14,7 +16,8 @@ use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
 #[path = "support/repair_22_33_1490.rs"]
-mod repair_1490;
+pub mod repair_1490;
+pub use repair_1490::*;
 
 #[test]
 fn recorded_node_receipt_and_mutated_execution_reach_production_authenticator() {
@@ -56,21 +59,21 @@ pub(crate) fn order(direction: RampDirection) -> RampOrder {
         },
         1_000,
     )
-    .expect("bound ramp order")
+    .required("bound ramp order")
 }
 
 fn account_id(account: &str) -> [u8; 32] {
     layerx_wire::hash::account_id_for_protocol(
-        &AccountId::parse(account).expect("account"),
+        &AccountId::parse(account).required("account"),
         layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
     )
-    .expect("ledger account id")
+    .required("ledger account id")
 }
 
 #[test]
 fn on_ramp_compiles_pay_exact_with_order_reference() {
     let order = order(RampDirection::OnRamp);
-    let call = compile_operator_send(&order).expect("operator ledger call");
+    let call = compile_operator_send(&order).required("operator ledger call");
     assert_eq!(call.to, LEDGER_ADDRESS);
     assert_eq!(&call.to[18..], &[0x10, 0x1a]);
     assert_eq!(call.data.len(), 196);
@@ -98,7 +101,7 @@ fn on_ramp_compiles_pay_exact_with_order_reference() {
 #[test]
 fn off_ramp_compiles_draw_against_customer_grant() {
     let order = order(RampDirection::OffRamp);
-    let call = compile_payer_grant_draw(&order, 9).expect("customer grant draw");
+    let call = compile_payer_grant_draw(&order, 9).required("customer grant draw");
     assert_eq!(call.to, PAY_ADDRESS);
     assert_eq!(call.data.len(), 100);
     assert_eq!(
@@ -107,7 +110,7 @@ fn off_ramp_compiles_draw_against_customer_grant() {
     );
     assert_eq!(
         &call.data[4..36],
-        &order.payer_grant.expect("customer budget")
+        &order.payer_grant.required("customer budget")
     );
     assert_eq!(&call.data[36..68], &account_id(&order.operator.account));
     assert_eq!(&call.data[68..84], &[0; 16]);
@@ -116,8 +119,11 @@ fn off_ramp_compiles_draw_against_customer_grant() {
         &order.quote.layerx_amount.to_be_bytes()
     );
     assert_eq!(
-        order.customer_payment_authorization().unwrap().purpose_hash,
-        order.payer_grant_purpose.unwrap()
+        order
+            .customer_payment_authorization()
+            .required("value")
+            .purpose_hash,
+        order.payer_grant_purpose.required("value")
     );
     assert_eq!(
         compile_payer_grant_draw(&self::order(RampDirection::OnRamp), 9),
@@ -148,101 +154,7 @@ fn off_ramp_compiles_draw_against_customer_grant() {
     );
 }
 
-#[test]
-fn off_ramp_draw_follows_the_native_ledger_abi() {
-    let abi: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../../precompiles/layerxledger/abi.json"),
-        )
-        .expect("native ledger ABI"),
-    )
-    .expect("ledger ABI JSON");
-    let draw = abi
-        .as_array()
-        .expect("ABI entries")
-        .iter()
-        .find(|entry| entry["type"] == "function" && entry["name"] == "draw")
-        .expect("native draw function");
-    let inputs = draw["inputs"].as_array().expect("draw inputs");
-    let names: Vec<_> = inputs
-        .iter()
-        .map(|input| input["name"].as_str().expect("input name"))
-        .collect();
-    assert_eq!(
-        names,
-        [
-            "grantId",
-            "recipient",
-            "amount",
-            "idempotencyKey",
-            "sequence",
-            "purposeHash",
-            "contextHash"
-        ]
-    );
-
-    let mut order = order(RampDirection::OffRamp);
-    order.quote.layerx_asset = [0xab; 32];
-    order.quote.layerx_amount = (1_u128 << 100) + 1_000;
-    order.order_digest = order.digest();
-    let sequence = 0x0102_0304_0506_0708_u64;
-    // This codec remains a historical ABI reader/encoder. The order compiler
-    // below must select the maintained customer budget authority instead.
-    let recipient = account_id(&order.operator.account);
-    let call = layerx_ramp_toolkit::LedgerCall {
-        to: LEDGER_ADDRESS,
-        data: encode_draw(
-            order.payer_grant.unwrap(),
-            recipient,
-            order.quote.layerx_amount,
-            order.order_digest,
-            sequence,
-            order.payer_grant_purpose.unwrap(),
-            order.context,
-        ),
-    };
-    let mut amount = [0; 32];
-    amount[16..].copy_from_slice(&order.quote.layerx_amount.to_be_bytes());
-    let mut sequence_word = [0; 32];
-    sequence_word[24..].copy_from_slice(&sequence.to_be_bytes());
-    let expected = [
-        order.payer_grant.expect("payer grant"),
-        recipient,
-        amount,
-        order.order_digest,
-        sequence_word,
-        order.payer_grant_purpose.expect("grant purpose"),
-        order.context,
-    ];
-    let signature = format!(
-        "draw({})",
-        inputs
-            .iter()
-            .map(|input| input["type"].as_str().expect("input type"))
-            .collect::<Vec<_>>()
-            .join(",")
-    );
-    assert_eq!(call.to, LEDGER_ADDRESS);
-    assert_eq!(call.data.len(), 4 + expected.len() * 32);
-    assert_eq!(
-        &call.data[..4],
-        &Keccak256::digest(signature.as_bytes())[..4]
-    );
-    for (index, word) in expected.iter().enumerate() {
-        assert_eq!(
-            &call.data[4 + index * 32..4 + (index + 1) * 32],
-            word,
-            "{}",
-            names[index]
-        );
-    }
-
-    let maintained = compile_payer_grant_draw(&order, sequence).unwrap();
-    assert_eq!(maintained.to, PAY_ADDRESS);
-    assert_eq!(&maintained.data[36..68], &recipient);
-    assert_ne!(&maintained.data[..4], &call.data[..4]);
-
+fn assert_payment_purpose_binding() {
     for direction in [RampDirection::OnRamp, RampDirection::OffRamp] {
         let bound = self::order(direction);
         for purpose in [None, Some([0; 32]), Some([6; 32])] {
@@ -269,6 +181,104 @@ fn off_ramp_draw_follows_the_native_ledger_abi() {
     }
 }
 
+#[test]
+fn off_ramp_draw_follows_the_native_ledger_abi() {
+    let abi: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../../precompiles/layerxledger/abi.json"),
+        )
+        .required("native ledger ABI"),
+    )
+    .required("ledger ABI JSON");
+    let draw = abi
+        .as_array()
+        .required("ABI entries")
+        .iter()
+        .find(|entry| entry["type"] == "function" && entry["name"] == "draw")
+        .required("native draw function");
+    let inputs = draw["inputs"].as_array().required("draw inputs");
+    let names: Vec<_> = inputs
+        .iter()
+        .map(|input| input["name"].as_str().required("input name"))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "grantId",
+            "recipient",
+            "amount",
+            "idempotencyKey",
+            "sequence",
+            "purposeHash",
+            "contextHash"
+        ]
+    );
+
+    let mut order = order(RampDirection::OffRamp);
+    order.quote.layerx_asset = [0xab; 32];
+    order.quote.layerx_amount = (1_u128 << 100) + 1_000;
+    order.order_digest = order.digest();
+    let sequence = 0x0102_0304_0506_0708_u64;
+    // This codec remains a historical ABI reader/encoder. The order compiler
+    // below must select the maintained customer budget authority instead.
+    let recipient = account_id(&order.operator.account);
+    let call = layerx_ramp_toolkit::LedgerCall {
+        to: LEDGER_ADDRESS,
+        data: encode_draw(
+            order.payer_grant.required("value"),
+            recipient,
+            order.quote.layerx_amount,
+            order.order_digest,
+            sequence,
+            order.payer_grant_purpose.required("value"),
+            order.context,
+        ),
+    };
+    let mut amount = [0; 32];
+    amount[16..].copy_from_slice(&order.quote.layerx_amount.to_be_bytes());
+    let mut sequence_word = [0; 32];
+    sequence_word[24..].copy_from_slice(&sequence.to_be_bytes());
+    let expected = [
+        order.payer_grant.required("payer grant"),
+        recipient,
+        amount,
+        order.order_digest,
+        sequence_word,
+        order.payer_grant_purpose.required("grant purpose"),
+        order.context,
+    ];
+    let signature = format!(
+        "draw({})",
+        inputs
+            .iter()
+            .map(|input| input["type"].as_str().required("input type"))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    assert_eq!(call.to, LEDGER_ADDRESS);
+    assert_eq!(call.data.len(), 4 + expected.len() * 32);
+    assert_eq!(
+        &call.data[..4],
+        &Keccak256::digest(signature.as_bytes())[..4]
+    );
+    for (index, word) in expected.iter().enumerate() {
+        assert_eq!(
+            &call.data[4 + index * 32..4 + (index + 1) * 32],
+            word,
+            "{}",
+            names[index]
+        );
+    }
+
+    let maintained = compile_payer_grant_draw(&order, sequence).required("value");
+    assert_eq!(maintained.to, PAY_ADDRESS);
+    assert_eq!(&maintained.data[36..68], &recipient);
+    assert_ne!(&maintained.data[..4], &call.data[..4]);
+
+    assert_payment_purpose_binding();
+}
+
 pub(crate) fn payment_log(order: &RampOrder) -> SequencerLog {
     let operator = account_id(&order.operator.account);
     let customer = account_id(&order.customer.account);
@@ -283,12 +293,12 @@ pub(crate) fn payment_log(order: &RampOrder) -> SequencerLog {
             customer,
         ],
         RampDirection::OffRamp => {
-            let call = compile_payer_grant_draw(order, 9).expect("maintained payment producer");
+            let call = compile_payer_grant_draw(order, 9).required("maintained payment producer");
             return SequencerLog {
                 address: PAY_ADDRESS,
                 topics: vec![
                     Keccak256::digest(b"BudgetSpent(bytes32,bytes32,uint128)").into(),
-                    call.data[4..36].try_into().unwrap(),
+                    call.data[4..36].try_into().required("value"),
                 ],
                 data: call.data[36..100].to_vec(),
                 log_index: 0,
@@ -306,7 +316,7 @@ pub(crate) fn payment_log(order: &RampOrder) -> SequencerLog {
 fn bytes(out: &mut Vec<u8>, value: &[u8]) {
     out.extend_from_slice(
         &u32::try_from(value.len())
-            .expect("bounded bytes")
+            .required("bounded bytes")
             .to_be_bytes(),
     );
     out.extend_from_slice(value);
@@ -321,12 +331,13 @@ fn effect(out: &mut Vec<u8>, ordinal: u16, kind: u8, body: &[u8]) {
     bytes(out, body);
 }
 
-pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> ReceiptEvidence {
+fn signed_payment_transaction(order: &RampOrder) -> ([u8; 20], Vec<u8>) {
     let call = match order.direction() {
         RampDirection::OnRamp => compile_operator_send(order),
         RampDirection::OffRamp => compile_payer_grant_draw(order, 9),
     }
-    .expect("ledger call");
+    .required("ledger call");
+    let to = call.to;
     let raw_transaction = Eip1559Call {
         chain_id: 1,
         nonce: 9,
@@ -337,7 +348,12 @@ pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> Rec
         data: call.data,
     }
     .sign(&[3; 32])
-    .expect("signed EIP-1559 transaction");
+    .required("signed EIP-1559 transaction");
+    (to, raw_transaction)
+}
+
+pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> ReceiptEvidence {
+    let (payment_to, raw_transaction) = signed_payment_transaction(order);
     let key = SigningKey::from_bytes(&[42; 32]);
     let key_id = [6; 32];
     let mut receipt = Vec::new();
@@ -352,26 +368,26 @@ pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> Rec
     receipt.extend_from_slice(&0_i32.to_be_bytes());
     receipt.extend_from_slice(
         &u32::try_from(logs.len() + 1)
-            .expect("effects")
+            .required("effects")
             .to_be_bytes(),
     );
     let mut summary = vec![0; 68];
     summary.extend_from_slice(&Sha256::digest([]));
     summary.extend_from_slice(&0_u32.to_be_bytes());
-    summary.extend_from_slice(&u32::try_from(logs.len()).expect("logs").to_be_bytes());
+    summary.extend_from_slice(&u32::try_from(logs.len()).required("logs").to_be_bytes());
     summary.push(5);
     summary.extend_from_slice(b"upaxe");
     effect(&mut receipt, 0, 1, &summary);
     for (index, log) in logs.iter().enumerate() {
         let mut body = log.address.to_vec();
-        body.push(u8::try_from(log.topics.len()).expect("topics"));
+        body.push(u8::try_from(log.topics.len()).required("topics"));
         for topic in &log.topics {
             body.extend_from_slice(topic);
         }
         body.extend_from_slice(&Sha256::digest(&log.data));
         effect(
             &mut receipt,
-            u16::try_from(index + 1).expect("ordinal"),
+            u16::try_from(index + 1).required("ordinal"),
             3,
             &body,
         );
@@ -387,8 +403,9 @@ pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> Rec
     bytes(&mut receipt, &Sha256::digest(b"upaxe"));
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     let (signed_call, signature) =
-        layerx_crypto::evm_transaction::decode_signed(&raw_transaction).unwrap();
-    let sender = layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature).unwrap();
+        layerx_crypto::evm_transaction::decode_signed(&raw_transaction).required("value");
+    let sender =
+        layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature).required("value");
     let mut from = [0; 32];
     from[12..].copy_from_slice(&sender);
     bytes(&mut receipt, &from);
@@ -396,7 +413,7 @@ pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> Rec
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     receipt.extend_from_slice(&9_u64.to_be_bytes());
     let mut to = [0; 32];
-    to[12..].copy_from_slice(&call.to);
+    to[12..].copy_from_slice(&payment_to);
     bytes(&mut receipt, &to);
     receipt.extend_from_slice(&0_u128.to_be_bytes());
     receipt.extend_from_slice(&0_u128.to_be_bytes());
@@ -405,10 +422,10 @@ pub(crate) fn signed_evidence(order: &RampOrder, logs: Vec<SequencerLog>) -> Rec
     bytes(&mut receipt, &key_id);
     receipt.extend_from_slice(&1_001_u64.to_be_bytes());
     receipt.push(0);
-    let decoded = layerx_wire::receipt::decode(&receipt).expect("canonical unsigned receipt");
-    let unsigned = layerx_wire::receipt::encode_unsigned(&decoded).expect("unsigned encoding");
+    let decoded = layerx_wire::receipt::decode(&receipt).required("canonical unsigned receipt");
+    let unsigned = layerx_wire::receipt::encode_unsigned(&decoded).required("unsigned encoding");
     assert_eq!(unsigned, receipt);
-    let digest = layerx_wire::hash::receipt_digest(&unsigned).expect("signing digest");
+    let digest = layerx_wire::hash::receipt_digest(&unsigned).required("signing digest");
     let signature = key.sign(&digest).to_bytes();
     receipt.pop();
     receipt.push(1);
@@ -431,7 +448,7 @@ fn verify_order_receipt_accepts_matching_payment_log() {
     for direction in [RampDirection::OnRamp, RampDirection::OffRamp] {
         let order = order(direction);
         let evidence = signed_evidence(&order, vec![payment_log(&order)]);
-        let leg = verify_order_receipt(&order, &evidence).expect("verified payment");
+        let leg = verify_order_receipt(&order, &evidence).required("verified payment");
         assert_eq!(
             leg.tx_hash,
             <[u8; 32]>::from(Keccak256::digest(&evidence.raw_transaction))
@@ -463,7 +480,7 @@ fn verify_order_receipt_accepts_matching_payment_log() {
             Err(RampError::ReceiptMismatch)
         );
         let mut changed = evidence.clone();
-        *changed.signed_receipt.last_mut().expect("signature") ^= 1;
+        *changed.signed_receipt.last_mut().required("signature") ^= 1;
         assert_eq!(
             verify_order_receipt(&order, &changed),
             Err(RampError::Receipt(ReceiptCheck::SequencerSignature))

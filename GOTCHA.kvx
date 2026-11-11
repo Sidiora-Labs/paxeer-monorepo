@@ -21145,3 +21145,33 @@ fix = "Decision 3339; task 22.39.403 owns the source of the three members."
 title = "A member of the platform workspace is linted alone with the package option"
 symptom = "The recipe platform-lint of services/platform/Makefile.inc lints the whole workspace of services/platform/Cargo.toml in one command. With the package option clippy denies warnings only in the selected member and compiles the members it depends on without the denial, and the option accepts a pattern, so a member is selected by a prefix of its package name."
 fix = "Decision 3340; tasks 22.39.412 to 22.39.424."
+
+[gotcha.4265]
+title = "Clippy lints the workspace members a selected member depends on unless the option --no-deps is given"
+symptom = "With the package option alone, cargo clippy lints the selected member and each member of the same workspace that it depends on, under the lint table of the manifest. With the option --no-deps before the separator it lints the selected member only, and the members it depends on are compiled without lints."
+fix = "Decision 3341; the verification of a member lint task selects its member with the option --no-deps."
+
+[gotcha.4266]
+title = "A member lint task leaves the tests of its member with the results they have at the base revision"
+symptom = "A repair for a lint changes the shape of code and its documentation. The cases of the member that pass at the base revision pass on the repaired tree, and a case that needs the prerequisites of the recipe platform-test is run the way that recipe runs it. A public function that returns a result with the unit error type is repaired with a named error type."
+fix = "Decisions 3342 and 3343."
+
+[gotcha.4267]
+title = "The members of the platform tools are linted in two tasks and a shared test file is repaired where it lives"
+symptom = "The lint of the manifest tools/platform/Cargo.toml covers three members. A test target of the member cli includes source files of the member by path, so an item that the target does not use is reported there as never used. The file sdk/platform/pipeline.kvx records a digest of the generator sources, so a change to those sources changes the digest."
+fix = "Decisions 3344 to 3346 and task 22.39.425."
+
+[gotcha.4268]
+title = "The option --no-deps also leaves out a dependency that the manifest names by path outside the workspace"
+symptom = "A member of the platform workspace can depend by path on a package of another workspace. Clippy with the package option reports on that package as well. With the option --no-deps the report covers the named members only."
+fix = "Decision 3347."
+
+[gotcha.4269]
+title = "The split tool numbers its parts with two digits unless a suffix length is given"
+symptom = "With the numeric suffix option and no suffix length, split writes the parts of a file with the suffixes 00, 01, 02 and 03 when asked for four parts. A recipe that reads a part by the number of its group passes the suffix length that matches the group names."
+fix = "Decision 3348 and task 22.39.431."
+
+[gotcha.4270]
+title = "A database role belongs to the whole Postgres server and outlives the database of a test"
+symptom = "A role that a statement of a test creates stays on the server when the private database of the test is dropped. A second run of the same test on that server finds the role present."
+fix = "Decision 3351."

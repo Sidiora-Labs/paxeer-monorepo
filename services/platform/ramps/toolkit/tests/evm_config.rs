@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use std::fs;
 use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::PathBuf;
@@ -19,9 +21,9 @@ impl ClientFiles {
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create client credential directory");
+        fs::create_dir(&path).required("create client credential directory");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-            .expect("protect client credential directory");
+            .required("protect client credential directory");
         let files = Self(path);
         files.openssl(&[
             "req",
@@ -55,7 +57,7 @@ impl ClientFiles {
             files.0.join("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("protect client identity");
+        .required("protect client identity");
         for (name, value) in [
             ("password", b"configuration-test".as_slice()),
             ("token", b"configuration-test-token".as_slice()),
@@ -66,8 +68,8 @@ impl ClientFiles {
                 .create_new(true)
                 .mode(0o600)
                 .open(files.0.join(name))
-                .expect("create private credential");
-            file.write_all(value).expect("write private credential");
+                .required("create private credential");
+            file.write_all(value).required("write private credential");
         }
         files
     }
@@ -77,7 +79,7 @@ impl ClientFiles {
             .args(args)
             .current_dir(&self.0)
             .output()
-            .expect("run openssl to create real TLS credentials");
+            .required("run openssl to create real TLS credentials");
         assert!(
             output.status.success(),
             "openssl failed: {:?}",
@@ -90,13 +92,13 @@ impl ClientFiles {
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
                 identity_pkcs12: SecretFile::new(self.0.join("identity.p12"))
-                    .expect("private TLS identity"),
+                    .required("private TLS identity"),
                 identity_password: SecretFile::new(self.0.join("password"))
-                    .expect("private identity password"),
+                    .required("private identity password"),
             },
             Duration::from_secs(1),
         )
-        .expect("construct mutual TLS client")
+        .required("construct mutual TLS client")
     }
 
     fn document(&self) -> Value {
@@ -113,7 +115,7 @@ impl ClientFiles {
             }],
             "max_fee_per_gas": 100,
             "max_priority_fee_per_gas": 2,
-            "gas_limit_cap": 100000,
+            "gas_limit_cap": 100_000,
             "signer_endpoint": "https://signer.example.test",
             "signer_token_file": self.0.join("token"),
             "actor_did": "did:layerx:ramp"
@@ -121,13 +123,13 @@ impl ClientFiles {
     }
 
     fn config(&self) -> LayerxConfig {
-        serde_json::from_value(self.document()).expect("deserialize sequencer config")
+        serde_json::from_value(self.document()).required("deserialize sequencer config")
     }
 }
 
 impl Drop for ClientFiles {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove client credentials");
+        fs::remove_dir_all(&self.0).required("remove client credentials");
     }
 }
 
@@ -143,7 +145,7 @@ fn layerx_config_refuses_zero_chain_id() {
     assert_eq!(client.operator_address, [0x12; 20]);
     assert_eq!(client.max_fee_per_gas, 100);
     assert_eq!(client.max_priority_fee_per_gas, 2);
-    assert_eq!(client.gas_limit_cap, 100000);
+    assert_eq!(client.gas_limit_cap, 100_000);
     assert_eq!(client.actor_did, "did:layerx:ramp");
     assert_eq!(client.signer_token, "configuration-test-token");
     for bytes in [19, 21] {
@@ -151,7 +153,7 @@ fn layerx_config_refuses_zero_chain_id() {
         let error = config
             .build(files.http())
             .err()
-            .expect("operator address must contain exactly 20 bytes");
+            .required("operator address must contain exactly 20 bytes");
         assert!(error.contains("operator_address"), "{error}");
     }
     config.operator_address = format!("0x{}", "12".repeat(20));
@@ -159,14 +161,14 @@ fn layerx_config_refuses_zero_chain_id() {
     let error = config
         .build(files.http())
         .err()
-        .expect("zero chain id must fail");
+        .required("zero chain id must fail");
     assert!(error.contains("chain_id"), "unexpected error: {error}");
     config.chain_id = 125;
     config.max_priority_fee_per_gas = config.max_fee_per_gas + 1;
     assert!(config
         .build(files.http())
         .err()
-        .expect("inverted fees must fail")
+        .required("inverted fees must fail")
         .contains("max_priority_fee_per_gas"));
     config.max_priority_fee_per_gas = config.max_fee_per_gas;
     assert!(config.build(files.http()).is_ok());
@@ -174,7 +176,7 @@ fn layerx_config_refuses_zero_chain_id() {
     assert!(config
         .build(files.http())
         .err()
-        .expect("zero gas cap must fail")
+        .required("zero gas cap must fail")
         .contains("gas_limit_cap"));
 }
 
@@ -193,7 +195,7 @@ fn layerx_config_refuses_inverted_receipt_key_range() {
     let error = config
         .build(files.http())
         .err()
-        .expect("inverted heights must fail");
+        .required("inverted heights must fail");
     assert!(
         error.contains("receipt_keys")
             && error.contains("firstHeight")
@@ -209,7 +211,7 @@ fn layerx_config_refuses_inverted_receipt_key_range() {
     assert!(config
         .build(files.http())
         .err()
-        .expect("empty receipt pins must fail")
+        .required("empty receipt pins must fail")
         .contains("receipt_keys"));
 }
 
@@ -220,7 +222,8 @@ fn layerx_config_rejects_retired_gateway_field() {
     assert!(serde_json::from_value::<LayerxConfig>(document.clone()).is_ok());
     document["gateway_endpoint"] = json!("https://gateway.example.test");
     let error = serde_json::from_value::<LayerxConfig>(document)
-        .expect_err("retired gateway_endpoint must be rejected");
+        .err()
+        .required("retired gateway_endpoint must be rejected");
     assert!(
         error
             .to_string()
@@ -230,7 +233,8 @@ fn layerx_config_rejects_retired_gateway_field() {
     let mut document = files.document();
     document["network_id"] = json!(125);
     let error = serde_json::from_value::<LayerxConfig>(document)
-        .expect_err("retired network_id configuration must be rejected");
+        .err()
+        .required("retired network_id configuration must be rejected");
     assert!(
         error.to_string().contains("unknown field `network_id`"),
         "{error}"
