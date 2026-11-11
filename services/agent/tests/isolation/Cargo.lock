@@ -776,6 +776,7 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
+ "layerx-program-sdk",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-proof",
