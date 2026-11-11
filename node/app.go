@@ -2113,6 +2113,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 }
 
 func (app *App) finalizeProgramsOccupancy(ctx sdk.Context) error {
+	// Calls admit new occupancy positions before this block-end transition.
 	app.programsOccupancyDuration = 0
 	key := app.GetKey(LayerXHostStoreKey)
 	if !lxphost.ProgramsSchedulesPresent(ctx, key) {
