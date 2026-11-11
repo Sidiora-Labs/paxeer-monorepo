@@ -84,6 +84,9 @@ func (k Keeper) GetParams(ctx sdk.Context) types.Params {
 	readJSON(bz, &p)
 	return p
 }
+
+// BaseDenom is the denomination used for chain bonds and operator revenue.
+func (k Keeper) BaseDenom(ctx sdk.Context) string { return k.baseDenom(ctx) }
 func (k Keeper) SetParams(ctx sdk.Context, p types.Params) {
 	if err := p.Validate(); err != nil {
 		panic(err)
