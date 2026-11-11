@@ -13054,6 +13054,12 @@ value = "The measured bound of the Fund operation in rpc/repair_478_test.go stat
 basis = "Gotcha 4251, decisions 3046 and 3321."
 affects = ["22.38.13"]
 
+[decision.3324]
+title = "The node cases of the occupancy debit at a call pay from the account that the hosted fixture funds"
+value = "The node cases of task 22.39.394 use the payer of the hosted programs fixture as the fixture funds it, with the occupancy asset in the agent asset account, and add no second account of that asset to the identity. Task 22.39.394 follows task 22.39.395, with which the occupancy responsibility debit of the ledger accepts that account (decision 3322). The call requires the payment account that the program payment lookup returns for the payer and the asset and states no kind of account of its own."
+basis = "Gotcha 4252, decisions 3320 and 3322."
+affects = ["22.39.394", "22.39.395"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -163037,7 +163043,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -226940,7 +226946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.9]
 title = "Decode and store the chain launch events in the launchpad indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
@@ -309924,7 +309930,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.395]
 title = "Accept the account of the program payment lookup in the occupancy responsibility debit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -309958,7 +309964,7 @@ title = "Check the occupancy debit of a program call at the call"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.394"]
 interfaces = []
@@ -309978,10 +309984,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 360
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3324, gotcha 4252. The cases of node/programs_occupancy_call_test.go use the payer of the hosted programs fixture as the fixture funds it and add no further account of the occupancy asset. The call requires the payment account that lxp_kernel_program_payment_account returns for the payer and the asset and states no kind of account of its own; the record modules/lxphost/repair_22_39_394.kvx says so."
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
