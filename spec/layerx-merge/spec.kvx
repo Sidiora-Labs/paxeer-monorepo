@@ -162984,7 +162984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.15]
 title = "Add the launched chain reads to the launchpad API client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.40.13"]
