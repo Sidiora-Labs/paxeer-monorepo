@@ -226909,7 +226909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.6]
 title = "Let the holder of the fee right pause, resume and retire the launched chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.40.3"]
@@ -226939,7 +226939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.5]
 title = "Pay the operator share of a launched chain to the holders of its token by epoch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.40.3"]
