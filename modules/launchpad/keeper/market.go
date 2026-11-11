@@ -123,7 +123,8 @@ func (k *Keeper) PoolByToken(ctx sdk.Context, token common.Address) (common.Addr
 // authorizes the pool, mints its fee right, registers it, writes the market
 // record and releases the supply to the pool by bindPool and transfer. evm
 // is the calling EVM when entered through the precompile; without one a
-// one-off EVM deploys the token. It returns the context the run continues on.
+// one-off EVM deploys the token. It returns the context the run continues on,
+// including when a combined chain launch supplies a cached context.
 func (k *Keeper) CreateMarket(ctx sdk.Context, caller NestedCaller, evm *vm.EVM, creator common.Address, name,
 	symbol string, strategy types.FeeStrategy, optical common.Address) (sdk.Context, types.Market, error) {
 	return k.createMarket(ctx, caller, evm, creator, name, symbol, strategy, optical, true)
