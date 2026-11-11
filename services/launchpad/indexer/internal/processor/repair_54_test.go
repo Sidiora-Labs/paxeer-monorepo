@@ -397,7 +397,7 @@ func repair54ReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	if !ok {
 		t.Fatal("historical deployment is not approved")
 	}
-	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/reviewed.json"))
+	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/history/reviewed-a35ff7c6f532d2f9.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

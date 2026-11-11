@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash, createPublicKey, randomBytes, verify } from "node:crypto";
 import { once } from "node:events";
-import { chmod, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir, totalmem } from "node:os";
 import { join } from "node:path";
@@ -16,7 +25,9 @@ import {
   PeerIdentity,
   signHello,
 } from "../src/identity.mjs";
-import { decodeFrame, encodeFrame } from "../src/wire.mjs";
+import { decodeSignalFrame, encodeSignalFrame } from "../src/signal.mjs";
+import { SignalClient } from "../src/transport.mjs";
+import { RoomHost, vector } from "./host-signal.mjs";
 
 // Exact manifest_v1() fixture from task 22.38.2:
 // programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs.
@@ -64,19 +75,18 @@ function publicKey(peerKey) {
 }
 
 function metadataHash(manifest) {
-  return createHash("sha256").update("PAXAI/participant-metadata/v2\0").update(manifest).digest();
+  return createHash("sha256")
+    .update("PAXAI/participant-metadata/v2\0")
+    .update(manifest)
+    .digest();
 }
 
-function independentlyFramedHello(roomId, nonce, digest) {
-  const fields = [Buffer.from("PAXAI/peer-hello/v1\0")];
-  for (const value of [roomId, nonce]) {
-    const encoded = Buffer.from(value);
-    const size = Buffer.alloc(4);
-    size.writeUInt32BE(encoded.length);
-    fields.push(size, encoded);
-  }
-  fields.push(digest);
-  return Buffer.concat(fields);
+function independentlyFramedHello(roomId, nonce) {
+  return Buffer.concat([
+    Buffer.from("PAXAI/inference-signal/hello/v1\0"),
+    Buffer.from(roomId, "hex"),
+    Buffer.from(nonce, "hex"),
+  ]);
 }
 
 async function listen(t, handler) {
@@ -104,7 +114,12 @@ async function native_key_persists_across_instances_and_process_restart(t) {
   const input = randomBytes(32);
   assert.equal(await first.sign(input), await second.sign(input));
   assert.ok(
-    verify(null, input, publicKey(first.peerKey), Buffer.from(await second.sign(input), "hex")),
+    verify(
+      null,
+      input,
+      publicKey(first.peerKey),
+      Buffer.from(await second.sign(input), "hex"),
+    ),
   );
   const moduleUrl = new URL("../src/identity.mjs", import.meta.url).href;
   const script = `
@@ -136,13 +151,17 @@ async function native_key_persists_across_instances_and_process_restart(t) {
 async function simultaneous_native_instances_publish_one_complete_key(t) {
   const dir = await directory(t);
   const identities = await Promise.all(
-    Array.from({ length: 8 }, () => PeerIdentity.open({ path: join(dir, "identity.pkcs8") })),
+    Array.from({ length: 8 }, () =>
+      PeerIdentity.open({ path: join(dir, "identity.pkcs8") }),
+    ),
   );
   assert.equal(new Set(identities.map((identity) => identity.peerKey)).size, 1);
   assert.deepEqual(await readdir(dir), ["identity.pkcs8"]);
 }
 
-async function invalid_or_exposed_native_keys_are_refused_without_replacement(t) {
+async function invalid_or_exposed_native_keys_are_refused_without_replacement(
+  t,
+) {
   const dir = await directory(t);
   const path = join(dir, "identity.pkcs8");
   await writeFile(path, "damaged key", { mode: 0o600 });
@@ -160,54 +179,94 @@ async function invalid_or_exposed_native_keys_are_refused_without_replacement(t)
   await assert.rejects(PeerIdentity.open({ path: alias }), { code: "ELOOP" });
 }
 
-async function hello_signature_verifies_after_wire_encoding_and_binds_room_nonce_and_manifest(t) {
-  const identity = await PeerIdentity.open({ path: join(await directory(t), "key") });
-  const manifest = encodeManifestV2(V1_FIXTURE, { ...CAPABILITIES, runtimeKind: 1 });
-  const roomId = "room-α";
+async function hello_signature_verifies_after_wire_encoding_and_binds_room_nonce_and_manifest(
+  t,
+) {
+  const identity = await PeerIdentity.open({
+    path: join(await directory(t), "key"),
+  });
+  const manifest = encodeManifestV2(V1_FIXTURE, {
+    ...CAPABILITIES,
+    runtimeKind: 1,
+  });
+  const roomId = "04".repeat(32);
   const nonce = randomBytes(32).toString("hex");
-  const payload = await signHello(identity, { roomId, nonce, manifest });
-  const received = decodeFrame(encodeFrame({ kind: "hello", roomId, sequence: 0, payload }));
-  const hello = received.payload;
-  const digest = metadataHash(Buffer.from(hello.manifest.bytes, "hex"));
-  assert.equal(hello.manifest.metadataDigest, digest.toString("hex"));
-  assert.equal(hello.manifest.peerKey, hello.peerKey);
-  assert.equal(hello.manifest.version, 2);
-  const key = publicKey(hello.peerKey);
-  assert.ok(verify(null, digest, key, Buffer.from(hello.manifest.signature, "hex")));
-  const signature = Buffer.from(hello.signature, "hex");
-  const preimage = independentlyFramedHello(roomId, nonce, digest);
-  assert.deepEqual(
-    Buffer.from(helloSigningBytes(roomId, nonce, hello.manifest.metadataDigest)),
-    preimage,
+  const host = new RoomHost();
+  let hello;
+  const url = await host.listen(
+    t,
+    (connection, frame) => {
+      hello = frame;
+      connection.send(vector("offer"));
+    },
+    {
+      challenge: {
+        type: "challenge",
+        nonce: Array.from(Buffer.from(nonce, "hex")),
+      },
+    },
   );
+  const client = new SignalClient(url, { roomId, identity, manifest });
+  t.after(() => client.close());
+  await client.connect();
+  assert.deepEqual(
+    decodeSignalFrame(encodeSignalFrame(hello), "client"),
+    hello,
+  );
+  assert.deepEqual(Buffer.from(hello.manifest), Buffer.from(manifest));
+  const signed = await identity.signManifest(manifest);
+  const digest = metadataHash(Buffer.from(hello.manifest));
+  assert.equal(signed.metadataDigest, digest.toString("hex"));
+  assert.equal(signed.peerKey, Buffer.from(hello.peer_key).toString("hex"));
+  assert.equal(signed.version, 2);
+  const key = publicKey(identity.peerKey);
+  assert.ok(verify(null, digest, key, Buffer.from(signed.signature, "hex")));
+  const signature = Buffer.from(hello.signature);
+  const preimage = independentlyFramedHello(roomId, nonce);
+  assert.deepEqual(Buffer.from(helloSigningBytes(roomId, nonce)), preimage);
   assert.ok(verify(null, preimage, key, signature));
   assert.equal(
-    verify(null, independentlyFramedHello("other-room", nonce, digest), key, signature),
+    verify(
+      null,
+      independentlyFramedHello("05".repeat(32), nonce),
+      key,
+      signature,
+    ),
     false,
   );
   assert.equal(
-    verify(null, independentlyFramedHello(roomId, "other-nonce", digest), key, signature),
+    verify(
+      null,
+      independentlyFramedHello(roomId, "06".repeat(32)),
+      key,
+      signature,
+    ),
     false,
   );
   const changed = Buffer.from(manifest);
   changed[changed.length - 5] = 3;
   assert.equal(
-    verify(null, independentlyFramedHello(roomId, nonce, metadataHash(changed)), key, signature),
+    verify(
+      null,
+      metadataHash(changed),
+      key,
+      Buffer.from(signed.signature, "hex"),
+    ),
     false,
   );
-  assert.equal(
-    verify(null, metadataHash(changed), key, Buffer.from(hello.manifest.signature, "hex")),
-    false,
+  await assert.rejects(
+    signHello(identity, { roomId, manifest }),
+    /32 byte array/,
   );
-  const generated = await signHello(identity, { roomId, manifest });
-  assert.ok(generated.nonce.length > 0);
-  assert.notEqual(generated.nonce, (await signHello(identity, { roomId, manifest })).nonce);
-  await assert.rejects(signHello(identity, { roomId: "", nonce, manifest }), /nonempty/);
-  await assert.rejects(signHello(identity, { roomId, nonce: "", manifest }), /nonempty/);
-  assert.throws(
-    () => helloSigningBytes("\ud800", nonce, hello.manifest.metadataDigest),
-    /Invalid hello text/,
+  await assert.rejects(
+    signHello(identity, { roomId: "", nonce, manifest }),
+    /32 byte array/,
   );
+  await assert.rejects(
+    signHello(identity, { roomId, nonce: "", manifest }),
+    /32 byte array/,
+  );
+  assert.throws(() => helloSigningBytes("\ud800", nonce), /32 byte array/);
 }
 
 async function manifest_matches_chain_v2_fixture_and_metadata_domain() {
@@ -215,16 +274,25 @@ async function manifest_matches_chain_v2_fixture_and_metadata_domain() {
   const manifest = encodeManifestV2(V1_FIXTURE, CAPABILITIES);
   assert.equal(manifest.length, 514);
   assert.deepEqual(Buffer.from(manifest.subarray(0, 2)), Buffer.from([0, 2]));
-  assert.deepEqual(Buffer.from(manifest.subarray(2, 501)), V1_FIXTURE.subarray(2));
+  assert.deepEqual(
+    Buffer.from(manifest.subarray(2, 501)),
+    V1_FIXTURE.subarray(2),
+  );
   // v2_decodes_all_inference_capability_fields asserts these same 13 bytes.
   assert.deepEqual(
     Array.from(manifest.subarray(501)),
     [0, 0, 0x60, 0, 0, 1, 0, 0, 4, 85, 83, 255, 2],
   );
-  assert.deepEqual(Buffer.from(await manifestDigest(manifest)), metadataHash(manifest));
+  assert.deepEqual(
+    Buffer.from(await manifestDigest(manifest)),
+    metadataHash(manifest),
+  );
   assert.notDeepEqual(
     metadataHash(manifest),
-    createHash("sha256").update("PAXAI/worker-metadata/v1\0").update(manifest).digest(),
+    createHash("sha256")
+      .update("PAXAI/worker-metadata/v1\0")
+      .update(manifest)
+      .digest(),
   );
   for (const runtimeKind of [0, 1, 2]) {
     for (const bandwidthClass of [0, 1, 2, 3, 4]) {
@@ -257,7 +325,10 @@ async function manifest_refuses_noncanonical_capabilities_and_invalid_v1_templat
     { systemMemoryMiB: 1.5 },
     { attestationFamily: 256 },
   ])
-    assert.throws(() => encodeManifestV2(V1_FIXTURE, { ...CAPABILITIES, ...invalid }), RangeError);
+    assert.throws(
+      () => encodeManifestV2(V1_FIXTURE, { ...CAPABILITIES, ...invalid }),
+      RangeError,
+    );
   const version = Buffer.from(V1_FIXTURE);
   version.writeUInt16BE(2);
   const window = Buffer.from(V1_FIXTURE);
@@ -280,10 +351,15 @@ async function manifest_refuses_noncanonical_capabilities_and_invalid_v1_templat
     await assert.rejects(manifestDigest(invalid), RangeError);
   }
   await assert.rejects(manifestDigest(valid.subarray(0, 513)), /Truncated/);
-  await assert.rejects(manifestDigest(Buffer.concat([valid, Buffer.from([0])])), /Trailing/);
+  await assert.rejects(
+    manifestDigest(Buffer.concat([valid, Buffer.from([0])])),
+    /Trailing/,
+  );
 }
 
-async function measured_native_manifest_uses_platform_memory_and_a_bounded_real_probe(t) {
+async function measured_native_manifest_uses_platform_memory_and_a_bounded_real_probe(
+  t,
+) {
   const probeBody = randomBytes(65536);
   let requests = 0;
   const url = await listen(t, (request, response) => {
@@ -302,7 +378,10 @@ async function measured_native_manifest_uses_platform_memory_and_a_bounded_real_
   assert.equal(requests, 1);
   const view = new DataView(manifest.buffer);
   assert.equal(view.getUint16(0), 2);
-  assert.deepEqual(Buffer.from(manifest.subarray(2, 501)), V1_FIXTURE.subarray(2));
+  assert.deepEqual(
+    Buffer.from(manifest.subarray(2, 501)),
+    V1_FIXTURE.subarray(2),
+  );
   assert.equal(view.getUint32(505), Math.floor(totalmem() / (1024 * 1024)));
   if (!globalThis.navigator?.gpu) assert.equal(view.getUint32(501), 0);
   assert.ok(manifest[509] >= 1 && manifest[509] <= 4);
@@ -312,7 +391,9 @@ async function measured_native_manifest_uses_platform_memory_and_a_bounded_real_
   assert.equal((await manifestDigest(manifest)).length, 32);
 }
 
-async function probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors(t) {
+async function probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors(
+  t,
+) {
   const url = await listen(t, (request, response) => {
     if (request.url === "/slow") return;
     if (request.url === "/refused") {
@@ -326,14 +407,26 @@ async function probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors
       return;
     }
     if (request.url === "/compressed") {
-      response.writeHead(200, { "content-encoding": "gzip", "content-length": 65536 });
+      response.writeHead(200, {
+        "content-encoding": "gzip",
+        "content-length": 65536,
+      });
       response.end();
       return;
     }
-    response.writeHead(200, { "content-length": request.url === "/small" ? 1 : 1048577 });
+    response.writeHead(200, {
+      "content-length": request.url === "/small" ? 1 : 1048577,
+    });
     response.end();
   });
-  for (const path of ["/refused", "/small", "/large", "/compressed", "/redirect", "/slow"]) {
+  for (const path of [
+    "/refused",
+    "/small",
+    "/large",
+    "/compressed",
+    "/redirect",
+    "/slow",
+  ]) {
     await assert.rejects(
       measureManifest({
         manifestV1: V1_FIXTURE,
@@ -375,80 +468,92 @@ async function probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors
     );
 }
 
-async function enrol_request_delivers_the_real_peer_signed_manifest_over_http(t) {
-  const identity = await PeerIdentity.open({ path: join(await directory(t), "key") });
-  let accepted;
-  let failure;
-  const url = await listen(t, async (request, response) => {
-    try {
-      assert.equal(request.method, "POST");
-      assert.equal(request.url, "/enrol_peer");
-      assert.equal(request.headers["content-type"], "application/json");
-      assert.equal(request.headers.authorization, "Bearer local-test-session");
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      const document = JSON.parse(Buffer.concat(chunks));
-      const manifest = document.manifest;
-      const encoded = Buffer.from(manifest.bytes, "hex");
-      const digest = metadataHash(encoded);
-      assert.equal(manifest.version, 2);
-      assert.equal(encoded.readUInt16BE(0), 2);
-      assert.equal(manifest.metadataDigest, digest.toString("hex"));
-      assert.ok(
-        verify(null, digest, publicKey(manifest.peerKey), Buffer.from(manifest.signature, "hex")),
-      );
-      accepted = document;
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        JSON.stringify({ peerKey: manifest.peerKey, metadataDigest: manifest.metadataDigest }),
-      );
-    } catch (error) {
-      failure = error;
-      response.writeHead(400);
-      response.end(String(error));
-    }
+async function enrol_request_delivers_owner_signed_document_unchanged_over_http(
+  t,
+) {
+  const vector = JSON.parse(
+    await readFile(
+      new URL("fixtures/host-enrol-route.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const identity = await PeerIdentity.open({
+    path: join(await directory(t), "key"),
   });
-  const manifest = encodeManifestV2(V1_FIXTURE, { ...CAPABILITIES, runtimeKind: 1 });
-  const result = await identity.enrolPeer(`${url}/enrol_peer`, {
-    manifest,
+  let accepted;
+  const url = await listen(t, async (request, response) => {
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, vector.route);
+    assert.equal(request.headers["content-type"], "application/json");
+    assert.equal(request.headers.authorization, "Bearer local-test-session");
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    accepted = Buffer.concat(chunks).toString();
+    response.writeHead(vector.accepted.status, {
+      "content-type": "application/json",
+    });
+    response.end(JSON.stringify(vector.accepted.body));
+  });
+  const document = JSON.stringify(vector.request, null, 2);
+  const result = await identity.enrolPeer(`${url}${vector.route}`, {
+    document,
     headers: { authorization: "Bearer local-test-session" },
   });
-  assert.equal(failure, undefined);
-  assert.equal(accepted.manifest.peerKey, identity.peerKey);
-  assert.deepEqual(Buffer.from(accepted.manifest.bytes, "hex"), Buffer.from(manifest));
-  assert.deepEqual(result, {
-    peerKey: identity.peerKey,
-    metadataDigest: metadataHash(manifest).toString("hex"),
-  });
-  assert.equal(JSON.stringify(accepted).includes("privateKey"), false);
+  assert.equal(accepted, document);
+  assert.deepEqual(result, vector.accepted.body);
 }
 
 async function enrol_refusals_and_invalid_routes_do_not_report_success(t) {
-  const identity = await PeerIdentity.open({ path: join(await directory(t), "key") });
-  const url = await listen(t, (_request, response) => {
-    response.writeHead(409, { "content-type": "application/json" });
-    response.end(JSON.stringify({ error: "WRONG_ROSTER", operation: "LockBond" }));
-  });
-  const manifest = encodeManifestV2(V1_FIXTURE, CAPABILITIES);
-  await assert.rejects(
-    identity.enrolPeer(`${url}/enrol_peer`, { manifest }),
-    /enrol_peer refused \(409\).*WRONG_ROSTER.*LockBond/,
+  const vector = JSON.parse(
+    await readFile(
+      new URL("fixtures/host-enrol-route.json", import.meta.url),
+      "utf8",
+    ),
   );
-  await assert.rejects(identity.enrolPeer(`${url}/other`, { manifest }), /enrol_peer route/);
-  await assert.rejects(identity.enrolPeer("http://example.com/enrol_peer", { manifest }), /HTTPS/);
+  const identity = await PeerIdentity.open({
+    path: join(await directory(t), "key"),
+  });
+  const refusal = vector.refusals.find((item) => item.name === "wrong_chain");
+  const url = await listen(t, (_request, response) => {
+    response.writeHead(refusal.status, { "content-type": "application/json" });
+    response.end(JSON.stringify(refusal.body));
+  });
+  const document = vector.request;
   await assert.rejects(
-    identity.enrolPeer(`${url}/enrol_peer`, { manifest, quote: { oversized: "x".repeat(262144) } }),
+    identity.enrolPeer(`${url}${vector.route}`, { document }),
+    /enrol_peer refused \(422\).*wrong_chain/,
+  );
+  await assert.rejects(
+    identity.enrolPeer(`${url}/other`, { document }),
+    /enrol_peer route/,
+  );
+  await assert.rejects(
+    identity.enrolPeer("http://example.com/enrol_peer", { document }),
+    /HTTPS/,
+  );
+  await assert.rejects(
+    identity.enrolPeer(`${url}${vector.route}`, {
+      document: " ".repeat(262145),
+    }),
     /exceeds/,
+  );
+  await assert.rejects(
+    identity.enrolPeer(`${url}${vector.route}`, {
+      manifest: new Uint8Array(1),
+    }),
+    /document is required/,
   );
 }
 
 test(native_key_persists_across_instances_and_process_restart);
 test(simultaneous_native_instances_publish_one_complete_key);
 test(invalid_or_exposed_native_keys_are_refused_without_replacement);
-test(hello_signature_verifies_after_wire_encoding_and_binds_room_nonce_and_manifest);
+test(
+  hello_signature_verifies_after_wire_encoding_and_binds_room_nonce_and_manifest,
+);
 test(manifest_matches_chain_v2_fixture_and_metadata_domain);
 test(manifest_refuses_noncanonical_capabilities_and_invalid_v1_templates);
 test(measured_native_manifest_uses_platform_memory_and_a_bounded_real_probe);
 test(probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors);
-test(enrol_request_delivers_the_real_peer_signed_manifest_over_http);
+test(enrol_request_delivers_owner_signed_document_unchanged_over_http);
 test(enrol_refusals_and_invalid_routes_do_not_report_success);

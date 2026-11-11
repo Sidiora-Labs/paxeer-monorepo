@@ -22,9 +22,10 @@ fn directory(name: &str) -> PathBuf {
 
 fn scope() -> SubscriptionScope {
     SubscriptionScope {
-        tenant: ApiTenantId::new("tenant-a").expect("tenant"),
-        agent: AgentDid::new("agent-a").expect("agent"),
-        capability: CapabilityId::new("capability-a").expect("capability"),
+        tenant: ApiTenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}")),
+        agent: AgentDid::new("agent-a").unwrap_or_else(|error| panic!("agent: {error:?}")),
+        capability: CapabilityId::new("capability-a")
+            .unwrap_or_else(|error| panic!("capability: {error:?}")),
     }
 }
 
@@ -74,16 +75,19 @@ fn anchored_local_counters_use_the_same_lxs3_record() {
 
 fn assert_cursor_restart(start: Cursor, acknowledged: Cursor, pending: Cursor) {
     let root = directory("restart");
-    let tenant = TenantId::new("tenant-a").expect("tenant");
+    let tenant = TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}"));
     let scope = scope();
-    let id = SubscriptionId::new("subscription-a").expect("subscription id");
+    let id = SubscriptionId::new("subscription-a")
+        .unwrap_or_else(|error| panic!("subscription id: {error:?}"));
     let target = SubscriptionTarget {
         scope: scope.clone(),
         subscription_id: id.clone(),
     };
-    let mut subscriptions =
-        SubscriptionStore::open(Store::open(&root).expect("store"), tenant.clone())
-            .expect("subscriptions");
+    let mut subscriptions = SubscriptionStore::open(
+        Store::open(&root).unwrap_or_else(|error| panic!("store: {error:?}")),
+        tenant.clone(),
+    )
+    .unwrap_or_else(|error| panic!("subscriptions: {error:?}"));
     subscriptions
         .create(
             id.clone(),
@@ -99,33 +103,43 @@ fn assert_cursor_restart(start: Cursor, acknowledged: Cursor, pending: Cursor) {
                     result_classes: ExplicitSet::allow(Vec::new()),
                 },
                 start: ApiCursor::from(start),
-                delivery_target: DeliveryTarget::new("uds://consumer-a").expect("delivery target"),
+                delivery_target: DeliveryTarget::new("uds://consumer-a")
+                    .unwrap_or_else(|error| panic!("delivery target: {error:?}")),
             },
         )
-        .expect("create");
+        .unwrap_or_else(|error| panic!("create: {error:?}"));
     subscriptions
         .mark_delivered(&target, acknowledged)
-        .expect("deliver acknowledged position");
+        .unwrap_or_else(|error| panic!("deliver acknowledged position: {error:?}"));
     subscriptions
         .mark_delivered(&target, pending)
-        .expect("deliver pending position");
+        .unwrap_or_else(|error| panic!("deliver pending position: {error:?}"));
     subscriptions
         .acknowledge(&CursorAcknowledgement {
             scope: scope.clone(),
             subscription_id: id.clone(),
             cursor: acknowledged.into(),
         })
-        .expect("acknowledge");
+        .unwrap_or_else(|error| panic!("acknowledge: {error:?}"));
     drop(subscriptions);
-    let mut reopened =
-        SubscriptionStore::open(Store::open(&root).expect("reopen store"), tenant.clone())
-            .expect("reopen subscriptions");
+    let mut reopened = SubscriptionStore::open(
+        Store::open(&root).unwrap_or_else(|error| panic!("reopen store: {error:?}")),
+        tenant.clone(),
+    )
+    .unwrap_or_else(|error| panic!("reopen subscriptions: {error:?}"));
     assert_eq!(
-        reopened.resume_cursor(&target).expect("resume"),
+        reopened
+            .resume_cursor(&target)
+            .unwrap_or_else(|error| panic!("resume: {error:?}")),
         acknowledged
     );
     assert_eq!(
-        Cursor::from(reopened.get(&target).expect("record").start),
+        Cursor::from(
+            reopened
+                .get(&target)
+                .unwrap_or_else(|error| panic!("record: {error:?}"))
+                .start
+        ),
         start
     );
     let key = TenantKey::new(
@@ -133,12 +147,12 @@ fn assert_cursor_restart(start: Cursor, acknowledged: Cursor, pending: Cursor) {
         ObjectKind::Subscription,
         id.as_str().as_bytes().to_vec(),
     )
-    .expect("subscription key");
+    .unwrap_or_else(|error| panic!("subscription key: {error:?}"));
     assert!(reopened
         .durable()
-        .expect("durable")
+        .unwrap_or_else(|error| panic!("durable: {error:?}"))
         .get(&key)
-        .expect("persisted record")
+        .unwrap_or_else(|| panic!("persisted record"))
         .bytes()
         .starts_with(b"LXS3"));
     reopened
@@ -147,27 +161,30 @@ fn assert_cursor_restart(start: Cursor, acknowledged: Cursor, pending: Cursor) {
             subscription_id: id,
             cursor: pending.into(),
         })
-        .expect("pending delivery survived restart");
+        .unwrap_or_else(|error| panic!("pending delivery survived restart: {error:?}"));
     assert_eq!(
-        reopened.resume_cursor(&target).expect("resume pending"),
+        reopened
+            .resume_cursor(&target)
+            .unwrap_or_else(|error| panic!("resume pending: {error:?}")),
         pending
     );
     drop(reopened);
-    fs::remove_dir_all(root).expect("cleanup");
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error:?}"));
 }
 
 #[test]
 fn lxs2_subscription_record_requires_cursor_reset() {
     let root = directory("lxs2");
-    let tenant = TenantId::new("tenant-a").expect("tenant");
-    let id = SubscriptionId::new("legacy-subscription").expect("subscription id");
+    let tenant = TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error:?}"));
+    let id = SubscriptionId::new("legacy-subscription")
+        .unwrap_or_else(|error| panic!("subscription id: {error:?}"));
     let scope = scope();
     let key = TenantKey::new(
         tenant.clone(),
         ObjectKind::Subscription,
         id.as_str().as_bytes().to_vec(),
     )
-    .expect("subscription key");
+    .unwrap_or_else(|error| panic!("subscription key: {error:?}"));
     let mut bytes = b"LXS2".to_vec();
     for value in [
         id.as_str(),
@@ -177,7 +194,7 @@ fn lxs2_subscription_record_requires_cursor_reset() {
     ] {
         bytes.extend_from_slice(
             &u32::try_from(value.len())
-                .expect("string length")
+                .unwrap_or_else(|error| panic!("string length: {error:?}"))
                 .to_be_bytes(),
         );
         bytes.extend_from_slice(value.as_bytes());
@@ -186,7 +203,7 @@ fn lxs2_subscription_record_requires_cursor_reset() {
     let delivery_target = "uds://consumer-a";
     bytes.extend_from_slice(
         &u32::try_from(delivery_target.len())
-            .expect("target length")
+            .unwrap_or_else(|error| panic!("target length: {error:?}"))
             .to_be_bytes(),
     );
     bytes.extend_from_slice(delivery_target.as_bytes());
@@ -197,21 +214,32 @@ fn lxs2_subscription_record_requires_cursor_reset() {
     for _ in 0..7 {
         bytes.extend_from_slice(&0_u32.to_be_bytes());
     }
-    let mut durable = Store::open(&root).expect("store");
+    let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error:?}"));
     durable
         .put_local(key.clone(), bytes.clone())
-        .expect("persist LXS2 record");
+        .unwrap_or_else(|error| panic!("persist LXS2 record: {error:?}"));
     drop(durable);
-    let error = SubscriptionStore::open(Store::open(&root).expect("reopen store"), tenant.clone())
-        .expect_err("scalar cursor requires reset");
+    let error = SubscriptionStore::open(
+        Store::open(&root).unwrap_or_else(|error| panic!("reopen store: {error:?}")),
+        tenant.clone(),
+    )
+    .err()
+    .unwrap_or_else(|| panic!("scalar cursor requires reset"));
     // 2986: preserve the bytes while asserting the producer's named upgrade refusal.
     assert!(
         matches!(&error, SubscriptionError::UpgradeRequired { tenant: owner, subscription_id }
         if owner == tenant.as_str() && subscription_id == id.as_str())
     );
     assert_eq!(error.to_string(), format!("subscription.cursor_reset_required: tenant={} subscription={}; use Store::recover_legacy with an explicit replay boundary and retained backup", tenant.as_str(), id.as_str()));
-    let durable = Store::open(&root).expect("inspect stored bytes");
-    assert_eq!(durable.get(&key).expect("legacy record").bytes(), bytes);
+    let durable =
+        Store::open(&root).unwrap_or_else(|error| panic!("inspect stored bytes: {error:?}"));
+    assert_eq!(
+        durable
+            .get(&key)
+            .unwrap_or_else(|| panic!("legacy record"))
+            .bytes(),
+        bytes
+    );
     drop(durable);
-    fs::remove_dir_all(root).expect("cleanup");
+    fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error:?}"));
 }

@@ -1,6 +1,7 @@
 package rest_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,7 +63,9 @@ func TestFrozenV2OperationLooksUpCatalog(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	rest.RegisterDevelopmentHistorySearchDiscovery(router, store.New(nil, nil), admission)
+	if err := rest.RegisterDevelopmentHistorySearchDiscovery(context.Background(), router, rest.DevelopmentHistoryOptions{Store: store.New(nil, nil), Admission: admission}); err != nil {
+		t.Fatal(err)
+	}
 	count, authenticated := 0, 0
 	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		operation, ok := operations[method+" "+path]

@@ -343,6 +343,11 @@ func repairM1000NativeFeeFlow(t *testing.T) {
 	pool, reopen := repairM1000Database(t)
 	inputs := repair54ReceiptInputs(t)
 	inputs.Manifest = deployment.Current()
+	reviewed, err := os.ReadFile(filepath.Join(repositoryRoot(), "sdk/launchpad/protocol/catalog/reviewed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs.ReviewedCatalog = reviewed
 	height := inputs.Manifest.ActivationHeight + 1
 	parent := &types.Header{Number: new(big.Int).SetUint64(height - 1), Time: 1760000499, GasLimit: 30000000, Difficulty: big.NewInt(0)}
 	inputs.Anchor = receipt.BlockAnchor{Height: height - 1, Hash: parent.Hash()}

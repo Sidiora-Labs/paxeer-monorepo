@@ -71,7 +71,7 @@ pub struct Validator {
     pub voting_power: u64,
 }
 
-/// One CometBFT precommit, including its per-validator timestamp.
+/// One `CometBFT` precommit, including its per-validator timestamp.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommitSignature {
     pub validator_address: [u8; 20],
@@ -80,7 +80,7 @@ pub struct CommitSignature {
     pub signature: [u8; 64],
 }
 
-/// A CometBFT commit for the block returned by `eth_getBlockByNumber`.
+/// A `CometBFT` commit for the block returned by `eth_getBlockByNumber`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BlockCommit {
     pub height: u64,
@@ -92,7 +92,10 @@ pub struct BlockCommit {
 }
 
 impl BlockCommit {
-    /// Produces the length-delimited protobuf CanonicalVote bytes signed by CometBFT.
+    /// Produces the length-delimited protobuf `CanonicalVote` bytes signed by `CometBFT`.
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn vote_sign_bytes(
         &self,
         chain_id: &str,
@@ -216,6 +219,9 @@ pub struct VerifiedReceipt {
 }
 
 impl VerifiedReceipt {
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn verify(
         tx_hash: [u8; 32],
         receipt: &[u8],
@@ -283,6 +289,9 @@ pub struct VerifiedBlock {
 }
 
 impl VerifiedBlock {
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn verify(
         block: &SequencerBlock,
         commit: &BlockCommit,
@@ -300,6 +309,9 @@ impl VerifiedBlock {
     }
     /// Authenticates the complete transaction list against the Comet header's data root.
     /// Comet leaves are SHA-256 transaction hashes, with its simple Merkle domain tags.
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn verify_with_header(
         block: &SequencerBlock,
         commit: &BlockCommit,
@@ -399,6 +411,9 @@ pub struct ReceiptEvidence<'a> {
     pub published_keys: &'a [ReceiptKeyEntry],
 }
 
+/// # Errors
+/// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+/// is corrupt, or a required node or store operation fails.
 pub fn augment(
     durable: &mut Store,
     tenant: TenantId,
@@ -425,6 +440,9 @@ pub fn augment(
     )
 }
 
+/// # Errors
+/// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+/// is corrupt, or a required node or store operation fails.
 pub fn augment_verified(
     durable: &mut Store,
     tenant: TenantId,
@@ -497,6 +515,9 @@ impl SubmissionProgress {
         }
     }
 
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn restore(
         store: &Store,
         tenant: TenantId,
@@ -523,6 +544,9 @@ impl SubmissionProgress {
         })
     }
 
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn submit(
         node: &NodeRpc,
         idempotency_key: [u8; 32],
@@ -535,6 +559,9 @@ impl SubmissionProgress {
     }
 
     /// A failed check leaves the prior verified rung intact.
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn observe_receipt(
         &mut self,
         receipt: &[u8],
@@ -556,6 +583,9 @@ impl SubmissionProgress {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn observe_block(
         &mut self,
         block: &SequencerBlock,
@@ -571,6 +601,9 @@ impl SubmissionProgress {
         self.observe_verified_block(&verified)
     }
 
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn observe_block_with_header(
         &mut self,
         block: &SequencerBlock,
@@ -584,6 +617,9 @@ impl SubmissionProgress {
         self.observe_verified_block(&verified)
     }
 
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn observe_verified_block(
         &mut self,
         verified: &VerifiedBlock,
@@ -605,6 +641,9 @@ impl SubmissionProgress {
 
     /// Refreshes receipts and blocks over the node RPC; consensus evidence is supplied
     /// separately because the current block client does not expose a commit field.
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn refresh(
         &mut self,
         node: &NodeRpc,
@@ -613,11 +652,14 @@ impl SubmissionProgress {
         validators: &[Validator],
     ) -> Result<(), FinalityError> {
         let observed = node.sequencer_receipt(&self.tx_hash)?;
-        let executed = match &observed {
-            Some(
-                SequencerReceipt::Receipted(receipt) | SequencerReceipt::Committed { receipt, .. },
-            ) => receipt,
-            _ => return Ok(()),
+        let Some(
+            SequencerReceipt::Receipted(executed)
+            | SequencerReceipt::Committed {
+                receipt: executed, ..
+            },
+        ) = &observed
+        else {
+            return Ok(());
         };
         let keys = node.receipt_keys()?;
         let receipt = VerifiedReceipt::verify(self.tx_hash, &executed.receipt, &keys)?;
@@ -636,6 +678,9 @@ impl SubmissionProgress {
         }
         Ok(())
     }
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     pub fn refresh_with_header(
         &mut self,
         node: &NodeRpc,
@@ -658,6 +703,9 @@ impl SubmissionProgress {
 }
 
 pub trait VerificationProgress {
+    /// # Errors
+    /// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+    /// is corrupt, or a required node or store operation fails.
     fn rung_at(
         &mut self,
         idempotency_key: [u8; 32],
@@ -692,6 +740,9 @@ pub struct WaitResult {
     pub deadline_elapsed: bool,
 }
 
+/// # Errors
+/// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+/// is corrupt, or a required node or store operation fails.
 pub fn wait_for_rung<P: VerificationProgress>(
     progress: &mut P,
     idempotency_key: [u8; 32],
@@ -774,7 +825,11 @@ fn encode_record(record: &FinalityRecord) -> Result<Vec<u8>, FinalityError> {
         bytes.extend_from_slice(&block.block.timestamp.to_be_bytes());
         bytes.extend_from_slice(&block.block.transactions_root);
         bytes.extend_from_slice(&block.block.receipts_root);
-        bytes.extend_from_slice(&(block.block.transactions.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(
+            &(u32::try_from(block.block.transactions.len())
+                .map_err(|_| FinalityError::Arithmetic)?)
+            .to_be_bytes(),
+        );
         for raw in &block.block.transactions {
             push_bytes(&mut bytes, raw)?;
         }
@@ -796,10 +851,10 @@ fn push_bytes(output: &mut Vec<u8>, value: &[u8]) -> Result<(), FinalityError> {
 
 fn varint(output: &mut Vec<u8>, mut value: u64) {
     while value >= 128 {
-        output.push((value as u8 & 127) | 128);
+        output.push((value.to_le_bytes()[0] & 127) | 128);
         value >>= 7;
     }
-    output.push(value as u8);
+    output.push(value.to_le_bytes()[0]);
 }
 
 fn field(output: &mut Vec<u8>, tag: u8, value: &[u8]) -> Result<(), FinalityError> {
@@ -813,6 +868,9 @@ fn field(output: &mut Vec<u8>, tag: u8, value: &[u8]) -> Result<(), FinalityErro
 }
 
 /// Reopens retained evidence using the caller's independently trusted key and validator set.
+/// # Errors
+/// Returns an error if receipt or commit evidence is invalid or inconsistent, retained state
+/// is corrupt, or a required node or store operation fails.
 pub fn restore_finality(
     store: &Store,
     tenant: TenantId,
@@ -839,30 +897,8 @@ fn decode_record(
     key: &ReceiptKeyEntry,
     trust: Option<(&str, &[Validator])>,
 ) -> Result<FinalityRecord, FinalityError> {
-    struct Reader<'a>(&'a [u8]);
-    impl Reader<'_> {
-        fn array<const N: usize>(&mut self) -> Result<[u8; N], FinalityError> {
-            let (head, rest) = self.0.split_at_checked(N).ok_or(FinalityError::Corrupt)?;
-            self.0 = rest;
-            head.try_into().map_err(|_| FinalityError::Corrupt)
-        }
-        fn u32(&mut self) -> Result<u32, FinalityError> {
-            Ok(u32::from_be_bytes(self.array()?))
-        }
-        fn u64(&mut self) -> Result<u64, FinalityError> {
-            Ok(u64::from_be_bytes(self.array()?))
-        }
-        fn data(&mut self) -> Result<Vec<u8>, FinalityError> {
-            let len = self.u32()? as usize;
-            let (head, rest) = self.0.split_at_checked(len).ok_or(FinalityError::Corrupt)?;
-            self.0 = rest;
-            Ok(head.to_vec())
-        }
-    }
     let mut r = Reader(bytes);
-    if &r.array::<4>()? != RECORD_MAGIC {
-        return Err(FinalityError::Corrupt);
-    }
+    crate::reject_if(&r.array::<4>()? != RECORD_MAGIC, || FinalityError::Corrupt)?;
     let idempotency_key = r.array()?;
     let tx_hash = r.array()?;
     let rank = r.array::<1>()?[0];
@@ -873,98 +909,18 @@ fn decode_record(
         first_height: r.u64()?,
         last_height: r.u64()?,
     };
-    if &stored_key != key {
-        return Err(FinalityError::InvalidReceipt);
-    }
+    crate::reject_if(&stored_key != key, || FinalityError::InvalidReceipt)?;
     let receipt_bytes = r.data()?;
     let receipt = VerifiedReceipt::verify(tx_hash, &receipt_bytes, &[*key])?;
-    if receipt.height != height {
-        return Err(FinalityError::Corrupt);
-    }
+    crate::reject_if(receipt.height != height, || FinalityError::Corrupt)?;
     let block = match r.array::<1>()?[0] {
         0 if rank == Rung::Receipted.wire_rank() => None,
         1 if rank == Rung::Committed.wire_rank() => {
-            let hash = r.array()?;
-            let chain_id = String::from_utf8(r.data()?).map_err(|_| FinalityError::Corrupt)?;
-            let round = r.u32()?;
-            let part_set_total = r.u32()?;
-            let part_set_hash = r.array()?;
-            let count = r.u32()?;
-            if count > 10000 {
-                return Err(FinalityError::Corrupt);
-            }
-            let mut validators = Vec::new();
-            for _ in 0..count {
-                validators.push(Validator {
-                    public_key: r.array()?,
-                    voting_power: r.u64()?,
-                });
-            }
-            let (trusted_chain, trusted_validators) = trust.ok_or(FinalityError::InvalidCommit)?;
-            if chain_id != trusted_chain || validators != trusted_validators {
-                return Err(FinalityError::InvalidCommit);
-            }
-            let count = r.u32()?;
-            if count > validators.len() as u32 {
-                return Err(FinalityError::Corrupt);
-            }
-            let mut signatures = Vec::new();
-            for _ in 0..count {
-                signatures.push(CommitSignature {
-                    validator_address: r.array()?,
-                    timestamp_seconds: i64::from_be_bytes(r.array()?),
-                    timestamp_nanos: r.u32()?,
-                    signature: r.array()?,
-                });
-            }
-            let header: CheckpointHeader =
-                serde_json::from_slice(&r.data()?).map_err(|_| FinalityError::Corrupt)?;
-            let parent_hash = r.array()?;
-            let timestamp = r.u64()?;
-            let transactions_root = r.array()?;
-            let receipts_root = r.array()?;
-            let count = r.u32()?;
-            if count > 4096 {
-                return Err(FinalityError::Corrupt);
-            }
-            let mut transactions = Vec::new();
-            for _ in 0..count {
-                transactions.push(r.data()?);
-            }
-            let block = SequencerBlock {
-                number: height,
-                hash,
-                parent_hash,
-                timestamp,
-                transactions_root,
-                receipts_root,
-                transactions,
-            };
-            let commit = BlockCommit {
-                height,
-                round,
-                block_hash: hash,
-                part_set_total,
-                part_set_hash,
-                signatures,
-            };
-            let verified = VerifiedBlock::verify_with_header(
-                &block,
-                &commit,
-                &header,
-                &chain_id,
-                &validators,
-            )?;
-            if !verified.binds(&receipt) {
-                return Err(FinalityError::InvalidCommit);
-            }
-            Some(verified)
+            Some(decode_committed_block(&mut r, height, trust, &receipt)?)
         }
         _ => return Err(FinalityError::Corrupt),
     };
-    if !r.0.is_empty() {
-        return Err(FinalityError::Corrupt);
-    }
+    crate::reject_if(!r.0.is_empty(), || FinalityError::Corrupt)?;
     Ok(FinalityRecord {
         idempotency_key,
         tx_hash,
@@ -980,6 +936,10 @@ fn decode_record(
     })
 }
 
+/// Waits for the journal's authenticated market receipt at the requested deadline.
+/// # Errors
+/// Returns an error if the deadline is invalid or expires, receipt authentication or
+/// transaction binding fails, or the market operation is refused.
 pub fn wait_for_market_acceptance(
     journal: &layerx_client::ai_market::OperationJournal,
     record: &mut layerx_client::ai_market::OperationRecord,
@@ -1051,5 +1011,100 @@ pub fn wait_for_market_acceptance(
             return Err(inference_enrol::EnrolError::Deadline);
         }
         std::thread::sleep(remaining.min(Duration::from_millis(20)));
+    }
+}
+
+fn decode_committed_block(
+    r: &mut Reader<'_>,
+    height: u64,
+    trust: Option<(&str, &[Validator])>,
+    receipt: &VerifiedReceipt,
+) -> Result<VerifiedBlock, FinalityError> {
+    let hash = r.array()?;
+    let chain_id = String::from_utf8(r.data()?).map_err(|_| FinalityError::Corrupt)?;
+    let round = r.u32()?;
+    let part_set_total = r.u32()?;
+    let part_set_hash = r.array()?;
+    let count = r.u32()?;
+    crate::reject_if(count > 10_000, || FinalityError::Corrupt)?;
+    let mut validators = Vec::new();
+    for _ in 0..count {
+        validators.push(Validator {
+            public_key: r.array()?,
+            voting_power: r.u64()?,
+        });
+    }
+    let (trusted_chain, trusted_validators) = trust.ok_or(FinalityError::InvalidCommit)?;
+    crate::reject_if(
+        chain_id != trusted_chain || validators != trusted_validators,
+        || FinalityError::InvalidCommit,
+    )?;
+    let count = r.u32()?;
+    crate::reject_if(
+        usize::try_from(count).map_err(|_| FinalityError::Corrupt)? > validators.len(),
+        || FinalityError::Corrupt,
+    )?;
+    let mut signatures = Vec::new();
+    for _ in 0..count {
+        signatures.push(CommitSignature {
+            validator_address: r.array()?,
+            timestamp_seconds: i64::from_be_bytes(r.array()?),
+            timestamp_nanos: r.u32()?,
+            signature: r.array()?,
+        });
+    }
+    let header: CheckpointHeader =
+        serde_json::from_slice(&r.data()?).map_err(|_| FinalityError::Corrupt)?;
+    let parent_hash = r.array()?;
+    let timestamp = r.u64()?;
+    let transactions_root = r.array()?;
+    let receipts_root = r.array()?;
+    let count = r.u32()?;
+    crate::reject_if(count > 4096, || FinalityError::Corrupt)?;
+    let mut transactions = Vec::new();
+    for _ in 0..count {
+        transactions.push(r.data()?);
+    }
+    let block = SequencerBlock {
+        number: height,
+        hash,
+        parent_hash,
+        timestamp,
+        transactions_root,
+        receipts_root,
+        transactions,
+    };
+    let commit = BlockCommit {
+        height,
+        round,
+        block_hash: hash,
+        part_set_total,
+        part_set_hash,
+        signatures,
+    };
+    let verified =
+        VerifiedBlock::verify_with_header(&block, &commit, &header, &chain_id, &validators)?;
+    crate::reject_if(!verified.binds(receipt), || FinalityError::InvalidCommit)?;
+    Ok(verified)
+}
+
+struct Reader<'a>(&'a [u8]);
+impl Reader<'_> {
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], FinalityError> {
+        let (head, rest) = self.0.split_at_checked(N).ok_or(FinalityError::Corrupt)?;
+        self.0 = rest;
+        head.try_into().map_err(|_| FinalityError::Corrupt)
+    }
+    fn u32(&mut self) -> Result<u32, FinalityError> {
+        Ok(u32::from_be_bytes(self.array()?))
+    }
+    fn u64(&mut self) -> Result<u64, FinalityError> {
+        Ok(u64::from_be_bytes(self.array()?))
+    }
+    fn data(&mut self) -> Result<Vec<u8>, FinalityError> {
+        let len = self.u32()? as usize;
+        let (head, rest) = self.0.split_at_checked(len).ok_or(FinalityError::Corrupt)?;
+        self.0 = rest;
+        Ok(head.to_vec())
     }
 }

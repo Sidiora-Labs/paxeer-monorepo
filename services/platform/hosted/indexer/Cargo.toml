@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "layerx-indexer"
 path = "src/main.rs"
 
+[[bin]]
+name = "layerx-ai-source"
+path = "src/bin/ai_source.rs"
+
 [dependencies]
 layerx-committed-proof = { path = "../../../../services/interop/crates/layerx-committed-proof" }
 layerx-platform-internal.workspace = true

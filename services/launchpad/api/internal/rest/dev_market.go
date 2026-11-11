@@ -98,6 +98,7 @@ func RegisterDevelopmentMarketReads(ctx context.Context, r chi.Router, o Develop
 			}
 			if chain.client != nil {
 				if err := chain.checkChain(req.Context()); err != nil {
+					noteDevelopmentReadError(req, err)
 					WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
 					return
 				}
@@ -108,7 +109,7 @@ func RegisterDevelopmentMarketReads(ctx context.Context, r chi.Router, o Develop
 		if o.Admission != nil {
 			handler = o.Admission.Middleware(class)(h)
 		}
-		r.Method(method, path, ResponseMetadata(handler))
+		r.Method(method, path, ResponseMetadata(logDevelopmentReadFailures(path, handler)))
 	}
 	register("GET", "/v2/pools", AdmissionAggregate, d.poolList)
 	register("GET", "/v2/pools/{poolAddress}", AdmissionCached, d.poolDetail)
@@ -317,6 +318,7 @@ func (d *developmentMarket) stats(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := d.readStatsInputs(r.Context(), []string{pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -326,11 +328,13 @@ func (d *developmentMarket) stats(w http.ResponseWriter, r *http.Request) {
 	}
 	wm, err := d.requiredWatermark(r.Context(), in.head, in.headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
 	docs, err := d.statsDocuments(r.Context(), in, []string{pool}, wm)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -349,6 +353,7 @@ func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := d.readStatsInputs(r.Context(), pools)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -362,6 +367,7 @@ func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
 		}
 		wm = &required
 		if docs, err = d.statsDocuments(r.Context(), in, pools, required); err != nil {
+			noteDevelopmentReadError(r, err)
 			writePoolReadError(w, r, err)
 			return
 		}
@@ -391,6 +397,7 @@ func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := d.readStatsInputs(r.Context(), []string{pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -405,6 +412,7 @@ func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	wm, err := d.requiredWatermark(r.Context(), in.head, in.headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
@@ -415,11 +423,13 @@ func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	poolDoc, err := developmentPoolDocument(row, created)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	stats, err := d.statsDocuments(r.Context(), in, []string{pool}, wm)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -427,7 +437,12 @@ func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
 		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
 		return
 	}
-	token := tokenDocument(store.PoolRegistryRow{Token: row.Token})
+	token, err := d.chain.tokenDocument(r.Context(), row.Token, wm)
+	if err != nil {
+		noteDevelopmentReadError(r, err)
+		writePoolReadError(w, r, err)
+		return
+	}
 	writeMarketEnvelope(w, r, "PoolDetailResponse", map[string]any{"pool": poolDoc, "token": token, "stats": stats[pool]}, &wm, "partial", nil)
 }
 
@@ -446,6 +461,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	}
 	members, _, err := d.st.RankingMembers(r.Context(), developmentPoolListKeys[request.sort], developmentPoolListMax)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		WriteReadError(w, r, err)
 		return
 	}
@@ -482,6 +498,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	rows := map[string]store.DevelopmentPool{}
 	if len(page) > 0 {
 		if rows, err = d.st.DevelopmentPools(r.Context(), page); err != nil {
+			noteDevelopmentReadError(r, err)
 			writePoolReadError(w, r, err)
 			return
 		}
@@ -536,6 +553,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	if key, zset := developmentRankingKeys[category]; zset {
 		members, card, err := d.st.RankingMembers(r.Context(), key, developmentRankingMax)
 		if err != nil {
+			noteDevelopmentReadError(r, err)
 			WriteReadError(w, r, err)
 			return
 		}
@@ -546,6 +564,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	} else {
 		movers, count, err := d.st.DevelopmentPriceMovers(r.Context(), category == "gainers", developmentRankingMax)
 		if err != nil {
+			noteDevelopmentReadError(r, err)
 			WriteReadError(w, r, err)
 			return
 		}
@@ -557,6 +576,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	head, headErr := d.st.DevelopmentIndexerHead(r.Context())
 	wm, err := d.requiredWatermark(r.Context(), head, headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
@@ -662,6 +682,7 @@ func (d *developmentMarket) holders(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := d.st.DevelopmentPools(r.Context(), []string{request.pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -673,6 +694,7 @@ func (d *developmentMarket) holders(w http.ResponseWriter, r *http.Request) {
 	excluded := []string{request.pool}
 	holders, err := d.st.DevelopmentHolders(r.Context(), request.pool, excluded, after.Balance, after.Wallet, request.limit+1)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}

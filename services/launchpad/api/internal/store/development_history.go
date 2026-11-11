@@ -5,13 +5,9 @@ import (
 	"errors"
 )
 
-// Development-mode history reads. Outside production the indexer writes the
-// legacy indexer.swaps / indexer.pools tables and trading-charts writes
-// candles.candles; none of them records the block hash or transaction index a
-// v2 ChainPosition requires, so the v2 trade and candle documents can only be
-// built for the empty case. These reads answer the two questions the
-// development handlers need: does the pool exist, and has the development
-// pipeline recorded any rows for the requested scope.
+// Development-mode history scope checks read the indexer's legacy tables.
+// Committed trades and candles are served only with the development stream
+// projector's canonical receipt completion; unprojected legacy data refuses.
 
 // ErrDevelopmentScope reports a development read called with an invalid scope.
 var ErrDevelopmentScope = errors.New("development read scope invalid")

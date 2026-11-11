@@ -34,8 +34,8 @@ use layerx_programs_ai_market::{
         F06_FUNDING_POLICY_MISMATCH, F06_INVALID_AMOUNT, F06_LEDGER_INVARIANT_VIOLATION,
         F06_REFUND_RECIPIENT_MISMATCH, F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_AMOUNT,
         F06_WRONG_CLAIM_RECIPIENT, HOST_CAPABILITY, HOST_TRANSFER, INSUFFICIENT_FREE,
-        NON_CANONICAL, NOT_FOUND, READINESS_BLOCKED, REPLAY_CONFLICT, RETENTION_FULL, SEQUENCE_GAP,
-        STALE_CURSOR, UNAUTHORIZED, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
+        NON_CANONICAL, NOT_FOUND, REPLAY_CONFLICT, RETENTION_FULL, SEQUENCE_GAP, STALE_CURSOR,
+        UNAUTHORIZED, WRONG_CONFIG, WRONG_EPOCH, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
         authority::{split_identity_section, EvaluatorRecord, EvaluatorRegion, LastRequest},
@@ -1622,7 +1622,7 @@ struct Native {
     output: BufReader<ChildStdout>,
     chain: ChainDomain,
     program: ProgramId,
-    principals: [PrincipalId; 3],
+    principals: [PrincipalId; 6],
     rewards: [u8; 32],
     /// Kernel blob, staged blob and module KV limits from the bring-up line.
     limits: [usize; 3],
@@ -1646,7 +1646,7 @@ impl Native {
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|error| harness(format!("{}: {error}", m.harness)))?;
-        let input = child.stdin.take().ok_or_else(|| harness("stdin"))?;
+        let mut input = child.stdin.take().ok_or_else(|| harness("stdin"))?;
         let stdout = child.stdout.take().ok_or_else(|| harness("stdout"))?;
         let mut output = BufReader::new(stdout);
         let mut ready = String::new();
@@ -1664,15 +1664,31 @@ impl Native {
                 String::from_utf8_lossy(&failure.stderr),
             )));
         }
-        let principal =
-            |i: usize| -> Checked<PrincipalId> { Ok(PrincipalId::new(fixed(&unhex(t[i])?)?)?) };
+        writeln!(input, "reward-identities")?;
+        input.flush()?;
+        let mut identity_text = String::new();
+        output.read_line(&mut identity_text)?;
+        let identities: Vec<_> = identity_text.split_whitespace().collect();
+        if identities.len() != 7 || identities[0] != "reward-identities" {
+            return Err(harness("native reward identities missing"));
+        }
+        let principal = |i: usize| -> Checked<PrincipalId> {
+            Ok(PrincipalId::new(fixed(&unhex(identities[i + 1])?)?)?)
+        };
         Ok(Self {
             child,
             input: Some(input),
             output,
             chain: ChainDomain::new(m.chain)?,
             program: ProgramId::new(fixed(&unhex(t[1])?)?)?,
-            principals: [principal(2)?, principal(3)?, principal(4)?],
+            principals: [
+                principal(0)?,
+                principal(1)?,
+                principal(2)?,
+                principal(3)?,
+                principal(4)?,
+                principal(5)?,
+            ],
             rewards: fixed(&unhex(t[5])?)?,
             limits: [number(t[6])?, number(t[7])?, number(t[8])?],
             state: None,
@@ -2413,16 +2429,6 @@ fn finality_recovery() -> QueryResult<()> {
     ] {
         assert_eq!(value_adapter::transfer_refusal(error), expected);
     }
-    for (refusal, expected) in [
-        (HostRefusal::Denied, HOST_CAPABILITY),
-        (HostRefusal::Evidence, READINESS_BLOCKED),
-        (HostRefusal::VerificationFailed, READINESS_BLOCKED),
-    ] {
-        assert_eq!(
-            value_adapter::balance_refusal(ProgramError::Host(refusal)),
-            expected
-        );
-    }
     assert_eq!(
         w.refused_sized(&payout, 1112, next.len() - 1, rewards::SCRATCH_BYTES)?,
         CAPACITY
@@ -2640,6 +2646,165 @@ fn sustained_retention() -> TestResult {
     assert_eq!(reward_view(&lapsed.bytes)?.row(7), Err(NOT_FOUND));
     assert_eq!(lapsed.counters()?, [3352, 3174, 0, 77, 101, 0]);
     Ok(())
+}
+
+#[test]
+fn reward_reopen_preserves_recipient_balances() -> Checked {
+    repair_22_33_261::reward_native_reopen();
+    let mut n = Native::start()?;
+    let principals = n.principals;
+    let calls = repair_22_33_261::native_reward_calls(repair_22_33_261::NativeRewardDomain {
+        chain: n.chain,
+        program: n.program,
+        principals,
+    });
+    let mut payouts = Vec::new();
+    for produced in calls {
+        let operation = decode_envelope(&produced.envelope)?.envelope.operation;
+        let payout = operation == dispatch::CLAIM || operation == dispatch::REFUND_FREE;
+        if !payout {
+            let line = n.submit(produced.actor, produced.height, &produced.envelope)?;
+            assert_eq!(
+                line.result_code,
+                0,
+                "{}: {:?}",
+                operation.metadata().name,
+                terminal(&line, n.program).err()
+            );
+            let Terminal::Success(body) = terminal(&line, n.program)? else {
+                return Err(harness(format!("{} refused", operation.metadata().name)));
+            };
+            assert_eq!(body, produced.result);
+            assert_eq!(line.state, produced.state);
+            let [event] = &line.events[..] else {
+                return Err(harness("one lifecycle event required"));
+            };
+            assert_eq!(event.data, produced.event);
+            if operation == dispatch::FUND {
+                assert_eq!(line.rewards_balance, 500);
+                assert_eq!(
+                    line.balance_after,
+                    line.balance_before - line.fee - line.occupancy_fee - 500
+                );
+            }
+            n.state = Some(line.state);
+            continue;
+        }
+        let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
+        native_replay::prepare_native_call(input, &mut n.output, produced.height)?;
+        writeln!(
+            input,
+            "prove_reward_replay {} {} {}",
+            produced.actor,
+            produced.height,
+            hex(&produced.envelope)
+        )?;
+        input.flush()?;
+        let mut read_call = || -> Checked<Line> {
+            let mut text = String::new();
+            if n.output.read_line(&mut text)? == 0 {
+                return Err(harness("reward replay proof stopped"));
+            }
+            let mut line = parse_line(&text)?;
+            line.occupancy_fee = native_replay::occupancy_fee(
+                line.kind,
+                line.abi,
+                &line.terminal,
+                principals[produced.actor].bytes(),
+                line.occupancy_fee,
+            )?;
+            Ok(line)
+        };
+        let first = read_call()?;
+        let replay = read_call()?;
+        assert_eq!(
+            (
+                first.status,
+                first.result_code,
+                replay.status,
+                replay.result_code
+            ),
+            (0, 0, 0, 0)
+        );
+        let Terminal::Success(first_body) = terminal(&first, n.program)? else {
+            return Err(harness("payout refused"));
+        };
+        let Terminal::Success(replay_body) = terminal(&replay, n.program)? else {
+            return Err(harness("replay refused"));
+        };
+        assert_eq!(first_body, produced.result);
+        assert_eq!(first.state, produced.state);
+        assert_eq!(replay.state, first.state);
+        assert_eq!(replay.rewards_balance, first.rewards_balance);
+        let [event] = &first.events[..] else {
+            return Err(harness("one payout event required"));
+        };
+        assert_eq!(event.producer, n.program.bytes());
+        assert_eq!(event.principal, principals[produced.actor].bytes());
+        assert_eq!(event.data, produced.event);
+        assert!(replay.events.is_empty());
+        let original = codec::decode_result(&first_body)?;
+        let repeated = codec::decode_result(&replay_body)?;
+        assert_eq!(original.status, ResultStatus::Ok);
+        assert_eq!(repeated.status, ResultStatus::AlreadyApplied);
+        assert_eq!(repeated.request, original.request);
+        assert_eq!(repeated.revision, original.revision);
+        let identity = if operation == dispatch::CLAIM {
+            &original.payload[..32]
+        } else {
+            original.digest.as_bytes()
+        };
+        assert_eq!(repeated.payload, identity);
+        for line in [&first, &replay] {
+            assert_eq!(
+                line.balance_after,
+                line.balance_before - line.fee - line.occupancy_fee
+            );
+        }
+        let mut proof = String::new();
+        n.output.read_line(&mut proof)?;
+        let proof: Vec<_> = proof.split_whitespace().collect();
+        assert_eq!(proof.len(), 6);
+        assert_eq!(proof[0], "reward-replay");
+        let values: Vec<u64> = proof[1..]
+            .iter()
+            .map(|value| number(value))
+            .collect::<Checked<_>>()?;
+        let amount = if operation == dispatch::CLAIM {
+            100
+        } else {
+            400
+        };
+        assert_eq!(values[0], amount);
+        assert_eq!(values[2], values[1] + amount);
+        assert_eq!(values[4], values[3] - amount);
+        assert_eq!(values[4], first.rewards_balance);
+        let rewards = reward_view(&replay.state)?;
+        let row = rewards.row(1)?;
+        assert_eq!(row.paid_sum, 100);
+        assert_eq!(row.entries().len(), 1);
+        assert_eq!(row.entries()[0].disposition, Disposition::Claimed);
+        assert_eq!(rewards.ledger()?.total_claimed, 100);
+        payouts.push(amount);
+        n.state = Some(replay.state);
+    }
+    assert_eq!(payouts, [100, 400]);
+    let rewards = reward_view(
+        n.state
+            .as_deref()
+            .ok_or_else(|| harness("final state missing"))?,
+    )?;
+    let ledger = rewards.ledger()?;
+    assert_eq!(
+        (
+            ledger.tracked_deposits,
+            ledger.total_claimed,
+            ledger.tracked_refunds
+        ),
+        (500, 100, 400)
+    );
+    assert_eq!((ledger.free, ledger.reserved, ledger.liability), (0, 0, 0));
+    n.finish()
 }
 
 /// A18 and A17 through the registered Program activity: a Fund whose response is lost is

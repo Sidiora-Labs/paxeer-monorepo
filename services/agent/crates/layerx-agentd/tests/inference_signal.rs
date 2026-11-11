@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The host binary and enrolment route use signalling items that this target does not call (decision 3292)"
+)]
 #[path = "../src/inference_market/signal.rs"]
 mod signal;
 
@@ -201,7 +205,7 @@ fn captured_hello_cannot_be_replayed_on_a_new_connection() {
 }
 
 #[test]
-fn offer_digest_binds_every_advertised_term() {
+fn room_offer_hash_binds_every_advertised_term() {
     let offer = local_offer();
     let digest = must(offer.digest());
     let mut mutations = Vec::new();
@@ -284,7 +288,7 @@ impl SignalChain for TestChain {
             }
             "px_getInferenceRoom" => {
                 assert_eq!(params, json!([self.room["room_id"]]));
-                let key = must(hex::decode(params[0].as_str().expect("room id")));
+                let key = must(hex::decode(lint_present(params[0].as_str(), "room id")));
                 let mut out = vec![0; queries::ROOM_VIEW_BYTES];
                 let length = must(queries::answer_room_view(&self.state, &key, &mut out));
                 let view = must(queries::RoomView::decode(&out[..length]));
@@ -302,12 +306,19 @@ impl SignalChain for TestChain {
                 );
                 assert_eq!(
                     view.room.state as u8,
-                    self.room["state"].as_u64().expect("room state") as u8
+                    lint_success(
+                        u8::try_from(lint_present(self.room["state"].as_u64(), "room state")),
+                        "integer fits u8"
+                    )
                 );
+                assert_eq!(room_answer(&view), self.room);
                 Ok(self.room.clone())
             }
             "px_getInferencePeer" => {
-                let key = must(hex::decode(params[0].as_str().expect("peer principal")));
+                let key = must(hex::decode(lint_present(
+                    params[0].as_str(),
+                    "peer principal",
+                )));
                 assert_eq!(key.len(), 32);
                 let mut out = vec![0; queries::PEER_VIEW_BYTES];
                 let length = match queries::answer_peer_view(&self.state, &key, &mut out) {
@@ -329,9 +340,42 @@ impl SignalChain for TestChain {
     }
 }
 
+fn room_answer(view: &queries::RoomView) -> Value {
+    assert!(view.open_asks.iter().all(Option::is_none));
+    let room = &view.room;
+    let profile = &room.profile;
+    json!({
+        "room_id": hex::encode(room.room_id.as_bytes()),
+        "host_key": hex::encode(room.host_key.as_bytes()),
+        "model_digest": hex::encode(room.model_digest.as_bytes()),
+        "runtime_digest": hex::encode(room.runtime_digest.as_bytes()),
+        "state": room.state as u8,
+        "opened_at_epoch": room.opened_at_epoch.to_string(),
+        "profile": {
+            "minimum_bond": profile.minimum_bond.to_string(),
+            "canary_ratio_bps": profile.canary_ratio_bps,
+            "lap_size_tokens": profile.lap_size_tokens.to_string(),
+            "challenge_window_blocks": profile.challenge_window_blocks.to_string(),
+            "slash_fraction_bps": profile.slash_fraction_bps,
+            "host_share_bps": profile.host_share_bps,
+            "protocol_share_bps": profile.protocol_share_bps,
+            "settlement_account": hex::encode(profile.settlement_account.as_bytes()),
+        },
+        "open_asks": view.open_asks.iter().flatten()
+            .map(|id| hex::encode(id.as_bytes())).collect::<Vec<_>>(),
+        "open_bids": view.open_bids.iter().flatten()
+            .map(|id| hex::encode(id.as_bytes())).collect::<Vec<_>>(),
+        "ask_streams": [],
+    })
+}
+
 impl LiveContext {
     fn load() -> Self {
-        let (state, manifests, seeds) = enrolled_chain::peers();
+        Self::load_room(false)
+    }
+
+    fn load_room(closed: bool) -> Self {
+        let (state, manifests, seeds) = enrolled_chain::peers(closed);
         let mut offer = local_offer();
         offer.room_id = [60; 32];
         offer.model_digest = [20; 32];
@@ -342,8 +386,8 @@ impl LiveContext {
             .enumerate()
             .map(|(index, seed)| LayerAssignment {
                 peer_key: SigningKey::from_bytes(seed).verifying_key().to_bytes(),
-                first_layer: (index as u32) * 16,
-                end_layer: (index as u32 + 1) * 16,
+                first_layer: (lint_success(u32::try_from(index), "integer fits u32")) * 16,
+                end_layer: (lint_success(u32::try_from(index), "integer fits u32") + 1) * 16,
             })
             .collect();
         let directory = Directory::new();
@@ -379,9 +423,10 @@ impl LiveContext {
             head_sequence: 183,
             checkpoint: [7; 32],
         };
-        let room = json!({"room_id": hex::encode(offer.room_id), "state": 0,
-            "model_digest": hex::encode(offer.model_digest), "runtime_digest": hex::encode(offer.runtime_digest),
-            "offer_digest": hex::encode(must(offer.digest()))});
+        let mut out = vec![0; queries::ROOM_VIEW_BYTES];
+        let length = must(queries::answer_room_view(&state, &offer.room_id, &mut out));
+        let view = must(queries::RoomView::decode(&out[..length]));
+        let room = room_answer(&view);
         let chain = Arc::new(TestChain {
             state,
             room,
@@ -432,6 +477,57 @@ fn hello_admitted_with_the_chain_anchored_offer() {
     let listener = context.listener(context.offer.clone());
     let _peer = context.admitted(&listener, 0);
     must(listener.check());
+}
+
+#[test]
+fn hello_is_admitted_against_the_room_fields_the_node_serves() {
+    let context = LiveContext::load();
+    let fields = context
+        .chain
+        .room
+        .as_object()
+        .unwrap_or_else(|| panic!("room answer"));
+    assert_eq!(
+        fields.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec![
+            "ask_streams",
+            "host_key",
+            "model_digest",
+            "open_asks",
+            "open_bids",
+            "opened_at_epoch",
+            "profile",
+            "room_id",
+            "runtime_digest",
+            "state",
+        ]
+    );
+    let listener = context.listener(context.offer.clone());
+    let _peer = context.admitted(&listener, 0);
+    must(listener.check());
+
+    for field in ["model_digest", "runtime_digest", "state"] {
+        let mut changed = LiveContext::load_room(field == "state");
+        match field {
+            "model_digest" => changed.offer.model_digest[0] ^= 1,
+            "runtime_digest" => changed.offer.runtime_digest[0] ^= 1,
+            "state" => assert_eq!(changed.chain.room["state"], 1),
+            _ => unreachable!(),
+        }
+        let listener = changed.listener(changed.offer.clone());
+        let (mut socket, nonce) = connect(&listener);
+        send(
+            &mut socket,
+            &ClientFrame::Hello(hello(
+                changed.offer.room_id,
+                nonce,
+                &SigningKey::from_bytes(&changed.seeds[0]),
+                changed.manifests[0].clone(),
+            )),
+        );
+        refused(&mut socket, SignalError::OfferMismatch);
+        must(listener.check());
+    }
 }
 
 #[test]
@@ -491,15 +587,9 @@ fn unknown_peer_principal_refused() {
 }
 
 #[test]
-fn room_without_offer_commitment_refused() {
-    let context = LiveContext::load();
-    let mut chain = (*context.chain).clone();
-    chain
-        .room
-        .as_object_mut()
-        .expect("room record")
-        .remove("offer_digest");
-    let authority = SignalAuthority::with_chain(Arc::new(chain), 125, [51; 32]);
+fn room_without_open_state_refused() {
+    let context = LiveContext::load_room(true);
+    let authority = context.authority.clone();
     let listener = must(SignalListener::start(
         must(TcpListener::bind("127.0.0.1:0")),
         context.offer.clone(),
@@ -559,12 +649,7 @@ fn enrolled_manifest_digest_mismatch_refused() {
 fn changed_offer_refused_against_the_chain_record() {
     let context = LiveContext::load();
     let mut offer = context.offer.clone();
-    offer.price = must(
-        must(offer.price.parse::<u128>())
-            .checked_add(1)
-            .ok_or("price overflow"),
-    )
-    .to_string();
+    offer.model_digest[0] ^= 1;
     let listener = context.listener(offer);
     let (mut socket, nonce) = connect(&listener);
     send(
@@ -790,8 +875,7 @@ mod enrolled_chain {
                 dispatch::CREATE,
                 &payload,
                 fixture.header.owner_principal,
-                1,
-                0,
+                (1, 0),
                 &fixture.owner,
                 false,
             );
@@ -835,8 +919,7 @@ mod enrolled_chain {
                 dispatch::OpenRoom,
                 &payload,
                 fixture.header.owner_principal,
-                fixture.next_sequence(fixture.header.owner_principal),
-                20,
+                (fixture.next_sequence(fixture.header.owner_principal), 20),
                 &fixture.owner,
                 false,
             );
@@ -905,7 +988,14 @@ mod enrolled_chain {
             } else {
                 self.next_sequence(actor)
             };
-            let record = self.sign(operation, payload, actor, sequence, sequence, signer, false);
+            let record = self.sign(
+                operation,
+                payload,
+                actor,
+                (sequence, sequence),
+                signer,
+                false,
+            );
             self.apply_signed(&record, height);
         }
 
@@ -955,8 +1045,7 @@ mod enrolled_chain {
                 dispatch::ApproveAdmission,
                 &payload,
                 self.header.owner_principal,
-                sequence,
-                sequence,
+                (sequence, sequence),
                 &owner_signer,
                 false,
             );
@@ -1064,7 +1153,7 @@ mod enrolled_chain {
 
         fn bootstrap_roster(&mut self) {
             let mut bootstrap = Self::new(1);
-            bootstrap.state = self.state.clone();
+            bootstrap.state.clone_from(&self.state);
             bootstrap.header = self.header;
             bootstrap.bootstrap_peer(0);
             let owner = LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)));
@@ -1240,8 +1329,7 @@ mod enrolled_chain {
             operation: Operation,
             payload: &[u8],
             actor: PrincipalId,
-            sequence: u64,
-            nonce: u64,
+            (sequence, nonce): (u64, u64),
             signer: &LocalSigner,
             delegate: bool,
         ) -> OperationRecord {
@@ -1376,8 +1464,7 @@ mod enrolled_chain {
                     dispatch::EnrollWorker,
                     &proposal,
                     self.header.owner_principal,
-                    owner_sequence,
-                    owner_sequence - 1,
+                    (owner_sequence, owner_sequence - 1),
                     &self.owner,
                     false,
                 ),
@@ -1385,8 +1472,7 @@ mod enrolled_chain {
                     dispatch::AcceptEnrollment,
                     &acceptance,
                     self.peer_principal,
-                    1,
-                    0,
+                    (1, 0),
                     &self.peer,
                     false,
                 ),
@@ -1394,8 +1480,7 @@ mod enrolled_chain {
                     dispatch::PublishMetadata,
                     &publication,
                     self.peer_principal,
-                    2,
-                    1,
+                    (2, 1),
                     &self.peer,
                     true,
                 ),
@@ -1444,14 +1529,30 @@ mod enrolled_chain {
         }
     }
 
-    pub fn peers() -> (Vec<u8>, Vec<Vec<u8>>, Vec<[u8; 32]>) {
-        let fixture = Fixture::program();
+    pub fn peers(closed: bool) -> (Vec<u8>, Vec<Vec<u8>>, Vec<[u8; 32]>) {
+        let mut fixture = Fixture::program();
+        if closed {
+            let close = fixture.sign(
+                dispatch::CloseRoom,
+                &[60; 32],
+                fixture.header.owner_principal,
+                (fixture.next_sequence(fixture.header.owner_principal), 21),
+                &fixture.owner,
+                false,
+            );
+            fixture.state = must(apply_program(
+                &fixture.header,
+                Some(&fixture.state),
+                close.signed_bytes(),
+                183,
+            ));
+        }
         let mut manifests = Vec::new();
         let mut seeds = Vec::new();
         for index in 0..4 {
             let peer =
                 LocalSigner::from_derived_account(&must(derive_from_seed(&[40 + index; 32], 0)));
-            let owner = principal(peer.evm_address().expect("peer owner"));
+            let owner = principal(super::lint_present(peer.evm_address(), "peer owner"));
             let worker = must(codec::derive_worker(
                 fixture.header.market_id,
                 owner,
@@ -1487,5 +1588,21 @@ mod enrolled_chain {
             seeds.push([60 + index; 32]);
         }
         (fixture.state, manifests, seeds)
+    }
+}
+
+#[track_caller]
+fn lint_success<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{context}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn lint_present<T>(value: Option<T>, context: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{context}: required value is absent"),
     }
 }

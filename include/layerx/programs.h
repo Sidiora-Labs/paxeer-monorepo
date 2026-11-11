@@ -579,6 +579,9 @@ lxp_result layerx_programs_call_event_byte(uint64_t token, uint16_t section,
                                             uint32_t offset, uint8_t byte);
 lxp_result layerx_programs_call_event_emit(uint64_t token);
 
+lxp_result layerx_programs_call_destination_name_byte(
+    uint64_t token, uint64_t t0, uint64_t t1, uint64_t t2, uint64_t t3,
+    uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint32_t offset);
 lxp_result layerx_programs_call_transfer_begin(uint64_t token,
                                                uint64_t program_spend_token,
                                                uint16_t leg_count);

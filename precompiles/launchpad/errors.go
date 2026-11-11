@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type customRevert struct {
@@ -84,6 +85,20 @@ func contractRevertData(err, original error) ([]byte, error, bool) {
 		return contractRevertData(wrapped.Unwrap(), original)
 	case interface{ Cause() error }:
 		return contractRevertData(wrapped.Cause(), original)
+	}
+	for _, mapping := range []struct {
+		err  error
+		name string
+	}{
+		{types.ErrWrongChain, "WrongChain"},
+		{types.ErrNotLaunchedChain, "NotLaunchedChain"},
+		{types.ErrNotFeeRightHolder, "NotFeeRightHolder"},
+		{types.ErrEpochTooEarly, "EpochTooEarly"},
+		{types.ErrNothingToDistribute, "NothingToDistribute"},
+	} {
+		if errors.Is(err, mapping.err) {
+			return crypto.Keccak256([]byte(mapping.name + "()"))[:4], nil, true
+		}
 	}
 	if contract, ok := types.ContractErrorOf(err); ok {
 		data, packErr := contract.Revert()

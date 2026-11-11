@@ -79,7 +79,7 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
 
         X509Certificate2 ca;
         if (root.TryGetProperty("ca_pem", out _)) ca = X509Certificate2.CreateFromPemFile(AbsoluteFile(root, "ca_pem"));
-        else ca = new X509Certificate2(File.ReadAllBytes(AbsoluteFile(root, "ca_der")));
+        else ca = X509CertificateLoader.LoadCertificate(File.ReadAllBytes(AbsoluteFile(root, "ca_der")));
 
         var key = File.ReadAllText(AbsoluteFile(root, "gateway_api_key_file"), new UTF8Encoding(false, true));
         if (key.EndsWith('\n')) key = key[..^1];

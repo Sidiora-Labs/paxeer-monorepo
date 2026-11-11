@@ -716,8 +716,9 @@ public sealed class ProgramsClient
 
     private static bool AuthorizationV2(byte[] encoded)
     {
-        var domain = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/account-bound-set/v1\0");
-        if (Starts(encoded, domain)) encoded = new TerminalCursor(encoded, domain.Length).Sized32();
+        var v1 = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/account-bound-set/v1\0");
+        var v2 = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/account-bound-set/v2\0");
+        if (Starts(encoded, v1) || Starts(encoded, v2)) encoded = new TerminalCursor(encoded, v1.Length).Sized32();
         return Starts(encoded, "LayerX/programs/402LXP/transfer-set/v2\0");
     }
 
@@ -738,12 +739,14 @@ public sealed class ProgramsClient
     private static byte[] DecodeAuthorizationRoot(byte[] encoded)
     {
         var boundDomain = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/account-bound-set/v1\0");
+        var destinationBoundDomain = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/account-bound-set/v2\0");
+        var bindDestinations = Starts(encoded, destinationBoundDomain); var destinationBound = false;
         TerminalCursor? names = null;
-        if (Starts(encoded, boundDomain))
+        if (Starts(encoded, boundDomain) || bindDestinations)
         {
             names = new TerminalCursor(encoded, boundDomain.Length);
             encoded = names.Sized32();
-            if (Starts(encoded, boundDomain)) throw new InvalidDataException();
+            if (Starts(encoded, boundDomain) || Starts(encoded, destinationBoundDomain)) throw new InvalidDataException();
         }
         var v1 = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/transfer-set/v1\0");
         var v2 = Encoding.UTF8.GetBytes("LayerX/programs/402LXP/transfer-set/v2\0");
@@ -793,11 +796,21 @@ public sealed class ProgramsClient
                 var name = names.Take(names.U16());
                 if (authority is not null) { if (name.Length != 0) throw new InvalidDataException(); }
                 else source = PrincipalPaymentAccount(source, asset, name);
+                if (bindDestinations)
+                {
+                    var destinationName = names.Take(names.U16());
+                    if (destinationName.Length != 0)
+                    {
+                        destination = PrincipalPaymentAccount(destination, asset, destinationName);
+                        destinationBound = true;
+                    }
+                }
             }
             total = CheckedU128Add(total, amount);
             kernelLegs.Add(Concatenate([0], source, destination, asset, UInt128Bytes(amount), BigEndian(1, 2)));
         }
         cursor.Finish(); names?.Finish(); _ = total;
+        if (bindDestinations && !destinationBound) throw new InvalidDataException();
         return MerkleRoot(kernelLegs);
     }
 

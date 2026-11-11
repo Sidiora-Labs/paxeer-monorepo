@@ -104,7 +104,7 @@ typedef struct fixture {
     uint64_t parameters, height;
     uint64_t call_fuel, call_storage_write;
     uint32_t module_version;
-    uint8_t program[32], keys[3][32], principals[3][32], account_ids[3][32];
+    uint8_t program[32], keys[6][32], principals[6][32], account_ids[6][32];
     uint8_t rewards[32];
     uint8_t sequencer_key[32];
     uint8_t arena_bytes[4U * LXP_MAX_ACTIVITY_BYTES];
@@ -115,10 +115,11 @@ typedef struct fixture {
     lxp_byte_span witness;
 } fixture;
 
-static const char *const dids[3] = {
-    "did:lxp:paxai-owner", "did:lxp:paxai-treasury", "did:lxp:paxai-outsider"
+static const char *const dids[6] = {
+    "did:lxp:paxai-owner", "did:lxp:paxai-treasury", "did:lxp:paxai-outsider",
+    "did:lxp:paxai-evaluator-three", "did:lxp:paxai-evaluator-four", "did:lxp:paxai-refund"
 };
-static const uint8_t seeds[3][32] = {{0x63U}, {0x64U}, {0x65U}};
+static const uint8_t seeds[6][32] = {{0x63U}, {0x64U}, {0x65U}, {0x67U}, {0x68U}, {0x69U}};
 static const uint8_t sequencer_seed[32] = {0x66U};
 static const uint8_t asset_id[32] = {9U};
 static const uint8_t state_key[] = "paxai/state/v1";
@@ -172,7 +173,7 @@ static int initialize(fixture *f)
     if (lxp_verified_receipt_index_init(&f->verified_receipts) != LXP_OK) return 1;
     (void)memset(f->program, 0x71, 32U);
     if (lx_account_registry_init(&f->accounts) != LXP_OK) return 1;
-    for (i = 0U; i < 3U; ++i) {
+    for (i = 0U; i < 6U; ++i) {
         char account_name[128];
         lxp_identity *identity;
         int length = snprintf(account_name, sizeof(account_name), "agent:%s:main", dids[i]);
@@ -387,19 +388,36 @@ static size_t plain_call_payload(const fixture *f, uint8_t *out, const uint8_t *
 {
     static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
     const uint64_t budget[7] = {f->call_fuel,16777216U,1048576U,f->call_storage_write,64U,1048576U,4096U};
-    uint8_t capabilities[183U];
+    uint8_t capabilities[400U];
     size_t capability_length = 0U;
     size_t n = 0U, i;
     bool fund = length >= 254U && memcmp(data, "PAXAI1", 6U) == 0 &&
         data[8] == 6U && data[9] == 1U && !lxp_ct_is_zero(data + 238U, 16U);
-    /* Signed authority is exactly the requested deposit plus receipt-bound sight. */
-    write_u16(capabilities, fund ? 5U : 3U); capability_length = 2U;
+    bool payout = length >= 303U && memcmp(data, "PAXAI1", 6U) == 0 &&
+        data[8] == 6U && (data[9] == 2U || data[9] == 4U);
+    /* Signed authority is exactly the requested value plus receipt-bound sight. */
+    write_u16(capabilities, fund || payout ? 5U : 3U); capability_length = 2U;
     capabilities[capability_length++] = 3U;
     if (fund) {
         capabilities[capability_length++] = 5U;
         bytes(capabilities, &capability_length, asset_id, 32U);
         bytes(capabilities, &capability_length, f->rewards, 32U);
         bytes(capabilities, &capability_length, data + 238U, 16U);
+        capabilities[capability_length++] = 10U;
+        bytes(capabilities, &capability_length, f->rewards, 32U);
+        bytes(capabilities, &capability_length, asset_id, 32U);
+        bytes(capabilities, &capability_length, f->balance_receipt, 32U);
+    }
+    if (payout) {
+        capabilities[capability_length++] = 9U;
+        bytes(capabilities, &capability_length, f->program, 32U);
+        write_u16(capabilities + capability_length, sizeof(rewards_seed) - 1U);
+        capability_length += 2U;
+        bytes(capabilities, &capability_length, rewards_seed, sizeof(rewards_seed) - 1U);
+        bytes(capabilities, &capability_length, f->rewards, 32U);
+        bytes(capabilities, &capability_length, asset_id, 32U);
+        bytes(capabilities, &capability_length, data + 238U + 32U, 32U);
+        bytes(capabilities, &capability_length, data + 238U + (data[9] == 2U ? 64U : 16U), 16U);
         capabilities[capability_length++] = 10U;
         bytes(capabilities, &capability_length, f->rewards, 32U);
         bytes(capabilities, &capability_length, asset_id, 32U);
@@ -566,8 +584,9 @@ static int call(fixture *f, unsigned actor, const uint8_t *envelope, size_t leng
 {
     const lxp_module_blob *manifest, *value;
     if (length >= 254U && memcmp(envelope, "PAXAI1", 6U) == 0 &&
-        envelope[8] == 6U && envelope[9] == 1U &&
-        !lxp_ct_is_zero(envelope + 238U, 16U)) {
+        envelope[8] == 6U &&
+        ((envelope[9] == 1U && !lxp_ct_is_zero(envelope + 238U, 16U)) ||
+         envelope[9] == 2U || envelope[9] == 4U)) {
         /* Finalization changed the account root. Produce a fresh, signed anchor
            through the idempotent account registration activity before the CALL. */
         uint8_t registration[128U];
@@ -591,6 +610,15 @@ static int call(fixture *f, unsigned actor, const uint8_t *envelope, size_t leng
     size_t size = plain_call_payload(f, payload, envelope, length);
     lxp_result status;
     status = execute(f, actor, LX_PROGRAMS_CALL, payload, size);
+    if (status != LXP_OK || f->receipt.result_code != LXP_OK) {
+        (void)fprintf(stderr,
+            "CALL refused selector=%02x%02x calldata=%zu payload=%zu "
+            "capabilities=%u fuel=%llu storage_write=%llu\n",
+            length > 9U ? envelope[8] : 0U, length > 9U ? envelope[9] : 0U,
+            length, size, (unsigned)((payload[40] << 8U) | payload[41]),
+            (unsigned long long)f->call_fuel,
+            (unsigned long long)f->call_storage_write);
+    }
     const lxp_program_outcome *outcome = &f->receipt.program_outcome;
     int found = shared_state(f, &manifest, &value);
     if (found < 0) return 1;
@@ -677,7 +705,8 @@ static int test_replay_record_v2(fixture *f, uint8_t *payload)
     length = call_payload(f, payload, short_input, sizeof(short_input));
     status = execute(f, 0U, LX_PROGRAMS_CALL, payload, length);
     f->call_fuel = fuel;
-    if (status != LXP_OK || !f->receipt.program_outcome.present ||
+    if (status != LXP_OK || f->receipt.result_code != LXP_ERR_GAS_EXHAUSTED ||
+        !f->receipt.program_outcome.present ||
         f->receipt.program_outcome.cpu_fuel <= declaration_fuel ||
         f->receipt.program_outcome.cpu_fuel > declaration_fuel + guest_fuel ||
         f->witness.bytes == NULL || f->witness.length < offset ||
@@ -855,6 +884,8 @@ static int reopen_store(fixture **current)
     next = calloc(1U, sizeof(*next));
     if (next == NULL || initialize(next) != 0) goto remove_snapshot;
     next->identities = old->identities;
+    (void)memcpy(next->program, old->program, 32U);
+    (void)memcpy(next->rewards, old->rewards, 32U);
     next->height = old->height;
     if (lxp_state_store_destroy(&old->state) != LXP_OK) goto remove_snapshot;
     while (old->kernel.blob_count != 0U)
@@ -933,6 +964,74 @@ finish:
     return failed;
 }
 
+static int prove_reward_replay(fixture **current, unsigned actor,
+                                const uint8_t *envelope, size_t length, uint8_t *payload)
+{
+    /* Zero payout events still carry the production envelope domain and count. */
+    static const uint8_t empty_events[] = "LayerX/programs/events/v1\0\0\0\0\0";
+    fixture *f = *current;
+    const lxp_module_blob *manifest, *value;
+    lx_account *recipient;
+    uint8_t recipient_id[32], *committed = NULL;
+    uint64_t before, paid, rewards_before, rewards_paid, amount;
+    uint64_t worker_paid, refund_paid;
+    size_t committed_length;
+    int failed = 1;
+    if (length < 303U || memcmp(envelope, "PAXAI1", 6U) != 0 ||
+        envelope[8] != 6U || (envelope[9] != 2U && envelope[9] != 4U) || actor != 0U ||
+        lxp_kernel_program_payment_account(&f->accounts, envelope + 270U, asset_id,
+            LXP_PROTOCOL_VERSION_STATE_COMMITMENT, &recipient) != LXP_OK ||
+        recipient == NULL) return 1;
+    (void)memcpy(recipient_id, recipient->id, 32U);
+    if (memcmp(recipient_id, f->account_ids[envelope[9] == 2U ? 1U : 5U], 32U) != 0)
+        return 1;
+    amount = envelope[9] == 2U ? 100U : 400U;
+    before = balance(f, recipient_id);
+    rewards_before = balance(f, f->rewards);
+    if (before == UINT64_MAX || rewards_before < amount ||
+        call(f, actor, envelope, length, payload) != 0 || f->receipt.result_code != LXP_OK ||
+        !f->receipt.program_outcome.present ||
+        f->receipt.program_outcome.event_envelope_payload.length == 0U ||
+        shared_state(f, &manifest, &value) != 1) goto finish;
+    paid = balance(f, recipient_id);
+    rewards_paid = balance(f, f->rewards);
+    if (paid != before + amount || rewards_paid != rewards_before - amount) goto finish;
+    worker_paid = balance(f, f->account_ids[1]);
+    refund_paid = balance(f, f->account_ids[5]);
+    committed_length = value->length;
+    committed = malloc(committed_length);
+    if (committed == NULL) goto finish;
+    (void)memcpy(committed, value->bytes, committed_length);
+    /* Lose the reply and destroy the writer before recovering the production snapshot. */
+    (void)memset(&f->receipt, 0, sizeof(f->receipt));
+    if (reopen_store(current) != 0) goto finish;
+    f = *current;
+    if (balance(f, recipient_id) != paid || balance(f, f->rewards) != rewards_paid ||
+        balance(f, f->account_ids[1]) != worker_paid ||
+        balance(f, f->account_ids[5]) != refund_paid ||
+        shared_state(f, &manifest, &value) != 1 || value->length != committed_length ||
+        memcmp(value->bytes, committed, committed_length) != 0 ||
+        call(f, actor, envelope, length, payload) != 0 || f->receipt.result_code != LXP_OK ||
+        !f->receipt.program_outcome.present ||
+        f->receipt.program_outcome.event_envelope_payload.length != sizeof(empty_events) - 1U ||
+        memcmp(f->receipt.program_outcome.event_envelope_payload.bytes,
+               empty_events, sizeof(empty_events) - 1U) != 0 ||
+        balance(f, recipient_id) != paid || balance(f, f->rewards) != rewards_paid ||
+        balance(f, f->account_ids[1]) != worker_paid ||
+        balance(f, f->account_ids[5]) != refund_paid ||
+        shared_state(f, &manifest, &value) != 1 || value->length != committed_length ||
+        memcmp(value->bytes, committed, committed_length) != 0) goto finish;
+    (void)printf("reward-replay %llu %llu %llu %llu %llu\n",
+        (unsigned long long)amount, (unsigned long long)before, (unsigned long long)paid,
+        (unsigned long long)rewards_before, (unsigned long long)rewards_paid);
+    if (fflush(stdout) != 0) goto finish;
+    failed = 0;
+finish:
+    if (failed) (void)fprintf(stderr, "reward payout/reopen/replay proof failed\n");
+    free(committed);
+    return failed;
+}
+
 int main(int argc, char **argv)
 {
     fixture *f;
@@ -965,6 +1064,25 @@ int main(int argc, char **argv)
         size_t text;
         unsigned long long fuel, storage_write;
         unsigned restart;
+        if (strcmp(line, "reward-identities\n") == 0) {
+            (void)fputs("reward-identities", stdout);
+            for (i = 0U; i < 6U; ++i) hex(f->principals[i], 32U);
+            (void)fputc('\n', stdout);
+            if (fflush(stdout) != 0) { failed = 1; break; }
+            continue;
+        }
+        if (strncmp(line, "prove_reward_replay ", 20U) == 0) {
+            if (sscanf(line + 20U, "%u %llu %n", &actor, &height, &offset) != 2 ||
+                actor > 5U || height == 0U || offset <= 0) { failed = 1; break; }
+            text = strcspn(line + 20U + offset, "\n");
+            length = unhex(line + 20U + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
+            if (length <= 0) { failed = 1; break; }
+            f->height = (uint64_t)height;
+            if (prove_reward_replay(&f, actor, envelope, (size_t)length, payload) != 0) {
+                failed = 1; break;
+            }
+            continue;
+        }
         if (strncmp(line, "advance ", 8U) == 0) {
             if (sscanf(line + 8U, "%llu", &height) != 1 || height == 0U ||
                 advance_height(f, (uint64_t)height) != 0) {
@@ -977,7 +1095,7 @@ int main(int argc, char **argv)
         if (strncmp(line, "prove ", 6U) == 0) {
             if (sscanf(line + 6U, "%u %llu %llu %llu %u %n", &actor, &height,
                        &fuel, &storage_write, &restart, &offset) != 5 ||
-                actor > 2U || height == 0U || fuel == 0U || storage_write == 0U ||
+                actor > 5U || height == 0U || fuel == 0U || storage_write == 0U ||
                 restart > 1U || offset <= 0) { failed = 1; break; }
             text = strcspn(line + 6U + offset, "\n");
             length = unhex(line + 6U + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
@@ -989,7 +1107,7 @@ int main(int argc, char **argv)
             }
             continue;
         }
-        if (sscanf(line, "%u %llu %n", &actor, &height, &offset) != 2 || actor > 2U ||
+        if (sscanf(line, "%u %llu %n", &actor, &height, &offset) != 2 || actor > 5U ||
             height == 0U || offset <= 0) { failed = 1; break; }
         text = strcspn(line + offset, "\n");
         length = unhex(line + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);

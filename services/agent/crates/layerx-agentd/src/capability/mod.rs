@@ -4,8 +4,7 @@ use std::collections::BTreeSet;
 
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 pub(crate) use consumption::{
-    plan_chain, reserve_chain, restore as restore_chain_reservations, settle_chain,
-    ChainReservation, ChainReservationRecord, ConsumeError, ReservationState, SettleOutcome,
+    plan_chain, restore as restore_chain_reservations, settle_chain, ConsumeError, SettleOutcome,
 };
 
 #[path = "attenuate.rs"]
