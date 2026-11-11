@@ -1,3 +1,5 @@
+include!("../src/required.rs");
+
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::os::unix::fs::OpenOptionsExt as _;
@@ -13,7 +15,7 @@ impl ConfigFile {
     fn new(label: &str) -> Self {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("clock")
+            .required("clock")
             .as_nanos();
         Self(std::env::temp_dir().join(format!(
             "layerx-ramp-config-{label}-{}-{nanos}.json",
@@ -28,19 +30,19 @@ impl ConfigFile {
             .write(true)
             .mode(0o600)
             .open(&self.0)
-            .expect("open protected config");
-        file.write_all(&serde_json::to_vec(config).expect("encode config"))
-            .expect("write protected config");
+            .required("open protected config");
+        file.write_all(&serde_json::to_vec(config).required("encode config"))
+            .required("write protected config");
         drop(file);
         let output = Command::new(env!("CARGO_BIN_EXE_layerx-reference-ramp"))
             .arg(&self.0)
             .output()
-            .expect("run reference ramp");
+            .required("run reference ramp");
         assert!(
             output.stdout.is_empty(),
             "ramp must refuse before announcing a listener"
         );
-        let stderr = String::from_utf8(output.stderr).expect("startup diagnostic");
+        let stderr = String::from_utf8(output.stderr).required("startup diagnostic");
         assert!(!output.status.success(), "ramp accepted config: {stderr}");
         assert!(stderr.contains("refused startup"), "{stderr}");
         stderr
@@ -117,7 +119,7 @@ fn config() -> Value {
             }],
             "max_fee_per_gas": 1000,
             "max_priority_fee_per_gas": 2,
-            "gas_limit_cap": 100000,
+            "gas_limit_cap": 100_000,
             "signer_endpoint": "https://signer.example.test",
             "signer_token_file": "unused-signer-token",
             "actor_did": "did:layerx:ramp-operator"
@@ -144,7 +146,7 @@ fn reference_ramp_refuses_retired_paxeer_rpc_fields() {
     let baseline = config();
     let stderr = file.refusal(&baseline);
     assert!(stderr.contains("listener must be tls or plain"), "{stderr}");
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("reserve listener address");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").required("reserve listener address");
     for (field, value) in [
         (
             "rpc_endpoints",
@@ -161,7 +163,10 @@ fn reference_ramp_refuses_retired_paxeer_rpc_fields() {
     ] {
         let mut document = baseline.clone();
         document["listener"] = json!("plain");
-        document["listen"] = json!(listener.local_addr().expect("listener address").to_string());
+        document["listen"] = json!(listener
+            .local_addr()
+            .required("listener address")
+            .to_string());
         document["paxeer"][field] = value;
         let stderr = file.refusal(&document);
         assert!(
@@ -252,7 +257,7 @@ fn reference_ramp_refuses_operator_address_mismatch() {
     invalid_key["firstHeight"] = json!(11);
     document["layerx"]["receipt_keys"]
         .as_array_mut()
-        .expect("receipt keys")
+        .required("receipt keys")
         .push(invalid_key);
     let stderr = file.refusal(&document);
     assert!(

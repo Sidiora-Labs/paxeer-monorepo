@@ -6,6 +6,9 @@
 pub use layerx_crypto::payments::asset_id;
 use layerx_crypto::payments::Payment;
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn payment_calldata(payment: &Payment, actor: &str) -> Result<Vec<u8>, String> {
     let (module, ordinal) = payment.activity_type();
     let payload = payment
@@ -17,6 +20,9 @@ pub fn payment_calldata(payment: &Payment, actor: &str) -> Result<Vec<u8>, Strin
         .map_err(|e| format!("{e:?}"))
 }
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn payment_call(
     payment: &Payment,
     actor: &str,
@@ -38,6 +44,7 @@ pub fn payment_call(
         .map_err(|error| error.to_string())
 }
 
+#[must_use]
 pub fn revert_reason(bytes: &[u8]) -> Option<&str> {
     if bytes.len() > 524_288
         || bytes.get(..4)? != [0x08, 0xc3, 0x79, 0xa0]

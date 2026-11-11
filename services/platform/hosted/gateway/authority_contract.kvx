@@ -1,0 +1,3 @@
+[authority_contract]
+member = "layerx-platform-authority"
+consumer = "The gateway uses authenticated authority evidence for receipt and committed state reads."

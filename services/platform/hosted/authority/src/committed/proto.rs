@@ -65,7 +65,7 @@ impl<'a> ProtoReader<'a> {
     }
 
     pub fn finish(&self) -> Result<(), ChainProofError> {
-        if self.cursor == self.bytes.len() {
+        if self.cursor() == self.bytes.len() {
             Ok(())
         } else {
             Err(ChainProofError::NonCanonical)
