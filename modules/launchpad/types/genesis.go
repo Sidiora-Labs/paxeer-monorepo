@@ -253,6 +253,10 @@ type GenesisState struct {
 	Retired            []RetiredAddress     `json:"retired,omitempty"`
 	PoolMetadata       []PoolMetadata       `json:"pool_metadata,omitempty"`
 	FactoryNonces      []FactoryNonce       `json:"factory_nonces,omitempty"`
+	LaunchedChains     []LaunchedChain      `json:"launched_chains,omitempty"`
+	PoolHomeChains     []PoolHomeChain      `json:"pool_home_chains,omitempty"`
+	ChainRevenueEpochs []ChainRevenueEpoch  `json:"chain_revenue_epochs,omitempty"`
+	ChainRevenueClaims []ChainRevenueClaim  `json:"chain_revenue_claims,omitempty"`
 }
 
 func DefaultGenesis() *GenesisState {
@@ -301,7 +305,71 @@ func (gs GenesisState) Validate() error {
 			return ErrInvalidGenesis.Wrapf("market indexes must be 1..%d", len(gs.Markets))
 		}
 	}
+	if err := gs.validateChainLaunch(); err != nil {
+		return err
+	}
 	return gs.validateContracts()
+}
+
+func (gs GenesisState) validateChainLaunch() error {
+	markets := make(map[string]Market, len(gs.Markets))
+	for _, market := range gs.Markets {
+		if market.PoolAddress != "" {
+			markets[market.PoolAddress] = market
+		}
+	}
+	chains := map[uint64]LaunchedChain{}
+	chainIDs := map[uint64]bool{}
+	pools := map[string]bool{}
+	for _, record := range gs.LaunchedChains {
+		if err := record.Validate(); err != nil {
+			return err
+		}
+		market, found := markets[record.Pool]
+		if !found || market.TokenAddress != record.Token || market.FeeRightID != record.FeeRightID ||
+			chains[record.RegistryNumber].RegistryNumber != 0 || chainIDs[record.ChainID] || pools[record.Pool] {
+			return invalid("launched chain binding %d", record.RegistryNumber)
+		}
+		chains[record.RegistryNumber] = record
+		chainIDs[record.ChainID] = true
+		pools[record.Pool] = true
+	}
+	homes := map[string]bool{}
+	for _, home := range gs.PoolHomeChains {
+		if !canonicalAddress(home.Pool) || homes[home.Pool] || !pools[home.Pool] {
+			return invalid("pool home chain %s", home.Pool)
+		}
+		homes[home.Pool] = true
+		for _, record := range gs.LaunchedChains {
+			if record.Pool == home.Pool && record.ChainID != home.Chain {
+				return invalid("pool home chain %s", home.Pool)
+			}
+		}
+	}
+	for pool := range pools {
+		if !homes[pool] {
+			return invalid("missing pool home chain %s", pool)
+		}
+	}
+	type epochKey struct{ chain, epoch uint64 }
+	epochs := map[epochKey]bool{}
+	for _, epoch := range gs.ChainRevenueEpochs {
+		if err := epoch.Validate(); err != nil {
+			return err
+		}
+		if _, found := chains[epoch.Chain]; !found || epochs[epochKey{epoch.Chain, epoch.Epoch}] {
+			return invalid("chain revenue epoch %d/%d", epoch.Chain, epoch.Epoch)
+		}
+		epochs[epochKey{epoch.Chain, epoch.Epoch}] = true
+	}
+	claims := map[ChainRevenueClaim]bool{}
+	for _, claim := range gs.ChainRevenueClaims {
+		if !epochs[epochKey{claim.Chain, claim.Epoch}] || !canonicalAddress(claim.Holder) || claims[claim] {
+			return invalid("chain revenue claim %d/%d/%s", claim.Chain, claim.Epoch, claim.Holder)
+		}
+		claims[claim] = true
+	}
+	return nil
 }
 
 // canonicalAddress reports whether value is the checksummed hex form of a
