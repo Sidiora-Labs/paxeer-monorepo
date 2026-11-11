@@ -21060,3 +21060,8 @@ fix = "Decision 3315 and task 22.39.393; task 22.39.211 requires it and continue
 title = "No single call launches a virtual chain together with its token"
 symptom = "The launchpad creates a market through createMarket at its address 0x0000000000000000000000000000000000001017 and the chain registry creates a chain through createChain at its address 0x000000000000000000000000000000000000101E. The two are separate transactions, no record binds a chain to a market, and the launchpad web application offers them as two separate flows. A client cannot launch a chain with its token in one step, a market has no chain of its own, and no rule ties the operator share of a chain to a token."
 fix = "Decisions 3316, 3317 and 3318 and tasks 22.40.1 to 22.40.18."
+
+[gotcha.4248]
+title = "The debit of an occupancy position of Programs is checked at the call and at the end of the block"
+symptom = "The call path of Programs binds the fee authorisation of a call in src/modules/programs/occupancy.c, and the block-end transition of decision 3308 reads the positions that the calls of the block opened through src/modules/programs/occupancy_evidence.c. Both places apply the rule that decision 3320 states once."
+fix = "Decision 3320 and task 22.39.394."

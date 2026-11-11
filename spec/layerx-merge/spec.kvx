@@ -13030,6 +13030,12 @@ value = "The verification of task 22.39.117 runs the tests of the shared package
 basis = "Decisions 3130 and 3211."
 affects = ["22.39.117", "22.39.170"]
 
+[decision.3320]
+title = "A program call that commits leaves the block-end occupancy transition able to finish"
+value = "The checks on the debit of an occupancy position that depend on the terms of a call run at the call: the payer, the root program, the activity binding, and the responsibility ceiling that the signed fee limit leaves after the execution ceiling of the budget. A call that does not pass them reverts with the code of the check and commits nothing. A fee limit taken from quoteCallFee for the budget that is sent is enough for the call to pass them. The block-end transition of decision 3308 finalises the positions that passed these checks; it runs in every block as that decision states."
+basis = "Gotcha 4248, decisions 3301 and 3308."
+affects = ["22.39.394", "22.39.182"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42690,6 +42696,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.394]
+title = "Check the occupancy debit of a program call at the call"
+reqs = ["22998.1"]
+touches = ["src/modules/programs", "include/layerx/programs.h", "programs/crates/layerx-programs-runtime", "modules/lxphost", "node/app.go", "node/programs_block_end_test.go", "precompiles/layerxprograms"]
+tests = ["node/programs_occupancy_call_test.go::TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallAtTheLargestBudgetCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallShortOfTheOccupancyResponsibilityReverts", "node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts", "node/programs_occupancy_call_test.go::TestBlocksApplyAcrossRestartAfterOccupancyCalls"]
+verification_contract = "test -s modules/lxphost/repair_22_39_394.kvx && for c in TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply TestCallAtTheLargestBudgetCommitsAndBlocksApply TestCallShortOfTheOccupancyResponsibilityReverts TestCallByAPayerThatIsNotTheOwnerReverts TestBlocksApplyAcrossRestartAfterOccupancyCalls; do grep -q -e 'func '$c'(' node/programs_occupancy_call_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run 'Quote'"
+do_1 = "do_1 Decision 3320, gotcha 4248. List every check on the debit of an occupancy position in src/modules/programs/occupancy.c and src/modules/programs/occupancy_evidence.c and in what FinalizeProgramsOccupancy of modules/lxphost reaches, and state for each whether it depends on the terms of a call and whether it runs at the call. Record the list in modules/lxphost/repair_22_39_394.kvx as product facts: the check, its file and where it runs."
+symbols = ["FinalizeProgramsOccupancy"]
 
 [capability.22.40.18]
 title = "Close the chain launch series: interface rows served, documents cross-checked, reconcile clean"
@@ -228594,7 +228609,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18"]
+requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []
@@ -309799,6 +309814,36 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.39.394]
+title = "Check the occupancy debit of a program call at the call"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.394"]
+interfaces = []
+do_1 = "do_1 Decision 3320, gotcha 4248. List every check on the debit of an occupancy position in src/modules/programs/occupancy.c and src/modules/programs/occupancy_evidence.c and in what FinalizeProgramsOccupancy of modules/lxphost reaches, and state for each whether it depends on the terms of a call and whether it runs at the call. Record the list in modules/lxphost/repair_22_39_394.kvx as product facts: the check, its file and where it runs."
+do_2 = "do_2 Write node tests in node/programs_occupancy_call_test.go that pass through the block flow of the application with the schedules of decision 3301 installed. A call that adds persistent bytes to an account of a program, with the fee limit taken from quoteCallFee for the budget that is sent, commits and the three blocks after it apply. The same call with the largest budget that the runtime declares commits and the blocks after it apply. A call whose signed fee limit covers the execution ceiling of its budget and not the responsibility of the bytes it adds reverts with the code of the check and commits nothing, and the blocks after it apply. A call whose payer is not the owner of the account it adds bytes to reverts in the same way. After these calls the chain keeps applying blocks across a restart."
+do_3 = "do_3 Where a case of do_2 shows a check of do_1 that depends on the terms of a call and does not run at the call, apply it at the call so that the call reverts, in src/modules/programs and where needed in programs/crates/layerx-programs-runtime. Where the quote and the check differ, bring quoteCallFee and the check to the same amount. Keep the block-end transition as decision 3308 states it and change no schedule value of decision 3301. The existing cases of node/programs_block_end_test.go pass unchanged. Run the build once and the verification once at the final revision."
+symbols = ["FinalizeProgramsOccupancy"]
+touches = ["src/modules/programs", "include/layerx/programs.h", "programs/crates/layerx-programs-runtime", "modules/lxphost", "node/app.go", "node/programs_block_end_test.go", "precompiles/layerxprograms"]
+tests = ["node/programs_occupancy_call_test.go::TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallAtTheLargestBudgetCommitsAndBlocksApply", "node/programs_occupancy_call_test.go::TestCallShortOfTheOccupancyResponsibilityReverts", "node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts", "node/programs_occupancy_call_test.go::TestBlocksApplyAcrossRestartAfterOccupancyCalls"]
+planned_paths = ["node/programs_occupancy_call_test.go", "modules/lxphost/repair_22_39_394.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./node/ ./precompiles/layerxprograms/ && CGO_ENABLED=1 go vet ./modules/lxphost/ ./node/ ./precompiles/layerxprograms/"
+verify_cmd = "test -s modules/lxphost/repair_22_39_394.kvx && for c in TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply TestCallAtTheLargestBudgetCommitsAndBlocksApply TestCallShortOfTheOccupancyResponsibilityReverts TestCallByAPayerThatIsNotTheOwnerReverts TestBlocksApplyAcrossRestartAfterOccupancyCalls; do grep -q -e 'func '$c'(' node/programs_occupancy_call_test.go || exit 1; done && CGO_ENABLED=1 go test -count=1 ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock|TestBlockEndTransitionLeavesAChainWithoutSchedulesUntouched|TestBlockEndTransitionSurvivesRestart)$' && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run 'Quote'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 360
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.389]
 title = "Settle the value of the AI market program without the balance sight"
