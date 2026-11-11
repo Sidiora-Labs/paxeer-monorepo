@@ -307,6 +307,10 @@ impl ProgramInterface {
         Self::from_parts(code_hash, abi_version, entries)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn require_module(&self, module: &[u8], abi_version: u16) -> Result<(), InterfaceRefusal> {
         admit_interface_abi_version(abi_version).map_err(InterfaceRefusal::AbiVersion)?;
         if self.code_hash != sha256(module) {
@@ -656,6 +660,10 @@ impl InterfaceReadProof for StateProof {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when input is invalid.
 pub fn verify_interface_read<P: InterfaceReadProof>(
     head: &VerifiedProgramHead,
     witness: &InterfaceStateWitness<P>,
@@ -672,14 +680,14 @@ pub fn verify_interface_read<P: InterfaceReadProof>(
     )
     .map_err(|_| InterfaceRefusal::StateProof)?;
     decode_interface_read(
-        head.program(),
-        head.version(),
-        head.code_hash(),
-        head.abi_version(),
+        (
+            head.program(),
+            head.version(),
+            head.code_hash(),
+            head.abi_version(),
+        ),
         witness,
-        head.receipt_digest(),
-        head.state_root(),
-        head.freshness(),
+        (head.receipt_digest(), head.state_root(), head.freshness()),
     )
 }
 
@@ -713,9 +721,8 @@ pub fn verify_interface_read_at_head(
         .next_field()
         .map_err(|_| InterfaceRefusal::StateProof)?
         .ok_or(InterfaceRefusal::StateProof)?;
-    let encoded = match (field.number, field.value) {
-        (1, ProtoValue::Bytes(encoded)) => encoded,
-        _ => return Err(InterfaceRefusal::StateProof),
+    let (1, ProtoValue::Bytes(encoded)) = (field.number, field.value) else {
+        return Err(InterfaceRefusal::StateProof);
     };
     reader.finish().map_err(|_| InterfaceRefusal::StateProof)?;
     let record = ExistenceProof::decode(encoded).map_err(|_| InterfaceRefusal::StateProof)?;
@@ -750,27 +757,19 @@ pub fn verify_interface_read_at_head(
         observed_at: u64::try_from(next.time_ms()).map_err(|_| InterfaceRefusal::StateProof)?,
     };
     decode_interface_read(
-        program,
-        version,
-        code_hash,
-        abi_version,
+        (program, version, code_hash, abi_version),
         witness,
-        next.app_hash(),
-        next.app_hash(),
-        freshness,
+        (next.app_hash(), next.app_hash(), freshness),
     )
 }
 
 fn decode_interface_read<P>(
-    expected_program: ProgramId,
-    expected_version: u32,
-    expected_code_hash: [u8; 32],
-    expected_abi_version: u16,
+    expected: (ProgramId, u32, [u8; 32], u16),
     witness: &InterfaceStateWitness<P>,
-    receipt_digest: [u8; 32],
-    state_root: [u8; 32],
-    freshness: crate::ReadFreshness,
+    coordinates: ([u8; 32], [u8; 32], crate::ReadFreshness),
 ) -> Result<VerifiedInterfaceRead, InterfaceRefusal> {
+    let (expected_program, expected_version, expected_code_hash, expected_abi_version) = expected;
+    let (receipt_digest, state_root, freshness) = coordinates;
     let mut cursor = 0;
     let program = ProgramId::new(take::<32>(&witness.value, &mut cursor)?)
         .map_err(|_| InterfaceRefusal::ProgramMismatch)?;
@@ -995,9 +994,8 @@ fn encode_interface(
         })
     });
     let domain = match abi {
-        ABI_V1_VERSION => DOMAIN,
         ABI_V2_VERSION if dynamic => DOMAIN_V2,
-        ABI_V2_VERSION => DOMAIN,
+        ABI_V1_VERSION | ABI_V2_VERSION => DOMAIN,
         ABI_V3_VERSION => DOMAIN_V3,
         ABI_V4_VERSION => DOMAIN_V4,
         _ => return Err(InterfaceRefusal::Invalid),

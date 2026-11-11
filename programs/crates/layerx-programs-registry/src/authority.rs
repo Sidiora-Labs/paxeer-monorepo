@@ -38,6 +38,10 @@ pub struct MigrationExecutionEvidence {
 }
 
 impl MigrationExecutionEvidence {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn decode_canonical(bytes: &[u8]) -> Result<Self, RegistryError> {
         if bytes.starts_with(b"LXMA1") {
             return Self::from_chain_accounting(bytes);
@@ -52,31 +56,29 @@ impl MigrationExecutionEvidence {
 
     /// Preserves the host's complete LXMA1 accounting record. This format
     /// reports usage, not individual guest output values or an arbitration trace.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn from_chain_accounting(bytes: &[u8]) -> Result<Self, RegistryError> {
         if bytes.len() != 613 || bytes.get(..5) != Some(b"LXMA1") {
             return Err(RegistryError::CorruptRecord);
         }
         let u16_at = |offset| u16::from_be_bytes([bytes[offset], bytes[offset + 1]]);
         let u32_at = |offset| {
-            u32::from_be_bytes(
-                bytes[offset..offset + 4]
-                    .try_into()
-                    .expect("validated accounting record length"),
-            )
+            let mut raw = [0; 4];
+            raw.copy_from_slice(&bytes[offset..offset + 4]);
+            u32::from_be_bytes(raw)
         };
         let u64_at = |offset| {
-            u64::from_be_bytes(
-                bytes[offset..offset + 8]
-                    .try_into()
-                    .expect("validated accounting record length"),
-            )
+            let mut raw = [0; 8];
+            raw.copy_from_slice(&bytes[offset..offset + 8]);
+            u64::from_be_bytes(raw)
         };
         let u128_at = |offset| {
-            u128::from_be_bytes(
-                bytes[offset..offset + 16]
-                    .try_into()
-                    .expect("validated accounting record length"),
-            )
+            let mut raw = [0; 16];
+            raw.copy_from_slice(&bytes[offset..offset + 16]);
+            u128::from_be_bytes(raw)
         };
         if u32_at(5) != 1
             || u16_at(9) == 0
@@ -113,6 +115,7 @@ impl MigrationExecutionEvidence {
         })
     }
 
+    #[must_use]
     pub fn chain_accounting(&self) -> Option<&[u8]> {
         self.chain_accounting
             .then_some(self.canonical_bytes.as_slice())
@@ -1008,6 +1011,7 @@ mod tests {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeploymentTransactionId(pub(crate) [u8; 32]);
 impl DeploymentTransactionId {
+    #[must_use]
     pub const fn bytes(self) -> [u8; 32] {
         self.0
     }
@@ -1023,12 +1027,14 @@ pub enum DeploymentProvenance {
     LegacyRecord([u8; 32]),
 }
 impl DeploymentProvenance {
+    #[must_use]
     pub const fn identity_bytes(self) -> [u8; 32] {
         match self {
             Self::ChainTransaction { transaction, .. } => transaction.bytes(),
             Self::RuntimeReceipt(digest) | Self::LegacyRecord(digest) => digest,
         }
     }
+    #[must_use]
     pub fn from_evidence(evidence: &crate::VerifiedDeploymentEvidence) -> Self {
         Self::ChainTransaction {
             transaction: DeploymentTransactionId(evidence.receipt_digest()),
@@ -1044,6 +1050,7 @@ pub struct DeploymentJournalEntry {
     transaction: DeploymentTransactionId,
 }
 impl DeploymentJournalEntry {
+    #[must_use]
     pub fn from_evidence(evidence: &crate::VerifiedDeploymentEvidence) -> Self {
         Self {
             record: evidence.record().clone(),
@@ -1051,6 +1058,10 @@ impl DeploymentJournalEntry {
         }
     }
     /// Decoding or pairing does not grant chain authority; reverify the proof at ingress.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn from_proof(
         record: DeploymentRecord,
         proof: &crate::DeploymentProof,
@@ -1071,23 +1082,34 @@ impl DeploymentJournalEntry {
             transaction: DeploymentTransactionId(transaction),
         })
     }
+    #[must_use]
     pub const fn record(&self) -> &DeploymentRecord {
         &self.record
     }
+    #[must_use]
     pub const fn transaction_id(&self) -> DeploymentTransactionId {
         self.transaction
     }
+    #[must_use]
     pub fn canonical_encoding(&self) -> Vec<u8> {
         let record = self.record.canonical_encoding();
         let mut bytes = b"LXDJ\x02".to_vec();
         bytes.extend_from_slice(&self.transaction.0);
-        bytes.extend_from_slice(&(record.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(
+            &u32::try_from(record.len())
+                .unwrap_or_else(|_| unreachable!("canonical record length is bounded"))
+                .to_be_bytes(),
+        );
         bytes.extend_from_slice(&record);
         bytes.extend_from_slice(&self.record.digest());
         let seal = sha256(&bytes);
         bytes.extend_from_slice(&seal);
         bytes
     }
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn decode(bytes: &[u8]) -> Result<Self, RegistryError> {
         if bytes.get(..5) != Some(b"LXDJ\x02") {
             return Err(RegistryError::CorruptRecord);
