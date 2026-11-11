@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/app"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/runtimedocs"
@@ -61,7 +63,7 @@ func deliveryParameters(maxDeliveryLagMS, deadLettersPath string) (app.DeliveryP
 	parameters := app.DefaultDeliveryParameters()
 	parameters.MaxDeliveryLagMS = lag
 	if deadLettersPath != "" {
-		raw, err := os.ReadFile(deadLettersPath)
+		raw, err := os.ReadFile(deadLettersPath) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return app.DeliveryParameters{}, fmt.Errorf("-dead-letters: %w", err)
 		}
@@ -106,11 +108,11 @@ func run() error {
 		return err
 	}
 	reviewedPath, artifactPath := inputPaths(*repo)
-	reviewed, err := os.ReadFile(reviewedPath)
+	reviewed, err := os.ReadFile(reviewedPath) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return err
 	}
-	artifact, err := os.ReadFile(artifactPath)
+	artifact, err := os.ReadFile(artifactPath) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return err
 	}
@@ -133,11 +135,11 @@ func run() error {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	if err = os.MkdirAll(*out, 0o755); err != nil {
+	if err = os.MkdirAll(*out, 0o750); err != nil {
 		return err
 	}
 	for _, name := range names {
-		if err = os.WriteFile(filepath.Join(*out, name), docs[name].Bytes, 0o644); err != nil {
+		if err = os.WriteFile(filepath.Join(*out, name), docs[name].Bytes, 0o600); err != nil {
 			return err
 		}
 		fmt.Printf("%s %s %d\n", docs[name].SHA256, name, len(docs[name].Bytes))
@@ -157,7 +159,7 @@ func reportedBlockHash(ctx context.Context, url string, height uint64) (common.H
 	if err != nil {
 		return common.Hash{}, err
 	}
-	defer response.Body.Close()
+	defer func() { checked.Report(response.Body.Close()) }()
 	var envelope struct {
 		Result *struct {
 			Number string      `json:"number"`

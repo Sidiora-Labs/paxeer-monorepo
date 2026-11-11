@@ -412,7 +412,7 @@ func (s *EVMSource) callWithFallback(ctx context.Context, method string, params 
 	if len(order) == 0 {
 		return nil, fmt.Errorf("source %s: no healthy clients available", s.name)
 	}
-	body, err := json.Marshal(jsonRPCRequest{JSONRPC: "2.0", Method: method, Params: params, ID: s.nextID.Add(1)})
+	body, err := json.Marshal(jsonRPCRequest{JSONRPC: valueVersion20, Method: method, Params: params, ID: s.nextID.Add(1)})
 	if err != nil {
 		return nil, err
 	}
@@ -562,7 +562,7 @@ func (s *EVMSource) runHealthCheck(ctx context.Context) {
 	}
 	s.mu.Unlock()
 
-	body, err := json.Marshal(jsonRPCRequest{JSONRPC: "2.0", Method: "eth_blockNumber", ID: s.nextID.Add(1)})
+	body, err := json.Marshal(jsonRPCRequest{JSONRPC: valueVersion20, Method: "eth_blockNumber", ID: s.nextID.Add(1)})
 	if err != nil {
 		return
 	}

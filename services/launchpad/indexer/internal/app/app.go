@@ -13,6 +13,18 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"math"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -26,16 +38,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"io"
-	"log/slog"
-	"math"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -111,7 +113,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		var e error
 		metrics, e = telemetry.New("indexerd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -123,7 +125,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != valueProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -170,7 +172,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 
 	var sources *source.Bundle
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		sources = &source.Bundle{}
 	} else {
 		sources, err = source.Create(ctx, cfg, logger)
@@ -184,13 +186,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			_ = sources.Close()
 		}
 	}()
-	targets, err := publisher.BuildTargets(cfg.WebhookURLs, cfg.WebhookHMACSecret, cfg.WebhookHMACSecrets)
+	_, err = publisher.BuildTargets(cfg.WebhookURLs, cfg.WebhookHMACSecret, cfg.WebhookHMACSecrets)
 	if err != nil {
 		return nil, err
 	}
 
 	st := store.New(pool)
-	pub := publisher.New(publisher.Options{Targets: targets, Logger: logger, Redis: rdb})
+	pub := publisher.New(publisher.Options{Logger: logger, Redis: rdb})
 
 	deps := processor.Deps{
 		Source:              sources.Log,
@@ -200,7 +202,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Decoder:             decode.NewDecoder(),
 		NFT:                 nftReader,
 		EventEmitterAddress: cfg.EventEmitterAddress,
-		ChainID:             int32(cfg.ChainID),
+		ChainID:             int32(cfg.ChainID), //nolint:gosec // configured chain identity uses the existing 32-bit field
 		StartBlock:          cfg.IndexerStartBlock,
 		BatchSize:           cfg.IndexerBatchSize,
 		Concurrency:         cfg.IndexerConcurrency,
@@ -233,7 +235,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 		}
 	}()
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		if cfg.IndexerBatchSize < 1 || cfg.IndexerBatchSize > 64 {
 			return nil, errors.New("indexer: qualified batch size outside 1..64")
 		}
@@ -266,14 +268,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}()
 		var qualified *receipt.RPCQualification
 		switch doc.Realm {
-		case "production":
+		case valueProduction:
 			// A pruned node cannot serve the chain-identity anchor forever; once
 			// the anchor leaves every source's window, identity is proven by the
 			// durable anchor-descended ingestion instead.
 			qualified, err = receipt.NewRPCQualificationWithAttestation(ctx, runtimeRPC, doc.Production, func(c context.Context, anchor receipt.BlockAnchor) error {
 				return attestDurableAnchor(c, pool, d.CanonicalStreamID, anchor)
 			})
-		case "private_fixture":
+		case valuePrivateFixture:
 			if cfg.RuntimeProfile != "owned_local" {
 				return nil, errors.New("indexer: private fixture requires owned local profile")
 			}
@@ -360,10 +362,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 			return nil
 		}
-		if lifecycle.Committed.GenesisHash != doc.Production.GenesisHash && doc.Realm == "production" || lifecycle.Committed.GenesisHash != doc.PrivateFixture.GenesisHash && doc.Realm == "private_fixture" {
+		if lifecycle.Committed.GenesisHash != doc.Production.GenesisHash && doc.Realm == valueProduction || lifecycle.Committed.GenesisHash != doc.PrivateFixture.GenesisHash && doc.Realm == valuePrivateFixture {
 			return nil, errors.New("indexer: committed provider genesis disagrees with receipt authority")
 		}
-		if doc.Realm == "production" {
+		if doc.Realm == valueProduction {
 			if e = bindRuntimeAnchor(&lifecycle, doc.Production); e != nil {
 				return nil, e
 			}
@@ -407,7 +409,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		var durableHeight atomic.Uint64
-		durableHeight.Store(uint64(watermark))
+		durableHeight.Store(uint64(watermark)) //nolint:gosec // persisted chain values use the existing unsigned protocol representation
 		deps.Head = &canonicalRuntimeHead{source: history.RPC, store: st, stream: d.CanonicalStreamID, height: &durableHeight}
 		deps.Source = history.RPC
 		sources.Log = history
@@ -420,7 +422,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
 		deps.Reserves = qualified
-		if doc.Realm == "production" {
+		if doc.Realm == valueProduction {
 			inventory := postgresMarketInventory{pool: pool}
 			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
 				a, e := receipt.NewRPCQualificationWithAttestation(c, runtimeRPC, doc.Production, func(c context.Context, anchor receipt.BlockAnchor) error {
@@ -490,7 +492,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		var persistentPublisher delivery.PersistentPublisher = brokerPublisher
 		if cfg.FixturePubAckBarrier != "" {
-			if cfg.RuntimeProfile != "owned_local" || doc.Realm != "private_fixture" {
+			if cfg.RuntimeProfile != "owned_local" || doc.Realm != valuePrivateFixture {
 				return nil, errors.New("indexer: fixture barrier forbidden")
 			}
 			persistentPublisher = fixturePublishBarrier{Publisher: brokerPublisher, Path: cfg.FixturePubAckBarrier}
@@ -499,7 +501,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize}
 		if lifecycle.Archive.Enabled {
 			catalog := doc.Production.CatalogJSON
-			if doc.Realm == "private_fixture" {
+			if doc.Realm == valuePrivateFixture {
 				catalog = doc.PrivateFixture.CatalogJSON
 			}
 			binary, e := runtimeBinaryDigest()
@@ -605,10 +607,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		deps.AccountingProjectionVersion = d.ProjectionVersion
 		deps.InventoryGeneration = d.Generation
 		deps.InventoryProjectionVersion = d.InventoryProjectionVersion
-		deps.LegacyProjection = doc.Realm == "production"
+		deps.LegacyProjection = doc.Realm == valueProduction
 	}
 	proc := processor.New(deps)
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		secretChecks["ingestion"] = proc.Ready
 	}
 	backfill := processor.NewBackfill(proc, cfg.BackfillFromBlock, cfg.BackfillBatchSize)
@@ -622,7 +624,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
-	status.Store, status.ChainID, status.Publisher, status.StartTime = st, int32(cfg.ChainID), pub, time.Now()
+	status.Store, status.ChainID, status.Publisher, status.StartTime = st, int32(cfg.ChainID), pub, time.Now() //nolint:gosec // configured chain identity uses the existing 32-bit field
 	httpapi.RegisterStatus(router, status)
 
 	if selectionAuthority != nil {
@@ -1149,7 +1151,7 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 		defer cancel()
 		return 0, errors.Join(err, h.store.QuarantineCommittedHead(cleanup, h.stream))
 	}
-	if head.Height > uint64(^uint64(0)>>1) {
+	if head.Height > ^uint64(0)>>1 {
 		return 0, errors.New("indexer: committed head exceeds durable integer range")
 	}
 	if err = h.store.RetainCommittedHead(ctx, h.stream, int64(head.Height), strings.ToLower(head.Hash.Hex()), head.SourceID); err != nil {
@@ -1352,7 +1354,7 @@ func runtimeBinaryDigest() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer executable.Close()
+	defer checked.Close(executable)
 	hash := sha256.New()
 	if _, err = io.Copy(hash, executable); err != nil {
 		return "", err

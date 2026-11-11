@@ -164,7 +164,7 @@ func (s *CommittedSource) ReadAhead(from, to uint64) {
 		s.ahead.entries = map[uint64]*aheadEntry{}
 	}
 	heights := make([]uint64, 0, to-from+1)
-	for h := from; h <= to && len(s.ahead.entries) < 2*int(depth); h++ {
+	for h := from; h <= to && len(s.ahead.entries) < 2*int(depth); h++ { //nolint:gosec // bounded chain count is used for slice indexing
 		if _, ok := s.ahead.entries[h]; ok {
 			continue
 		}
@@ -267,7 +267,7 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 	}
 	var candidates []uint64
 	for n := from; n <= to; n++ {
-		b, _, err := s.batchBlock(ctx, e, uint64(n), bulk, batch)
+		b, _, err := s.batchBlock(ctx, e, uint64(n), bulk, batch) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		if err != nil {
 			return nil, err
 		}
@@ -278,12 +278,12 @@ func (s *CommittedSource) archiveLogs(ctx context.Context, e *committedEndpoint,
 		filter := ethtypes.BytesToBloom(bloom)
 		for _, a := range wanted {
 			if ethtypes.BloomLookup(filter, a) {
-				candidates = append(candidates, uint64(n))
+				candidates = append(candidates, uint64(n)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 				break
 			}
 		}
 	}
-	s.metrics.bloomSkipped.Add(uint64(to-from+1) - uint64(len(candidates)))
+	s.metrics.bloomSkipped.Add(uint64(to-from+1) - uint64(len(candidates))) //nolint:gosec // slice length is nonnegative
 	if len(candidates) == 0 {
 		return nil, nil
 	}
@@ -383,7 +383,7 @@ func (s *CommittedSource) receiptLogs(ctx context.Context, e *committedEndpoint,
 			}
 		}
 	}
-	if s.opts.BlockIdentity == "reported" {
+	if s.opts.BlockIdentity == valueReported {
 		bloom, err := hex.DecodeString(strings.TrimPrefix(b.LogsBloom, "0x"))
 		if err != nil || len(bloom) != ethtypes.BloomByteLength || ethtypes.MergeBloom(receipts) != ethtypes.BytesToBloom(bloom) {
 			return nil, sourceError(IntegrityError, e.id, nil)
