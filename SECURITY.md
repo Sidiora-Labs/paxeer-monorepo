@@ -17,8 +17,9 @@ Report suspected security vulnerabilities privately before disclosing them publi
 - **Status updates:** Best-effort updates provided every two weeks while
   remediation is in progress.
 - **Resolution & coordinated disclosure:** Best-effort remediation targets
-  depend on severity. We follow responsible disclosure principles and request
-  that you coordinate public announcements with us until a fix is released.
+  depend on severity (Critical, High, Medium, Low). We follow responsible
+  disclosure principles and request that you coordinate public announcements
+  with us until a fix is released.
 - **Escalation path:** If a response target is missed, you may escalate by
   emailing <security@paxeer.app> with the reference to your original advisory or
   report.
