@@ -20,7 +20,7 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 		return ErrInvalid
 	}
 	u, e := url.Parse(w.DeepLinkOrigin)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil {
 		return ErrInvalid
 	}
 	items, e := w.Store.Claim(ctx, w.Owner, time.Now(), 1)
@@ -40,12 +40,12 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 				return e
 			}
 			if d.Attempt >= 20 {
-				if d.AcceptanceUnknown || d.State == "unknown" {
-					d.State = "unknown"
+				if d.AcceptanceUnknown || d.State == stateUnknown {
+					d.State = stateUnknown
 					d.AcceptanceUnknown = true
-					d.Reason = "attempts_exhausted_uncertain"
+					d.Reason = reasonAttemptsExhaustedUncertain
 				} else {
-					d.State = "dead"
+					d.State = stateDead
 					d.Reason = "attempts_exhausted"
 				}
 				if e = w.Store.Complete(ctx, w.Owner, item.ID, d); e != nil {
@@ -55,39 +55,39 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 			}
 			attemptCtx, cancelAttempt := context.WithTimeout(ctx, 10*time.Second)
 
-			previousUnknown := d.AcceptanceUnknown || d.State == "unknown"
+			previousUnknown := d.AcceptanceUnknown || d.State == stateUnknown
 			d.Attempt++
 			d.NextAt = now.Add(time.Minute)
 			pref, err := w.Authority.CurrentDeliveryPreference(attemptCtx, item.Notification.Identity.AccountID)
 			if err != nil {
-				d.State = "retry"
-				d.Reason = "consent_unavailable"
+				d.State = stateRetry
+				d.Reason = reasonConsentUnavailable
 			} else {
 				decision, de := Decide(pref, item.Notification, d.Channel, now)
 				d.ConsentRevision = decision.ConsentRevision
 				if de != nil {
-					d.State = "retry"
-					d.Reason = "consent_unavailable"
+					d.State = stateRetry
+					d.Reason = reasonConsentUnavailable
 				} else if !decision.Send {
-					d.State = "suppressed"
+					d.State = stateSuppressed
 					d.Reason = decision.Reason
-					if decision.Reason == "quiet_hours" || decision.Reason == "consent_unavailable" {
-						d.State = "retry"
+					if decision.Reason == "quiet_hours" || decision.Reason == reasonConsentUnavailable {
+						d.State = stateRetry
 					}
 				} else {
 					target, te := w.Authority.CurrentTarget(attemptCtx, item.Notification.Identity.AccountID, d.TargetID)
 					if te != nil && !errors.Is(te, ErrForbidden) {
-						d.State = "retry"
+						d.State = stateRetry
 						d.Reason = "target_unavailable"
 					} else if te != nil || !validDeliveryTarget(target, item.Notification.Identity.AccountID, d, pref) {
-						d.State = "suppressed"
+						d.State = stateSuppressed
 						d.Reason = "target_revoked"
 					} else {
 						d.TargetRevision = target.Revision
 						adapter := w.Adapters[target.Provider]
-						if adapter == nil || adapter.Provider() != target.Provider || d.Channel != "push" {
-							d.State = "retry"
-							d.Reason = "provider_unavailable"
+						if adapter == nil || adapter.Provider() != target.Provider || d.Channel != channelPush {
+							d.State = stateRetry
+							d.Reason = reasonProviderUnavailable
 						} else {
 							payload := Payload{Summary: "You have a new notification", AuthenticatedDeepLink: w.DeepLinkOrigin + "/notifications/" + url.PathEscape(item.Notification.ID), IdempotencyKey: item.Notification.ID}
 							if e = w.Store.BeginSend(attemptCtx, w.Owner, item.ID, d); e != nil {
@@ -99,7 +99,7 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 							result, se := adapter.Send(sendCtx, target, payload)
 							cancel()
 							if se != nil {
-								result = SendResult{State: "unknown", Reason: "provider_uncertain"}
+								result = SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
 							}
 							if ValidateResult(result) != nil {
 								cancelAttempt()
@@ -122,20 +122,20 @@ func (w Worker) Once(ctx context.Context, limit int) error {
 				}
 			}
 			d = preserveUncertainty(d, previousUnknown)
-			if !d.ExpiresAt.IsZero() && !time.Now().Before(d.ExpiresAt) && d.State != "accepted" {
-				if d.State == "unknown" {
+			if !d.ExpiresAt.IsZero() && !time.Now().Before(d.ExpiresAt) && d.State != stateAccepted {
+				if d.State == stateUnknown {
 					d.Reason = "expired_uncertain"
 				} else {
-					d.State = "suppressed"
+					d.State = stateSuppressed
 					d.Reason = "expired"
 				}
 			}
-			if !terminalDelivery(d) && (d.State == "retry" || d.State == "unknown") {
+			if !terminalDelivery(d) && (d.State == stateRetry || d.State == stateUnknown) {
 				if d.Attempt >= 20 {
-					if d.State == "unknown" {
-						d.Reason = "attempts_exhausted_uncertain"
+					if d.State == stateUnknown {
+						d.Reason = reasonAttemptsExhaustedUncertain
 					} else {
-						d.State = "dead"
+						d.State = stateDead
 						d.Reason = "attempts_exhausted"
 					}
 				} else {
