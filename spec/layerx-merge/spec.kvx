@@ -196913,7 +196913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.442]
 title = "Bring the member layerx-programs-registry of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
