@@ -13270,6 +13270,12 @@ value = "Task 22.39.436 requires task 22.39.435. A finding in the included file 
 basis = "Gotcha 4276."
 affects = ["22.39.436"]
 
+[decision.3360]
+title = "A Go source that runs only inside another package or module stays out of the package listing of the root module"
+value = "An overlay source of services/platform/ramps/toolkit/src/repair_22_31_211 carries a file name the Go tool does not list, and the program apps/launchpad/web/src/core/repair-22-31-22/attest.go carries a build constraint that leaves it out of the listing. The cases that run these sources keep their results. Task 22.39.431 holds these files."
+basis = "Gotcha 4277 and decision 3353."
+affects = ["22.39.431"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -312495,7 +312501,7 @@ do_1 = "do_1 Decision 3348, gotcha 4269. The target split-test-packages of chain
 do_2 = "do_2 Run make -f chain.mk split-test-packages and check that the four parts exist and together hold every line of the package list once. Then run GOPROXY=off make -k paxeer-test once by hand, keep the output in a file outside the tree, and list in the closing report every package that stops with its first message. Repair no test here."
 do_3 = "do_3 Record in tools/workspace/repair_22_39_431.kvx the names of the groups and of the parts. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["chain.mk", "services/platform/ramps/toolkit/src/repair_22_31_211", "services/platform/ramps/toolkit/tests/repair_22_31_211.rs"]
+touches = ["chain.mk", "services/platform/ramps/toolkit/src/repair_22_31_211", "services/platform/ramps/toolkit/tests/repair_22_31_211.rs", "apps/launchpad/web/src/core/repair-22-31-22/attest.go"]
 tests = []
 planned_paths = ["tools/workspace/repair_22_39_431.kvx"]
 build_cmd = "make -n -f chain.mk split-test-packages > /dev/null"
@@ -312512,6 +312518,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3353, gotcha 4272. The package list of the chain test recipe names the product packages of the root module. In chain.mk leave the vendored tree under tools out of the listing by name, with a listing that still stops on any other directory that does not load. Give the directory services/platform/ramps/toolkit/src/repair_22_31_211 the test files of one package per directory so that it loads, with each case reading the same files as before, and keep services/platform/ramps/toolkit/tests/repair_22_31_211.rs in step with it. Run the cases of that directory by hand. A case that stops for a cause outside the declared paths is listed in the closing report with its first message. Files that a hand run writes at the root of the repository are removed before the build and the verification."
+do_5 = "do_5 Decision 3360 and gotcha 4277. The three files of services/platform/ramps/toolkit/src/repair_22_31_211 are overlay sources: keep them in that directory under file names the Go tool does not list and keep the Rust test that writes the overlay in step, so that its cases read the same content. Give apps/launchpad/web/src/core/repair-22-31-22/attest.go a build constraint that leaves it out of the listing of the root module and check by hand that go run with the file path from sdk/launchpad/shared still prints its result. Then run the verification command by hand before the build once and the verification once."
 
 [task.22.39.411]
 title = "Rebuild the test programs of the kernel when a header they include changes"

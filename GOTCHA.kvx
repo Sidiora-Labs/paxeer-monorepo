@@ -21205,3 +21205,8 @@ fix = "Decision 3358."
 title = "A test target of the identity provider member of the human workspace compiles a source file of the service member through a path include"
 symptom = "The file tests/client.rs of services/human/crates/layerx-human-identity-provider declares the identity entry file of src/server of the service member by path, so the lint of the provider member reads that file and the files it pulls in."
 fix = "Decision 3359."
+
+[gotcha.4277]
+title = "Two kinds of Go source under the root module run only inside another package or module"
+symptom = "The three test files of services/platform/ramps/toolkit/src/repair_22_31_211 are compiled into the packages they test through an overlay written by services/platform/ramps/toolkit/tests/repair_22_31_211.rs. The program apps/launchpad/web/src/core/repair-22-31-22/attest.go is run by file path from sdk/launchpad/shared by a web case and imports packages of that module."
+fix = "Decision 3360."
