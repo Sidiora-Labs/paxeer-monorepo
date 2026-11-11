@@ -163037,7 +163037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.40.7"]
