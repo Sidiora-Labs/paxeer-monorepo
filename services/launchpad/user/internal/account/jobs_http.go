@@ -50,10 +50,10 @@ func wireJob(j Job) WireJob {
 	switch j.State {
 	case "requested":
 		state = "queued"
-	case "ready", "completed":
-		state = "completed"
-	case "failed", "expired":
-		state = "failed"
+	case stateReady, stateCompleted:
+		state = stateCompleted
+	case stateFailed, "expired":
+		state = stateFailed
 	case "blocked":
 		state = "partial"
 	}
@@ -83,7 +83,7 @@ func (h HTTP) exportPost(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e, id)
 		return
 	}
-	envelope, e := Response(id, map[string]any{"job": wireJob(j)}, "0", h.Store.now())
+	envelope, e := Response(id, map[string]any{fieldJob: wireJob(j)}, "0", h.Store.now())
 	if e != nil {
 		WriteError(w, e, id)
 		return
@@ -120,7 +120,7 @@ func (h HTTP) jobGet(w http.ResponseWriter, r *http.Request, kind string) {
 		at := expires.UTC().Format("2006-01-02T15:04:05.000Z")
 		v.ExpiresAt = &at
 	}
-	if kind == "deletion" {
+	if kind == kindDeletion {
 		projection := deletionProjection(j)
 		v.RetainedReasons = projection.Job.RetainedReasons
 		var progress struct {
@@ -136,16 +136,16 @@ func (h HTTP) jobGet(w http.ResponseWriter, r *http.Request, kind string) {
 		}
 		for _, d := range projection.Job.DomainResults {
 			if acked[d.Domain] {
-				d.State = "completed"
+				d.State = stateCompleted
 			}
 			v.DomainResults = append(v.DomainResults, d)
 		}
 	}
-	if kind == "export" {
+	if kind == kindExport {
 		h.respondExportStatus(w, r, j, expires, payload)
 		return
 	}
-	h.respond(w, id, map[string]any{"job": v, "downloadUrl": v.DownloadURL}, "0", nil)
+	h.respond(w, id, map[string]any{fieldJob: v, "downloadUrl": v.DownloadURL}, "0", nil)
 }
 func (h HTTP) respondExportStatus(w http.ResponseWriter, r *http.Request, j Job, expires *time.Time, payload []byte) {
 	w.Header().Set("Cache-Control", "private, no-store")
@@ -155,7 +155,7 @@ func (h HTTP) respondExportStatus(w http.ResponseWriter, r *http.Request, j Job,
 		WriteError(w, e, requestID(r))
 		return
 	}
-	h.respond(w, requestID(r), map[string]any{"job": v, "downloadUrl": v.DownloadURL}, "0", nil)
+	h.respond(w, requestID(r), map[string]any{fieldJob: v, "downloadUrl": v.DownloadURL}, "0", nil)
 }
 
 func (h HTTP) exportStatusProjection(j Job, expires *time.Time, payload []byte) (WireJob, error) {
@@ -164,7 +164,7 @@ func (h HTTP) exportStatusProjection(j Job, expires *time.Time, payload []byte) 
 		at := expires.UTC().Format("2006-01-02T15:04:05.000Z")
 		v.ExpiresAt = &at
 	}
-	if j.Kind != "export" || j.State != "ready" || expires == nil || !expires.After(h.Store.now()) || h.Runtime == nil {
+	if j.Kind != kindExport || j.State != stateReady || expires == nil || !expires.After(h.Store.now()) || h.Runtime == nil {
 		return v, nil
 	}
 	var metadata exportMetadata
@@ -195,7 +195,7 @@ func (h HTTP) exportStatusProjection(j Job, expires *time.Time, payload []byte) 
 	return v, nil
 }
 
-func (h HTTP) exportGet(w http.ResponseWriter, r *http.Request) { h.jobGet(w, r, "export") }
+func (h HTTP) exportGet(w http.ResponseWriter, r *http.Request) { h.jobGet(w, r, kindExport) }
 func (h HTTP) deletionGet(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("X-Recovery-Receipt") != "" {
 		p, e := h.recoveryPrincipal(r)
@@ -205,7 +205,7 @@ func (h HTTP) deletionGet(w http.ResponseWriter, r *http.Request) {
 		}
 		r = r.WithContext(WithPrincipal(r.Context(), p))
 	}
-	h.jobGet(w, r, "deletion")
+	h.jobGet(w, r, kindDeletion)
 }
 func (h HTTP) deletionPost(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
@@ -261,8 +261,9 @@ func (h HTTP) deletionPost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("X-Recovery-Receipt", receipt)
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusAccepted)
-	_, _ = w.Write(result)
+	_, _ = w.Write(result) //nolint:gosec // The signed operation returns a JSON envelope with its original wire bytes.
 }
 
 // An explicit URL capability survives generated SDK decoding. Header clients
@@ -300,7 +301,7 @@ func validExportAuthorization(token string) bool {
 		return false
 	}
 	for _, c := range token {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -370,7 +371,7 @@ func (h HTTP) downloadHandler(downloads exportDownloads) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Disposition", "attachment; filename=account-export.json")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		_, _ = w.Write(plain)
+		_, _ = w.Write(plain) //nolint:gosec // The authenticated export is delivered as JSON with its original wire bytes.
 	})
 }
 
@@ -386,11 +387,15 @@ func (h HTTP) recoveryReceipt(j WireAccountJob) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	raw := make([]byte, 41)
+	raw := make([]byte, 41, 73)
 	raw[0] = 1
 	copy(raw[1:17], job[:])
 	copy(raw[17:33], account[:])
-	binary.BigEndian.PutUint64(raw[33:], uint64(h.Store.now().Add(30*24*time.Hour).Unix()))
+	expiry := h.Store.now().Add(30 * 24 * time.Hour).Unix()
+	if expiry < 0 {
+		return "", ErrDenied
+	}
+	binary.BigEndian.PutUint64(raw[33:], uint64(expiry))
 	m := hmac.New(sha256.New, h.Runtime.EndpointKey)
 	m.Write([]byte("account-deletion-recovery-v1"))
 	m.Write(raw)
@@ -407,7 +412,8 @@ func (h HTTP) recoveryPrincipal(r *http.Request) (Principal, error) {
 	m := hmac.New(sha256.New, h.Runtime.EndpointKey)
 	m.Write([]byte("account-deletion-recovery-v1"))
 	m.Write(raw[:41])
-	if !hmac.Equal(raw[41:], m.Sum(nil)) || uint64(h.Store.now().Unix()) >= binary.BigEndian.Uint64(raw[33:41]) {
+	now := h.Store.now().Unix()
+	if !hmac.Equal(raw[41:], m.Sum(nil)) || now < 0 || uint64(now) >= binary.BigEndian.Uint64(raw[33:41]) {
 		return Principal{}, ErrDenied
 	}
 	job, e := uuid.Parse(r.PathValue("jobId"))

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"io"
 	"math/big"
 	"net/url"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 
 	"github.com/google/uuid"
 	"golang.org/x/text/unicode/norm"
@@ -206,7 +207,7 @@ func (p PreferencesPatch) Validate() error {
 		return ValidationError{"/locale", ErrInvalid}
 	}
 	if p.Timezone != nil {
-		if len(*p.Timezone) > 100 || (*p.Timezone != "UTC" && !strings.Contains(*p.Timezone, "/")) {
+		if len(*p.Timezone) > 100 || (*p.Timezone != timezoneUTC && !strings.Contains(*p.Timezone, "/")) {
 			return ValidationError{"/timezone", ErrInvalid}
 		}
 		if _, e := time.LoadLocation(*p.Timezone); e != nil {
@@ -232,13 +233,13 @@ func (p PreferencesPatch) Validate() error {
 func validChannel(s string) bool { return s == "push" || s == "email" || s == "inapp" }
 func validCategory(s string) bool {
 	switch s {
-	case "trade", "watchlist", "creator", "chat", "security", "marketing":
+	case "trade", fieldWatchlist, "creator", "chat", domainSecurity, "marketing":
 		return true
 	}
 	return false
 }
 func DefaultPreferences() Preferences {
-	return Preferences{SchemaVersion: 1, Revision: "0", Locale: "en", Timezone: "UTC", Channels: []string{}, QuietHours: QuietHours{Timezone: "UTC", Start: "22:00", End: "07:00"}, NotificationCategories: map[string]bool{}, Currency: "USD", ChartInterval: "1h", PrivateActivity: true}
+	return Preferences{SchemaVersion: 1, Revision: "0", Locale: "en", Timezone: timezoneUTC, Channels: []string{}, QuietHours: QuietHours{Timezone: timezoneUTC, Start: "22:00", End: "07:00"}, NotificationCategories: map[string]bool{}, Currency: "USD", ChartInterval: "1h", PrivateActivity: true}
 }
 
 type Consent struct {
@@ -277,7 +278,7 @@ type RetentionRule struct {
 	Policy string
 }
 
-var RetentionManifest = []RetentionRule{{"chain_fact", "indexer", "retain committed chain provenance; never enrich from deleted profile"}, {"required_audit", "security", "restricted retention under disclosed legal policy"}, {"personal_profile", "user", "purge within 30 days; keep opaque tombstone"}, {"ephemeral_telemetry", "observability", "expire under bounded telemetry policy"}}
+var RetentionManifest = []RetentionRule{{"chain_fact", "indexer", "retain committed chain provenance; never enrich from deleted profile"}, {"required_audit", domainSecurity, "restricted retention under disclosed legal policy"}, {"personal_profile", domainUser, "purge within 30 days; keep opaque tombstone"}, {"ephemeral_telemetry", "observability", "expire under bounded telemetry policy"}}
 
 func validRevision(s string) bool {
 	if !decimal.MatchString(s) {
@@ -331,7 +332,7 @@ func DecodeExtendedProfile(r io.Reader, v *ExtendedProfilePatch) error {
 		return ErrInvalid
 	}
 	for key, value := range fields {
-		if bytes.Equal(value, []byte("null")) && key != "avatarAssetId" && key != "bannerAssetId" && key != "website" {
+		if bytes.Equal(value, []byte("null")) && key != "avatarAssetId" && key != "bannerAssetId" && key != socialWebsite {
 			return ValidationError{"/" + key, ErrInvalid}
 		}
 	}
@@ -343,7 +344,7 @@ func DecodeExtendedProfile(r io.Reader, v *ExtendedProfilePatch) error {
 	if decoder.Decode(new(any)) != io.EOF {
 		return ErrInvalid
 	}
-	if e = v.ProfilePatch.Validate(); e != nil {
+	if e = v.Validate(); e != nil {
 		return e
 	}
 	if v.Website.Set && v.Website.Value != nil {
@@ -361,7 +362,7 @@ func DecodeExtendedProfile(r io.Reader, v *ExtendedProfilePatch) error {
 	}
 	for k, value := range v.Socials {
 		switch k {
-		case "website", "twitter", "telegram", "discord":
+		case socialWebsite, socialTwitter, socialTelegram, socialDiscord:
 		default:
 			return ValidationError{"/socials/" + k, ErrUnknown}
 		}
