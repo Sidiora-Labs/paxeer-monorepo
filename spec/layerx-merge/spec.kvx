@@ -226993,7 +226993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.7]
 title = "Serve the chain launch at the launchpad address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.40.4", "22.40.5", "22.40.6", "22.40.1"]
