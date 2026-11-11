@@ -837,86 +837,6 @@ pub fn load_program_budget_denominations(
     .map_err(|_| error(SETTING, RejectionReason::InvalidEncoding))
 }
 
-#[cfg(test)]
-mod program_budget_configuration_tests {
-    use super::*;
-    use std::os::unix::fs::PermissionsExt as _;
-
-    fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
-        value.unwrap_or_else(|error| panic!("Program budget configuration: {error:?}"))
-    }
-
-    #[test]
-    fn committed_verification_default_accepts_current_and_legacy_names() {
-        let tenant = must(TenantId::new("committed-owner"));
-        let tenants = BTreeSet::from([tenant.clone()]);
-        for name in ["committed", "checkpoint-finalised", "settlement-anchored"] {
-            let levels = must(parse_verification_defaults(
-                &format!("committed-owner:{name}"),
-                &tenants,
-            ));
-            assert_eq!(levels[&tenant], VerificationLevel::COMMITTED);
-        }
-        assert!(parse_verification_defaults("committed-owner:unknown", &tenants).is_err());
-    }
-
-    #[test]
-    fn protected_source_requires_explicit_unique_asset_source_and_tenant() {
-        let suffix =
-            must(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)).as_nanos();
-        let root = std::env::temp_dir().join(format!(
-            "program-budget-source-{}-{suffix}",
-            std::process::id()
-        ));
-        must(std::fs::create_dir_all(&root));
-        let path = root.join("source.json");
-        let tenant = must(TenantId::new("budget-owner"));
-        let valid = serde_json::json!({"version":1,"tenant":tenant.as_str(),"limits":[{
-            "stable_id":hex::encode([1_u8;32]),"asset":hex::encode([2_u8;32]),"source":"*"}]});
-        let write = |value: &serde_json::Value| {
-            must(std::fs::write(&path, must(serde_json::to_vec(value))));
-            must(std::fs::set_permissions(
-                &path,
-                std::fs::Permissions::from_mode(0o600),
-            ));
-        };
-        write(&valid);
-        let verified = must(load_program_budget_denominations(&path, &tenant));
-        assert_eq!(verified.bindings()[0].1.source, None);
-        assert!(
-            load_program_budget_denominations(&path, &must(TenantId::new("other-owner"))).is_err()
-        );
-        let mut missing = valid.clone();
-        missing["limits"][0]
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("row"))
-            .remove("source");
-        write(&missing);
-        assert!(load_program_budget_denominations(&path, &tenant).is_err());
-        let mut duplicate = valid.clone();
-        duplicate["limits"]
-            .as_array_mut()
-            .unwrap_or_else(|| panic!("limits"))
-            .push(valid["limits"][0].clone());
-        write(&duplicate);
-        assert!(load_program_budget_denominations(&path, &tenant).is_err());
-        let mut zero = valid.clone();
-        zero["limits"][0]["asset"] = serde_json::Value::String(hex::encode([0_u8; 32]));
-        write(&zero);
-        assert!(load_program_budget_denominations(&path, &tenant).is_err());
-        let bytes = must(serde_json::to_string(&valid)).replacen("{", "{\"version\":1,", 1);
-        must(std::fs::write(&path, bytes));
-        assert!(load_program_budget_denominations(&path, &tenant).is_err());
-        write(&valid);
-        must(std::fs::set_permissions(
-            &path,
-            std::fs::Permissions::from_mode(0o666),
-        ));
-        assert!(load_program_budget_denominations(&path, &tenant).is_err());
-        must(std::fs::remove_dir_all(root));
-    }
-}
-
 pub(crate) struct VerifiedNativeProgramPolicy {
     tenant: TenantId,
     policy: crate::policy::native_program::NativeProgramPolicy,
@@ -1013,4 +933,84 @@ pub(crate) fn load_native_effect_policy(
         tenant: tenant.clone(),
         policy,
     })
+}
+
+#[cfg(test)]
+mod program_budget_configuration_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt as _;
+
+    fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("Program budget configuration: {error:?}"))
+    }
+
+    #[test]
+    fn committed_verification_default_accepts_current_and_legacy_names() {
+        let tenant = must(TenantId::new("committed-owner"));
+        let tenants = BTreeSet::from([tenant.clone()]);
+        for name in ["committed", "checkpoint-finalised", "settlement-anchored"] {
+            let levels = must(parse_verification_defaults(
+                &format!("committed-owner:{name}"),
+                &tenants,
+            ));
+            assert_eq!(levels[&tenant], VerificationLevel::COMMITTED);
+        }
+        assert!(parse_verification_defaults("committed-owner:unknown", &tenants).is_err());
+    }
+
+    #[test]
+    fn protected_source_requires_explicit_unique_asset_source_and_tenant() {
+        let suffix =
+            must(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)).as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "program-budget-source-{}-{suffix}",
+            std::process::id()
+        ));
+        must(std::fs::create_dir_all(&root));
+        let path = root.join("source.json");
+        let tenant = must(TenantId::new("budget-owner"));
+        let valid = serde_json::json!({"version":1,"tenant":tenant.as_str(),"limits":[{
+            "stable_id":hex::encode([1_u8;32]),"asset":hex::encode([2_u8;32]),"source":"*"}]});
+        let write = |value: &serde_json::Value| {
+            must(std::fs::write(&path, must(serde_json::to_vec(value))));
+            must(std::fs::set_permissions(
+                &path,
+                std::fs::Permissions::from_mode(0o600),
+            ));
+        };
+        write(&valid);
+        let verified = must(load_program_budget_denominations(&path, &tenant));
+        assert_eq!(verified.bindings()[0].1.source, None);
+        assert!(
+            load_program_budget_denominations(&path, &must(TenantId::new("other-owner"))).is_err()
+        );
+        let mut missing = valid.clone();
+        missing["limits"][0]
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("row"))
+            .remove("source");
+        write(&missing);
+        assert!(load_program_budget_denominations(&path, &tenant).is_err());
+        let mut duplicate = valid.clone();
+        duplicate["limits"]
+            .as_array_mut()
+            .unwrap_or_else(|| panic!("limits"))
+            .push(valid["limits"][0].clone());
+        write(&duplicate);
+        assert!(load_program_budget_denominations(&path, &tenant).is_err());
+        let mut zero = valid.clone();
+        zero["limits"][0]["asset"] = serde_json::Value::String(hex::encode([0_u8; 32]));
+        write(&zero);
+        assert!(load_program_budget_denominations(&path, &tenant).is_err());
+        let bytes = must(serde_json::to_string(&valid)).replacen('{', "{\"version\":1,", 1);
+        must(std::fs::write(&path, bytes));
+        assert!(load_program_budget_denominations(&path, &tenant).is_err());
+        write(&valid);
+        must(std::fs::set_permissions(
+            &path,
+            std::fs::Permissions::from_mode(0o666),
+        ));
+        assert!(load_program_budget_denominations(&path, &tenant).is_err());
+        must(std::fs::remove_dir_all(root));
+    }
 }

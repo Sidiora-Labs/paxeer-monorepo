@@ -39834,3 +39834,803 @@ symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
 observed = "Attempt 13 at 0d064cbe7515 on base 2968a4aeb9fb: the verification exits 1, the wave gate returns 125 with status source-identity-refusal phase before for make workspace-build, twelve ignored build directories of the preparation are listed; log /out/logs/verify-1.log."
 assumption = "The preparation leaves build directories that the output policy of the runner does not name."
 severity = "high"
+
+[finding.22.39.338.1]
+task = "22.39.338"
+file = "services/platform/hosted/paxeer/repair_467_test.go::TestRepair467_RestoredContent"
+symbol = "repair_467_test.go::TestRepair467_RestoredContent"
+observed = "Attempt 1 at 29744acf5552 on base 779bb0fbe4b5 (gates at a491cab991c3): the verification exits 1, TestRepair467_RestoredContent at repair_467_test.go:48 and TestRepairM_1319_NativeDeployment at repair_m1319_test.go:453 fail because deployment.yaml has SHA-256 ba84aff35348 and the pin is 7f681de19c1c; log /out/logs/verify-1.log."
+assumption = "The pin was left behind by the commit of task 18.1790.1 that changed the manifest."
+severity = "high"
+
+[finding.18.1749.1.8]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 8 at 934b544b6f52 on base 1da5e223456f: the verification exits 101, reward_reopen_preserves_recipient_balances stops at the Claim at height 290 with receipt result code -736 and no absent account line of the kernel; log /out/logs/verify-1.log."
+assumption = "The runtime compares the receipt root of the resolved account with a root over the identity bytes."
+severity = "high"
+
+[finding.17.4.6.7]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 12 at 7474dc4921a9 on base 1b4b14bd3e44: the verification exits 1, pytest reports 1 failed in 2456 seconds, 48 of 50 rows pass and both wallet rows stop at apps/wallet/e2e/send.spec.ts:972 with a strict mode violation on two buttons named Local sequencer signer; log /out/logs/verify-1.log."
+assumption = "The wallet application lists the announced provider twice and the wallet source is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.117.15]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 15 at d090e17d89c7 on base ce4f88dbbf43: the build exits 0 and the verification exits 2 in make -C services/launchpad ci; the indexer module fails in internal/app, internal/config, internal/decode, internal/processor and internal/receipt; log /out/logs/verify-1.log."
+assumption = "The three comparison helpers sit outside the paths of the task and the catalogue loaders are red on main."
+severity = "high"
+
+[finding.22.38.17.1]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 1 at a7f84185ecb0 on base 1da5e223456f: build 3 exits 0 (log /out/logs/build-3.log), no verification ran, and the check of the dependent packages exits 101 with E0599 at main.rs:2234 and E0277 at main.rs:2263; log /out/logs/dependents-1.log."
+assumption = "The declared build never compiled the entry file because only the host package builds it."
+severity = "high"
+
+[finding.22.38.13.6]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 6 at 104080e251b3 on base 5080ad62ffe2: the build exits 0 (log /out/logs/build-1.log), no verification ran, and the check of the dependent packages exits 101 with five errors in the cases of the library of layerx-agentd; log /out/logs/dependents-1.log."
+assumption = "The five errors sit on main since commit e0403e4fd2 and in no file of the task."
+severity = "high"
+
+[finding.22.39.340.1]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 1 at 29eddec468fe on base 390496e41e48: build 1 exits 101 at 3cfc366470bf and build 2 exits 101 at 255e853fa630 with three duplicate symbols at the link of the test target repair_22_33_259; no verification ran; log /out/logs/build-2.log."
+assumption = "The duplicate definitions exist on main whenever the test targets of the package are built with the host interface feature."
+severity = "high"
+
+[finding.18.1695.1.2]
+task = "18.1695.1"
+file = "services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695"
+symbol = "status_1695_test.go::TestIndexerStatus1695"
+observed = "Attempt 2 at 693a9066e8ab on base d4e82a5ce755: both builds exit 0 and the verification exits 1, TestIndexerStatus1695 fails at status_1695_test.go:285 with source paxeer-primary: semantic_rpc and the recording reports the unrecorded call eth_getBlockByNumber with latest and true; log /out/logs/verify-2.log."
+assumption = "The recording holds the latest block in its header form and that block holds no transaction."
+severity = "high"
+
+[finding.17.5.7.14]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 14 at 26531ad69081 on base 390496e41e48: the build exits 0 and the verification exits 1, pytest reports 1 failed in 936 seconds; make workspace-build exits 2 at platform-sdk-check with stale generated SDKs for the schema agent-api; log /out/logs/verify-1.log."
+assumption = "The schema change of commit bd4823a626 was committed without a regeneration and the generated roots are outside the paths of the task."
+severity = "high"
+
+[finding.22.39.346.1]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 1 at 0e121f89252b on base 7d9b21059781, gates at e7187019c7ba: the build exits 0 and the verification exits 1; the six cases of WalletProvider.test.tsx pass and the send case fails at apps/wallet/e2e/send.spec.ts:1074 with TypeError malformed or unauthenticated sequencer receipt key height from sdk/wallet/src/receipt.ts:45; log /out/logs/verify-1.log."
+assumption = "The helper of the case parses the receipt key answer with a plain JSON parse and the file is inside the paths of the task."
+severity = "high"
+
+[finding.22.39.223.2]
+task = "22.39.223"
+file = "services/agent/crates/layerx-agentd-host"
+symbol = "layerx-agentd-host"
+observed = "Attempt 2 at 07259debc611 on base 6e4e7e5be090: build 2 exits 0 and the verification exits 101 at dd7b592dc5e8 with errors in the binary, its test configuration and the targets node_integration, payer_evm and serve_routes; build 3 exits 0 at 9059f4d559f3 and no second verification ran; log /out/logs/verify-1.log."
+assumption = "The remaining lints outside main.rs sit in files that the targets include by path from outside the paths of the task."
+severity = "high"
+
+[finding.22.39.226.1]
+task = "22.39.226"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at da8f9919a12f on base 1da5e223456f: builds 1 and 2 exit 0 and verification 2 exits 101 at 2e01b70a4a0f with 20 errors in the targets approval_ops, availability_blocks, balance, budget_mutations_layerxpay, budget_schema, checkpoint and human_projection_facts; log /out/logs/verify-2.log."
+assumption = "The remaining errors sit inside the paths and six of them are compile errors that the library build never shows."
+severity = "high"
+
+[finding.22.39.349.1]
+task = "22.39.349"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs::pre_entry_start_event"
+symbol = "repair_22_33_259.rs::pre_entry_start_event"
+observed = "Attempt 1 at 1fc64323e59c on base a61b1b58f649: the build exits 0 at b80fd4967a50, no verification ran, and the check of the dependent packages exits 101 with five errors in the test configuration of the library of layerx-agentd; log /out/logs/dependents-1.log."
+assumption = "The five errors are red on main at the base of the attempt and sit outside the paths of the task."
+severity = "high"
+
+[finding.22.39.340.2]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 2 at 5819b120ab2b on base a61b1b58f649: the build exits 0, no verification ran, and the check of the dependent packages exits 101 with five errors in the test configuration of the library of layerx-agentd; log /out/logs/dependents-1.log."
+assumption = "The five errors are red on main at the base of the attempt and sit outside the paths of the task."
+severity = "high"
+
+[finding.22.39.346.2]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 2 at 22deb9aa1bdd on base 167ce2a7f0cf: the build exits 0 and the verification exits 1; the six provider cases pass and the send case stops at apps/wallet/e2e/send.spec.ts:1106 with the truth unknown where included is expected; log /out/logs/verify-1.log."
+assumption = "The request function of the result page rounds the last height of the receipt key and the file was outside the paths of the task."
+severity = "high"
+
+[finding.18.1695.1.3]
+task = "18.1695.1"
+file = "services/launchpad/indexer/internal/app/status_1695_test.go::TestIndexerStatus1695"
+symbol = "status_1695_test.go::TestIndexerStatus1695"
+observed = "Attempt 3 at 9c471ae564fa on base a61b1b58f649: build 2 exits 0 and verification 2 exits 1, TestIndexerStatus1695 fails at status_1695_test.go:397 with ingestion lease fenced or expired; log /out/logs/verify-2.log."
+assumption = "The case acquires a lease that its own earlier acquisition still holds."
+severity = "high"
+
+[finding.22.39.340.3]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 3 at b98f9b64f6b6 on base 26be171234b5: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; build/tests/programs_call_activity fails at tests/programs/test_call_activity.c:1542 for protocol 3; log /out/logs/verify-1.log."
+assumption = "The new native case of the task was never run before this verification and one of its conditions is false."
+severity = "high"
+
+[finding.22.39.227.1]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at 12bf6e0d70d7 on base 70d7aa5849dc: build 3 exits 0 at 12bf6e0d70d7 (log /out/logs/build-3.log); the only verification ran at 0d1bbd64d440 and exits 1 with lint errors in seven test targets; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
+
+[finding.22.39.117.16]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 16 at 87aa7bc4b07b on base a37d2e22f205: the build exits 0 and the verification exits 1 in make -C services/launchpad ci; the indexer module fails in internal/config, internal/decode and internal/receipt with receipt qualification rejected, first at repair_m999_test.go:431; log /out/logs/verify-1.log."
+assumption = "The production comparison of the roles is outside the paths of the task and treats the staged pair as identity."
+severity = "high"
+
+[finding.22.38.17.2]
+task = "22.38.17"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+symbol = "inference_deals.rs"
+observed = "Attempt 2 at 02a1d2a11c73 on base 167ce2a7f0cf: build 3 exits 0 at 02a1d2a11c73 (log /out/logs/build-3.log); the only verification ran at fcdbd6049e5d and exits 1 with 0 passed and 6 failed, each case stopped at tests/inference_deals.rs:1327 with application error 2061; log /out/logs/verify-1.log."
+assumption = "The final tree was built after the last allowed verification and has not been verified."
+severity = "high"
+
+[finding.22.38.13.7]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 7 at 8395325d0d07 on base 167ce2a7f0cf: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; the target fuel_budget reports 15 passed and 5 failed, f11_fuel_table at tests/fuel_budget.rs:4137 and four cases of tests/repair_22_33_260.rs, each with application error 14 at the Heartbeat of the fixture; log /out/logs/verify-1.log."
+assumption = "The fixture sends a Heartbeat where the program of the new base has captured no roster, and the cause is not yet located."
+severity = "high"
+
+[finding.22.39.346.3]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 3 at 6e98157ed545 on base 9d053ddf8fc5: both builds exit 0; verification 2 exits 1 at ef74de13ae7b with eight unit cases passed and the send case failed at apps/wallet/e2e/send.spec.ts:1117, the saved observation holds the truth submitted and no step; log /out/logs/verify-2.log."
+assumption = "The save function of the wallet refuses a big integer and sits outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.15]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 15 at 1328649c1bfc on base 26be171234b5: the build exits 0 and the verification exits 1; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-example-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
+assumption = "The example directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
+severity = "high"
+
+[finding.22.39.340.4]
+task = "22.39.340"
+file = "tests/programs/test_call_activity.c::main"
+symbol = "test_call_activity.c::main"
+observed = "Attempt 4 at 3e50ea6ff79a on base 6ed89b16ad06: both builds exit 0; verification 2 exits 1 at 6d690906f85c, both native binaries pass and the transfer module ends with 31 passed and 1 failed at transfer.rs:2209, nested-v2 left 4 right 2; log /out/logs/verify-2.log."
+assumption = "The count of the case matches two category labels with one suffix and the vectors are complete."
+severity = "high"
+
+[finding.22.39.227.2]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 313617fcd332 on base 896caeace6fa: build 3 exits 0 at 86714094a977 and the verification exits 101 at 86714094a977 with one too_many_lines error at tests/metrics_rungs.rs:58 and two needless_borrows_for_generic_args errors at tests/protocol2_restart.rs:183 and :258; log /out/logs/verify-1.log."
+assumption = "Both repair cycles were used by the two red builds before the only verification."
+severity = "high"
+
+[finding.22.39.346.4]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 4 at 7729d7911128 on base ad52c8e6d41f: both builds exit 0; verification 2 exits 1 at 7729d7911128 with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:30, ENOENT for the conformance fixture one directory above the repository; the send case did not run; log /out/logs/verify-2.log."
+assumption = "The fixture path of the new case holds one parent segment too many."
+severity = "high"
+
+[finding.22.39.226.2]
+task = "22.39.226"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 18dabb06132d on base 8f48fda09773: builds 1 and 2 exit 101, build 3 exits 0 at 14f6beea516d (log /out/logs/build-3.log), and the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host binary does not compile on main and the cause sits outside the paths of the task."
+severity = "high"
+
+[finding.22.38.18.1]
+task = "22.38.18"
+file = "services/agent/crates/layerx-agentd/tests/inference_laps.rs"
+symbol = "inference_laps.rs"
+observed = "Attempt 1 at 183ade27f302 on base 583a1586d7bb: build 1 exits 101, builds 2 and 3 exit 0 (log /out/logs/build-3.log), and the check of the dependent packages exits 101 at 183ade27f302 with E0412, E0560 and E0599 in src/inference_market/deals.rs; no verification ran; log /out/logs/dependents-2.log."
+assumption = "The host binary does not compile on main and deals.rs is outside the paths of the task."
+severity = "high"
+
+[finding.17.5.7.16]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 16 at 4b995a314b06 on base 8f48fda09773: the build exits 0 and the verification exits 1; make workspace-build exits 2 at agent-build with E0412, E0560 and E0599 in services/agent/crates/layerx-agentd/src/inference_market/deals.rs; log /out/logs/verify-1.log."
+assumption = "The host binary does not compile on main and its directory is outside the paths of the gate task."
+severity = "high"
+
+[finding.22.39.342.1]
+task = "22.39.342"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+symbol = "ReceiptFixtureTests.cs::NativeDestinationAuthorizationVectors"
+observed = "Attempt 1 at 2f617a977898 on base 00af874880f4: build 1 exits 1 with NETSDK1045 (log /out/logs/build-1.log) and build 2 exits 1 at 9a855cf18b03 with SYSLIB0057 at sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:82; no verification ran; log /out/logs/build-2.log."
+assumption = "The test project does not build on main under its target framework and the site is outside the paths of the task."
+severity = "high"
+
+[finding.22.38.13.8]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 8 at a798c0fba504 on base 5c9d1fbfdc8f: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1; fuel_budget ends with 19 passed and 1 failed, f11_fuel_table panics at tests/fuel_budget.rs:3975 with selector 0x0b01 and status -601, state 117274 bytes and fuel 999974; log /out/logs/verify-1.log."
+assumption = "The room opening of the guest exceeds the CPU fuel allowance on a full state and only the tree of this task measures it."
+severity = "high"
+
+[finding.22.39.95.11]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 12 at 99ad934826d3 on base 3dc59b8c4456: both builds exit 0; verification 2 exits 1 at 99ad934826d3 with 3 failed files and 8 failed cases of 1286, four in src/widgets/trading/chart-datafeed-recovery.test.ts, three in src/widgets/meta-ag/repair-22-33-987.test.ts and one in src/widgets/trading/coin-failure-frames.test.tsx; log /out/logs/verify-2.log."
+assumption = "The candle page of the development API departs from the production read model outside the paths of the task, and the stand-in node of the recovery cases refuses the gas estimate."
+severity = "high"
+
+[finding.22.39.346.5]
+task = "22.39.346"
+file = "apps/wallet/src/wallet/WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+symbol = "WalletProvider.test.tsx::wallet_provider_lists_an_announced_wallet_once_when_discovery_restarts"
+observed = "Attempt 5 at 23fca4456ebc on base 65895d450aa0: the build exits 0; the verification exits 1 at 484cefd00e7c with eight unit cases passed and one failed at apps/wallet/src/components/TransferSuccess.test.tsx:88, malformed or unauthenticated sequencer receipt signature; the send case did not run; log /out/logs/verify-1.log."
+assumption = "The setup of the new case signs a digest that does not cover the encoded receipt."
+severity = "high"
+
+[finding.22.39.227.3]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 3 at a4de4e99f562 on base 0d9d016c786a: build 1 exits 0 at 1ebbe88b4bd4 (log /out/logs/build-1.log); the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs of the host package; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host package of the agent daemon is red on main outside the paths of the task."
+severity = "high"
+
+[finding.18.1749.1.9]
+task = "18.1749.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_reopen_preserves_recipient_balances"
+symbol = "rewards_native.rs::reward_reopen_preserves_recipient_balances"
+observed = "Attempt 9 at d50fc669d866 on base c3e37949f720: the build exits 0 (log /out/logs/build-1.log); the check of the dependent packages exits 101 with E0412, E0560 and E0599 in src/inference_market/deals.rs of the host package of the agent daemon; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The host package of the agent daemon is red on main outside the paths of the task."
+severity = "high"
+
+[finding.22.38.29.1]
+task = "22.38.29"
+file = "apps/inference-peer/test/page.test.mjs"
+symbol = "page.test.mjs"
+observed = "Attempt 2 at 3badf29fc311 on base 7618069d673f: the build exits 0 and the verification exits 1, ERR_MODULE_NOT_FOUND for the package jsdom imported from apps/inference-peer/test/page.test.mjs; log /out/logs/verify-1.log."
+assumption = "The manifest of the peer package is outside the paths of the task and the page follows a frame form the host does not speak."
+severity = "high"
+
+[finding.22.39.354.1]
+task = "22.39.354"
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+symbol = "AgentOperationEnvelopeTests.cs"
+observed = "Attempt 1 at da0a2a0815a6 on base 7618069d673f: the build exits 0 at 71fb7b5b4736; the verification exits 1 at 71fb7b5b4736 with one case passed and five failed with agent envelope probe input refused: PAXEER_X_AGENT_ENVELOPE_CASE; log /out/logs/verify-1.log."
+assumption = "The verification command of the task selected probe cases that need a case file of the qualification tools."
+severity = "high"
+
+[finding.18.1750.1.2]
+task = "18.1750.1"
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs::reward_signed_replay_authentication"
+symbol = "rewards_native.rs::reward_signed_replay_authentication"
+observed = "Attempt 4 at 26f0461cc2e4 on base e2a410709802: no build and no verification finished; the build was running with the native harness compiled and every bring-up execution at kernel status 0 (log /out/logs/build-1.log) when the model session exits 1 on a content flag of the model endpoint; log /out/logs/run-task.log."
+assumption = "The tree is complete and unverified; only the gates are missing."
+severity = "high"
+
+[finding.22.39.355.1]
+task = "22.39.355"
+file = "apps/inference-peer/test/signal.test.mjs::hello_is_signed_over_the_challenge_of_the_host"
+symbol = "signal.test.mjs::hello_is_signed_over_the_challenge_of_the_host"
+observed = "Attempt 1 at 4fcc000f4f5c on base 7210fa174996: both builds exit 0; verification 2 exits 1 at 4fcc000f4f5c with 60 of 61 cases passed and standalonePackageMetadata failed at test/vendored_engine.test.mjs:156, actual node --test test/*.test.mjs, expected node --test test/vendored_engine.test.mjs; log /out/logs/verify-2.log."
+assumption = "The red case is under the paths of the task and inside its verification."
+severity = "high"
+
+[finding.22.39.117.17]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 17 at 8208dbd824f8 on base 7618069d673f: the build exits 0 and the verification exits 1 at 285805e4cd48 in make -C services/launchpad ci; the indexer module fails in internal/config at repair_m999_test.go:342 and :367 with explicit positive bounded delivery lag budget required, in internal/decode at repair_m995_test.go:383 and in internal/receipt at repair_53_test.go:571, :572, :592, :641 and :734; log /out/logs/verify-1.log."
+assumption = "Two of the three causes sit in files under the paths or now joined to them, and the third is a setup step the new case of the attempt lacks."
+severity = "high"
+
+[finding.22.39.227.4]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 4 at 28a087e45c65 on base 7210fa174996: verification 1 exits 1 at f86febec1c44 with 35 lint errors in six test targets; build 2 exits 101 at bb5d5c95096a with E0425 in the target issue_1752; build 3 exits 0 at 28a087e45c65 (log /out/logs/build-3.log); the final tree was not verified; log /out/logs/verify-1.log."
+assumption = "The lint command reports only the targets that fail first, so every attempt meets new targets after its last allowed verification."
+severity = "high"
+
+[finding.22.39.226.3]
+task = "22.39.226"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 3 at 5f4a514b235f on base d1a7d785eead: both builds exit 0; verification 2 exits 1 at 6eb8de750002 with five lints in services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs and could not compile layerx-agentd (test bootstrap_bind_layerx); log /out/logs/verify-2.log."
+assumption = "The verification stopped at the first failing target, so the attempt could not see every lint of the group in one run."
+severity = "high"
+
+[finding.22.39.358.1]
+task = "22.39.358"
+file = "services/platform/Makefile.inc"
+symbol = "Makefile.inc"
+observed = "Attempt 2 at 7c86fa9f9cd7 on base 9947d89636be: the build exits 0; verification 1 exits 1 at 7c86fa9f9cd7, the verification command passes and the completion check reports symbol platform-verify-sdks not defined in the graph; log /out/logs/verify-1.log."
+assumption = "The symbols list of the task named a recipe target that the code graph does not index."
+severity = "high"
+
+[finding.22.39.227.5]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 8292a93a5eef on base 85a5a12b6acf: the build exits 0; verification 1 exits 1 at 8292a93a5eef in the targets program_balances_eth_call, program_chain_head, inference_deals and inference_laps, every diagnostic in a file included by path; log /out/logs/verify-1.log."
+assumption = "The remaining diagnostics sit in files outside the paths of the task that its targets include by path."
+severity = "high"
+
+[finding.17.4.6.8]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 13 at ad0093b16a14 on base 35e355459080: the build exits 0; verification 1 exits 1 at ad0093b16a14 with all 50 row commands at exit 0 and the assertion of test_parity_run.py:104 failed, TestAuthResultByIdempotency selected and not executed; log /out/logs/verify-1.log."
+assumption = "Four selectors of the inventory name cases that were retired, renamed or divided on main."
+severity = "high"
+
+[finding.22.39.95.12]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 13 at bef566e6c816 on base d1a7d785eead: both builds exit 0; verification 2 exits 1 at bef566e6c816 with 1281 cases passed and five failed in two files of the web suite, the mobile suite not reached; log /out/logs/verify-2.log."
+assumption = "The web consumer accepted only the price source of the chart service, and the joined cases reach the development candle path of the API."
+severity = "high"
+
+[finding.22.38.36.1]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 1 at 44a85acfb957 on base 182bef7b8e50: the build exits 1 at 44a85acfb957 with agent operation envelope refused: declared daemon build artifact missing at tools/qualification/paxeer-x/inference_market_room.py:392; no verification ran; log /out/logs/build-1.log."
+assumption = "The build command of the task built the library package, which has no executable target."
+severity = "high"
+
+[finding.22.38.19.1]
+task = "22.38.19"
+file = "services/agent/crates/layerx-agentd/tests/inference_canary.rs"
+symbol = "inference_canary.rs"
+observed = "Attempt 1 at e98b4b42ccdb on base 182bef7b8e50: the build, the dependents check and the verification exit 0 at e98b4b42ccdb; the merge onto main stops with a content conflict in services/agent/crates/layerx-agentd/src/main.rs; log /out/logs/verify-1.log."
+assumption = "The base of the attempt was cut before task 22.38.21 reached main, and both tasks change the closure of the completion listener."
+severity = "high"
+
+[finding.17.5.7.17]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 17 at 2f4ba76f0aa9 on base 87d663ebae97: the build exits 0 and the verification exits 1; make platform-sdk-check exits 1 at services/platform/Makefile.inc:233 with unclassified file in generated go root: sdk/platform/go/repair_22_39_341.kvx; log /out/logs/verify-1.log."
+assumption = "Records of done tasks sit under output roots of the pipeline lock without a declaration, and the lock is outside the paths of the gate task."
+severity = "high"
+
+[finding.22.39.228.1]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 1 at 85055bc6a89c on base 9ef8418ad199: the build exits 0 and the verification exits 1; the lint command stops with could not compile layerx-agentd (lib) due to 2 previous errors, missing_errors_doc at crates/layerx-agentd/src/node_rpc.rs:225 and :409; log /out/logs/verify-1.log."
+assumption = "The library of the package did not pass its lints after task 22.38.21, and the library is outside the paths of the task."
+severity = "high"
+
+[finding.22.38.20.1]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 1 at 6b424283ec28 on base 8696c66cbbc6: the build exits 101 at 6b424283ec28, the test target repair_22_31_549 does not compile with 12 errors (E0609 no field credential on the type OwnerFixture at tests/repair_22_31_549.rs:9); no verification ran; log /out/logs/build-1.log."
+assumption = "The red test target is outside the paths of the task and the program refused the further deal the task records."
+severity = "high"
+
+[finding.22.38.36.2]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 2 at 343df2fde0b1 on base 05c98f550150: the build exits 0 and the verification exits 1 at 343df2fde0b1 with PAXEER_X_GATE tests=0 skipped=0 incomplete=1 and agent operation envelope refused: PAXEER_X_INFERENCE_ROOM_CONFIG is required; log /out/logs/verify-1.log."
+assumption = "The driver was written to replay prepared signed writes and the task text asks for a driver that makes them."
+severity = "high"
+
+[finding.22.39.227.6]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 63b9465a7d49 on base 05c98f550150: the build exits 0 and the verification exits 1 at 63b9465a7d49, the library of the package layerx-agentd stops at two errors missing_errors_doc at src/node_rpc.rs:225 and :409; log /out/logs/verify-1.log."
+assumption = "The attempt started before the task required the repair of the library lints."
+severity = "high"
+
+[finding.22.38.13.9]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 9 at c98a277c6018 on base 85a5a12b6acf: build 1 exits 0 and the verification exits 1 at fb504f884432 with 10 cases passed and 10 failed, nine at tests/support/guest.rs:163 compiled guest is stale and f11_fuel_table at tests/fuel_budget.rs:4019 with the CPU budget exceeded, 1000037 of 1000000; build 2 exits 101 at 1de0824a368c and build 3 exits 0 at c98a277c6018; log /out/logs/verify-1.log."
+assumption = "The committed guest is outside the paths of the task and the last changes of the source were never verified."
+severity = "high"
+
+[finding.22.38.22.1]
+task = "22.38.22"
+file = "services/agent/crates/layerx-agentd/tests/inference_queue.rs"
+symbol = "inference_queue.rs"
+observed = "Attempt 1 at 80d6b40f7673 on base 757b9269075e: the build exits 101 at 80d6b40f7673, the test target repair_22_31_549 does not compile with 12 errors (E0609 no field labels on the type OwnerFixture); no verification ran; log /out/logs/build-1.log."
+assumption = "The red test target is outside the paths of the task."
+severity = "high"
+
+[finding.22.39.117.18]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 18 at 1f397b9aea73 on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 4b8e875f2e9f, the module sdk/launchpad/shared fails in the case TestDecodeIdentitySigningKeyForms at sdk/launchpad/shared/auth/mtls_identity_client_test.go:32 with a padded value accepted, and the later modules did not run; log /out/logs/verify-1.log."
+assumption = "The case fails for a share of its random draws and is unchanged from main."
+severity = "high"
+
+[finding.17.5.7.18]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 18 at 742c81986034 on base b14b32fece51: the build exits 0 and the verification exits 1 at 742c81986034; make workspace-build exits 2 at npm run build, the package @sidiora/layerx-doc-paid-route-next fails with Unknown module type for services/agent/sdk/typescript/node_modules/@scure/base/index.ts; log /out/logs/verify-1.log."
+assumption = "The sample directory is outside the paths of the gate task and does not build beside an own install of the agent SDK."
+severity = "high"
+
+[finding.22.39.365.1]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 1 at 203bcd864cfb on base a452366a00dd: the build exits 0 at 2b97db43f473 and the check of the dependent packages exits 101 at 2b97db43f473, the test target repair_22_31_549 of the package layerx-agentd does not compile with 12 errors; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The red test target is outside the paths of the task and sits in a package that depends on the changed crate."
+severity = "high"
+
+[finding.17.4.6.9]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 14 at 9595a4a873fb on base 9ef8418ad199: the build exits 0 and the verification exits 1 at 9595a4a873fb after 2892 seconds; 48 of 50 rows exit 0 and the two wallet rows exit 1 with no test run, v6120-node: bootstrap-peer did not stop; log /out/logs/verify-1.log."
+assumption = "The stall of the node process is intermittent and sits in the node source outside the paths of the parity task."
+severity = "high"
+
+[finding.22.39.228.2]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 2 at 3864ee686cb0 on base c9e42b221901: build 1 exits 101 at e3d8584fcd88, build 2 exits 101 at 3960bdec88b5 and build 3 exits 101 at 3864ee686cb0 with twelve errors in the target repair_22_31_549; no verification ran; log /out/logs/build-3.log."
+assumption = "The red target is older than the task and the attempt ran its counted builds before the tree compiled."
+severity = "high"
+
+[finding.17.5.7.19]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 19 at 7fee52329677 on base 98cfec2ce764: the build exits 0 and the verification exits 1; make workspace-build exits 2 at interop-build (Makefile:2782) with No space left on device; log /out/logs/verify-1.log."
+assumption = "The gate needs more disk than the volume holds when every workspace builds with debug information into one target directory."
+severity = "high"
+
+[finding.22.38.36.3]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 3 at 96837d75c253 on base a452366a00dd: build 3 exits 0; the check of the dependent packages exits 101 with twelve errors in the test target repair_22_31_549 of the agent daemon; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The room proof needs a producer of the committed read that the repository does not hold yet."
+severity = "high"
+
+[finding.22.39.227.7]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 7 at 9e6b4a42b5bb on base 7cc619fab1cd: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1 with 61 reports of dead_code in the target inference_serve; log /out/logs/verify-1.log."
+assumption = "Step do_8 closed the list of including targets at two and a third target exists."
+severity = "high"
+
+[finding.22.38.28.1]
+task = "22.38.28"
+file = "apps/inference-peer/test/canary.test.mjs"
+symbol = "canary.test.mjs"
+observed = "Attempt 1 at dc3ef44a142e on base 9a170ec2b4e5: the build exits 0 and the verification exits 1 with seven cases passed and the case host_canary_socket_vectors_cover_both_directions failed for an empty vector list; log /out/logs/verify-1.log."
+assumption = "The host task landed the canary as internal requests only and the step of the task assumed socket frames."
+severity = "high"
+
+[finding.17.4.6.10]
+task = "17.4.6"
+file = "spec/layerx-merge/programme/tests/test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+symbol = "test_parity_run.py::test_parity_rows_pass_on_merged_revision"
+observed = "Attempt 15 at 8f4a368b8559 on base 8dfebd017729: the build exits 0; the verification exits 1 with 48 of 50 row commands at exit 0 and the two wallet rows at exit 1 with no test run, the test stops at spec/layerx-merge/programme/tests/test_parity_run.py:57; log /out/logs/verify-1.log."
+assumption = "The base of the attempt predates the repair of the node stop, which task 22.39.367 brought to main."
+severity = "high"
+
+[finding.22.39.227.8]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 8 at 6c33b18097ae on base 7cbe7a57367d: the build exits 0, the check of the dependent packages exits 0 and the verification exits 1, the target inference_queue could not compile due to 47 previous errors, 41 of clippy::missing_errors_doc and 6 of clippy::must_use_candidate; log /out/logs/verify-1.log."
+assumption = "The outer module of the target is declared with pub, which exports the items of the included files."
+severity = "high"
+
+[finding.22.39.365.2]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 2 at f8b859f1deec on base 7cbe7a57367d: the build exits 0 at feea516f4c18; the verification exits 1 at feea516f4c18, the target f11_lap_settlement ends with 9 passed and 4 failed, the four admission fixture cases of the module producers stop with ApplicationError(14) at the Heartbeat; log /out/logs/verify-1.log."
+assumption = "The fixture file is red on main since commit 951dde1f60 and sat outside the paths of the task."
+severity = "high"
+
+[finding.22.39.95.13]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 14 at f788bd3e84ce on base c9e42b221901: both builds exit 0; verification 2 exits 1 at f788bd3e84ce with 1289 web cases passed and 2 failed in src/widgets/trading/chart-datafeed-recovery.test.ts, the first with Canonical candles: HTTP 503 at :675; log /out/logs/verify-2.log."
+assumption = "Both red cases stop at reads of the development API, which sits outside the paths of the task."
+severity = "high"
+
+[finding.22.39.369.1]
+task = "22.39.369"
+file = "services/platform/hosted/indexer/tests/ai_source.rs::committed_read_reaches_the_projection"
+symbol = "ai_source.rs::committed_read_reaches_the_projection"
+observed = "Attempt 1 at c63a1ab475de on base 7cbe7a57367d: both builds exit 0; verification 2 exits 1 at c63a1ab475de with five cases passed and the lint step stopped, could not compile layerx-indexer (lib) due to 117 previous errors; log /out/logs/verify-2.log."
+assumption = "The verification named the whole library, which is red under the lint table of its workspace on main."
+severity = "high"
+
+[finding.17.5.7.20]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 20 at 367b142573e2 on base 7cbe7a57367d: the build exits 0 and the verification exits 1; make workspace-build exits 2 at Makefile:1742 with No space left on device, 1451708416 bytes free before the first command and 643072 bytes at the stop; log /out/logs/verify-1.log."
+assumption = "The temporary checkout and a measurement run outside the counted gates left the first command of the gate 1.4 GiB of the volume."
+severity = "high"
+
+[finding.22.39.365.3]
+task = "22.39.365"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+symbol = "f11_rooms_and_deals.rs::a_matched_ask_accepts_a_further_deal_of_the_room_host"
+observed = "Attempt 3 at 1c4cb68f2dce on base 6e3abf0ebe49: the build exits 0 at 4393fe1ca9f1 and the check of the dependent packages exits 101 at 4393fe1ca9f1, services/agent/crates/layerx-agentd/tests/inference_laps.rs:1282 fails with E0005; no verification ran; log /out/logs/dependents-1.log."
+assumption = "The red test target of the agent daemon is outside the paths, and the helper module of the native F11 targets was outside the paths as well."
+severity = "high"
+
+[finding.22.39.117.19]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 19 at a26f513fc045 on base 75ee49ee6bdc: no counted gate ran; the test target of services/launchpad/Makefile, run outside the counted gates, exits 2 at services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go:217 with producer RPC transcript differs from its committed checksum; log /out/logs/launchpad-test-prequalification.log."
+assumption = "The replay case of the profit tracker is outside the paths and pins a transcript that another task extended."
+severity = "high"
+
+[finding.22.39.227.9]
+task = "22.39.227"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 9 at fb2641be2e56 on base 8bee059f929f: the build, the check of the dependent packages and the verification exit 0; the tree does not merge with main, with conflicts in services/agent/crates/layerx-agentd/tests/proof_native_reads.rs and tests/proof_serve_errors.rs against commit 1f455e08df of task 22.39.229; log /out/logs/verify-1.log."
+assumption = "Task 22.39.229 restructured the two proof files on main after the base of the attempt."
+severity = "high"
+
+[finding.17.5.7.21]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 21 at b08224f9547a on base c4c825fac5b7: the build exits 0; the verification exits 1, run_wave raises wave in-place checkout differs from HEAD: .cgignore at spec/layerx-merge/programme/gates.py:84 before any gate command; log /out/logs/verify-1.log."
+assumption = "The checkout of the qualification environment held changed bookkeeping files beside the revision under test."
+severity = "high"
+
+[finding.22.39.370.1]
+task = "22.39.370"
+file = "apps/inference-peer/test/enrol.test.mjs"
+symbol = "enrol.test.mjs"
+observed = "Attempt 1 at b3ea1c24541e on base 6e3abf0ebe49: both builds exit 0; verification 2 exits 1 at b3ea1c24541e, the three cases pass and the lint of the target inference_enrol_route reports assigning_clones at tests/inference_enrol_route.rs:356 and too_many_arguments at :587; log /out/logs/verify-2.log."
+assumption = "The lint and the peer cases were not run before the counted verifications."
+severity = "high"
+
+[finding.22.39.228.3]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 3 at 6eadec21e97b on base 96827b7c7207: build 3 exits 101 at 6eadec21e97b with cannot find value held_digest in this scope at services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs:1722; builds 1 and 2 exit 101 on other unresolved names of divided functions; no verification ran; log /out/logs/build-3.log."
+assumption = "The attempt met the compile errors of its divided functions in counted builds."
+severity = "high"
+
+[finding.17.5.7.22]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 22 at 1b83b5c1cf7a on base c769be3dac5d: the build exits 0; the verification exits 1, the gate runner refuses make workspace-build before it runs with exit 125 and status source-identity-refusal phase=before on four ignored paths; log /out/logs/verify-1.log."
+assumption = "The checkout of the qualification environment held ignored bookkeeping of the spec tool that the gate runner lists."
+severity = "high"
+
+[finding.22.39.117.20]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 20 at ba77c1f483af on base ca5fa4d5ac8a: the build exits 0 at fa40c781de1d; the verification exits 1 at fa40c781de1d, make test of services/launchpad stops with three failed stages of TestPhase3ActualReceiptProcessCrashAndBrokerRedelivery at phase2_test.go:182, the broker refuses a stream with three replicas with error code 10074; log /out/logs/verify-1.log."
+assumption = "The broker of the qualification environment was a single node where the public workflow starts three."
+severity = "high"
+
+[finding.22.39.228.4]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 4 at 50e50b1c3690 on base 1ea516104b8d: the build exits 0 and the verification exits 0 at 50e50b1c3690 with no finding over 73 targets, log /out/logs/verify-1.log; the merge of the tree into main stops with conflicts in seven files of services/agent/crates/layerx-agentd/tests."
+assumption = "The base of the attempt was taken before task 22.39.227 reached main, and both tasks repaired the same seven files."
+severity = "high"
+
+[finding.22.38.20.2]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 2 at ab347c7cae95 on base 1c3198620972: build 3 exits 101 at ab347c7cae95, the host package stops with no method named excluded found for the deal engine at src/inference_market/recovery.rs:547 and :677; no verification ran; log /out/logs/build-3.log."
+assumption = "The read of the exclusion set is compiled in test builds only and its file sat outside the paths of the task."
+severity = "high"
+
+[finding.22.39.356.1]
+task = "22.39.356"
+file = "services/agent/crates/layerx-agentd/tests/inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+symbol = "inference_peer_vectors.rs::host_types_read_every_vector_of_the_peer"
+observed = "Attempt 1 at 40c075b323bc on base b00ccbc0e0ba: the build exits 0 and the verification exits 1 at 40c075b323bc; three cases pass and the lint command stops with 35 errors in src/inference_market/signal.rs and src/inference_market/deals.rs (missing_errors_doc 26, must_use_candidate 5, dead_code 3, return_self_not_must_use 1); log /out/logs/verify-1.log."
+assumption = "The new target declared the module of the included sources public and carried no allowance, against decisions 3273 and 3276."
+severity = "high"
+
+[finding.17.5.7.23]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 23 at 3e225f080e0d on base cb8c8ad4b426: the build exits 0 and the verification exits 1 at 3e225f080e0d after 1932 s; make workspace-build exits 2, evmone-lib of chain.mk:111 stops with cmake: not found, Error 127; free space after the command 4071649280 bytes; log /out/logs/verify-1.log."
+assumption = "The gate shell held no cmake, which the build of the native libraries of the node needs."
+severity = "high"
+
+[finding.22.39.228.5]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 5 at 7c3b4384ab51 on base 7eeb5ae0336d: the build exits 0 and the verification exits 1 at 7c3b4384ab51; the lint command stops with exit 101 before any lint, no test target named proof_native_reads in the package layerx-agentd; log /out/logs/verify-1.log."
+assumption = "The verification command named a test target by its file name where the manifest declares another name."
+severity = "high"
+
+[finding.22.38.20.3]
+task = "22.38.20"
+file = "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"
+symbol = "inference_recovery.rs"
+observed = "Attempt 3 at 6dad0ae48cc3 on base 0e95489c6625: the build exits 0 and the verification exits 101; twelve cases pass and the case the_recorded_replacement_resumes_generation_at_the_last_countersigned_lap_plus_one stops at tests/inference_deals.rs:1338 with RecordDeal at 260: ApplicationError(20); log /out/logs/verify-1.log."
+assumption = "The program refuses a further deal that names a bid of the earlier deal of the same ask."
+severity = "high"
+
+[finding.22.39.95.14]
+task = "22.39.95"
+file = "apps/launchpad/web/src/core/wallet-sdk/runtime.integration.test.tsx"
+symbol = "runtime.integration.test.tsx"
+observed = "Attempt 15 at dd3ae7fdbc28 on base 134b9c7b6d94: the build exits 0 and the verification exits 1; the web run passes 1289 cases and two cases of src/widgets/trading/chart-datafeed-recovery.test.ts fail, one after a wait at :699 for a confirmed marker and one after the pool detail read answers 503 DEPENDENCY_UNAVAILABLE; the mobile run is not reached; log /out/logs/verify-1.log."
+assumption = "The development trade read carries no watermark and nothing produces the statistics row of the pool in the joined preparation."
+severity = "high"
+
+[finding.22.38.36.4]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 4 at e94789f96a5d on base cb8c8ad4b426: both builds exit 0, at ee613c9cfa27 and 1b7ab9db09a9, and both verifications exit 1; the first stops when the isolated node exits during readiness after a flag it does not register, the second with paxd exited 1: Error: sequencer config: invalid value: sequencer.nonce-queue-max-per-sender must be positive; logs /out/logs/verify-1.log and /out/logs/verify-2.log."
+assumption = "The proof was never run outside the counted gates, so each counted verification found the next fault of the node start."
+severity = "high"
+
+[finding.17.5.7.24]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 24 at 350d001e3ec1 on base ba5000655d05: the build exits 0 and the verification exits 1; make workspace-build exits 2 in paxeer-build with module lookup disabled by GOPROXY=off from admin/types/admin.pb.go:9 on, and the runner answers 125 with source-identity-refusal on engine/executor/lib/libevmone.0.12.0_linux_amd64.so; the free space after the command is 3945545728 bytes; log /out/logs/verify-1.log."
+assumption = "Nothing fetches the modules of the root module before the gate, and the runner does not admit the native library that the build writes."
+severity = "high"
+
+[finding.22.39.228.6]
+task = "22.39.228"
+file = "services/agent/crates/layerx-agentd/tests"
+symbol = "tests"
+observed = "Attempt 6 at 71d096a4b3ed on base 079876b623d7: the build exits 0 and the verification exits 101; the lint reports one error, method with_enrolment is never used at src/inference_market/signal.rs:275, and could not compile layerx-agentd (test inference_signal); log /out/logs/verify-1.log."
+assumption = "The target takes in the signal source without the allowance of decision 3292, and the method arrived with the enrolment route."
+severity = "high"
+
+[finding.17.5.7.25]
+task = "17.5.7"
+file = "spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"
+symbol = "test_wave_6_gate.py::test_wave_6_gate_passes"
+observed = "Attempt 25 at 256c1389b92f on base 88db70aa0187: the build exits 0 (log /out/logs/build-1.log) and no verification ran; make workspace-install, run outside the counted gates, exits 2, sh scripts/workspace/check-paxeer-manifests.sh exits 1 with no message in the target workspace-inventory-check; the attempt ended with files changed outside the paths: services/platform/hosted/dashboard/web/node_modules."
+assumption = "The inventory checks of the workspace are stale on main and the link of the dashboard install is not ignored."
+severity = "high"
+
+[finding.22.38.13.10]
+task = "22.38.13"
+file = "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"
+symbol = "fuel_budget.rs"
+observed = "Attempt 10 at 52b3dca95be5 on base 134b9c7b6d94: the build exits 0 and the dependents exit 0; the verification exits 1 at 52b3dca95be5 with 19 cases of target fuel_budget passed and f11_fuel_table failed at tests/fuel_budget.rs:4050, selector 0x0b01, kernel status -3, program replay record refused, capture witness bytes observed 1049276 permitted 1048576 at step 456; log /out/logs/verify-1.log."
+assumption = "The acceptance text asked every F11 operation on the full state for a whole replay record, which the form of the record cannot hold."
+severity = "high"
+
+[finding.22.38.36.5]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 5 at d361e917edb0 on base 08f298a6371b: the build exits 0 and the dependents exit 0; the verification exits 1 at d361e917edb0, the room proof stops at inference_market_room.py:906 with execution reverted: LXP_NOT_FOUND: getCurrentMeteringSchedule: LXP_ERR_UNKNOWN_FIELD; log /out/logs/verify-1.log."
+assumption = "A chain started from the default genesis of the node holds no schedule of Programs and the fixture of the driver stated none."
+severity = "high"
+
+[finding.22.39.377.1]
+task = "22.39.377"
+file = "scripts/workspace"
+symbol = "workspace"
+observed = "Attempt 1 at f2764a63469d on base 4454df22eb4c: the build exits 0 at f2764a63469d, log /out/logs/build-1.log; no verification ran; outside the counted gates make workspace-install exits 2 at cargo fetch for tools/benchmark/loadtest/contracts/mars/Cargo.toml, no matching package named pax-cosmwasm found, and make platform-dependencies-install exits 2 at services/platform/Makefile.inc:27 for want of cargo-deny."
+assumption = "Three manifests outside the paths of the task ask the registry for a crate that only the repository holds, and the environment lacked the policy tool."
+severity = "high"
+
+[finding.22.39.117.21]
+task = "22.39.117"
+file = "sdk/launchpad/shared/chain::TestPhase2ReadAdapterRealRegisteredPool"
+symbol = "chain::TestPhase2ReadAdapterRealRegisteredPool"
+observed = "Attempt 21 at 6d0bb29124e2 on base 9162dfc88276: no build and no verification ran; the model endpoint ended the session during the cover pass outside the counted gates and the attempt ended with eight untracked coverage profile files under services/launchpad/.cover outside the paths; log /out/logs/run-task.log."
+assumption = "The verification of the task carried stages of the ci target that task 22.39.170 owns."
+severity = "high"
+
+[finding.22.39.211.2]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 2 at b8de14815ac5 on base 14c3a7dc09d6: build 2 exits 0 at 16cf8e62c639; verification 1 exits 1 at 16cf8e62c639 with 828 lint messages in the test build of the library of layerx-agentd; log /out/logs/verify-1.log."
+assumption = "No task linted the unit cases of the library of the agent daemon before the lint of the whole workspace."
+severity = "high"
+
+[finding.22.38.36.6]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 7 at 7758669f073c on base 4e0c32c6ac68: build 1 exits 0 at 3cc322196072; verification 1 exits 1 at 3cc322196072, the registration of the rewards account reverts with LXP_VERSION_UNSUPPORTED: registerAccount: LXP_ERR_VERSION_UNSUPPORTED; log /out/logs/verify-1.log."
+assumption = "A program deployed directly at ABI 5 holds no account profile record, and the driver of a live chain cannot write one into the store."
+severity = "high"
+
+[finding.22.38.36.7]
+task = "22.38.36"
+file = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"
+symbol = "merged_runtime_fixture.py"
+observed = "Attempt 8 at 949f22eb4b3b on base 6a436ad48594: builds 1 to 3 exit 0; verification 1 exits 1 at c2141b9f8116, the CreateMarket call reverts with execution reverted: LXP_NON_CANONICAL: call: LXP_ERR_NON_CANONICAL after the deployment at ABI 2, the registration with profile 2 and the upgrade to ABI 5 committed; log /out/logs/verify-1.log."
+assumption = "The example sends empty capability bytes and an empty access declaration, which the runtime refuses before the guest runs."
+severity = "high"
+
+[finding.22.39.386.1]
+task = "22.39.386"
+file = "services/agent/crates/layerx-client/tests/market_call_terms.rs::market_mutation_terms_match_the_kernel_case"
+symbol = "market_call_terms.rs::market_mutation_terms_match_the_kernel_case"
+observed = "Attempt 1 at 6612bd53354c on base 730e92f12467: build 1 exits 101 at 4cb12e331b33 (E0282 at services/agent/crates/layerx-agentd/src/main.rs:3619); build 2 exits 0 at c31bee07ae1b; verification 1 exits 1 at c31bee07ae1b (E0603 at services/agent/crates/layerx-client/tests/market_call_terms.rs:2); build 3 exits 0 at d6e09867ceab; no verification ran on the final tree; log /out/logs/verify-1.log."
+assumption = "The counted gates were spent on first compiles of a tree that is sound apart from the set of refused operations."
+severity = "high"
+
+[finding.22.39.387.1]
+task = "22.39.387"
+file = "node/programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow"
+symbol = "programs_block_end_test.go::TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow"
+observed = "Attempt 1 at 2814328058c8 on base 730e92f12467: builds 1 and 2 exit 0; verification 1 exits 1 at 2b598859ae0c; verification 2 exits 1 at 08db8fc9d314 with five cases stopped by Programs occupancy at height 2: LXP_ERR_CONTEXT_MISMATCH; log /out/logs/verify-2.log."
+assumption = "The context that the block flow gives the transition differs from the context of the calls of the block."
+severity = "high"
+
+[finding.22.39.377.2]
+task = "22.39.377"
+file = "scripts/workspace"
+symbol = "workspace"
+observed = "Attempt 4 at 733e686765a1 on base 6e50fba5bf0f: the build exits 0 at tree e09d7033312e (log /out/logs/build-1.log); no verification ran; make workspace-install outside the counted gates exits 2 with the message that the lock file services/human/Cargo.lock needs to be updated."
+assumption = "The lock files of five workspaces outside the paths went stale with task 22.39.386."
+severity = "high"
+
+[finding.22.39.211.3]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 3 at 5f91a115b291 on base 790e967d7423: the build exits 0 at 733347168a88 (log /out/logs/build-1.log); the verification exits 1 at 733347168a88 with the lint clean and services/agent/tools/dependency-policy.sh stopping with dependency policy: forbidden boundary or global-initialisation crate; log /out/logs/verify-1.log."
+assumption = "The ban part of the agent dependency policy counts crates that only test targets of the workspace link."
+severity = "high"

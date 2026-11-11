@@ -851,6 +851,9 @@ impl QueryLimiter {
     }
 
     /// Number of retained principal quotas, including outstanding permits.
+    ///
+    /// # Errors
+    /// Returns `ViewError::Store` if the quota mutex is poisoned.
     pub fn retained_principals(&self) -> ViewResult<usize> {
         self.buckets
             .lock()
@@ -1899,8 +1902,8 @@ impl ProjectionStore {
         let mut conn = self.lock()?;
         let tx = conn.transaction()?;
         let conn = &tx;
-        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
-        let latest = load_stream(&conn, &record.market)?.and_then(|s| s.finalized_snapshot);
+        let record = load_record(conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let latest = load_stream(conn, &record.market)?.and_then(|s| s.finalized_snapshot);
         if record.projection != ProjectionState::FinalizedPublishable
             || latest == Some(*snapshot_id)
         {
@@ -1920,12 +1923,24 @@ impl ProjectionStore {
     }
 
     /// Recover a digest-addressed archived body after reopening the database.
+    ///
+    /// # Errors
+    /// Returns `ProjectionUnavailable` if the snapshot or its archive is absent or
+    /// the snapshot is not archived, `IntegrityFailure` if retained digest or binding
+    /// checks fail, `CapacityExceeded` if cache space cannot be made, and store or
+    /// encoding errors when loading records or converting stored values fails.
     pub fn recover_archived(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
         self.restore_content(snapshot_id, None, now_ms)
     }
 
     /// Restores supplied archived content only after checking its retained digest,
     /// binding and rows. Operational recovery normally uses `recover_archived`.
+    ///
+    /// # Errors
+    /// Returns `ProjectionUnavailable` if the snapshot is absent or not archived,
+    /// `IntegrityFailure` if the supplied content disagrees with its retained digest
+    /// or binding, `CapacityExceeded` if cache space cannot be made, and store or
+    /// encoding errors when reading records or converting stored values fails.
     pub fn restore_archived(&self, snapshot_id: &Digest32, state: &[u8]) -> ViewResult<()> {
         self.restore_content(snapshot_id, Some(state), 0)
     }
@@ -1940,15 +1955,14 @@ impl ProjectionStore {
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         let tx = conn.transaction()?;
         let archived;
-        let state = match supplied {
-            Some(state) => state,
-            None => {
-                archived = tx.query_row(
-                    "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
-                    params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
-                    .ok_or(ViewError::ProjectionUnavailable)?;
-                &archived
-            }
+        let state = if let Some(state) = supplied {
+            state
+        } else {
+            archived = tx.query_row(
+                "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
+                params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
+                .ok_or(ViewError::ProjectionUnavailable)?;
+            &archived
         };
         match Self::restore_body(&tx, snapshot_id, state, now_ms) {
             Ok(()) => {
@@ -1976,7 +1990,7 @@ impl ProjectionStore {
         state: &[u8],
         now_ms: u64,
     ) -> ViewResult<()> {
-        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let record = load_record(conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         if record.projection != ProjectionState::Archived {
             return Err(ViewError::ProjectionUnavailable);
         }

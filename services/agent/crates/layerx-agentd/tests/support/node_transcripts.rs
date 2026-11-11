@@ -31,23 +31,20 @@ pub fn case(success: bool) -> Value {
     } else {
         "V2-layerxledger-revert"
     };
-    corpus["cases"]
-        .as_array()
-        .expect("node cases")
-        .iter()
-        .find(|case| case["id"] == id)
-        .expect("ledger transcript")
-        .clone()
+    assert_some(
+        assert_some(corpus["cases"].as_array(), "node cases")
+            .iter()
+            .find(|case| case["id"] == id),
+        "ledger transcript",
+    )
+    .clone()
 }
 
 pub fn unhex(value: &Value) -> Vec<u8> {
-    must(hex::decode(
-        value
-            .as_str()
-            .expect("fixture hex")
-            .strip_prefix("0x")
-            .expect("hex prefix"),
-    ))
+    must(hex::decode(assert_some(
+        assert_some(value.as_str(), "fixture hex").strip_prefix("0x"),
+        "hex prefix",
+    )))
 }
 
 pub fn key_reply(case: &Value) -> Value {
@@ -66,7 +63,7 @@ pub fn replay(exchanges: Vec<Exchange>) -> (NodeRpcConfig, JoinHandle<SequencerT
     (
         NodeRpcConfig {
             url,
-            chain_id: corpus()["chainId"].as_u64().expect("node chain"),
+            chain_id: assert_some(corpus()["chainId"].as_u64(), "node chain"),
             deadline: Duration::from_secs(2),
         },
         server,
@@ -89,7 +86,7 @@ pub fn startup(root: &Path, node: &NodeRpcConfig, key: ReceiptKeyEntry) -> Start
     ));
     let tenant = tenant();
     StartupConfig {
-        network_id: u32::try_from(node.chain_id).expect("network id"),
+        network_id: assert_ok(u32::try_from(node.chain_id), "network id"),
         node_endpoint: node.url.clone(),
         expected_chain_id: node.chain_id,
         tenants: BTreeSet::from([tenant.clone()]),
@@ -107,7 +104,7 @@ pub fn readiness_exchanges(case: &Value) -> Vec<Exchange> {
             json!([]),
             Some(json!(format!(
                 "{:#x}",
-                corpus()["chainId"].as_u64().unwrap()
+                assert_some(corpus()["chainId"].as_u64(), "expected Some value")
             ))),
         ),
         ("px_getReceiptKeys", json!([]), Some(key_reply(case))),
@@ -124,4 +121,20 @@ pub fn receipt_exchange(case: &Value) -> Exchange {
         json!([rpc_hex(&hash)]),
         Some(case["receiptJson"].clone()),
     )
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
+}
+
+#[track_caller]
+fn assert_some<T>(value: Option<T>, message: &str) -> T {
+    match value {
+        Some(value) => value,
+        None => panic!("{message}"),
+    }
 }

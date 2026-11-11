@@ -386,8 +386,17 @@ export function WalletProvider({
     let alive = true;
     const discovery = target
       ? discoverInjectedWallets((detail) => {
-          injectedRef.current = [...injectedRef.current, detail];
-          if (alive) setInjected(injectedRef.current);
+          if (!alive) return;
+          const index = injectedRef.current.findIndex(
+            (candidate) => candidate.info.uuid === detail.info.uuid
+          );
+          injectedRef.current =
+            index === -1
+              ? [...injectedRef.current, detail]
+              : injectedRef.current.map((candidate, position) =>
+                  position === index ? detail : candidate
+                );
+          setInjected(injectedRef.current);
         }, target)
       : null;
     const choice = custodyChoiceRepository.read();
@@ -414,6 +423,8 @@ export function WalletProvider({
       alive = false;
       adoptionRef.current += 1;
       discovery?.stop();
+      injectedRef.current = [];
+      setInjected([]);
     };
   }, [eventTarget, identity, connectEmbedded, adoptInjected]);
 

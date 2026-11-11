@@ -18,6 +18,31 @@ pub fn budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationErro
     }
 }
 
+#[cfg(test)]
+pub(crate) trait AssertCase<T> {
+    fn assert_case(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertCase<T> for Option<T> {
+    fn assert_case(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}: expected a value"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertCase<T> for Result<T, E> {
+    fn assert_case(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
 #[path = "reconcile.rs"]
 mod accounting;
 pub mod budget_proof;
@@ -2305,6 +2330,48 @@ mod program_denomination_tests {
         result.unwrap_or_else(|error| panic!("program denomination: {error:?}"))
     }
 
+    fn protected_request(limit_id: LimitId) -> ProgramReservationRequest {
+        ProgramReservationRequest {
+            id: [5; 32],
+            expiry_sequence: 100,
+            current_sequence: 1,
+            core_deadline: Some(CoreTimestampMs(500)),
+            charges: vec![
+                ProgramBudgetCharge {
+                    kind: ProgramChargeKind::Principal,
+                    source: [6; 32],
+                    asset: [4; 32],
+                    amount: 20,
+                    applicable_limits: vec![limit_id],
+                },
+                ProgramBudgetCharge {
+                    kind: ProgramChargeKind::ProgramSpend,
+                    source: [7; 32],
+                    asset: [4; 32],
+                    amount: 30,
+                    applicable_limits: vec![limit_id],
+                },
+            ],
+        }
+    }
+
+    fn dynamic_daemon_record(tenant: TenantId) -> DaemonLimitRecord {
+        DaemonLimitRecord {
+            tenant,
+            budget_id: [4; 32],
+            limit_id: daemon_limit_id([4; 32]),
+            agent_digest: [5; 32],
+            asset: [6; 32],
+            ceiling: 100,
+            consumed: 0,
+            expiry_ms: 1000,
+            revoked: false,
+            mutation_key: [7; 32],
+            body_digest: [8; 32],
+            revoke_key: [0; 32],
+        }
+    }
+
     #[test]
     fn protected_binding_is_immutable_and_preserves_consumption_across_restart() {
         let suffix =
@@ -2340,34 +2407,13 @@ mod program_denomination_tests {
             &mut store,
             &limiter,
             &tenant,
-            &[config.clone()],
+            std::slice::from_ref(&config),
         ));
         must(install_program_enrolment_denominations(
             &mut store, &limiter, &verified,
         ));
         let limit_id = installed[0].limit_id;
-        let request = ProgramReservationRequest {
-            id: [5; 32],
-            expiry_sequence: 100,
-            current_sequence: 1,
-            core_deadline: Some(CoreTimestampMs(500)),
-            charges: vec![
-                ProgramBudgetCharge {
-                    kind: ProgramChargeKind::Principal,
-                    source: [6; 32],
-                    asset: [4; 32],
-                    amount: 20,
-                    applicable_limits: vec![limit_id],
-                },
-                ProgramBudgetCharge {
-                    kind: ProgramChargeKind::ProgramSpend,
-                    source: [7; 32],
-                    asset: [4; 32],
-                    amount: 30,
-                    applicable_limits: vec![limit_id],
-                },
-            ],
-        };
+        let request = protected_request(limit_id);
         let stage = must(limiter.stage_program_reservation(&request, CoreTimestampMs(1)));
         let key = must(TenantKey::new(
             tenant.clone(),
@@ -2385,7 +2431,7 @@ mod program_denomination_tests {
             &mut store,
             &restarted,
             &tenant,
-            &[config.clone()],
+            std::slice::from_ref(&config),
         ));
         let persisted = store
             .get(&key)
@@ -2478,20 +2524,7 @@ mod program_denomination_tests {
         let dynamic = must(create_daemon_limit(
             &mut store,
             &limiter,
-            DaemonLimitRecord {
-                tenant: tenant.clone(),
-                budget_id: [4; 32],
-                limit_id: daemon_limit_id([4; 32]),
-                agent_digest: [5; 32],
-                asset: [6; 32],
-                ceiling: 100,
-                consumed: 0,
-                expiry_ms: 1000,
-                revoked: false,
-                mutation_key: [7; 32],
-                body_digest: [8; 32],
-                revoke_key: [0; 32],
-            },
+            dynamic_daemon_record(tenant.clone()),
             CoreTimestampMs(1),
         ));
         let request = ProgramReservationRequest {

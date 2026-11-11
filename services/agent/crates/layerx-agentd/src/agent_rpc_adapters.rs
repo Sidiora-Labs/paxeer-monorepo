@@ -775,13 +775,43 @@ fn owner_error(request_id: RequestId, error: HumanOperationError) -> Rejection {
 }
 
 #[cfg(test)]
-fn level(value: u8) -> Option<Rung> {
-    Some(match value {
-        0 | 1 => Rung::Submitted,
-        2 | 3 => Rung::Receipted,
-        4 => Rung::Committed,
-        _ => return None,
-    })
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+trait AssertTestError<E> {
+    fn assert_error(self, context: &str) -> E;
+}
+
+#[cfg(test)]
+impl<T, E> AssertTestError<E> for Result<T, E> {
+    fn assert_error(self, context: &str) -> E {
+        match self {
+            Ok(_) => panic!("{context}"),
+            Err(error) => error,
+        }
+    }
 }
 
 fn hexv(bytes: &[u8]) -> Value {
@@ -1017,28 +1047,6 @@ pub(crate) fn prepare<A: HumanAuthorityBoundary>(
         .lock()
         .and_then(|mut guard| guard.rpc_prepare(context, &envelope));
     dispatched(id, response, decode_preparation)
-}
-
-#[cfg(test)]
-pub(crate) fn submit<A: HumanAuthorityBoundary>(
-    owner: &SharedAgentOwner<A>,
-    context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-    request: &serde_json::Map<String, serde_json::Value>,
-    ctx: &DispatchContext,
-) -> Result<Dispatched, Rejection> {
-    use crate::agent_rpc_dispatch::{decode_submitted, dispatched, human_submit, mutation_key};
-    let id = ctx.request_id;
-    let typed = human_submit(decode(request, id)?, id)?;
-    let envelope = crate::human::MutationEnvelope {
-        request_id: id.0,
-        key: mutation_key(ctx)?,
-        body_digest: crate::human_runtime::submit_digest(&typed),
-        operation: typed,
-    };
-    let response = owner
-        .lock()
-        .and_then(|mut guard| guard.rpc_submit_external(context, &envelope));
-    dispatched(id, response, decode_submitted)
 }
 
 pub(crate) fn session_refresh<A: HumanAuthorityBoundary>(
@@ -2623,126 +2631,6 @@ pub fn program_call_answer(
     Ok((value, rung))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn wait_json(rung: &str) -> Map<String, Value> {
-        serde_json::json!({
-            "submission_ref": "sub-1",
-            "requested_rung": rung,
-            "deadline": "1700000000",
-        })
-        .as_object()
-        .cloned()
-        .unwrap()
-    }
-
-    #[test]
-    fn freshness_serializes_block_height_coordinates() {
-        let value = freshness_value(&Freshness {
-            chain_head: 12,
-            value_height: 9,
-            relative_to: layerx_agent_api::read::RelativeTo::Block {
-                height: 9,
-                hash: [4; 32],
-            },
-        });
-        assert_eq!(
-            value,
-            serde_json::json!({
-                "chain_head": "12",
-                "value_height": "9",
-                "relative_to": {"height": "9", "hash": format!("0x{}", "04".repeat(32))},
-            })
-        );
-        let mut unprefixed = value.clone();
-        unprefixed["relative_to"]["hash"] = serde_json::json!("04".repeat(32));
-        assert!(Freshness::decode_json(&unprefixed.to_string()).is_err());
-        assert_eq!(
-            Freshness::decode_json(&value.to_string()).unwrap(),
-            Freshness {
-                chain_head: 12,
-                value_height: 9,
-                relative_to: layerx_agent_api::read::RelativeTo::Block {
-                    height: 9,
-                    hash: [4; 32],
-                },
-            }
-        );
-    }
-
-    #[test]
-    fn history_selector_checks_height_range_and_page_limit() {
-        let selector = HistorySelector {
-            from_height: 3,
-            to_height: 7,
-            cursor: Some(layerx_agent_api::read::HistoryCursor {
-                block_height: 5,
-                tx_index: 2,
-                log_index: 1,
-            }),
-            page_limit: 4,
-        };
-        assert_eq!(selector.clone().validate(), Ok(selector.clone()));
-        let mut inverted = selector.clone();
-        inverted.from_height = 8;
-        assert!(inverted.validate().is_err());
-        let mut zero = selector;
-        zero.page_limit = 0;
-        assert!(zero.validate().is_err());
-    }
-
-    #[test]
-    fn wait_request_reads_each_requested_rung_name() {
-        for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
-            let typed = wait_request(&wait_json(rung.name()), RequestId(7)).unwrap();
-            assert_eq!(typed.requested_rung, rung);
-            assert_eq!(typed.submission_ref.as_str(), "sub-1");
-            assert_eq!(typed.deadline.get(), 1_700_000_000);
-            let echoed = serde_json::json!({
-                "submission_ref": typed.submission_ref.as_str(),
-                "requested_rung": typed.requested_rung.name(),
-                "deadline": typed.deadline.get().to_string(),
-            });
-            assert_eq!(echoed, Value::Object(wait_json(rung.name())));
-        }
-    }
-
-    #[test]
-    fn wait_request_refuses_retired_level_names_and_field() {
-        // These wire spellings are negative inputs, never requested policy levels.
-        for retired in [
-            "batch-included",
-            "Unverified",
-            "SequencerSigned",
-            "BatchIncluded",
-            "StateProven",
-            "CheckpointFinalised",
-            "SettlementAnchored",
-        ] {
-            let refusal = wait_request(&wait_json(retired), RequestId(8)).unwrap_err();
-            assert_eq!(refusal.reason, "envelope.malformed", "{retired}");
-            assert_eq!(refusal.request_id, RequestId(8));
-            assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
-        }
-        let mut retired = wait_json("committed");
-        retired.insert(
-            "requested_verification_level".into(),
-            Value::String("BatchIncluded".into()),
-        );
-        let refusal = wait_request(&retired, RequestId(9)).unwrap_err();
-        assert_eq!(refusal.reason, "envelope.unknown_field");
-        assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
-        assert_eq!(refusal.request_id, RequestId(9));
-        retired.remove("requested_rung");
-        let refusal = wait_request(&retired, RequestId(10)).unwrap_err();
-        assert_eq!(refusal.reason, "envelope.unknown_field");
-        assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
-        assert_eq!(refusal.request_id, RequestId(10));
-    }
-}
-
 struct OwnerWriteProgress<A> {
     owner: SharedAgentOwner<A>,
     peer: crate::human::HumanPeer,
@@ -2797,4 +2685,126 @@ fn read_response(
         }
         Some((value, None))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn wait_json(rung: &str) -> Map<String, Value> {
+        serde_json::json!({
+            "submission_ref": "sub-1",
+            "requested_rung": rung,
+            "deadline": "1700000000",
+        })
+        .as_object()
+        .cloned()
+        .assert_value("expected value")
+    }
+
+    #[test]
+    fn freshness_serializes_block_height_coordinates() {
+        let value = freshness_value(&Freshness {
+            chain_head: 12,
+            value_height: 9,
+            relative_to: layerx_agent_api::read::RelativeTo::Block {
+                height: 9,
+                hash: [4; 32],
+            },
+        });
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "chain_head": "12",
+                "value_height": "9",
+                "relative_to": {"height": "9", "hash": format!("0x{}", "04".repeat(32))},
+            })
+        );
+        let mut unprefixed = value.clone();
+        unprefixed["relative_to"]["hash"] = serde_json::json!("04".repeat(32));
+        assert!(Freshness::decode_json(&unprefixed.to_string()).is_err());
+        assert_eq!(
+            Freshness::decode_json(&value.to_string()).assert_value("expected value"),
+            Freshness {
+                chain_head: 12,
+                value_height: 9,
+                relative_to: layerx_agent_api::read::RelativeTo::Block {
+                    height: 9,
+                    hash: [4; 32],
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn history_selector_checks_height_range_and_page_limit() {
+        let selector = HistorySelector {
+            from_height: 3,
+            to_height: 7,
+            cursor: Some(layerx_agent_api::read::HistoryCursor {
+                block_height: 5,
+                tx_index: 2,
+                log_index: 1,
+            }),
+            page_limit: 4,
+        };
+        assert_eq!(selector.clone().validate(), Ok(selector.clone()));
+        let mut inverted = selector.clone();
+        inverted.from_height = 8;
+        assert!(inverted.validate().is_err());
+        let mut zero = selector;
+        zero.page_limit = 0;
+        assert!(zero.validate().is_err());
+    }
+
+    #[test]
+    fn wait_request_reads_each_requested_rung_name() {
+        for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
+            let typed =
+                wait_request(&wait_json(rung.name()), RequestId(7)).assert_value("expected value");
+            assert_eq!(typed.requested_rung, rung);
+            assert_eq!(typed.submission_ref.as_str(), "sub-1");
+            assert_eq!(typed.deadline.get(), 1_700_000_000);
+            let echoed = serde_json::json!({
+                "submission_ref": typed.submission_ref.as_str(),
+                "requested_rung": typed.requested_rung.name(),
+                "deadline": typed.deadline.get().to_string(),
+            });
+            assert_eq!(echoed, Value::Object(wait_json(rung.name())));
+        }
+    }
+
+    #[test]
+    fn wait_request_refuses_retired_level_names_and_field() {
+        // These wire spellings are negative inputs, never requested policy levels.
+        for retired in [
+            "batch-included",
+            "Unverified",
+            "SequencerSigned",
+            "BatchIncluded",
+            "StateProven",
+            "CheckpointFinalised",
+            "SettlementAnchored",
+        ] {
+            let refusal =
+                wait_request(&wait_json(retired), RequestId(8)).assert_error("expected error");
+            assert_eq!(refusal.reason, "envelope.malformed", "{retired}");
+            assert_eq!(refusal.request_id, RequestId(8));
+            assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        }
+        let mut retired = wait_json("committed");
+        retired.insert(
+            "requested_verification_level".into(),
+            Value::String("BatchIncluded".into()),
+        );
+        let refusal = wait_request(&retired, RequestId(9)).assert_error("expected error");
+        assert_eq!(refusal.reason, "envelope.unknown_field");
+        assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        assert_eq!(refusal.request_id, RequestId(9));
+        retired.remove("requested_rung");
+        let refusal = wait_request(&retired, RequestId(10)).assert_error("expected error");
+        assert_eq!(refusal.reason, "envelope.unknown_field");
+        assert_eq!(refusal.class, ErrorClass::ProtocolIncompatibility);
+        assert_eq!(refusal.request_id, RequestId(10));
+    }
 }

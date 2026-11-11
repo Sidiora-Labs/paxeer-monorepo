@@ -198,18 +198,24 @@ digest. `helloSigningBytes` exposes that preimage for verifiers. Receivers must
 verify both signatures, recompute the manifest digest and check the key against
 chain admission before accepting a peer.
 
-`await identity.enrolPeer(enrolUrl, { manifest, quote, headers })` POSTs
-`{ manifest: <signed manifest>, quote? }` to the supplied URL ending in
-`/enrol_peer`; `quote`, when supplied, is forwarded unchanged for host processing.
-Authentication headers are caller supplied. HTTP refusals retain the status and
-host error text; timeout, redirect and malformed JSON responses fail explicitly.
-The JSON request is bounded to 256 KiB. The existing Rust host enrolment relay
-requires signed proposal, acceptance, publication, bond-lock and bid operation
-records. Its HTTP `enrol_peer` listener and the mapping from this peer request to
-those records are not present in this checkout. The identity tests prove signed
-bytes cross real loopback HTTP and verify at the receiver; chain enrolment and
-browser IndexedDB/WebGPU execution require their respective host and browser
-integration gates.
+`await identity.enrolPeer(enrolUrl, { document, headers })` POSTs one enrolment
+JSON document to `/enrol_peer` on the host signalling listener. The document
+contains hex `manifest_v1`, `manifest_v2`, owner-signed native transactions
+`enroll`, `accept`, `publish`, `lock_bond`, `post_bid`, and block-height `expiry`.
+The host shares its self-enrolment parser, checks chain/program/model/runtime and
+expiry before submission, then relays the five records in order through
+`EnrolmentRelay::enrol_peer`. It holds no peer signing key. Content-Length is
+required and checked against 262144 bytes before reading the JSON body.
+Success returns `enrolled`, `manifest_digest`, `acceptance`, `bond_lock` and `bid`;
+refusals carry stable JSON reasons and HTTP statuses, including 503
+`enrolment_not_configured` when the host lacks its enrolment settings.
+
+CLI `join --enrolment <signed-json-file>` forwards the file before the WebSocket
+hello. Omitting the option sends no enrolment request; normal hello admission
+still applies. PXVE attestation checks remain local and no `bind_peer` request
+is sent. Both sides consume `apps/inference-peer/test/fixtures/host-enrol-route.json`.
+Preparing these signed documents for peer owners outside a proof remains open;
+the CLI cannot derive native market transactions from its Ed25519 hello identity.
 
 The local adapter lives in [`src/wire.mjs`](../apps/inference-peer/src/wire.mjs)
 and [`src/transport.mjs`](../apps/inference-peer/src/transport.mjs); the MIT
@@ -278,6 +284,213 @@ The focused gate covers every frame kind, size and decode refusals, the real
 WebSocket client handshake and named-peer relay; it does not exercise a
 browser or native WebRTC connection.
 
+## Inference peer deal execution
+
+[`src/deal.mjs`](../apps/inference-peer/src/deal.mjs) exports `DealClient`,
+`loadLayerRange`, `runActivation`, the activation codec and `createDenseRuntime`.
+Construct a client with `{ roomId, identity, offer, runtime, mesh, hostPeerKey,
+validateDeal, acknowledge }`. Room IDs and peer keys are lowercase 32-byte hex.
+The mesh provides `send(peerKey, kind, payload)` and `frame` events containing
+`{ peerKey, frame }`, as `PeerMesh` does. Feed signalling deals through
+`client.handleFrame(frame)`; mesh activations and bye frames are consumed
+through the mesh listener. `validateDeal(deal)` must explicitly return `true`
+after the application checks the chain authority and agreed terms. The host
+peer key is supplied separately from the plan's host owner identity.
+
+The deal payload is the Rust host's `DealFrame` (or `{ deal: DealFrame }`), with
+`plan.layers` assigning contiguous `[first_layer, end_layer)` ranges. Digests
+accept the host's 32-byte arrays or lowercase hex. The offer must carry matching
+`model_digest`, `runtime_digest`, and
+`model_source: { manifest_url: "https://.../manifest.json" }`. The model digest
+is SHA-256 of the exact manifest response bytes. Manifest version 1 has
+`layer_count`, `hidden_size`, `format`, and ordered `shards`, each with `path`,
+`first_layer`, `end_layer`, byte `size` and `sha256`. Shards partition all layers;
+assignment boundaries must align with shard boundaries. The client downloads
+only the manifest and shards wholly inside its range, bounds each response and
+verifies its digest before handing any weights to the runtime. Sources require
+HTTPS (HTTP loopback for local use); redirects, cross-origin shards, incomplete
+coverage and shards crossing an assignment boundary refuse explicitly.
+
+After verification, `acknowledge` receives the host's signed JSON payload
+`{ type: "deal_ack", deal_id, digest, signature }` with byte arrays. The signature
+covers `PAXAI/inference-deal-ack/v1`, a zero byte and the SHA-256 deal digest,
+using the exact field ordering and network-byte-order integers of the Rust
+`DealFrame::digest`. Unsafe JavaScript integers are refused; use decimal strings
+for integer values beyond JavaScript's exact range before decoding a host JSON
+message. Prices remain canonical decimal strings.
+
+Activation payload version 1 is binary: u8 version, u16 request-ID byte length,
+UTF-8 request ID (1–256 bytes), 32-byte deal digest, u32 token position, u16 next
+layer index, u32 float count, then finite float32 values, all in network byte
+order. `encodeActivation` and `decodeActivation` produce and consume this payload
+inside the existing bounded room frame. One payload holds one token's hidden
+vector; oversized vectors require a separate chunking protocol and are refused.
+The first peer receives embeddings from `hostPeerKey`; intermediate results go
+to the next assigned peer, and the last peer returns hidden vectors to the host
+for its head and token selection. Sender, deal, layer and dimensions are checked.
+Up to 32 positions of unordered arrivals are buffered per request; duplicates
+and larger gaps refuse. At most 64 requests are active. Each request owns its
+cache and position. Host bye with `{ requestId }` drops that request's cache
+and buffered activations and prevents its reuse; room bye or mesh closure drops
+all caches. The existing `PeerMesh` closes on any bye, so request-specific bye
+through that transport also closes the mesh and clears all requests.
+
+`createDenseRuntime({ device, maxSeq })` runs the vendored `DenseEngine` on an
+existing WebGPU device. Its manifest format is `safetensors-dense-v1` and includes
+`config` with the matching hidden size and layer count. It accepts only tensors
+for the assigned layers, disables embedding and head loading, and saves separate
+KV slots for each request. Other runtimes implement `loadLayerRange` returning
+`createCache`, `runActivation`, `dropCache`, and `close`; the caller supplies the
+runtime explicitly. GPU execution requires WebGPU and its own integration gate.
+
+The focused deal test uses the executable CPU attention model in
+[`tests/scripted_model.mjs`](../apps/inference-peer/tests/scripted_model.mjs),
+real HTTP shard downloads, real Ed25519 identities and encoded room frames over
+loopback TCP sockets. It checks a two-peer split against single-process hidden
+vectors and tokens, signed acknowledgements, digest refusals, per-request cache
+isolation, unordered delivery and bye cleanup. It does not qualify WebRTC or a
+live chain host. The current Rust `RoomOffer` has no model-source field, its
+listener uses JSON signalling envelopes, and `SignalClient.acknowledgeDeal`
+sends an unsigned `{ dealId }` payload. Those existing interfaces require host
+and signalling integration before this client can join a live room; a caller
+must transport the signed acknowledgement explicitly rather than route it
+through the unsigned acknowledgement method.
+
+## Native inference peer CLI
+
+Run the native peer directly with Node.js 22 or newer:
+
+```sh
+node apps/inference-peer/bin/inference-peer.mjs join https://host.example ROOM_HEX \
+  --manifest /private/participant-v2.bin --nonce HOST_CHALLENGE
+node apps/inference-peer/bin/inference-peer.mjs status
+PAXAI_ASK_BEARER=ASK_STREAM_TOKEN node apps/inference-peer/bin/inference-peer.mjs serve \
+  --host https://host.example
+```
+
+[`src/cli.mjs`](../apps/inference-peer/src/cli.mjs) exports `parseCLI`,
+`joinCommand`, `serveCommand`, `statusCommand` and `runCLI`. `join` takes the host
+base URL and a lowercase 32-byte room ID. `--manifest` is the canonical binary
+v2 manifest with native runtime kind 1; create and measure it through the identity
+API above. `--identity` overrides the persistent owner-only identity file and
+`--nonce` supplies the host's challenge. The host must consume that challenge.
+The command POSTs the signed manifest to `enrol_peer`, then sends the signed
+hello over the existing binary room codec to `rooms/ROOM_HEX/signal` (WebSocket).
+Host base path prefixes are retained. Hosts require HTTPS; HTTP is accepted only
+on IP loopback. Redirects and HTTP refusals fail explicitly.
+
+To bind an attestation, add `--attestation /private/quote.pxve`,
+`--model-digest MODEL_HEX` and `--runtime-digest RUNTIME_HEX`. The file contains
+the complete signed binary PXVE development envelope accepted by `bindPeer` at
+`0x0907`, including its 96-byte header and 65-byte signatures. The CLI checks
+its family/version/length and compares bytes 39–70 against
+`keccak256(peerKey || modelDigest || runtimeDigest)` **before any network send**.
+A matching report is POSTed to `bind_peer` as
+`{ family, envelope, peerKey, modelDigest, runtimeDigest }`, with lowercase hex
+byte fields. The host must submit `bindPeer` and return `{ "bound": true }`
+only after successful chain execution. Only then does the CLI enrol and send
+hello. Local matching does not verify attestor trust, signatures, freshness or
+hardware evidence; these remain chain checks. JSON claims about report data
+cannot replace the bytes inside the envelope.
+
+Deal execution additionally requires `--deal /private/accepted-deal.json` and
+`--host-key HOST_PEER_HEX`. The file is the complete Rust `DealFrame` whose
+chain authority and terms the operator has already checked. Its exact deal
+digest pins incoming terms; it also supplies attestation model/runtime digests
+when their flags are omitted. Execution refuses a deal without this pin and
+host key. The host's binary deal payload must contain `{ dealId, deal }`:
+`deal` is the full frame, and `dealId` is the signalling acknowledgement ID.
+Its offer must include the matching model/runtime digests and model-source
+manifest URL described above. The CLI verifies/downloads its assigned range
+through `DealClient`, POSTs the signed acknowledgement to
+`rooms/ROOM_HEX/deal_ack`, then uses `PeerMesh` in native mode for WebRTC.
+Provision `node-datachannel` and its native binary so it resolves from this
+package; it is required when a deal starts and is not bundled by the CLI.
+
+When the optional `webgpu` package resolves, native execution uses its adapter
+and device with the vendored `DenseEngine`. An installed but broken GPU backend
+fails explicitly. If the package is absent, the CPU dense path uses the vendored
+safetensors parser/converter and executes RMSNorm, grouped causal attention,
+RoPE, residuals and SiLU feed-forward layers. Both paths keep per-request KV
+caches and leave embeddings and the head on the host. CPU support covers
+`safetensors-dense-v1` with F32/BF16 tensors, standard RoPE and SiLU; unsupported
+formats, extra bias/head-normalisation tensors and scaled RoPE refuse. It is a
+correctness path for compatible models, not a throughput guarantee.
+
+`join` prints a JSON snapshot and keeps a loopback status listener on port 8788;
+`--status-port` overrides it (0 chooses a free port). `status --port PORT` reads
+`GET /status` and prints room, peer key, state, backend, assigned layer range,
+processed activation count and any error. No signing key or bearer is exposed.
+SIGINT/SIGTERM closes the signalling connection, mesh, model caches and local
+listener. An asynchronous transport or execution failure closes the session and
+makes the CLI exit unsuccessfully.
+
+`serve --host URL` listens on `127.0.0.1:8787`; `--port` overrides it. It forwards
+`POST /v1/chat/completions` and `POST /v1/completions` to those same paths below
+the host base URL, replacing incoming authorization with the ask bearer from
+`PAXAI_ASK_BEARER` or `--ask-bearer`. The host must support the requested route.
+Requests are bounded to 1 MiB. Responses preserve upstream status, content type,
+retry hints and bytes, including SSE chunks and `[DONE]`, with backpressure.
+Disconnecting the local client cancels the upstream request. Host refusals such
+as 402 remain refusals; unavailable hosts return 502. Other local routes return 404. The bridge does not open or fund an ask stream.
+
+The task gate is `node --test apps/inference-peer/test/cli.test.mjs`. It exercises
+the executable's signed hello over real loopback HTTP/WebSocket, identity-bound
+PXVE refusal before any send, binding-before-enrolment ordering, a separate
+status process, CPU dense attention/cache isolation and a streamed completion
+against a stand-in host. The existing Rust host still lacks the binding and
+enrolment HTTP adapters and uses different signalling envelopes, as noted
+above. These tests do not qualify a live chain, native WebRTC/GPU execution,
+lap countersigning or canary integration.
+
+## Inference peer browser page
+
+[`apps/inference-peer/index.html`](../apps/inference-peer/index.html) loads
+[`src/page.mjs`](../apps/inference-peer/src/page.mjs) as a plain ES module.
+Start its loopback static server from the repository root with
+`npm --prefix apps/inference-peer run serve`, then open
+`http://127.0.0.1:4173`. `PORT` overrides 4173. The server supplies JavaScript
+module MIME types, cross-origin isolation headers and a bounded 64 KiB `/probe`
+for manifest measurement. It serves only the page, `src/` and `engine/`;
+participant keys, package metadata and local tests are not served.
+
+The page opens the existing browser IndexedDB identity, displays the WebGPU
+adapter, and measures a v2 manifest from the operator's canonical v1 hex bytes,
+two-letter region and bandwidth probe URL. Browser measurement requires
+`navigator.deviceMemory`; a failed probe or unavailable measurement is shown
+explicitly and prevents joining with stale capabilities. Paste the host's
+`ws://` or `wss://` signalling origin (request target `/`) and 32-byte room ID
+as 64 lowercase hex characters after measurement. `SignalClient` waits for
+the host challenge and signs its hello with the persisted Ed25519 identity.
+Signalling uses bounded JSON text frames from `src/signal.mjs`.
+
+`PeerPage` and `renderStatus` display the host offer, the assigned layer range
+with an exclusive end, the deal, `deal_live` and the exact host error code.
+The offer/deal price is shown as an exact string, with no earnings calculation.
+The host's `ServerFrame` in
+`services/agent/crates/layerx-agentd/src/inference_market/signal.rs` and
+`DealServerFrame` in its `deals.rs` publish no status frame. Consequently the
+page's `#laps`, `#receipts` and `#earnings` fields explicitly display unavailable
+state. No countersigned receipt or income is inferred from a received deal.
+The page does not automatically accept a deal: the browser still lacks the
+chain validation and trusted model-source/host-key integration required to
+acknowledge it and start GPU work. `renderStatus` can display `deal_live` once
+an acknowledged session supplies it; the page does not fabricate acceptance.
+
+Leaving, pagehide and unload close the signalling socket once. The host accepts
+no signalling `bye` (the `ClientFrame` and `DealClientFrame` enums have no such
+variant); the old page's signalling-bye requirement therefore has no producer
+interface at `PeerPage.leave`. Data-channel bye remains in the mesh protocol,
+which this page does not start before deal validation.
+
+The jsdom test uses the declared, exactly pinned development dependency. It
+exercises persisted identity reopening, challenge-first signed hellos over real
+loopback WebSockets using the existing host-frame vectors, measured memory and
+a real HTTP probe, offer/deal/error rendering, the `deal_live` renderer, unload
+closure and static-server boundaries. It uses the existing native identity
+store because jsdom has no IndexedDB or WebGPU. It does not qualify browser GPU
+execution, chain admission, deal acceptance or lap countersigning.
+
 ## Trees that move under core in a later release
 
 These are planned directory moves, not additional deployments. In particular, the current kernel sources still live at the repository root.
@@ -318,3 +531,86 @@ Workflows live in `.github/workflows/`. `node-build.yml` builds native libraries
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md): contribution guidelines
 - [`QUALIFICATION.md`](QUALIFICATION.md): evidence levels and qualification gates
 - [`paxeer-network.md`](paxeer-network.md): merged runtime, root node endpoints and tenant domains
+
+## Inference peer lap countersignatures
+
+[`src/laps.mjs`](../apps/inference-peer/src/laps.mjs) exports `LapTracker`,
+`countersignLap` and the program-compatible receipt and countersign digest
+functions. Construct a tracker with `{ identity, deal, hostMeterKey }`, using
+the accepted deal and independently trusted host meter key. Pass it to
+`DealClient` as `lapTracker`, with `countersign: ack => signal.countersignLap(ack)`.
+Forward `lap_receipt` signalling events to `DealClient.handleFrame`, alongside
+`deal` and `deal_live`. The client records each successfully forwarded encoded
+output activation in processing order. A range digest is SHA-256 of the
+concatenated activation payloads for that lap; the host supplies these digests
+through `LapInput.layer_range_digests`, in deal-plan order.
+
+The tracker starts at lap zero and checks the deal binding, pinned meter key,
+host signature, deadline, continuous lap index, its assigned range digest and
+local activation count. Cumulative tokens include prompt tokens on the first
+lap and advance only by generated tokens thereafter. Refusals preserve the
+activation evidence and return `{ type: "refusal", reason }` locally, surfaced
+as `lap-refusal` events. The host has no refusal message on its socket. Identical
+receipt retransmissions return the cached countersignature without advancing
+accounting; conflicting retransmissions refuse. Activations already processed
+for a later lap remain buffered, up to a total of 64 MiB. Tracker state is
+in memory and requires the original processing evidence to countersign.
+
+The socket carries JSON text `{ type: "lap_receipt", lap }` and
+`{ type: "lap_countersign", deal_id, lap_index, digest, signature }` through
+`src/signal.mjs`, using the Rust host's exact snake-case members and byte arrays.
+The peer signs the SHA-256 digest of `PAXAI/lap-countersign/v1`, a zero byte,
+deal digest, host meter key, big-endian deadline and program receipt digest.
+The program receipt encoding and its two hash domains match task 22.38.4;
+the binary lap kinds in `src/wire.mjs` are not sent on signalling sockets.
+
+[`test/laps.test.mjs`](../apps/inference-peer/test/laps.test.mjs) exercises these
+checks with the fixed vectors in `test/fixtures/host-lap-frames.json`, the real
+signalling client over loopback WebSockets, encoded activations over TCP and
+the CPU model's assigned layers loaded from verified HTTP shards. Its fixture
+recipe is `test/fixtures/generate-host-lap-frames.mjs`; it independently encodes
+the Rust layouts, including `f11_lap_settlement.rs::batch(0, 1, 0)`.
+The declared gate runs `node --test apps/inference-peer/test/laps.test.mjs`.
+
+## Inference peer canary answers
+
+[`src/canary.mjs`](../apps/inference-peer/src/canary.mjs) provides
+`encodeFixedPointLogits`, `CanaryTracker` and `canaryAnswer`. Encoding selects
+the eight greatest finite logits in descending order, rounds to Q16 with
+halfway values away from zero, and writes eight signed big-endian i32 values
+in the program's `canary::encode_logits` layout. Values that overflow i32 refuse.
+The fixture uses the program's `f11_canary_challenge.rs::EXPECTED` vector.
+
+Construct a tracker with `{ identity, deal }` and record actual model-head
+output with `recordLogits({ lapIndex, position, logits })`. The tracker copies
+the encoded values, retains at most 8192 positions, refuses conflicting
+records and clears them on `close()`. `canaryAnswer(plan, tracker)` consumes
+the host's existing `CanaryPlan` payload, checks the deal, selected peer,
+frozen binding, lap and prompt context, and returns its `CanaryAnswer` payload.
+It signs the SHA-256 domain `PAXAI/canary-answer/v1` over the 248-byte host
+context and the `PAXAI/canary-logits/q16/v1` digest. Unknown positions return
+`{ type: "refusal", reason: "unknown_position" }` locally.
+
+The signalling codec accepts the host's text JSON frames
+`{ "type": "canary_request", "plan": ... }` and
+`{ "type": "canary_answer", "answer": ... }`, matching `LapServerFrame` and
+`LapAcknowledgement` in the daemon's `inference_market/laps.rs`. The socket
+client calls `canaryAnswer` for the requested peer key and sends only successful
+answers. Refusals, including unknown positions, emit a local `canary-refusal`
+event and send no frame. A successful answer emits `canary`. The binary canary
+kind in `src/wire.mjs` is not used on the signalling socket.
+
+`SignalClient` creates a tracker when a deal arrives and clears it when the
+next deal arrives or the socket closes. A caller with an already bound deal
+can supply `{ canaryTracker }` at construction; it must use the socket's peer
+identity. Record outputs with `signal.recordCanaryLogits({ lapIndex, position,
+logits })`. The logits come from the runtime of the peer. Hidden layer
+activations are not logits; a runtime that has not supplied actual model-head
+logits leaves the position unknown and the request refuses locally. Canary
+positions use the ordinary activation path without a special binary request.
+
+[`test/fixtures/host-canary-frames.json`](../apps/inference-peer/test/fixtures/host-canary-frames.json)
+keeps the host's producer-defined vectors unchanged and carries the program
+encoding vector in `program_codec`. The declared `test/canary.test.mjs` gate
+checks encoding, signing, refusals, strict frame members and both directions
+of a real loopback WebSocket exchange against those vectors.

@@ -317,6 +317,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				}
 			}()
 			devRPC = chain
+			swapConsumer.SetDevelopmentSource(consumer.NewDevelopmentSource(pool, chain, builder, logger))
 		}
 		httpapi.RegisterDevelopmentUDF(router, httpapi.SymbolsHandler{Development: &httpapi.DevelopmentPoolMetadataSource{Pool: pool, Chain: devRPC}}, httpapi.DevelopmentHistoryHandler{Source: httpapi.PostgresHistorySource{Pool: pool}})
 		httpapi.RegisterWebhook(router, httpapi.WebhookDeps{

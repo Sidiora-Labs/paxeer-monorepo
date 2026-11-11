@@ -16,9 +16,9 @@ import (
 
 // DevelopmentSchemaDDL must be applied by the migration owner before enabling
 // development ingestion. It is deliberately not an automatic runtime migration.
-const DevelopmentSchemaDDL = `CREATE TABLE candles.development_state (
-    key text PRIMARY KEY,
-    payload bytea NOT NULL
+const DevelopmentSchemaDDL = `CREATE TABLE IF NOT EXISTS "candles"."development_state" (
+    "key" text PRIMARY KEY,
+    "payload" bytea NOT NULL
 );`
 
 type developmentSQLStore struct{ pool *pgxpool.Pool }

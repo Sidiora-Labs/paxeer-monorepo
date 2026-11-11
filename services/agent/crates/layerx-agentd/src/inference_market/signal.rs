@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+#[cfg(test)]
+use std::net::SocketAddr;
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -8,6 +10,7 @@ use std::time::Duration;
 
 use layerx_agentd::boot::InferenceBootGate;
 use layerx_agentd::degraded::{Mode, Reference};
+use layerx_agentd::finality::inference_enrol::{EnrolError, EnrolmentService, MAX_ENROLMENT_BYTES};
 use layerx_client::ai_market::market_program::workers;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -101,7 +104,9 @@ impl RoomOffer {
         hash.update(self.room_id);
         hash.update(self.model_digest);
         hash.update(self.runtime_digest);
-        hash.update((self.layer_plan.len() as u16).to_be_bytes());
+        let layer_count =
+            u16::try_from(self.layer_plan.len()).map_err(|_| SignalError::InvalidOffer)?;
+        hash.update(layer_count.to_be_bytes());
         let mut end = 0;
         let mut peers = BTreeSet::new();
         for assignment in &self.layer_plan {
@@ -212,6 +217,7 @@ pub struct SignalAuthority {
     chain: Arc<dyn SignalChain>,
     chain_id: u64,
     program_id: [u8; 32],
+    enrolment: Option<Arc<Mutex<EnrolmentService>>>,
 }
 
 struct RpcSignalChain {
@@ -262,7 +268,13 @@ impl SignalAuthority {
             chain,
             chain_id,
             program_id,
+            enrolment: None,
         }
+    }
+
+    pub fn with_enrolment(mut self, service: EnrolmentService) -> Self {
+        self.enrolment = Some(Arc::new(Mutex::new(service)));
+        self
     }
 
     fn reference(&self) -> Result<Reference, SignalError> {
@@ -273,8 +285,8 @@ impl SignalAuthority {
         let head = self
             .chain
             .read("eth_getBlockByNumber", json!(["latest", false]))?;
-        if head["number"] != format!("0x{:x}", reference.head_sequence)
-            || head["hash"] != format!("0x{}", hex(&reference.checkpoint))
+        if head["number"].as_str() != Some(format!("0x{:x}", reference.head_sequence).as_str())
+            || head["hash"].as_str() != Some(format!("0x{}", hex(&reference.checkpoint)).as_str())
         {
             return Err(SignalError::ChainUnavailable);
         }
@@ -282,20 +294,20 @@ impl SignalAuthority {
     }
 
     fn admit(&self, hello: &HelloFrame, offer: &RoomOffer) -> Result<(), SignalError> {
+        offer.digest()?;
         let reference = self.reference()?;
         let chain = self.chain.read("eth_chainId", json!([]))?;
-        if chain != format!("0x{:x}", self.chain_id) {
+        if chain.as_str() != Some(format!("0x{:x}", self.chain_id).as_str()) {
             return Err(SignalError::ChainUnavailable);
         }
         self.check_head(reference)?;
         let room = self
             .chain
             .read("px_getInferenceRoom", json!([hex(&offer.room_id)]))?;
-        if room["room_id"] != hex(&offer.room_id)
+        if room["room_id"].as_str() != Some(hex(&offer.room_id).as_str())
             || room["state"] != 0
-            || room["model_digest"] != hex(&offer.model_digest)
-            || room["runtime_digest"] != hex(&offer.runtime_digest)
-            || room["offer_digest"] != hex(&offer.digest()?)
+            || room["model_digest"].as_str() != Some(hex(&offer.model_digest).as_str())
+            || room["runtime_digest"].as_str() != Some(hex(&offer.runtime_digest).as_str())
         {
             return Err(SignalError::OfferMismatch);
         }
@@ -313,19 +325,21 @@ impl SignalAuthority {
         if peer.is_null() || peer["enrolled"] == false {
             return Err(SignalError::Unenrolled);
         }
-        if peer["peer_key"] != hex(summary.owner.as_bytes()) || peer["enrolled"] != true {
+        if peer["peer_key"].as_str() != Some(hex(summary.owner.as_bytes()).as_str())
+            || peer["enrolled"] != true
+        {
             return Err(SignalError::ChainUnavailable);
         }
-        if peer["delegate"] != hex(&hello.peer_key) {
+        if peer["delegate"].as_str() != Some(hex(&hello.peer_key).as_str()) {
             return Err(SignalError::Unenrolled);
         }
-        if peer["metadata"] != hex(&manifest_digest(&hello.manifest)?)
-            || peer["worker"] != hex(summary.worker.as_bytes())
-            || peer["generation"] != summary.generation.to_string()
-            || peer["key_version"] != summary.key_version.to_string()
-            || peer["metadata_revision"] != summary.revision.to_string()
-            || peer["valid_from"] != summary.valid_from.to_string()
-            || peer["expiry"] != summary.expiry.to_string()
+        if peer["metadata"].as_str() != Some(hex(&manifest_digest(&hello.manifest)?).as_str())
+            || peer["worker"].as_str() != Some(hex(summary.worker.as_bytes()).as_str())
+            || peer["generation"].as_str() != Some(summary.generation.to_string().as_str())
+            || peer["key_version"].as_str() != Some(summary.key_version.to_string().as_str())
+            || peer["metadata_revision"].as_str() != Some(summary.revision.to_string().as_str())
+            || peer["valid_from"].as_str() != Some(summary.valid_from.to_string().as_str())
+            || peer["expiry"].as_str() != Some(summary.expiry.to_string().as_str())
             || reference.head_sequence < summary.valid_from
             || reference.head_sequence >= summary.expiry
         {
@@ -415,6 +429,7 @@ impl Drop for Connection {
 }
 
 pub struct SignalListener {
+    #[cfg(test)]
     address: SocketAddr,
     stop: Arc<AtomicBool>,
     shared: Arc<Mutex<Connections>>,
@@ -422,6 +437,7 @@ pub struct SignalListener {
 }
 
 impl SignalListener {
+    #[cfg(test)]
     pub fn start(
         listener: TcpListener,
         offer: RoomOffer,
@@ -433,6 +449,7 @@ impl SignalListener {
         listener
             .set_nonblocking(true)
             .map_err(|error| error.to_string())?;
+        #[cfg(test)]
         let address = listener.local_addr().map_err(|error| error.to_string())?;
         let stop = Arc::new(AtomicBool::new(false));
         let shared = Arc::new(Mutex::new(Connections::default()));
@@ -466,8 +483,7 @@ impl SignalListener {
                             let offer = offer.clone();
                             let authority = authority.clone();
                             let worker = thread::Builder::new().name("inference-signal-peer".to_owned()).spawn(move || {
-                                let _connection = connection;
-                                let _ = serve_connection(&mut stream, &offer, &authority, &_connection);
+                                let _ = serve_connection(&mut stream, &offer, &authority, &connection);
                             }).map_err(|error| error.to_string())?;
                             workers.push(worker);
                         }
@@ -484,6 +500,7 @@ impl SignalListener {
             result
         }).map_err(|error| error.to_string())?;
         Ok(Self {
+            #[cfg(test)]
             address,
             stop,
             shared,
@@ -491,6 +508,7 @@ impl SignalListener {
         })
     }
 
+    #[cfg(test)]
     pub fn local_addr(&self) -> SocketAddr {
         self.address
     }
@@ -518,6 +536,7 @@ impl Drop for SignalListener {
     }
 }
 
+#[cfg(test)]
 fn serve_connection(
     stream: &mut TcpStream,
     offer: &RoomOffer,
@@ -566,7 +585,7 @@ fn serve_connection(
             match receive(stream, &writer, &mut fragments)? {
                 ClientFrame::Hello(_) => return Err(SignalError::InvalidFrame),
                 ClientFrame::Description { to, description } => {
-                    relay_description(&connection.shared, &hello.peer_key, &to, description)?
+                    relay_description(&connection.shared, &hello.peer_key, &to, description)?;
                 }
                 ClientFrame::Candidate { to, candidate } => relay(
                     &connection.shared,
@@ -582,9 +601,9 @@ fn serve_connection(
     if let Err(code) = &result {
         let _ = send(&writer, &ServerFrame::Error { code: code.clone() });
         let close = if *code == SignalError::FrameTooLarge {
-            1009u16
+            1_009_u16
         } else {
-            1008u16
+            1_008_u16
         };
         if let Ok(mut writer) = writer.lock() {
             let _ = write_frame(&mut writer, 8, &close.to_be_bytes());
@@ -639,10 +658,15 @@ fn send(writer: &Arc<Mutex<TcpStream>>, frame: &ServerFrame) -> Result<(), Signa
 fn write_frame(stream: &mut TcpStream, opcode: u8, bytes: &[u8]) -> io::Result<()> {
     let mut header = vec![0x80 | opcode];
     match bytes.len() {
-        0..=125 => header.push(bytes.len() as u8),
-        126..=65535 => {
+        0..=125 => header.push(u8::try_from(bytes.len()).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidInput, "invalid short frame length")
+        })?),
+        126..=65_535 => {
             header.push(126);
-            header.extend_from_slice(&(bytes.len() as u16).to_be_bytes());
+            let length = u16::try_from(bytes.len()).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "invalid extended frame length")
+            })?;
+            header.extend_from_slice(&length.to_be_bytes());
         }
         _ => {
             header.push(127);
@@ -686,7 +710,7 @@ fn receive(
                     .read_exact(&mut length)
                     .map_err(|_| SignalError::InvalidFrame)?;
                 let length = u64::from_be_bytes(length);
-                if length <= 65535 || length >> 63 != 0 {
+                if length <= 65_535 || length >> 63 != 0 {
                     return Err(SignalError::InvalidFrame);
                 }
                 length
@@ -703,7 +727,8 @@ fn receive(
         stream
             .read_exact(&mut mask)
             .map_err(|_| SignalError::InvalidFrame)?;
-        let mut bytes = vec![0; length as usize];
+        let length = usize::try_from(length).map_err(|_| SignalError::FrameTooLarge)?;
+        let mut bytes = vec![0; length];
         stream
             .read_exact(&mut bytes)
             .map_err(|_| SignalError::InvalidFrame)?;
@@ -711,13 +736,11 @@ fn receive(
             *byte ^= mask[i % 4];
         }
         match opcode {
-            8 => return Err(SignalError::InvalidFrame),
             9 => {
                 let mut writer = writer.lock().map_err(|_| SignalError::Backpressure)?;
                 write_frame(&mut writer, 10, &bytes).map_err(|_| SignalError::Backpressure)?;
-                continue;
             }
-            10 => continue,
+            10 => {}
             1 if fragments.is_none() => {
                 if final_frame {
                     return serde_json::from_slice(&bytes).map_err(|_| SignalError::InvalidFrame);
@@ -758,6 +781,10 @@ fn upgrade(stream: &mut TcpStream, authority: &SignalAuthority) -> Result<bool, 
         let status = if ready { 200 } else { 503 };
         let body = json!({"ready": ready}).to_string();
         write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}", body.len()).map_err(|_| SignalError::Backpressure)?;
+        return Ok(false);
+    }
+    if request.starts_with("POST /enrol_peer HTTP/1.1\r\n") {
+        serve_enrolment(stream, request, authority)?;
         return Ok(false);
     }
     let mut lines = request.split("\r\n");
@@ -801,7 +828,112 @@ fn upgrade(stream: &mut TcpStream, authority: &SignalAuthority) -> Result<bool, 
     Ok(true)
 }
 
+fn enrolment_response(
+    stream: &mut TcpStream,
+    status: u16,
+    body: &Value,
+) -> Result<(), SignalError> {
+    let body = body.to_string();
+    write!(stream, "HTTP/1.1 {status} Response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n{body}", body.len())
+        .map_err(|_| SignalError::Backpressure)
+}
+
+fn enrolment_refusal(stream: &mut TcpStream, status: u16, reason: &str) -> Result<(), SignalError> {
+    enrolment_response(stream, status, &json!({"error": reason}))
+}
+
+fn serve_enrolment(
+    stream: &mut TcpStream,
+    request: &str,
+    authority: &SignalAuthority,
+) -> Result<(), SignalError> {
+    let mut fields = BTreeMap::new();
+    for line in request
+        .split("\r\n")
+        .skip(1)
+        .take_while(|line| !line.is_empty())
+    {
+        let Some((name, value)) = line.split_once(':') else {
+            return enrolment_refusal(stream, 400, "malformed_request");
+        };
+        if fields
+            .insert(name.to_ascii_lowercase(), value.trim())
+            .is_some()
+        {
+            return enrolment_refusal(stream, 400, "malformed_request");
+        }
+    }
+    if fields.contains_key("transfer-encoding") {
+        return enrolment_refusal(stream, 400, "malformed_request");
+    }
+    let Some(length) = fields.get("content-length") else {
+        return enrolment_refusal(stream, 411, "length_required");
+    };
+    if length.is_empty() || !length.bytes().all(|byte| byte.is_ascii_digit()) {
+        return enrolment_refusal(stream, 400, "malformed_request");
+    }
+    // Compare decimal lengths before allocating or waiting for any body bytes.
+    let length = length.trim_start_matches('0');
+    let bound = MAX_ENROLMENT_BYTES.to_string();
+    if length.len() > bound.len() || (length.len() == bound.len() && length > bound.as_str()) {
+        return enrolment_refusal(stream, 413, "body_too_large");
+    }
+    let length = if length.is_empty() {
+        0
+    } else {
+        length
+            .parse::<usize>()
+            .map_err(|_| SignalError::InvalidFrame)?
+    };
+    if fields.get("content-type").is_none_or(|value| {
+        !value
+            .split(';')
+            .next()
+            .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("application/json"))
+    }) {
+        return enrolment_refusal(stream, 415, "json_required");
+    }
+    let Some(service) = &authority.enrolment else {
+        return enrolment_refusal(stream, 503, "enrolment_not_configured");
+    };
+    let mut body = vec![0; length];
+    if stream.read_exact(&mut body).is_err() {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    }
+    let Ok(document) = serde_json::from_slice::<Value>(&body) else {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    };
+    if !document.is_object() {
+        return enrolment_refusal(stream, 400, "malformed_document");
+    }
+    let Ok(reference) = authority.reference() else {
+        return enrolment_refusal(stream, 503, "chain_unavailable");
+    };
+    let Ok(service) = service.lock() else {
+        return enrolment_refusal(stream, 503, "enrolment_unavailable");
+    };
+    match service.enrol(&document, reference.head_sequence) {
+        Ok(outcome) => enrolment_response(stream, 200, &outcome),
+        Err(EnrolError::Document(reason)) => enrolment_refusal(stream, 422, reason),
+        Err(
+            EnrolError::Binding(_)
+            | EnrolError::Client(layerx_client::ai_market::AiClientError::NotNativeProgramCall),
+        ) => enrolment_refusal(stream, 422, "invalid_enrolment"),
+        Err(EnrolError::Client(layerx_client::ai_market::AiClientError::ProgramRefused {
+            operation,
+            name,
+            code,
+        })) => enrolment_response(
+            stream,
+            409,
+            &json!({"error": "program_refused", "operation": operation, "name": name, "code": code}),
+        ),
+        Err(_) => enrolment_refusal(stream, 502, "relay_failed"),
+    }
+}
+
 fn websocket_accept(key: &str) -> String {
+    const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut input = format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").into_bytes();
     let bit_length = (input.len() as u64) * 8;
     input.push(0x80);
@@ -810,46 +942,51 @@ fn websocket_accept(key: &str) -> String {
     }
     input.extend_from_slice(&bit_length.to_be_bytes());
     let mut state = [
-        0x67452301u32,
-        0xefcdab89,
-        0x98badcfe,
-        0x10325476,
-        0xc3d2e1f0,
+        0x6745_2301_u32,
+        0xefcd_ab89,
+        0x98ba_dcfe,
+        0x1032_5476,
+        0xc3d2_e1f0,
     ];
     for block in input.chunks_exact(64) {
-        let mut words = [0u32; 80];
+        let mut words = [0_u32; 80];
         for (i, chunk) in block.chunks_exact(4).enumerate() {
             words[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
         }
         for i in 16..80 {
             words[i] = (words[i - 3] ^ words[i - 8] ^ words[i - 14] ^ words[i - 16]).rotate_left(1);
         }
-        let [mut a, mut b, mut c, mut d, mut e] = state;
+        let [mut word_a, mut word_b, mut word_c, mut word_d, mut word_e] = state;
         for (i, word) in words.iter().enumerate() {
-            let (f, k) = match i {
-                0..=19 => ((b & c) | ((!b) & d), 0x5a827999u32),
-                20..=39 => (b ^ c ^ d, 0x6ed9eba1),
-                40..=59 => ((b & c) | (b & d) | (c & d), 0x8f1bbcdc),
-                _ => (b ^ c ^ d, 0xca62c1d6),
+            let (round_function, round_constant) = match i {
+                0..=19 => ((word_b & word_c) | ((!word_b) & word_d), 0x5a82_7999_u32),
+                20..=39 => (word_b ^ word_c ^ word_d, 0x6ed9_eba1),
+                40..=59 => (
+                    (word_b & word_c) | (word_b & word_d) | (word_c & word_d),
+                    0x8f1b_bcdc,
+                ),
+                _ => (word_b ^ word_c ^ word_d, 0xca62_c1d6),
             };
-            let next = a
+            let next = word_a
                 .rotate_left(5)
-                .wrapping_add(f)
-                .wrapping_add(e)
-                .wrapping_add(k)
+                .wrapping_add(round_function)
+                .wrapping_add(word_e)
+                .wrapping_add(round_constant)
                 .wrapping_add(*word);
-            e = d;
-            d = c;
-            c = b.rotate_left(30);
-            b = a;
-            a = next;
+            word_e = word_d;
+            word_d = word_c;
+            word_c = word_b.rotate_left(30);
+            word_b = word_a;
+            word_a = next;
         }
-        for (target, value) in state.iter_mut().zip([a, b, c, d, e]) {
+        for (target, value) in state
+            .iter_mut()
+            .zip([word_a, word_b, word_c, word_d, word_e])
+        {
             *target = target.wrapping_add(value);
         }
     }
     let digest: Vec<_> = state.iter().flat_map(|word| word.to_be_bytes()).collect();
-    const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut encoded = String::new();
     for chunk in digest.chunks(3) {
         let a = chunk[0];

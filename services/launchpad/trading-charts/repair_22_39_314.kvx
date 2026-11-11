@@ -1,0 +1,71 @@
+[task.22.39.314]
+base_revision = "390496e41e48567c3358b31bab1b6ab9326ddbe3"
+acceptance = "22998.1"
+verified_revision = "The authoritative immutable candidate revision, command, exit and private log are recorded by hf-build and hf-done in the runner gate ledger and the final evidence JSON; this declaration does not claim an unrun gate."
+
+[sites.source]
+adapter = "internal/consumer/development_frame.go: DecodeDevelopmentSwap requires non-null blockNumber and logIndex plus a transaction index from either the explicit development frame or the canonical Position envelope on main. It preserves zero indexes, rejects conflicting duplicate positions and carries engine.ChainOrder into SwapEvent.Position. swap_consumer.go uses it on Redis; internal/httpapi/webhook.go retains the existing canonical Position validation from main."
+bootstrap = "internal/consumer/development_source.go: the old indexer publisher omits transactionIndex, so development bootstrap verifies committed indexer.swaps against the receipt and matching block header before serializing a complete DevelopmentFrame. It checks all Swap words, pool ID, actor, block time and position, then drives DecodeDevelopmentSwap and Builder.ProcessSwap. internal/app/app.go configures it only outside production."
+recovery = "The bootstrap reads unclaimed committed swaps in bounded batches; processed_swaps commits with candles and durable source references. Each pass also drains committed outbox records after a restart or an ambiguous Redis acknowledgement."
+
+[sites.schema]
+migration = "migrations/00003_development_state.sql is the next embedded goose migration and mirrors engine.DevelopmentSchemaDDL; internal/migrate.Up owns application before development ingestion. DDL is idempotent for existing development fixtures."
+request_closed = "internal/engine/repair_m1051.kvx wiring.schema, wiring.source_order, wiring.relay and wiring.consumer record the resolved development wiring."
+
+[sites.candles]
+commit = "internal/engine/development.go retains the actual open/high/low/close source swaps with persisted ChainOrder, candle totals, trader membership, claim and outbox in the existing developmentSQLStore transaction."
+projector = "services/launchpad/api/internal/rest/dev_candles.go reads only committed development state, verifies each OHLC source against its actual receipt and emits canonical post_swap_spot Price documents with effective_reserves amount basis. Raw WAD prices are scaled by the token and USDL decimals using integer rationals."
+chosen_path = "The development API projector writes api_stream_dev.candle_projection and market.candles.<pool>.<interval> together through the existing DevelopmentStream.appendFrame/AppendProjectionTx transaction. It rechecks the source payload under a row lock and durably acknowledges its trade-count revision in that transaction."
+why = "The development stream already owns the schema, broker, cursor and snapshot lifecycle; reading durable chart commits recovers without Redis notifications. Production accounting delivery and api_stream writers/readers remain unchanged. The public development package exposes the real chart producer and state contract across Go internal-package boundaries."
+history = "services/launchpad/api/internal/store/development_candles.go and internal/rest/dev_history.go serve canonical history from the same projection, with snapshot identity, revision, watermark and bounded pages; a changed scope requires a new snapshot."
+quarantine = "A scope containing any candle row without the same canonical source revision remains INTEGRITY_QUARANTINED. No legacy row is assigned an invented source position, and empty scopes retain their empty partial response."
+
+[tests]
+source = "TestRepair_22_39_314_DevelopmentSwapCarriesPosition emits an actual local-chain Swap, uses the receipt bootstrap to produce the frame, checks the exact source order and a committed PostgreSQL candle, restarts the builder without refolding, and rejects absent/null positions."
+schema = "TestRepair_22_39_314_DevelopmentSchemaMigrates applies embedded migrations to a fresh database, checks the table and DDL parity, and proves state survives a second Up."
+api = "TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic uses neighbouring PostgreSQL/Redis/chain fixtures, the real development source and builder, real API projector/router and broker. It proves uncommitted data is absent, committed candle economics and receipt positions reach both history and snapshot, API/source restart preserves the revision without duplicate publication, legacy rows stay quarantined and production stream tables remain absent."
+fixture = "Existing consumer fixtures now supply the required transaction index without changing their assertions. The neighbouring stream chain fixture uses chain 125 and writes block timestamp/height with real EVM opcodes, matching the API's chain binding."
+
+[gotcha.scope]
+observed = "Runner-owned workflow changes were present at session entry and preserved. Root GOTCHA.kvx and spec files are outside this task's explicit write scope; task findings are recorded here instead."
+
+[gotcha.legacy_source]
+observed = "The legacy indexer publisher has no transactionIndex field; merely adding a consumer field cannot bootstrap candles. The in-scope chart source recovers the position from verified receipts and refuses incomplete source frames."
+
+[qualification.consumer_fixture]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/consumer/accounting_test.go; services/launchpad/trading-charts/internal/consumer/source_bootstrap_test.go"
+symbol = "TestFaultPoisonQuarantineAndAuditedReprocessing; TestSourceVerifiedBootstrapFromPoolCreationLive"
+observed = "Revision 509927b9541f88cd5905161ee9bf19b5dd8e5d2d, command cg spec done 22.39.314 -f layerx-merge --root /work/paxeer-monorepo, exit 1, private log /out/logs/verify-1.log: existing consumer tests require a real private RPC fixture and NETWORK_RPC_URL; the new development consumer tests reported no failures, and the API command was not reached."
+assumption = "The absent external RPC fixture is independent of the development candle repair and is recorded without changing or rerunning the existing tests."
+severity = "blocker"
+
+[qualification.redis_peer]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/engine/repair_m1051_test.go"
+symbol = "TestRepairM_1051_ConcurrentDistinctSwaps; TestRepairM_1051_RollbackAndRedisRestart; TestRepairM_1051_CommittedOutboxRetry; TestRepairM_1051_LateSourceOrder"
+observed = "Revision 509927b9541f88cd5905161ee9bf19b5dd8e5d2d, command cg spec done 22.39.314 -f layerx-merge --root /work/paxeer-monorepo, exit 1, private log /out/logs/verify-1.log: four existing engine tests fail because the existing test peer returns invalid Redis integer replies with a lone newline."
+assumption = "The existing test peer and its assertions remain unchanged; repairing that unrelated transport fixture is outside this task."
+severity = "blocker"
+
+[qualification.archive_fixture]
+task = "22.39.314"
+file = "services/launchpad/trading-charts/internal/engine/rollup_test.go"
+symbol = "TestArchive96HourReconstructionPostgres"
+observed = "Revision 509927b9541f88cd5905161ee9bf19b5dd8e5d2d, command cg spec done 22.39.314 -f layerx-merge --root /work/paxeer-monorepo, exit 1, private log /out/logs/verify-1.log: the existing archive test requires the approved L10_ARCHIVE_CHART_SCHEMA fixture; the migration package passed."
+assumption = "Provisioning or substituting an approved 96-hour archive fixture is independent of this development candle repair."
+severity = "blocker"
+
+[qualification.attempt1_build]
+revision = "509927b9541f88cd5905161ee9bf19b5dd8e5d2d"
+command = "(cd services/launchpad/trading-charts && go build ./... && go vet ./internal/consumer/ ./internal/engine/ ./internal/migrate/) && (cd services/launchpad/api && go build ./... && go vet ./internal/app/)"
+exit = 0
+log = "/out/logs/build-1.log"
+status = "Historical attempt 1 evidence: implemented, not qualified at that revision; the API command was not reached. Current qualification is recorded separately by the runner ledger and final evidence JSON."
+
+[continuation.attempt3]
+prior_revision = "37d1740cb712ca94e560781dea72406cf159d44a"
+prior_result = "Attempt 2 chart packages passed; API integration failed waiting for a committed topic snapshot because the plain GET omitted Origin and returned 403 FORBIDDEN, as recorded in gotcha 4126 and decision 3183."
+change = "The committed snapshot wait now calls dstFixture.snapshot(t, dstOrigin), matching the uncommitted snapshot read. Both waits retain the 15-second deadline and every existing assertion; routes and origin policy are unchanged."
+merge = "Resolved seed conflicts beside main: retained canonical Position validation on Redis and the existing webhook contract, added explicit development index decoding with consistency checks, kept both position forms in consumer fixtures, and retained the quoted migration table and columns with idempotent development DDL. The source regression also rejects conflicting height, transaction and log positions."
+evidence = "The authoritative current candidate revision, exact commands, exit codes and private logs are emitted by hf-build and hf-done; no current gate is claimed here before execution."

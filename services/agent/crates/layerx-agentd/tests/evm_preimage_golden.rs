@@ -15,12 +15,14 @@ fn prepared_transfer_signing_hash_matches_the_eip1559_golden() {
     .unwrap_or_else(|error| panic!("prepare: {error:?}"));
     // Type 2, chain 17, nonce 5, priority 2, cap 22, gas 100000,
     // target 0x101a, value 0, send(bytes), empty access list.
-    let mut golden = hex::decode(concat!(
-        "02f901e611050216830186a094000000000000000000000000000000000000101a80b901c4",
-        "2bb1ae7c0000000000000000000000000000000000000000000000000000000000000020",
-        "000000000000000000000000000000000000000000000000000000000000016c"
-    ))
-    .unwrap();
+    let mut golden = assert_ok(
+        hex::decode(concat!(
+            "02f901e611050216830186a094000000000000000000000000000000000000101a80b901c4",
+            "2bb1ae7c0000000000000000000000000000000000000000000000000000000000000020",
+            "000000000000000000000000000000000000000000000000000000000000016c"
+        )),
+        "unexpected error",
+    );
     let payload = preparation::send_payload();
     assert_eq!(payload.len(), 364);
     golden.extend_from_slice(&payload);
@@ -62,13 +64,15 @@ fn prepare_refuses_an_expected_nonce_behind_the_pending_nonce() {
     }
     let mut request = preparation::request();
     request.expected_nonce = None;
-    let prepared = prepare_bound(
-        preparation::state(),
-        preparation::defaults(),
-        request,
-        100_000,
-    )
-    .unwrap();
+    let prepared = assert_ok(
+        prepare_bound(
+            preparation::state(),
+            preparation::defaults(),
+            request,
+            100_000,
+        ),
+        "unexpected error",
+    );
     assert_eq!(prepared.call.nonce, 5);
 }
 
@@ -77,13 +81,15 @@ fn prepare_derives_fee_caps_from_the_head_base_fee() {
     let mut request = preparation::request();
     request.max_priority_fee_per_gas = Some(3);
     request.max_fee_per_gas = Some(100);
-    let prepared = prepare_bound(
-        preparation::state(),
-        preparation::defaults(),
-        request.clone(),
-        100_000,
-    )
-    .unwrap();
+    let prepared = assert_ok(
+        prepare_bound(
+            preparation::state(),
+            preparation::defaults(),
+            request.clone(),
+            100_000,
+        ),
+        "unexpected error",
+    );
     assert_eq!(prepared.call.max_priority_fee_per_gas, 3);
     assert_eq!(prepared.call.max_fee_per_gas, 23);
 
@@ -109,7 +115,10 @@ fn prepare_derives_fee_caps_from_the_head_base_fee() {
     request.max_fee_per_gas = None;
     let mut state = preparation::state();
     state.base_fee_per_gas = 20;
-    let prepared = prepare_bound(state, preparation::defaults(), request.clone(), 100_000).unwrap();
+    let prepared = assert_ok(
+        prepare_bound(state, preparation::defaults(), request.clone(), 100_000),
+        "unexpected error",
+    );
     assert_eq!(prepared.call.max_fee_per_gas, 43);
     let mut defaults = preparation::defaults();
     defaults.max_fee_per_gas = 42;
@@ -118,7 +127,10 @@ fn prepare_derives_fee_caps_from_the_head_base_fee() {
         Err(PrepareError::InvalidDefaults)
     );
     state.base_fee_per_gas = 0;
-    let prepared = prepare_bound(state, preparation::defaults(), request.clone(), 100_000).unwrap();
+    let prepared = assert_ok(
+        prepare_bound(state, preparation::defaults(), request.clone(), 100_000),
+        "unexpected error",
+    );
     assert_eq!(prepared.call.max_fee_per_gas, 3);
     state.base_fee_per_gas = u128::MAX;
     assert_eq!(
@@ -130,4 +142,12 @@ fn prepare_derives_fee_caps_from_the_head_base_fee() {
         prepare_bound(state, preparation::defaults(), request, 100_000),
         Err(PrepareError::InvalidDefaults)
     );
+}
+
+#[track_caller]
+fn assert_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("{message}: {error:?}"),
+    }
 }
