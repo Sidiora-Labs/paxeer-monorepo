@@ -196731,7 +196731,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.448]
 title = "Bring the isolation member of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196792,7 +196792,7 @@ do_4 = "do_4 Decision 3354, gotcha 4273. The two public functions of src/step.rs
 
 [task.22.39.446]
 title = "Bring the member layerx-programs-runtime of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -196943,7 +196943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.440]
 title = "Bring the member layerx-network-gateway of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
