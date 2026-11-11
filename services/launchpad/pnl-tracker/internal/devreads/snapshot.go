@@ -248,7 +248,7 @@ func (r Reader) watermark(ctx context.Context, cursor, maxBlock, trades int64) (
 		if err != nil {
 			return l17.Watermark{}, err
 		}
-		if block.Number < uint64(maxBlock) {
+		if maxBlock < 0 || block.Number < uint64(maxBlock) {
 			return l17.Watermark{}, fmt.Errorf("%w: node head %d behind folded trade %d", ErrChainUnavailable, block.Number, maxBlock)
 		}
 	}
