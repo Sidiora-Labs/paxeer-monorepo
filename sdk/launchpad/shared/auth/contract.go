@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -429,7 +430,11 @@ func (a HTTPStreamAuthority) call(ctx context.Context, path string, request any,
 	if err != nil {
 		return err
 	}
-	defer result.Body.Close()
+	defer func() {
+		if err := result.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	if result.StatusCode != http.StatusOK {
 		status := result.StatusCode
 		switch status {
@@ -653,7 +658,11 @@ func (a MTLSIdentityAuthority) post(ctx context.Context, path string, raw []byte
 	if err != nil {
 		return 0, nil, &IdentityAuthorityError{Status: http.StatusServiceUnavailable}
 	}
-	defer result.Body.Close()
+	defer func() {
+		if err := result.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	encoded, err := io.ReadAll(io.LimitReader(result.Body, 16385))
 	if err != nil {
 		encoded = nil

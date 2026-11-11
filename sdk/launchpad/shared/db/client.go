@@ -300,7 +300,18 @@ func WithTransaction(ctx context.Context, pool *pgxpool.Pool, opts PoolOptions, 
 	if err != nil {
 		return err
 	}
-	defer conn.Release()
+	discard := false
+	defer func() {
+		raw := conn.Conn()
+		if discard || raw.IsClosed() || raw.PgConn().IsBusy() || raw.PgConn().TxStatus() != 'I' {
+			raw = conn.Hijack()
+			cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = raw.Close(cleanup)
+			return
+		}
+		conn.Release()
+	}()
 	tx, err := conn.BeginTx(ctx, txOpts)
 	if err != nil {
 		return err
@@ -309,8 +320,7 @@ func WithTransaction(ctx context.Context, pool *pgxpool.Pool, opts PoolOptions, 
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if rollbackErr := tx.Rollback(cleanup); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			raw := conn.Hijack()
-			_ = raw.Close(cleanup)
+			discard = true
 		}
 	}()
 	if opts.Transport == TransportTransactionPooler {
