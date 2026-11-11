@@ -22,3 +22,4 @@ pub mod storage_witness;
 pub mod subscription;
 
 pub mod ai_market;
+pub use ai_market::{market_call_terms, MarketCallTerms};
