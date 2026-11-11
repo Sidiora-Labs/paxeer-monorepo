@@ -13072,6 +13072,12 @@ value = "A task that adds an ABI type to a generated precompile table carries th
 basis = "Gotcha 4254, decisions 3046 and 3321."
 affects = ["22.39.396", "22.39.397", "22.39.398", "17.5.7"]
 
+[decision.3327]
+title = "The build of a launchpad web task reads the type check for the files of its flow, and one task holds the type check of the whole application"
+value = "A task that changes a flow of the launchpad web application runs the type check of the application and reads its result for the files of the flow. A test file that builds a value of a changed type belongs to the flow and moves with it. Task 22.39.399 holds the type check of the whole application at zero findings, after task 22.40.10, and records where the workspace runs it. The verification of task 22.40.10 is the test command of the application, which prepares the inputs that its integration cases read."
+basis = "Gotcha 4255, decisions 3046, 3316 and 3326."
+affects = ["22.40.10", "22.39.399"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42732,6 +42738,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.399]
+title = "Hold the type check of the launchpad web application at zero findings"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+tests = []
+verification_contract = "test -s apps/launchpad/web/repair_22_39_399.kvx && pnpm --dir apps/launchpad/web run typecheck && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of this task does and run pnpm --dir apps/launchpad/web run typecheck. List every finding by file. Places to read first: the types of the PostCSS plugin in apps/launchpad/web/src/app/breakpoints.test.ts; the pool detail in apps/launchpad/web/src/core/market/pool-resolver.ts, where the operation table of the SDK returns the generated type of sdk/launchpad/packages/sdk-v2 and the transport type of sdk/launchpad/packages/sdk adds homeChain to the pool; the import of jsdom in apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx; and the type of the request method in apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts."
+symbols = []
 
 [capability.22.39.398]
 title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"
@@ -162991,6 +163006,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.399]
+title = "Hold the type check of the launchpad web application at zero findings"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.40.10"]
+reqs = ["22998.1"]
+capabilities = ["22.39.399"]
+interfaces = []
+do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of this task does and run pnpm --dir apps/launchpad/web run typecheck. List every finding by file. Places to read first: the types of the PostCSS plugin in apps/launchpad/web/src/app/breakpoints.test.ts; the pool detail in apps/launchpad/web/src/core/market/pool-resolver.ts, where the operation table of the SDK returns the generated type of sdk/launchpad/packages/sdk-v2 and the transport type of sdk/launchpad/packages/sdk adds homeChain to the pool; the import of jsdom in apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx; and the type of the request method in apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts."
+do_2 = "do_2 Repair each finding at its cause. For the pool detail, read what the route of the launchpad API returns for the pool and make the type of the operation table and the transport type agree with it, in the SDK package that declares it; a file that a generator of the package writes is changed through its generator and its input. For a missing declaration add the declaration package to the development dependencies of apps/launchpad/web together with the lock file. For a test file correct the types and keep every assertion. Use no ts-ignore, no ts-expect-error, no cast to any and no exclusion in tsconfig.json to quiet a finding."
+do_3 = "do_3 Search the Makefile, the files under .github/workflows and tests/ci for the place where the launchpad web application is checked and record whether the type check runs there; change no workflow file. Run the type check of the web application, the type check of apps/launchpad/mobile and the test command of the web application outside the counted gates until both type checks have zero findings and the tests pass. Record in apps/launchpad/web/repair_22_39_399.kvx each finding, its cause and its repair, and the result of the search. Then run the counted build once and the counted verification once."
+symbols = []
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+tests = []
+planned_paths = ["apps/launchpad/web/repair_22_39_399.kvx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
+verify_cmd = "test -s apps/launchpad/web/repair_22_39_399.kvx && pnpm --dir apps/launchpad/web run typecheck && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.40.16]
 title = "Show launched chains and trade on the home chain in the launchpad mobile application"
 status = "done"
@@ -163123,11 +163168,11 @@ do_1 = "do_1 Decision 3316. The wizard at /create/chain creates a chain through 
 do_2 = "do_2 After the receipt decode ChainLaunched and read back launchedChain and getChain; the ready panel shows the token, the pool, the registry number, the chain id, the node path of the chain, Add to wallet, the explorer link and a link to the trading page of the token. A receipt whose event or read-back differs from the reviewed launch is shown as a failed launch with the transaction hash, as the adapter does today for createChain. The stored draft of chain-storage.ts gains the token fields with a version step that discards older drafts. The entry Launch a chain of create-wizard.tsx leads to the merged flow, and the wizard keeps no path that creates a chain without a token."
 do_3 = "do_3 Update the tests beside the files in place and add apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts: the call is launchChain with the eight arguments in the order of the ABI and the value of bond plus creation fee; the function and event names are asserted against precompiles/launchpad/abi.json read from the tree; a refused name, a wrong network and a receipt without ChainLaunched are each handled. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-storage.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-adapters.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-storage.test.ts", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.test.tsx", "apps/launchpad/web/src/widgets/create-chain/chain-wizard.hydration.test.tsx", "apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts", "apps/launchpad/web/src/page-modules/create-chain/index.tsx", "apps/launchpad/web/src/widgets/create/create-wizard.tsx", "apps/launchpad/web/src/core/network/contracts.ts"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
-build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain src/widgets/create"
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && grep -q -E '^tsc-exit [02]$' $d/tsc.log && ! grep -E '^src/(widgets/create-chain/|widgets/create/create-wizard|page-modules/create-chain/|core/network/contracts)' $d/tsc.log"
+verify_cmd = "pnpm --dir apps/launchpad/web run test"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -163139,6 +163184,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3327, gotcha 4255: the build reads the type check of the application for the files of this flow, and the verification is the test command of the application. The test file apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts builds the stored draft and moves with it: give its drafts the token fields and keep its assertions. Findings of the type check in other files belong to task 22.39.399 and are not changed here. Run the type check and the test command outside the counted gates until the files of the flow have no finding and the tests pass, then run the counted build once and the counted verification once."
 
 [task.22.39.378]
 title = "Refresh the lock of the wallet workspace for the manifest of the perps application"

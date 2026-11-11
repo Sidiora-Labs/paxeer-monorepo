@@ -21095,3 +21095,8 @@ fix = "Decision 3325; task 22.38.36 carries the source and its cases."
 title = "A list that a check reads is kept with the producer of its entries"
 symptom = "Three checks of the workspace read a list: the type set PrecompileAbiType of the TypeScript SDK and the type list of the Python SDK are read against the generated precompile tables, the copy check of the web app reads apps/web/copy/catalog.ts, and tests/programs/runtime-module-boundaries.sh holds the list of the host modules of the runtime. The generated tables name the type uint32 for the chain field of the launchpad chain events, the sources of the web app carry text for the explorer, exchange, bridge and launchpad pages, and the host directory of the runtime carries market.rs. Each list takes the entries of its producer."
 fix = "Decision 3326; tasks 22.39.396, 22.39.397 and 22.39.398."
+
+[gotcha.4255]
+title = "The type check of the launchpad web application covers its test files and the built types of the SDK packages"
+symptom = "The command tsc --noEmit of apps/launchpad/web includes every TypeScript file of the application through its tsconfig.json, test files included, and resolves the types of the SDK packages from their built output. A change of a type that a test file reads, such as the stored draft of the chain flow, reaches each test file that builds a value of that type. A type that one SDK package generates and the other widens is read where the application passes one to the other, as the pool detail is in apps/launchpad/web/src/core/market/pool-resolver.ts."
+fix = "Decision 3327 and task 22.39.399; the build of task 22.40.10 reads the type check for the files of its flow, and its touches name the test file that builds the stored draft."
