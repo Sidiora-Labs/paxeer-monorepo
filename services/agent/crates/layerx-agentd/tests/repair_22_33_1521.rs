@@ -1,10 +1,18 @@
 //! Repair record 22.33.1521 / audit 22.30.92; verified revision is in the gate ledger.
-//! history_range: history_range_seeks_pages_and_stops_without_splitting_positions;
-//! history_range_enforces_bytes_and_validates_discarded_rows.
-//! grant_fixture: grant_fixture_binds_native_authority_identity_scope_and_revocation.
+//! `history_range`: `history_range_seeks_pages_and_stops_without_splitting_positions`;
+//! `history_range_enforces_bytes_and_validates_discarded_rows`.
+//! `grant_fixture`: `grant_fixture_binds_native_authority_identity_scope_and_revocation`.
 //! Baseline verify was not run: the explicit gate order permits verification only after implementation/build.
-//! Wiring request (domain 9): precompiles/layerxauth/views_test.go must publish a committed
+//! Wiring request (domain 9): `precompiles/layerxauth/views_test.go` must publish a committed
 //! keeper-created getGrant/capabilityScope transcript; this test reuses the committed native authority vector.
+
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::read::committed::CommittedReadError;
@@ -33,13 +41,18 @@ struct Loopback {
 
 impl Loopback {
     fn new(mut reply: impl FnMut(Value) -> Value + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
-        listener
-            .set_nonblocking(true)
-            .expect("nonblocking listener");
-        let endpoint =
-            SequencerEndpoint::new(&format!("http://{}", listener.local_addr().unwrap()), &[])
-                .unwrap();
+        let listener = require_ok(TcpListener::bind("127.0.0.1:0"), "loopback listener");
+        require_ok(listener.set_nonblocking(true), "nonblocking listener");
+        let endpoint = require_ok(
+            SequencerEndpoint::new(
+                &format!(
+                    "http://{}",
+                    require_ok(listener.local_addr(), "required test value")
+                ),
+                &[],
+            ),
+            "required test value",
+        );
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = stop.clone();
         let worker = thread::spawn(move || {
@@ -53,29 +66,37 @@ impl Loopback {
                     }
                     Err(error) => panic!("accept: {error}"),
                 };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                require_ok(
+                    stream.set_read_timeout(Some(Duration::from_secs(5))),
+                    "required test value",
+                );
                 let mut reader = BufReader::new(stream);
                 let mut length = None;
                 loop {
                     let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                    assert_ne!(
+                        require_ok(reader.read_line(&mut line), "required test value"),
+                        0
+                    );
                     if line == "\r\n" {
                         break;
                     }
                     if let Some((name, value)) = line.split_once(':') {
                         if name.eq_ignore_ascii_case("content-length") {
-                            length = Some(value.trim().parse::<usize>().unwrap());
+                            length = Some(require_ok(
+                                value.trim().parse::<usize>(),
+                                "required test value",
+                            ));
                         }
                     }
                 }
-                let mut body = vec![0; length.expect("HTTP content length")];
-                reader.read_exact(&mut body).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
+                let mut body = vec![0; require_some(length, "HTTP content length")];
+                require_ok(reader.read_exact(&mut body), "required test value");
+                let request: Value =
+                    require_ok(serde_json::from_slice(&body), "required test value");
                 let id = request["id"].clone();
                 let body = json!({"jsonrpc":"2.0", "id":id, "result":reply(request)}).to_string();
-                write!(reader.into_inner(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+                require_ok(write!(reader.into_inner(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body), "required test value");
                 count += 1;
             }
             count
@@ -89,7 +110,10 @@ impl Loopback {
 
     fn finish(mut self) -> usize {
         self.stop.store(true, Ordering::SeqCst);
-        self.worker.take().unwrap().join().expect("loopback server")
+        require_ok(
+            require_some(self.worker.take(), "required test value").join(),
+            "loopback server",
+        )
     }
 }
 
@@ -99,7 +123,7 @@ impl Drop for Loopback {
         if let Some(worker) = self.worker.take() {
             let result = worker.join();
             if !thread::panicking() {
-                result.expect("loopback server");
+                require_ok(result, "loopback server");
             }
         }
     }
@@ -119,17 +143,28 @@ fn row(height: u64, name: &str) -> Value {
 
 fn row_position(row: &Value) -> Cursor {
     position(
-        row["blockHeight"].as_u64().unwrap(),
-        row["txIndex"].as_u64().unwrap() as u32,
-        row["logIndex"].as_u64().unwrap() as u32,
+        require_some(row["blockHeight"].as_u64(), "required test value"),
+        require_ok(
+            u32::try_from(require_some(row["txIndex"].as_u64(), "required test value")),
+            "test value fits u32",
+        ),
+        require_ok(
+            u32::try_from(require_some(
+                row["logIndex"].as_u64(),
+                "required test value",
+            )),
+            "test value fits u32",
+        ),
     )
 }
 
 fn freshness() -> Value {
-    let transcript: Value = serde_json::from_str(include_str!(
-        "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
-    ))
-    .unwrap();
+    let transcript: Value = require_ok(
+        serde_json::from_str(include_str!(
+            "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+        )),
+        "required test value",
+    );
     transcript["result"]["freshness"].clone()
 }
 
@@ -139,8 +174,14 @@ fn history_server(rows: Vec<Value>) -> Loopback {
         assert_eq!(request["params"][0], "account");
         let after = request["params"][1]
             .as_str()
-            .map(|text| Cursor::from_hex(text).unwrap());
-        let limit = request["params"][2].as_u64().unwrap() as usize;
+            .map(|text| require_ok(Cursor::from_hex(text), "required test value"));
+        let limit = require_ok(
+            usize::try_from(require_some(
+                request["params"][2].as_u64(),
+                "required test value",
+            )),
+            "test value fits usize",
+        );
         let remaining: Vec<_> = rows
             .iter()
             .filter(|row| after.is_none_or(|after| row_position(row) > after))
@@ -178,9 +219,10 @@ fn history_range_seeks_pages_and_stops_without_splitting_positions() {
     let mut cursor = None;
     let mut names = Vec::new();
     for page_number in 0..3 {
-        let page =
-            HistoryPage::read_account(&server.endpoint, "account", 10, 11, cursor, limits(1, 4096))
-                .unwrap();
+        let page = require_ok(
+            HistoryPage::read_account(&server.endpoint, "account", 10, 11, cursor, limits(1, 4096)),
+            "required test value",
+        );
         assert_eq!(page.height, 20);
         assert!(page.response_bytes <= 4096);
         if page_number == 0 {
@@ -196,8 +238,11 @@ fn history_range_seeks_pages_and_stops_without_splitting_positions() {
         }
         for item in page.items {
             assert!((10..=11).contains(&item.position.block_height));
-            let row: Value = serde_json::from_slice(&item.canonical).unwrap();
-            names.push(row["name"].as_str().unwrap().to_owned());
+            let row: Value = require_ok(
+                serde_json::from_slice(&item.canonical),
+                "required test value",
+            );
+            names.push(require_some(row["name"].as_str(), "required test value").to_owned());
         }
         cursor = page.next_cursor;
         if page_number == 2 {
@@ -213,21 +258,25 @@ fn history_range_seeks_pages_and_stops_without_splitting_positions() {
         row(10, "selected"),
         row(15, "new"),
     ]);
-    let page =
-        HistoryPage::read_account(&server.endpoint, "account", 10, 11, None, limits(4, 4096))
-            .unwrap();
+    let page = require_ok(
+        HistoryPage::read_account(&server.endpoint, "account", 10, 11, None, limits(4, 4096)),
+        "required test value",
+    );
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.next_cursor, None);
     assert_eq!(server.finish(), 1);
 
     let server = history_server(vec![row(0, "zero"), row(2, "old"), row(15, "new")]);
-    let page =
-        HistoryPage::read_account(&server.endpoint, "account", 10, 11, None, limits(4, 4096))
-            .unwrap();
+    let page = require_ok(
+        HistoryPage::read_account(&server.endpoint, "account", 10, 11, None, limits(4, 4096)),
+        "required test value",
+    );
     assert!(page.items.is_empty());
     assert_eq!(page.next_cursor, None);
-    let zero = HistoryPage::read_account(&server.endpoint, "account", 0, 0, None, limits(4, 4096))
-        .unwrap();
+    let zero = require_ok(
+        HistoryPage::read_account(&server.endpoint, "account", 0, 0, None, limits(4, 4096)),
+        "required test value",
+    );
     assert_eq!(zero.items.len(), 1);
     assert_eq!(zero.items[0].position.block_height, 0);
     assert_eq!(zero.next_cursor, None);
@@ -283,7 +332,7 @@ fn grant_result(bytes: &[u8], revoked: bool, revoked_at: u64) -> Vec<u8> {
     result
 }
 
-fn scope_result(grant: AuthorityGrant) -> Vec<u8> {
+fn scope_result(grant: &AuthorityGrant) -> Vec<u8> {
     let s = grant.scope;
     [
         word(s.module_mask.into()),
@@ -367,7 +416,10 @@ fn signed_checkpoint(height: u64, seconds: i64, nanos: u32) -> ServedCheckpoint 
                 .to_bytes(),
         });
     }
-    checkpoint(height, "125", &header, &commit, &validators).expect("signed block commit")
+    require_ok(
+        checkpoint(height, "125", &header, &commit, &validators),
+        "signed block commit",
+    )
 }
 
 #[test]
@@ -378,12 +430,18 @@ fn grant_fixture_binds_native_authority_identity_scope_and_revocation() {
     let id = *include_bytes!(
         "../../../../../tests/fixtures/authority/native-fee-grants/capability/grant.id"
     );
-    let native = AuthorityGrant::decode(canonical).expect("native authority producer vector");
-    assert_eq!(native.encode().unwrap(), canonical);
+    let native = require_ok(
+        AuthorityGrant::decode(canonical),
+        "native authority producer vector",
+    );
+    assert_eq!(
+        require_ok(native.encode(), "required test value"),
+        canonical
+    );
     for mutation in 0..8 {
         let checkpoint = signed_checkpoint(8, 1_700_000_000, 123_000_000);
         let mut bytes = canonical.to_vec();
-        let mut scope = scope_result(native);
+        let mut scope = scope_result(&native);
         let (revoked, revoked_at) = match mutation {
             1 => {
                 bytes[9] ^= 1;
@@ -411,66 +469,99 @@ fn grant_fixture_binds_native_authority_identity_scope_and_revocation() {
         };
         let grant = grant_result(&bytes, revoked, revoked_at);
         let served_checkpoint = checkpoint.clone();
-        let server = Loopback::new(move |request| match request["method"].as_str().unwrap() {
-            "eth_call" => {
-                assert_eq!(request["params"][1], "0x8");
-                assert_eq!(
-                    request["params"][0]["to"],
-                    "0x000000000000000000000000000000000000101c"
-                );
-                let data = hex::decode(
-                    request["params"][0]["data"]
-                        .as_str()
-                        .unwrap()
-                        .strip_prefix("0x")
-                        .unwrap(),
-                )
-                .unwrap();
-                assert_eq!(&data[4..], id);
-                let get = layerx_crypto::evm_transaction::transaction_hash(b"getGrant(bytes32)");
-                let cap =
-                    layerx_crypto::evm_transaction::transaction_hash(b"capabilityScope(bytes32)");
-                let answer = if data[..4] == get[..4] {
-                    &grant
-                } else {
-                    assert_eq!(data[..4], cap[..4]);
-                    &scope
-                };
-                json!(format!("0x{}", hex::encode(answer)))
+        let server = Loopback::new(move |request| {
+            match require_some(request["method"].as_str(), "required test value") {
+                "eth_call" => {
+                    assert_eq!(request["params"][1], "0x8");
+                    assert_eq!(
+                        request["params"][0]["to"],
+                        "0x000000000000000000000000000000000000101c"
+                    );
+                    let data = require_ok(
+                        hex::decode(require_some(
+                            request["params"][0]["data"]
+                                .as_str()
+                                .unwrap_or_else(|| panic!("{}", "required test value"))
+                                .strip_prefix("0x"),
+                            "required test value",
+                        )),
+                        "required test value",
+                    );
+                    assert_eq!(&data[4..], id);
+                    let get =
+                        layerx_crypto::evm_transaction::transaction_hash(b"getGrant(bytes32)");
+                    let cap = layerx_crypto::evm_transaction::transaction_hash(
+                        b"capabilityScope(bytes32)",
+                    );
+                    let answer = if data[..4] == get[..4] {
+                        &grant
+                    } else {
+                        assert_eq!(data[..4], cap[..4]);
+                        &scope
+                    };
+                    json!(format!("0x{}", hex::encode(answer)))
+                }
+                "eth_getBlockByNumber" => {
+                    assert_eq!(request["params"][0], "0x8");
+                    block(&served_checkpoint)
+                }
+                method => panic!("unexpected method {method}"),
             }
-            "eth_getBlockByNumber" => {
-                assert_eq!(request["params"][0], "0x8");
-                block(&served_checkpoint)
-            }
-            method => panic!("unexpected method {method}"),
         });
-        let reads = CommittedReads::at_checkpoint(&server.endpoint, &checkpoint).unwrap();
-        let owner = if mutation == 7 {
-            [9; 32]
-        } else {
-            native.grantor
-        };
-        let result = reads.grant(id, owner);
-        if mutation == 0 {
-            let result = result.expect("native authority grant admitted");
-            assert_eq!(result.encoding, canonical);
-            assert_eq!(result.id, id);
-            assert_eq!(
-                result.maximum_per_activity,
-                native.scope.maximum_per_activity
-            );
-            assert_eq!(result.purpose, native.scope.purpose);
-            assert!(!result.revoked);
-        } else {
-            assert!(
-                matches!(result, Err(CommittedReadError::Selector)),
-                "mutation {mutation}: {result:?}"
-            );
-        }
+        continue_grant_fixture_binds_native_authority_identity_scope_and_revocation_1_repair_22_33_1521(ContinueGrantFixtureBindsNativeAuthorityIdentityScopeAndRevocation1Repair22331521Context { canonical, id, native, mutation, checkpoint, server });
+    }
+}
+
+struct ContinueGrantFixtureBindsNativeAuthorityIdentityScopeAndRevocation1Repair22331521Context {
+    canonical: &'static [u8; 527],
+    id: [u8; 32],
+    native: AuthorityGrant,
+    mutation: i32,
+    checkpoint: ServedCheckpoint,
+    server: Loopback,
+}
+
+fn continue_grant_fixture_binds_native_authority_identity_scope_and_revocation_1_repair_22_33_1521(
+    context: ContinueGrantFixtureBindsNativeAuthorityIdentityScopeAndRevocation1Repair22331521Context,
+) {
+    let ContinueGrantFixtureBindsNativeAuthorityIdentityScopeAndRevocation1Repair22331521Context {
+        canonical,
+        id,
+        native,
+        mutation,
+        checkpoint,
+        server,
+    } = context;
+
+    let reads = require_ok(
+        CommittedReads::at_checkpoint(&server.endpoint, &checkpoint),
+        "required test value",
+    );
+    let owner = if mutation == 7 {
+        [9; 32]
+    } else {
+        native.grantor
+    };
+    let result = reads.grant(id, owner);
+    if mutation == 0 {
+        let result = require_ok(result, "native authority grant admitted");
+        assert_eq!(result.encoding, canonical);
+        assert_eq!(result.id, id);
         assert_eq!(
-            server.finish(),
-            8,
-            "two views must each be repeated and checkpoint-checked"
+            result.maximum_per_activity,
+            native.scope.maximum_per_activity
+        );
+        assert_eq!(result.purpose, native.scope.purpose);
+        assert!(!result.revoked);
+    } else {
+        assert!(
+            matches!(result, Err(CommittedReadError::Selector)),
+            "mutation {mutation}: {result:?}"
         );
     }
+    assert_eq!(
+        server.finish(),
+        8,
+        "two views must each be repeated and checkpoint-checked"
+    );
 }

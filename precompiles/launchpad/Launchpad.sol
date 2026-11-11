@@ -74,6 +74,11 @@ interface ILaunchpad {
     error InvalidPermit();
     error InvalidPoolBinding();
     error PermitExpired();
+    error WrongChain();
+    error NotLaunchedChain();
+    error NotFeeRightHolder();
+    error EpochTooEarly();
+    error NothingToDistribute();
 
     struct PermitParams {
         uint256 value;
@@ -133,12 +138,29 @@ interface ILaunchpad {
     event RouterTrade(uint8 indexed kind, address indexed pool, address indexed sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 intermediateUsdl, uint256 timestamp, uint256 blockNumber);
     event Swap(bytes32 indexed poolId, address indexed sender, bool isBuy, uint256 amountIn, uint256 amountOut, uint256 fee, uint256 price, uint256 timestamp, uint256 blockNumber);
     event TokenDeployed(address indexed token, address indexed pool, address indexed creator, bytes32 salt, string name, string symbol, uint8 decimals, uint256 totalSupply, uint256 timestamp, uint256 blockNumber);
+    event ChainLaunched(uint32 indexed chain, address indexed pool, address indexed token, uint64 chainId, uint256 nftId, address creator, uint256 timestamp, uint256 blockNumber);
+    event ChainRevenueEpochOpened(uint32 indexed chain, uint64 indexed epoch, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 timestamp, uint256 blockNumber);
+    event ChainRevenueClaimed(uint32 indexed chain, uint64 indexed epoch, address indexed holder, uint256 amount, uint256 timestamp, uint256 blockNumber);
+    event LaunchedChainRetired(uint32 indexed chain, address indexed holder, uint256 bond, uint256 timestamp, uint256 blockNumber);
 
     function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
     function buy(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline) external returns (uint256 amountOut);
     function buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, PermitParams calldata permit) external returns (uint256 amountOut);
     function createMarket(string calldata name, string calldata symbol, uint8 feeStrategy, address optical) external returns (address tokenAddr, address poolAddr, uint256 nftId);
     function createMarketWithPermit(string calldata name, string calldata symbol, uint8 feeStrategy, address optical, PermitParams calldata permit) external returns (address tokenAddr, address poolAddr, uint256 nftId);
+    function launchChain(string calldata name, string calldata symbol, uint8 feeStrategy, address optical, string calldata chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) external payable returns (address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId);
+    function launchChainWithPermit(string calldata name, string calldata symbol, uint8 feeStrategy, address optical, string calldata chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, PermitParams calldata permit) external payable returns (address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId);
+    function openChainRevenueEpoch(uint32 chain) external returns (uint64 epoch, uint256 epochAmount);
+    function claimChainRevenue(uint32 chain, uint64 epoch) external returns (uint256 amount);
+    function claimChainRevenueBatch(uint32 chain, uint64[] calldata epochs) external returns (uint256 totalAmount);
+    function pauseLaunchedChain(uint32 chain) external;
+    function resumeLaunchedChain(uint32 chain) external;
+    function retireLaunchedChain(uint32 chain) external;
+    function launchedChain(uint32 chain) external view returns (uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber);
+    function launchedChainOfPool(address pool) external view returns (uint32 chain);
+    function homeChainOf(address pool) external view returns (uint32 chain);
+    function chainRevenueEpoch(uint32 chain, uint64 epoch) external view returns (uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt);
+    function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) external view returns (uint256 amount);
     function factory() external view returns (address);
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
     function grantRole(bytes32 role, address account) external;

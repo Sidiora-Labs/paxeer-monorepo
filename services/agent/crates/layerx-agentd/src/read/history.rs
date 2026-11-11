@@ -58,32 +58,6 @@ impl Cursor {
             ),
         })
     }
-
-    #[cfg(test)]
-    fn wire(self) -> Value {
-        json!([
-            self.block_height.to_string(),
-            self.tx_index.to_string(),
-            self.log_index.to_string()
-        ])
-    }
-
-    #[cfg(test)]
-    fn from_wire(value: &Value) -> Result<Self, HistoryReadError> {
-        let values = value
-            .as_array()
-            .filter(|values| values.len() == 3)
-            .ok_or(HistoryReadError::Cursor)?;
-        Ok(Self {
-            block_height: decimal(&values[0]).ok_or(HistoryReadError::Cursor)?,
-            tx_index: decimal(&values[1])
-                .and_then(|n| u32::try_from(n).ok())
-                .ok_or(HistoryReadError::Cursor)?,
-            log_index: decimal(&values[2])
-                .and_then(|n| u32::try_from(n).ok())
-                .ok_or(HistoryReadError::Cursor)?,
-        })
-    }
 }
 
 fn hosted_position(row: &Value) -> Result<Cursor, HistoryReadError> {
@@ -328,35 +302,6 @@ fn validate_request(
         return Err(HistoryReadError::Cursor);
     }
     Ok(())
-}
-
-#[cfg(test)]
-fn decimal(value: &Value) -> Option<u64> {
-    let text = value.as_str()?;
-    if text.is_empty()
-        || (text.len() > 1 && text.starts_with('0'))
-        || !text.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return None;
-    }
-    text.parse().ok()
-}
-
-#[cfg(test)]
-fn hex_bytes(value: &Value) -> Result<Vec<u8>, HistoryReadError> {
-    let text = value.as_str().ok_or(HistoryReadError::Malformed)?;
-    if text.len() % 2 != 0 {
-        return Err(HistoryReadError::Malformed);
-    }
-    text.as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            Ok(
-                (lower_hex_digit(pair[0]).map_err(|_| HistoryReadError::Malformed)? << 4)
-                    | lower_hex_digit(pair[1]).map_err(|_| HistoryReadError::Malformed)?,
-            )
-        })
-        .collect()
 }
 
 impl HistoryReadError {

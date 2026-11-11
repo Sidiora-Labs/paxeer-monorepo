@@ -705,18 +705,6 @@ pub fn require_session_credential(
     }
 }
 
-/// The trusted owner of the object an Agent HTTP envelope operation addresses. The envelope
-/// path loads no target object, so no owner is supplied here; ownership of an addressed object
-/// is decided by the owner method for the authenticated peer.
-#[must_use]
-#[cfg(test)]
-pub(crate) const fn target_owner(
-    _operation: Operation,
-    _request: &serde_json::Map<String, serde_json::Value>,
-) -> Option<ObjectOwner> {
-    None
-}
-
 /// Rejects any caller-supplied tenant coordinate that differs from the authenticated tenant.
 /// Supplied coordinates are only compared, never used as authority.
 ///

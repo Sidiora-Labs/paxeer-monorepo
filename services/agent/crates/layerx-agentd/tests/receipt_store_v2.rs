@@ -1,9 +1,20 @@
+fn require_err<T: std::fmt::Debug, E>(result: Result<T, E>, message: &str) -> E {
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{message}: expected an error"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod support;
 
 use layerx_agentd::receipt::{
     serve_evidence, store_verified_if_absent, AuthenticatedTransactionReceipt, ReceiptStoreError,
+    TransactionReceiptEvidence,
 };
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
 use layerx_client::rpc::commit::decode_validators;
@@ -46,7 +57,7 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 
 fn unhex(value: &Value) -> Vec<u8> {
     must(hex::decode(
-        value.as_str().unwrap().trim_start_matches("0x"),
+        require_some(value.as_str(), "required test value").trim_start_matches("0x"),
     ))
 }
 
@@ -74,7 +85,7 @@ fn record(case: &Value, rung: Rung) -> AuthenticatedTransactionReceipt {
         ),
     ];
     if rung == Rung::Committed {
-        let height = case["height"].as_u64().unwrap();
+        let height = require_some(case["height"].as_u64(), "required test value");
         exchanges.extend([
             (
                 "px_getCommit",
@@ -99,27 +110,34 @@ fn record(case: &Value, rung: Rung) -> AuthenticatedTransactionReceipt {
     };
     let lookup = if rung == Rung::Committed {
         let trust = ChainProofVerifier {
-            chain_id: case["material"]["signedHeader"]["header"]["chain_id"]
-                .as_str()
-                .unwrap()
-                .to_owned(),
+            chain_id: require_some(
+                case["material"]["signedHeader"]["header"]["chain_id"].as_str(),
+                "required test value",
+            )
+            .to_owned(),
             validators: must(decode_validators(&case["validators"])),
         };
         let batch = unhex(&case["batch"]);
-        let ids: Vec<[u8; 32]> = case["activityIds"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|id| must(unhex(id).try_into()))
-            .collect();
-        let b64 = |value: &Value| must(openssl::base64::decode_block(value.as_str().unwrap()));
+        let ids: Vec<[u8; 32]> =
+            require_some(case["activityIds"].as_array(), "required test value")
+                .iter()
+                .map(|id| must(unhex(id).try_into()))
+                .collect();
+        let b64 = |value: &Value| {
+            must(openssl::base64::decode_block(require_some(
+                value.as_str(),
+                "required test value",
+            )))
+        };
         let proof = SimpleProof {
-            total: must(case["proof"]["total"].as_str().unwrap().parse()),
-            index: must(case["proof"]["index"].as_str().unwrap().parse()),
+            total: must(
+                require_some(case["proof"]["total"].as_str(), "required test value").parse(),
+            ),
+            index: must(
+                require_some(case["proof"]["index"].as_str(), "required test value").parse(),
+            ),
             leaf_hash: must(b64(&case["proof"]["leaf_hash"]).try_into()),
-            aunts: case["proof"]["aunts"]
-                .as_array()
-                .unwrap()
+            aunts: require_some(case["proof"]["aunts"].as_array(), "required test value")
                 .iter()
                 .map(|aunt| must(b64(aunt).try_into()))
                 .collect(),
@@ -130,7 +148,7 @@ fn record(case: &Value, rung: Rung) -> AuthenticatedTransactionReceipt {
             context,
             &ReceiptCommitEvidence {
                 verifier: &trust,
-                covering_height: case["height"].as_u64().unwrap(),
+                covering_height: require_some(case["height"].as_u64(), "required test value"),
                 batch_transaction: &batch,
                 transaction_proof: &proof,
                 activity_ids: &ids,
@@ -244,110 +262,30 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             None
         );
 
-        let mut conflicting = encoded.clone();
-        conflicting[59..67].copy_from_slice(&(expected.metadata.gas_used + 1).to_be_bytes());
-        must(durable.put_local(key.clone(), conflicting));
-        assert!(matches!(
-            store_verified_if_absent(
-                &mut durable,
-                owner.clone(),
-                hash,
-                &expected.canonical_receipt,
-                &capability
-            ),
-            Err(ReceiptStoreError::Store(_))
-        ));
-        must(durable.put_local(key.clone(), encoded.clone()));
-        assert!(matches!(
-            store_verified_if_absent(
-                &mut durable,
-                owner.clone(),
-                [0x99; 32],
-                &expected.canonical_receipt,
-                &capability
-            ),
-            Err(ReceiptStoreError::Corrupt)
-        ));
-        assert!(matches!(
-            store_verified_if_absent(
-                &mut durable,
-                owner.clone(),
-                hash,
-                b"altered receipt",
-                &capability
-            ),
-            Err(ReceiptStoreError::Corrupt)
-        ));
-        assert!(matches!(
-            store_verified_if_absent(
-                &mut durable,
-                owner.clone(),
-                hash,
-                &submitted.canonical_receipt,
-                &submitted
-            ),
-            Err(ReceiptStoreError::BelowReceipted)
-        ));
-        assert_eq!(
-            durable
-                .get(&key)
-                .unwrap_or_else(|| panic!("missing stored evidence"))
-                .bytes(),
-            encoded
+        assert_receipt_store_conflicts(
+            &mut durable,
+            &owner,
+            &key,
+            &encoded,
+            &expected,
+            &capability,
+            &submitted,
         );
         drop(durable);
         durable = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
-        let served = serve_evidence(&durable, owner.clone(), hash)
-            .unwrap_or_else(|error| panic!("{error:?}"))
-            .unwrap_or_else(|| panic!("missing served evidence"));
-        assert_eq!(served, expected);
-        assert_eq!(served.canonical_receipt, expected.canonical_receipt);
-        assert_eq!(
-            durable
-                .get(&key)
-                .unwrap_or_else(|| panic!("missing stored evidence"))
-                .bytes(),
-            encoded
-        );
-
-        for malformed in [
-            encoded[..4].to_vec(),
-            encoded[..10].to_vec(),
-            encoded[..encoded.len() - 1].to_vec(),
-            [encoded.as_slice(), &[0]].concat(),
-        ] {
-            durable
-                .put_local(key.clone(), malformed)
-                .unwrap_or_else(|error| panic!("{error:?}"));
-            assert!(matches!(
-                serve_evidence(&durable, owner.clone(), hash),
-                Err(ReceiptStoreError::Corrupt)
-            ));
-        }
-        for (offset, value) in [(10, 0), (58, 2), (388, 3)] {
-            let mut malformed = encoded.clone();
-            malformed[offset] = value;
-            durable
-                .put_local(key.clone(), malformed)
-                .unwrap_or_else(|error| panic!("{error:?}"));
-            assert!(matches!(
-                serve_evidence(&durable, owner.clone(), hash),
-                Err(ReceiptStoreError::Corrupt)
-            ));
-        }
-        let mut submitted_bytes = encoded.clone();
-        submitted_bytes[388] = Rung::Submitted.wire_rank();
-        durable
-            .put_local(key.clone(), submitted_bytes)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        assert!(matches!(
-            serve_evidence(&durable, owner.clone(), hash),
-            Err(ReceiptStoreError::BelowReceipted)
-        ));
-        durable
-            .put_local(key, encoded)
-            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_reopened_receipt_evidence(&mut durable, &owner, key, &encoded, &expected);
     }
+    finish_receipt_evidence_round_trips_by_transaction_hash_1_receipt_store_v2(
+        root, durable, &committed, &receipted,
+    );
+}
+
+fn finish_receipt_evidence_round_trips_by_transaction_hash_1_receipt_store_v2(
+    root: std::path::PathBuf,
+    mut durable: Store,
+    committed: &AuthenticatedTransactionReceipt,
+    receipted: &AuthenticatedTransactionReceipt,
+) {
     let owner = tenant("upgrade-owner");
     let hash = receipted.evidence().metadata.transaction_hash;
     assert_eq!(
@@ -356,7 +294,7 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             owner.clone(),
             hash,
             &receipted.evidence().canonical_receipt,
-            &receipted
+            receipted
         )),
         *receipted.evidence()
     );
@@ -366,7 +304,7 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             owner.clone(),
             hash,
             &committed.evidence().canonical_receipt,
-            &committed
+            committed
         )),
         *committed.evidence()
     );
@@ -376,7 +314,7 @@ fn receipt_evidence_round_trips_by_transaction_hash() {
             owner.clone(),
             hash,
             &receipted.evidence().canonical_receipt,
-            &receipted
+            receipted
         )),
         *committed.evidence()
     );
@@ -420,17 +358,22 @@ fn version_one_receipt_evidence_is_refused() {
         .unwrap_or_else(|error| panic!("{error:?}"));
     drop(durable);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("{error:?}"));
-    let error = serve_evidence(&durable, owner.clone(), hash).unwrap_err();
+    let error = require_err(
+        serve_evidence(&durable, owner.clone(), hash),
+        "required test value",
+    );
     assert!(matches!(error, ReceiptStoreError::EvidenceVersion));
     assert_eq!(error.reason(), "receipt.evidence_version");
-    let error = store_verified_if_absent(
-        &mut durable,
-        owner.clone(),
-        hash,
-        &current.canonical_receipt,
-        &capability,
-    )
-    .unwrap_err();
+    let error = require_err(
+        store_verified_if_absent(
+            &mut durable,
+            owner.clone(),
+            hash,
+            &current.canonical_receipt,
+            &capability,
+        ),
+        "required test value",
+    );
     assert_eq!(error.reason(), "receipt.evidence_version");
     assert_eq!(
         durable
@@ -444,4 +387,121 @@ fn version_one_receipt_evidence_is_refused() {
         .is_empty());
     drop(durable);
     std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("{error:?}"));
+}
+
+fn assert_receipt_store_conflicts(
+    durable: &mut Store,
+    owner: &TenantId,
+    key: &layerx_agentd::store::TenantKey,
+    encoded: &[u8],
+    expected: &TransactionReceiptEvidence,
+    capability: &AuthenticatedTransactionReceipt,
+    submitted: &TransactionReceiptEvidence,
+) {
+    let hash = expected.metadata.transaction_hash;
+    let mut conflicting = encoded.to_vec();
+    conflicting[59..67].copy_from_slice(&(expected.metadata.gas_used + 1).to_be_bytes());
+    must(durable.put_local(key.clone(), conflicting));
+    assert!(matches!(
+        store_verified_if_absent(
+            durable,
+            owner.clone(),
+            hash,
+            &expected.canonical_receipt,
+            capability
+        ),
+        Err(ReceiptStoreError::Store(_))
+    ));
+    must(durable.put_local(key.clone(), encoded.to_vec()));
+    assert!(matches!(
+        store_verified_if_absent(
+            durable,
+            owner.clone(),
+            [0x99; 32],
+            &expected.canonical_receipt,
+            capability
+        ),
+        Err(ReceiptStoreError::Corrupt)
+    ));
+    assert!(matches!(
+        store_verified_if_absent(durable, owner.clone(), hash, b"altered receipt", capability),
+        Err(ReceiptStoreError::Corrupt)
+    ));
+    assert!(matches!(
+        store_verified_if_absent(
+            durable,
+            owner.clone(),
+            hash,
+            &submitted.canonical_receipt,
+            submitted
+        ),
+        Err(ReceiptStoreError::BelowReceipted)
+    ));
+    assert_eq!(
+        durable
+            .get(key)
+            .unwrap_or_else(|| panic!("missing stored evidence"))
+            .bytes(),
+        encoded
+    );
+}
+
+fn assert_reopened_receipt_evidence(
+    durable: &mut Store,
+    owner: &TenantId,
+    key: layerx_agentd::store::TenantKey,
+    encoded: &[u8],
+    expected: &TransactionReceiptEvidence,
+) {
+    let hash = expected.metadata.transaction_hash;
+    let served = serve_evidence(durable, owner.clone(), hash)
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .unwrap_or_else(|| panic!("missing served evidence"));
+    assert_eq!(&served, expected);
+    assert_eq!(served.canonical_receipt, expected.canonical_receipt);
+    assert_eq!(
+        durable
+            .get(&key)
+            .unwrap_or_else(|| panic!("missing stored evidence"))
+            .bytes(),
+        encoded
+    );
+
+    for malformed in [
+        encoded[..4].to_vec(),
+        encoded[..10].to_vec(),
+        encoded[..encoded.len() - 1].to_vec(),
+        [encoded, &[0]].concat(),
+    ] {
+        durable
+            .put_local(key.clone(), malformed)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(matches!(
+            serve_evidence(durable, owner.clone(), hash),
+            Err(ReceiptStoreError::Corrupt)
+        ));
+    }
+    for (offset, value) in [(10, 0), (58, 2), (388, 3)] {
+        let mut malformed = encoded.to_vec();
+        malformed[offset] = value;
+        durable
+            .put_local(key.clone(), malformed)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(matches!(
+            serve_evidence(durable, owner.clone(), hash),
+            Err(ReceiptStoreError::Corrupt)
+        ));
+    }
+    let mut submitted_bytes = encoded.to_vec();
+    submitted_bytes[388] = Rung::Submitted.wire_rank();
+    durable
+        .put_local(key.clone(), submitted_bytes)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(matches!(
+        serve_evidence(durable, owner.clone(), hash),
+        Err(ReceiptStoreError::BelowReceipted)
+    ));
+    durable
+        .put_local(key, encoded.to_vec())
+        .unwrap_or_else(|error| panic!("{error:?}"));
 }

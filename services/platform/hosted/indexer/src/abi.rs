@@ -636,7 +636,7 @@ fn decode_value(data: &[u8], position: usize, kind: &AbiType) -> Result<Value, I
 }
 
 /// The hex of a 32-byte ABI value with its `0x` prefix removed, for asset
-/// identifiers shared with LayerX.
+/// identifiers shared with `LayerX`.
 #[must_use]
 pub fn bare_bytes32(value: &Value) -> Option<String> {
     let text = value.as_str()?;

@@ -15,10 +15,20 @@ pub struct NamesConfig {
 }
 
 impl NamesConfig {
+    /// Reads the optional names contract addresses from the process environment.
+    ///
+    /// # Errors
+    /// Returns a configuration error when any names address is set but another is
+    /// missing, or an address is not exactly 20 bytes of hexadecimal.
     pub fn from_env() -> Result<Option<Self>, IndexError> {
         Self::from_lookup(&|key| std::env::var(key).ok())
     }
 
+    /// Reads the optional names contract addresses using `lookup`.
+    ///
+    /// # Errors
+    /// Returns a configuration error for a partially configured set of addresses
+    /// or an address that is not exactly 20 bytes of hexadecimal.
     pub fn from_lookup(
         lookup: &impl Fn(&str) -> Option<String>,
     ) -> Result<Option<Self>, IndexError> {
@@ -48,6 +58,11 @@ impl NamesConfig {
     }
 }
 
+/// Loads the embedded names event definitions at the configured addresses.
+///
+/// # Errors
+/// Returns a configuration error for invalid embedded JSON, or a decode error
+/// when the embedded event definitions are malformed.
 pub fn names_abi(config: &NamesConfig) -> Result<Vec<LoadedAbi>, IndexError> {
     let document: Value = serde_json::from_str(include_str!("../abis/names.json"))
         .map_err(|error| IndexError::Config(format!("names ABI: {error}")))?;
@@ -68,10 +83,12 @@ pub fn names_abi(config: &NamesConfig) -> Result<Vec<LoadedAbi>, IndexError> {
     .collect()
 }
 
+#[must_use]
 pub fn pax_node() -> [u8; 32] {
     child_node([0; 32], keccak(b"pax"))
 }
 
+#[must_use]
 pub fn child_node(parent: [u8; 32], label: [u8; 32]) -> [u8; 32] {
     let mut bytes = [0; 64];
     bytes[..32].copy_from_slice(&parent);
@@ -79,6 +96,7 @@ pub fn child_node(parent: [u8; 32], label: [u8; 32]) -> [u8; 32] {
     keccak(&bytes)
 }
 
+#[must_use]
 pub fn reverse_node(sender: &str) -> Option<[u8; 32]> {
     let address = unhex_fixed::<20>(sender).ok()?;
     let reverse = child_node([0; 32], keccak(b"reverse"));
@@ -111,6 +129,7 @@ fn decimal_word(text: &str) -> Option<[u8; 32]> {
     Some(word)
 }
 
+#[must_use]
 pub fn decode(event: &DecodedEvent, sender: &str, timestamp: u64) -> Option<NameEventRow> {
     let text = |key: &str| event.arg(key)?.as_str();
     let bytes32 = |key: &str| unhex_fixed::<32>(text(key)?).ok();

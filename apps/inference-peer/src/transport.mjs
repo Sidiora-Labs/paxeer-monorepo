@@ -10,6 +10,7 @@ import {
 import { signHello } from "./identity.mjs";
 import { dealDigest } from "./deal.mjs";
 import { lapCountersignDigest } from "./laps.mjs";
+import { canaryAnswer, CanaryTracker } from "./canary.mjs";
 
 function emit(target, type, detail) {
   target.dispatchEvent(new CustomEvent(type, { detail }));
@@ -30,6 +31,7 @@ export class SignalClient extends EventTarget {
   #deal;
   #digest;
   #lap;
+  #canaries;
 
   constructor(
     url,
@@ -39,6 +41,7 @@ export class SignalClient extends EventTarget {
       manifest,
       WebSocket = globalThis.WebSocket,
       timeoutMs = 10000,
+      canaryTracker,
     },
   ) {
     super();
@@ -67,6 +70,16 @@ export class SignalClient extends EventTarget {
       throw new Error("WebSocket API is unavailable");
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
       throw new RangeError("Invalid timeoutMs");
+    if (canaryTracker !== undefined) {
+      if (
+        !(canaryTracker instanceof CanaryTracker) ||
+        canaryTracker.peerKey !== signalHex(identity.peerKey)
+      )
+        throw new TypeError(
+          "Canary tracker must belong to the signalling identity",
+        );
+      this.#canaries = canaryTracker;
+    }
     this.url = parsed.href;
     this.identity = identity;
     this.manifest = manifest.slice();
@@ -101,7 +114,9 @@ export class SignalClient extends EventTarget {
       });
       socket.addEventListener("error", () =>
         this.#fail(
-          new Error("Signalling WebSocket closed after transport error"),
+          new Error(
+            "Signalling WebSocket closed after transport error",
+          ),
         ),
       );
       socket.addEventListener("close", () => {
@@ -118,7 +133,8 @@ export class SignalClient extends EventTarget {
       throw new Error("Signalling socket is not open");
     const text = encodeSignalFrame(frame);
     if (
-      this.#socket.bufferedAmount + new TextEncoder().encode(text).length >
+      this.#socket.bufferedAmount +
+        new TextEncoder().encode(text).length >
       MAX_SIGNAL_FRAME_BYTES * 4
     )
       throw new Error("Signalling backpressure limit reached");
@@ -158,6 +174,11 @@ export class SignalClient extends EventTarget {
         throw new Error("Unexpected deal");
       if (signalHex(frame.deal.room_id) !== this.roomId)
         throw new Error("Wrong signalling room");
+      this.#canaries?.close();
+      this.#canaries = new CanaryTracker({
+        identity: this.identity,
+        deal: frame.deal,
+      });
       this.#deal = structuredClone(frame.deal);
       this.#lap = undefined;
       this.#digest = Array.from(await dealDigest(this.#deal));
@@ -170,11 +191,28 @@ export class SignalClient extends EventTarget {
       )
         throw new Error("No acknowledged deal matches deal_live");
       this.#state = "ready";
+    } else if (frame.type === "canary_request") {
+      const result =
+        frame.plan.peer_key !== null &&
+        signalHex(frame.plan.peer_key) !==
+          signalHex(this.identity.peerKey)
+          ? { type: "refusal", reason: "peer_mismatch" }
+          : this.#canaries
+            ? await canaryAnswer(frame.plan, this.#canaries)
+            : { type: "refusal", reason: "canary_unavailable" };
+      if (this.#state === "closed") return;
+      if (result.type === "refusal") {
+        emit(this, "canary-refusal", result);
+      } else {
+        this.#write({ type: "canary_answer", answer: result });
+        emit(this, "canary", result);
+      }
     } else if (frame.type === "lap_receipt") {
       if (
         this.#state !== "ready" ||
         signalHex(frame.lap.deal_digest) !== signalHex(this.#digest) ||
-        signalHex(frame.lap.receipt.deal_id) !== signalHex(this.#deal.deal_id)
+        signalHex(frame.lap.receipt.deal_id) !==
+          signalHex(this.#deal.deal_id)
       )
         throw new Error("No live deal matches lap_receipt");
       this.#lap = {
@@ -186,10 +224,18 @@ export class SignalClient extends EventTarget {
       throw new Error("Duplicate room offer");
     else if (
       !["description", "candidate"].includes(frame.type) ||
-      !["offered", "dealt", "acknowledged", "ready"].includes(this.#state)
+      !["offered", "dealt", "acknowledged", "ready"].includes(
+        this.#state,
+      )
     )
       throw new Error("Unexpected signalling frame");
     emit(this, "frame", frame);
+  }
+  // The runtime supplies actual logits after processing ordinary activations.
+  recordCanaryLogits(record) {
+    if (this.#state === "closed" || !this.#canaries)
+      throw new Error("No active canary tracker");
+    this.#canaries.recordLogits(record);
   }
   acknowledgeDeal(ack) {
     if (
@@ -216,7 +262,11 @@ export class SignalClient extends EventTarget {
     this.#write(ack);
   }
   relay(to, relay) {
-    if (!["offered", "dealt", "acknowledged", "ready"].includes(this.#state))
+    if (
+      !["offered", "dealt", "acknowledged", "ready"].includes(
+        this.#state,
+      )
+    )
       throw new Error("Room offer is required");
     validateRelay(relay);
     if (relay.description)
@@ -252,6 +302,7 @@ export class SignalClient extends EventTarget {
     if (this.#state === "closed") return;
     this.#state = "closed";
     clearTimeout(this.#timer);
+    this.#canaries?.close();
     this.#reject?.(new Error("Signalling client closed"));
     this.#socket?.close();
     emit(this, "close");
@@ -272,7 +323,10 @@ function validateRelay(relay) {
       relay.candidate.sdpMid !== undefined
     )
       requireText(relay.candidate.sdpMid, "ICE mid");
-  } else throw new TypeError("Relay must carry one description or candidate");
+  } else
+    throw new TypeError(
+      "Relay must carry one description or candidate",
+    );
 }
 
 export class PeerMesh extends EventTarget {
@@ -380,12 +434,18 @@ export class PeerMesh extends EventTarget {
                   unordered: label === "activations",
                   protocol: "paxeer-room-v1",
                 }
-              : { ordered: label === "control", protocol: "paxeer-room-v1" };
+              : {
+                  ordered: label === "control",
+                  protocol: "paxeer-room-v1",
+                };
           this.#attach(peer, peer.pc.createDataChannel(label, config));
         }
-        if (this.mode === "native") peer.pc.setLocalDescription("offer");
+        if (this.mode === "native")
+          peer.pc.setLocalDescription("offer");
         else {
-          await peer.pc.setLocalDescription(await peer.pc.createOffer());
+          await peer.pc.setLocalDescription(
+            await peer.pc.createOffer(),
+          );
           this.#relay(peer, {
             description: peer.pc.localDescription.toJSON(),
           });
@@ -445,7 +505,9 @@ export class PeerMesh extends EventTarget {
         if (candidate?.candidate)
           this.#relay(peer, { candidate: candidate.toJSON() });
       });
-      pc.addEventListener("datachannel", ({ channel }) => attach(channel));
+      pc.addEventListener("datachannel", ({ channel }) =>
+        attach(channel),
+      );
       pc.addEventListener("connectionstatechange", () =>
         stateChanged(pc.connectionState),
       );
@@ -468,15 +530,19 @@ export class PeerMesh extends EventTarget {
       const { type, sdp } = relay.description;
       if ((type === "offer") !== peer.key < this.peerKey)
         throw new Error("Unexpected SDP initiator");
-      if (this.mode === "native") peer.pc.setRemoteDescription(sdp, type);
+      if (this.mode === "native")
+        peer.pc.setRemoteDescription(sdp, type);
       else await peer.pc.setRemoteDescription(relay.description);
       peer.remote = true;
       for (const candidate of peer.candidates.splice(0))
         await this.#candidate(peer, candidate);
       if (type === "offer") {
-        if (this.mode === "native") peer.pc.setLocalDescription("answer");
+        if (this.mode === "native")
+          peer.pc.setLocalDescription("answer");
         else {
-          await peer.pc.setLocalDescription(await peer.pc.createAnswer());
+          await peer.pc.setLocalDescription(
+            await peer.pc.createAnswer(),
+          );
           this.#relay(peer, {
             description: peer.pc.localDescription.toJSON(),
           });

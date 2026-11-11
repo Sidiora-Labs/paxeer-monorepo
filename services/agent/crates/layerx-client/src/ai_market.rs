@@ -16,6 +16,7 @@ use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
 use layerx_crypto::payments::bind_call;
 use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_crypto::VerifyError;
+use layerx_program_sdk::{ActivityAccess, CapabilitySet, Principal, ProgramError};
 use layerx_programs_ai_market::codec::{
     decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
 };
@@ -26,6 +27,7 @@ use layerx_programs_ai_market::errors::{
     F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_RECIPIENT, NON_CANONICAL, NOT_FOUND,
     UNAUTHORIZED, WRONG_CONFIG, WRONG_MARKET, WRONG_ROSTER,
 };
+use layerx_programs_ai_market::host_adapter::{MUTATION_CAPABILITIES, READ_CAPABILITIES};
 use layerx_programs_ai_market::policy::{TaskPolicyV1, TASK_POLICY_BYTES};
 use layerx_programs_ai_market::queries::{
     bind_snapshot, participant_rows, read_header, Availability, CaptureFacts, FinalityEvidence,
@@ -44,6 +46,10 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
+use layerx_programs_runtime::abi::{
+    AbiError, Capability as RuntimeCapability, CapabilitySet as RuntimeCapabilitySet,
+};
+use layerx_programs_runtime::storage::ProgramId as RuntimeProgramId;
 use layerx_types::activity::ActivityBuildError;
 use layerx_types::ids::{Did, LengthError};
 use layerx_types::intent;
@@ -107,18 +113,22 @@ pub mod inference_market {
     pub struct HostMeterKey(ed25519_dalek::SigningKey);
 
     impl HostMeterKey {
+        #[must_use]
         pub fn from_seed(seed: &[u8; 32]) -> Self {
             Self(ed25519_dalek::SigningKey::from_bytes(seed))
         }
+        #[must_use]
         pub fn public_key(&self) -> [u8; 32] {
             self.0.verifying_key().to_bytes()
         }
+        #[must_use]
         pub fn sign(&self, digest: &[u8; 32]) -> [u8; 64] {
             use ed25519_dalek::Signer as _;
             self.0.sign(digest).to_bytes()
         }
     }
 
+    #[must_use]
     pub fn meter_digest(stream: [u8; 32], reading: u64, key: [u8; 32]) -> [u8; 32] {
         let mut hash = sha2::Sha256::new();
         hash.update(b"LXP/v1/signature-preimage\0");
@@ -129,6 +139,10 @@ pub mod inference_market {
         hash.finalize().into()
     }
 
+    /// # Errors
+    ///
+    /// Returns a noncanonical-data error for a zero stream or authority, or a signature error
+    /// when the meter attestation does not verify.
     pub fn stream_meter_calldata(
         stream: [u8; 32],
         reading: u64,
@@ -157,6 +171,11 @@ pub mod inference_market {
         Ok(out)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for invalid transaction terms or noncanonical meter calldata, an
+    /// invalid attestation, an unauthorized signing key, signing failure, or invalid signed
+    /// transaction bytes.
     pub async fn sign_stream_meter(
         calldata: &[u8],
         terms: &NativeTerms<'_>,
@@ -209,11 +228,11 @@ pub mod inference_market {
         if layerx_crypto::evm_transaction::recover_sender(&call, &signature)? != from {
             return Err(AiClientError::UnauthorizedKey);
         }
-        Ok(super::OperationRecord::from_signed_transaction(
+        super::OperationRecord::from_signed_transaction(
             layerx_crypto::evm_transaction::assemble(&call, &signature),
             sha2::Sha256::digest(calldata).into(),
             terms.not_after,
-        )?)
+        )
     }
 
     /// Secret-keyed, deterministic sampling; the signature is never sent to peers.
@@ -325,10 +344,18 @@ pub mod inference_market {
         }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the payload fails the seal-evidence operation codec validation.
     pub fn seal_evidence(payload: &[u8]) -> Result<MarketOperation, AiClientError> {
         MarketOperation::new(dispatch::SealEvidence, payload.to_vec())
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for a stale snapshot, invalid shared state, absent or mismatched
+    /// captured roster, expired request, unauthorized actor, sequence overflow, or invalid
+    /// envelope fields.
     pub fn lap_envelope(
         snapshot: &FinalizedSnapshot,
         operation: &MarketOperation,
@@ -592,6 +619,10 @@ pub mod inference_market {
         Ok(BookView::decode(bytes)?)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the shared state or model query is invalid, or the resulting book
+    /// view is malformed.
     pub fn book_view(
         snapshot: &FinalizedSnapshot,
         model: Digest32,
@@ -607,6 +638,10 @@ pub mod inference_market {
         Ok(bytes)
     }
 
+    /// # Errors
+    ///
+    /// Returns a sequencer error if the lookup fails, or `FinalityMismatch` if the recorded
+    /// deal fields differ from the request.
     pub fn verify_recorded_deal(
         endpoint: &crate::sequencer::SequencerEndpoint,
         request: &RecordDealRequest,
@@ -647,6 +682,11 @@ pub mod inference_market {
         Ok(())
     }
 
+    /// # Errors
+    ///
+    /// Returns an error for malformed shared state or admission data, a missing epoch or room,
+    /// a mismatched roster, expired request, sequence overflow, invalid deal payload, or
+    /// invalid envelope fields.
     pub fn deal_envelope(
         snapshot: &FinalizedSnapshot,
         deal: &RecordDealRequest,
@@ -711,6 +751,12 @@ pub mod inference_market {
 
     /// Read content-addressed namespace artifacts at H-1 and authenticate them under
     /// the independently pinned validator commit at H before exposing a snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if committed headers or namespace artifacts are unavailable, their
+    /// proofs or content digests fail verification, the state is malformed, or the captured
+    /// snapshot cannot be finalized.
     pub fn poll_finalized_market(
         endpoint: &crate::sequencer::SequencerEndpoint,
         verifier: &layerx_programs_registry::chain_proof::ChainProofVerifier,
@@ -759,10 +805,8 @@ pub mod inference_market {
             let name = reader.take(length)?;
             let digest: [u8; 32] = reader.fixed()?;
             let _length = reader.u32()?;
-            if name == program::SHARED_STATE_KEY {
-                if state_digest.replace(digest).is_some() {
-                    return Err(invalid());
-                }
+            if name == program::SHARED_STATE_KEY && state_digest.replace(digest).is_some() {
+                return Err(invalid());
             }
         }
         reader.finish()?;
@@ -1010,6 +1054,179 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
+/// Canonical authority and access fields for a market program call.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MarketCallTerms {
+    pub capabilities: Vec<u8>,
+    pub access_declaration: Vec<u8>,
+}
+
+/// The single spending authority required by a market value action.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum MarketSpendingGrant {
+    Deposit {
+        asset: [u8; 32],
+        rewards_account: [u8; 32],
+        amount: u128,
+    },
+    Payment {
+        owner_program: [u8; 32],
+        seed: Vec<u8>,
+        source_account: [u8; 32],
+        asset: [u8; 32],
+        recipient: [u8; 32],
+        amount: u128,
+    },
+}
+
+/// Builds canonical runtime authority and access fields for one value action.
+///
+/// # Errors
+/// Refuses a nonvalue operation, a grant in the wrong direction, a zero amount,
+/// invalid authority fields, or invalid program and principal identifiers.
+pub fn market_value_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+    grant: MarketSpendingGrant,
+) -> Result<MarketCallTerms, AiClientError> {
+    let deposit = matches!(
+        operation,
+        dispatch::FUND | dispatch::LockBond | dispatch::ChallengeLap
+    );
+    let payment = matches!(
+        operation,
+        dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::RefundBond
+            | dispatch::ResolveChallenge
+    );
+    if !deposit && !payment {
+        return Err(AiClientError::MarketNonValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let spending = match grant {
+        MarketSpendingGrant::Deposit {
+            asset,
+            rewards_account,
+            amount,
+        } if deposit => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::Transfer402 {
+                asset,
+                to: rewards_account,
+                maximum_amount: amount,
+            }
+        }
+        MarketSpendingGrant::Payment {
+            owner_program,
+            seed,
+            source_account,
+            asset,
+            recipient,
+            amount,
+        } if payment => {
+            if amount == 0 {
+                return Err(AiClientError::MarketValueAmountZero);
+            }
+            RuntimeCapability::ProgramSpend {
+                owner_program: RuntimeProgramId::new(owner_program).map_err(AbiError::from)?,
+                seed,
+                source_account,
+                asset,
+                to: recipient,
+                maximum_amount: amount,
+            }
+        }
+        _ => {
+            return Err(AiClientError::MarketValueGrantDirection {
+                operation: operation.metadata().name,
+            })
+        }
+    };
+    let mut grants = MUTATION_CAPABILITIES
+        .into_iter()
+        .map(|capability| match capability {
+            layerx_program_sdk::Capability::SharedStorageRead => {
+                Ok(RuntimeCapability::SharedStorageRead)
+            }
+            layerx_program_sdk::Capability::SharedStorageWrite => {
+                Ok(RuntimeCapability::SharedStorageWrite)
+            }
+            layerx_program_sdk::Capability::EmitEvent => Ok(RuntimeCapability::EmitEvent),
+            _ => Err(AbiError::InvalidCapability),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    grants.push(spending);
+    let capabilities = RuntimeCapabilitySet::new(grants)?.canonical_encoding();
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
+/// Builds the host-admitted fields for a market operation.
+///
+/// # Errors
+/// Refuses value actions and invalid program or principal identifiers, or an SDK encoding error.
+pub fn market_call_terms(
+    operation: Operation,
+    program: [u8; 32],
+    principal: [u8; 32],
+) -> Result<MarketCallTerms, AiClientError> {
+    if matches!(
+        operation,
+        dispatch::FUND
+            | dispatch::CLAIM
+            | dispatch::REFUND_FREE
+            | dispatch::ADVANCE_CLOSE
+            | dispatch::LockBond
+            | dispatch::RefundBond
+            | dispatch::ChallengeLap
+            | dispatch::ResolveChallenge
+    ) {
+        return Err(AiClientError::MarketValueOperation {
+            operation: operation.metadata().name,
+        });
+    }
+    let grants = if operation.metadata().boundary == CallBoundary::ProgramRead {
+        READ_CAPABILITIES.as_slice()
+    } else {
+        MUTATION_CAPABILITIES.as_slice()
+    };
+    let set = CapabilitySet::<3>::from_grants(grants)?;
+    let mut capabilities = vec![0; set.encoded_len()];
+    let length = set.encode_into(&mut capabilities)?;
+    capabilities.truncate(length);
+
+    let program = layerx_program_sdk::ProgramId::new(program)?;
+    let principal = Principal::new(principal)?;
+    let mut access_declaration = vec![0; 64];
+    let length = ActivityAccess::<0>::Absent.encode_canonical(
+        program,
+        principal,
+        &mut access_declaration,
+    )?;
+    access_declaration.truncate(length);
+    Ok(MarketCallTerms {
+        capabilities,
+        access_declaration,
+    })
+}
+
 const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP3";
 const LEGACY_RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
@@ -1020,6 +1237,18 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 pub enum AiClientError {
     Query(QueryError),
     MissingOperation(&'static str),
+    MarketValueOperation {
+        operation: &'static str,
+    },
+    MarketNonValueOperation {
+        operation: &'static str,
+    },
+    MarketValueGrantDirection {
+        operation: &'static str,
+    },
+    MarketValueAmountZero,
+    MarketAbi(AbiError),
+    ProgramSdk(ProgramError),
     ProgramRefused {
         operation: &'static str,
         code: u16,
@@ -1067,6 +1296,8 @@ macro_rules! from_refusal {
 }
 
 from_refusal!(
+    AbiError => MarketAbi,
+    ProgramError => ProgramSdk,
     QueryError => Query,
     InvalidNativeCall => NativeCall,
     ActivityBuildError => Activity,
@@ -2928,6 +3159,11 @@ impl OperationJournal {
         Ok(record.state)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the journal cannot be locked or read, the record is stale or in an
+    /// invalid state, receipt authentication fails, its digest or transaction fields mismatch,
+    /// or the updated record cannot be persisted.
     pub fn resolve_receipt(
         &self,
         record: &mut OperationRecord,
@@ -3206,6 +3442,9 @@ impl EpochHistoryEntry {
     }
 }
 
+/// # Errors
+///
+/// Returns `MissingOperation` when no dispatch entry has the supplied name.
 pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientError> {
     dispatch::OPERATIONS
         .iter()
@@ -3214,6 +3453,10 @@ pub fn named_market_operation(name: &'static str) -> Result<Operation, AiClientE
         .ok_or(AiClientError::MissingOperation(name))
 }
 
+/// # Errors
+///
+/// Returns a codec error for malformed result bytes, or `CorruptRecord` when a refusal code is
+/// absent from the application error registry.
 pub fn program_refusal(
     operation: Operation,
     bytes: &[u8],
@@ -3236,6 +3479,11 @@ pub fn program_refusal(
         .transpose()
 }
 
+/// # Errors
+///
+/// Returns an error for invalid signed transaction bytes, a different chain or target,
+/// malformed program-call or envelope bytes, or mismatched program, ABI, entrypoint or expiry
+/// fields.
 pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientError> {
     let (call, _) = evm_transaction::decode_signed(record.signed_bytes())?;
     let mut target = [0; 20];
@@ -3252,9 +3500,14 @@ pub fn market_envelope(record: &OperationRecord) -> Result<Vec<u8>, AiClientErro
     {
         return Err(AiClientError::NotNativeProgramCall);
     }
-    Ok(native.calldata.to_vec())
+    Ok(native.calldata)
 }
 
+/// # Errors
+///
+/// Returns an error for an invalid envelope, a nonmutation operation, mismatched transaction
+/// terms, invalid actor DID, unauthorized key, disclosure or signing failure, or invalid signed
+/// transaction bytes.
 pub async fn sign_market_envelope(
     envelope: &[u8],
     terms: &NativeTerms<'_>,
@@ -3309,6 +3562,10 @@ pub async fn sign_market_envelope(
     )
 }
 
+/// # Errors
+///
+/// Returns an error if the signed envelope is invalid, journal persistence or reload fails,
+/// retained bytes or intent differ, submission fails, or the program reports a refusal.
 pub fn submit_market_operation(
     journal: &OperationJournal,
     record: &mut OperationRecord,

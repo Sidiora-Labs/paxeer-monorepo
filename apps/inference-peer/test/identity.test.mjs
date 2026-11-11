@@ -468,101 +468,80 @@ async function probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors
     );
 }
 
-async function enrol_request_delivers_the_real_peer_signed_manifest_over_http(
+async function enrol_request_delivers_owner_signed_document_unchanged_over_http(
   t,
 ) {
+  const vector = JSON.parse(
+    await readFile(
+      new URL("fixtures/host-enrol-route.json", import.meta.url),
+      "utf8",
+    ),
+  );
   const identity = await PeerIdentity.open({
     path: join(await directory(t), "key"),
   });
   let accepted;
-  let failure;
   const url = await listen(t, async (request, response) => {
-    try {
-      assert.equal(request.method, "POST");
-      assert.equal(request.url, "/enrol_peer");
-      assert.equal(request.headers["content-type"], "application/json");
-      assert.equal(request.headers.authorization, "Bearer local-test-session");
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      const document = JSON.parse(Buffer.concat(chunks));
-      const manifest = document.manifest;
-      const encoded = Buffer.from(manifest.bytes, "hex");
-      const digest = metadataHash(encoded);
-      assert.equal(manifest.version, 2);
-      assert.equal(encoded.readUInt16BE(0), 2);
-      assert.equal(manifest.metadataDigest, digest.toString("hex"));
-      assert.ok(
-        verify(
-          null,
-          digest,
-          publicKey(manifest.peerKey),
-          Buffer.from(manifest.signature, "hex"),
-        ),
-      );
-      accepted = document;
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(
-        JSON.stringify({
-          peerKey: manifest.peerKey,
-          metadataDigest: manifest.metadataDigest,
-        }),
-      );
-    } catch (error) {
-      failure = error;
-      response.writeHead(400);
-      response.end(String(error));
-    }
+    assert.equal(request.method, "POST");
+    assert.equal(request.url, vector.route);
+    assert.equal(request.headers["content-type"], "application/json");
+    assert.equal(request.headers.authorization, "Bearer local-test-session");
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    accepted = Buffer.concat(chunks).toString();
+    response.writeHead(vector.accepted.status, {
+      "content-type": "application/json",
+    });
+    response.end(JSON.stringify(vector.accepted.body));
   });
-  const manifest = encodeManifestV2(V1_FIXTURE, {
-    ...CAPABILITIES,
-    runtimeKind: 1,
-  });
-  const result = await identity.enrolPeer(`${url}/enrol_peer`, {
-    manifest,
+  const document = JSON.stringify(vector.request, null, 2);
+  const result = await identity.enrolPeer(`${url}${vector.route}`, {
+    document,
     headers: { authorization: "Bearer local-test-session" },
   });
-  assert.equal(failure, undefined);
-  assert.equal(accepted.manifest.peerKey, identity.peerKey);
-  assert.deepEqual(
-    Buffer.from(accepted.manifest.bytes, "hex"),
-    Buffer.from(manifest),
-  );
-  assert.deepEqual(result, {
-    peerKey: identity.peerKey,
-    metadataDigest: metadataHash(manifest).toString("hex"),
-  });
-  assert.equal(JSON.stringify(accepted).includes("privateKey"), false);
+  assert.equal(accepted, document);
+  assert.deepEqual(result, vector.accepted.body);
 }
 
 async function enrol_refusals_and_invalid_routes_do_not_report_success(t) {
+  const vector = JSON.parse(
+    await readFile(
+      new URL("fixtures/host-enrol-route.json", import.meta.url),
+      "utf8",
+    ),
+  );
   const identity = await PeerIdentity.open({
     path: join(await directory(t), "key"),
   });
+  const refusal = vector.refusals.find((item) => item.name === "wrong_chain");
   const url = await listen(t, (_request, response) => {
-    response.writeHead(409, { "content-type": "application/json" });
-    response.end(
-      JSON.stringify({ error: "WRONG_ROSTER", operation: "LockBond" }),
-    );
+    response.writeHead(refusal.status, { "content-type": "application/json" });
+    response.end(JSON.stringify(refusal.body));
   });
-  const manifest = encodeManifestV2(V1_FIXTURE, CAPABILITIES);
+  const document = vector.request;
   await assert.rejects(
-    identity.enrolPeer(`${url}/enrol_peer`, { manifest }),
-    /enrol_peer refused \(409\).*WRONG_ROSTER.*LockBond/,
+    identity.enrolPeer(`${url}${vector.route}`, { document }),
+    /enrol_peer refused \(422\).*wrong_chain/,
   );
   await assert.rejects(
-    identity.enrolPeer(`${url}/other`, { manifest }),
+    identity.enrolPeer(`${url}/other`, { document }),
     /enrol_peer route/,
   );
   await assert.rejects(
-    identity.enrolPeer("http://example.com/enrol_peer", { manifest }),
+    identity.enrolPeer("http://example.com/enrol_peer", { document }),
     /HTTPS/,
   );
   await assert.rejects(
-    identity.enrolPeer(`${url}/enrol_peer`, {
-      manifest,
-      quote: { oversized: "x".repeat(262144) },
+    identity.enrolPeer(`${url}${vector.route}`, {
+      document: " ".repeat(262145),
     }),
     /exceeds/,
+  );
+  await assert.rejects(
+    identity.enrolPeer(`${url}${vector.route}`, {
+      manifest: new Uint8Array(1),
+    }),
+    /document is required/,
   );
 }
 
@@ -576,5 +555,5 @@ test(manifest_matches_chain_v2_fixture_and_metadata_domain);
 test(manifest_refuses_noncanonical_capabilities_and_invalid_v1_templates);
 test(measured_native_manifest_uses_platform_memory_and_a_bounded_real_probe);
 test(probe_refusals_bad_lengths_redirects_and_deadlines_surface_errors);
-test(enrol_request_delivers_the_real_peer_signed_manifest_over_http);
+test(enrol_request_delivers_owner_signed_document_unchanged_over_http);
 test(enrol_refusals_and_invalid_routes_do_not_report_success);
