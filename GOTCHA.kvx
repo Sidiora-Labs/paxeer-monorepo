@@ -21140,3 +21140,8 @@ fix = "Decision 3336 and task 22.39.410."
 title = "The recipe platform-lint covers every member of the three platform manifests"
 symptom = "The recipe of services/platform/Makefile.inc runs clippy over the whole workspace of each of the three platform manifests with all targets and with warnings denied, so the recipe passes only when every member passes. The members internal, identity and paxeer under services/platform/hosted are linted in the same command."
 fix = "Decision 3339; task 22.39.403 owns the source of the three members."
+
+[gotcha.4264]
+title = "A member of the platform workspace is linted alone with the package option"
+symptom = "The recipe platform-lint of services/platform/Makefile.inc lints the whole workspace of services/platform/Cargo.toml in one command. With the package option clippy denies warnings only in the selected member and compiles the members it depends on without the denial, and the option accepts a pattern, so a member is selected by a prefix of its package name."
+fix = "Decision 3340; tasks 22.39.412 to 22.39.424."
