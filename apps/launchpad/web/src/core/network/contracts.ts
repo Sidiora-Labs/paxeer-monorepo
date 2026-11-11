@@ -9,6 +9,7 @@ import RouterAbi from './abis/Router.json';
 import QuoterAbi from './abis/Quoter.json';
 import FeesRouterAbi from './abis/FeesRouter.json';
 import OpticalRegistryAbi from './abis/OpticalRegistry.json';
+import { parseAbi } from 'viem';
 
 export const ROUTER_ADDRESS = CORE_DEPLOYMENT.router;
 export const QUOTER_ADDRESS = CORE_DEPLOYMENT.quoter;
@@ -16,6 +17,12 @@ export const FEES_ROUTER_ADDRESS = CORE_DEPLOYMENT.feesRouter;
 export const OPTICAL_REGISTRY_ADDRESS = CORE_DEPLOYMENT.opticalRegistry;
 export const USDL_ADDRESS = CORE_DEPLOYMENT.usdl;
 export const PROTOCOL_CONFIG_ADDRESS = CORE_DEPLOYMENT.protocolConfig;
+export const LAUNCHPAD_ADDRESS = CORE_DEPLOYMENT.launchpadPrecompile;
+export const CHAIN_LAUNCH_ABI = parseAbi([
+  'function launchChain(string name,string symbol,uint8 feeStrategy,address optical,string chainName,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) payable returns (address tokenAddr,address poolAddr,uint256 nftId,uint32 chain,uint64 chainId)',
+  'function launchedChain(uint32 chain) view returns (uint32 registryNumber,uint64 chainId,address pool,address token,uint256 nftId,address creator,uint64 blockNumber)',
+  'event ChainLaunched(uint32 indexed chain,address indexed pool,address indexed token,uint64 chainId,uint256 nftId,address creator,uint256 timestamp,uint256 blockNumber)',
+]);
 
 const ERC20_ABI = [
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },

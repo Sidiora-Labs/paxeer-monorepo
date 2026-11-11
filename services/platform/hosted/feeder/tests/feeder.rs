@@ -75,26 +75,31 @@ fn only_the_price_sidecar_ships() -> Result {
         serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
     let package = metadata["packages"]
         .as_array()
-        .expect("cargo metadata packages must be an array")
+        .ok_or("cargo metadata packages must be an array")?
         .iter()
         .find(|package| package["name"] == "layerx-oracle-feeder")
-        .expect("cargo metadata must include layerx-oracle-feeder");
+        .ok_or("cargo metadata must include layerx-oracle-feeder")?;
     let bins: Vec<&str> = package["targets"]
         .as_array()
-        .expect("cargo metadata targets must be an array")
+        .ok_or("cargo metadata targets must be an array")?
         .iter()
-        .filter(|target| {
-            target["kind"]
-                .as_array()
-                .expect("cargo metadata target kind must be an array")
-                .iter()
-                .any(|kind| kind == "bin")
-        })
         .map(|target| {
-            target["name"]
-                .as_str()
-                .expect("cargo metadata target name must be a string")
+            let kind = target["kind"]
+                .as_array()
+                .ok_or("cargo metadata target kind must be an array")?;
+            if kind.iter().any(|kind| kind == "bin") {
+                Ok(Some(
+                    target["name"]
+                        .as_str()
+                        .ok_or("cargo metadata target name must be a string")?,
+                ))
+            } else {
+                Ok(None)
+            }
         })
+        .collect::<std::result::Result<Vec<_>, String>>()?
+        .into_iter()
+        .flatten()
         .collect();
     assert_eq!(bins, ["price-sidecar"]);
     let dockerfile = std::fs::read_to_string(dir.join("Dockerfile")).map_err(|e| e.to_string())?;

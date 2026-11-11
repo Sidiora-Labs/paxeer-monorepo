@@ -5,7 +5,6 @@ use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, decode_batch_header};
 use serde::{Deserialize, Serialize};
 use serde_json::{json as value, Value};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -293,10 +292,11 @@ impl Human {
             };
         }
         let path = PathBuf::from(required("LAYERX_AUTHORITY_HUMAN_AGENT_TOKEN_FILE")?);
-        let token = Zeroizing::new(
-            protected::read(&path, 4096)
-                .map_err(|()| "human token file is unavailable or unprotected")?,
-        );
+        let token = Zeroizing::new(protected::read(&path, 4096).map_err(
+            |layerx_platform_authority::AuthorityError| {
+                "human token file is unavailable or unprotected"
+            },
+        )?);
         if token.len() < 32
             || !token.iter().all(|b| (0x21..=0x7e).contains(b))
             || tokens
@@ -344,8 +344,9 @@ impl Human {
     }
 
     fn principal(&self) -> Result<&PrincipalPolicy, Response> {
-        let bytes = protected::read(&self.policy_path, MAX_FILE)
-            .map_err(|()| unavailable("policy_unavailable"))?;
+        let bytes = protected::read(&self.policy_path, MAX_FILE).map_err(
+            |layerx_platform_authority::AuthorityError| unavailable("policy_unavailable"),
+        )?;
         if Some(digest(&bytes)) != self.policy_digest {
             return Err(unavailable("policy_changed_restart_required"));
         }
@@ -393,7 +394,7 @@ impl Human {
                 .open(&temporary)
             {
                 Ok(file) => break (temporary, file),
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                 Err(_) => return Err(()),
             }
         };
@@ -433,8 +434,9 @@ impl Human {
             if path.file_name().and_then(|name| name.to_str()) == Some(QUARANTINE) {
                 continue;
             }
-            let bytes =
-                protected::read(&path, MAX_FILE).map_err(|()| unavailable("state_unavailable"))?;
+            let bytes = protected::read(&path, MAX_FILE).map_err(
+                |layerx_platform_authority::AuthorityError| unavailable("state_unavailable"),
+            )?;
             let record =
                 serde_json::from_slice(&bytes).map_err(|_| unavailable("state_unavailable"))?;
             let item =
@@ -617,13 +619,16 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
 }
 
 fn bind_committed(config: &Config, evidence: &mut [Verified]) -> Result<(), Response> {
-    let head = crate::committed::CommittedHeader::open(&config.chain_rpc_url)
-        .map_err(|()| unavailable("committed_header_unavailable"))?;
+    let head = crate::committed::CommittedHeader::open(&config.chain_rpc_url).map_err(
+        |layerx_platform_authority::AuthorityError| unavailable("committed_header_unavailable"),
+    )?;
     for item in evidence {
         let bytes = hex::decode(&item.record.receipt_hex)
             .map_err(|_| unavailable("committed_receipt_evidence_unavailable"))?;
         head.bind_receipt(&config.chain_rpc_url, &config.chain_receipts, &bytes)
-            .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?;
+            .map_err(|layerx_platform_authority::AuthorityError| {
+                unavailable("committed_receipt_evidence_unavailable")
+            })?;
         item.checkpoint = Some(
             CommittedCheckpoint::new(&item.header, head.clone())
                 .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?,
@@ -644,7 +649,9 @@ fn current_identity_state(identity: &Identity, evidence: &[Verified]) -> Result<
     native_checkpoint(latest)?
         .finality
         .prove(7, &state[5..37], &state)
-        .map_err(|()| unavailable("identity_state_proof_unavailable"))?;
+        .map_err(|layerx_platform_authority::AuthorityError| {
+            unavailable("identity_state_proof_unavailable")
+        })?;
     Ok(state)
 }
 
@@ -691,7 +698,9 @@ fn budget(p: &PrincipalPolicy, id: &str, evidence: &[Verified]) -> Result<Respon
 
 fn read_registry(path: &Path) -> Result<(Registry, Vec<u8>), Response> {
     let bytes =
-        protected::read(path, MAX_FILE).map_err(|()| unavailable("module_registry_unavailable"))?;
+        protected::read(path, MAX_FILE).map_err(|layerx_platform_authority::AuthorityError| {
+            unavailable("module_registry_unavailable")
+        })?;
     let registry: Registry =
         serde_json::from_slice(&bytes).map_err(|_| unavailable("module_registry_invalid"))?;
     let mut seen = BTreeSet::new();
@@ -1057,7 +1066,7 @@ fn native_capability_scope(
     checkpoint
         .finality
         .prove(7, &summary_key, summary)
-        .map_err(|()| refused())?;
+        .map_err(|layerx_platform_authority::AuthorityError| refused())?;
     Ok(json(
         200,
         &value!({
@@ -1269,16 +1278,14 @@ fn native_complete_suffix(start: &Verified, evidence: &[Verified]) -> Result<(),
 }
 
 #[cfg(test)]
-#[path = "../tests/support/human_unit.rs"]
-mod tests;
-
+use layerx_platform_authority::assertion::Must;
 #[cfg(test)]
-pub(super) mod publication_interruption {
+pub mod publication_interruption {
     use super::*;
     use std::cell::Cell;
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub(crate) enum Boundary {
+    pub enum Boundary {
         Write,
         Sync,
         Rename,
@@ -1290,7 +1297,7 @@ pub(super) mod publication_interruption {
         static BOUNDARY: Cell<Option<Boundary>> = const { Cell::new(None) };
     }
 
-    pub(crate) struct Reset;
+    pub struct Reset;
 
     impl Drop for Reset {
         fn drop(&mut self) {
@@ -1298,7 +1305,8 @@ pub(super) mod publication_interruption {
         }
     }
 
-    pub(crate) fn arm(boundary: Boundary) -> Reset {
+    #[must_use]
+    pub fn arm(boundary: Boundary) -> Reset {
         BOUNDARY.set(Some(boundary));
         Reset
     }
@@ -1322,7 +1330,9 @@ pub(super) mod publication_interruption {
 
 #[cfg(test)]
 impl Config {
-    pub(crate) fn fixture_receipt_evidence(&self) -> Result<Vec<AuthorityFacts>, Response> {
+    /// # Errors
+    /// Returns the authority response when receipt evidence is unavailable.
+    pub fn fixture_receipt_evidence(&self) -> Result<Vec<AuthorityFacts>, Response> {
         self.human
             .as_ref()
             .ok_or_else(|| unavailable("human_authority_unconfigured"))?
@@ -1333,7 +1343,9 @@ impl Config {
 
 #[cfg(test)]
 impl Config {
-    pub(crate) fn fixture_budget_export(
+    /// # Errors
+    /// Returns the authority response when the policy or budget export is invalid.
+    pub fn fixture_budget_export(
         &self,
         policy: &Value,
         id: &str,
@@ -1347,23 +1359,23 @@ impl Config {
 
 #[cfg(test)]
 impl Config {
-    pub(crate) fn fixture_subject_binding(&mut self, binding: layerx_identity_binding::Client) {
+    pub fn fixture_subject_binding(&mut self, binding: layerx_identity_binding::Client) {
         self.human
             .as_mut()
-            .expect("fixture human authority")
+            .must_with("fixture human authority")
             .binding = Some(binding);
     }
 
-    pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
+    pub fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
         let principal: PrincipalPolicy =
-            serde_json::from_value(policy.clone()).expect("fixture principal");
+            serde_json::from_value(policy.clone()).must_with("fixture principal");
         self.human = Some(Human {
             token: zeroize::Zeroizing::new(b"repair-human-token-208".to_vec()),
             tenant: principal.tenant.clone(),
             principal: principal.principal.clone(),
             policy_path: root.join("policy.json"),
             policy_digest: Some(digest(
-                &std::fs::read(root.join("policy.json")).expect("fixture policy bytes"),
+                &std::fs::read(root.join("policy.json")).must_with("fixture policy bytes"),
             )),
             policy: Some(Policy {
                 principals: vec![principal],
@@ -1376,3 +1388,7 @@ impl Config {
         });
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/support/human_unit.rs"]
+mod tests;

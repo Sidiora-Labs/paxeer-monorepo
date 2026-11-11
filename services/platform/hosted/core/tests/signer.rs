@@ -152,7 +152,9 @@ fn evm_sender(seed: &[u8; 32]) -> layerx_platform_internal::evm_sender::EvmSende
         layerx_crypto::account_derivation::derive_from_seed(seed, 0),
         "derive EVM signer",
     );
-    let secret = account.evm_secret().expect("derived EVM secret");
+    let secret = account
+        .evm_secret()
+        .unwrap_or_else(|| panic!("{}", "derived EVM secret"));
     let encoded = zeroize::Zeroizing::new(layerx_platform_core::hex_encode(secret));
     must(
         layerx_platform_internal::evm_sender::EvmSender::from_hex_secret(&encoded),

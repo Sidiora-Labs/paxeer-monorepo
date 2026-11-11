@@ -88,9 +88,10 @@ other_failure!(
     &'static str,
 );
 type Checked<T = ()> = Result<T, Failure>;
+type CapturedStates = BTreeMap<[u8; 32], (Vec<u8>, u8)>;
 
 thread_local! {
-    static CAPTURED_STATES: RefCell<BTreeMap<[u8; 32], (Vec<u8>, u8)>> =
+    static CAPTURED_STATES: RefCell<CapturedStates> =
         const { RefCell::new(BTreeMap::new()) };
 }
 
@@ -321,7 +322,8 @@ fn authority() -> FinalityAuthority {
 
 fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: u64::try_from(header.height)
+            .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -358,7 +360,12 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            u64::try_from(timestamp.seconds)
+                .unwrap_or_else(|_| panic!("u64 fixture value out of range")),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -382,7 +389,8 @@ fn signed(header: &Header, signers: &[(u8, bool)]) -> Commit {
 fn commit_header(root: u8, sequence: u64, chain_id: &str) -> Header {
     Header {
         chain_id: chain_id.to_owned(),
-        height: (sequence + 110) as i64,
+        height: i64::try_from(sequence + 110)
+            .unwrap_or_else(|_| panic!("i64 fixture value out of range")),
         app_hash: vec![root; 32],
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -1182,7 +1190,7 @@ fn block_commit_rejects_malformed_headers_and_empty_store_proofs() -> Checked {
 }
 
 #[path = "support/repair_22_33_1446.rs"]
-mod repair_paths;
+pub mod repair_paths;
 
 #[test]
 fn snapshot_membership_archive_transport_and_restart() -> Result<(), Box<dyn std::error::Error>> {
