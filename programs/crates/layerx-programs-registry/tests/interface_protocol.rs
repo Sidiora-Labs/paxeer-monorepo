@@ -1,9 +1,14 @@
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -85,7 +90,7 @@ fn wasm(abi: u16, dynamic: bool) -> Vec<u8> {
     if abi >= 4 {
         imports.push(("layerx_v4", "web_read", 0));
     }
-    let n = imports.len() as u32;
+    let n = u32::try_from(imports.len()).unwrap_or_else(|error| panic!("{error:?}"));
     let mut exports = unsigned_leb(3);
     for (name, kind, index) in [
         ("layerx_reserve", 0_u8, n),
@@ -156,7 +161,7 @@ fn emit_native_inputs() {
     struct InputsDirectory(PathBuf);
     impl Drop for InputsDirectory {
         fn drop(&mut self) {
-            fs::remove_dir_all(&self.0).expect("remove test inputs");
+            fs::remove_dir_all(&self.0).or_panic("remove test inputs");
         }
     }
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -168,9 +173,9 @@ fn emit_native_inputs() {
     fs::DirBuilder::new()
         .mode(0o700)
         .create(&root.0)
-        .expect("create private test inputs");
+        .or_panic("create private test inputs");
     emit_native_inputs_to(&root.0);
-    assert_eq!(fs::read_dir(&root.0).expect("read test cases").count(), 9);
+    assert_eq!(fs::read_dir(&root.0).or_panic("read test cases").count(), 9);
     if let Some(export) = std::env::var_os("PAXEER_X_INTERFACE_INPUTS") {
         emit_native_inputs_to(Path::new(&export));
     }
@@ -190,15 +195,15 @@ fn emit_native_inputs_to(root: &Path) {
 fn write_native_input(path: &Path, abi: u16, dynamic: bool, input: u32, output: u32) {
     let module = wasm(abi, dynamic);
     let interface = bound(abi, dynamic, input, output);
-    fs::create_dir_all(path).expect("create case inputs");
-    fs::write(path.join("module.wasm"), &module).expect("write actual module");
+    fs::create_dir_all(path).or_panic("create case inputs");
+    fs::write(path.join("module.wasm"), &module).or_panic("write actual module");
     fs::write(path.join("interface.bin"), interface.canonical_encoding())
-        .expect("write canonical interface");
-    let saved_module = fs::read(path.join("module.wasm")).expect("read emitted module");
-    let saved_interface = fs::read(path.join("interface.bin")).expect("read emitted interface");
+        .or_panic("write canonical interface");
+    let saved_module = fs::read(path.join("module.wasm")).or_panic("read emitted module");
+    let saved_interface = fs::read(path.join("interface.bin")).or_panic("read emitted interface");
     assert_eq!(saved_module, module);
     assert_eq!(saved_interface, interface.canonical_encoding());
-    let decoded = ProgramInterface::decode(&saved_interface).expect("decode emitted interface");
+    let decoded = ProgramInterface::decode(&saved_interface).or_panic("decode emitted interface");
     assert_eq!(decoded, interface);
     assert_eq!(
         ProgramInterface::bind(&saved_module, abi, decoded.entries().to_vec()),
@@ -221,6 +226,16 @@ fn unhex(text: &str) -> Vec<u8> {
         .collect()
 }
 
+fn domain_for_version(version: u16) -> &'static [u8] {
+    match version {
+        1 => b"LayerX/program-interface/v1\0",
+        2 => b"LayerX/program-interface/v2\0",
+        3 => b"LayerX/program-interface/v3\0",
+        4 => b"LayerX/program-interface/v4\0",
+        _ => unreachable!(),
+    }
+}
+
 #[test]
 fn canonical_abi_domains_and_legacy_vectors() {
     for (_, abi, dynamic) in CASES {
@@ -232,19 +247,17 @@ fn canonical_abi_domains_and_legacy_vectors() {
         } else {
             1
         };
-        let domain: &[u8] = match version {
-            1 => b"LayerX/program-interface/v1\0",
-            2 => b"LayerX/program-interface/v2\0",
-            3 => b"LayerX/program-interface/v3\0",
-            4 => b"LayerX/program-interface/v4\0",
-            _ => unreachable!(),
-        };
+        let domain = domain_for_version(version);
         assert!(interface.canonical_encoding().starts_with(domain));
         let mut expected = domain.to_vec();
         expected.extend_from_slice(&Sha256::digest(wasm(abi, dynamic)));
         expected.extend_from_slice(&abi.to_be_bytes());
         expected.extend(unhex("0001000463616c6c10203040012000000040012000000040"));
-        expected.extend_from_slice(&(capabilities(abi, dynamic).len() as u16).to_be_bytes());
+        expected.extend_from_slice(
+            &u16::try_from(capabilities(abi, dynamic).len())
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .to_be_bytes(),
+        );
         if dynamic {
             expected.push(10);
             expected.extend([2; 32]);
@@ -269,7 +282,7 @@ fn canonical_abi_domains_and_legacy_vectors() {
             Sha256::digest(&expected).as_slice()
         );
         assert_eq!(ProgramInterface::decode(&expected), Ok(interface.clone()));
-        let program = ProgramId::new([0x31; 32]).expect("program ID");
+        let program = ProgramId::new([0x31; 32]).or_panic("program ID");
         let mut record = vec![0; 33];
         record.extend_from_slice(&interface.code_hash());
         record.extend_from_slice(&abi.to_be_bytes());
@@ -277,7 +290,7 @@ fn canonical_abi_domains_and_legacy_vectors() {
         let fixture = ChainEvidence::new(
             program,
             record,
-            interface_state_value(program, 1, &interface).expect("interface state"),
+            interface_state_value(program, 1, &interface).or_panic("interface state"),
             wasm(abi, dynamic),
             &interface,
             expected.clone(),
@@ -286,14 +299,17 @@ fn canonical_abi_domains_and_legacy_vectors() {
             .chain
             .verifier
             .verify_head(&fixture.chain.header, &fixture.chain.commit)
-            .expect("signed chain head");
+            .or_panic("signed chain head");
         let ops = fixture.interface_ops();
         let read = VerifiedInterfaceRead::verify_at_head(&head, program, &fixture.witness, &ops)
-            .expect("chain-proven canonical interface");
+            .or_panic("chain-proven canonical interface");
         assert_eq!(read.interface, interface);
         assert_eq!(read.receipt_digest, head.app_hash());
         assert_eq!(read.state_root, head.app_hash());
-        assert_eq!(read.freshness.observed_sequence, (head.height() - 1) as u64);
+        assert_eq!(
+            read.freshness.observed_sequence,
+            u64::from_le_bytes((head.height() - 1).to_le_bytes())
+        );
         let mut bad = ops.clone();
         bad[0].data[0] ^= 1;
         assert!(
@@ -310,7 +326,9 @@ fn canonical_abi_domains_and_legacy_vectors() {
             assert!(ProgramInterface::decode(&bad).is_err());
         }
         for wrong_domain in [b'0', b'1', b'2', b'3', b'4', b'5'] {
-            if wrong_domain == b'0' + version as u8 {
+            if wrong_domain
+                == b'0' + u8::try_from(version).unwrap_or_else(|error| panic!("{error:?}"))
+            {
                 continue;
             }
             let mut bad = expected.clone();
@@ -325,7 +343,7 @@ fn exact_capabilities_exports_and_upgrade_policy() {
     for (_, abi, dynamic) in CASES {
         let module = wasm(abi, dynamic);
         let original = entry(abi, dynamic, 64, 64);
-        let engine = WasmEngine::declared().expect("declared real engine");
+        let engine = WasmEngine::declared().or_panic("declared real engine");
         let validated = match abi {
             1 => engine.validate(&module),
             2 => engine.validate_v2(&module),
@@ -333,7 +351,7 @@ fn exact_capabilities_exports_and_upgrade_policy() {
             4 => engine.validate_v4(&module),
             _ => unreachable!(),
         }
-        .expect("real imported module validation");
+        .or_panic("real imported module validation");
         let mask = if dynamic { 1 << 7 } else { 0 }
             | if abi >= 3 { 1 << 10 } else { 0 }
             | if abi >= 4 { 1 << 11 } else { 0 };
@@ -417,7 +435,7 @@ fn canonical_encoding_refuses_malformed_bounds() {
     let name_offset = DOMAIN_LEN + 36;
     largest[name_offset..name_offset + 2].copy_from_slice(
         &u16::try_from(4 + padding)
-            .expect("bounded name")
+            .or_panic("bounded name")
             .to_be_bytes(),
     );
     largest.splice(name_offset + 6..name_offset + 6, vec![b'x'; padding]);
@@ -438,7 +456,7 @@ fn canonical_encoding_refuses_malformed_bounds() {
     }
     for abi in [1_u16, 2, 3] {
         let mut bad = canonical.clone();
-        bad[DOMAIN_LEN - 2] = b'0' + abi as u8;
+        bad[DOMAIN_LEN - 2] = b'0' + u8::try_from(abi).unwrap_or_else(|error| panic!("{error:?}"));
         bad[DOMAIN_LEN + 32..DOMAIN_LEN + 34].copy_from_slice(&abi.to_be_bytes());
         assert!(ProgramInterface::decode(&bad).is_err());
     }
@@ -501,11 +519,11 @@ impl ChainEvidence {
                 (programs_state_key(&interface_key), interface_value.clone()),
             ],
         )
-        .expect("chain fixture");
+        .or_panic("chain fixture");
         let transaction_hash: [u8; 32] = Sha256::digest(&transaction).into();
         let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
         chain.header.data_hash = transaction_root.to_vec();
-        chain.commit.block_id.hash = chain.header.hash().expect("chain header hash").to_vec();
+        chain.commit.block_id.hash = chain.header.hash().or_panic("chain header hash").to_vec();
         for signature in &mut chain.commit.signatures {
             let key = VALIDATOR_SEEDS
                 .iter()
@@ -516,7 +534,7 @@ impl ChainEvidence {
                         .as_slice()
                         == signature.validator_address
                 })
-                .expect("validator signer");
+                .unwrap_or_else(|| panic!("{}", "validator signer"));
             let bytes = vote_sign_bytes(
                 &chain.header.chain_id,
                 chain.commit.height,
@@ -524,24 +542,24 @@ impl ChainEvidence {
                 Some(&chain.commit.block_id),
                 signature.timestamp,
             )
-            .expect("vote sign bytes");
+            .or_panic("vote sign bytes");
             signature.signature = key.sign(&bytes).to_bytes().to_vec();
         }
         let commitment = decode_commitment_proof(
             &chain
                 .encode_key(&record_key)
-                .expect("encode chain commitment"),
+                .or_panic("encode chain commitment"),
         )
-        .expect("decode chain commitment");
+        .or_panic("decode chain commitment");
         let program_state = ChainProgramStateProof {
             program,
-            ops: chain.prove(&record_key).expect("program ICS23 ops"),
+            ops: chain.prove(&record_key).or_panic("program ICS23 ops"),
         };
         let mut status_key = b"wind-down\0s".to_vec();
         status_key.extend_from_slice(&program.bytes());
         let status_ops = chain
             .prove_absent(&programs_state_key(&status_key))
-            .expect("active lifecycle ICS23 ops");
+            .or_panic("active lifecycle ICS23 ops");
         let proof = DeploymentProof {
             state: ProgramStateProof {
                 commitment,
@@ -591,7 +609,7 @@ impl ChainEvidence {
         let mut ops = self
             .chain
             .prove(&programs_state_key(&self.witness.key))
-            .expect("interface ICS23 ops");
+            .or_panic("interface ICS23 ops");
         ops.extend(self.proof.state.state.ops.clone());
         ops
     }
@@ -602,7 +620,7 @@ impl ChainEvidence {
             self.chain.verifier.validators.validators().to_vec(),
             1000,
         )
-        .expect("chain validator trust")
+        .or_panic("chain validator trust")
     }
 
     fn now_ms(&self) -> u64 {
@@ -610,7 +628,7 @@ impl ChainEvidence {
             self.chain.header.time.seconds * 1000
                 + i64::from(self.chain.header.time.nanos / 1_000_000),
         )
-        .expect("chain time")
+        .or_panic("chain time")
     }
 }
 
@@ -619,10 +637,12 @@ struct NativeEvidence {
 }
 impl NativeEvidence {
     fn read(path: &Path) -> Self {
-        let text = fs::read_to_string(path).expect("native evidence.kvx must exist");
+        let text = fs::read_to_string(path).or_panic("native evidence.kvx must exist");
         let mut fields = BTreeMap::new();
         for line in text.lines() {
-            let (key, value) = line.split_once('=').expect("canonical evidence key=value");
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("{}", "canonical evidence key=value"));
             assert!(
                 fields.insert(key.to_owned(), value.to_owned()).is_none(),
                 "duplicate evidence key"
@@ -654,7 +674,7 @@ impl NativeEvidence {
                     InterfaceCapability::CallerAuthorizedSpend { .. }
                 )
             });
-        let program = ProgramId::new(self.fixed("program_id")).expect("native program ID");
+        let program = ProgramId::new(self.fixed("program_id")).or_panic("native program ID");
         assert_eq!(
             self.bytes("interface_record.key"),
             interface_state_key(program)
@@ -677,10 +697,10 @@ impl NativeEvidence {
 fn native_receipt_authorized_interface_reads() {
     let root = directory("PAXEER_X_INTERFACE_FIXTURES");
     for (name, abi, dynamic) in CASES {
-        verify_native_case(&root, name, bound(abi, dynamic, 64, 64));
+        verify_native_case(&root, name, &bound(abi, dynamic, 64, 64));
     }
-    verify_native_case(&root, "upgrade-widening", bound(2, false, 128, 32));
-    verify_native_case(&root, "upgrade-breaking", bound(2, false, 32, 128));
+    verify_native_case(&root, "upgrade-widening", &bound(2, false, 128, 32));
+    verify_native_case(&root, "upgrade-breaking", &bound(2, false, 32, 128));
     for name in ["upgrade-narrowing", "upgrade-downgrade"] {
         let path = root.join(name);
         let evidence = NativeEvidence::read(&path.join("evidence.kvx"));
@@ -707,14 +727,19 @@ fn native_receipt_authorized_interface_reads() {
             .chain
             .verifier
             .verify_head(&fixture.chain.header, &fixture.chain.commit)
-            .expect("chain head");
+            .or_panic("chain head");
         let read = VerifiedInterfaceRead::verify_at_head(
             &head,
             fixture.proof.state.state.program,
             &fixture.witness,
             &fixture.interface_ops(),
         )
-        .expect("unchanged interface after refused native upgrade");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "unchanged interface after refused native upgrade"
+            )
+        });
         assert_eq!(read.interface, prior);
         assert!(
             proposed
@@ -725,10 +750,10 @@ fn native_receipt_authorized_interface_reads() {
     }
 }
 
-fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
+fn verify_native_case(root: &Path, name: &str, expected: &ProgramInterface) {
     let path = root.join(name);
     let evidence = NativeEvidence::read(&path.join("evidence.kvx"));
-    let fixture = evidence.fixture(&expected);
+    let fixture = evidence.fixture(expected);
     let verifier = fixture.verifier();
     let now = fixture.now_ms();
     let proof = fixture.proof.clone();
@@ -741,9 +766,9 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
         DeploymentProof::decode(
             &proof
                 .canonical_encoding()
-                .expect("encode chain deployment proof")
+                .or_panic("encode chain deployment proof")
         )
-        .expect("native proof roundtrip"),
+        .or_panic("native proof roundtrip"),
         proof
     );
     let deployment = verifier
@@ -753,21 +778,21 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
         ProgramInterface::bind_deployment(&deployment, expected.entries().to_vec()),
         Ok(expected.clone())
     );
-    let program = ProgramId::new(evidence.fixed("program_id")).expect("native program ID");
+    let program = ProgramId::new(evidence.fixed("program_id")).or_panic("native program ID");
     let head = verifier
         .verify_current_program(&proof.state, program, now)
-        .expect("real current program");
+        .or_panic("real current program");
     let chain_head = fixture
         .chain
         .verifier
         .verify_head(&fixture.chain.header, &fixture.chain.commit)
-        .expect("chain head");
+        .or_panic("chain head");
     assert_eq!(head.state_root(), chain_head.app_hash());
     let witness = fixture.witness.clone();
     let ops = fixture.interface_ops();
     let read = VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &ops)
-        .expect("chain-authorized native interface");
-    assert_eq!(read.interface, expected);
+        .or_panic("chain-authorized native interface");
+    assert_eq!(&read.interface, expected);
     assert_eq!(read.receipt_digest, chain_head.app_hash());
     assert_eq!(read.state_root, head.state_root());
     let mut bad = proof.clone();
@@ -802,6 +827,7 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
     assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &bad).is_err());
 }
 
+#[allow(dead_code)]
 #[path = "support/repair_22_33_221.rs"]
 mod repair_22_33_221;
 

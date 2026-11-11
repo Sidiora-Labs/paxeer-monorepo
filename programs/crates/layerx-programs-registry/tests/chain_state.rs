@@ -8,14 +8,19 @@ use layerx_programs::chain_proof::{
 };
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/decode.rs"]
 mod decode;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ics23.rs"]
 mod ics23;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ics23_absent.rs"]
 mod ics23_absent;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/multistore.rs"]
 mod multistore;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/state.rs"]
 mod state;
 
@@ -25,10 +30,12 @@ use state::{verify_absent, verify_state};
 
 fn varint(mut value: usize, output: &mut Vec<u8>) {
     while value >= 128 {
-        output.push((value as u8 & 127) | 128);
+        output.push(
+            (u8::try_from((value) & 127).unwrap_or_else(|error| panic!("{error:?}")) & 127) | 128,
+        );
         value >>= 7;
     }
-    output.push(value as u8);
+    output.push(u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")));
 }
 
 fn bytes_field(number: u8, value: &[u8], output: &mut Vec<u8>) {

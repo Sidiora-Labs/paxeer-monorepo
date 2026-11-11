@@ -131,6 +131,10 @@ pub struct BuildAttempt<'inputs> {
 
 impl BuildAttempt<'_> {
     /// Prepares the exact executable and arguments authenticated by the plan.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn command(&self) -> Result<std::process::Command, BuildRefusal> {
         self.plan.validate()?;
         let mut command = std::process::Command::new(&self.plan.environment.command[0]);
@@ -197,6 +201,10 @@ impl<R: BuildRunner> SourceVerifier<R> {
         self.reproduce_inner(source, plan, ABI_V1_VERSION, None)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn reproduce_deployment(
         &self,
         source: &PublishedSource,

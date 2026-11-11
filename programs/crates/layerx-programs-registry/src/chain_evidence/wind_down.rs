@@ -20,6 +20,10 @@ pub struct ChainWindDownProof {
 }
 
 impl ChainWindDownProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify(
         &self,
         next: &VerifiedChainHead,
@@ -29,21 +33,18 @@ impl ChainWindDownProof {
         kernel_key.extend_from_slice(&self.program.bytes());
         let key = programs_state_key(&kernel_key);
 
-        match &self.value {
-            Some(value) => {
-                let status = value
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| ProtocolEvidenceError::Encoding)?;
-                verify_state(next, STORE_NAME, &key, value, &self.ops)
-                    .map_err(|_| ProtocolEvidenceError::StateProof)?;
-                Ok(Some(status))
-            }
-            None => {
-                verify_absent(next, STORE_NAME, &key, &self.ops)
-                    .map_err(|_| ProtocolEvidenceError::StateProof)?;
-                Ok(None)
-            }
+        if let Some(value) = &self.value {
+            let status = value
+                .as_slice()
+                .try_into()
+                .map_err(|_| ProtocolEvidenceError::Encoding)?;
+            verify_state(next, STORE_NAME, &key, value, &self.ops)
+                .map_err(|_| ProtocolEvidenceError::StateProof)?;
+            Ok(Some(status))
+        } else {
+            verify_absent(next, STORE_NAME, &key, &self.ops)
+                .map_err(|_| ProtocolEvidenceError::StateProof)?;
+            Ok(None)
         }
     }
 }
