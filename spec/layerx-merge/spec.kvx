@@ -226886,7 +226886,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.40.20]
 title = "Record the protocol bindings of the launchpad SDK at the sources of the chain launch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.7", "22.40.8"]
