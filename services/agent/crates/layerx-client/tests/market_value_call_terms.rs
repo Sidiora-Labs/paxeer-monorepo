@@ -21,29 +21,33 @@ fn deposit() -> MarketSpendingGrant {
     }
 }
 
-fn payment() -> MarketSpendingGrant {
-    let program = ProgramId::new(PROGRAM).unwrap();
-    let source_account = derive_program_account(program, SEED).unwrap().bytes();
-    MarketSpendingGrant::Payment {
+fn payment() -> Result<MarketSpendingGrant, String> {
+    let program = ProgramId::new(PROGRAM).map_err(|error| error.to_string())?;
+    let source_account = derive_program_account(program, SEED)
+        .map_err(|error| error.to_string())?
+        .bytes();
+    Ok(MarketSpendingGrant::Payment {
         owner_program: PROGRAM,
         seed: SEED.to_vec(),
         source_account,
         asset: ASSET,
         recipient: RECIPIENT,
         amount: AMOUNT,
-    }
+    })
 }
 
 fn assert_terms(
     operation: market_program::dispatch::Operation,
     grant: MarketSpendingGrant,
     spending: Capability,
-) {
-    let terms = market_value_call_terms(operation, PROGRAM, PRINCIPAL, grant).unwrap();
+) -> Result<(), String> {
+    let terms = market_value_call_terms(operation, PROGRAM, PRINCIPAL, grant)
+        .map_err(|error| format!("{error:?}"))?;
     let decoded = if matches!(spending, Capability::ProgramSpend { .. }) {
-        CapabilitySet::decode_v2_canonical(&terms.capabilities).unwrap()
+        CapabilitySet::decode_v2_canonical(&terms.capabilities)
+            .map_err(|error| error.to_string())?
     } else {
-        CapabilitySet::decode_canonical(&terms.capabilities).unwrap()
+        CapabilitySet::decode_canonical(&terms.capabilities).map_err(|error| error.to_string())?
     };
     assert_eq!(
         decoded,
@@ -58,17 +62,20 @@ fn assert_terms(
         .iter()
         .any(|grant| matches!(grant, Capability::BalanceView { .. })));
     assert_eq!(
-        CapabilitySet::new(decoded).unwrap().canonical_encoding(),
+        CapabilitySet::new(decoded)
+            .map_err(|error| error.to_string())?
+            .canonical_encoding(),
         terms.capabilities
     );
     assert_eq!(
         AccessDeclaration::canonical_decode(&terms.access_declaration),
         Ok(AccessDeclaration::Absent),
     );
+    Ok(())
 }
 
 #[test]
-fn market_value_deposit_terms_cover_every_deposit_operation() {
+fn market_value_deposit_terms_cover_every_deposit_operation() -> Result<(), String> {
     for operation in [
         market_program::dispatch::FUND,
         market_program::dispatch::LockBond,
@@ -82,14 +89,16 @@ fn market_value_deposit_terms_cover_every_deposit_operation() {
                 to: ACCOUNT,
                 maximum_amount: AMOUNT,
             },
-        );
+        )?;
     }
+    Ok(())
 }
 
 #[test]
-fn market_value_payment_terms_cover_every_payment_operation() {
-    let source_account = derive_program_account(ProgramId::new(PROGRAM).unwrap(), SEED)
-        .unwrap()
+fn market_value_payment_terms_cover_every_payment_operation() -> Result<(), String> {
+    let program = ProgramId::new(PROGRAM).map_err(|error| error.to_string())?;
+    let source_account = derive_program_account(program, SEED)
+        .map_err(|error| error.to_string())?
         .bytes();
     for operation in [
         market_program::dispatch::CLAIM,
@@ -100,21 +109,22 @@ fn market_value_payment_terms_cover_every_payment_operation() {
     ] {
         assert_terms(
             operation,
-            payment(),
+            payment()?,
             Capability::ProgramSpend {
-                owner_program: ProgramId::new(PROGRAM).unwrap(),
+                owner_program: program,
                 seed: SEED.to_vec(),
                 source_account,
                 asset: ASSET,
                 to: RECIPIENT,
                 maximum_amount: AMOUNT,
             },
-        );
+        )?;
     }
+    Ok(())
 }
 
 #[test]
-fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() {
+fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() -> Result<(), String> {
     let nonvalue = market_program::dispatch::RecordDeal;
     assert_eq!(
         market_value_call_terms(nonvalue, PROGRAM, PRINCIPAL, deposit()),
@@ -136,7 +146,7 @@ fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() {
         ),
         Err(AiClientError::MarketValueAmountZero),
     );
-    let zero_payment = match payment() {
+    let zero_payment = match payment()? {
         MarketSpendingGrant::Payment {
             owner_program,
             seed,
@@ -152,7 +162,7 @@ fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() {
             recipient,
             amount: 0,
         },
-        _ => unreachable!(),
+        MarketSpendingGrant::Deposit { .. } => unreachable!(),
     };
     assert_eq!(
         market_value_call_terms(
@@ -164,7 +174,7 @@ fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() {
         Err(AiClientError::MarketValueAmountZero),
     );
     for (operation, grant) in [
-        (market_program::dispatch::FUND, payment()),
+        (market_program::dispatch::FUND, payment()?),
         (market_program::dispatch::CLAIM, deposit()),
     ] {
         assert_eq!(
@@ -174,4 +184,5 @@ fn market_value_terms_refuse_nonvalue_zero_and_wrong_direction() {
             }),
         );
     }
+    Ok(())
 }

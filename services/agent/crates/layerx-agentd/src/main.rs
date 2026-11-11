@@ -2372,6 +2372,45 @@ fn deal_market_call_terms(
 }
 
 impl InferenceLapTransport<'_> {
+    fn signer_for(
+        &self,
+        operation: &layerx_client::ai_market::inference_market::MarketOperation,
+        shared: &layerx_client::ai_market::market_program::state::SharedState<'_>,
+        epoch: u64,
+    ) -> Result<&layerx_human_kms::attestor::AttestorSigner, inference_signal::deals::laps::LapError>
+    {
+        use inference_signal::deals::laps::LapError;
+        use layerx_client::ai_market::market_program as market;
+
+        if operation.operation() != market::dispatch::SealEvidence {
+            return Ok(&self.0.signer);
+        }
+        let region = market::evaluators::authority::evaluator_region(
+            shared.section(market::state::Section::IdentityRoster)?,
+        )?;
+        let roster = region
+            .snapshot()
+            .ok_or(LapError::Invalid("missing evaluator snapshot"))?;
+        let seals = market::evidence::SealRegion::decode(shared.control.feature_bytes)?;
+        self.0
+            .laps
+            .evidence_signers
+            .iter()
+            .find(|signer| {
+                let mut actor = [0; 32];
+                actor[12..].copy_from_slice(&signer.evm_address());
+                roster.entries().any(|entry| {
+                    entry.entry.owner.bytes() == actor
+                        && !seals.seals(epoch).any(|seal| {
+                            seal.is_ok_and(|seal| seal.evaluator == entry.entry.evaluator)
+                        })
+                })
+            })
+            .ok_or(LapError::Invalid(
+                "no unsealed admitted evaluator available",
+            ))
+    }
+
     fn deliver(
         &self,
         identity: &[u8],
@@ -2474,34 +2513,7 @@ impl inference_signal::deals::laps::LapTransport for InferenceLapTransport<'_> {
         let frozen = market::epoch::captured_roster(&shared)?
             .ok_or(LapError::Invalid("missing frozen roster"))?
             .binding;
-        let signer = if operation.operation() == market::dispatch::SealEvidence {
-            let region = market::evaluators::authority::evaluator_region(
-                shared.section(market::state::Section::IdentityRoster)?,
-            )?;
-            let roster = region
-                .snapshot()
-                .ok_or(LapError::Invalid("missing evaluator snapshot"))?;
-            let seals = market::evidence::SealRegion::decode(shared.control.feature_bytes)?;
-            self.0
-                .laps
-                .evidence_signers
-                .iter()
-                .find(|signer| {
-                    let mut actor = [0; 32];
-                    actor[12..].copy_from_slice(&signer.evm_address());
-                    roster.entries().any(|entry| {
-                        entry.entry.owner.bytes() == actor
-                            && !seals.seals(frozen.epoch).any(|seal| {
-                                seal.is_ok_and(|seal| seal.evaluator == entry.entry.evaluator)
-                            })
-                    })
-                })
-                .ok_or(LapError::Invalid(
-                    "no unsealed admitted evaluator available",
-                ))?
-        } else {
-            &self.0.signer
-        };
+        let signer = self.signer_for(operation, &shared, frozen.epoch)?;
         let mut actor = [0; 32];
         actor[12..].copy_from_slice(&signer.evm_address());
         let mut identity = operation.operation().selector().to_be_bytes().to_vec();

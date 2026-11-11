@@ -178,30 +178,23 @@ pub enum CallMonetaryAmount {
     },
 }
 
-fn uint256_decimal(mut value: [u8; 32]) -> String {
+fn uint256_decimal(mut value: [u8; 32]) -> Result<String, fmt::Error> {
     if value == [0; 32] {
-        return "0".to_owned();
+        return Ok("0".to_owned());
     }
     let mut digits = Vec::with_capacity(78);
     while value != [0; 32] {
         let mut remainder = 0_u16;
         for byte in &mut value {
             let dividend = (remainder << 8) | u16::from(*byte);
-            #[allow(
-                clippy::cast_possible_truncation,
-                reason = "Remainder is below 10, so dividend / 10 is at most 255"
-            )]
-            let quotient = (dividend / 10) as u8;
-            *byte = quotient;
+            *byte = u8::try_from(dividend / 10).map_err(|_| fmt::Error)?;
             remainder = dividend % 10;
         }
-        #[allow(
-            clippy::cast_possible_truncation,
-            reason = "Remainder modulo 10 is between zero and nine"
-        )]
-        digits.push(char::from(b'0' + remainder as u8));
+        digits.push(char::from(
+            b'0' + u8::try_from(remainder).map_err(|_| fmt::Error)?,
+        ));
     }
-    digits.into_iter().rev().collect()
+    Ok(digits.into_iter().rev().collect())
 }
 
 impl fmt::Display for CallMonetaryAmount {
@@ -212,7 +205,7 @@ impl fmt::Display for CallMonetaryAmount {
                 write!(
                     out,
                     "{role:?}: {} base units of {denom:?}",
-                    uint256_decimal(*value)
+                    uint256_decimal(*value)?
                 )
             }
             Self::Protocol { role, asset, value } => {
