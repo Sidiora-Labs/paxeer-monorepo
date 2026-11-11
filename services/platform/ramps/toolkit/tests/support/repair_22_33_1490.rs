@@ -1,3 +1,5 @@
+include!("required.rs");
+
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -8,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use layerx_client::sequencer::{ReceiptKeyEntry, SequencerReceipt};
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
@@ -43,8 +45,8 @@ impl Files {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&directory).unwrap();
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::create_dir(&directory).required("value");
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).required("value");
         let files = Self(directory);
         files.write(
             "ca.pem",
@@ -68,35 +70,35 @@ impl Files {
             .write(true)
             .mode(0o600)
             .open(self.0.join(name))
-            .unwrap();
-        file.write_all(bytes).unwrap();
+            .required("value");
+        file.write_all(bytes).required("value");
     }
     fn http(&self) -> MutualTlsClient {
         MutualTlsClient::new(
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
-                identity_pkcs12: SecretFile::new(self.0.join("identity.p12")).unwrap(),
-                identity_password: SecretFile::new(self.0.join("password")).unwrap(),
+                identity_pkcs12: SecretFile::new(self.0.join("identity.p12")).required("value"),
+                identity_password: SecretFile::new(self.0.join("password")).required("value"),
             },
             Duration::from_secs(5),
         )
-        .unwrap()
+        .required("value")
     }
     fn client(&self, endpoint: &str, address: [u8; 20], pin: ReceiptKeyEntry) -> LayerxClient {
         let config: LayerxConfig = serde_json::from_value(json!({
             "rpc_endpoint":endpoint, "rpc_trust_anchor_der":self.0.join("ca.der"),
             "chain_id":125, "operator_address":format!("0x{}",hex(&address)),
             "receipt_keys":[{"keyId":format!("0x{}",hex(&pin.key_id)), "publicKey":format!("0x{}",hex(&pin.public_key)), "firstHeight":pin.first_height, "lastHeight":pin.last_height}],
-            "max_fee_per_gas":3000000000_u64, "max_priority_fee_per_gas":1000000000_u64,
-            "gas_limit_cap":2000000, "signer_endpoint":"https://localhost:1",
+            "max_fee_per_gas":3_000_000_000_u64, "max_priority_fee_per_gas":1_000_000_000_u64,
+            "gas_limit_cap":2_000_000, "signer_endpoint":"https://localhost:1",
             "signer_token_file":self.0.join("token"), "actor_did":"did:layerx:operator-1"
-        })).unwrap();
-        config.build(self.http()).unwrap()
+        })).required("value");
+        config.build(self.http()).required("value")
     }
     fn provider(&self, endpoint: &str) -> ProviderClient {
         ProviderClient {
             http: self.http(),
-            endpoint: Endpoint::parse(endpoint).unwrap(),
+            endpoint: Endpoint::parse(endpoint).required("value"),
             credential: "repair-provider".into(),
             settlement_path: "/settlements".into(),
             status_path: "/status".into(),
@@ -105,7 +107,7 @@ impl Files {
     fn custody(&self, endpoint: &str) -> PaxeerCustodyClient {
         PaxeerCustodyClient {
             http: self.http(),
-            endpoint: Endpoint::parse(endpoint).unwrap(),
+            endpoint: Endpoint::parse(endpoint).required("value"),
             credential: "repair-custody".into(),
             broadcast_path: "/broadcast".into(),
             status_path: "/status".into(),
@@ -118,7 +120,7 @@ impl Files {
 }
 impl Drop for Files {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).required("value");
     }
 }
 
@@ -126,36 +128,36 @@ fn read_request(stream: &mut impl Read) -> (String, Value) {
     let mut header = Vec::new();
     while !header.ends_with(b"\r\n\r\n") {
         let mut byte = [0];
-        stream.read_exact(&mut byte).unwrap();
+        stream.read_exact(&mut byte).required("value");
         header.push(byte[0]);
         assert!(header.len() <= 32768);
     }
-    let header = String::from_utf8(header).unwrap();
+    let header = String::from_utf8(header).required("value");
     let length: usize = header
         .lines()
         .find_map(|line| {
             let (name, value) = line.split_once(':')?;
             name.eq_ignore_ascii_case("content-length")
-                .then(|| value.trim().parse().unwrap())
+                .then(|| value.trim().parse().required("value"))
         })
-        .unwrap();
+        .required("value");
     assert!(length <= 512 * 1024);
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).unwrap();
+    stream.read_exact(&mut body).required("value");
     (
         header,
         if body.is_empty() {
             Value::Null
         } else {
-            serde_json::from_slice(&body).unwrap()
+            serde_json::from_slice(&body).required("value")
         },
     )
 }
-fn respond(stream: &mut impl Write, value: Value) {
-    let bytes = serde_json::to_vec(&value).unwrap();
-    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",bytes.len()).unwrap();
-    stream.write_all(&bytes).unwrap();
-    stream.flush().unwrap();
+fn respond(stream: &mut impl Write, value: &Value) {
+    let bytes = serde_json::to_vec(value).required("value");
+    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",bytes.len()).required("value");
+    stream.write_all(&bytes).required("value");
+    stream.flush().required("value");
 }
 
 // Peers speak the production contracts. The components being tested are the
@@ -168,12 +170,12 @@ struct Server {
 }
 impl Server {
     fn new(tls: bool, mut answer: impl FnMut(&str, &Value) -> Value + Send + 'static) -> Self {
-        let listener = TcpListener::bind(("localhost", 0)).unwrap();
-        listener.set_nonblocking(true).unwrap();
+        let listener = TcpListener::bind(("localhost", 0)).required("value");
+        listener.set_nonblocking(true).required("value");
         let endpoint = format!(
             "{}://localhost:{}",
             if tls { "https" } else { "http" },
-            listener.local_addr().unwrap().port()
+            listener.local_addr().required("value").port()
         );
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = stop.clone();
@@ -186,9 +188,9 @@ impl Server {
                         include_bytes!("../fixtures/repair_22_33_1486/identity.p12"),
                         "ramp-config-proof",
                     )
-                    .unwrap(),
+                    .required("value"),
                 )
-                .unwrap()
+                .required("value")
             });
             while !stopped.load(Ordering::Acquire) {
                 let (stream, _) = match listener.accept() {
@@ -201,21 +203,25 @@ impl Server {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .required("value");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .required("value");
                 if let Some(acceptor) = &acceptor {
-                    let mut stream = acceptor.accept(stream).unwrap();
+                    let mut stream = acceptor.accept(stream).required("value");
                     let (header, body) = read_request(&mut stream);
-                    seen.lock().unwrap().push((header.clone(), body.clone()));
-                    respond(&mut stream, answer(&header, &body));
+                    seen.lock()
+                        .required("value")
+                        .push((header.clone(), body.clone()));
+                    respond(&mut stream, &answer(&header, &body));
                     let _ = stream.shutdown();
                 } else {
                     let mut stream = stream;
                     let (header, body) = read_request(&mut stream);
-                    seen.lock().unwrap().push((header.clone(), body.clone()));
-                    respond(&mut stream, answer(&header, &body));
+                    seen.lock()
+                        .required("value")
+                        .push((header.clone(), body.clone()));
+                    respond(&mut stream, &answer(&header, &body));
                 }
             }
         });
@@ -229,9 +235,9 @@ impl Server {
     fn methods(&self) -> Vec<String> {
         self.requests
             .lock()
-            .unwrap()
+            .required("value")
             .iter()
-            .map(|(_, body)| body["method"].as_str().unwrap().into())
+            .map(|(_, body)| body["method"].as_str().required("value").into())
             .collect()
     }
 }
@@ -239,32 +245,32 @@ impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker.join().required("value");
         }
     }
 }
 
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    decode_hex(value.as_str().unwrap(), N)
-        .unwrap()
+    decode_hex(value.as_str().required("value"), N)
+        .required("value")
         .try_into()
-        .unwrap()
+        .required("value")
 }
 fn vector() -> Value {
     let document: Value = serde_json::from_str(include_str!(
         "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .unwrap();
+    .required("value");
     assert_eq!(
         document["provenance"]["generator"],
         "rpc/sequencer_receipt_vectors_test.go"
     );
     let case = document["cases"]
         .as_array()
-        .unwrap()
+        .required("value")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap()
+        .required("value")
         .clone();
     assert_eq!(case["signedReceipt"], case["receiptJson"]["receipt"]);
     case
@@ -273,11 +279,11 @@ fn pin(case: &Value) -> ReceiptKeyEntry {
     ReceiptKeyEntry {
         key_id: fixed(&case["pinnedKey"]["keyId"]),
         public_key: fixed(&case["pinnedKey"]["publicKey"]),
-        first_height: case["pinnedKey"]["firstHeight"].as_u64().unwrap(),
-        last_height: case["pinnedKey"]["lastHeight"].as_u64().unwrap(),
+        first_height: case["pinnedKey"]["firstHeight"].as_u64().required("value"),
+        last_height: case["pinnedKey"]["lastHeight"].as_u64().required("value"),
     }
 }
-fn rpc_reply(request: &Value, result: Value) -> Value {
+fn rpc_reply(request: &Value, result: &Value) -> Value {
     json!({"jsonrpc":"2.0","id":request["id"],"result":result})
 }
 fn order(direction: RampDirection) -> RampOrder {
@@ -319,16 +325,16 @@ fn order(direction: RampDirection) -> RampOrder {
         },
         1000,
     )
-    .unwrap()
+    .required("value")
 }
 fn payment_call(order: &RampOrder) -> Eip1559Call {
-    let compiled = compile_customer_payment(order).unwrap();
+    let compiled = compile_customer_payment(order).required("value");
     Eip1559Call {
         chain_id: 125,
         nonce: 7,
         max_fee_per_gas: 100,
         max_priority_fee_per_gas: 2,
-        gas_limit: 100000,
+        gas_limit: 100_000,
         to: compiled.to,
         data: compiled.data,
     }
@@ -340,10 +346,10 @@ fn word(value: u64) -> [u8; 32] {
 }
 fn account(value: &str) -> [u8; 32] {
     layerx_wire::hash::account_id_for_protocol(
-        &layerx_types::account::AccountId::parse(value).unwrap(),
+        &layerx_types::account::AccountId::parse(value).required("value"),
         layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
     )
-    .unwrap()
+    .required("value")
 }
 // getBudget's ABI tuple is a peer fixture, not an execution transcript.
 fn budget(order: &RampOrder) -> Vec<u8> {
@@ -351,7 +357,7 @@ fn budget(order: &RampOrder) -> Vec<u8> {
     words[0] = word(32);
     words[1] = account(&order.customer.account);
     words[3] = order.quote.layerx_asset;
-    words[4] = order.payer_grant_purpose.unwrap();
+    words[4] = order.payer_grant_purpose.required("value");
     words[12] = word(order.quote.expires_at * 1000);
     words[17] = word(18 * 32);
     words.concat()
@@ -377,10 +383,10 @@ fn provider_result(order: &RampOrder) -> ProviderResult {
     }
 }
 fn seed(journal: &mut Journal, order: &RampOrder, to: S) {
-    journal.create_order(order.clone(), 1000).unwrap();
+    journal.create_order(order.clone(), 1000).required("value");
     journal
         .acquire_lease(order.order_digest, WORKER, 1000, 100)
-        .unwrap();
+        .required("value");
     journal
         .transition(
             order.order_digest,
@@ -390,27 +396,22 @@ fn seed(journal: &mut Journal, order: &RampOrder, to: S) {
             WORKER,
             1001,
         )
-        .unwrap();
+        .required("value");
 }
 
-pub fn engine_restart() {
-    let files = Files::new();
-    let funding = order(RampDirection::OnRamp);
-    let payment = order(RampDirection::OffRamp);
-    let call = payment_call(&payment);
-    let raw = call.sign(&[1; 32]).unwrap();
-    let (_, sig) = decode_signed(&raw).unwrap();
-    let sender = recover_sender(&call, &sig).unwrap();
-    let hash = transaction_hash(&raw);
-    let expected_raw = raw.clone();
-    let authority = budget(&payment);
+fn restart_node(
+    expected_raw: Vec<u8>,
+    sender: [u8; 20],
+    hash: [u8; 32],
+    authority: Vec<u8>,
+) -> Server {
     let node = Server::new(false, move |header, request| {
         assert!(header.starts_with("POST / HTTP/1.1"));
-        let result = match request["method"].as_str().unwrap() {
+        let result = match request["method"].as_str().required("value") {
             "eth_chainId" => json!("0x7d"),
             "eth_blockNumber" => json!("0x3e9"),
             "eth_call" => {
-                let to = request["params"][0]["to"].as_str().unwrap();
+                let to = request["params"][0]["to"].as_str().required("value");
                 if to == format!("0x{}", hex(&PAY_ADDRESS)) {
                     assert_eq!(
                         request["params"][0]["data"],
@@ -441,9 +442,13 @@ pub fn engine_restart() {
             }
             method => panic!("node must not serve a gateway namespace: {method}"),
         };
-        rpc_reply(request, result)
+        rpc_reply(request, &result)
     });
-    let result = provider_result(&funding);
+    node
+}
+
+fn funding_provider_peer(funding: &RampOrder) -> (Server, Arc<Mutex<ProviderResult>>) {
+    let result = provider_result(funding);
     let state = Arc::new(Mutex::new(result));
     let observed = state.clone();
     let funding_digest = funding.order_digest;
@@ -456,20 +461,78 @@ pub fn engine_restart() {
             assert!(header.starts_with("GET /status/provider-1490 HTTP/1.1"));
             assert_eq!(*body, Value::Null);
         }
-        serde_json::to_value(&*observed.lock().unwrap()).unwrap()
+        serde_json::to_value(&*observed.lock().required("value")).required("value")
     });
+    (provider_peer, state)
+}
+
+fn assert_restart_node_methods(node: &Server, path: &std::path::Path) {
+    let methods = node.methods();
+    assert_eq!(
+        methods
+            .iter()
+            .filter(|method| *method == "eth_sendRawTransaction")
+            .count(),
+        1,
+        "recovery must never rebroadcast"
+    );
+    assert!(methods.iter().all(|method| !method.starts_with("px_")));
+    assert!(fs::read_to_string(path)
+        .required("value")
+        .lines()
+        .all(|line| serde_json::from_str::<Value>(line).required("value")["version"] == 2));
+}
+
+fn assert_retained_orders(
+    journal: &Journal,
+    payment: &RampOrder,
+    funding: &RampOrder,
+    expected: &layerx_ramp_toolkit::journal::OrderSnapshot,
+    expected_funding: &layerx_ramp_toolkit::journal::OrderSnapshot,
+) {
+    assert_eq!(journal.order(&payment.order_digest), Some(expected));
+    assert_eq!(journal.order(&funding.order_digest), Some(expected_funding));
+}
+
+fn assert_pending_payment(
+    expected: &layerx_ramp_toolkit::journal::OrderSnapshot,
+    hash: [u8; 32],
+    raw: &[u8],
+) {
+    assert_eq!(expected.stage, S::LayerxPending);
+    assert_eq!(expected.evidence.tx_hash, Some(hash));
+    assert_eq!(expected.evidence.raw_transaction.as_deref(), Some(raw));
+    assert_eq!(expected.evidence.rung, Some(Rung::Submitted));
+    assert_eq!(expected.evidence.receipt_digest, None);
+}
+
+/// # Panics
+/// Panics if journal restart changes expected settlement state.
+pub fn engine_restart() {
+    let files = Files::new();
+    let funding = order(RampDirection::OnRamp);
+    let payment = order(RampDirection::OffRamp);
+    let call = payment_call(&payment);
+    let raw = call.sign(&[1; 32]).required("value");
+    let (_, sig) = decode_signed(&raw).required("value");
+    let sender = recover_sender(&call, &sig).required("value");
+    let hash = transaction_hash(&raw);
+    let expected_raw = raw.clone();
+    let authority = budget(&payment);
+    let node = restart_node(expected_raw, sender, hash, authority);
+    let (provider_peer, state) = funding_provider_peer(&funding);
     let client = files.client(&node.endpoint, sender, pin(&vector()));
     let provider = files.provider(&provider_peer.endpoint);
     let custody = files.custody("https://localhost:1");
     let compliance = ComplianceClient {
         http: files.http(),
-        endpoint: Endpoint::parse("https://localhost:1").unwrap(),
+        endpoint: Endpoint::parse("https://localhost:1").required("value"),
         service_token: "unused".into(),
         verifying_key: [0; 32],
     };
-    let registry = ModuleRegistry::new(&[]).unwrap();
+    let registry = ModuleRegistry::new(&[]).required("value");
     let path = files.0.join("engine.jsonl");
-    let mut journal = Journal::open(&path).unwrap();
+    let mut journal = Journal::open(&path).required("value");
     seed(&mut journal, &funding, S::AwaitingExternalCredit);
     seed(&mut journal, &payment, S::AwaitingLayerxPayment);
     {
@@ -482,36 +545,33 @@ pub fn engine_restart() {
             worker_id: WORKER,
             lease_seconds: 100,
         };
-        engine.submit_provider(funding.order_digest, 1002).unwrap();
+        engine
+            .submit_provider(funding.order_digest, 1002)
+            .required("value");
         engine
             .submit_customer_payment(payment.order_digest, &raw, 1003)
-            .unwrap();
+            .required("value");
         assert_eq!(
             engine.submit_provider(payment.order_digest, 1004),
             Err(RampError::IllegalTransition)
         );
     }
-    let expected = journal.order(&payment.order_digest).unwrap().clone();
-    assert_eq!(expected.stage, S::LayerxPending);
-    assert_eq!(expected.evidence.tx_hash, Some(hash));
-    assert_eq!(
-        expected.evidence.raw_transaction.as_deref(),
-        Some(raw.as_slice())
-    );
-    assert_eq!(expected.evidence.rung, Some(Rung::Submitted));
-    assert_eq!(expected.evidence.receipt_digest, None);
-    let expected_funding = journal.order(&funding.order_digest).unwrap().clone();
+    let expected = journal
+        .order(&payment.order_digest)
+        .required("value")
+        .clone();
+    assert_pending_payment(&expected, hash, &raw);
+    let expected_funding = journal
+        .order(&funding.order_digest)
+        .required("value")
+        .clone();
     assert_eq!(expected_funding.stage, S::ProviderSettled);
     drop(journal);
     drop(client);
-    let persisted = fs::read(&path).unwrap();
-    let mut reopened = Journal::open(&path).unwrap();
+    let persisted = fs::read(&path).required("value");
+    let mut reopened = Journal::open(&path).required("value");
     assert!(!reopened.health().ready);
-    assert_eq!(reopened.order(&payment.order_digest), Some(&expected));
-    assert_eq!(
-        reopened.order(&funding.order_digest),
-        Some(&expected_funding)
-    );
+    assert_retained_orders(&reopened, &payment, &funding, &expected, &expected_funding);
     let restarted = files.client(&node.endpoint, sender, pin(&vector()));
     reopened
         .recover_verified(|projection| {
@@ -523,17 +583,13 @@ pub fn engine_restart() {
                 &custody,
             )
         })
-        .unwrap();
+        .required("value");
     assert!(reopened.health().ready);
-    assert_eq!(reopened.order(&payment.order_digest), Some(&expected));
-    assert_eq!(
-        reopened.order(&funding.order_digest),
-        Some(&expected_funding)
-    );
-    assert_eq!(fs::read(&path).unwrap(), persisted);
+    assert_retained_orders(&reopened, &payment, &funding, &expected, &expected_funding);
+    assert_eq!(fs::read(&path).required("value"), persisted);
     drop(reopened);
-    let mut reopened = Journal::open(&path).unwrap();
-    state.lock().unwrap().evidence_digest = Some([10; 32]);
+    let mut reopened = Journal::open(&path).required("value");
+    state.lock().required("value").evidence_digest = Some([10; 32]);
     assert_eq!(
         reopened.recover_verified(|projection| verify_recovery_settlement(
             projection,
@@ -545,28 +601,13 @@ pub fn engine_restart() {
         Err(RampError::Provider)
     );
     assert!(!reopened.health().ready);
-    assert_eq!(reopened.order(&payment.order_digest), Some(&expected));
-    assert_eq!(
-        reopened.order(&funding.order_digest),
-        Some(&expected_funding)
-    );
-    assert_eq!(fs::read(&path).unwrap(), persisted);
-    let methods = node.methods();
-    assert_eq!(
-        methods
-            .iter()
-            .filter(|method| *method == "eth_sendRawTransaction")
-            .count(),
-        1,
-        "recovery must never rebroadcast"
-    );
-    assert!(methods.iter().all(|method| !method.starts_with("px_")));
-    assert!(fs::read_to_string(path)
-        .unwrap()
-        .lines()
-        .all(|line| serde_json::from_str::<Value>(line).unwrap()["version"] == 2));
+    assert_retained_orders(&reopened, &payment, &funding, &expected, &expected_funding);
+    assert_eq!(fs::read(&path).required("value"), persisted);
+    assert_restart_node_methods(&node, &path);
 }
 
+/// # Panics
+/// Panics if the pinned receipt or a mutation does not meet the asserted binding.
 pub fn recorded_receipt() {
     let files = Files::new();
     let case = vector();
@@ -580,7 +621,7 @@ pub fn recorded_receipt() {
             request["params"],
             json!([format!("0x{}", hex(&transaction))])
         );
-        rpc_reply(request, produced.lock().unwrap().clone())
+        rpc_reply(request, &produced.lock().required("value").clone())
     });
     let client = files.client(
         &node.endpoint,
@@ -590,15 +631,15 @@ pub fn recorded_receipt() {
     let receipt = client
         .sequencer
         .sequencer_receipt(&transaction)
-        .unwrap()
-        .unwrap();
+        .required("value")
+        .required("value");
     let (execution, inclusion) = client
         .authenticate_settlement(transaction, &receipt)
-        .unwrap();
-    let execution = execution.unwrap();
+        .required("value");
+    let execution = execution.required("value");
     assert_eq!(
         execution.receipt,
-        decode_hex(case["signedReceipt"].as_str().unwrap(), 512 * 1024).unwrap()
+        decode_hex(case["signedReceipt"].as_str().required("value"), 512 * 1024).required("value")
     );
     assert!(inclusion.is_none());
     assert_eq!(execution.logs.len(), 1);
@@ -606,7 +647,11 @@ pub fn recorded_receipt() {
     // The node conformance fixture is not a native ramp execution. It must
     // never be relabelled as one, even though its payment event decodes.
     let evidence = ReceiptEvidence {
-        raw_transaction: decode_hex(case["rawTransaction"].as_str().unwrap(), 512 * 1024).unwrap(),
+        raw_transaction: decode_hex(
+            case["rawTransaction"].as_str().required("value"),
+            512 * 1024,
+        )
+        .required("value"),
         signed_receipt: execution.receipt.clone(),
         logs: execution.logs.clone(),
         receipt_keys: vec![pin(&case)],
@@ -617,7 +662,7 @@ pub fn recorded_receipt() {
         match change {
             0 => {
                 let mut bytes = execution.receipt.clone();
-                *bytes.last_mut().unwrap() ^= 1;
+                *bytes.last_mut().required("value") ^= 1;
                 altered["receipt"] = json!(format!("0x{}", hex(&bytes)));
             }
             1 => altered["from"] = json!(format!("0x{}", hex(&[0; 20]))),
@@ -632,24 +677,24 @@ pub fn recorded_receipt() {
             7 => altered["nonce"] = json!("0x99"),
             _ => altered["gasUsed"] = json!("0x1"),
         }
-        *response.lock().unwrap() = altered;
+        *response.lock().required("value") = altered;
         let altered = client
             .sequencer
             .sequencer_receipt(&transaction)
-            .unwrap()
-            .unwrap();
+            .required("value")
+            .required("value");
         assert_eq!(
             client.authenticate_settlement(transaction, &altered),
             Err(RampError::ReceiptMismatch),
             "mutation {change}"
         );
     }
-    *response.lock().unwrap() = case["receiptJson"].clone();
+    *response.lock().required("value") = case["receiptJson"].clone();
     let restored = client
         .sequencer
         .sequencer_receipt(&transaction)
-        .unwrap()
-        .unwrap();
+        .required("value")
+        .required("value");
     assert!(client
         .authenticate_settlement(transaction, &restored)
         .is_ok());
@@ -681,19 +726,27 @@ fn base64(bytes: &[u8]) -> String {
     }
     out
 }
+/// # Panics
+/// Panics if the signer response does not meet the asserted contract.
 pub fn signer_contract() {
     let call = payment_call(&order(RampDirection::OffRamp));
-    let raw = call.sign(&[1; 32]).unwrap();
-    let (_, signature) = decode_signed(&raw).unwrap();
-    let operator = recover_sender(&call, &signature).unwrap();
+    let raw = call.sign(&[1; 32]).required("value");
+    let (_, signature) = decode_signed(&raw).required("value");
+    let operator = recover_sender(&call, &signature).required("value");
     let wire = json!({"signature":base64(&signature.as_bytes()[..64]),"recovery_id":signature.as_bytes()[64]-27});
-    let decoded =
-        decode_kms_signature_response(&call, &serde_json::to_vec(&wire).unwrap(), operator)
-            .unwrap();
+    let decoded = decode_kms_signature_response(
+        &call,
+        &serde_json::to_vec(&wire).required("value"),
+        operator,
+    )
+    .required("value");
     assert_eq!(decoded.as_bytes(), signature.as_bytes());
-    assert!(
-        decode_kms_signature_response(&call, &serde_json::to_vec(&wire).unwrap(), [0; 20]).is_err()
-    );
+    assert!(decode_kms_signature_response(
+        &call,
+        &serde_json::to_vec(&wire).required("value"),
+        [0; 20]
+    )
+    .is_err());
     for malformed in [
         json!({"signature":base64(signature.as_bytes())}),
         json!({"signature":base64(signature.as_bytes()),"recovery_id":0}),
@@ -704,7 +757,7 @@ pub fn signer_contract() {
     ] {
         assert!(decode_kms_signature_response(
             &call,
-            &serde_json::to_vec(&malformed).unwrap(),
+            &serde_json::to_vec(&malformed).required("value"),
             operator
         )
         .is_err());
@@ -713,19 +766,21 @@ pub fn signer_contract() {
     another_call.nonce += 1;
     assert!(decode_kms_signature_response(
         &another_call,
-        &serde_json::to_vec(&wire).unwrap(),
+        &serde_json::to_vec(&wire).required("value"),
         operator
     )
     .is_err());
 }
 
+/// # Panics
+/// Panics if customer payment authority does not meet the asserted binding.
 pub fn customer_authority() {
     let order = order(RampDirection::OffRamp);
-    let compiled = compile_customer_payment(&order).unwrap();
+    let compiled = compile_customer_payment(&order).required("value");
     assert_eq!(compiled.to, PAY_ADDRESS);
     assert_eq!(&compiled.data[36..68], &account(&order.operator.account));
     let authority = budget(&order);
-    verify_customer_budget(&order, &authority, true).unwrap();
+    verify_customer_budget(&order, &authority, true).required("value");
     for index in [32, 96, 128, 12 * 32 + 31, 15 * 32 + 31, 16 * 32 + 31] {
         let mut altered = authority.clone();
         altered[index] ^= 1;
@@ -735,22 +790,22 @@ pub fn customer_authority() {
         );
     }
     let historical = encode_draw(
-        order.payer_grant.unwrap(),
+        order.payer_grant.required("value"),
         account(&order.operator.account),
         order.quote.layerx_amount,
         order.order_digest,
         7,
-        order.payer_grant_purpose.unwrap(),
+        order.payer_grant_purpose.required("value"),
         order.context,
     );
     assert_ne!(&compiled.data[..4], &historical[..4]);
     let files = Files::new();
     let call = payment_call(&order);
-    let raw = call.sign(&[1; 32]).unwrap();
-    let (_, signature) = decode_signed(&raw).unwrap();
-    let address = recover_sender(&call, &signature).unwrap();
+    let raw = call.sign(&[1; 32]).required("value");
+    let (_, signature) = decode_signed(&raw).required("value");
+    let address = recover_sender(&call, &signature).required("value");
     let node = Server::new(false, move |_, request| {
-        let result = match request["method"].as_str().unwrap() {
+        let result = match request["method"].as_str().required("value") {
             "eth_call" => {
                 if request["params"][0]["to"] == format!("0x{}", hex(&PAY_ADDRESS)) {
                     json!(format!("0x{}", hex(&authority)))
@@ -763,17 +818,19 @@ pub fn customer_authority() {
             "eth_getTransactionCount" => json!("0x7"),
             method => panic!("unexpected authority request {method}"),
         };
-        rpc_reply(request, result)
+        rpc_reply(request, &result)
     });
     let client = files.client(&node.endpoint, [9; 20], pin(&vector()));
-    let prepared = client.prepare_customer_payment(&order, &raw, 1001).unwrap();
+    let prepared = client
+        .prepare_customer_payment(&order, &raw, 1001)
+        .required("value");
     assert_eq!(prepared.raw_transaction(), raw);
     assert_eq!(prepared.tx_hash(), transaction_hash(&raw));
     let mut retired = call.clone();
     retired.to = layerx_ramp_toolkit::evm::LEDGER_ADDRESS;
     retired.data = historical;
     assert_eq!(
-        client.prepare_customer_payment(&order, &retired.sign(&[1; 32]).unwrap(), 1001),
+        client.prepare_customer_payment(&order, &retired.sign(&[1; 32]).required("value"), 1001),
         Err(RampError::ReceiptMismatch)
     );
     for change in 0..4 {
@@ -783,14 +840,18 @@ pub fn customer_authority() {
             1 => altered.data[99] ^= 1,
             2 => altered.chain_id += 1,
             _ => altered.to[19] ^= 1,
-        };
+        }
         assert_eq!(
-            client.prepare_customer_payment(&order, &altered.sign(&[1; 32]).unwrap(), 1001),
+            client.prepare_customer_payment(
+                &order,
+                &altered.sign(&[1; 32]).required("value"),
+                1001
+            ),
             Err(RampError::ReceiptMismatch)
         );
     }
     assert_eq!(
-        client.prepare_customer_payment(&order, &call.sign(&[2; 32]).unwrap(), 1001),
+        client.prepare_customer_payment(&order, &call.sign(&[2; 32]).required("value"), 1001),
         Err(RampError::ReceiptMismatch)
     );
     assert!(node
@@ -800,36 +861,30 @@ pub fn customer_authority() {
 }
 
 fn transaction_json(raw: &[u8]) -> Value {
-    let (call, signature) = decode_signed(raw).unwrap();
+    let (call, signature) = decode_signed(raw).required("value");
     let sig = signature.as_bytes();
     json!({"blockHash":format!("0x{}",hex(&[8;32])),"blockNumber":"0x3e9","transactionIndex":"0x0",
-        "hash":format!("0x{}",hex(&transaction_hash(raw))),"from":format!("0x{}",hex(&recover_sender(&call,&signature).unwrap())),
+        "hash":format!("0x{}",hex(&transaction_hash(raw))),"from":format!("0x{}",hex(&recover_sender(&call,&signature).required("value"))),
         "to":format!("0x{}",hex(&call.to)),"input":format!("0x{}",hex(&call.data)),"nonce":format!("{:#x}",call.nonce),
         "gas":format!("{:#x}",call.gas_limit),"gasPrice":"0x1","value":"0x0","type":"0x2","chainId":"0x7d",
         "maxFeePerGas":format!("{:#x}",call.max_fee_per_gas),"maxPriorityFeePerGas":format!("{:#x}",call.max_priority_fee_per_gas),
         "accessList":[],"v":format!("{:#x}",sig[64]-27),"yParity":format!("{:#x}",sig[64]-27),
         "r":format!("0x{}",hex(&sig[..32]).trim_start_matches('0')),"s":format!("0x{}",hex(&sig[32..64]).trim_start_matches('0'))})
 }
-pub fn custody_restart() {
-    let files = Files::new();
-    let case = vector();
-    let transaction = fixed(&case["receiptJson"]["txHash"]);
-    let raw = decode_hex(case["rawTransaction"].as_str().unwrap(), 512 * 1024).unwrap();
-    let mut committed = case["receiptJson"].clone();
-    committed["rung"] = json!("committed");
-    committed["blockNumber"] = json!("0x3e9");
-    committed["blockHash"] = json!(format!("0x{}", hex(&[8; 32])));
+type CustodyNodeState = (Server, Arc<Mutex<Value>>, Arc<AtomicU64>, Arc<Mutex<Value>>);
+
+fn custody_node(committed: &Value, raw: &[u8], transaction: [u8; 32]) -> CustodyNodeState {
     let response = Arc::new(Mutex::new(committed.clone()));
     let produced = response.clone();
     let chain = Arc::new(AtomicU64::new(125));
     let observed_chain = chain.clone();
     let block = Arc::new(Mutex::new(
-        json!({"number":"0x3e9","hash":format!("0x{}",hex(&[8;32])),"parentHash":format!("0x{}",hex(&[7;32])),"timestamp":"0x1","transactionsRoot":format!("0x{}",hex(&[6;32])),"receiptsRoot":format!("0x{}",hex(&[5;32])),"transactions":[transaction_json(&raw)]}),
+        json!({"number":"0x3e9","hash":format!("0x{}",hex(&[8;32])),"parentHash":format!("0x{}",hex(&[7;32])),"timestamp":"0x1","transactionsRoot":format!("0x{}",hex(&[6;32])),"receiptsRoot":format!("0x{}",hex(&[5;32])),"transactions":[transaction_json(raw)]}),
     ));
     let served_block = block.clone();
     let node = Server::new(false, move |header, request| {
         assert!(header.starts_with("POST / HTTP/1.1"));
-        let result = match request["method"].as_str().unwrap() {
+        let result = match request["method"].as_str().required("value") {
             "eth_chainId" => json!(format!("{:#x}", observed_chain.load(Ordering::Acquire))),
             "eth_blockNumber" => json!("0x3e9"),
             "pax_sequencerReceipt" => {
@@ -837,17 +892,20 @@ pub fn custody_restart() {
                     request["params"],
                     json!([format!("0x{}", hex(&transaction))])
                 );
-                produced.lock().unwrap().clone()
+                produced.lock().required("value").clone()
             }
             "eth_getBlockByNumber" => {
                 assert_eq!(request["params"], json!(["0x3e9", true]));
-                served_block.lock().unwrap().clone()
+                served_block.lock().required("value").clone()
             }
             method => panic!("hosted method must never reach the node root: {method}"),
         };
-        rpc_reply(request, result)
+        rpc_reply(request, &result)
     });
-    let key = [2; 32];
+    (node, response, chain, block)
+}
+
+fn custody_recovery_peer(key: [u8; 32], transaction: [u8; 32]) -> Server {
     let custody_peer = Server::new(true, move |header, body| {
         assert!(header.starts_with(&format!(
             "GET /status/by-idempotency/{} HTTP/1.1",
@@ -865,8 +923,29 @@ pub fn custody_restart() {
             amount: 100,
             transaction_hash: format!("0x{}", hex(&transaction)),
         })
-        .unwrap()
+        .required("value")
     });
+    custody_peer
+}
+
+/// # Panics
+/// Panics if custody replay does not meet the asserted retained state.
+pub fn custody_restart() {
+    let files = Files::new();
+    let case = vector();
+    let transaction = fixed(&case["receiptJson"]["txHash"]);
+    let raw = decode_hex(
+        case["rawTransaction"].as_str().required("value"),
+        512 * 1024,
+    )
+    .required("value");
+    let mut committed = case["receiptJson"].clone();
+    committed["rung"] = json!("committed");
+    committed["blockNumber"] = json!("0x3e9");
+    committed["blockHash"] = json!(format!("0x{}", hex(&[8; 32])));
+    let (node, response, chain, block) = custody_node(&committed, &raw, transaction);
+    let key = [2; 32];
+    let custody_peer = custody_recovery_peer(key, transaction);
     let custody = files.custody(&custody_peer.endpoint);
     let provider = files.provider("https://localhost:1");
     let client = files.client(
@@ -875,8 +954,10 @@ pub fn custody_restart() {
         pin(&case),
     );
     let path = files.0.join("custody.jsonl");
-    let mut journal = Journal::open(&path).unwrap();
-    journal.plan_paxeer(key, [1; 32], 100, 1000).unwrap();
+    let mut journal = Journal::open(&path).required("value");
+    journal
+        .plan_paxeer(key, [1; 32], 100, 1000)
+        .required("value");
     journal
         .observe_paxeer(
             key,
@@ -889,47 +970,48 @@ pub fn custody_restart() {
             },
             1001,
         )
-        .unwrap();
-    let expected = journal.paxeer(&key).unwrap().clone();
+        .required("value");
+    let expected = journal.paxeer(&key).required("value").clone();
     drop(journal);
-    let persisted = fs::read(&path).unwrap();
+    let persisted = fs::read(&path).required("value");
     assert!(std::str::from_utf8(&persisted)
-        .unwrap()
+        .required("value")
         .lines()
-        .all(|line| serde_json::from_str::<Value>(line).unwrap()["version"] == 2));
+        .all(|line| serde_json::from_str::<Value>(line).required("value")["version"] == 2));
     let operator = order(RampDirection::OnRamp).operator;
-    let mut journal = Journal::open(&path).unwrap();
+    let mut journal = Journal::open(&path).required("value");
     assert!(!journal.health().ready);
     journal
         .recover_verified(|projection| {
             verify_recovery_settlement(projection, &operator, &provider, &client, &custody)
         })
-        .unwrap();
+        .required("value");
     assert!(journal.health().ready);
     assert_eq!(journal.paxeer(&key), Some(&expected));
-    assert_eq!(fs::read(&path).unwrap(), persisted);
+    assert_eq!(fs::read(&path).required("value"), persisted);
     drop(journal);
     // Each contradiction starts with the same persisted terminal v2 bytes.
     for change in 0..7 {
-        let mut journal = Journal::open(&path).unwrap();
+        let mut journal = Journal::open(&path).required("value");
         let mut current = committed.clone();
         match change {
             0 => chain.store(126, Ordering::Release),
             1 => current = case["receiptJson"].clone(),
             2 => {
-                current = json!({"rung":"submitted","txHash":format!("0x{}",hex(&transaction)),"nonce":case["receiptJson"]["nonce"]})
+                current = json!({"rung":"submitted","txHash":format!("0x{}",hex(&transaction)),"nonce":case["receiptJson"]["nonce"]});
             }
             3 => current["status"] = json!("0x0"),
             4 => current["blockHash"] = json!(format!("0x{}", hex(&[9; 32]))),
             5 => {
                 let mut signed =
-                    decode_hex(case["signedReceipt"].as_str().unwrap(), 512 * 1024).unwrap();
-                *signed.last_mut().unwrap() ^= 1;
+                    decode_hex(case["signedReceipt"].as_str().required("value"), 512 * 1024)
+                        .required("value");
+                *signed.last_mut().required("value") ^= 1;
                 current["receipt"] = json!(format!("0x{}", hex(&signed)));
             }
-            _ => block.lock().unwrap()["transactions"] = json!([]),
+            _ => block.lock().required("value")["transactions"] = json!([]),
         }
-        *response.lock().unwrap() = current;
+        *response.lock().required("value") = current;
         assert!(
             journal
                 .recover_verified(|projection| verify_recovery_settlement(
@@ -940,9 +1022,9 @@ pub fn custody_restart() {
         );
         assert!(!journal.health().ready);
         assert_eq!(journal.paxeer(&key), Some(&expected));
-        assert_eq!(fs::read(&path).unwrap(), persisted);
+        assert_eq!(fs::read(&path).required("value"), persisted);
         chain.store(125, Ordering::Release);
-        block.lock().unwrap()["transactions"] = json!([transaction_json(&raw)]);
+        block.lock().required("value")["transactions"] = json!([transaction_json(&raw)]);
     }
     let methods = node.methods();
     assert!(methods.iter().all(|method| !method.starts_with("px_")));
