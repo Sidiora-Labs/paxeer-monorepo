@@ -1,32 +1,21 @@
-//! Proves: RemoteKmsProvider::encode_evm_request / Keystore -> LXKP mutual TLS and state.aead -> Request::decode / Store::dispatch / Keystore.
-//!
-//! Covers the frame, EvmWallet, Evm and AuthorizeSend contracts with a real
-//! KMS subprocess, a real external secp256k1 signer and the production gateway.
-//! The external-signature route deliberately imports a valid signed action
-//! before AuthorizeSend: its cached signed result needs no threshold service.
-//! All producer processes, keys, TLS identities and files belong to this test.
-//! No attestor response, LXKP request or persisted store record is fabricated.
-//!
-//! Repairs store.rs::Store::evm: exported keys were reported as Refused because
-//! their erased seed was checked before SelfCustodied; destroyed keys likewise
-//! need NotFound. Also rejects empty JSON payloads at the wire/client boundary.
-//! Repairs tests/provider.rs::Host::remote to use its own hosted runtime clock.
-//! services/human/crates/layerx-human-service/src/custody/gateway.rs::Operation::from_wire
-//! deliberately refuses version 3 EVM operations; the proof preserves that policy.
+//! The KMS provider binds LXKP requests to mutual TLS, encrypted state and signed EVM actions.
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::disclosure::call::ledger_selector;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_human_service::custody::{
     CustodyError, EvmAcknowledgement, EvmAction, EvmExternalSignature, EvmPlanAuthorization,
     EvmTransaction, GatewayLimits, GatewayPolicy, GatewayTls, KeyClass, KeyId, Keystore, KmsError,
-    KmsProvider, LxkpGateway, PrincipalKeyBinding, ProviderKeyReference, RemoteKmsProvider,
-    GATEWAY_FRAME_LIMIT,
+    KmsProvider, LxkpGateway, PrincipalKeyBinding, ProviderKeyDescription, ProviderKeyReference,
+    RemoteKmsProvider, GATEWAY_FRAME_LIMIT,
 };
 use layerx_human_service::frame::{read_frame, write_frame, Limits, MutualTlsConfig};
 use layerx_human_service::store::PrincipalId;
 use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleRegistry;
+use p256::ecdsa::signature::Signer as _;
+use ring::signature::KeyPair as _;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use serde_json::json;
@@ -67,7 +56,7 @@ struct Host {
     address: SocketAddr,
     child: Option<Child>,
     clock: Arc<dyn Clock>,
-    clock_host: ClockHost,
+    clock_service: ClockHost,
     // These reserved ports detect any unintended attempt to use the threshold
     // route. They never accept or return a substitute attestor response.
     unused_threshold: Vec<TcpListener>,
@@ -98,14 +87,14 @@ impl Host {
         let signing_key = k256::ecdsa::SigningKey::from_slice(signer.as_ref())?;
         let point = signing_key.verifying_key().to_encoded_point(false);
         let wallet = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
-        let clock_host = ClockHost::start(&root)?;
-        let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_host.binding.clone())?;
+        let clock_service = ClockHost::start(&root)?;
+        let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_service.binding.clone())?;
         let mut host = Self {
             root,
             address,
             child: None,
             clock,
-            clock_host,
+            clock_service,
             unused_threshold: Vec::new(),
             signer,
             wallet,
@@ -121,7 +110,6 @@ impl Host {
             nodes.push(json!({"id":id, "address":node.local_addr()?}));
             host.unused_threshold.push(node);
         }
-        use ring::signature::KeyPair as _;
         let identity = ring::signature::Ed25519KeyPair::from_seed_unchecked(host.signer.as_ref())
             .map_err(|error| format!("identity producer failed: {error:?}"))?;
         let identity_public: [u8; 32] = identity.public_key().as_ref().try_into()?;
@@ -140,8 +128,6 @@ impl Host {
         )?;
         // A genuine signed owner assertion is configuration only on this
         // external-signature route; no remote service consumes it.
-        use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-        use p256::ecdsa::signature::Signer as _;
         let issuer = p256::ecdsa::SigningKey::from_slice(&[3; 32])?;
         let now = host.clock.sample(WAIT)?.unix_seconds();
         let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"ES256","typ":"JWT"}"#);
@@ -313,15 +299,15 @@ impl Host {
             .env_clear()
             .env(
                 "LAYERX_RUNTIME_CLOCK_SOCKET",
-                &self.clock_host.binding.socket,
+                &self.clock_service.binding.socket,
             )
             .env(
                 "LAYERX_RUNTIME_CLOCK_PID",
-                self.clock_host.binding.process.to_string(),
+                self.clock_service.binding.process.to_string(),
             )
             .env(
                 "LAYERX_RUNTIME_CLOCK_UID",
-                self.clock_host.binding.user.to_string(),
+                self.clock_service.binding.user.to_string(),
             );
         for (suffix, name) in [
             ("REGISTRY_FILE", "chain.json"),
@@ -433,7 +419,7 @@ impl Host {
                         let _ = gateway.serve_connection(stream);
                     }
                     Err(error) if error.kind() == ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1))
+                        thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => return Err(error.to_string()),
                 }
@@ -538,21 +524,7 @@ fn bank_call(wallet: [u8; 20], recipient: [u8; 20], amount: [u8; 32]) -> Eip1559
 #[test]
 fn proof_human_kms_wire() -> Result {
     let mut host = Host::new()?;
-    fs::set_permissions(
-        host.path("client-key.der"),
-        fs::Permissions::from_mode(0o640),
-    )?;
-    assert!(GatewayTls::read_material(&host.path("client-key.der"), true).is_err());
-    fs::set_permissions(
-        host.path("client-key.der"),
-        fs::Permissions::from_mode(0o600),
-    )?;
-    std::os::unix::fs::symlink(host.path("ca.der"), host.path("linked.der"))?;
-    assert!(GatewayTls::read_material(&host.path("linked.der"), false).is_err());
-    host.write("empty.der", &[])?;
-    assert!(GatewayTls::read_material(&host.path("empty.der"), false).is_err());
-    host.write("oversized.der", &vec![1; 65_537])?;
-    assert!(GatewayTls::read_material(&host.path("oversized.der"), false).is_err());
+    assert_tls_material_refusals(&host)?;
     let principal = PrincipalId::new("alice")?;
     let key = KeyId::new("primary")?;
     let gateway = host.gateway()?;
@@ -583,31 +555,7 @@ fn proof_human_kms_wire() -> Result {
         Err(KmsError::Integrity)
     );
 
-    let recipient = [4; 20];
-    let mut amount = [0; 32];
-    amount[31] = 12;
-    let call = bank_call(wallet, recipient, amount);
-    let now = host.clock.sample(WAIT)?.unix_seconds();
-    let plan = EvmPlanAuthorization {
-        plan_id: [1; 32],
-        action_key: [2; 32],
-        tenant: "tenant".into(),
-        principal: "alice".into(),
-        binding_digest: binding.digest(),
-        wallet,
-        not_before: now,
-        not_after: now + 600,
-        transaction: EvmTransaction {
-            chain_id: call.chain_id,
-            nonce: call.nonce,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 2,
-            gas_limit: call.gas_limit,
-            to: call.to,
-            value: [0; 32],
-            calldata: call.data.clone(),
-        },
-    };
+    let (recipient, amount, call, plan) = planned_transfer(&host, &binding, wallet)?;
     let authorized = store.authorize_evm_plan(&principal, &key, &plan)?;
     assert_eq!(authorized.authorization, plan);
     assert!(authorized.raw_transaction.is_empty());
@@ -618,28 +566,8 @@ fn proof_human_kms_wire() -> Result {
         Err(CustodyError::Kms(KmsError::Conflict))
     ));
 
-    let expected_raw = call.sign(&host.signer)?;
-    let (_, signature) = decode_signed(&expected_raw)?;
-    let external = EvmExternalSignature {
-        action_key: plan.action_key,
-        signature: signature.as_bytes().to_vec(),
-    };
-    let mut foreign = external.clone();
-    let foreign_key = k256::ecdsa::SigningKey::from_slice(&[7; 32])?;
-    let (signature, recovery) = foreign_key.sign_prehash_recoverable(&call.signing_hash())?;
-    foreign.signature = signature.to_bytes().to_vec();
-    foreign.signature.push(recovery.to_byte());
-    assert_eq!(
-        direct.evm_operation(12, &binding, &reference, &serde_json::to_vec(&foreign)?),
-        Err(KmsError::Refused)
-    );
-    let signed: EvmAction = serde_json::from_slice(&direct.evm_operation(
-        12,
-        &binding,
-        &reference,
-        &serde_json::to_vec(&external)?,
-    )?)?;
-    assert_eq!(signed.raw_transaction, expected_raw);
+    let (expected_raw, external, signed) =
+        signed_external_action(&host, &direct, &binding, &reference, &call, &plan)?;
     let raw = store.authorize_send_transaction(
         &principal,
         &key,
@@ -666,221 +594,399 @@ fn proof_human_kms_wire() -> Result {
         Err(CustodyError::Kms(KmsError::Refused))
     ));
 
-    // Each inventory contract uses bytes emitted by the production encoder.
-    // Persist and reread them before invoking the real wire decoder, KMS TLS
-    // server, and gateway consumer. No valid frame is hand assembled.
-    let send_payload = serde_json::to_vec(&json!({"authorization":plan,"disclosure":{
-        "recipient":recipient,"denom":"apax","amount":amount }}))?;
-    for (operation, payload, kind) in [
-        (6, Vec::new(), wire::Operation::EvmWallet),
-        (7, serde_json::to_vec(&plan)?, wire::Operation::Evm),
-        (
-            8,
-            serde_json::to_vec(&plan.action_key)?,
-            wire::Operation::Evm,
-        ),
-        (
-            9,
-            serde_json::to_vec(&EvmAcknowledgement {
-                action_key: plan.action_key,
-                transaction_hash: signed.transaction_hash.ok_or("missing signed hash")?,
-            })?,
-            wire::Operation::Evm,
-        ),
-        (
-            10,
-            serde_json::to_vec(&plan.action_key)?,
-            wire::Operation::Evm,
-        ),
-        (11, send_payload, wire::Operation::AuthorizeSend),
-        (12, serde_json::to_vec(&external)?, wire::Operation::Evm),
-    ] {
-        let frame = direct.encode_evm_request(operation, &binding, &reference, &payload)?;
-        host.write("request.lxkp", &frame)?;
-        if operation == 10 {
-            host.write("recover.lxkp", &frame)?;
-        }
-        let transported = fs::read(host.path("request.lxkp"))?;
-        let decoded = checked(wire::Request::decode(&transported))?;
-        assert_eq!(decoded.version, 3);
-        assert_eq!(decoded.operation, operation);
-        assert_eq!(decoded.kind, kind);
-        assert_eq!(decoded.binding, binding.digest());
-        assert_eq!(decoded.reference, reference.as_bytes());
-        assert_eq!(decoded.evm, payload);
-        assert_eq!(&transported[..4], b"LXKP");
-        let response = host.call(host.address, &transported)?;
-        assert_eq!(&response[..7], &transported[..7]);
-        assert_eq!(response[7], 0);
-        match operation {
-            6 => assert_eq!(&response[8..], wallet),
-            11 => assert_eq!(&response[8..], expected_raw),
-            _ => {
-                let action: EvmAction = serde_json::from_slice(&response[8..])?;
-                assert_eq!(action.authorization, plan);
-                assert_eq!(action.raw_transaction, expected_raw);
-            }
-        }
-        assert_eq!(
-            relay.evm_operation(operation, &binding, &reference, &payload),
-            Err(KmsError::Refused)
-        );
-        let mut trailing = transported.clone();
-        trailing.push(0);
-        assert!(matches!(
-            wire::Request::decode(&trailing),
-            Err(wire::Error::Refused)
-        ));
-        assert!(host.call(host.address, &trailing).is_err());
-        assert!(matches!(
-            wire::Request::decode(&transported[..transported.len() - 1]),
-            Err(wire::Error::Refused)
-        ));
-        if operation != 6 {
-            let mut empty = transported[..transported.len() - payload.len() - 4].to_vec();
-            empty.extend(0_u32.to_be_bytes());
-            assert!(matches!(
-                wire::Request::decode(&empty),
-                Err(wire::Error::Refused)
-            ));
-            assert!(host.call(host.address, &empty).is_err());
-        }
-    }
-    assert_eq!(wire::MAX_FRAME, GATEWAY_FRAME_LIMIT);
-    assert!(matches!(
-        wire::Request::decode(&vec![0; wire::MAX_FRAME + 1]),
-        Err(wire::Error::Refused)
-    ));
-    assert_eq!(
-        direct.encode_evm_request(7, &binding, &reference, &[]),
-        Err(KmsError::Refused)
-    );
-    assert_eq!(
-        direct.encode_evm_request(6, &binding, &reference, b"{}"),
-        Err(KmsError::Refused)
-    );
-    assert_eq!(
-        direct.encode_evm_request(255, &binding, &reference, b"{}"),
-        Err(KmsError::Refused)
-    );
-    let overhead = direct
-        .encode_evm_request(7, &binding, &reference, b"{}")?
-        .len()
-        - 2;
-    let mut bounded_payload = vec![b' '; wire::MAX_FRAME - overhead];
-    bounded_payload[..2].copy_from_slice(b"{}");
-    let maximum = direct.encode_evm_request(7, &binding, &reference, &bounded_payload)?;
-    assert_eq!(maximum.len(), wire::MAX_FRAME);
-    assert_eq!(
-        checked(wire::Request::decode(&maximum))?.evm,
-        bounded_payload
-    );
-    assert_eq!(
-        direct.evm_operation(7, &binding, &reference, &bounded_payload),
-        Err(KmsError::Refused)
-    );
-    bounded_payload.push(b' ');
-    assert_eq!(
-        direct.encode_evm_request(7, &binding, &reference, &bounded_payload),
-        Err(KmsError::InvalidConfiguration)
-    );
-    assert_eq!(
-        direct.evm_operation(7, &binding, &reference, b"{"),
-        Err(KmsError::Refused)
-    );
-    assert_eq!(
-        direct.evm_operation(10, &binding, &reference, &serde_json::to_vec(&[8_u8; 32])?),
-        Err(KmsError::KeyNotFound)
-    );
-
-    let persisted = fs::read(host.path("state/state.aead"))?;
+    let mut evidence = ProofWire {
+        host: &mut host,
+        direct: &direct,
+        relay: &relay,
+        binding: &binding,
+        reference: &reference,
+        plan: &plan,
+        signed: &signed,
+        external: &external,
+        expected_raw: &expected_raw,
+        wallet,
+        recipient,
+        amount,
+        principal: &principal,
+        key: &key,
+        public,
+        created: &created,
+    };
+    evidence.verify_frames()?;
+    evidence.verify_bounds()?;
+    let persisted = fs::read(evidence.host.path("state/state.aead"))?;
     assert!(persisted.len() > 28);
     drop(store);
-    host.stop();
-    assert_eq!(fs::read(host.path("state/state.aead"))?, persisted);
-    host.start()?;
-    let store = Keystore::open_production(
-        host.path("client-state"),
-        125,
-        host.remote(host.address, "client")?,
-    )?;
-    assert_eq!(store.describe(&principal, &key)?.public_key, public);
-    assert_eq!(store.evm_wallet(&principal, &key)?, wallet);
-    let recovered = store.recover_evm_action(&principal, &key, &plan.action_key)?;
-    assert_eq!(recovered.authorization, plan);
-    assert_eq!(recovered.raw_transaction, expected_raw);
-    assert!(recovered.acknowledged);
-    let recovery_response = host.call(host.address, &fs::read(host.path("recover.lxkp"))?)?;
-    assert_eq!(recovery_response[7], 0);
-    assert_eq!(
-        serde_json::from_slice::<EvmAction>(&recovery_response[8..])?,
-        recovered
-    );
-    assert_eq!(
-        store.authorize_evm_plan(&principal, &key, &plan)?,
-        recovered
-    );
-    assert_eq!(
-        store.sign_evm_action(&principal, &key, &plan.action_key)?,
-        recovered
-    );
-    assert_eq!(
-        store.authorize_send_transaction(
-            &principal,
-            &key,
-            &plan,
-            recipient,
-            "apax".into(),
-            amount
-        )?,
-        expected_raw
-    );
-    assert_eq!(direct.create_key(&binding)?, created);
-    assert!(store
-        .create(&principal, &key, KeyClass::HumanPrimary)
-        .is_err());
-    assert_eq!(relay.describe_key(&binding, &reference)?, created);
+    evidence.verify_recovery(&persisted)?;
+    evidence.verify_handover()?;
+    Ok(())
+}
 
-    // Handover must keep its specific refusal across the encrypted-file restart.
-    drop(direct.export_primary_key(&binding, &reference)?);
-    assert_eq!(direct.evm_operation(11,&binding,&reference,&serde_json::to_vec(&json!({
+fn signed_external_action(
+    host: &Host,
+    direct: &RemoteKmsProvider,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    call: &Eip1559Call,
+    plan: &EvmPlanAuthorization,
+) -> Result<(Vec<u8>, EvmExternalSignature, EvmAction)> {
+    let expected_raw = call.sign(&host.signer)?;
+    let (_, signature) = decode_signed(&expected_raw)?;
+    let external = EvmExternalSignature {
+        action_key: plan.action_key,
+        signature: signature.as_bytes().to_vec(),
+    };
+    let mut foreign = external.clone();
+    let foreign_key = k256::ecdsa::SigningKey::from_slice(&[7; 32])?;
+    let (signature, recovery) = foreign_key.sign_prehash_recoverable(&call.signing_hash())?;
+    foreign.signature = signature.to_bytes().to_vec();
+    foreign.signature.push(recovery.to_byte());
+    assert_eq!(
+        direct.evm_operation(12, binding, reference, &serde_json::to_vec(&foreign)?),
+        Err(KmsError::Refused)
+    );
+    let signed: EvmAction = serde_json::from_slice(&direct.evm_operation(
+        12,
+        binding,
+        reference,
+        &serde_json::to_vec(&external)?,
+    )?)?;
+    assert_eq!(signed.raw_transaction, expected_raw);
+    Ok((expected_raw, external, signed))
+}
+
+fn assert_tls_material_refusals(host: &Host) -> Result {
+    fs::set_permissions(
+        host.path("client-key.der"),
+        fs::Permissions::from_mode(0o640),
+    )?;
+    assert!(GatewayTls::read_material(&host.path("client-key.der"), true).is_err());
+    fs::set_permissions(
+        host.path("client-key.der"),
+        fs::Permissions::from_mode(0o600),
+    )?;
+    std::os::unix::fs::symlink(host.path("ca.der"), host.path("linked.der"))?;
+    assert!(GatewayTls::read_material(&host.path("linked.der"), false).is_err());
+    host.write("empty.der", &[])?;
+    assert!(GatewayTls::read_material(&host.path("empty.der"), false).is_err());
+    host.write("oversized.der", &vec![1; 65_537])?;
+    assert!(GatewayTls::read_material(&host.path("oversized.der"), false).is_err());
+    Ok(())
+}
+
+fn planned_transfer(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    wallet: [u8; 20],
+) -> Result<([u8; 20], [u8; 32], Eip1559Call, EvmPlanAuthorization)> {
+    let recipient = [4; 20];
+    let mut amount = [0; 32];
+    amount[31] = 12;
+    let call = bank_call(wallet, recipient, amount);
+    let now = host.clock.sample(WAIT)?.unix_seconds();
+    let plan = EvmPlanAuthorization {
+        plan_id: [1; 32],
+        action_key: [2; 32],
+        tenant: "tenant".into(),
+        principal: "alice".into(),
+        binding_digest: binding.digest(),
+        wallet,
+        not_before: now,
+        not_after: now + 600,
+        transaction: EvmTransaction {
+            chain_id: call.chain_id,
+            nonce: call.nonce,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: call.gas_limit,
+            to: call.to,
+            value: [0; 32],
+            calldata: call.data.clone(),
+        },
+    };
+    Ok((recipient, amount, call, plan))
+}
+
+struct ProofWire<'a> {
+    host: &'a mut Host,
+    direct: &'a RemoteKmsProvider,
+    relay: &'a RemoteKmsProvider,
+    binding: &'a PrincipalKeyBinding,
+    reference: &'a ProviderKeyReference,
+    plan: &'a EvmPlanAuthorization,
+    signed: &'a EvmAction,
+    external: &'a EvmExternalSignature,
+    expected_raw: &'a [u8],
+    wallet: [u8; 20],
+    recipient: [u8; 20],
+    amount: [u8; 32],
+    principal: &'a PrincipalId,
+    key: &'a KeyId,
+    public: [u8; 32],
+    created: &'a ProviderKeyDescription,
+}
+
+impl ProofWire<'_> {
+    fn verify_frames(&self) -> Result {
+        let host = &*self.host;
+        let direct = self.direct;
+        let relay = self.relay;
+        let binding = self.binding;
+        let reference = self.reference;
+        let plan = self.plan;
+        let signed = self.signed;
+        let external = self.external;
+        let expected_raw = self.expected_raw;
+        let wallet = self.wallet;
+        let recipient = self.recipient;
+        let amount = self.amount;
+        // Each inventory contract uses bytes emitted by the production encoder.
+        // Persist and reread them before invoking the real wire decoder, KMS TLS
+        // server, and gateway consumer. No valid frame is hand assembled.
+        let send_payload = serde_json::to_vec(&json!({"authorization":plan,"disclosure":{
+        "recipient":recipient,"denom":"apax","amount":amount }}))?;
+        for (operation, payload, kind) in [
+            (6, Vec::new(), wire::Operation::EvmWallet),
+            (7, serde_json::to_vec(&plan)?, wire::Operation::Evm),
+            (
+                8,
+                serde_json::to_vec(&plan.action_key)?,
+                wire::Operation::Evm,
+            ),
+            (
+                9,
+                serde_json::to_vec(&EvmAcknowledgement {
+                    action_key: plan.action_key,
+                    transaction_hash: signed.transaction_hash.ok_or("missing signed hash")?,
+                })?,
+                wire::Operation::Evm,
+            ),
+            (
+                10,
+                serde_json::to_vec(&plan.action_key)?,
+                wire::Operation::Evm,
+            ),
+            (11, send_payload, wire::Operation::AuthorizeSend),
+            (12, serde_json::to_vec(&external)?, wire::Operation::Evm),
+        ] {
+            let frame = direct.encode_evm_request(operation, binding, reference, &payload)?;
+            host.write("request.lxkp", &frame)?;
+            if operation == 10 {
+                host.write("recover.lxkp", &frame)?;
+            }
+            let transported = fs::read(host.path("request.lxkp"))?;
+            let decoded = checked(wire::Request::decode(&transported))?;
+            assert_eq!(decoded.version, 3);
+            assert_eq!(decoded.operation, operation);
+            assert_eq!(decoded.kind, kind);
+            assert_eq!(decoded.binding, binding.digest());
+            assert_eq!(decoded.reference, reference.as_bytes());
+            assert_eq!(decoded.evm, payload);
+            assert_eq!(&transported[..4], b"LXKP");
+            let response = host.call(host.address, &transported)?;
+            assert_eq!(&response[..7], &transported[..7]);
+            assert_eq!(response[7], 0);
+            match operation {
+                6 => assert_eq!(&response[8..], wallet),
+                11 => assert_eq!(&response[8..], expected_raw),
+                _ => {
+                    let action: EvmAction = serde_json::from_slice(&response[8..])?;
+                    assert_eq!(action.authorization, plan.clone());
+                    assert_eq!(action.raw_transaction, expected_raw);
+                }
+            }
+            assert_eq!(
+                relay.evm_operation(operation, binding, reference, &payload),
+                Err(KmsError::Refused)
+            );
+            let mut trailing = transported.clone();
+            trailing.push(0);
+            assert!(matches!(
+                wire::Request::decode(&trailing),
+                Err(wire::Error::Refused)
+            ));
+            assert!(host.call(host.address, &trailing).is_err());
+            assert!(matches!(
+                wire::Request::decode(&transported[..transported.len() - 1]),
+                Err(wire::Error::Refused)
+            ));
+            if operation != 6 {
+                let mut empty = transported[..transported.len() - payload.len() - 4].to_vec();
+                empty.extend(0_u32.to_be_bytes());
+                assert!(matches!(
+                    wire::Request::decode(&empty),
+                    Err(wire::Error::Refused)
+                ));
+                assert!(host.call(host.address, &empty).is_err());
+            }
+        }
+        Ok(())
+    }
+
+    fn verify_bounds(&self) -> Result {
+        let direct = self.direct;
+        let binding = self.binding;
+        let reference = self.reference;
+        assert_eq!(wire::MAX_FRAME, GATEWAY_FRAME_LIMIT);
+        assert!(matches!(
+            wire::Request::decode(&vec![0; wire::MAX_FRAME + 1]),
+            Err(wire::Error::Refused)
+        ));
+        assert_eq!(
+            direct.encode_evm_request(7, binding, reference, &[]),
+            Err(KmsError::Refused)
+        );
+        assert_eq!(
+            direct.encode_evm_request(6, binding, reference, b"{}"),
+            Err(KmsError::Refused)
+        );
+        assert_eq!(
+            direct.encode_evm_request(255, binding, reference, b"{}"),
+            Err(KmsError::Refused)
+        );
+        let overhead = direct
+            .encode_evm_request(7, binding, reference, b"{}")?
+            .len()
+            - 2;
+        let mut bounded_payload = vec![b' '; wire::MAX_FRAME - overhead];
+        bounded_payload[..2].copy_from_slice(b"{}");
+        let maximum = direct.encode_evm_request(7, binding, reference, &bounded_payload)?;
+        assert_eq!(maximum.len(), wire::MAX_FRAME);
+        assert_eq!(
+            checked(wire::Request::decode(&maximum))?.evm,
+            bounded_payload
+        );
+        assert_eq!(
+            direct.evm_operation(7, binding, reference, &bounded_payload),
+            Err(KmsError::Refused)
+        );
+        bounded_payload.push(b' ');
+        assert_eq!(
+            direct.encode_evm_request(7, binding, reference, &bounded_payload),
+            Err(KmsError::InvalidConfiguration)
+        );
+        assert_eq!(
+            direct.evm_operation(7, binding, reference, b"{"),
+            Err(KmsError::Refused)
+        );
+        assert_eq!(
+            direct.evm_operation(10, binding, reference, &serde_json::to_vec(&[8_u8; 32])?),
+            Err(KmsError::KeyNotFound)
+        );
+
+        Ok(())
+    }
+
+    fn verify_recovery(&mut self, persisted: &[u8]) -> Result {
+        let host = &mut *self.host;
+        let direct = self.direct;
+        let relay = self.relay;
+        let binding = self.binding;
+        let reference = self.reference;
+        let plan = self.plan;
+        let expected_raw = self.expected_raw;
+        let wallet = self.wallet;
+        let principal = self.principal;
+        let key = self.key;
+        let public = self.public;
+        let created = self.created;
+        let recipient = self.recipient;
+        let amount = self.amount;
+        host.stop();
+        assert_eq!(fs::read(host.path("state/state.aead"))?, persisted);
+        host.start()?;
+        let store = Keystore::open_production(
+            host.path("client-state"),
+            125,
+            host.remote(host.address, "client")?,
+        )?;
+        assert_eq!(store.describe(principal, key)?.public_key, public);
+        assert_eq!(store.evm_wallet(principal, key)?, wallet);
+        let recovered = store.recover_evm_action(principal, key, &plan.action_key)?;
+        assert_eq!(recovered.authorization, plan.clone());
+        assert_eq!(recovered.raw_transaction, expected_raw);
+        assert!(recovered.acknowledged);
+        let recovery_response = host.call(host.address, &fs::read(host.path("recover.lxkp"))?)?;
+        assert_eq!(recovery_response[7], 0);
+        assert_eq!(
+            serde_json::from_slice::<EvmAction>(&recovery_response[8..])?,
+            recovered
+        );
+        assert_eq!(store.authorize_evm_plan(principal, key, plan)?, recovered);
+        assert_eq!(
+            store.sign_evm_action(principal, key, &plan.action_key)?,
+            recovered
+        );
+        assert_eq!(
+            store.authorize_send_transaction(
+                principal,
+                key,
+                plan,
+                recipient,
+                "apax".into(),
+                amount
+            )?,
+            expected_raw
+        );
+        assert_eq!(direct.create_key(binding)?, created.clone());
+        assert!(store
+            .create(principal, key, KeyClass::HumanPrimary)
+            .is_err());
+        assert_eq!(relay.describe_key(binding, reference)?, created.clone());
+
+        Ok(())
+    }
+
+    fn verify_handover(&mut self) -> Result {
+        let host = &mut *self.host;
+        let direct = self.direct;
+        let binding = self.binding;
+        let reference = self.reference;
+        let plan = self.plan;
+        let recipient = self.recipient;
+        let amount = self.amount;
+        // Handover must keep its specific refusal across the encrypted-file restart.
+        drop(direct.export_primary_key(binding, reference)?);
+        assert_eq!(direct.evm_operation(11,binding,reference,&serde_json::to_vec(&json!({
         "authorization":plan,"disclosure":{"recipient":recipient,"denom":"apax","amount":amount}
     }))?),Err(KmsError::SelfCustodied));
-    for operation in [6, 7, 8, 9, 10, 12] {
-        let payload = if operation == 6 {
-            Vec::new()
-        } else {
-            serde_json::to_vec(&plan.action_key)?
-        };
+        for operation in [6, 7, 8, 9, 10, 12] {
+            let payload = if operation == 6 {
+                Vec::new()
+            } else {
+                serde_json::to_vec(&plan.action_key)?
+            };
+            assert_eq!(
+                direct.evm_operation(operation, binding, reference, &payload),
+                Err(KmsError::SelfCustodied)
+            );
+        }
+        host.stop();
+        host.start()?;
         assert_eq!(
-            direct.evm_operation(operation, &binding, &reference, &payload),
+            direct.evm_operation(6, binding, reference, &[]),
             Err(KmsError::SelfCustodied)
         );
-    }
-    host.stop();
-    host.start()?;
-    assert_eq!(
-        direct.evm_operation(6, &binding, &reference, &[]),
-        Err(KmsError::SelfCustodied)
-    );
-    assert_eq!(
-        direct.export_primary_key(&binding, &reference).err(),
-        Some(KmsError::SelfCustodied)
-    );
-    assert_eq!(direct.create_key(&binding), Err(KmsError::Conflict));
-    let agent = PrincipalKeyBinding::new(b"agent".to_vec(), 125, KeyClass::AgentPrimary, PROVIDER)?;
-    let disposable = direct.create_key(&agent)?;
-    direct.destroy_key(&agent, disposable.reference())?;
-    assert_eq!(
-        direct.evm_operation(6, &agent, disposable.reference(), &[]),
-        Err(KmsError::KeyNotFound)
-    );
-    for node in &host.unused_threshold {
         assert_eq!(
-            node.accept().err().map(|error| error.kind()),
-            Some(ErrorKind::WouldBlock),
-            "external signature replay unexpectedly contacted a threshold service"
+            direct.export_primary_key(binding, reference).err(),
+            Some(KmsError::SelfCustodied)
         );
+        assert_eq!(direct.create_key(binding), Err(KmsError::Conflict));
+        let agent =
+            PrincipalKeyBinding::new(b"agent".to_vec(), 125, KeyClass::AgentPrimary, PROVIDER)?;
+        let disposable = direct.create_key(&agent)?;
+        direct.destroy_key(&agent, disposable.reference())?;
+        assert_eq!(
+            direct.evm_operation(6, &agent, disposable.reference(), &[]),
+            Err(KmsError::KeyNotFound)
+        );
+        for node in &host.unused_threshold {
+            assert_eq!(
+                node.accept().err().map(|error| error.kind()),
+                Some(ErrorKind::WouldBlock),
+                "external signature replay unexpectedly contacted a threshold service"
+            );
+        }
+        Ok(())
     }
-    Ok(())
 }

@@ -1,15 +1,4 @@
-//! Task 22.31.150 repair record, audit 22.30.102, acceptance 22998.1.
-//! shared-wallet: shared_wallet_isolated_attestors_and_nonce_recovery.
-//! export-delivery-loss: export_delivery_loss_recovers_before_and_after_publication.
-//! signer-identity-split: signer_identity_create_describe_wallet_sign_public_path.
-//! hosted-chain-snapshot: hosted_chain_snapshot_contract_and_retained_restart.
-//! Baseline: not executed; ordered implementation/build/done gates prohibit an unchanged-tree verify.
-//! Initial bounded verification failed both signing cases: the real attestor fixture did not authorize the exercised openAccount selector; repair provisions only that selector and preserves all assertions.
-//! Wiring request (domain 8): services/platform/hosted/human/material.py::kms_prerequisite and material.sh must emit exactly {"chain_id":125} and reconcile retained registry.json without replacing the seal or custody volume.
-//! Wiring request (domain 10): spec/layerx-merge/interfaces.kvx and contracts/services.md must publish chain-125 snapshot and recipient-encrypted LXKP v8 export/acknowledgement contracts.
-//! Wiring request (wallet domain): services/wallet/attestor provisioning must publish one owner-bound EVM key and assertion per tenant/principal binding; existing shared-wallet state requires explicit custody reconciliation.
-//! Wiring request (Human domain): services/human/crates/layerx-human-service/src/custody/mod.rs::export_primary_once and custody/gateway.rs must route the v8 ceremony, retain recipient secrets, and persist the received key before acknowledge_export; the raw-seed API now explicitly refuses.
-//! Scope forbids edits to spec task records; this test module retains the finding/test and wiring record.
+//! Shared wallets retain isolated attestor identity, nonce and export state.
 
 #[allow(dead_code)]
 #[path = "support/attestor_cluster.rs"]
@@ -37,7 +26,7 @@ use std::future::Future;
 use std::io::Write;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
@@ -66,6 +55,22 @@ impl Drop for Host {
         let _ = fs::remove_dir_all(&self.root);
     }
 }
+fn prepare_pki(cluster: &mut Cluster) -> Result<()> {
+    cluster.pki.leaf("node-ca", "kms", true)?;
+    cluster.pki.leaf("gateway-ca", "service", false)?;
+    for name in ["node-ca", "gateway-ca", "gateway", "kms", "service"] {
+        cluster.pki.certificate_der(name)?;
+    }
+    for name in ["gateway", "kms", "service"] {
+        cluster.pki.key_der(name)?;
+        fs::set_permissions(
+            cluster.pki.path(&format!("{name}.pk8")),
+            fs::Permissions::from_mode(0o600),
+        )?;
+    }
+    Ok(())
+}
+
 impl Host {
     fn new(wallets: usize) -> Result<Self> {
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -86,18 +91,7 @@ impl Host {
             }}),
             &json!({"version":1,"defaults":{"modules":{}}}),
         )?;
-        cluster.pki.leaf("node-ca", "kms", true)?;
-        cluster.pki.leaf("gateway-ca", "service", false)?;
-        for name in ["node-ca", "gateway-ca", "gateway", "kms", "service"] {
-            cluster.pki.certificate_der(name)?;
-        }
-        for name in ["gateway", "kms", "service"] {
-            cluster.pki.key_der(name)?;
-            fs::set_permissions(
-                cluster.pki.path(&format!("{name}.pk8")),
-                fs::Permissions::from_mode(0o600),
-            )?;
-        }
+        prepare_pki(&mut cluster)?;
         let mut bindings = Vec::new();
         let mut addresses = Vec::new();
         let mut rows = Vec::new();
@@ -173,7 +167,7 @@ impl Host {
         host.start()?;
         Ok(host)
     }
-    fn command(&self) -> Result<Command> {
+    fn command(&self) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-human-kms"));
         command
             .env("LAYERX_HUMAN_KMS_LISTEN", self.address.to_string())
@@ -203,12 +197,12 @@ impl Host {
             command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), path);
         }
         command.stdin(Stdio::null());
-        Ok(command)
+        command
     }
     fn start(&mut self) -> Result<()> {
         let log = fs::File::create(self.root.join("kms.log"))?;
         self.child = Some(
-            self.command()?
+            self.command()
                 .stdout(log.try_clone()?)
                 .stderr(log)
                 .spawn()?,
@@ -298,6 +292,47 @@ impl Host {
         let tls_root = self.root.join("hosted-tls");
         fs::create_dir(&tls_root)?;
         fs::set_permissions(&tls_root, fs::Permissions::from_mode(0o700))?;
+        self.create_hosted_tls(&tls_root)?;
+        let registry = self.root.join("native-registry.json");
+        let asset = hex(&[4; 32]);
+        fs::write(
+            &registry,
+            serde_json::to_vec(
+                &json!({"schema_version":2,"assets":[{"asset":asset}],"modules":[{"module":1,"ordinals":[1]}]}),
+            )?,
+        )?;
+        fs::set_permissions(&registry, fs::Permissions::from_mode(0o600))?;
+        let producer = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../platform/hosted/human/material.py");
+        let destination = self.root.join("hosted-kms");
+        let produce = || -> Result<()> {
+            let output = Command::new("python3")
+                .env("PYTHONDONTWRITEBYTECODE", "1")
+                .arg(&producer)
+                .arg("--kms-prerequisite")
+                .arg(&registry)
+                .arg(&tls_root)
+                .arg(&destination)
+                .arg("125")
+                .arg(&asset)
+                .arg(self.root.join("hosted-state"))
+                .output()?;
+            assert!(
+                output.status.success(),
+                "hosted producer: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            Ok(())
+        };
+        produce()?;
+        let seal = fs::read(destination.join("kms-seal"))?;
+        let published = fs::read(destination.join("registry.json"))?;
+        produce()?;
+        assert_eq!(fs::read(destination.join("kms-seal"))?, seal);
+        assert_eq!(fs::read(destination.join("registry.json"))?, published);
+        Ok(destination)
+    }
+    fn create_hosted_tls(&self, tls_root: &Path) -> Result<()> {
         let ca = self.cluster.pki.path("node-ca.pem");
         let ca_key = self.cluster.pki.path("node-ca.key");
         for (index, (role, name, usage, sans)) in [
@@ -388,45 +423,9 @@ impl Host {
                 fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
             }
         }
-        let registry = self.root.join("native-registry.json");
-        let asset = hex(&[4; 32]);
-        fs::write(
-            &registry,
-            serde_json::to_vec(
-                &json!({"schema_version":2,"assets":[{"asset":asset}],"modules":[{"module":1,"ordinals":[1]}]}),
-            )?,
-        )?;
-        fs::set_permissions(&registry, fs::Permissions::from_mode(0o600))?;
-        let producer = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../platform/hosted/human/material.py");
-        let destination = self.root.join("hosted-kms");
-        let produce = || -> Result<()> {
-            let output = Command::new("python3")
-                .env("PYTHONDONTWRITEBYTECODE", "1")
-                .arg(&producer)
-                .arg("--kms-prerequisite")
-                .arg(&registry)
-                .arg(&tls_root)
-                .arg(&destination)
-                .arg("125")
-                .arg(&asset)
-                .arg(self.root.join("hosted-state"))
-                .output()?;
-            assert!(
-                output.status.success(),
-                "hosted producer: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            Ok(())
-        };
-        produce()?;
-        let seal = fs::read(destination.join("kms-seal"))?;
-        let published = fs::read(destination.join("registry.json"))?;
-        produce()?;
-        assert_eq!(fs::read(destination.join("kms-seal"))?, seal);
-        assert_eq!(fs::read(destination.join("registry.json"))?, published);
-        Ok(destination)
+        Ok(())
     }
+
     fn authorization(&self, index: usize, nonce: u64, action: u8) -> Result<EvmPlanAuthorization> {
         let now = self.cluster.clock.now()?;
         Ok(EvmPlanAuthorization {
@@ -479,7 +478,7 @@ fn call(nonce: u64) -> Eip1559Call {
         nonce,
         max_priority_fee_per_gas: 1,
         max_fee_per_gas: 2,
-        gas_limit: 100000,
+        gas_limit: 100_000,
         to,
         data,
     }
@@ -567,50 +566,7 @@ fn shared_wallet_isolated_attestors_and_nonce_recovery() -> Result<()> {
             Err(KmsError::Refused)
         );
     }
-    // A configured address or key alias is refused at startup, rather than sharing control.
-    host.stop();
-    let original = fs::read(host.root.join("attestors.json"))?;
-    let mut manifest: Value = serde_json::from_slice(&original)?;
-    manifest["bindings"][1]["config"]["evm_address"] =
-        manifest["bindings"][0]["config"]["evm_address"].clone();
-    fs::write(
-        host.root.join("attestors.json"),
-        serde_json::to_vec(&manifest)?,
-    )?;
-    let output = host.command()?.output()?;
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("custody isolation refused"));
-    let mut wrong_owner: Value = serde_json::from_slice(&original)?;
-    wrong_owner["bindings"][0]["assertion_file"] =
-        wrong_owner["bindings"][1]["assertion_file"].clone();
-    fs::write(
-        host.root.join("attestors.json"),
-        serde_json::to_vec(&wrong_owner)?,
-    )?;
-    host.start()?;
-    let remote = host.remote()?;
-    let call = call(2);
-    let disclosure = checked(bind_call(&call, host.addresses[0]))?;
-    assert!(run(remote.sign_wallet_call(
-        &host.bindings[0],
-        descriptions[0].reference(),
-        &call,
-        &disclosure
-    ))
-    .is_err());
-    host.stop();
-    fs::write(host.root.join("attestors.json"), original)?;
-    host.start()?;
-    let signature = run(host.remote()?.sign_wallet_call(
-        &host.bindings[0],
-        descriptions[0].reference(),
-        &call,
-        &disclosure,
-    ))?;
-    assert_eq!(
-        recover_sender(&call, &checked(AgentSignature::new(signature))?)?,
-        host.addresses[0]
-    );
+    assert_attestor_misbinding_refused(&mut host, &descriptions[0])?;
     Ok(())
 }
 
@@ -686,43 +642,7 @@ fn export_delivery_loss_recovers_before_and_after_publication() -> Result<()> {
     let recipient = ExportRecipient::new([11; 32])?;
     let ceremony = recipient.ceremony([9; 32])?;
     let frame = remote.encode_export_request(&binding, description.reference(), &ceremony)?;
-    // A TLS disconnect in a partial frame must leave the managed record intact.
-    {
-        let mut tls = host.tls()?;
-        tls.write_all(&u32::try_from(frame.len())?.to_be_bytes())?;
-        tls.write_all(&frame[..frame.len() / 2])?;
-        tls.flush()?;
-    }
-    host.stop();
-    host.start()?;
-    let remote = host.remote()?;
-    assert_eq!(
-        remote.describe_key(&binding, description.reference())?,
-        description
-    );
-    assert!(remote
-        .wallet_descriptor(&binding, description.reference())
-        .is_ok());
-    // Send the real provider's complete frame and disconnect without reading the response.
-    {
-        let mut tls = host.tls()?;
-        checked(write_frame(&mut tls, &frame, MAX))?;
-        tls.flush()?;
-        // The metadata operation is a barrier for durable publication, independent of reply delivery.
-        let mut deadline = Deadline::start(host.cluster.clock.as_ref(), Duration::from_secs(15))?;
-        loop {
-            if remote.evm_operation(6, &binding, description.reference(), &[])
-                == Err(KmsError::SelfCustodied)
-            {
-                break;
-            }
-            if deadline.remaining(host.cluster.clock.as_ref())?.is_zero() {
-                return Err("export publication deadline".into());
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        drop(tls);
-    }
+    publish_export_without_reply(&mut host, &binding, &description, &frame)?;
     host.stop();
     host.start()?;
     let remote = host.remote()?;
@@ -740,60 +660,14 @@ fn export_delivery_loss_recovers_before_and_after_publication() -> Result<()> {
         remote.export_primary_key(&binding, description.reference()),
         Err(KmsError::Refused)
     );
-    let wrong = ExportRecipient::new([12; 32])?;
-    assert!(wrong
-        .open(
-            PROVIDER,
-            binding.digest(),
-            description.reference().as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(
-            "other-provider",
-            binding.digest(),
-            description.reference().as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(
-            PROVIDER,
-            [1; 32],
-            description.reference().as_bytes(),
-            &envelope
-        )
-        .is_err());
-    assert!(recipient
-        .open(PROVIDER, binding.digest(), b"different-handle", &envelope)
-        .is_err());
-    let mut tampered = envelope.clone();
-    tampered.ciphertext[0] ^= 1;
-    assert!(recipient
-        .open(
-            PROVIDER,
-            binding.digest(),
-            description.reference().as_bytes(),
-            &tampered
-        )
-        .is_err());
-    assert_eq!(
-        remote.export_envelope(
-            &binding,
-            description.reference(),
-            &recipient.ceremony([8; 32])?
-        ),
-        Err(KmsError::Conflict)
-    );
-    assert_eq!(
-        remote.export_envelope(
-            &binding,
-            description.reference(),
-            &wrong.ceremony(ceremony.id)?
-        ),
-        Err(KmsError::Conflict)
-    );
+    assert_export_envelope_refusals(
+        &host,
+        &binding,
+        &description,
+        &recipient,
+        &ceremony,
+        &envelope,
+    )?;
     let (seed, acknowledgement) = recipient.open(
         PROVIDER,
         binding.digest(),
@@ -829,19 +703,34 @@ fn export_delivery_loss_recovers_before_and_after_publication() -> Result<()> {
         description.reference().as_bytes(),
         &envelope,
     )?;
-    assert!(layerx_crypto::ct::eq_fixed(&*seed, &*recovered));
-    let acknowledgement_frame = remote.encode_export_acknowledgement(
+    assert!(layerx_crypto::ct::eq_fixed(&seed, &recovered));
+    acknowledge_export_without_reply(
+        &mut host,
         &binding,
-        description.reference(),
+        &description,
+        &ceremony,
         &acknowledgement,
     )?;
+    Ok(())
+}
+
+fn acknowledge_export_without_reply(
+    host: &mut Host,
+    binding: &PrincipalKeyBinding,
+    description: &ProviderKeyDescription,
+    ceremony: &layerx_human_kms::export::ExportCeremony,
+    acknowledgement: &ExportAcknowledgement,
+) -> Result<()> {
+    let remote = host.remote()?;
+    let acknowledgement_frame =
+        remote.encode_export_acknowledgement(binding, description.reference(), acknowledgement)?;
     {
         let mut tls = host.tls()?;
         checked(write_frame(&mut tls, &acknowledgement_frame, MAX))?;
         tls.flush()?;
         let mut deadline = Deadline::start(host.cluster.clock.as_ref(), Duration::from_secs(15))?;
         loop {
-            if remote.export_envelope(&binding, description.reference(), &ceremony)
+            if remote.export_envelope(binding, description.reference(), ceremony)
                 == Err(KmsError::SelfCustodied)
             {
                 break;
@@ -857,13 +746,13 @@ fn export_delivery_loss_recovers_before_and_after_publication() -> Result<()> {
     host.stop();
     host.start()?;
     let remote = host.remote()?;
-    remote.acknowledge_export(&binding, description.reference(), &acknowledgement)?;
+    remote.acknowledge_export(binding, description.reference(), acknowledgement)?;
     assert_eq!(
-        remote.export_envelope(&binding, description.reference(), &ceremony),
+        remote.export_envelope(binding, description.reference(), ceremony),
         Err(KmsError::SelfCustodied)
     );
     assert_eq!(
-        remote.evm_operation(6, &binding, description.reference(), &[]),
+        remote.evm_operation(6, binding, description.reference(), &[]),
         Err(KmsError::SelfCustodied)
     );
     Ok(())
@@ -889,7 +778,7 @@ fn hosted_chain_snapshot_contract_and_retained_restart() -> Result<()> {
     assert_eq!(document["network_id"], 125);
     assert_eq!(document["protocol_version"], 3);
     fs::write(host.root.join("snapshot.json"), published)?;
-    let output = host.command()?.output()?;
+    let output = host.command().output()?;
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("chain snapshot invalid"));
     assert_eq!(fs::read(host.root.join("seal"))?, seal);
@@ -908,5 +797,168 @@ fn hosted_chain_snapshot_contract_and_retained_restart() -> Result<()> {
         description
     );
     assert_eq!(fs::read(host.root.join("seal"))?, seal);
+    Ok(())
+}
+
+fn assert_attestor_misbinding_refused(
+    host: &mut Host,
+    description: &ProviderKeyDescription,
+) -> Result<()> {
+    // A configured address or key alias is refused at startup, rather than sharing control.
+    host.stop();
+    let original = fs::read(host.root.join("attestors.json"))?;
+    let mut manifest: Value = serde_json::from_slice(&original)?;
+    manifest["bindings"][1]["config"]["evm_address"] =
+        manifest["bindings"][0]["config"]["evm_address"].clone();
+    fs::write(
+        host.root.join("attestors.json"),
+        serde_json::to_vec(&manifest)?,
+    )?;
+    let output = host.command().output()?;
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("custody isolation refused"));
+    let mut wrong_owner: Value = serde_json::from_slice(&original)?;
+    wrong_owner["bindings"][0]["assertion_file"] =
+        wrong_owner["bindings"][1]["assertion_file"].clone();
+    fs::write(
+        host.root.join("attestors.json"),
+        serde_json::to_vec(&wrong_owner)?,
+    )?;
+    host.start()?;
+    let remote = host.remote()?;
+    let call = call(2);
+    let disclosure = checked(bind_call(&call, host.addresses[0]))?;
+    assert!(run(remote.sign_wallet_call(
+        &host.bindings[0],
+        description.reference(),
+        &call,
+        &disclosure
+    ))
+    .is_err());
+    host.stop();
+    fs::write(host.root.join("attestors.json"), original)?;
+    host.start()?;
+    let signature = run(host.remote()?.sign_wallet_call(
+        &host.bindings[0],
+        description.reference(),
+        &call,
+        &disclosure,
+    ))?;
+    assert_eq!(
+        recover_sender(&call, &checked(AgentSignature::new(signature))?)?,
+        host.addresses[0]
+    );
+    Ok(())
+}
+
+fn publish_export_without_reply(
+    host: &mut Host,
+    binding: &PrincipalKeyBinding,
+    description: &ProviderKeyDescription,
+    frame: &[u8],
+) -> Result<()> {
+    // A TLS disconnect in a partial frame must leave the managed record intact.
+    {
+        let mut tls = host.tls()?;
+        tls.write_all(&u32::try_from(frame.len())?.to_be_bytes())?;
+        tls.write_all(&frame[..frame.len() / 2])?;
+        tls.flush()?;
+    }
+    host.stop();
+    host.start()?;
+    let remote = host.remote()?;
+    assert_eq!(
+        remote.describe_key(binding, description.reference())?,
+        description.clone()
+    );
+    assert!(remote
+        .wallet_descriptor(binding, description.reference())
+        .is_ok());
+    // Send the real provider's complete frame and disconnect without reading the response.
+    {
+        let mut tls = host.tls()?;
+        checked(write_frame(&mut tls, frame, MAX))?;
+        tls.flush()?;
+        // The metadata operation is a barrier for durable publication, independent of reply delivery.
+        let mut deadline = Deadline::start(host.cluster.clock.as_ref(), Duration::from_secs(15))?;
+        loop {
+            if remote.evm_operation(6, binding, description.reference(), &[])
+                == Err(KmsError::SelfCustodied)
+            {
+                break;
+            }
+            if deadline.remaining(host.cluster.clock.as_ref())?.is_zero() {
+                return Err("export publication deadline".into());
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        drop(tls);
+    }
+    Ok(())
+}
+
+fn assert_export_envelope_refusals(
+    host: &Host,
+    binding: &PrincipalKeyBinding,
+    description: &ProviderKeyDescription,
+    recipient: &ExportRecipient,
+    ceremony: &layerx_human_kms::export::ExportCeremony,
+    envelope: &layerx_human_kms::export::ExportEnvelope,
+) -> Result<()> {
+    let remote = host.remote()?;
+    let wrong = ExportRecipient::new([12; 32])?;
+    assert!(wrong
+        .open(
+            PROVIDER,
+            binding.digest(),
+            description.reference().as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(
+            "other-provider",
+            binding.digest(),
+            description.reference().as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(
+            PROVIDER,
+            [1; 32],
+            description.reference().as_bytes(),
+            envelope
+        )
+        .is_err());
+    assert!(recipient
+        .open(PROVIDER, binding.digest(), b"different-handle", envelope)
+        .is_err());
+    let mut tampered = envelope.clone();
+    tampered.ciphertext[0] ^= 1;
+    assert!(recipient
+        .open(
+            PROVIDER,
+            binding.digest(),
+            description.reference().as_bytes(),
+            &tampered
+        )
+        .is_err());
+    assert_eq!(
+        remote.export_envelope(
+            binding,
+            description.reference(),
+            &recipient.ceremony([8; 32])?
+        ),
+        Err(KmsError::Conflict)
+    );
+    assert_eq!(
+        remote.export_envelope(
+            binding,
+            description.reference(),
+            &wrong.ceremony(ceremony.id)?
+        ),
+        Err(KmsError::Conflict)
+    );
     Ok(())
 }
