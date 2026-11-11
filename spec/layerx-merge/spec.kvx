@@ -231375,7 +231375,7 @@ do_10 = "Attempt 6 (continue, gotchas 3583 and 3584, decisions 2771 and 2887): t
 
 [task.22.39.117]
 title = "Give the five launchpad shared service packages in-process fixtures or configured skips and retire their baseline entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.39.75", "22.39.242", "22.39.162", "22.39.374", "22.40.20"]
