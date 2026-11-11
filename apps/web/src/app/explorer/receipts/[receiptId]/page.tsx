@@ -19,21 +19,21 @@ export default async function ReceiptPage({
     if (archive) {
       const receipt = await archiveReceiptRecord(receiptId.replace(/^0x/u, ""));
       if (receipt === undefined) {
-        return <ExplorerFrame title="Historical receipt archive"><p>Archived receipt not found.</p></ExplorerFrame>;
+        return <ExplorerFrame title={copyEntry("explorer.copy.historical_receipt_archive").message}><p>{copyEntry("explorer.copy.archived_receipt_not_found").message}</p></ExplorerFrame>;
       }
       return (
-        <ExplorerFrame title="Historical receipt archive" description={receipt.id}>
-          <ExplorerPanel title="Frozen historical evidence">
-            <p>This archived receipt describes pre-merge evidence. Its coordinates and verification do not describe a current committed transaction.</p>
+        <ExplorerFrame title={copyEntry("explorer.copy.historical_receipt_archive").message} description={receipt.id}>
+          <ExplorerPanel title={copyEntry("explorer.copy.frozen_historical_evidence").message}>
+            <p>{copyEntry("explorer.copy.this_archived_receipt_describes_pre_merge_evidence_i").message}</p>
             <dl>
-              <dt>Origin</dt><dd>{receipt.origin}</dd>
-              <dt>Archive verification</dt><dd>{receipt.verification_status}</dd>
+              <dt>{copyEntry("explorer.copy.origin").message}</dt><dd>{receipt.origin}</dd>
+              <dt>{copyEntry("explorer.copy.archive_verification").message}</dt><dd>{receipt.verification_status}</dd>
             </dl>
             <pre className="overflow-x-auto text-xs">{JSON.stringify(receipt.provenance, null, 2)}</pre>
             {receipt.transaction_hash === null ? null : (
-              <a href={explorerLink({ kind: "transaction", transactionHash: receipt.transaction_hash })}>View native transaction</a>
+              <a href={explorerLink({ kind: "transaction", transactionHash: receipt.transaction_hash })}>{copyEntry("explorer.copy.view_native_transaction").message}</a>
             )}
-            <p>Canonical receipt bytes are unavailable: this archive supplies provenance hashes, not an authentic byte source.</p>
+            <p>{copyEntry("explorer.copy.canonical_receipt_bytes_are_unavailable_this_archive").message}</p>
           </ExplorerPanel>
         </ExplorerFrame>
       );
@@ -44,8 +44,8 @@ export default async function ReceiptPage({
     if (transaction === undefined) {
       return (
         <ExplorerFrame title={copyEntry("explorer.receipt.title").message}>
-          <p>Native transaction not found.</p>
-          <a href={archiveHref}>View historical receipt archive</a>
+          <p>{copyEntry("explorer.copy.native_transaction_not_found").message}</p>
+          <a href={archiveHref}>{copyEntry("explorer.copy.view_historical_receipt_archive").message}</a>
         </ExplorerFrame>
       );
     }
@@ -63,7 +63,7 @@ export default async function ReceiptPage({
             { id: "result", cells: ["Execution status", transaction.status ?? "Unavailable"] },
           ]}
         />
-        <a href={archiveHref}>View historical receipt archive</a>
+        <a href={archiveHref}>{copyEntry("explorer.copy.view_historical_receipt_archive").message}</a>
       </ExplorerFrame>
     );
   } catch {
