@@ -13000,6 +13000,12 @@ value = "A crate of this repository that other workspaces take by path has a blo
 basis = "Gotcha 4245, decisions 3046, 3211 and 3283."
 affects = ["22.39.392", "22.39.390", "22.39.377"]
 
+[decision.3315]
+title = "The ban list of the agent dependency policy binds the closure that the agent workspace ships"
+value = "The agent layer may not open node projections: that rule is about what the agent workspace ships. The shipped closure is every package that a member of the workspace reaches through ordinary and build dependency edges. A listed crate inside that closure is refused as before, and the list does not shrink. A test target of the workspace may link the platform packages that produce what the agent consumes, because a consumer case asserts against the real producer (decision 3046); a listed crate that only such a development edge reaches is not a refusal. The script computes the shipped closure from the resolve graph of the cargo metadata and names the crate and one path to it when it refuses. Its license rule and its unsafe rule keep covering every package and every source file. The ban list of services/agent/deny.toml admits rusqlite only under layerx-indexer and libsqlite3-sys only under rusqlite, so any other route to them stays refused by the audit. Task 22.39.393 owns the script, the ban list and the cases of the script (decisions 3130 and 3211). Open owner point: the policy binds the shipped closure (in force), or the cases that need the real projection move to a workspace of their own under services/agent/tests and the agent workspace carries no listed crate in any target."
+basis = "Gotcha 4246, decisions 3046, 3052, 3130, 3183 and 3211."
+affects = ["22.39.393", "22.39.211"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42660,6 +42666,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.393]
+title = "Bind the agent dependency policy to the closure that the agent workspace ships"
+reqs = ["22998.1"]
+touches = ["services/agent/tools/dependency-policy.sh", "services/agent/deny.toml"]
+tests = []
+verification_contract = "test -s services/agent/tools/repair_22_39_393.kvx && sh services/agent/tools/dependency-policy.sh && python3 services/agent/tools/test_dependency_policy.py"
+do_1 = "do_1 Decision 3315, gotcha 4246. services/agent/tools/dependency-policy.sh refuses when the name of any package of the cargo metadata is on its list (:11 to :15). The metadata holds the packages of development dependencies, and services/agent/Cargo.lock carries rusqlite and libsqlite3-sys through layerx-indexer, which the host package and the client library reach only through development dependencies. Change the ban part of the script: from the resolve graph of the metadata compute the packages that the members of the workspace reach through ordinary and build edges, and refuse when a listed crate is among them, with a message that names the crate and one path from a member to it. Keep the list as it is, and keep the license part and the unsafe part over everything they cover now."
+symbols = []
 
 [capability.22.39.392]
 title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
@@ -195059,6 +195074,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.393]
+title = "Bind the agent dependency policy to the closure that the agent workspace ships"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.393"]
+interfaces = []
+do_1 = "do_1 Decision 3315, gotcha 4246. services/agent/tools/dependency-policy.sh refuses when the name of any package of the cargo metadata is on its list (:11 to :15). The metadata holds the packages of development dependencies, and services/agent/Cargo.lock carries rusqlite and libsqlite3-sys through layerx-indexer, which the host package and the client library reach only through development dependencies. Change the ban part of the script: from the resolve graph of the metadata compute the packages that the members of the workspace reach through ordinary and build edges, and refuse when a listed crate is among them, with a message that names the crate and one path from a member to it. Keep the list as it is, and keep the license part and the unsafe part over everything they cover now."
+do_2 = "do_2 The script takes an optional argument, the path of a metadata file, as services/platform/tools/dependency-policy.sh does (:9 to :25); without an argument it reads the metadata of services/agent/Cargo.toml under the locked option as now. Write services/agent/tools/test_dependency_policy.py with the unittest module of the standard library, run as a program, with cases that hand the script a small metadata file: a listed crate reached only through a development edge passes the ban part, a listed crate reached through an ordinary edge is refused, a listed crate reached through a build edge is refused, a listed crate reached through an ordinary edge of a package that a member reaches through an ordinary edge is refused, and a listed crate below a development edge of a package that is not a member is not counted. One more case runs the script without an argument on the repository and expects exit 0."
+do_3 = "do_3 In services/agent/deny.toml the entries of rusqlite and libsqlite3-sys (:31 and :32) admit one direct parent each through the wrappers field: layerx-indexer for rusqlite and rusqlite for libsqlite3-sys. Keep the reasons and every other entry. Where the cargo-deny executable is present run cargo deny --manifest-path services/agent/Cargo.toml check bans once outside the counted gates. A refusal of another cause is not repaired here: record its first message."
+do_4 = "do_4 Run the whole script on the repository. A refusal of its license part or its unsafe part whose cause lies outside the paths is not repaired here: record the message and the file and say so in the final message. Write services/agent/tools/repair_22_39_393.kvx under decision 3313 with the rule of the closure, the cases, the result of the script on the repository and the result of the bans check. Decisions 3286 and 3287: run every part of the verification outside the counted gates until clean, then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/agent/tools/dependency-policy.sh", "services/agent/deny.toml"]
+tests = []
+planned_paths = ["services/agent/tools/test_dependency_policy.py", "services/agent/tools/repair_22_39_393.kvx"]
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml > /dev/null"
+verify_cmd = "test -s services/agent/tools/repair_22_39_393.kvx && sh services/agent/tools/dependency-policy.sh && python3 services/agent/tools/test_dependency_policy.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.392]
 title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
 status = "done"
@@ -198044,7 +198090,7 @@ title = "Bring the agent workspace lint target to green under the workspace lint
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385"]
+requires = ["22.39.209", "22.39.215", "22.39.216", "22.39.217", "22.39.218", "22.39.219", "22.39.220", "22.39.221", "22.39.222", "22.39.223", "22.39.224", "22.39.225", "22.39.226", "22.39.227", "22.39.228", "22.39.229", "22.39.380", "22.39.381", "22.39.382", "22.39.383", "22.39.384", "22.39.385", "22.39.393"]
 reqs = ["22998.1"]
 capabilities = ["22.39.211"]
 interfaces = []
@@ -198071,6 +198117,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue after tasks 22.39.215 to 22.39.229 land; gotcha 3749, decisions 3039 and 3053): the attempt-1 tree 227acaa1fe0d stands as the starting point (the eight repairs in layerx-types, the layerx-crypto repairs, the record). Merge main once every per-crate lint task is on it, run the lint target once as the verification states, and repair at the source only what the whole-workspace run still reports (a lint that appears only when the members are linted together), following the repair rules of decision 3053 with the same prohibitions. Record the count by crate at the start and the end of the attempt in the record. Run the build once and the verification once at the final revision and record both by reference; if lints remain after the allowed repair cycles, record the remaining count by crate and stop the attempt."
 do_5 = "do_5 Gotcha 4225: at revision cb8c8ad4b426 the library of layerx-client reports 21 lint messages under the lints of the workspace with warnings denied, all in services/agent/crates/layerx-client/src/ai_market.rs (:110, :113, :116, :122, :132, :160, :212, :328, :332, :595, :610, :650, :714, :762, :2931, :3209, :3217, :3239, :3255, :3258 and :3312): fourteen functions that return a Result and have no Errors section in their documentation, four items that could carry the must_use attribute, one Ok around the question mark operator that is not needed, one if statement that can be collapsed and one implicit clone of a vector through to_vec. They came to main with the inference market series. Repair each at its source (decisions 3052 and 3053); no allowance."
 do_6 = "Attempt 3 (continue after tasks 22.39.380 to 22.39.385 land, gotcha 4234, decision 3305): the attempt-2 tree b8de14815ac5 stands for layerx-client src/ai_market.rs, layerx-crypto src/disclosure/call.rs and the record. The verification stopped at the test build of the library of layerx-agentd with 828 messages; tasks 22.39.380 to 22.39.385 repair them by file and the task now requires them. Rebase on main once the six tasks are on it. The five files of the library of the agent daemon that attempt 2 changed (approval/mod.rs, budget/program_lifecycle_settlement.rs, human_runtime.rs, ops/program.rs and policy/approval.rs) take the version of main at the rebase; a repair of attempt 2 that main does not hold is made again only when the lint still reports its message. The verification now passes the keep going option. Before the counted gates run the lint of the verification command and repair every message it still reports anywhere in services/agent/crates until it is clean (decision 3242), under the repair rules of decisions 3053 and 3230: no lint level change and no allow attribute at crate or module level. Extend the record with the count per package before and after. Run the build once and the verification once at the final revision."
+do_7 = "Attempt 4 (continue after 22.39.393 lands, gotcha 4246, decision 3315): the attempt-3 tree 5f91a115b291 stands (the lint repairs of the workspace, the record). The lint of the workspace over all targets is clean. The verification stopped at the ban part of services/agent/tools/dependency-policy.sh on rusqlite and libsqlite3-sys, which only development dependencies of the host package and of the client library reach; task 22.39.393 binds that part to the shipped closure. Change nothing in the script, in services/agent/deny.toml and in the development dependencies here. On the new base run the three parts of the verification outside the counted gates until clean; a lint that the new base brings inside the paths is repaired at its source under decision 3053. Bring the record under decision 3313. Then run the build once and the verification once at the final revision."
 
 [task.22.39.209]
 title = "Remove the unused binding named level in the agent RPC adapters so the agent lint target passes"

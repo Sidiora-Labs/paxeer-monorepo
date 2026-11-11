@@ -40626,3 +40626,11 @@ symbol = "workspace"
 observed = "Attempt 4 at 733e686765a1 on base 6e50fba5bf0f: the build exits 0 at tree e09d7033312e (log /out/logs/build-1.log); no verification ran; make workspace-install outside the counted gates exits 2 with the message that the lock file services/human/Cargo.lock needs to be updated."
 assumption = "The lock files of five workspaces outside the paths went stale with task 22.39.386."
 severity = "high"
+
+[finding.22.39.211.3]
+task = "22.39.211"
+file = "services/agent/crates"
+symbol = "crates"
+observed = "Attempt 3 at 5f91a115b291 on base 790e967d7423: the build exits 0 at 733347168a88 (log /out/logs/build-1.log); the verification exits 1 at 733347168a88 with the lint clean and services/agent/tools/dependency-policy.sh stopping with dependency policy: forbidden boundary or global-initialisation crate; log /out/logs/verify-1.log."
+assumption = "The ban part of the agent dependency policy counts crates that only test targets of the workspace link."
+severity = "high"
