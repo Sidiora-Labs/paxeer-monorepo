@@ -12994,6 +12994,12 @@ value = "A record file that a task commits states what a reader of the repositor
 basis = "Gotcha 4243, decisions 3052 and 3255."
 affects = ["22.39.391", "22.38.36"]
 
+[decision.3314]
+title = "A task that changes the dependencies of a crate refreshes every lock file that carries the crate"
+value = "A crate of this repository that other workspaces take by path has a block in the lock file of each of them. A task that adds, removes or moves a dependency of such a crate searches the repository for every Cargo.lock that carries the crate, names those lock files in its paths, refreshes each with the smallest change, so that no version of a package already locked changes, and proves each with cargo metadata under the locked option in its verification. Task 22.39.392 refreshes the lock files that carry layerx-client for the change of task 22.39.386. Task 22.39.390 changes the dependencies of the same crate again and refreshes the same files; it requires 22.39.392 because both change them (decision 3211). The paths of task 22.39.386 named services/agent/Cargo.lock only; that was an error of the task text and not of the attempt."
+basis = "Gotcha 4245, decisions 3046, 3211 and 3283."
+affects = ["22.39.392", "22.39.390", "22.39.377"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42654,6 +42660,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.392]
+title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
+reqs = ["22998.1"]
+touches = ["cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+verification_contract = "test -s services/agent/repair_22_39_392.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done"
+do_1 = "do_1 Decision 3314, gotcha 4245. services/agent/crates/layerx-client/Cargo.toml:17 lists layerx-program-sdk as an ordinary dependency. The sixteen lock files that the paths name carry the package layerx-client and do not list it. For each, run cargo fetch on the manifest beside the lock file without the locked option, so that cargo adds the missing entries and keeps every version already locked."
+symbols = []
 
 [capability.22.39.391]
 title = "Strip the wording of the verification tool from the record of the block-end transition task"
@@ -195044,12 +195059,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.392]
+title = "Refresh the lock files that carry the client library after its dependency on the program SDK"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.386"]
+reqs = ["22998.1"]
+capabilities = ["22.39.392"]
+interfaces = []
+do_1 = "do_1 Decision 3314, gotcha 4245. services/agent/crates/layerx-client/Cargo.toml:17 lists layerx-program-sdk as an ordinary dependency. The sixteen lock files that the paths name carry the package layerx-client and do not list it. For each, run cargo fetch on the manifest beside the lock file without the locked option, so that cargo adds the missing entries and keeps every version already locked."
+do_2 = "do_2 Read the change of each lock file with git diff under the text option. The change adds the dependency line to the block of layerx-client and the packages that the new dependency needs and that the file did not hold. Where the version of a package already locked changed, restore the file and refresh it again so that no locked version changes. Where a manifest is refused for another cause, change no manifest: record the manifest, the command and the first message."
+do_3 = "do_3 Search every Cargo.lock of the repository for a block of layerx-client without the line layerx-program-sdk. A file that the paths do not name is recorded with its path and is not changed. Write services/agent/repair_22_39_392.kvx with one line for each lock file and the names of the packages added, and the files that the search found. Decision 3313 holds for the record."
+do_4 = "do_4 Decisions 3286 and 3287: run every part of the verification outside the counted gates until clean, then run the build once and the verification once at the final revision."
+symbols = []
+touches = ["cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+planned_paths = ["services/agent/repair_22_39_392.kvx"]
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml > /dev/null"
+verify_cmd = "test -s services/agent/repair_22_39_392.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.390]
 title = "Build the call terms of a value operation of the AI market in the client library"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.39.386", "22.39.389"]
+requires = ["22.39.386", "22.39.389", "22.39.392"]
 reqs = ["22998.1"]
 capabilities = ["22.39.390"]
 interfaces = []
@@ -195058,11 +195104,11 @@ do_2 = "do_2 Search the client library, the daemon and every other product calle
 do_3 = "do_3 Cases in services/agent/crates/layerx-client/tests/market_value_call_terms.rs. The bytes of a deposit decode with CapabilitySet::decode_canonical of the runtime to the three mutation capabilities and one Transfer402 grant with the given asset, account and ceiling. The bytes of a payment decode to the three mutation capabilities and one ProgramSpend grant with the given fields. Encoding the decoded grants again gives the same bytes. No output holds a BalanceView grant. An operation outside the set, a zero amount and a grant of the wrong direction are refused. Every value operation of the recorded set is covered by a case."
 do_4 = "do_4 Decisions 3286, 3287 and 3212: before the counted build compile every target of the build command and run the verification command outside the counted gates until clean, then run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/Cargo.lock", "cmd/layerxctl/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/qualification/pay2/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/examples/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-client/tests/market_value_call_terms.rs", "services/agent/crates/layerx-client/repair_22_39_390.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd && cargo check --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --all-targets"
-verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
+verify_cmd = "test -s services/agent/crates/layerx-client/repair_22_39_390.kvx && for d in cmd/layerxctl services/agent/fuzz services/agent/qualification/pay2 services/agent/tests/boundary services/agent/tests/isolation services/agent/tests/parity services/agent/tests/qualify services/agent/tools/audit-verify services/agent/tools/policy-harness services/human services/human/crates/layerx-intents/fuzz services/interop services/platform services/platform/examples/samples/verify-receipt-rust services/platform/hosted/node/tests/probe tools/platform; do cargo metadata --locked --format-version 1 --manifest-path $d/Cargo.toml > /dev/null || exit 1; done && cd services/agent && cargo test --locked -p layerx-client --test market_value_call_terms --test market_call_terms"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -195074,6 +195120,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "do_5 Decision 3314, gotcha 4245: this task makes layerx-programs-runtime an ordinary dependency of the client library, which changes the block of layerx-client in every lock file that carries it. After the change of Cargo.toml refresh the sixteen lock files that the paths now name, as task 22.39.392 did: cargo fetch on each manifest without the locked option, and no version of a package already locked changes. The verification runs cargo metadata under the locked option on each manifest. Name the refreshed files in the record of the task."
 
 [task.22.39.386]
 title = "Build the call terms of a market operation in the client library and use them in the agent daemon"
@@ -285612,7 +285659,7 @@ title = "Make the install target of the workspace pass on a clean checkout"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.392"]
 reqs = ["22998.1"]
 capabilities = ["22.39.377"]
 interfaces = []
@@ -285642,6 +285689,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Attempt 2 (continue, gotcha 4232, decision 3302): the attempt-1 tree f2764a63469d stands (the scanner root with its message, the completed inventories with the cover classes and their cases, the ignore entry, the install recipe with one recursive call on each line, the record). The touches now name the directories of the contracts mars, saturn and venus under tools/benchmark/loadtest/contracts. In each of the three manifests write line 24 in the form of line 24 of the manifest of jupiter: version 0.4.9 with the path of the crate beside it. Refresh each lock so that cargo fetch with the locked option passes; only the entry of that package changes, it loses its registry source and its checksum, and a further moved entry is written into the record with its name and both versions. Bring the inventory entries of the three manifests in line with the class the manifest of jupiter has. The qualification environment now carries cargo-deny 0.19.0; change nothing in services/platform/Makefile.inc. Then run make workspace-install outside the counted gates until it exits 0, as do_5 states; a further failure outside the paths is recorded with command, exit code, first message, file and line, and the remaining recipe lines are run. In the record state every result as command, exit code and log, and remove the sentences that describe how the qualification environment keeps its results. Run the build once and the verification once at the final revision, and only when the install passes."
+do_8 = "Attempt 5 (continue after 22.39.392 lands, gotcha 4245, decisions 3314 and 3313): the attempt-4 tree 733e686765a1 stands (the two check scripts and their tests, the split recipe lines of workspace-install, the ignore rule, the three contract manifests on pax-cosmwasm by path, the two root lists, the record). The refusals of locked cargo commands in workspace-install came from lock files outside the paths, which task 22.39.392 refreshes; change none of them here. On the new base run make workspace-install outside the counted gates until it is clean (decision 3286). A refusal that remains outside the paths is recorded with its command and first message and ends the attempt without a counted verification. In the record tools/workspace/repair_22_39_377.kvx remove the sections that narrate the attempts and every log path and path of the qualification environment (decision 3313), and keep the classes, the manifests, the moved contracts and the findings as product facts. Then run the build once and the verification once at the final revision."
 
 [task.22.39.363]
 title = "Declare the records under the output roots of the platform SDKs in the pipeline lock"
