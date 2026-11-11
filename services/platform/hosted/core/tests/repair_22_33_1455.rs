@@ -1,5 +1,7 @@
-#[path = "support/native_funding.rs"]
-mod native_funding;
+pub mod native_funding {
+    include!("../src/main.rs");
+    include!("support/native_funding.rs");
+}
 
 #[test]
 fn native_funding_integration_gap_lost_response_reopen_and_archive_import() {
