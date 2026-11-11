@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -167,6 +168,9 @@ func (p *Precompile) run(evm *vm.EVM, caller common.Address, input []byte, value
 		return nil, 0, errors.New("cannot get context from EVM")
 	}
 	ctx := sdb.Ctx().WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
+	if id, ok := chainstypes.DomainOfChainID(evm.ChainConfig().ChainID); ok {
+		ctx = chainstypes.WithDomain(ctx, id)
+	}
 	c, err := p.executor.resolve(ctx, caller, input)
 	if err != nil {
 		if gasErr := budget.take(Gas(uint64(len(input)), 0)); gasErr != nil {
