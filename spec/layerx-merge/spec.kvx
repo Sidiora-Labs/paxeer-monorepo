@@ -13294,6 +13294,18 @@ value = "In services/human/crates/layerx-human-service each item that names the 
 basis = "Gotcha 4280 and decision 3355."
 affects = ["22.39.435"]
 
+[decision.3364]
+title = "Each stage of the launchpad Makefile ci target has an owning task per module"
+value = "Task 22.39.458 pins the linter release v2.15.0 in the lint recipe, has the coverage gate read each total from the module root and brings the wiring test to the baseline. Tasks 22.39.459 to 22.39.474 pass the lint stage module by module, and tasks 22.39.475 to 22.39.490 pass the race and coverage stages module by module. Task 22.39.170 runs the whole target after them and adds the public job."
+basis = "Decisions 3349 and 3340."
+affects = ["22.39.170", "22.39.458"]
+
+[decision.3365]
+title = "In the launchpad Go modules a lint finding is repaired in the code and coverage is raised by tests"
+value = "The configuration file .golangci.yml of the repository root and the coverage thresholds of the Makefile stay as they are. A line whose repair would change a public name, a signature or a wire value carries a nolint comment that names the linter and gives the reason. Coverage is raised by tests of the hand-written sources that assert the behaviour they drive; no source is excluded from the measurement."
+basis = "Decision 3364 and gotcha 4282."
+affects = ["22.39.170"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42954,6 +42966,303 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.490]
+title = "Pass the race and coverage stages of the launchpad Makefile in the security and security control modules"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/security/repair_22_39_490.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES='security security/control'"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/security and services/launchpad/security/control until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.489]
+title = "Pass the race and coverage stages of the launchpad Makefile in the notifications module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/notifications"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/notifications/repair_22_39_489.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=notifications"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/notifications until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.488]
+title = "Pass the race and coverage stages of the launchpad Makefile in the discovery module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/discovery/repair_22_39_488.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=discovery"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/discovery until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.487]
+title = "Pass the race and coverage stages of the launchpad Makefile in the user module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/user/repair_22_39_487.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=user"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/user until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.486]
+title = "Pass the race and coverage stages of the launchpad Makefile in the social module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/social/repair_22_39_486.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=social"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/social until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.485]
+title = "Pass the race and coverage stages of the launchpad Makefile in the metadata module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/metadata/repair_22_39_485.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=metadata"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/metadata until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.484]
+title = "Pass the race and coverage stages of the launchpad Makefile in the livestream module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/livestream/repair_22_39_484.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=livestream"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/livestream until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.483]
+title = "Pass the race and coverage stages of the launchpad Makefile in the gateway module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/gateway/repair_22_39_483.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=gateway"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/gateway until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.482]
+title = "Pass the race and coverage stages of the launchpad Makefile in the trading charts module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/trading-charts/repair_22_39_482.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=trading-charts"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/trading-charts until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.481]
+title = "Pass the race and coverage stages of the launchpad Makefile in the statistics module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/stats-workers"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/stats-*/repair_22_39_481.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=$(cd services/launchpad && echo stats-*)"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of the statistics module of the launchpad until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.480]
+title = "Pass the race and coverage stages of the launchpad Makefile in the ranking module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/ranking-algo/repair_22_39_480.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/ranking-algo until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.479]
+title = "Pass the race and coverage stages of the launchpad Makefile in the PnL tracker module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/pnl-tracker/repair_22_39_479.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=pnl-tracker"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/pnl-tracker until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.478]
+title = "Pass the race and coverage stages of the launchpad Makefile in the indexer module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/indexer/repair_22_39_478.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=indexer"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/indexer until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.477]
+title = "Pass the race and coverage stages of the launchpad Makefile in the API module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/api/repair_22_39_477.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=api"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/api until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.476]
+title = "Pass the race and coverage stages of the launchpad Makefile in the protocol SDK module"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/protocol"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s sdk/launchpad/protocol/repair_22_39_476.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/protocol"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of sdk/launchpad/protocol until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.475]
+title = "Pass the race and coverage stages of the launchpad Makefile in the shared SDK module"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s sdk/launchpad/shared/repair_22_39_475.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared"
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of sdk/launchpad/shared until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+symbols = []
+
+[capability.22.39.474]
+title = "Pass the lint stage of the launchpad Makefile in the security and security control modules"
+reqs = ["22998.1"]
+touches = ["services/launchpad/security"]
+tests = []
+verification_contract = "test -s services/launchpad/security/repair_22_39_474.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && (cd services/launchpad/security && /tmp/lp-lint-bin/golangci-lint run --config $C) && (cd services/launchpad/security/control && /tmp/lp-lint-bin/golangci-lint run --config $C)"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/security and services/launchpad/security/control and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.473]
+title = "Pass the lint stage of the launchpad Makefile in the notifications module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/notifications"]
+tests = []
+verification_contract = "test -s services/launchpad/notifications/repair_22_39_473.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/notifications && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/notifications and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.472]
+title = "Pass the lint stage of the launchpad Makefile in the discovery module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery"]
+tests = []
+verification_contract = "test -s services/launchpad/discovery/repair_22_39_472.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/discovery && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/discovery and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.471]
+title = "Pass the lint stage of the launchpad Makefile in the user module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/user"]
+tests = []
+verification_contract = "test -s services/launchpad/user/repair_22_39_471.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/user && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/user and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.470]
+title = "Pass the lint stage of the launchpad Makefile in the social module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social"]
+tests = []
+verification_contract = "test -s services/launchpad/social/repair_22_39_470.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/social && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/social and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.469]
+title = "Pass the lint stage of the launchpad Makefile in the metadata module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata"]
+tests = []
+verification_contract = "test -s services/launchpad/metadata/repair_22_39_469.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/metadata && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/metadata and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.468]
+title = "Pass the lint stage of the launchpad Makefile in the livestream module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/livestream"]
+tests = []
+verification_contract = "test -s services/launchpad/livestream/repair_22_39_468.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/livestream && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/livestream and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.467]
+title = "Pass the lint stage of the launchpad Makefile in the gateway module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/gateway"]
+tests = []
+verification_contract = "test -s services/launchpad/gateway/repair_22_39_467.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/gateway && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/gateway and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.466]
+title = "Pass the lint stage of the launchpad Makefile in the trading charts module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/trading-charts"]
+tests = []
+verification_contract = "test -s services/launchpad/trading-charts/repair_22_39_466.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/trading-charts && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/trading-charts and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.465]
+title = "Pass the lint stage of the launchpad Makefile in the statistics module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/stats-workers"]
+tests = []
+verification_contract = "test -s services/launchpad/stats-*/repair_22_39_465.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/stats-* && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in the statistics module of the launchpad and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.464]
+title = "Pass the lint stage of the launchpad Makefile in the ranking module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+verification_contract = "test -s services/launchpad/ranking-algo/repair_22_39_464.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/ranking-algo && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/ranking-algo and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.463]
+title = "Pass the lint stage of the launchpad Makefile in the PnL tracker module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+verification_contract = "test -s services/launchpad/pnl-tracker/repair_22_39_463.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/pnl-tracker && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/pnl-tracker and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.462]
+title = "Pass the lint stage of the launchpad Makefile in the indexer module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "test -s services/launchpad/indexer/repair_22_39_462.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/indexer && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/indexer and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.461]
+title = "Pass the lint stage of the launchpad Makefile in the API module"
+reqs = ["22998.1"]
+touches = ["services/launchpad/api"]
+tests = []
+verification_contract = "test -s services/launchpad/api/repair_22_39_461.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/api && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/api and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.460]
+title = "Pass the lint stage of the launchpad Makefile in the protocol SDK module"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/protocol"]
+tests = []
+verification_contract = "test -s sdk/launchpad/protocol/repair_22_39_460.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd sdk/launchpad/protocol && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in sdk/launchpad/protocol and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.459]
+title = "Pass the lint stage of the launchpad Makefile in the shared SDK module"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared"]
+tests = []
+verification_contract = "test -s sdk/launchpad/shared/repair_22_39_459.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd sdk/launchpad/shared && /tmp/lp-lint-bin/golangci-lint run --config $C"
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in sdk/launchpad/shared and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+symbols = []
+
+[capability.22.39.458]
+title = "Pin the linter release of the launchpad lint stage and keep the launchpad wiring test in step with the baseline"
+reqs = ["22998.1"]
+touches = ["services/launchpad/Makefile", "tools/launchpad/coverage-gate.sh", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/data/launchpad_go_tests.py"]
+tests = ["tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_remaining_package_inventory_matches_module_sources"]
+verification_contract = "test -s services/launchpad/repair_22_39_458.kvx && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && make -C services/launchpad lint MODULES="
+do_1 = "do_1 Decisions 3364 and 3055, gotcha 4281. Bring tests/ci/test_launchpad_go_tests_wired.py to the baseline tests/ci/data/launchpad_go_test_baseline.json as main carries it: each case that validated entries a done task retired becomes an assertion that the baseline carries no entry of that package, keeping its name, and the total-count case follows the baseline. The package inventory of tests/ci/data/launchpad_go_tests.py names every package of each module, among them cmd/stats-migrate of the statistics module. The baseline file stays as it is."
+symbols = []
 
 [capability.22.39.457]
 title = "Have the wallet gateway source file of the platform command line tool compile in each member that includes it"
@@ -229114,6 +229423,997 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.490]
+title = "Pass the race and coverage stages of the launchpad Makefile in the security and security control modules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.474", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.490"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/security and services/launchpad/security/control until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/security/repair_22_39_490.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security"]
+tests = []
+planned_paths = ["services/launchpad/security/repair_22_39_490.kvx"]
+build_cmd = "cd services/launchpad/security && go vet ./... && cd control && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/security/repair_22_39_490.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES='security security/control'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.489]
+title = "Pass the race and coverage stages of the launchpad Makefile in the notifications module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.473", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.489"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/notifications until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/notifications/repair_22_39_489.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/notifications"]
+tests = []
+planned_paths = ["services/launchpad/notifications/repair_22_39_489.kvx"]
+build_cmd = "cd services/launchpad/notifications && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/notifications/repair_22_39_489.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=notifications"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.488]
+title = "Pass the race and coverage stages of the launchpad Makefile in the discovery module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.472", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.488"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/discovery until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/discovery/repair_22_39_488.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery"]
+tests = []
+planned_paths = ["services/launchpad/discovery/repair_22_39_488.kvx"]
+build_cmd = "cd services/launchpad/discovery && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/discovery/repair_22_39_488.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=discovery"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.487]
+title = "Pass the race and coverage stages of the launchpad Makefile in the user module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.471", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.487"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/user until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/user/repair_22_39_487.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user"]
+tests = []
+planned_paths = ["services/launchpad/user/repair_22_39_487.kvx"]
+build_cmd = "cd services/launchpad/user && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/user/repair_22_39_487.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=user"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.486]
+title = "Pass the race and coverage stages of the launchpad Makefile in the social module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.470", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.486"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/social until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/social/repair_22_39_486.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = ["services/launchpad/social/repair_22_39_486.kvx"]
+build_cmd = "cd services/launchpad/social && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/social/repair_22_39_486.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=social"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.485]
+title = "Pass the race and coverage stages of the launchpad Makefile in the metadata module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.469", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.485"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/metadata until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/metadata/repair_22_39_485.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = ["services/launchpad/metadata/repair_22_39_485.kvx"]
+build_cmd = "cd services/launchpad/metadata && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/metadata/repair_22_39_485.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=metadata"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.484]
+title = "Pass the race and coverage stages of the launchpad Makefile in the livestream module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.468", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.484"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/livestream until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/livestream/repair_22_39_484.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream"]
+tests = []
+planned_paths = ["services/launchpad/livestream/repair_22_39_484.kvx"]
+build_cmd = "cd services/launchpad/livestream && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/livestream/repair_22_39_484.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=livestream"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.483]
+title = "Pass the race and coverage stages of the launchpad Makefile in the gateway module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.467", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.483"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/gateway until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/gateway/repair_22_39_483.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = ["services/launchpad/gateway/repair_22_39_483.kvx"]
+build_cmd = "cd services/launchpad/gateway && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/gateway/repair_22_39_483.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=gateway"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.482]
+title = "Pass the race and coverage stages of the launchpad Makefile in the trading charts module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.466", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.482"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/trading-charts until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/trading-charts/repair_22_39_482.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = ["services/launchpad/trading-charts/repair_22_39_482.kvx"]
+build_cmd = "cd services/launchpad/trading-charts && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/trading-charts/repair_22_39_482.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=trading-charts"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.481]
+title = "Pass the race and coverage stages of the launchpad Makefile in the statistics module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.465", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.481"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of the statistics module of the launchpad until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in the record of the task in the module directory the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/stats-workers"]
+tests = []
+planned_paths = ["services/launchpad/stats-workers/repair_22_39_481.kvx"]
+build_cmd = "cd services/launchpad/stats-* && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/stats-*/repair_22_39_481.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=$(cd services/launchpad && echo stats-*)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.480]
+title = "Pass the race and coverage stages of the launchpad Makefile in the ranking module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.464", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.480"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/ranking-algo until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/ranking-algo/repair_22_39_480.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = ["services/launchpad/ranking-algo/repair_22_39_480.kvx"]
+build_cmd = "cd services/launchpad/ranking-algo && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/ranking-algo/repair_22_39_480.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=ranking-algo"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.479]
+title = "Pass the race and coverage stages of the launchpad Makefile in the PnL tracker module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.463", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.479"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/pnl-tracker until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/pnl-tracker/repair_22_39_479.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/repair_22_39_479.kvx"]
+build_cmd = "cd services/launchpad/pnl-tracker && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/pnl-tracker/repair_22_39_479.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=pnl-tracker"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.478]
+title = "Pass the race and coverage stages of the launchpad Makefile in the indexer module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.462", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.478"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/indexer until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/indexer/repair_22_39_478.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = ["services/launchpad/indexer/repair_22_39_478.kvx"]
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/indexer/repair_22_39_478.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=indexer"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.477]
+title = "Pass the race and coverage stages of the launchpad Makefile in the API module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.461", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.477"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of services/launchpad/api until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in services/launchpad/api/repair_22_39_477.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/repair_22_39_477.kvx"]
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/api/repair_22_39_477.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=api"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.476]
+title = "Pass the race and coverage stages of the launchpad Makefile in the protocol SDK module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.460", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.476"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of sdk/launchpad/protocol until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in sdk/launchpad/protocol/repair_22_39_476.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/protocol"]
+tests = []
+planned_paths = ["sdk/launchpad/protocol/repair_22_39_476.kvx"]
+build_cmd = "cd sdk/launchpad/protocol && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s sdk/launchpad/protocol/repair_22_39_476.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/protocol"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.475]
+title = "Pass the race and coverage stages of the launchpad Makefile in the shared SDK module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.459", "22.39.458"]
+reqs = ["22998.1"]
+capabilities = ["22.39.475"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365. Add tests for the hand-written sources of sdk/launchpad/shared until the cover-check target of services/launchpad/Makefile passes for it at the threshold the Makefile declares. The thresholds, the filter for generated files and the module list stay as they are."
+do_2 = "do_2 A test drives the product code through its real paths with the fixtures the existing tests of the module use, and asserts the behaviour it drives. No source is excluded from the measurement and no build constraint removes code from it. A data race that the race target reports is repaired at its site."
+do_3 = "do_3 New and changed files pass the lint of the module. Before the build, run the three targets of the verification by hand with the MODULES value of the verification until each passes. Record in sdk/launchpad/shared/repair_22_39_475.kvx the coverage per package before and after. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/repair_22_39_475.kvx"]
+build_cmd = "cd sdk/launchpad/shared && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s sdk/launchpad/shared/repair_22_39_475.kvx && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=../../sdk/launchpad/shared"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 600
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.474]
+title = "Pass the lint stage of the launchpad Makefile in the security and security control modules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.474"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/security and services/launchpad/security/control and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/security/repair_22_39_474.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/security"]
+tests = []
+planned_paths = ["services/launchpad/security/repair_22_39_474.kvx"]
+build_cmd = "cd services/launchpad/security && go vet ./... && cd control && go vet ./..."
+verify_cmd = "test -s services/launchpad/security/repair_22_39_474.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && (cd services/launchpad/security && /tmp/lp-lint-bin/golangci-lint run --config $C) && (cd services/launchpad/security/control && /tmp/lp-lint-bin/golangci-lint run --config $C)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.473]
+title = "Pass the lint stage of the launchpad Makefile in the notifications module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.473"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/notifications and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/notifications/repair_22_39_473.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/notifications"]
+tests = []
+planned_paths = ["services/launchpad/notifications/repair_22_39_473.kvx"]
+build_cmd = "cd services/launchpad/notifications && go vet ./..."
+verify_cmd = "test -s services/launchpad/notifications/repair_22_39_473.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/notifications && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.472]
+title = "Pass the lint stage of the launchpad Makefile in the discovery module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.472"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/discovery and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/discovery/repair_22_39_472.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery"]
+tests = []
+planned_paths = ["services/launchpad/discovery/repair_22_39_472.kvx"]
+build_cmd = "cd services/launchpad/discovery && go vet ./..."
+verify_cmd = "test -s services/launchpad/discovery/repair_22_39_472.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/discovery && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.471]
+title = "Pass the lint stage of the launchpad Makefile in the user module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.471"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/user and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/user/repair_22_39_471.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/user"]
+tests = []
+planned_paths = ["services/launchpad/user/repair_22_39_471.kvx"]
+build_cmd = "cd services/launchpad/user && go vet ./..."
+verify_cmd = "test -s services/launchpad/user/repair_22_39_471.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/user && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.470]
+title = "Pass the lint stage of the launchpad Makefile in the social module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.470"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/social and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/social/repair_22_39_470.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social"]
+tests = []
+planned_paths = ["services/launchpad/social/repair_22_39_470.kvx"]
+build_cmd = "cd services/launchpad/social && go vet ./..."
+verify_cmd = "test -s services/launchpad/social/repair_22_39_470.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/social && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.469]
+title = "Pass the lint stage of the launchpad Makefile in the metadata module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.469"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/metadata and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/metadata/repair_22_39_469.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata"]
+tests = []
+planned_paths = ["services/launchpad/metadata/repair_22_39_469.kvx"]
+build_cmd = "cd services/launchpad/metadata && go vet ./..."
+verify_cmd = "test -s services/launchpad/metadata/repair_22_39_469.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/metadata && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.468]
+title = "Pass the lint stage of the launchpad Makefile in the livestream module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.468"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/livestream and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/livestream/repair_22_39_468.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/livestream"]
+tests = []
+planned_paths = ["services/launchpad/livestream/repair_22_39_468.kvx"]
+build_cmd = "cd services/launchpad/livestream && go vet ./..."
+verify_cmd = "test -s services/launchpad/livestream/repair_22_39_468.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/livestream && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.467]
+title = "Pass the lint stage of the launchpad Makefile in the gateway module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.467"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/gateway and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/gateway/repair_22_39_467.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/gateway"]
+tests = []
+planned_paths = ["services/launchpad/gateway/repair_22_39_467.kvx"]
+build_cmd = "cd services/launchpad/gateway && go vet ./..."
+verify_cmd = "test -s services/launchpad/gateway/repair_22_39_467.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/gateway && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.466]
+title = "Pass the lint stage of the launchpad Makefile in the trading charts module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.466"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/trading-charts and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/trading-charts/repair_22_39_466.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/trading-charts"]
+tests = []
+planned_paths = ["services/launchpad/trading-charts/repair_22_39_466.kvx"]
+build_cmd = "cd services/launchpad/trading-charts && go vet ./..."
+verify_cmd = "test -s services/launchpad/trading-charts/repair_22_39_466.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/trading-charts && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.465]
+title = "Pass the lint stage of the launchpad Makefile in the statistics module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.465"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in the statistics module of the launchpad and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in the record of the task in the module directory the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/stats-workers"]
+tests = []
+planned_paths = ["services/launchpad/stats-workers/repair_22_39_465.kvx"]
+build_cmd = "cd services/launchpad/stats-* && go vet ./..."
+verify_cmd = "test -s services/launchpad/stats-*/repair_22_39_465.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/stats-* && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.464]
+title = "Pass the lint stage of the launchpad Makefile in the ranking module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.464"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/ranking-algo and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/ranking-algo/repair_22_39_464.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/ranking-algo"]
+tests = []
+planned_paths = ["services/launchpad/ranking-algo/repair_22_39_464.kvx"]
+build_cmd = "cd services/launchpad/ranking-algo && go vet ./..."
+verify_cmd = "test -s services/launchpad/ranking-algo/repair_22_39_464.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/ranking-algo && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.463]
+title = "Pass the lint stage of the launchpad Makefile in the PnL tracker module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.463"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/pnl-tracker and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/pnl-tracker/repair_22_39_463.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/repair_22_39_463.kvx"]
+build_cmd = "cd services/launchpad/pnl-tracker && go vet ./..."
+verify_cmd = "test -s services/launchpad/pnl-tracker/repair_22_39_463.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/pnl-tracker && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.462]
+title = "Pass the lint stage of the launchpad Makefile in the indexer module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.462"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/indexer and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/indexer/repair_22_39_462.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = ["services/launchpad/indexer/repair_22_39_462.kvx"]
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "test -s services/launchpad/indexer/repair_22_39_462.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/indexer && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.461]
+title = "Pass the lint stage of the launchpad Makefile in the API module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.461"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in services/launchpad/api and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in services/launchpad/api/repair_22_39_461.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/api"]
+tests = []
+planned_paths = ["services/launchpad/api/repair_22_39_461.kvx"]
+build_cmd = "cd services/launchpad/api && go vet ./..."
+verify_cmd = "test -s services/launchpad/api/repair_22_39_461.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd services/launchpad/api && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.460]
+title = "Pass the lint stage of the launchpad Makefile in the protocol SDK module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.460"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in sdk/launchpad/protocol and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in sdk/launchpad/protocol/repair_22_39_460.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/protocol"]
+tests = []
+planned_paths = ["sdk/launchpad/protocol/repair_22_39_460.kvx"]
+build_cmd = "cd sdk/launchpad/protocol && go vet ./..."
+verify_cmd = "test -s sdk/launchpad/protocol/repair_22_39_460.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd sdk/launchpad/protocol && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.459]
+title = "Pass the lint stage of the launchpad Makefile in the shared SDK module"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.459"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3365, gotcha 4282. Run the linter release v2.15.0 with the configuration file .golangci.yml of the repository root in sdk/launchpad/shared and repair every finding at its site. A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Repeat that run by hand over the whole module until it reports none, and only then run the build."
+do_2 = "do_2 A finding is repaired in the code. A public name, a signature and a wire value stay as they are: where a repair would change one, the line carries a nolint comment that names the linter and gives the reason. The configuration file stays as it is and no test assertion is weakened. Files of other modules stay as they are; a finding that needs a change outside the module is listed in the record."
+do_3 = "do_3 Run the tests of every package whose sources changed with the test-module target of services/launchpad/Makefile and keep each result as at the base. Record in sdk/launchpad/shared/repair_22_39_459.kvx the findings repaired per linter and each line that carries a comment. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared"]
+tests = []
+planned_paths = ["sdk/launchpad/shared/repair_22_39_459.kvx"]
+build_cmd = "cd sdk/launchpad/shared && go vet ./..."
+verify_cmd = "test -s sdk/launchpad/shared/repair_22_39_459.kvx && GOBIN=/tmp/lp-lint-bin GOFLAGS= GOTOOLCHAIN=go1.27.3 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 && C=$PWD/.golangci.yml && cd sdk/launchpad/shared && /tmp/lp-lint-bin/golangci-lint run --config $C"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.458]
+title = "Pin the linter release of the launchpad lint stage and keep the launchpad wiring test in step with the baseline"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.458"]
+interfaces = []
+do_1 = "do_1 Decisions 3364 and 3055, gotcha 4281. Bring tests/ci/test_launchpad_go_tests_wired.py to the baseline tests/ci/data/launchpad_go_test_baseline.json as main carries it: each case that validated entries a done task retired becomes an assertion that the baseline carries no entry of that package, keeping its name, and the total-count case follows the baseline. The package inventory of tests/ci/data/launchpad_go_tests.py names every package of each module, among them cmd/stats-migrate of the statistics module. The baseline file stays as it is."
+do_2 = "do_2 The lint recipe of services/launchpad/Makefile names one linter release, v2.15.0. When PATH does not carry that release, the recipe installs it with go install and GOTOOLCHAIN go1.27.3 into build/bin under services/launchpad, and it runs the linter with the configuration file of the repository root. services/launchpad/.gitignore lists build and .cover."
+do_3 = "do_3 tools/launchpad/coverage-gate.sh reads the total of a module from the module root, so that package paths resolve, reports a profile without a counted statement as empty and stops on a total that is not a number. The lint, race, cover and cover-check targets run for the modules that the MODULES variable names on the make command line. The wiring test asserts the release, the install step and that form."
+do_4 = "do_4 Record the changes in services/launchpad/repair_22_39_458.kvx. Run every case of the wiring test by hand until all pass before the build. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/Makefile", "tools/launchpad/coverage-gate.sh", "tests/ci/test_launchpad_go_tests_wired.py", "tests/ci/data/launchpad_go_tests.py"]
+tests = ["tests/ci/test_launchpad_go_tests_wired.py::test_launchpad_remaining_package_inventory_matches_module_sources"]
+planned_paths = ["services/launchpad/repair_22_39_458.kvx", "services/launchpad/.gitignore"]
+build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py tests/ci/data/launchpad_go_tests.py && bash -n tools/launchpad/coverage-gate.sh"
+verify_cmd = "test -s services/launchpad/repair_22_39_458.kvx && python3 -m pytest -q tests/ci/test_launchpad_go_tests_wired.py && make -C services/launchpad lint MODULES="
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.410]
 title = "Parse the spec of the active feature in the tests of the spec generator"
 status = "done"
@@ -231043,7 +232343,7 @@ title = "Bring the remaining stages of the launchpad Makefile ci target to green
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117"]
+requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
 interfaces = []
@@ -231052,7 +232352,7 @@ do_2 = "do_2 Bring every stage to green module by module: vet and build findings
 do_3 = "do_3 Add a job to .github/workflows/launchpad-test.yml that runs make -C services/launchpad ci under the Go version and the services the test job uses, and extend tests/ci/test_launchpad_go_tests_wired.py so it asserts the job, its Go version and its services; the per-module test job stays as it is. Before every gate run reproduce the fresh database service of decision 2917."
 do_4 = "do_4 Record per stage the findings repaired, the files touched and the module coverage before and after in services/launchpad/repair_22_39_170.kvx. Run the build once and the verification once at the final revision and record both by reference."
 symbols = []
-touches = ["services/launchpad", "sdk/launchpad/shared", "sdk/launchpad/protocol", "tools/launchpad/coverage-gate.sh", ".github/workflows/launchpad-test.yml"]
+touches = ["services/launchpad", "sdk/launchpad/shared", "sdk/launchpad/protocol", "tools/launchpad/coverage-gate.sh", ".github/workflows/launchpad-test.yml", "tests/ci/test_launchpad_go_tests_wired.py"]
 tests = ["tests/ci/test_launchpad_go_tests_wired.py"]
 planned_paths = ["services/launchpad/repair_22_39_170.kvx", "services/launchpad/.gitignore"]
 build_cmd = "python3 -m py_compile tests/ci/test_launchpad_go_tests_wired.py && cd services/launchpad/api && go vet ./..."
@@ -231069,6 +232369,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "do_5 Decisions 3303 and 3304, gotcha 4233. The task now requires task 22.39.117, which brings the test target to green and repairs the build line of the Makefile, and the verification now sets GOFLAGS -timeout=15m; the job of do_3 sets the same value. Facts from a run of the stages at 6d0bb29124e2: build, vet and fmt-check pass. The lint stage fails in the first module, because golangci-lint 2.8.0, also when built with go1.27.3, cannot read the modules (export data version 5 is greater than maximum supported version 2): name in the lint recipe one release that reads them, install it as do_2 states with the toolchain of the modules, and record the release and how it was found. The race stage passed the shared module, the protocol module, the api module and the indexer module up to its package internal/source and stopped at TestHistoricalRealRangeExplorerSuffixAndParity, historical_integration_test.go:286, role explorer_reader already exists: canonicalExplorerSchema at :44 of that file creates a role of the database server and never removes it, and the test stage ran the case on the same server before. Make every such case repeatable as decision 3304 states. These test files create a role, a user or a database of the server and hold no statement that removes it: services/launchpad/indexer/internal/source/historical_integration_test.go, services/launchpad/gateway/internal/app/identity_peers_test.go, services/launchpad/livestream/internal/app/platform_test.go, services/launchpad/notifications/repair_40_test.go, the files proof_launchpad_pnl_tracker_test.go, repair_29_test.go and repair_m917_peer_test.go of services/launchpad/pnl-tracker/internal/app, services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go, services/launchpad/pnl-tracker/internal/referral/localfixture_test.go, services/launchpad/social/internal/app/platform_test.go, the files repair_68_peer_test.go and repair_68_test.go of services/launchpad/social/internal/social, and the three test files of the package internal/search of the launchpad statistics module. The test files of sdk/launchpad/shared/db/production and services/launchpad/api/internal/app/repair_m913_test.go create such objects as well and passed a second pass; change them only when a second run fails. The cover target writes services/launchpad/.cover, which no ignore file names: add services/launchpad/.gitignore with that directory and leave no profile untracked at the end. Before the counted verification run every stage once outside the counted gates (decision 3286)."
+do_6 = "do_6 Decisions 3364 and 3365. Task 22.39.458 pins the linter release and brings the wiring test to the baseline, tasks 22.39.459 to 22.39.474 pass the lint stage module by module and tasks 22.39.475 to 22.39.490 pass the race and coverage stages module by module. This task requires them, runs the whole target after them, adds the public job of do_3 and extends the wiring test for that job."
 
 [task.22.39.168]
 title = "Bring the twelve remaining launchpad Go modules to green and retire their baseline entries"
