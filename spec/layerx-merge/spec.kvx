@@ -189047,7 +189047,7 @@ do_7 = "Attempt 4 (continue, gotcha 3390, decision 2774): the attempt-3 tree sta
 
 [task.22.38.38]
 title = "Prove ask to stream to lap settlement to claim"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["22.31.620", "22.39.388"]
