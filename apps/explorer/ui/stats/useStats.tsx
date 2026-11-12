@@ -9,6 +9,9 @@ import useApiQuery from 'lib/api/useApiQuery';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import { STATS_CHARTS } from 'stubs/stats';
 
+import { EXPLORER_CHART_SECTIONS } from './explorerCharts';
+import useStatsService from './useStatsService';
+
 function isSectionMatches(section: stats.LineChartSection, currentSection: string): boolean {
   return currentSection === 'all' || section.id === currentSection;
 }
@@ -23,13 +26,18 @@ interface Props {
 
 export default function useStats({ chain }: Props = {}) {
   const router = useRouter();
+  const hasStatsService = useStatsService(chain);
 
-  const { data, isPlaceholderData, isError } = useApiQuery('stats:lines', {
+  const serviceQuery = useApiQuery('stats:lines', {
     queryOptions: {
+      enabled: hasStatsService,
       placeholderData: STATS_CHARTS,
     },
     chain,
   });
+  const data = useMemo(() => hasStatsService ? serviceQuery.data : { sections: EXPLORER_CHART_SECTIONS }, [ hasStatsService, serviceQuery.data ]);
+  const isPlaceholderData = hasStatsService && serviceQuery.isPlaceholderData;
+  const isError = hasStatsService && serviceQuery.isError;
 
   const [ currentSection, setCurrentSection ] = useState('all');
   const [ filterQuery, setFilterQuery ] = useState('');
