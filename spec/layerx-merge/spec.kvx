@@ -13336,6 +13336,18 @@ value = "In the indexer module a conversion between integer types of different s
 basis = "Gotcha 4288 and decisions 3365 and 3369."
 affects = ["22.39.491", "22.39.170"]
 
+[decision.3371]
+title = "The room proof task starts before the reward state task lands and completes on a base that holds it"
+value = "Task 22.38.36 settles the canonical commit read and the retry bound of the node refusal on its own base, and runs the room on a base that holds task 22.39.400."
+basis = "Gotcha 4259 and decision 3331."
+affects = ["22.38.36"]
+
+[decision.3372]
+title = "The whole target task of the launchpad Makefile does not wait for the checked conversion task of the indexer"
+value = "Task 22.39.170 requires the lint, race and coverage tasks of the modules. Task 22.39.491 runs after the coverage task of the indexer and is no requirement of task 22.39.170."
+basis = "Decisions 3364 and 3370."
+affects = ["22.39.170", "22.39.491"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -188589,7 +188601,7 @@ title = "Drive an isolated chain, one host, two native peers and one asker throu
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395", "22.39.400"]
+requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
 reqs = ["22380.6"]
 capabilities = ["22.38.36"]
 interfaces = ["interface.22.cli-inference-market-room-driver"]
@@ -232417,7 +232429,7 @@ title = "Bring the remaining stages of the launchpad Makefile ci target to green
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490", "22.39.491"]
+requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
 interfaces = []

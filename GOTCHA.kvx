@@ -21265,3 +21265,8 @@ fix = "Decision 3369."
 title = "The security linter reports a conversion between integer types of different sign or width"
 symptom = "gosec reports each conversion between integer types of different sign or width, also where the code bounds the value before the conversion."
 fix = "Decision 3370."
+
+[gotcha.4289]
+title = "A tree carried onto a later main holds the changes of main since the start of the task"
+symptom = "After a rebase onto a later main the tree of a task differs from its start in the files that other landed tasks changed."
+fix = "A file equal to main is not a change of the task."
