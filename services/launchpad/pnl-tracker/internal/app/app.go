@@ -17,6 +17,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender/fonts"
 	inventory "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
@@ -31,15 +42,6 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -106,7 +108,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := sharedprocess.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == runtimeProduction {
 		var e error
 		metrics, e = telemetry.New("pnld", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -118,7 +120,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != runtimeProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -153,7 +155,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var transport *natsdriver.Consumer
 	var nc *nats.Conn
 	var rpc *ethclient.Client
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == runtimeProduction {
 		if cfg.FixtureCommitAckBarrier != "" {
 			if cfg.RuntimeProfile != "owned_local" {
 				return nil, errors.New("pnl: fixture barrier forbidden")
@@ -235,7 +237,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	var journeys *pnlJourneys
 	if JourneysEnabled(cfg) {
-		if cfg.NodeEnv != "production" || baselineAuthority == nil || accountingConsumer == nil || nc == nil || rpc == nil {
+		if cfg.NodeEnv != runtimeProduction || baselineAuthority == nil || accountingConsumer == nil || nc == nil || rpc == nil {
 			return nil, errors.New("pnl: production inventory runtime required for journeys")
 		}
 		journeys, err = newPnLJourneys(ctx, cfg, pool, rdb, rpc, nc, baselineAuthority, accountingConsumer)
@@ -318,12 +320,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Redis:      rdb,
 		ShareLabel: func(code string) string { return shareLabel(shareOrigin, code) },
 	})
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != runtimeProduction {
 		httpapi.RegisterReferrals(router, referralSvc)
 		devreads.Mount(ctx, router, cfg, pool, st, logger)
 	}
 	httpapi.RegisterStatus(router, httpapi.StatusDeps{Store: st, StartedAt: time.Now()})
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != runtimeProduction {
 		httpapi.RegisterWebhook(router, httpapi.WebhookDeps{
 			Swap:   swapConsumer,
 			Logger: logger,
@@ -465,7 +467,7 @@ func Run(parent context.Context) error {
 	defer app.Close()
 
 	if cfg.RuntimeAction != "" {
-		if cfg.RuntimeAction != "inventory_baseline" || cfg.NodeEnv != "production" || cfg.RuntimeProfile != "owned_local" || app.baseline == nil {
+		if cfg.RuntimeAction != "inventory_baseline" || cfg.NodeEnv != runtimeProduction || cfg.RuntimeProfile != "owned_local" || app.baseline == nil {
 			return errors.New("pnl: unsupported runtime action")
 		}
 		if _, e := cfg.PrivateFixtureEvidence(); e != nil {
@@ -500,7 +502,7 @@ func Run(parent context.Context) error {
 				return
 			}
 			defer release()
-			if e := app.runAccounting(ctx); e != nil && !errors.Is(e, context.Canceled) {
+			if e := app.runAccounting(ctx); !errors.Is(e, context.Canceled) {
 				logger.Error("inventory consumer failed", slog.Any("err", e))
 				app.tracker.BeginDrain()
 				cancel()
@@ -697,7 +699,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	if err := config.ReadBoundDocument(cfg.JourneyConfigFile, cfg.JourneyConfigSHA256, &d); err != nil {
 		return nil, err
 	}
-	if d.Version != 3 || d.Realm != cfg.DeploymentRealm || (d.Realm != "production" && d.Realm != "private_fixture") || len(d.ReleaseDigest) != 64 || len(d.InterfaceDigest) != 64 || d.BrokerStream == "" || d.IdentityEndpoint != cfg.IdentityURL || d.IdentityIssuer != "pnld" || d.IdentityAudience != "identity" || d.FontDirectory != cfg.FontDir || d.FontRegularSHA256 != fonts.RegularSHA256 || d.FontBoldSHA256 != fonts.BoldSHA256 || d.FontLicenseSHA256 != fonts.LicenseSHA256 || cfg.RPCURLFallback == "" || cfg.RPCURLFallback == cfg.RPCURL || d.ExportsDirectory == "" || !filepath.IsAbs(d.ExportsDirectory) || d.CDNOrigin == "" || (d.CDNZone == "") != (cfg.PortfolioCDNToken == "") {
+	if d.Version != 3 || d.Realm != cfg.DeploymentRealm || (d.Realm != runtimeProduction && d.Realm != "private_fixture") || len(d.ReleaseDigest) != 64 || len(d.InterfaceDigest) != 64 || d.BrokerStream == "" || d.IdentityEndpoint != cfg.IdentityURL || d.IdentityIssuer != "pnld" || d.IdentityAudience != actorIdentity || d.FontDirectory != cfg.FontDir || d.FontRegularSHA256 != fonts.RegularSHA256 || d.FontBoldSHA256 != fonts.BoldSHA256 || d.FontLicenseSHA256 != fonts.LicenseSHA256 || cfg.RPCURLFallback == "" || cfg.RPCURLFallback == cfg.RPCURL || d.ExportsDirectory == "" || !filepath.IsAbs(d.ExportsDirectory) || d.CDNOrigin == "" || (d.CDNZone == "") != (cfg.PortfolioCDNToken == "") {
 		return nil, errors.New("pnl: complete bound journey authority configuration required")
 	}
 	for _, digest := range []string{d.ReleaseDigest, d.InterfaceDigest} {
@@ -947,7 +949,7 @@ func (j *pnlJourneys) rebuildHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	summary, err := j.live.RebuildOwned(r.Context(), principal)
 	if err != nil {
-		http.Error(w, "Verified full wallet replay unavailable", 503)
+		http.Error(w, "Verified full wallet replay unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	_ = json.NewEncoder(w).Encode(struct {
@@ -967,31 +969,31 @@ func (j *pnlJourneys) intervalHTTP(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	for key, values := range q {
 		if (key != "from" && key != "to" && key != "interval" && key != "limit") || len(values) != 1 {
-			http.Error(w, "Invalid interval query", 422)
+			http.Error(w, "Invalid interval query", http.StatusUnprocessableEntity)
 			return
 		}
 	}
 	from, err := time.Parse(time.RFC3339, q.Get("from"))
 	if err != nil {
-		http.Error(w, "Invalid UTC interval start", 422)
+		http.Error(w, "Invalid UTC interval start", http.StatusUnprocessableEntity)
 		return
 	}
 	to, err := time.Parse(time.RFC3339, q.Get("to"))
 	if err != nil {
-		http.Error(w, "Invalid UTC interval end", 422)
+		http.Error(w, "Invalid UTC interval end", http.StatusUnprocessableEntity)
 		return
 	}
 	_, fromOffset := from.Zone()
 	_, toOffset := to.Zone()
 	if fromOffset != 0 || toOffset != 0 {
-		http.Error(w, "UTC boundaries required", 422)
+		http.Error(w, "UTC boundaries required", http.StatusUnprocessableEntity)
 		return
 	}
 	limit := 50
 	if q.Has("limit") {
 		limit, err = strconv.Atoi(q.Get("limit"))
 		if err != nil {
-			http.Error(w, "Invalid interval limit", 422)
+			http.Error(w, "Invalid interval limit", http.StatusUnprocessableEntity)
 			return
 		}
 	}
@@ -1030,7 +1032,7 @@ func pnlBoundAuthorityFile(path, digest string) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Size() > 1048576 {
 		return nil, errors.New("pnl: identity file unavailable")
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := fileaccess.ReadFile(path)
 	if err != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != digest {
 		return nil, errors.New("pnl: identity file binding mismatch")
 	}
@@ -1072,11 +1074,11 @@ func pnlIdentityAuthority(cfg config.Config, d pnlJourneyDocument) (auth.MTLSIde
 func (j *pnlJourneys) enrollHTTP(w http.ResponseWriter, r *http.Request) {
 	principal, err := j.portfolio.Authority.AuthenticateRequest(r.Context(), r)
 	if err != nil {
-		http.Error(w, "Authentication required", 401)
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 	if err = j.live.EnqueueOwned(r.Context(), principal); err != nil {
-		http.Error(w, "Verified enrollment unavailable", 503)
+		http.Error(w, "Verified enrollment unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
@@ -1085,11 +1087,11 @@ func (j *pnlJourneys) enrollHTTP(w http.ResponseWriter, r *http.Request) {
 func (j *pnlJourneys) cancelLiveHTTP(w http.ResponseWriter, r *http.Request) {
 	principal, err := j.portfolio.Authority.AuthenticateRequest(r.Context(), r)
 	if err != nil {
-		http.Error(w, "Authentication required", 401)
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 	if err = j.live.CancelOwned(r.Context(), principal); err != nil {
-		http.Error(w, "Verified cancellation unavailable", 503)
+		http.Error(w, "Verified cancellation unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")

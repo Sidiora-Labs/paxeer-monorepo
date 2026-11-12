@@ -128,7 +128,7 @@ func (h HTTP) PrepareClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(response)
+	_, _ = w.Write(response) //nolint:gosec // The response is JSON under the application/json content type and preserves its wire bytes.
 }
 func writeJourneyError(w http.ResponseWriter, e error) {
 	status, code := http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
