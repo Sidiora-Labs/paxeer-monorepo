@@ -119,14 +119,16 @@ defmodule Explorer.Market.Source.ChainflowFormatTest do
   test "all history requests retain the history route and carry the key", %{key: key} do
     assert {:ok, [native]} = Chainflow.fetch_native_coin_price_history(2)
     assert_received {:request, "/api/pax/history", [^key]}
+    assert_received {:request, "/api/v3/coins/paxeer", [^key]}
     assert {:ok, [secondary]} = Chainflow.fetch_secondary_coin_price_history(2)
     assert_received {:request, "/api/sid/history", [^key]}
     assert {:ok, [cap]} = Chainflow.fetch_market_cap_history(2)
     assert_received {:request, "/api/pax/history", [^key]}
+    assert_received {:request, "/api/v3/coins/paxeer", [^key]}
     assert native.date == ~D[2026-01-02]
     assert Decimal.equal?(native.opening_price, 2)
     assert Decimal.equal?(native.closing_price, 3)
-    assert Decimal.equal?(native.market_cap, Decimal.mult(Chain.circulating_supply(), 3))
+    assert Decimal.equal?(native.market_cap, 2331)
     assert secondary.secondary_coin
     assert Decimal.equal?(secondary.market_cap, 2331)
     assert cap == Map.take(native, [:date, :market_cap])
