@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -32,17 +33,18 @@ fn vector(name: &str) -> Vec<u8> {
         VECTOR
             .lines()
             .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
-            .unwrap(),
+            .unwrap_or_else(|| panic!("expected value")),
     )
-    .unwrap()
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn program() -> ProgramId {
-    ProgramId::new([1; 32]).unwrap()
+    ProgramId::new([1; 32]).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn version(abi_version: u16) -> ProgramVersion {
     let wasm = layerx_programs_runtime::test_support::add_module();
     ProgramVersion {
-        code_hash: hash_bytes(HashAlgorithm::Sha256, &wasm).unwrap(),
+        code_hash: hash_bytes(HashAlgorithm::Sha256, &wasm)
+            .unwrap_or_else(|error| panic!("{error:?}")),
         wasm,
         abi_version,
     }
@@ -56,7 +58,7 @@ fn deployment(
     ProgramVersion,
 ) {
     let version = version(abi);
-    let mut runtime = Lifecycle::declared().unwrap();
+    let mut runtime = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
     let receipt = runtime
         .deploy(Deploy {
             program: program(),
@@ -65,14 +67,19 @@ fn deployment(
             abi_version: abi,
             upgrade_policy: policy,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     (runtime, receipt, version)
 }
 fn entries(registry: &Registry) -> Vec<layerx_programs::RegistryEntry> {
     registry
         .program_ids()
         .into_iter()
-        .map(|id| registry.entry_for_wind_down(id).unwrap().clone())
+        .map(|id| {
+            registry
+                .entry_for_wind_down(id)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .clone()
+        })
         .collect()
 }
 
@@ -82,7 +89,8 @@ fn rejected_deployment_creates_entry_refusals_preserve_enumeration_and_policy() 
     let (mut runtime, first, valid) = deployment(2, policy);
     let mut upgraded = valid.clone();
     upgraded.wasm.extend_from_slice(&[0, 2, 1, b'x']);
-    upgraded.code_hash = hash_bytes(HashAlgorithm::Sha256, &upgraded.wasm).unwrap();
+    upgraded.code_hash = hash_bytes(HashAlgorithm::Sha256, &upgraded.wasm)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let second = runtime
         .upgrade(Upgrade {
             program: program(),
@@ -92,7 +100,7 @@ fn rejected_deployment_creates_entry_refusals_preserve_enumeration_and_policy() 
             abi_version: 2,
             migration: None,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(second.version(), 2);
     for case in 0..6 {
         let mut registry = Registry::new();
@@ -135,12 +143,12 @@ fn rejected_deployment_creates_entry_refusals_preserve_enumeration_and_policy() 
         // A refused first record must not pin its authority into a future entry.
         registry
             .record_deployment(&first, &valid, UpgradePolicy::Immutable, [9; 32])
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(registry.program_ids(), vec![program()]);
         assert_eq!(
             registry
                 .entry_for_wind_down(program())
-                .unwrap()
+                .unwrap_or_else(|error| panic!("{error:?}"))
                 .upgrade_policy,
             UpgradePolicy::Immutable
         );
@@ -153,6 +161,121 @@ fn rejected_deployment_creates_entry_refusals_preserve_enumeration_and_policy() 
     }
 }
 
+fn fixture_bindings() -> Vec<ProgramValueAccountBinding> {
+    // These first two primary records are committed ABI-two producer vectors.
+    let mut bindings = ["registration_primary_value", "empty_primary_value"]
+        .into_iter()
+        .map(|key| {
+            ProgramValueAccountBinding::decode_primary_value(&vector(key))
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        bindings[0].primary_key(),
+        vector("registration_primary_key")
+    );
+    assert_eq!(bindings[1].primary_key(), vector("empty_primary_key"));
+    let seed = vector("order_a_seed");
+    let mut third = ProgramValueAccountBinding {
+        record_version: 2,
+        program: program(),
+        account_id: derive_program_account(program(), &seed)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .bytes(),
+        seed,
+        asset_id: [0x33; 32],
+        registered_sequence: 7,
+        registration_event_digest: [0; 32],
+    };
+    third.registration_event_digest = program_account_registration_commitment(&third);
+    bindings.push(third);
+    bindings
+}
+
+struct FixtureRows {
+    rows: Vec<(Vec<u8>, Vec<u8>)>,
+    account_keys: Vec<Vec<u8>>,
+    owner_key: Vec<u8>,
+    profile_key: Vec<u8>,
+}
+
+fn fixture_rows(
+    bindings: &[ProgramValueAccountBinding],
+    frozen: bool,
+    profile: bool,
+    delta: u128,
+    wrong_asset: bool,
+) -> FixtureRows {
+    let mut rows = Vec::new();
+    let mut account_keys = Vec::new();
+    for (index, binding) in bindings.iter().enumerate() {
+        rows.push((
+            programs_state_key(&binding.primary_key()),
+            binding
+                .primary_value()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ));
+        let leaf = CanonicalAccountLeaf {
+            account_id: binding.account_id,
+            name: format!(
+                "module:programs:value:{}",
+                layerx_programs::hex::encode(&binding.account_id)
+            )
+            .into_bytes(),
+            kind: 13,
+            balance: (1_u128 << 96) + index as u128 + delta,
+            asset_id: if wrong_asset && index == 0 {
+                [0x99; 32]
+            } else {
+                binding.asset_id
+            },
+            has_asset: true.into(),
+            next_sequence: 9,
+            created_at_sequence: 7,
+            frozen: (frozen && index == 0).into(),
+            has_open_reference: false.into(),
+            authority_key: [0; 32],
+            has_authority_key: false.into(),
+        };
+        let mut key = vec![6];
+        key.extend_from_slice(&binding.account_id);
+        rows.push((
+            key.clone(),
+            leaf.host_record_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ));
+        account_keys.push(key);
+        // An old module mirror is not a source of the live balance.
+        let mut mirror = leaf.clone();
+        mirror.balance = 0;
+        rows.push((
+            programs_state_key(&leaf.primary_key()),
+            mirror
+                .primary_value()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ));
+    }
+    rows.push((vec![2], 100_u64.to_be_bytes().to_vec()));
+    let mut owner_key = b"program-owner\0".to_vec();
+    owner_key.extend_from_slice(&program().bytes());
+    let mut profile_key = b"program-account-profile\0".to_vec();
+    profile_key.extend_from_slice(&program().bytes());
+    if profile {
+        let mut owner = vec![1];
+        owner.extend_from_slice(&AUTHORITY);
+        let mut value = vec![2];
+        value.extend_from_slice(&AUTHORITY);
+        rows.push((programs_state_key(&owner_key), owner));
+        rows.push((programs_state_key(&profile_key), value));
+    }
+    FixtureRows {
+        rows,
+        account_keys,
+        owner_key,
+        profile_key,
+    }
+}
+
 struct Fixture {
     chain: ChainFixture,
     proof: ChainProgramAccountProof,
@@ -161,96 +284,33 @@ struct Fixture {
 }
 impl Fixture {
     fn new(frozen: bool, profile: bool, delta: u128, wrong_asset: bool) -> Self {
-        // These first two primary records are committed ABI-two producer vectors.
-        let mut bindings = ["registration_primary_value", "empty_primary_value"]
-            .into_iter()
-            .map(|key| ProgramValueAccountBinding::decode_primary_value(&vector(key)).unwrap())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            bindings[0].primary_key(),
-            vector("registration_primary_key")
-        );
-        assert_eq!(bindings[1].primary_key(), vector("empty_primary_key"));
-        let seed = vector("order_a_seed");
-        let mut third = ProgramValueAccountBinding {
-            record_version: 2,
-            program: program(),
-            account_id: derive_program_account(program(), &seed).unwrap().bytes(),
-            seed,
-            asset_id: [0x33; 32],
-            registered_sequence: 7,
-            registration_event_digest: [0; 32],
-        };
-        third.registration_event_digest = program_account_registration_commitment(&third);
-        bindings.push(third);
-        let mut rows = Vec::new();
-        let mut account_keys = Vec::new();
-        for (index, binding) in bindings.iter().enumerate() {
-            rows.push((
-                programs_state_key(&binding.primary_key()),
-                binding.primary_value().unwrap(),
-            ));
-            let leaf = CanonicalAccountLeaf {
-                account_id: binding.account_id,
-                name: format!(
-                    "module:programs:value:{}",
-                    layerx_programs::hex::encode(&binding.account_id)
-                )
-                .into_bytes(),
-                kind: 13,
-                balance: (1_u128 << 96) + index as u128 + delta,
-                asset_id: if wrong_asset && index == 0 {
-                    [0x99; 32]
-                } else {
-                    binding.asset_id
-                },
-                has_asset: true.into(),
-                next_sequence: 9,
-                created_at_sequence: 7,
-                frozen: (frozen && index == 0).into(),
-                has_open_reference: false.into(),
-                authority_key: [0; 32],
-                has_authority_key: false.into(),
-            };
-            let mut key = vec![6];
-            key.extend_from_slice(&binding.account_id);
-            rows.push((key.clone(), leaf.host_record_encoding().unwrap()));
-            account_keys.push(key);
-            // An old module mirror is not a source of the live balance.
-            let mut mirror = leaf.clone();
-            mirror.balance = 0;
-            rows.push((
-                programs_state_key(&leaf.primary_key()),
-                mirror.primary_value().unwrap(),
-            ));
-        }
-        rows.push((vec![2], 100_u64.to_be_bytes().to_vec()));
-        let mut owner_key = b"program-owner\0".to_vec();
-        owner_key.extend_from_slice(&program().bytes());
-        let mut profile_key = b"program-account-profile\0".to_vec();
-        profile_key.extend_from_slice(&program().bytes());
-        if profile {
-            let mut owner = vec![1];
-            owner.extend_from_slice(&AUTHORITY);
-            let mut value = vec![2];
-            value.extend_from_slice(&AUTHORITY);
-            rows.push((programs_state_key(&owner_key), owner));
-            rows.push((programs_state_key(&profile_key), value));
-        }
+        let mut bindings = fixture_bindings();
+        let FixtureRows {
+            rows,
+            account_keys,
+            owner_key,
+            profile_key,
+        } = fixture_rows(&bindings, frozen, profile, delta, wrong_asset);
         let chain = ChainFixture::new(
             "registry-chain-account-repair",
             &[[1; 32], [2; 32], [3; 32], [4; 32]],
             rows,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         let head = chain
             .verifier
             .verify_head(&chain.header, &chain.commit)
-            .unwrap();
-        let response =
-            |key: &[u8]| decode_commitment_proof(&chain.encode_key(key).unwrap()).unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let response = |key: &[u8]| {
+            decode_commitment_proof(
+                &chain
+                    .encode_key(key)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"))
+        };
         let (lower, upper) = ChainProgramAccountProof::binding_range(program());
-        bindings.sort_by_key(|b| b.primary_key());
+        bindings.sort_by_key(layerx_programs::ProgramValueAccountBinding::primary_key);
         let proof = ChainProgramAccountProof {
             program: program(),
             lower_bound: response(&lower),
@@ -273,9 +333,9 @@ impl Fixture {
             &version,
             UpgradePolicy::Authority(AUTHORITY),
             1,
-            head.time_ms() as u64,
+            u64::from_le_bytes((head.time_ms()).to_le_bytes()),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         Self {
             chain,
             proof,
@@ -285,25 +345,21 @@ impl Fixture {
     }
     fn registry(&self) -> Registry {
         let mut registry = Registry::new();
-        registry.replay_journal(&[self.record.clone()]).unwrap();
+        registry
+            .replay_journal(std::slice::from_ref(&self.record))
+            .unwrap_or_else(|error| panic!("{error:?}"));
         registry
     }
     fn now(&self) -> u64 {
-        self.head.time_ms() as u64 + 1
+        u64::from_le_bytes((self.head.time_ms()).to_le_bytes()) + 1
     }
 }
 
-#[test]
-fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
-    let fixture = Fixture::new(false, true, 0, false);
-    let encoded = fixture.proof.canonical_encoding().unwrap();
-    let transported = ChainProgramAccountProof::decode(&encoded).unwrap();
-    assert_eq!(transported, fixture.proof);
-    let snapshot = transported.verify(&fixture.head).unwrap();
-    assert_eq!(snapshot.bindings().len(), 3);
-    assert_eq!(snapshot.accounts().len(), 3);
-    assert_eq!(snapshot.chain_head().height() - 1, chain::STATE_HEIGHT);
-    assert_eq!(snapshot.freshness().observed_sequence, 100);
+fn verify_account_range_refusals(
+    fixture: &Fixture,
+    transported: &ChainProgramAccountProof,
+    encoded: &[u8],
+) -> Fixture {
     for mask in 0_u8..7 {
         let mut missing = transported.clone();
         missing.bindings = missing
@@ -315,10 +371,12 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
             .collect();
         missing.accounts.retain(|p| {
             missing.bindings.iter().any(|b| {
-                ProgramValueAccountBinding::decode_primary_value(b.value.as_ref().unwrap())
-                    .unwrap()
-                    .account_id
-                    .as_slice()
+                ProgramValueAccountBinding::decode_primary_value(
+                    b.value.as_ref().unwrap_or_else(|| panic!("expected value")),
+                )
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .account_id
+                .as_slice()
                     == &p.key[1..]
             })
         });
@@ -353,7 +411,10 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
     crossed.accounts[0] = other.proof.accounts[0].clone();
     assert!(crossed.verify(&fixture.head).is_err());
     let mut forged = transported.clone();
-    forged.accounts[0].value.as_mut().unwrap()[120] ^= 1;
+    forged.accounts[0]
+        .value
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected value"))[120] ^= 1;
     assert!(forged.verify(&fixture.head).is_err());
     let mut forged = transported.clone();
     forged.sequence = transported.accounts[0].clone();
@@ -366,17 +427,36 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
     let mut missing_profile = transported.clone();
     missing_profile.profile = None;
     assert!(missing_profile.verify(&fixture.head).is_err());
-    for bytes in [
-        &encoded[..encoded.len() - 1],
-        &[encoded.clone(), vec![0]].concat()[..],
-    ] {
+    for bytes in [&encoded[..encoded.len() - 1], &[encoded, &[0]].concat()[..]] {
         assert!(ChainProgramAccountProof::decode(bytes).is_err());
     }
+    other
+}
+
+#[test]
+fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
+    let fixture = Fixture::new(false, true, 0, false);
+    let encoded = fixture
+        .proof
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let transported =
+        ChainProgramAccountProof::decode(&encoded).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(transported, fixture.proof);
+    let snapshot = transported
+        .verify(&fixture.head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(snapshot.bindings().len(), 3);
+    assert_eq!(snapshot.accounts().len(), 3);
+    assert_eq!(snapshot.chain_head().height() - 1, chain::STATE_HEIGHT);
+    assert_eq!(snapshot.freshness().observed_sequence, 100);
+    let other = verify_account_range_refusals(&fixture, &transported, &encoded);
     let registry = fixture.registry();
-    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000).unwrap();
+    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let read = registry
         .read_value_accounts_chain(program(), &snapshot, &authority)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(read.value_accounts(), snapshot.accounts());
     assert!(read
         .value_accounts()
@@ -385,7 +465,8 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
     assert_eq!(read.state_root(), fixture.head.app_hash());
     assert_eq!(read.receipt_digest(), fixture.head.header_hash());
     assert_eq!(read.freshness(), snapshot.freshness());
-    let other_authority = ChainAccountStateAuthority::new(&other.head, other.now(), 1000).unwrap();
+    let other_authority = ChainAccountStateAuthority::new(&other.head, other.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         registry.read_value_accounts_chain(program(), &snapshot, &other_authority),
         Err(AccountStateError::UnverifiedReceipt)
@@ -401,7 +482,9 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
     let mut no_profile = transported;
     no_profile.profile = None;
     no_profile.owner = None;
-    let legacy_view = no_profile.verify(&fixture.head).unwrap();
+    let legacy_view = no_profile
+        .verify(&fixture.head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         registry.read_value_accounts_chain(program(), &legacy_view, &authority),
         Err(AccountStateError::LegacyProtocol)
@@ -411,11 +494,18 @@ fn chain_account_consumer_wiring_complete_range_refuses_every_omission() {
 #[test]
 fn chain_account_consumer_wiring_empty_range_is_proven_and_program_bound() {
     let fixture = Fixture::new(false, false, 0, false);
-    let other = ProgramId::new([0xff; 32]).unwrap();
+    let other = ProgramId::new([0xff; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     let (lower, upper) = ChainProgramAccountProof::binding_range(other);
     assert!(lower < upper);
-    let response =
-        |key: &[u8]| decode_commitment_proof(&fixture.chain.encode_key(key).unwrap()).unwrap();
+    let response = |key: &[u8]| {
+        decode_commitment_proof(
+            &fixture
+                .chain
+                .encode_key(key)
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
+    };
     let proof = ChainProgramAccountProof {
         program: other,
         lower_bound: response(&lower),
@@ -426,14 +516,17 @@ fn chain_account_consumer_wiring_empty_range_is_proven_and_program_bound() {
         profile: None,
         owner: None,
     };
-    let empty = proof.verify(&fixture.head).unwrap();
+    let empty = proof
+        .verify(&fixture.head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(empty.bindings(), &[]);
     assert_eq!(empty.accounts(), &[]);
     let mut forged_empty = fixture.proof.clone();
     forged_empty.bindings.clear();
     forged_empty.accounts.clear();
     assert!(forged_empty.verify(&fixture.head).is_err());
-    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000).unwrap();
+    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         fixture
             .registry()
@@ -451,13 +544,13 @@ impl Store {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).unwrap();
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("{error:?}"));
         Self(path)
     }
 }
 impl Drop for Store {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).unwrap_or_else(|error| panic!("{error:?}"));
     }
 }
 
@@ -489,151 +582,202 @@ fn transition() -> LifecycleTransition {
     }
 }
 
+struct RecoveryExpectations {
+    before_read: layerx_programs::VerifiedProgramBalanceRead,
+    after_read: layerx_programs::VerifiedProgramBalanceRead,
+    view: layerx_programs::WindDownView,
+    authorizations: Vec<layerx_programs::AuthorizedExit>,
+    expected_entries: Vec<layerx_programs::RegistryEntry>,
+    journal: Vec<(LifecycleTransition, Vec<ExitRoute>)>,
+}
+
+fn verify_profile_recovery(fixture: &Fixture, store: &Store, expected: RecoveryExpectations) {
+    let RecoveryExpectations {
+        before_read,
+        after_read,
+        view,
+        authorizations,
+        expected_entries,
+        journal,
+    } = expected;
+    // New components consume only reopened production codec bytes and the durable log.
+    let proof = ChainProgramAccountProof::decode(
+        &fs::read(store.0.join("accounts")).unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let head = fixture
+        .chain
+        .verifier
+        .verify_head(&fixture.chain.header, &fixture.chain.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let restored = proof
+        .verify(&head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let record = DeploymentRecord::decode(
+        &fs::read(store.0.join("deployment")).unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut registry = Registry::new();
+    registry
+        .replay_journal(&[record])
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let authority = ChainAccountStateAuthority::new(&head, fixture.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        registry
+            .read_value_accounts_chain(program(), &restored, &authority)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        before_read
+    );
+    let mut deprecation = Deprecation::new();
+    for (request, exits) in &journal {
+        deprecation
+            .transition_chain(&mut registry, *request, exits, &restored, &authority)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+    }
+    assert_eq!(entries(&registry), expected_entries);
+    assert_eq!(
+        deprecation
+            .read_chain(&registry, program(), &restored, &authority)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        view
+    );
+    assert_eq!(
+        registry
+            .read_value_accounts_chain(program(), &restored, &authority)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        after_read
+    );
+    for expected in authorizations {
+        assert_eq!(
+            deprecation
+                .authorize_exit_chain(
+                    &registry,
+                    program(),
+                    expected.account.account_id,
+                    &restored,
+                    &authority
+                )
+                .unwrap_or_else(|error| panic!("{error:?}")),
+            expected
+        );
+    }
+}
+
+fn produce_profile_recovery(fixture: &Fixture, store: &Store) -> RecoveryExpectations {
+    fs::write(
+        store.0.join("accounts"),
+        fixture
+            .proof
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    fs::write(
+        store.0.join("deployment"),
+        fixture.record.canonical_encoding(),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let snapshot = fixture
+        .proof
+        .verify(&fixture.head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut registry = fixture.registry();
+    let before_read = registry
+        .read_value_accounts_chain(program(), &snapshot, &authority)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let exits = routes(&snapshot);
+    let request = transition();
+    // The committed in-memory journal is a peer retained across consumer restart.
+    let journal = vec![(request, exits.clone())];
+    let mut deprecation = Deprecation::new();
+    let entry_before = entries(&registry);
+    assert!(matches!(
+        deprecation.transition_chain(&mut registry, request, &exits[..2], &snapshot, &authority),
+        Err(DeprecationRefusal::MissingExit { .. })
+    ));
+    assert_eq!(entries(&registry), entry_before);
+    let mut stale = request;
+    stale.effective_sequence -= 1;
+    assert_eq!(
+        deprecation.transition_chain(&mut registry, stale, &exits, &snapshot, &authority),
+        Err(DeprecationRefusal::SnapshotSequenceMismatch)
+    );
+    assert_eq!(entries(&registry), entry_before);
+    let receipt = deprecation
+        .transition_chain(&mut registry, request, &exits, &snapshot, &authority)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(receipt.live_value_accounts, 3);
+    let after_read = registry
+        .read_value_accounts_chain(program(), &snapshot, &authority)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let view = deprecation
+        .read_chain(&registry, program(), &snapshot, &authority)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(view.value_accounts, before_read.value_accounts());
+    assert_eq!(view.value_accounts, after_read.value_accounts());
+    assert_eq!(
+        view.reachable_value_by_asset()
+            .unwrap_or_else(|| panic!("expected value"))
+            .len(),
+        2
+    );
+    let authorizations: Vec<_> = snapshot
+        .accounts()
+        .iter()
+        .map(|account| {
+            deprecation
+                .authorize_exit_chain(
+                    &registry,
+                    program(),
+                    account.account_id,
+                    &snapshot,
+                    &authority,
+                )
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        })
+        .collect();
+    for exit in &authorizations {
+        assert_eq!(exit.protocol_activity.activity_type, 0x0009_0007);
+        assert_eq!(&exit.protocol_activity.payload[..32], &program().bytes());
+        assert_eq!(exit.protocol_activity.payload[32], 4);
+        assert_eq!(
+            &exit.protocol_activity.payload[33..],
+            &exit.account.account_id
+        );
+        assert_eq!(exit.account.state_root, fixture.head.app_hash());
+    }
+    let expected_entries = entries(&registry);
+    drop(deprecation);
+    drop(registry);
+    drop(snapshot);
+    RecoveryExpectations {
+        before_read,
+        after_read,
+        view,
+        authorizations,
+        expected_entries,
+        journal,
+    }
+}
+
 #[test]
 fn chain_account_consumer_wiring_balances_and_wind_down_recover_the_same_view() {
     for profile in [false, true] {
         let fixture = Fixture::new(false, profile, 0, false);
         let store = Store::open();
-        fs::write(
-            store.0.join("accounts"),
-            fixture.proof.canonical_encoding().unwrap(),
-        )
-        .unwrap();
-        fs::write(
-            store.0.join("deployment"),
-            fixture.record.canonical_encoding(),
-        )
-        .unwrap();
-        let snapshot = fixture.proof.verify(&fixture.head).unwrap();
-        let authority =
-            ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000).unwrap();
-        let mut registry = fixture.registry();
-        let before_read = registry
-            .read_value_accounts_chain(program(), &snapshot, &authority)
-            .unwrap();
-        let exits = routes(&snapshot);
-        let request = transition();
-        // The committed in-memory journal is a peer retained across consumer restart.
-        let journal = vec![(request, exits.clone())];
-        let mut deprecation = Deprecation::new();
-        let entry_before = entries(&registry);
-        assert!(matches!(
-            deprecation.transition_chain(
-                &mut registry,
-                request,
-                &exits[..2],
-                &snapshot,
-                &authority
-            ),
-            Err(DeprecationRefusal::MissingExit { .. })
-        ));
-        assert_eq!(entries(&registry), entry_before);
-        let mut stale = request;
-        stale.effective_sequence -= 1;
-        assert_eq!(
-            deprecation.transition_chain(&mut registry, stale, &exits, &snapshot, &authority),
-            Err(DeprecationRefusal::SnapshotSequenceMismatch)
-        );
-        assert_eq!(entries(&registry), entry_before);
-        let receipt = deprecation
-            .transition_chain(&mut registry, request, &exits, &snapshot, &authority)
-            .unwrap();
-        assert_eq!(receipt.live_value_accounts, 3);
-        let after_read = registry
-            .read_value_accounts_chain(program(), &snapshot, &authority)
-            .unwrap();
-        let view = deprecation
-            .read_chain(&registry, program(), &snapshot, &authority)
-            .unwrap();
-        assert_eq!(view.value_accounts, before_read.value_accounts());
-        assert_eq!(view.value_accounts, after_read.value_accounts());
-        assert_eq!(view.reachable_value_by_asset().unwrap().len(), 2);
-        let authorizations: Vec<_> = snapshot
-            .accounts()
-            .iter()
-            .map(|account| {
-                deprecation
-                    .authorize_exit_chain(
-                        &registry,
-                        program(),
-                        account.account_id,
-                        &snapshot,
-                        &authority,
-                    )
-                    .unwrap()
-            })
-            .collect();
-        for exit in &authorizations {
-            assert_eq!(exit.protocol_activity.activity_type, 0x0009_0007);
-            assert_eq!(&exit.protocol_activity.payload[..32], &program().bytes());
-            assert_eq!(exit.protocol_activity.payload[32], 4);
-            assert_eq!(
-                &exit.protocol_activity.payload[33..],
-                &exit.account.account_id
-            );
-            assert_eq!(exit.account.state_root, fixture.head.app_hash());
-        }
-        let expected_entries = entries(&registry);
-        drop(deprecation);
-        drop(registry);
-        drop(snapshot);
-        // New components consume only reopened production codec bytes and the durable log.
-        let proof =
-            ChainProgramAccountProof::decode(&fs::read(store.0.join("accounts")).unwrap()).unwrap();
-        let head = fixture
-            .chain
-            .verifier
-            .verify_head(&fixture.chain.header, &fixture.chain.commit)
-            .unwrap();
-        let restored = proof.verify(&head).unwrap();
-        let record =
-            DeploymentRecord::decode(&fs::read(store.0.join("deployment")).unwrap()).unwrap();
-        let mut registry = Registry::new();
-        registry.replay_journal(&[record]).unwrap();
-        let authority = ChainAccountStateAuthority::new(&head, fixture.now(), 1000).unwrap();
-        assert_eq!(
-            registry
-                .read_value_accounts_chain(program(), &restored, &authority)
-                .unwrap(),
-            before_read
-        );
-        let mut deprecation = Deprecation::new();
-        for (request, exits) in &journal {
-            deprecation
-                .transition_chain(&mut registry, *request, exits, &restored, &authority)
-                .unwrap();
-        }
-        assert_eq!(entries(&registry), expected_entries);
-        assert_eq!(
-            deprecation
-                .read_chain(&registry, program(), &restored, &authority)
-                .unwrap(),
-            view
-        );
-        assert_eq!(
-            registry
-                .read_value_accounts_chain(program(), &restored, &authority)
-                .unwrap(),
-            after_read
-        );
-        for expected in authorizations {
-            assert_eq!(
-                deprecation
-                    .authorize_exit_chain(
-                        &registry,
-                        program(),
-                        expected.account.account_id,
-                        &restored,
-                        &authority
-                    )
-                    .unwrap(),
-                expected
-            );
-        }
+        let expected = produce_profile_recovery(&fixture, &store);
+        verify_profile_recovery(&fixture, &store, expected);
     }
     let fixture = Fixture::new(true, true, 0, false);
-    let snapshot = fixture.proof.verify(&fixture.head).unwrap();
-    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000).unwrap();
+    let snapshot = fixture
+        .proof
+        .verify(&fixture.head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let authority = ChainAccountStateAuthority::new(&fixture.head, fixture.now(), 1000)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let mut registry = fixture.registry();
     let before = entries(&registry);
     assert!(matches!(
@@ -685,13 +829,13 @@ fn pool_refusal_mutates_state_boundary_preserves_entire_pool_and_allows_retry() 
 
 #[test]
 fn pool_refusal_mutates_state_real_guest_transaction_rolls_back_share_debit() {
-    let pool = ProgramId::new([0x55; 32]).unwrap();
-    let actor = PrincipalId::new([0x71; 32]).unwrap();
+    let pool = ProgramId::new([0x55; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let actor = PrincipalId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     let holder = derive_program_account(pool, &actor.bytes())
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
         .bytes();
     let treasury = derive_program_account(pool, b"lx.ref.swap.treasury")
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
         .bytes();
     let mut holder_key = b"lx.ref.swap.share:".to_vec();
     holder_key.extend_from_slice(&holder);
@@ -703,12 +847,15 @@ fn pool_refusal_mutates_state_real_guest_transaction_rolls_back_share_debit() {
         (b"lx.ref.swap.shares", 2),
         (holder_key.as_slice(), 2),
     ] {
-        tx.write(key, &amount.to_be_bytes()).unwrap();
+        tx.write(key, &amount.to_be_bytes())
+            .unwrap_or_else(|error| panic!("{error:?}"));
     }
     assert_eq!(tx.commit(), 4);
     let before = storage.clone();
-    let engine = WasmEngine::declared().unwrap();
-    let module = engine.validate_candidate_v2(SWAP).unwrap();
+    let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("{error:?}"));
+    let module = engine
+        .validate_candidate_v2(SWAP)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let mut payload = treasury.to_vec();
     payload.extend_from_slice(&1_u128.to_be_bytes());
     payload.extend_from_slice(&0_u128.to_be_bytes());
@@ -727,7 +874,7 @@ fn pool_refusal_mutates_state_real_guest_transaction_rolls_back_share_debit() {
                     Capability::SharedStorageRead,
                     Capability::SharedStorageWrite,
                 ])
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("{error:?}")),
             ),
             receipts: &UnavailableReceiptOracle,
             entrypoint: "remove_liquidity",
@@ -736,7 +883,7 @@ fn pool_refusal_mutates_state_real_guest_transaction_rolls_back_share_debit() {
             response_capacity: 128,
         },
     );
-    let record = result.unwrap();
+    let record = result.unwrap_or_else(|error| panic!("{error:?}"));
     assert!(record.failure().is_some());
     assert!(record.effects().is_none());
     assert!(

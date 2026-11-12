@@ -1,7 +1,8 @@
-#![allow(dead_code)]
+include!("required.rs");
 
-#[path = "../../../../../platform/hosted/gateway/src/evm.rs"]
-pub mod codec;
+pub mod codec {
+    include!(concat!(env!("OUT_DIR"), "/hosted_evm.rs"));
+}
 
 use layerx_network_gateway::{decode_hex, encode_hex, AccountIdentifier, GatewayEndpoint};
 use serde_json::{json, Value};
@@ -20,24 +21,30 @@ pub fn vector(name: &str) -> Value {
     let document: Value = serde_json::from_str(include_str!(
         "../../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
     ))
-    .expect("committed hosted gateway ABI vectors");
+    .required_with("committed hosted gateway ABI vectors");
     document["cases"]
         .as_array()
-        .unwrap()
+        .required()
         .iter()
         .find(|case| case["name"] == name)
-        .expect("recorded ABI case")
+        .required_with("recorded ABI case")
         .clone()
 }
 
 pub fn coins() -> Vec<(String, [u8; 32])> {
-    let bytes = decode_hex(vector("bank.all_balances")["result"].as_str().unwrap()).unwrap();
-    codec::decode_coins(&bytes).expect("production hosted bank ABI decoder")
+    let bytes = decode_hex(vector("bank.all_balances")["result"].as_str().required()).required();
+    codec::decode_coins(&bytes).required_with("production hosted bank ABI decoder")
 }
 
 pub fn identities() -> Value {
-    let bytes = decode_hex(vector("addr.getUnifiedAccount")["result"].as_str().unwrap()).unwrap();
-    let account = codec::decode_unified_account(&bytes).expect("production hosted identity codec");
+    let bytes = decode_hex(
+        vector("addr.getUnifiedAccount")["result"]
+            .as_str()
+            .required(),
+    )
+    .required();
+    let account =
+        codec::decode_unified_account(&bytes).required_with("production hosted identity codec");
     json!({
         "evm_address": codec::address_hex(&account.evm),
         "pax_address": account.pax_address,
@@ -48,7 +55,7 @@ pub fn identities() -> Value {
 }
 
 pub fn selector() -> AccountIdentifier {
-    AccountIdentifier::parse(identities()["evm_address"].as_str().unwrap()).unwrap()
+    AccountIdentifier::parse(identities()["evm_address"].as_str().required()).required()
 }
 
 pub fn balances() -> Value {
@@ -74,7 +81,8 @@ pub fn account() -> Value {
 pub fn assets() -> Value {
     // custody_asset reads bank.supply through decode_word + uint256_decimal.
     // Generate the maximum ABI supply word independently of wallet holdings.
-    let supply = codec::decode_word(&[0xff; 32]).expect("production bank supply ABI decoder");
+    let supply =
+        codec::decode_word(&[0xff; 32]).required_with("production bank supply ABI decoder");
     json!({
         "height": 16, "joined_limit": 16,
         "assets": [{
@@ -91,7 +99,7 @@ pub fn assets() -> Value {
 
 pub fn joined_page() -> Value {
     let mut page = assets();
-    let rows = page["assets"].as_array_mut().unwrap();
+    let rows = page["assets"].as_array_mut().required();
     for index in 2..16 {
         let mut row = rows[0].clone();
         row["asset_id"] = json!(format!("denom:ufactory{index}"));
@@ -133,10 +141,12 @@ pub struct Transcript {
 
 impl Transcript {
     pub fn serve(exchanges: Vec<Exchange>) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback transcript listener");
-        listener.set_nonblocking(true).unwrap();
+        let listener =
+            TcpListener::bind("127.0.0.1:0").required_with("loopback transcript listener");
+        listener.set_nonblocking(true).required();
         let endpoint =
-            GatewayEndpoint::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+            GatewayEndpoint::parse(&format!("http://{}/", listener.local_addr().required()))
+                .required();
         let expected = exchanges.len();
         let worker = thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
@@ -157,10 +167,10 @@ impl Transcript {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
+                    .required();
                 stream
                     .set_write_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
+                    .required();
                 let request = read_request(&mut stream);
                 assert_eq!(request["jsonrpc"], "2.0");
                 assert!(request["id"].as_u64().is_some());
@@ -174,17 +184,17 @@ impl Transcript {
                         json!({"jsonrpc": "2.0", "id": request["id"], "error": {"code": code, "message": message}})
                     }
                     Response::WrongId(result) => {
-                        json!({"jsonrpc": "2.0", "id": request["id"].as_u64().unwrap() + 1, "result": result})
+                        json!({"jsonrpc": "2.0", "id": request["id"].as_u64().required() + 1, "result": result})
                     }
                     Response::Raw(bytes) => {
-                        stream.write_all(&bytes).unwrap();
+                        stream.write_all(&bytes).required();
                         served += 1;
                         continue;
                     }
                 };
                 stream
-                    .write_all(&http(200, &serde_json::to_vec(&document).unwrap()))
-                    .unwrap();
+                    .write_all(&http(200, &serde_json::to_vec(&document).required()))
+                    .required();
                 served += 1;
             }
             served
@@ -200,9 +210,9 @@ impl Transcript {
         assert_eq!(
             self.worker
                 .take()
-                .unwrap()
+                .required()
                 .join()
-                .expect("transcript assertions"),
+                .required_with("transcript assertions"),
             self.expected
         );
     }
@@ -222,23 +232,23 @@ fn read_request(stream: &mut TcpStream) -> Value {
     loop {
         let count = stream
             .read(&mut chunk)
-            .expect("read production HTTP request");
+            .required_with("read production HTTP request");
         assert_ne!(count, 0, "complete request required");
         bytes.extend_from_slice(&chunk[..count]);
         assert!(bytes.len() <= 8192, "bounded transcript request");
         if let Some(end) = bytes.windows(4).position(|part| part == b"\r\n\r\n") {
-            let head = std::str::from_utf8(&bytes[..end]).unwrap();
+            let head = std::str::from_utf8(&bytes[..end]).required();
             assert!(head.starts_with("POST / HTTP/1.1\r\n"));
             let length: usize = head
                 .lines()
                 .find_map(|line| {
                     let (name, value) = line.split_once(':')?;
                     name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse().unwrap())
+                        .then(|| value.trim().parse().required())
                 })
-                .expect("framed production request");
+                .required_with("framed production request");
             if bytes.len() >= end + 4 + length {
-                return serde_json::from_slice(&bytes[end + 4..end + 4 + length]).unwrap();
+                return serde_json::from_slice(&bytes[end + 4..end + 4 + length]).required();
             }
         }
     }

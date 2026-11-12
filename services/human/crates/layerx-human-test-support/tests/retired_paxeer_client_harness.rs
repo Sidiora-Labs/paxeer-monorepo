@@ -14,12 +14,12 @@ fn retired_paxeer_client_harness_files_and_references_are_gone() {
     let workspace_root = Path::new(
         metadata["workspace_root"]
             .as_str()
-            .expect("cargo metadata must name the human workspace root"),
+            .unwrap_or_else(|| panic!("cargo metadata must name the human workspace root")),
     );
     let expected_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
-        .expect("resolve human workspace root");
+        .unwrap_or_else(|error| panic!("resolve human workspace root: {error:?}"));
     assert_eq!(workspace_root, expected_root);
 
     let retired_name = ["disposable", "custody"].join("_");

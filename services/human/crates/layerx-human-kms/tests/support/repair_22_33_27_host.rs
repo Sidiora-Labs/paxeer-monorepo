@@ -56,11 +56,16 @@ fn tls_server() -> Result<Arc<ServerConfig>> {
     ))
 }
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|v| format!("{v:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").unwrap_or_else(|error| panic!("{error:?}"));
+    }
+    encoded
 }
 fn unhex(value: &str) -> Result<Vec<u8>> {
     let value = value.strip_prefix("0x").unwrap_or(value);
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return Err("odd hex".into());
     }
     value
@@ -134,7 +139,9 @@ impl ClockHost {
         let stopped = stop.clone();
         let join = thread::spawn(move || {
             while !stopped.load(Ordering::Acquire) {
-                server.poll().expect("clock server");
+                server
+                    .poll()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "clock server"));
                 thread::sleep(Duration::from_millis(1));
             }
         });
@@ -162,7 +169,7 @@ pub struct Host {
     address: SocketAddr,
     kms: Option<Worker>,
     peers: Vec<Worker>,
-    clock_host: ClockHost,
+    clock_service: ClockHost,
     previous_attestors: Option<std::ffi::OsString>,
 }
 impl Drop for Host {
@@ -184,8 +191,8 @@ impl Host {
         let root = std::env::temp_dir().join(format!("kms-repair-{}", hex(&unique)));
         fs::create_dir(&root)?;
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
-        let clock_host = ClockHost::new(&root)?;
-        let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_host.binding.clone())?;
+        let clock_service = ClockHost::new(&root)?;
+        let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_service.binding.clone())?;
         for (name, bytes) in [
             ("ca.der", CA),
             ("client.der", CLIENT),
@@ -224,7 +231,9 @@ impl Host {
                     // The peer uses the real EIP-1559 signing producer, with fixture-owned
                     // material independent of every KMS primary seed and seal.
                     peer(tcp, &tls, &node_id, &wallet_key, &fixture_secret, &sequence)
-                        .expect("signing fixture transport");
+                        .unwrap_or_else(|error| {
+                            panic!("{}: {error:?}", "signing fixture transport")
+                        });
                 })?;
                 nodes.push(json!({"id":node,"address":worker.address}));
                 peers.push(worker);
@@ -267,7 +276,7 @@ impl Host {
             address,
             kms: None,
             peers,
-            clock_host,
+            clock_service,
             previous_attestors,
         };
         host.start()?;
@@ -286,6 +295,7 @@ impl Host {
         Ok(())
     }
     pub fn stop(&mut self) -> Result<()> {
+        self.kms.as_ref().ok_or("KMS worker is not running")?;
         drop(self.kms.take());
         Ok(())
     }

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
 #[path = "support/native_principal_store.rs"]
@@ -11,7 +12,7 @@ use layerx_human_kms::attestor::{
     native_local_grant_signing_bytes, AttestorClient, AttestorError, AttestorSigner,
 };
 use layerx_human_service::auth::{
-    AccountIdentity, AuthConfig, Device, OperationDigest, Passkeys, RateLimit,
+    AccountIdentity, AuthConfig, Device, OperationDigest, Passkeys, RateLimit, StepUpEvidence,
 };
 use layerx_human_service::custody::{
     CustodyError, CustodySigner, KeyClass, KeyId, Keystore, NativeConsent, NativeConsentRequest,
@@ -19,7 +20,8 @@ use layerx_human_service::custody::{
 };
 use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
 use layerx_human_service::store::{
-    AgentTenantId, PrincipalId, RetentionPeriod, RetentionPolicy, TenancyMap,
+    AgentTenantId, PrincipalId, PrincipalScope, PrincipalStore, RetentionPeriod, RetentionPolicy,
+    TenancyMap,
 };
 use layerx_human_service::trace::TraceId;
 use layerx_types::clock::{Clock, Deadline};
@@ -34,7 +36,7 @@ use std::net::SocketAddr;
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::Duration;
 
@@ -100,7 +102,7 @@ fn read_private(path: &Path) -> Result<Vec<u8>> {
     Ok(fs::read(path)?)
 }
 
-fn write_private(path: &Path, value: serde_json::Value) -> Result<()> {
+fn write_private(path: &Path, value: &serde_json::Value) -> Result<()> {
     use std::io::Write as _;
     let temporary = path.with_extension("pending");
     let mut file = fs::OpenOptions::new()
@@ -108,7 +110,7 @@ fn write_private(path: &Path, value: serde_json::Value) -> Result<()> {
         .create_new(true)
         .open(&temporary)?;
     fs::set_permissions(&temporary, fs::Permissions::from_mode(0o600))?;
-    file.write_all(&serde_json::to_vec(&value)?)?;
+    file.write_all(&serde_json::to_vec(value)?)?;
     file.sync_all()?;
     fs::rename(temporary, path)?;
     Ok(())
@@ -296,155 +298,273 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     if fixture.schema != "layerx-human-native-custody-live.v1" {
         return Err("closed genuine live fixture profile".into());
     }
-    let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
-    let directory = Path::new(&fixture.directory);
-    let nodes: Vec<_> = fixture
-        .nodes
-        .iter()
-        .map(|node| (node.id.clone(), node.address))
-        .collect();
-    let config = AttestorCustodyConfig::new(
-        nodes,
-        fixture.signers.clone(),
-        STANDARD.decode(&fixture.root_der)?,
-        STANDARD.decode(&fixture.client_der)?,
-        STANDARD.decode(&fixture.client_pkcs8)?,
-        Duration::from_secs(120),
-    )?;
-    let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
-    provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
-    let principal = PrincipalId::new("native-owner")?;
-    let key = KeyId::new("primary")?;
-    let binding = PrincipalKeyBinding::new(
-        b"layerx-human-custody/v1\0native-owner\0primary\0human-primary".to_vec(),
-        snapshot.chain_id,
-        KeyClass::HumanPrimary,
-        "attestor-quorum/v1",
-    )?;
-    let provider_key = format!(
-        "lx-{}",
-        binding.digest()[..16]
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
-    write_private(
-        &directory.join("provision.json"),
-        json!({"key_id":provider_key}),
-    )?;
-    wait(&directory.join("provision-ready"), clock.as_ref())?;
-    let keystore = Keystore::open_production(
-        directory.join("custody"),
-        snapshot.chain_id,
-        provider.clone(),
-    )?;
-    let public = provider.create_owned_key(
-        &keystore,
-        &principal,
-        &key,
-        &fixture.owner,
-        &fixture.account,
-    )?;
-    assert_eq!(keystore.describe(&principal, &key)?.public_key, public);
-    write_private(
-        &directory.join("generated.json"),
-        json!({"public":public.to_vec()}),
-    )?;
-    wait(&directory.join("signing.json"), clock.as_ref())?;
-    let material: Material =
-        serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
-    let purpose =
-        NativePreparationPurposeV1::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
-            .map_err(|error| format!("{error:?}"))?;
-    let foreign_principal = PrincipalId::new("native-foreign")?;
-    let tenancy = TenancyMap::new([
-        (principal.clone(), AgentTenantId::new("tenant-a")?),
-        (foreign_principal.clone(), AgentTenantId::new("tenant-b")?),
-    ])?;
-    let store_root = directory.join("human-store");
-    let period = RetentionPeriod::new(86400);
-    let shared_store = native_principal_store::open(
-        &store_root,
-        &tenancy,
-        RetentionPolicy {
-            journeys: period,
-            notifications: period,
-            audit: period,
-            telemetry: period,
-            cache: period,
-        },
-    )?;
-    let custody = CustodySigner::new_shared(
-        keystore,
-        Arc::clone(&shared_store),
-        snapshot.native_registry()?,
-        SigningLimits::new(32, 60)?,
-    );
-    let now = current_time(clock.as_ref())?;
-    let mut trace_entropy = [0; 16];
-    getrandom::fill(&mut trace_entropy)
-        .map_err(|error| std::io::Error::other(error.to_string()))?;
-    let trace = TraceId::mint(trace_entropy);
-    let mut store = shared_store
+    let setup = NativeSetup::new(&snapshot, fixture)?;
+    let mut store = setup
+        .shared_store
         .lock()
         .map_err(|_| "native custody store lock poisoned")?;
-    let mut scope = store.principal(&principal)?;
-    let result = ready(custody.sign_native_consent_in_scope(
+    let mut scope = store.principal(&setup.principal)?;
+    let (trace, grant, digest, grant_digest) = setup.verify_purpose_and_sdk(&mut scope)?;
+    let (passkeys, authenticated, confirms) = create_passkey_step_up(
         &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::PreparationPurpose(&purpose),
-            SignAuthorization::new(Operation::ProtocolMutation, None),
-            now,
-            trace.clone(),
-        ),
-    ))??;
-    let digest: [u8; 32] = Sha256::digest(
-        purpose
-            .canonical_bytes()
-            .map_err(|error| format!("{error:?}"))?,
-    )
-    .into();
-    assert_eq!(result.signer_public_key(), public);
-    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
-        .verify(&digest, result.signature())
-        .map_err(|_| "native purpose signature verification refused")?;
-    let grant = NativeLocalGrantConsentV1 {
-        capability: STANDARD.decode(&material.capability)?,
-        session_scope: STANDARD.decode(&material.native_session)?,
-        expires_at_ms: material.expiry_ms,
-        owner_public_key: public,
-        signature: [0; 64],
-    };
-    let missing = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, None),
-            now,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(missing, Err(CustodyError::StepUpRequired)));
-    let signers: Vec<_> = fixture.signers.iter().map(String::as_str).collect();
-    let sdk = AttestorSigner::new(
-        client(&fixture)?,
-        &provider_key,
-        public,
-        &signers,
-        snapshot.chain_id,
+        &setup.principal,
+        setup.clock.as_ref(),
+        grant_digest,
     )?;
-    let signature =
-        sdk.sign_native_local_grant(&grant, "rust-genuine-grant", &fixture.second_assertion)?;
-    let grant_digest: [u8; 32] = Sha256::digest(native_local_grant_signing_bytes(&grant)?).into();
-    assert_eq!(signature.digest(), &grant_digest);
-    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
-        .verify(&grant_digest, signature.signature())
-        .map_err(|_| "native SDK grant signature verification refused")?;
+    let principal = &setup.principal;
+    let foreign_principal = &setup.foreign_principal;
+    let clock = &setup.clock;
+    let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
+    assert!(matches!(
+        CustodySigner::bind_authenticated_step_up(
+            &passkeys,
+            &mut scope,
+            &authenticated,
+            OperationDigest::new(digest),
+            Operation::SecuritySettings,
+            grant_digest,
+            capability_digest,
+            current_time(clock.as_ref())?
+        ),
+        Err(CustodyError::InvalidEvidence)
+    ));
+    drop(scope);
+    let mut foreign_scope = store.principal(foreign_principal)?;
+    assert!(matches!(
+        CustodySigner::bind_authenticated_step_up(
+            &passkeys,
+            &mut foreign_scope,
+            &authenticated,
+            confirms,
+            Operation::SecuritySettings,
+            grant_digest,
+            capability_digest,
+            current_time(clock.as_ref())?
+        ),
+        Err(CustodyError::InvalidEvidence)
+    ));
+    drop(foreign_scope);
+    let mut scope = store.principal(principal)?;
+    let evidence = CustodySigner::bind_authenticated_step_up(
+        &passkeys,
+        &mut scope,
+        &authenticated,
+        confirms,
+        Operation::SecuritySettings,
+        grant_digest,
+        capability_digest,
+        current_time(clock.as_ref())?,
+    )?;
+    setup.verify_grant_signatures(&mut scope, &grant, &evidence, &trace, grant_digest)?;
+    println!("native custody genuine passkey issuance and grant consent verified");
+    println!("native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified");
+    Ok(())
+}
 
+struct NativeSetup {
+    fixture: Fixture,
+    chain_id: u32,
+    clock: Arc<layerx_client::runtime_clock::RuntimeClock>,
+    provider: AttestorKms,
+    principal: PrincipalId,
+    foreign_principal: PrincipalId,
+    key: KeyId,
+    public: [u8; 32],
+    purpose: NativePreparationPurposeV1,
+    material: Material,
+    provider_key: String,
+    custody: CustodySigner,
+    shared_store: Arc<Mutex<PrincipalStore>>,
+}
+
+impl NativeSetup {
+    fn new(snapshot: &ChainSnapshot, fixture: Fixture) -> Result<Self> {
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
+        let directory = Path::new(&fixture.directory);
+        let nodes: Vec<_> = fixture
+            .nodes
+            .iter()
+            .map(|node| (node.id.clone(), node.address))
+            .collect();
+        let config = AttestorCustodyConfig::new(
+            nodes,
+            fixture.signers.clone(),
+            STANDARD.decode(&fixture.root_der)?,
+            STANDARD.decode(&fixture.client_der)?,
+            STANDARD.decode(&fixture.client_pkcs8)?,
+            Duration::from_secs(120),
+        )?;
+        let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
+        provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
+        let principal = PrincipalId::new("native-owner")?;
+        let key = KeyId::new("primary")?;
+        let binding = PrincipalKeyBinding::new(
+            b"layerx-human-custody/v1\0native-owner\0primary\0human-primary".to_vec(),
+            snapshot.chain_id,
+            KeyClass::HumanPrimary,
+            "attestor-quorum/v1",
+        )?;
+        let provider_key = format!("lx-{}", attestor_cluster::hex(&binding.digest()[..16]));
+        write_private(
+            &directory.join("provision.json"),
+            &json!({"key_id":provider_key}),
+        )?;
+        wait(&directory.join("provision-ready"), clock.as_ref())?;
+        let keystore = Keystore::open_production(
+            directory.join("custody"),
+            snapshot.chain_id,
+            provider.clone(),
+        )?;
+        let public = provider.create_owned_key(
+            &keystore,
+            &principal,
+            &key,
+            &fixture.owner,
+            &fixture.account,
+        )?;
+        assert_eq!(keystore.describe(&principal, &key)?.public_key, public);
+        write_private(
+            &directory.join("generated.json"),
+            &json!({"public":public.to_vec()}),
+        )?;
+        wait(&directory.join("signing.json"), clock.as_ref())?;
+        let material: Material =
+            serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
+        let purpose =
+            NativePreparationPurposeV1::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
+                .map_err(|error| format!("{error:?}"))?;
+        let foreign_principal = PrincipalId::new("native-foreign")?;
+        let tenancy = TenancyMap::new([
+            (principal.clone(), AgentTenantId::new("tenant-a")?),
+            (foreign_principal.clone(), AgentTenantId::new("tenant-b")?),
+        ])?;
+        let store_root = directory.join("human-store");
+        let period = RetentionPeriod::new(86400);
+        let shared_store = native_principal_store::open(
+            &store_root,
+            &tenancy,
+            RetentionPolicy {
+                journeys: period,
+                notifications: period,
+                audit: period,
+                telemetry: period,
+                cache: period,
+            },
+        )?;
+        let custody = CustodySigner::new_shared(
+            keystore,
+            Arc::clone(&shared_store),
+            snapshot.native_registry()?,
+            SigningLimits::new(32, 60)?,
+        );
+        Ok(Self {
+            fixture,
+            chain_id: snapshot.chain_id,
+            clock,
+            provider,
+            principal,
+            foreign_principal,
+            key,
+            public,
+            purpose,
+            material,
+            provider_key,
+            custody,
+            shared_store,
+        })
+    }
+
+    fn verify_purpose_and_sdk(
+        &self,
+        scope: &mut PrincipalScope<'_>,
+    ) -> Result<(TraceId, NativeLocalGrantConsentV1, [u8; 32], [u8; 32])> {
+        let fixture = &self.fixture;
+        let clock = &self.clock;
+        let principal = &self.principal;
+        let key = &self.key;
+        let public = self.public;
+        let purpose = &self.purpose;
+        let material = &self.material;
+        let provider_key = &self.provider_key;
+        let custody = &self.custody;
+        let now = current_time(clock.as_ref())?;
+        let mut trace_entropy = [0; 16];
+        getrandom::fill(&mut trace_entropy)
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        let trace = TraceId::mint(trace_entropy);
+        let result = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::PreparationPurpose(purpose),
+                SignAuthorization::new(Operation::ProtocolMutation, None),
+                now,
+                trace.clone(),
+            ),
+        ))??;
+        let digest: [u8; 32] = Sha256::digest(
+            purpose
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?,
+        )
+        .into();
+        assert_eq!(result.signer_public_key(), public);
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
+            .verify(&digest, result.signature())
+            .map_err(|_| "native purpose signature verification refused")?;
+        let grant = NativeLocalGrantConsentV1 {
+            capability: STANDARD.decode(&material.capability)?,
+            session_scope: STANDARD.decode(&material.native_session)?,
+            expires_at_ms: material.expiry_ms,
+            owner_public_key: public,
+            signature: [0; 64],
+        };
+        let missing = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(&grant),
+                SignAuthorization::new(Operation::SecuritySettings, None),
+                now,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(missing, Err(CustodyError::StepUpRequired)));
+        let signers: Vec<_> = fixture.signers.iter().map(String::as_str).collect();
+        let sdk = AttestorSigner::new(
+            client(fixture)?,
+            provider_key,
+            public,
+            &signers,
+            self.chain_id,
+        )?;
+        let signature =
+            sdk.sign_native_local_grant(&grant, "rust-genuine-grant", &fixture.second_assertion)?;
+        let grant_digest: [u8; 32] =
+            Sha256::digest(native_local_grant_signing_bytes(&grant)?).into();
+        assert_eq!(signature.digest(), &grant_digest);
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
+            .verify(&grant_digest, signature.signature())
+            .map_err(|_| "native SDK grant signature verification refused")?;
+
+        let stranger = sdk.sign_native_preparation_purpose(
+            purpose,
+            "rust-foreign-owner",
+            &fixture.foreign_assertion,
+        );
+        assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
+        Ok((trace, grant, digest, grant_digest))
+    }
+}
+
+fn create_passkey_step_up(
+    scope: &mut PrincipalScope<'_>,
+    principal: &PrincipalId,
+    clock: &dyn Clock,
+    grant_digest: [u8; 32],
+) -> Result<(Passkeys, StepUpEvidence, OperationDigest)> {
     let passkeys = Passkeys::new(AuthConfig {
         rp_id: "paxportwallet.com".to_owned(),
         rp_name: "LayerX".to_owned(),
@@ -461,40 +581,36 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     })?;
     let account = AccountIdentity::new(principal.as_str(), "Native consent qualification")?;
     let mut authenticator = Authenticator::open()?;
-    let registration = passkeys.begin_registration(
-        &mut scope,
-        &account,
-        "Disposable passkey",
-        current_time(clock.as_ref())?,
-    )?;
+    let registration =
+        passkeys.begin_registration(scope, &account, "Disposable passkey", current_time(clock)?)?;
     let credential = authenticator.credential("register", &registration.ceremony)?;
     passkeys.finish_registration(
-        &mut scope,
+        scope,
         &registration.registration_id,
         &credential,
-        current_time(clock.as_ref())?,
+        current_time(clock)?,
     )?;
-    let assertion = passkeys.begin_assertion(&mut scope, current_time(clock.as_ref())?)?;
+    let assertion = passkeys.begin_assertion(scope, current_time(clock)?)?;
     let credential = authenticator.credential("assert", &assertion.ceremony)?;
     passkeys.finish_assertion(
-        &mut scope,
+        scope,
         &assertion.assertion_id,
         &credential,
-        current_time(clock.as_ref())?,
+        current_time(clock)?,
     )?;
     let session = passkeys.open_session(
-        &mut scope,
+        scope,
         &assertion.assertion_id,
         Device::mint("Disposable authenticator", "qualification")?,
-        current_time(clock.as_ref())?,
+        current_time(clock)?,
     )?;
     let confirms = OperationDigest::new(grant_digest);
     let challenge = passkeys.begin_step_up(
-        &mut scope,
+        scope,
         session.access_token().expose(),
         session.csrf_token().expose(),
         confirms,
-        current_time(clock.as_ref())?,
+        current_time(clock)?,
     )?;
     let credential = authenticator.credential("assert", &challenge.ceremony)?;
     let mut forged: serde_json::Value =
@@ -509,136 +625,107 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     let forged = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&forged)?);
     assert!(passkeys
         .finish_step_up(
-            &mut scope,
+            scope,
             &challenge.challenge_id,
             &forged,
-            current_time(clock.as_ref())?
+            current_time(clock)?
         )
         .is_err());
     let authenticated = passkeys.finish_step_up(
-        &mut scope,
+        scope,
         &challenge.challenge_id,
         &credential,
-        current_time(clock.as_ref())?,
+        current_time(clock)?,
     )?;
     assert!(passkeys
         .finish_step_up(
-            &mut scope,
+            scope,
             &challenge.challenge_id,
             &credential,
-            current_time(clock.as_ref())?
+            current_time(clock)?
         )
         .is_err());
-    let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
-    assert!(matches!(
-        CustodySigner::bind_authenticated_step_up(
-            &passkeys,
-            &mut scope,
-            &authenticated,
-            OperationDigest::new(digest),
-            Operation::SecuritySettings,
-            grant_digest,
-            capability_digest,
-            current_time(clock.as_ref())?
-        ),
-        Err(CustodyError::InvalidEvidence)
-    ));
-    drop(scope);
-    let mut foreign_scope = store.principal(&foreign_principal)?;
-    assert!(matches!(
-        CustodySigner::bind_authenticated_step_up(
-            &passkeys,
-            &mut foreign_scope,
-            &authenticated,
-            confirms,
-            Operation::SecuritySettings,
-            grant_digest,
-            capability_digest,
-            current_time(clock.as_ref())?
-        ),
-        Err(CustodyError::InvalidEvidence)
-    ));
-    drop(foreign_scope);
-    let mut scope = store.principal(&principal)?;
-    let evidence = CustodySigner::bind_authenticated_step_up(
-        &passkeys,
-        &mut scope,
-        &authenticated,
-        confirms,
-        Operation::SecuritySettings,
-        grant_digest,
-        capability_digest,
-        current_time(clock.as_ref())?,
-    )?;
-    let mut changed_grant = grant.clone();
-    changed_grant.owner_public_key[0] ^= 1;
-    let mismatched = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&changed_grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
-    let expiry_skewed_grant = NativeLocalGrantConsentV1 {
-        expires_at_ms: grant.expires_at_ms - 1,
-        ..grant.clone()
-    };
-    let invalid_evidence = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&expiry_skewed_grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(
-        invalid_evidence,
-        Err(CustodyError::InvalidEvidence)
-    ));
-    provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
-    let signed = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))??;
-    assert_eq!(signed.signer_public_key(), public);
-    assert_eq!(signed.disclosure_digest(), grant_digest);
-    ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
-        .verify(&grant_digest, signed.signature())
-        .map_err(|_| "native custody grant signature verification refused")?;
-    let replayed = ready(custody.sign_native_consent_in_scope(
-        &mut scope,
-        NativeConsentRequest::new(
-            &principal,
-            &key,
-            NativeConsent::LocalGrant(&grant),
-            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time(clock.as_ref())?,
-            trace.clone(),
-        ),
-    ))?;
-    assert!(matches!(replayed, Err(CustodyError::StepUpReplayed)));
-    println!("native custody genuine passkey issuance and grant consent verified");
-    println!("native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified");
-    let stranger = sdk.sign_native_preparation_purpose(
-        &purpose,
-        "rust-foreign-owner",
-        &fixture.foreign_assertion,
-    );
-    assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
-    Ok(())
+    Ok((passkeys, authenticated, confirms))
+}
+
+impl NativeSetup {
+    fn verify_grant_signatures(
+        &self,
+        scope: &mut PrincipalScope<'_>,
+        grant: &NativeLocalGrantConsentV1,
+        evidence: &layerx_human_service::custody::StepUpEvidence,
+        trace: &TraceId,
+        grant_digest: [u8; 32],
+    ) -> Result<()> {
+        let custody = &self.custody;
+        let principal = &self.principal;
+        let key = &self.key;
+        let clock = &self.clock;
+        let provider = &self.provider;
+        let fixture = &self.fixture;
+        let public = self.public;
+        let mut changed_grant = grant.clone();
+        changed_grant.owner_public_key[0] ^= 1;
+        let mismatched = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(&changed_grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
+        let expiry_skewed_grant = NativeLocalGrantConsentV1 {
+            expires_at_ms: grant.expires_at_ms - 1,
+            ..grant.clone()
+        };
+        let invalid_evidence = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(&expiry_skewed_grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(
+            invalid_evidence,
+            Err(CustodyError::InvalidEvidence)
+        ));
+        provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
+        let signed = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))??;
+        assert_eq!(signed.signer_public_key(), public);
+        assert_eq!(signed.disclosure_digest(), grant_digest);
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
+            .verify(&grant_digest, signed.signature())
+            .map_err(|_| "native custody grant signature verification refused")?;
+        let replayed = ready(custody.sign_native_consent_in_scope(
+            scope,
+            NativeConsentRequest::new(
+                principal,
+                key,
+                NativeConsent::LocalGrant(grant),
+                SignAuthorization::new(Operation::SecuritySettings, Some(evidence)),
+                current_time(clock.as_ref())?,
+                trace.clone(),
+            ),
+        ))?;
+        assert!(matches!(replayed, Err(CustodyError::StepUpReplayed)));
+        Ok(())
+    }
 }

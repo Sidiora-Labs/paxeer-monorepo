@@ -5,10 +5,7 @@ use super::{
 use layerx_crypto::disclosure::{
     DisclosedNativeBudgetCreate, DisclosedNativeOperation, Disclosure, DisclosureError,
 };
-use layerx_crypto::onboarding::OnboardingConsent;
 use layerx_human_kms::call::{bind_call, CallBinding};
-use layerx_intents::canonical as hash;
-use layerx_types::ids::Did;
 use layerx_types::payload::{ModuleId, Payload};
 
 pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
@@ -33,14 +30,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
         Some(DisclosedNativeOperation::IdentityRegistration(_)) => 2,
         Some(DisclosedNativeOperation::BudgetCreate(_)) => mutations.len(),
         Some(DisclosedNativeOperation::RecoveryPolicy(_)) => 4,
-        Some(DisclosedNativeOperation::ProgramDeploy(_))
-        | Some(DisclosedNativeOperation::ProgramUpgrade(_))
-        | Some(DisclosedNativeOperation::ProgramCall(_))
-        | Some(DisclosedNativeOperation::ProgramWindDown(_))
-        | Some(DisclosedNativeOperation::LegacyProgramCall(_))
-        | Some(DisclosedNativeOperation::BudgetFund(_))
-        | Some(DisclosedNativeOperation::BudgetDefund(_))
-        | Some(DisclosedNativeOperation::BudgetRevoke(_))
+        Some(
+            DisclosedNativeOperation::ProgramDeploy(_)
+            | DisclosedNativeOperation::ProgramUpgrade(_)
+            | DisclosedNativeOperation::ProgramCall(_)
+            | DisclosedNativeOperation::ProgramWindDown(_)
+            | DisclosedNativeOperation::LegacyProgramCall(_)
+            | DisclosedNativeOperation::BudgetFund(_)
+            | DisclosedNativeOperation::BudgetDefund(_)
+            | DisclosedNativeOperation::BudgetRevoke(_),
+        )
         | None => 0,
     };
     (0..count)
@@ -58,14 +57,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
                     2 => value.threshold += 1,
                     _ => value.delay_bounds = Some((1, 2)),
                 },
-                Some(DisclosedNativeOperation::ProgramDeploy(_))
-                | Some(DisclosedNativeOperation::ProgramUpgrade(_))
-                | Some(DisclosedNativeOperation::ProgramCall(_))
-                | Some(DisclosedNativeOperation::ProgramWindDown(_))
-                | Some(DisclosedNativeOperation::LegacyProgramCall(_))
-                | Some(DisclosedNativeOperation::BudgetFund(_))
-                | Some(DisclosedNativeOperation::BudgetDefund(_))
-                | Some(DisclosedNativeOperation::BudgetRevoke(_)) => {
+                Some(
+                    DisclosedNativeOperation::ProgramDeploy(_)
+                    | DisclosedNativeOperation::ProgramUpgrade(_)
+                    | DisclosedNativeOperation::ProgramCall(_)
+                    | DisclosedNativeOperation::ProgramWindDown(_)
+                    | DisclosedNativeOperation::LegacyProgramCall(_)
+                    | DisclosedNativeOperation::BudgetFund(_)
+                    | DisclosedNativeOperation::BudgetDefund(_)
+                    | DisclosedNativeOperation::BudgetRevoke(_),
+                ) => {
                     panic!("unexpected native disclosure with zero mutations")
                 }
                 None => panic!("missing native disclosure"),
@@ -162,10 +163,12 @@ fn setup_disclosure(
 ) -> Result<CallBinding> {
     use layerx_crypto::disclosure::call::ConstructMethod;
     match call.construct_method()? {
-        Some(ConstructMethod::AuthLifecycle {
-            payload: actual, ..
-        })
-        | Some(ConstructMethod::PayBudgetCreate { payload: actual }) => {
+        Some(
+            ConstructMethod::AuthLifecycle {
+                payload: actual, ..
+            }
+            | ConstructMethod::PayBudgetCreate { payload: actual },
+        ) => {
             assert_eq!(actual, payload.as_bytes());
         }
         Some(ConstructMethod::LedgerOpenAccount { asset }) => {
@@ -213,7 +216,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
         initial_kind,
         &host,
         target,
-        &initial_call,
+        initial_call,
         &initial_disclosure,
     )?;
     let mut first = Vec::new();
@@ -256,41 +259,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
 fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()> {
     use layerx_crypto::signer::Signer as _;
     let public = layerx_crypto::local::LocalSigner::new([0x62; 32]).public_key();
-    let unsupported = setup_call(payload(ModuleId::Budget, 1, &native_budget(2)?)?, (7, 1))
-        .expect_err("version-2 budgets have no budgetCreate call form");
-    assert!(unsupported.to_string().contains("budget version 2"));
-    for version in [1] {
-        let original = native_budget(version)?;
-        let mut corruptions = Vec::new();
-        for start in [2, 34] {
-            let mut changed = original.clone();
-            changed[start..start + 32].fill(0);
-            corruptions.push(changed);
-        }
-        for (start, length) in [(130, 16), (162, 16), (178, 8), (194, 8), (210, 1)] {
-            let mut changed = original.clone();
-            changed[start..start + length].fill(0);
-            corruptions.push(changed);
-        }
-        let mut changed = original.clone();
-        changed[210] = 3;
-        corruptions.push(changed);
-        let mut changed = original.clone();
-        changed[210] = 1;
-        changed[146..162].copy_from_slice(&1_u128.to_be_bytes());
-        corruptions.push(changed);
-        for (index, bytes) in corruptions.into_iter().enumerate() {
-            let call = setup_call(payload(ModuleId::Budget, 1, &bytes)?, (7, 1))?;
-            let result = bind_call(&call, [0x41; 20]);
-            assert!(
-                result.is_err(),
-                "budget version {version}, corruption {index} was admitted"
-            );
-        }
-        let mut trailing = setup_call(payload(ModuleId::Budget, 1, &original)?, (7, 1))?;
-        trailing.data.push(0);
-        assert!(bind_call(&trailing, [0x41; 20]).is_err());
-    }
+    assert_budget_call_rejections()?;
     let host = Host::for_bindings(&[76])?;
     let binding = [76; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
@@ -351,23 +320,50 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
             );
         }
     }
-    let consent = OnboardingConsent {
-        sponsor: checked(hash::did_id_for_protocol(
-            &checked(Did::new(b"did:layerx:sponsor"))?,
-            3,
-        ))?,
-        target: checked(Did::new(b"did:layerx:alice"))?,
-        target_public_key: public,
-        native_asset: [3; 32],
-        action_key: [4; 32],
-        expires_at: 1010,
-    };
+    let consent = vectors::historical_consent_payload(public)?;
     for (sequence, fee) in [(1, 0), (0, 1)] {
-        let call = setup_call(
-            payload(ModuleId::Governance, 1, &checked(consent.payload())?)?,
-            (sequence, fee),
-        )?;
+        let call = setup_call(payload(ModuleId::Governance, 1, &consent)?, (sequence, fee))?;
         assert!(bind_call(&call, [0x41; 20]).is_err());
+    }
+    Ok(())
+}
+
+fn assert_budget_call_rejections() -> Result<()> {
+    let unsupported = setup_call(payload(ModuleId::Budget, 1, &native_budget(2)?)?, (7, 1))
+        .err()
+        .ok_or("version-2 budgets have no budgetCreate call form")?;
+    assert!(unsupported.to_string().contains("budget version 2"));
+    for version in [1] {
+        let original = native_budget(version)?;
+        let mut corruptions = Vec::new();
+        for start in [2, 34] {
+            let mut changed = original.clone();
+            changed[start..start + 32].fill(0);
+            corruptions.push(changed);
+        }
+        for (start, length) in [(130, 16), (162, 16), (178, 8), (194, 8), (210, 1)] {
+            let mut changed = original.clone();
+            changed[start..start + length].fill(0);
+            corruptions.push(changed);
+        }
+        let mut changed = original.clone();
+        changed[210] = 3;
+        corruptions.push(changed);
+        let mut changed = original.clone();
+        changed[210] = 1;
+        changed[146..162].copy_from_slice(&1_u128.to_be_bytes());
+        corruptions.push(changed);
+        for (index, bytes) in corruptions.into_iter().enumerate() {
+            let call = setup_call(payload(ModuleId::Budget, 1, &bytes)?, (7, 1))?;
+            let result = bind_call(&call, [0x41; 20]);
+            assert!(
+                result.is_err(),
+                "budget version {version}, corruption {index} was admitted"
+            );
+        }
+        let mut trailing = setup_call(payload(ModuleId::Budget, 1, &original)?, (7, 1))?;
+        trailing.data.push(0);
+        assert!(bind_call(&trailing, [0x41; 20]).is_err());
     }
     Ok(())
 }

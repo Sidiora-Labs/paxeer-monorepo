@@ -204,6 +204,10 @@ impl Deprecation {
     }
 
     /// Applies a transition using the same complete chain view as balance discovery.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn transition_chain(
         &mut self,
         registry: &mut Registry,
@@ -263,7 +267,7 @@ impl Deprecation {
             return Err(AccountStateError::BindingConflict.into());
         }
         entry.value_accounts = read.bindings().to_vec();
-        entry.exit_routes = exits.clone();
+        entry.exit_routes.clone_from(&exits);
         let receipt = candidate.transition_lifecycle(request)?;
         let record = WindDownRecord {
             program: request.program,
@@ -282,6 +286,10 @@ impl Deprecation {
         Ok(receipt)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn read_chain(
         &self,
         registry: &Registry,
@@ -307,6 +315,10 @@ impl Deprecation {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn authorize_exit_chain(
         &self,
         registry: &Registry,
@@ -447,6 +459,10 @@ impl Deprecation {
         Ok(receipt)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn transition_profile2(
         &mut self,
         registry: &mut Registry,
@@ -625,6 +641,10 @@ impl Deprecation {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn read_profile2(
         &self,
         registry: &Registry,
@@ -726,6 +746,10 @@ impl Deprecation {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn authorize_exit_profile2(
         &self,
         registry: &Registry,
@@ -741,6 +765,10 @@ impl Deprecation {
         self.authorize_exit(registry, program, account_id, snapshot, state_authority)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn replay_profile2(
         &mut self,
         registry: &mut Registry,

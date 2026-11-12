@@ -1,0 +1,24 @@
+[meta]
+name = "Arbiter lint conformance"
+kind = "lint-repair"
+
+[lint.manual_is_multiple_of]
+locations = 2
+
+[lint.manual_range_patterns]
+locations = 3
+
+[lint.manual_range_contains]
+locations = 1
+
+[lint.too_many_arguments]
+locations = 3
+
+[lint.needless_question_mark]
+locations = 2
+
+[lint.type_complexity]
+locations = 1
+
+[lint.dead_code]
+locations = 26

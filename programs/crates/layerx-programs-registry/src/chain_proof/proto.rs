@@ -34,6 +34,10 @@ impl<'a> ProtoReader<'a> {
         self.cursor
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn next_field(&mut self) -> Result<Option<ProtoField<'a>>, ChainProofError> {
         if self.cursor == self.bytes.len() {
             return Ok(None);
@@ -64,6 +68,10 @@ impl<'a> ProtoReader<'a> {
         Ok(Some(ProtoField { number, value }))
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn finish(&self) -> Result<(), ChainProofError> {
         if self.cursor == self.bytes.len() {
             Ok(())

@@ -15,6 +15,10 @@ pub struct NodeDeploymentFixture {
 
 /// Consume the producer's canonical `DeploymentProof` transport unchanged.
 /// Trust and observation time belong to the consumer, not to the export.
+///
+/// # Errors
+///
+/// Returns an error if canonical deployment evidence cannot be verified.
 pub fn node_deployment_fixture(
     admission: &[u8],
     verifier: &ProtocolDeploymentVerifier,
@@ -31,18 +35,22 @@ pub fn node_deployment_fixture(
 }
 
 impl NodeDeploymentFixture {
+    #[must_use]
     pub fn admission(&self) -> &[u8] {
         &self.admission
     }
 
+    #[must_use]
     pub fn proof(&self) -> &DeploymentProof {
         self.evidence.proof()
     }
 
+    #[must_use]
     pub fn execution(&self) -> &DeploymentExecutionProof {
         &self.execution
     }
 
+    #[must_use]
     pub fn evidence(&self) -> &VerifiedDeploymentEvidence {
         &self.evidence
     }
