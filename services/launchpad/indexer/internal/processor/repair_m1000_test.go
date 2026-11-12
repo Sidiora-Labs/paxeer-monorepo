@@ -105,7 +105,7 @@ type repairM1000Recorded struct {
 // Replay source-owned responses, never generating state reads. Log queries
 // can select a different approved address set only over complete recorded
 // blocks whose every transaction has its original receipt in this packet.
-func repairM1000RecordedRPC(t *testing.T) string {
+func repairM1000RecordedRPC(t *testing.T, latest ...uint64) string {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "services/launchpad/indexer/internal/processor/testdata/repair_m1000_batches.json"))
 	if err != nil {
@@ -215,6 +215,9 @@ func repairM1000RecordedRPC(t *testing.T) string {
 		if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
+		}
+		if len(latest) == 1 && call.Method == "eth_getBlockByNumber" && len(call.Params) == 2 && string(call.Params[0]) == `"latest"` {
+			call.Params[0] = json.RawMessage(strconv.Quote(fmt.Sprintf("0x%x", latest[0])))
 		}
 		canonical := key(call.Method, call.Params)
 		response, exists := responses[canonical]
@@ -783,6 +786,20 @@ func repairM1000MeasurementRefusals(t *testing.T) {
 				t.Fatalf("refusal wrote capture: %v", err)
 			}
 		})
+	}
+	invalidPool := spec
+	invalidPool.HotPool = "unknown"
+	if report, err := makeHarness().Run(ctx, invalidPool); err == nil || !strings.Contains(err.Error(), "hot pool") || report.CaptureSHA256 != "" {
+		t.Fatalf("unbound hot pool admitted: %+v %v", report, err)
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	report, err := makeHarness().Run(cancelled, spec)
+	if err == nil || report.CaptureSHA256 == "" || len(report.Violations) == 0 || report.FinishedAt.IsZero() {
+		t.Fatalf("cancelled storage measurement lacked a captured result: %+v %v", report, err)
+	}
+	if body, readErr := os.ReadFile(spec.OutputPath); readErr != nil || !strings.Contains(string(body), `"kind":"report"`) {
+		t.Fatalf("captured report unavailable: %v", readErr)
 	}
 }
 

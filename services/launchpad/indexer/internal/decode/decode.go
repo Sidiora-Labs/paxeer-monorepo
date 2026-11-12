@@ -176,7 +176,7 @@ func humanize(v any, t abi.Type) any {
 	case *big.Int:
 		return x.String()
 	case common.Address:
-		return strings.ToLower(x.Hex())
+		return "0x" + hex.EncodeToString(x[:])
 	case common.Hash:
 		return x.Hex()
 	case bool:

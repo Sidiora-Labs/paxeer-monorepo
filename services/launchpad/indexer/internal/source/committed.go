@@ -1056,6 +1056,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 			if l.BlockHash != record.Hash || int(l.TxIndex) >= len(b.Transactions) || !strings.EqualFold(b.Transactions[l.TxIndex].Hash, l.TxHash.Hex()) {
 				return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 			}
+			l.BlockTimestamp = uint64(record.TimestampSeconds) //nolint:gosec // validated block timestamps are nonnegative
 			if len(l.Topics) > 0 && needsTxFrom(l.Topics[0].Hex()) {
 				from := b.Transactions[l.TxIndex].From
 				if !common.IsHexAddress(from) {

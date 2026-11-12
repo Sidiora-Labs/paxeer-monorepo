@@ -801,6 +801,11 @@ func Run(parent context.Context) error {
 	select {
 	case err := <-serveErr:
 		return err
+	default:
+	}
+	select {
+	case err := <-serveErr:
+		return err
 	case err := <-procErr:
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return err
