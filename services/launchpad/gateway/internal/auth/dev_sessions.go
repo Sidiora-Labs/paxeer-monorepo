@@ -65,7 +65,7 @@ func (d DevSessions) resolve(r *http.Request) (string, bool) {
 		probe.Header.Set("Authorization", "Bearer "+token)
 	}
 	if probe.Header.Get("Authorization") == "" {
-		if _, err := probe.Cookie("__Host-kindle_access"); err != nil {
+		if _, err := probe.Cookie(accessCookieName); err != nil {
 			return "", false
 		}
 	}

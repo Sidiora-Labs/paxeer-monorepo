@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -32,7 +34,7 @@ type HTTPPurgeProvider struct {
 
 func NewHTTPPurgeProvider(endpoint, token string, transport *http.Transport) (*HTTPPurgeProvider, error) {
 	u, e := url.Parse(endpoint)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || len(token) < 32 || strings.ContainsAny(token, "\r\n") {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || len(token) < 32 || strings.ContainsAny(token, "\r\n") {
 		return nil, ErrUnavailable
 	}
 	t := http.DefaultTransport.(*http.Transport).Clone()
@@ -67,7 +69,11 @@ func (p *HTTPPurgeProvider) call(ctx context.Context, path string, request any) 
 	if e != nil {
 		return receipt, ErrUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	if resp.StatusCode != 200 && resp.StatusCode != 202 {
 		return receipt, ErrUnavailable
 	}
@@ -80,10 +86,10 @@ func (p *HTTPPurgeProvider) call(ctx context.Context, path string, request any) 
 	if d.Decode(&receipt) != nil || d.Decode(new(any)) != io.EOF || !atom.MatchString(receipt.ProviderID) || len(receipt.CompletionProof) > 256 {
 		return PurgeReceipt{}, ErrUnavailable
 	}
-	if receipt.State != "accepted" && receipt.State != "complete" && receipt.State != "failed" {
+	if receipt.State != acceptedState && receipt.State != completeState && receipt.State != failedState {
 		return PurgeReceipt{}, ErrUnavailable
 	}
-	if receipt.State == "complete" && receipt.CompletionProof == "" {
+	if receipt.State == completeState && receipt.CompletionProof == "" {
 		return PurgeReceipt{}, ErrUnavailable
 	}
 	return receipt, nil
@@ -99,7 +105,7 @@ func (p *HTTPPurgeProvider) Submit(ctx context.Context, id, hash string) (PurgeR
 		return PurgeReceipt{}, ErrConflict
 	}
 	receipt, e := p.call(ctx, "/v1/purges", purgeSubmission{id, hash})
-	if e == nil && (receipt.OperationID != id || receipt.State == "complete") {
+	if e == nil && (receipt.OperationID != id || receipt.State == completeState) {
 		return PurgeReceipt{}, ErrUnavailable
 	}
 	return receipt, e
@@ -134,7 +140,7 @@ func (w PurgeWorker) RunOne(ctx context.Context) (bool, error) {
 	if e != nil {
 		return false, ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	var op Operation
 	e = tx.QueryRow(ctx, "SELECT id::text,hash,revision,state,provider_id FROM "+a.table("operations")+" WHERE kind='purge' AND state IN ('requested','accepted') ORDER BY requested_at,id LIMIT 1 FOR UPDATE SKIP LOCKED").Scan(&op.ID, &op.Hash, &op.Revision, &op.State, &op.ProviderID)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -146,7 +152,7 @@ func (w PurgeWorker) RunOne(ctx context.Context) (bool, error) {
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	var receipt PurgeReceipt
-	if op.State == "requested" && op.ProviderID == "" {
+	if op.State == requestedState && op.ProviderID == "" {
 		receipt, e = w.Provider.Submit(bounded, op.ID, op.Hash)
 	} else {
 		receipt, e = w.Provider.Status(bounded, op.ID, op.ProviderID)
@@ -160,7 +166,7 @@ func (w PurgeWorker) RunOne(ctx context.Context) (bool, error) {
 		}
 		return true, e
 	}
-	if receipt.OperationID != op.ID || !atom.MatchString(receipt.ProviderID) || len(receipt.CompletionProof) > 256 || (receipt.State != "accepted" && receipt.State != "complete" && receipt.State != "failed") || (op.State == "requested" && op.ProviderID == "" && receipt.State == "complete") || (op.ProviderID != "" && receipt.ProviderID != op.ProviderID) || (receipt.State == "complete" && receipt.CompletionProof == "") {
+	if receipt.OperationID != op.ID || !atom.MatchString(receipt.ProviderID) || len(receipt.CompletionProof) > 256 || (receipt.State != acceptedState && receipt.State != completeState && receipt.State != failedState) || (op.State == requestedState && op.ProviderID == "" && receipt.State == completeState) || (op.ProviderID != "" && receipt.ProviderID != op.ProviderID) || (receipt.State == completeState && receipt.CompletionProof == "") {
 		return true, ErrConflict
 	}
 	if _, e = tx.Exec(ctx, "UPDATE "+a.table("operations")+" SET state=$2,provider_id=$3,proof=$4,attempts=attempts+1,updated_at=clock_timestamp() WHERE id=$1", op.ID, receipt.State, receipt.ProviderID, receipt.CompletionProof); e != nil {

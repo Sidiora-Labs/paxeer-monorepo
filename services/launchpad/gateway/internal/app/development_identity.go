@@ -62,7 +62,7 @@ var edgeHeaders = []string{"X-Railway-Edge", "X-Real-IP", "X-Forwarded-For", "X-
 // IDENTITY_SERVICE_TOKEN bearer. Production never reaches this: its internal
 // routes are served only on the mTLS listener.
 func developmentInternalIdentity(cfg config.Config, r *http.Request) bool {
-	if cfg.NodeEnv == "production" || !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") {
+	if cfg.NodeEnv == nodeEnvironmentProduction || !strings.HasPrefix(r.URL.Path, "/internal/v2/identity/") {
 		return false
 	}
 	for _, name := range edgeHeaders {
