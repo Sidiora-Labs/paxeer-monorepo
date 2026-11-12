@@ -21370,3 +21370,13 @@ fix = "The node reads the program identifier and the reader address from its con
 title = "The native result source of the agent daemon reads the validator set at a consensus endpoint"
 symptom = "The function program_reader of the agent daemon connects the native result source to the node endpoint of the configuration. The validator set that the source reads is served by the consensus endpoint of a node."
 fix = "The agent daemon takes a setting for the consensus endpoint (decision 3390)."
+
+[gotcha.4310]
+title = "The market sources of the explorer backend name no source for the Chainflow price feed"
+symptom = "The explorer environment hides the native coin price and lists the daily transactions chart only, and the statistics response adds the price updates to the transaction total while the transactions statistics response counts the transactions of the day without them."
+fix = "A Chainflow market source supplies PAX and SID, and both statistics responses count the price updates."
+
+[gotcha.4311]
+title = "The statistics page of the explorer reads its counters and lines from the statistics service routes"
+symptom = "The components under apps/explorer/ui/stats read the counters route and the lines route of a statistics service, and the page feature is enabled by a statistics service address."
+fix = "The page reads the explorer API when no statistics service address is set."
