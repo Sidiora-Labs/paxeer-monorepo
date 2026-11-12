@@ -86,14 +86,7 @@ defmodule Explorer.Market.Source.Chainflow do
   end
 
   defp fetch_coin(symbol, supply) do
-    with coin_id when is_binary(coin_id) and coin_id != "" <- coin_id_for_symbol(symbol),
-         {:ok, %{"market_data" => market_data} = data} when is_map(market_data) <-
-           Source.http_request(
-             String.trim_trailing(config(:base_url), "/") <>
-               "/api/v3/coins/" <> URI.encode(coin_id, &URI.char_unreserved?/1),
-             headers()
-           ),
-         false <- Map.has_key?(data, "error") do
+    with {:ok, %{"market_data" => market_data} = data} <- fetch_coin_data(symbol) do
       fiat_value = Source.to_decimal(get_in(market_data, ["current_price", "usd"]))
       feed_supply = Source.to_decimal(market_data["circulating_supply"])
       secondary_coin? = symbol == config(:secondary_coin_symbol)
@@ -114,6 +107,19 @@ defmodule Explorer.Market.Source.Chainflow do
            volume_24h: Source.to_decimal(get_in(market_data, ["total_volume", "usd"])),
            last_updated: Source.maybe_get_date(market_data["last_updated"])
        }}
+    end
+  end
+
+  defp fetch_coin_data(symbol) do
+    with coin_id when is_binary(coin_id) and coin_id != "" <- coin_id_for_symbol(symbol),
+         {:ok, %{"market_data" => market_data} = data} when is_map(market_data) <-
+           Source.http_request(
+             String.trim_trailing(config(:base_url), "/") <>
+               "/api/v3/coins/" <> URI.encode(coin_id, &URI.char_unreserved?/1),
+             headers()
+           ),
+         false <- Map.has_key?(data, "error") do
+      {:ok, data}
     else
       {:error, _} = error -> error
       _ -> {:error, "Invalid Chainflow quote response or coin ID"}
@@ -175,7 +181,11 @@ defmodule Explorer.Market.Source.Chainflow do
     end
   end
 
-  defp history_supply(false), do: {:ok, Chain.circulating_supply()}
+  defp history_supply(false) do
+    with {:ok, %{"market_data" => market_data}} <- fetch_coin_data(config(:coin_symbol)) do
+      {:ok, Source.to_decimal(market_data["circulating_supply"]) || Chain.circulating_supply()}
+    end
+  end
 
   defp history_supply(true) do
     with {:ok, quote} <- fetch_secondary_coin() do
