@@ -378051,7 +378051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.39]
 title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
