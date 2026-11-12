@@ -1,0 +1,31 @@
+[coverage]
+module = "sdk/launchpad/protocol"
+threshold_percent = 90.0
+before_percent = 65.5
+after_percent = 90.4
+generated_bindings = "Excluded from the module measurement"
+
+[package.protocol]
+path = "github.com/Sidiora-Technologies/KindleLaunch/protocol"
+before_percent = 96.0
+after_percent = 96.0
+
+[package.bindings]
+path = "github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
+before_percent = 4.2
+after_percent = 4.2
+
+[package.catalog]
+path = "github.com/Sidiora-Technologies/KindleLaunch/protocol/catalog"
+before_percent = 73.3
+after_percent = 93.6
+
+[package.coverage]
+path = "github.com/Sidiora-Technologies/KindleLaunch/protocol/coverage"
+before_percent = 66.6
+after_percent = 90.1
+
+[package.measure]
+path = "github.com/Sidiora-Technologies/KindleLaunch/protocol/coverage/cmd/measure"
+before_percent = 0.0
+after_percent = 79.3
