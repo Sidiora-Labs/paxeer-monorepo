@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/db/sqlcdb"
@@ -236,7 +237,11 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 			}
 			continue
 		}
-		to := from + int64(size) - 1
+		sizeInt64, conversionErr := checked.Convert[int64](size)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		to := from + sizeInt64 - 1
 		if to > head {
 			to = head
 		}
@@ -301,8 +306,16 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		if checkpoint != from-1 && checkpoint < to {
 			return store.ErrWatermark
 		}
+		fromUint64, conversionErr := checked.Convert[uint64](from)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		toUint64, conversionErr := checked.Convert[uint64](to)
+		if conversionErr != nil {
+			return conversionErr
+		}
 		readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
 		cancel()
 		if err != nil {
 			if p.deps.Quarantine != nil && p.deps.Source != nil {
@@ -425,8 +438,14 @@ func (p *Processor) collect(ctx context.Context, from, to int64) ([]publisher.We
 // processEvent persists one decoded event to its typed table and returns the
 // webhook envelope to fan out (nil for events with no downstream contract).
 func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs int64, txFrom map[string]string) (*publisher.WebhookEvent, error) {
-	blockNumber := int64(ev.BlockNumber) //nolint:gosec // chain value uses the existing signed storage representation
-	logIndex := int32(ev.LogIndex)       //nolint:gosec // EVM log index uses the existing 32-bit event field
+	blockNumber, conversionErr := checked.Convert[int64](ev.BlockNumber)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	logIndex, conversionErr := checked.Convert[int32](ev.LogIndex)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	id := fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex)
 	traceID := fmt.Sprintf("%s:%d", ev.TxHash, ev.LogIndex)
 
@@ -434,13 +453,17 @@ func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs 
 	// to strings). Enrichments below mutate this copy, not the decoder output.
 	args := cloneArgs(ev.Args)
 
+	webhookLogIndex, conversionErr := checked.Convert[int](ev.LogIndex)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	wev := func() *publisher.WebhookEvent {
 		return &publisher.WebhookEvent{
 			EventName:      ev.EventName,
 			BlockNumber:    blockNumber,
 			BlockTimestamp: blockTs,
 			TxHash:         ev.TxHash,
-			LogIndex:       int(ev.LogIndex),
+			LogIndex:       webhookLogIndex,
 			Args:           args,
 			TraceID:        traceID,
 		}
@@ -658,11 +681,15 @@ func (p *Processor) handleFeeDistributed(ctx context.Context, args map[string]an
 	if err != nil {
 		return fmt.Errorf("strategy: %w", err)
 	}
+	strategyInt32, conversionErr := checked.Convert[int32](strategy)
+	if conversionErr != nil {
+		return conversionErr
+	}
 	return p.deps.Store.InsertFeeDistribution(ctx, sqlcdb.InsertFeeDistributionParams{
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		Strategy:       int32(strategy), //nolint:gosec // decoded strategy uses the existing 32-bit event field
+		Strategy:       strategyInt32,
 		Amount:         asString(args["amount"]),
 		Recipient:      asString(args["recipient"]),
 		BlockNumber:    blockNumber,
@@ -685,12 +712,20 @@ func (p *Processor) handleFeeStrategyChanged(ctx context.Context, args map[strin
 	if err != nil {
 		return fmt.Errorf("newStrategy: %w", err)
 	}
+	oldStratInt32, conversionErr := checked.Convert[int32](oldStrat)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	newStratInt32, conversionErr := checked.Convert[int32](newStrat)
+	if conversionErr != nil {
+		return conversionErr
+	}
 	return p.deps.Store.InsertFeeStrategyChange(ctx, sqlcdb.InsertFeeStrategyChangeParams{
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		OldStrategy:    int32(oldStrat), //nolint:gosec // decoded strategy uses the existing 32-bit event field
-		NewStrategy:    int32(newStrat), //nolint:gosec // decoded strategy uses the existing 32-bit event field
+		OldStrategy:    oldStratInt32,
+		NewStrategy:    newStratInt32,
 		BlockNumber:    blockNumber,
 		BlockTimestamp: blockTs,
 		TxHash:         txHashFromID(id),
@@ -887,15 +922,15 @@ func asInt64(v any) (int64, error) {
 	case int64:
 		return x, nil
 	case int:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint8:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint16:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint32:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint64:
-		return int64(x), nil //nolint:gosec // chain value uses the existing signed storage representation
+		return checked.Convert[int64](x)
 	case *big.Int:
 		return x.Int64(), nil
 	default:

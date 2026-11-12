@@ -678,7 +678,11 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			previous = envelope
 		}
 	}
-	report.ArchivedLogCount = uint64(len(corpus.Logs))
+	corpusLogsUint64, conversionErr := checked.Convert[uint64](len(corpus.Logs))
+	if conversionErr != nil {
+		return nil, nil, conversionErr
+	}
+	report.ArchivedLogCount = corpusLogsUint64
 	report.ArchivedIdentitySHA256 = hex.EncodeToString(identities.Sum(nil))
 	report.RestartParity = true
 	for i, row := range report.Coverage {
@@ -793,12 +797,20 @@ func prepareDecoderMeasurement(ctx context.Context, input DecoderMeasurementInpu
 			if effect.Economic {
 				report.Compatibility.OptionalEconomicEffects++
 			}
-			report.Compatibility.MatchedMirrorIdentities += uint64(len(effect.Companions))
+			effectCompanionsUint64, conversionErr := checked.Convert[uint64](len(effect.Companions))
+			if conversionErr != nil {
+				return nil, nil, conversionErr
+			}
+			report.Compatibility.MatchedMirrorIdentities += effectCompanionsUint64
 		}
 		if !reflect.DeepEqual(actual, archived.ExpectedEffects) || !reflect.DeepEqual(correlated.Unmatched, archived.ExpectedUnmatched) {
 			return report, nil, fmt.Errorf("independent optional native/mirror identity mismatch")
 		}
-		report.Compatibility.UnmatchedMirrorIdentities += uint64(len(correlated.Unmatched))
+		correlatedUnmatchedUint64, conversionErr := checked.Convert[uint64](len(correlated.Unmatched))
+		if conversionErr != nil {
+			return nil, nil, conversionErr
+		}
+		report.Compatibility.UnmatchedMirrorIdentities += correlatedUnmatchedUint64
 		report.Compatibility.OptionalReceiptCount++
 	}
 	burst := prepareDecoderBurst(r, corpus.Logs, envelopes, input)
@@ -974,7 +986,11 @@ func prepareDecoderBurstAtRate(r *Registry, records []ArchivedDecoderLog, expect
 			if schedulingError = waitUntil(due); schedulingError != nil {
 				break
 			}
-			for offset := 0; offset < int(rate)/100; offset++ {
+			rateInt, conversionErr := checked.Convert[int](rate)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			for offset := 0; offset < rateInt/100; offset++ {
 				if time.Now().After(windowEnd) {
 					schedulingError = fmt.Errorf("five-minute workload dispatch deadline exceeded")
 					break dispatchLoop
@@ -982,7 +998,11 @@ func prepareDecoderBurstAtRate(r *Registry, records []ArchivedDecoderLog, expect
 				id := report.Scheduled
 				report.Scheduled++
 				dispatchLatency[id] = time.Since(due).Nanoseconds()
-				job := decoderDelivery{id: id, record: (batch*(int(rate)/100) + offset) % len(records), scheduled: due}
+				rateInt2, conversionErr := checked.Convert[int](rate)
+				if conversionErr != nil {
+					return nil, conversionErr
+				}
+				job := decoderDelivery{id: id, record: (batch*(rateInt2/100) + offset) % len(records), scheduled: due}
 				select {
 				case jobs <- job:
 					report.Enqueued++
@@ -1054,13 +1074,25 @@ func prepareDecoderBurstAtRate(r *Registry, records []ArchivedDecoderLog, expect
 		report.LargestPayloadBytes = largest
 		largestDecode, largestEnd := []int64{}, []int64{}
 		for id := 0; id < count; id++ {
-			binary.BigEndian.PutUint64(deliveryID[:], uint64(id))
+			idUint64, conversionErr := checked.Convert[uint64](id)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			binary.BigEndian.PutUint64(deliveryID[:], idUint64)
 			_, _ = inputHash.Write(deliveryID[:])
 			_, _ = inputHash.Write(identities[id%len(records)])
-			if completed[id/64].Load()&(uint64(1)<<(uint(id)%64)) == 0 {
+			idUint, conversionErr := checked.Convert[uint](id)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			if completed[id/64].Load()&(uint64(1)<<(idUint%64)) == 0 {
 				report.MissingDeliveries++
 				if len(report.MissingSample) < 64 {
-					report.MissingSample = append(report.MissingSample, uint64(id))
+					idUint642, conversionErr := checked.Convert[uint64](id)
+					if conversionErr != nil {
+						return nil, conversionErr
+					}
+					report.MissingSample = append(report.MissingSample, idUint642)
 				}
 				continue
 			}
@@ -1081,7 +1113,11 @@ func prepareDecoderBurstAtRate(r *Registry, records []ArchivedDecoderLog, expect
 		report.LargestPayloadEndToEndP99Nanoseconds = measurementPercentile(largestEnd)
 		report.DecodeP99Nanoseconds = measurementPercentile(decodeLatency[:used])
 		report.EndToEndP99Nanoseconds = measurementPercentile(endLatency[:used])
-		report.DispatchP99Nanoseconds = measurementPercentile(dispatchLatency[:int(report.Scheduled)]) //nolint:gosec // bounded chain count is used for slice indexing
+		reportScheduledInt, conversionErr := checked.Convert[int](report.Scheduled)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		report.DispatchP99Nanoseconds = measurementPercentile(dispatchLatency[:reportScheduledInt])
 		if schedulingError != nil {
 			return report, schedulingError
 		}

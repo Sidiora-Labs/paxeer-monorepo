@@ -264,19 +264,35 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 			blockRows.Close()
 			return empty, sourceError(IncompleteError, s.Name(), nil)
 		}
-		if _, ok := result.Blocks[uint64(height)]; ok { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		heightUint64, conversionErr := checked.Convert[uint64](height)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		if _, ok := result.Blocks[heightUint64]; ok {
 			blockRows.Close()
 			return empty, sourceError(IntegrityError, s.Name(), nil)
 		}
-		result.Blocks[uint64(height)] = BlockRecord{ChainID: 125, Height: uint64(height), Hash: common.BytesToHash(hash), ParentHash: common.BytesToHash(parent), TimestampSeconds: ts, SourceID: s.Name()} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-		result.BlockTimestamps[uint64(height)] = ts                                                                                                                                                         //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		result.Blocks[heightUint64] = BlockRecord{ChainID: 125, Height: heightUint64, Hash: common.BytesToHash(hash), ParentHash: common.BytesToHash(parent), TimestampSeconds: ts, SourceID: s.Name()}
+		result.BlockTimestamps[heightUint64] = ts
 	}
 	err = blockRows.Err()
 	blockRows.Close()
-	if err != nil || len(result.Blocks) != int(o.ToBlock-o.FromBlock+1) {
+	fromBlock1Int, conversionErr := checked.Convert[int](o.ToBlock - o.FromBlock + 1)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	if err != nil || len(result.Blocks) != fromBlock1Int {
 		return empty, sourceError(IncompleteError, s.Name(), nil)
 	}
-	for height := uint64(o.FromBlock) + 1; height <= uint64(o.ToBlock); height++ { //nolint:gosec // validated fetch range uses unsigned chain heights
+	fromHeight, conversionErr := checked.Convert[uint64](o.FromBlock)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	toHeight, conversionErr := checked.Convert[uint64](o.ToBlock)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	for height := fromHeight + 1; height <= toHeight; height++ {
 		if result.Blocks[height].ParentHash != result.Blocks[height-1].Hash {
 			return empty, sourceError(IntegrityError, s.Name(), nil)
 		}
@@ -311,14 +327,22 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 			return empty, sourceError(IntegrityError, s.Name(), nil)
 		}
 		record := result.Blocks[height]
-		if index != int64(record.TransactionCount) {
+		recordTransactionCountInt64, conversionErr := checked.Convert[int64](record.TransactionCount)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		if index != recordTransactionCountInt64 {
 			transactionRows.Close()
 			return empty, sourceError(IncompleteError, s.Name(), nil)
 		}
 		record.TransactionCount++
 		result.Blocks[height] = record
 		positions[position] = true
-		origins[h] = origin{h, bh, uint(index), common.BytesToAddress(from)}
+		indexUint32, conversionErr := checked.Convert[uint](index)
+		if conversionErr != nil {
+			return FetchResult{}, conversionErr
+		}
+		origins[h] = origin{h, bh, indexUint32, common.BytesToAddress(from)}
 	}
 	err = transactionRows.Err()
 	transactionRows.Close()
@@ -357,7 +381,19 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				}
 				topics = append(topics, common.BytesToHash(topic))
 			}
-			log := ethtypes.Log{Address: common.BytesToAddress(address), Topics: topics, Data: append([]byte{}, data...), BlockNumber: uint64(height), BlockHash: common.BytesToHash(block), TxHash: common.BytesToHash(hash), TxIndex: uint(txIndex), Index: uint(index)} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+			heightUint642, conversionErr := checked.Convert[uint64](height)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			txIndexUint, conversionErr := checked.Convert[uint](txIndex)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			indexUint, conversionErr := checked.Convert[uint](index)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			log := ethtypes.Log{Address: common.BytesToAddress(address), Topics: topics, Data: append([]byte{}, data...), BlockNumber: heightUint642, BlockHash: common.BytesToHash(block), TxHash: common.BytesToHash(hash), TxIndex: txIndexUint, Index: indexUint}
 			origin, ok := origins[log.TxHash]
 			key := fmt.Sprintf("%s/%s/%d", log.BlockHash, log.TxHash, log.Index)
 			if !filter.active(log) || !ok || origin.block != log.BlockHash || origin.index != log.TxIndex || result.Blocks[log.BlockNumber].Hash != log.BlockHash || (identities[key] && !diagnostic) {
@@ -373,7 +409,11 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				rows.Close()
 				return empty, sourceError(OversizeError, s.Name(), nil)
 			}
-			log.BlockTimestamp = uint64(result.Blocks[log.BlockNumber].TimestampSeconds) //nolint:gosec // validated block timestamps are nonnegative
+			blockNumberTimestampSecondsUint64, conversionErr := checked.Convert[uint64](result.Blocks[log.BlockNumber].TimestampSeconds)
+			if conversionErr != nil {
+				return FetchResult{}, conversionErr
+			}
+			log.BlockTimestamp = blockNumberTimestampSecondsUint64
 			result.Logs = append(result.Logs, log)
 		}
 		err = rows.Err()
@@ -382,8 +422,16 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 			return empty, sourceError(IncompleteError, s.Name(), nil)
 		}
 	}
-	provenance := &ExplorerProvenance{SourceID: s.Name(), SchemaVersion: s.options.SchemaVersion, IndexedHeight: uint64(*indexed), ValidatedCheckpoints: []BlockRecord{}} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
-	samples := map[uint64]bool{uint64(o.FromBlock): true, uint64(o.ToBlock): true, uint64(o.FromBlock + (o.ToBlock-o.FromBlock)/2): true}                                 //nolint:gosec // validated fetch range uses unsigned chain heights
+	indexedUint64, conversionErr := checked.Convert[uint64](*indexed)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	provenance := &ExplorerProvenance{SourceID: s.Name(), SchemaVersion: s.options.SchemaVersion, IndexedHeight: indexedUint64, ValidatedCheckpoints: []BlockRecord{}}
+	fromBlock2Uint64, conversionErr := checked.Convert[uint64](o.FromBlock + (o.ToBlock-o.FromBlock)/2)
+	if conversionErr != nil {
+		return FetchResult{}, conversionErr
+	}
+	samples := map[uint64]bool{fromHeight: true, toHeight: true, fromBlock2Uint64: true}
 	heights := []uint64{}
 	for height := range samples {
 		heights = append(heights, height)
@@ -416,7 +464,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	})
 	result.Explorer = provenance
 	result.Complete = true
-	result.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}} //nolint:gosec // validated fetch range uses unsigned chain heights
+	result.CoveredRanges = []CoveredRange{{fromHeight, toHeight}}
 	return result, nil
 }
 
@@ -436,7 +484,15 @@ func newExplorerEpochFilter(options CommittedPaxscanOptions, o FetchOptions, dis
 	seenAddresses := map[string]bool{}
 	for _, epoch := range epochs {
 		address := strings.ToLower(epoch.Address)
-		if epoch.ActivationHeight <= uint64(o.ToBlock) && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > uint64(o.FromBlock)) && !seenAddresses[address] { //nolint:gosec // validated fetch range uses unsigned chain heights
+		oToBlockUint64, conversionErr := checked.Convert[uint64](o.ToBlock)
+		if conversionErr != nil {
+			return explorerEpochFilter{}, conversionErr
+		}
+		oFromBlockUint64, conversionErr := checked.Convert[uint64](o.FromBlock)
+		if conversionErr != nil {
+			return explorerEpochFilter{}, conversionErr
+		}
+		if epoch.ActivationHeight <= oToBlockUint64 && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > oFromBlockUint64) && !seenAddresses[address] {
 			seenAddresses[address] = true
 			addresses = append(addresses, address)
 		}
