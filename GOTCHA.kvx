@@ -21310,3 +21310,8 @@ fix = "A task that brings the middleware part of the platform test recipe throug
 title = "The recipe platform-lint reads the workspace test file and the registry event producer"
 symptom = "The recipe platform-lint lints services/platform/tests/repair_22_33_1366.rs and services/platform/hosted/registry/src/event_producer.rs together with the members of the platform workspace."
 fix = "A task that passes the recipe carries both files."
+
+[gotcha.4298]
+title = "The closure of the inference market series reads the interface rows, the documents and the test files of the series"
+symptom = "The test of task 22.38.39 asserts the served interface rows, the operations that the protocol document names, the test files of tasks 22.38.31 to 22.38.34 and the record of the task, and reads no value of the fuel table of task 22.38.13."
+fix = "The closure task runs beside the fuel task and lists in its record the tasks of the series that are qualified at its revision."

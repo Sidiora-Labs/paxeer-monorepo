@@ -13396,6 +13396,12 @@ value = "Task 22.39.403 carries services/platform/tests/repair_22_33_1366.rs and
 basis = "Gotcha 4297."
 affects = ["22.39.403"]
 
+[decision.3381]
+title = "Task 22.38.39 runs beside the fuel task"
+value = "Task 22.38.39 no longer requires task 22.38.13. Its record lists the tasks of the series that are qualified at its revision."
+basis = "Gotcha 4298."
+affects = ["22.38.39"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -377833,7 +377839,7 @@ title = "Close the inference market series: interface rows served, docs cross-ch
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
+requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
 reqs = ["22380.6", "22998.1"]
 capabilities = ["22.38.39"]
 interfaces = []
