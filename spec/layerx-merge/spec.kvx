@@ -13384,6 +13384,12 @@ value = "Task 22.39.182 no longer requires task 22.38.39."
 basis = "Gotcha 4295."
 affects = ["22.39.182"]
 
+[decision.3379]
+title = "The middleware test task carries the agents integration package"
+value = "Task 22.39.429 carries sdk/integrations/agents beside the middleware members, the examples and the platform recipe file."
+basis = "Gotcha 4296."
+affects = ["22.39.429"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -290300,7 +290306,7 @@ do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dep
 do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
 do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents"]
 tests = []
 planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
 build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"

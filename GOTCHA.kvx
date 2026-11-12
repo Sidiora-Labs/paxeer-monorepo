@@ -21300,3 +21300,8 @@ fix = "The two tasks write their modes as additions to that driver and run their
 title = "The consensus commit gate watches no path of the inference market proofs"
 symptom = "The candidate report of task 22.39.182 runs the nine release tests, the retired-caller scan, the rehearsal test and the consensus commit gate, and the path list of tools/ci/consensus_commit_gate.py holds no path that tasks 22.38.13, 22.38.36, 22.38.37, 22.38.38 and 22.38.39 change."
 fix = "The report task runs beside the inference market series."
+
+[gotcha.4296]
+title = "The agent middleware member of the platform reads the agents integration package"
+symptom = "The cases of services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs load the sources under sdk/integrations/agents/src and call the tracking tool and the receipt binding through them."
+fix = "A task that brings the middleware part of the platform test recipe through carries sdk/integrations/agents."
