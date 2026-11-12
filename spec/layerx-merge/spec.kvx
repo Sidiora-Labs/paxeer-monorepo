@@ -230376,7 +230376,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.475]
 title = "Pass the race and coverage stages of the launchpad Makefile in the shared SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.459", "22.39.458"]
