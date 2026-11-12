@@ -78,7 +78,7 @@ pub struct CommittedSettlementProof {
 pub enum PlanePaymentOutcome {
     Pending { transaction_hash: [u8; 32] },
     Refused { reason: &'static str },
-    Executed(ExecutedPayment),
+    Executed(Box<ExecutedPayment>),
 }
 
 /// The only boundary through which the edge adapter may ask `LayerX` to pay.
@@ -326,34 +326,7 @@ impl Seller {
         if protocol.activity_id() != evidence.transaction_hash || protocol.result_code() != 0 {
             return Err(X402Error::EvidenceMismatch);
         }
-        let committed_proof = if let SettlementRung::Committed {
-            block_number,
-            block_hash,
-        } = evidence.rung
-        {
-            let committed = executed
-                .committed
-                .as_ref()
-                .ok_or(X402Error::EvidenceMismatch)?;
-            if committed.proof.signed_receipt != evidence.signed_receipt {
-                return Err(X402Error::EvidenceMismatch);
-            }
-            let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
-                .map_err(|_| X402Error::EvidenceMismatch)?;
-            let block = layerx_committed_proof::committed::verify_committed(
-                receipt_digest,
-                &committed.proof,
-                &committed.validators,
-                &committed.chain_id,
-            )
-            .map_err(|_| X402Error::EvidenceMismatch)?;
-            if block.number != block_number || block.hash != block_hash {
-                return Err(X402Error::EvidenceMismatch);
-            }
-            Some(committed_proof_json(committed))
-        } else {
-            None
-        };
+        let committed_proof = validated_committed_proof(executed)?;
         let verified = verify_logs(&receipt, evidence.logs.clone())
             .map_err(|_| X402Error::EvidenceMismatch)?;
         let payer =
@@ -431,6 +404,40 @@ impl Seller {
             receipt_digest,
         })
     }
+}
+
+fn validated_committed_proof(executed: &ExecutedPayment) -> Result<Option<Value>, X402Error> {
+    let evidence = &executed.evidence;
+    Ok(
+        if let SettlementRung::Committed {
+            block_number,
+            block_hash,
+        } = evidence.rung
+        {
+            let committed = executed
+                .committed
+                .as_ref()
+                .ok_or(X402Error::EvidenceMismatch)?;
+            if committed.proof.signed_receipt != evidence.signed_receipt {
+                return Err(X402Error::EvidenceMismatch);
+            }
+            let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
+                .map_err(|_| X402Error::EvidenceMismatch)?;
+            let block = layerx_committed_proof::committed::verify_committed(
+                receipt_digest,
+                &committed.proof,
+                &committed.validators,
+                &committed.chain_id,
+            )
+            .map_err(|_| X402Error::EvidenceMismatch)?;
+            if block.number != block_number || block.hash != block_hash {
+                return Err(X402Error::EvidenceMismatch);
+            }
+            Some(committed_proof_json(committed))
+        } else {
+            None
+        },
+    )
 }
 
 fn committed_proof_json(proof: &CommittedSettlementProof) -> Value {
@@ -707,9 +714,9 @@ fn hex(bytes: &[u8; 32]) -> String {
 }
 
 fn prefixed_hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(2 + bytes.len() * 2);
     output.push_str("0x");
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
     for byte in bytes {
         output.push(char::from(DIGITS[usize::from(byte >> 4)]));
         output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
@@ -778,7 +785,7 @@ pub(crate) mod tests {
                     } else {
                         prefix - 0xf7
                     });
-                    let length = input[1..1 + width]
+                    let length = input[1..=width]
                         .iter()
                         .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                     (1 + width, length)
@@ -805,7 +812,7 @@ pub(crate) mod tests {
         std::array::from_fn(|index| {
             calldata[4 + index * 32..4 + (index + 1) * 32]
                 .try_into()
-                .unwrap()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
         })
     }
 
@@ -818,10 +825,15 @@ pub(crate) mod tests {
             .unwrap_or_else(|error| panic!("payment required: {error}"));
         required.accepts[0].network = "eip155:125".to_owned();
         required.accepts[0].asset = format!("0x{}", hex(&[0xab; 32]));
-        required.accepts[0].extra.as_mut().unwrap()["layerx"]["account"] =
+        required.accepts[0]
+            .extra
+            .as_mut()
+            .unwrap_or_else(|| panic!("expected Some value"))["layerx"]["account"] =
             json!("agent:did:layerx:payee:main");
-        required.accepts[0].pay_to =
-            hex(&crate::model::account_identifiers("agent:did:layerx:payee:main").unwrap()[1]);
+        required.accepts[0].pay_to = hex(&crate::model::account_identifiers(
+            "agent:did:layerx:payee:main",
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))[1]);
         required
     }
 

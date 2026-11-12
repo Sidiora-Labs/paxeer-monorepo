@@ -108,24 +108,24 @@ fn shared_vectors() -> Vectors {
 }
 
 fn hex(text: &str) -> Vec<u8> {
-    let digits = text.strip_prefix("0x").expect("fixture hex prefix");
+    let digits = text.strip_prefix("0x").or_panic("fixture hex prefix");
     assert_eq!(digits.len() % 2, 0, "fixture hex length");
     (0..digits.len())
         .step_by(2)
-        .map(|index| u8::from_str_radix(&digits[index..index + 2], 16).expect("fixture hex byte"))
+        .map(|index| u8::from_str_radix(&digits[index..index + 2], 16).or_panic("fixture hex byte"))
         .collect()
 }
 
 fn hash(text: &str) -> [u8; 32] {
-    hex(text).try_into().expect("fixture 32-byte hash")
+    hex(text).try_into().or_panic("fixture 32-byte hash")
 }
 
 fn quantity(value: &Value) -> u64 {
     let digits = value
         .as_str()
         .and_then(|text| text.strip_prefix("0x"))
-        .expect("fixture quantity");
-    u64::from_str_radix(digits, 16).expect("fixture u64 quantity")
+        .or_panic("fixture quantity");
+    u64::from_str_radix(digits, 16).or_panic("fixture u64 quantity")
 }
 
 fn authorization(case: &Case) -> [SequencerAuthorization; 1] {
@@ -151,7 +151,7 @@ fn mirror_verifier(case: &Case, network_id: u32) -> MirrorVerifier {
             transactions: vec![hash(
                 case.receipt_json["txHash"]
                     .as_str()
-                    .expect("transaction hash"),
+                    .or_panic("transaction hash"),
             )],
         },
         receipts: vec![hex(&case.signed_receipt)],
@@ -166,7 +166,7 @@ fn mirror_verifier(case: &Case, network_id: u32) -> MirrorVerifier {
     )
     .unwrap_or_else(|error| panic!("{}: archive: {error:?}", case.id));
     let observation = MirrorObservation::from_archive(
-        MirrorSourceId::new("shared-sequencer-vectors").expect("source id"),
+        MirrorSourceId::new("shared-sequencer-vectors").or_panic("source id"),
         MirrorTargetIdentity::Ethereum {
             chain_id: u64::from(network_id),
             genesis_hash: [0; 32],
@@ -208,18 +208,18 @@ fn every_shared_receipted_case_verifies_in_the_mirror() {
         let expected = verify_sequencer_signature(&canonical, ReceiptKeys::HeightRanges(&keys))
             .unwrap_or_else(|error| panic!("{}: signature: {error:?}", case.id));
         let verifier = mirror_verifier(case, vectors.chain_id);
-        let verified = verifier
+        let receipt_proof = verifier
             .committed_receipt(0, &keys)
             .unwrap_or_else(|error| panic!("{}: mirror receipt: {error:?}", case.id));
-        assert_eq!(verified.value(), &expected, "{}", case.id);
+        assert_eq!(receipt_proof.value(), &expected, "{}", case.id);
         assert_eq!(
-            verified.level(),
+            receipt_proof.level(),
             MirrorEvidenceLevel::Committed,
             "{}",
             case.id
         );
         assert_eq!(
-            verified.batch_number(),
+            receipt_proof.batch_number(),
             quantity(&case.receipt_json["height"]),
             "{}",
             case.id
@@ -227,17 +227,22 @@ fn every_shared_receipted_case_verifies_in_the_mirror() {
         let committed = verifier
             .committed()
             .unwrap_or_else(|error| panic!("{}: committed coordinate: {error:?}", case.id));
-        assert_eq!(committed.height, verified.batch_number(), "{}", case.id);
+        assert_eq!(
+            committed.height,
+            receipt_proof.batch_number(),
+            "{}",
+            case.id
+        );
         assert_eq!(
             committed.block_hash,
             hash(&case.receipt_digest),
             "{}",
             case.id
         );
-        assert!(verified.observation().is_some(), "{}", case.id);
-        let unsigned = encode_unsigned(verified.value()).expect("unsigned receipt");
+        assert!(receipt_proof.observation().is_some(), "{}", case.id);
+        let unsigned = encode_unsigned(receipt_proof.value()).or_panic("unsigned receipt");
         assert_eq!(
-            receipt_digest(&unsigned).expect("receipt digest"),
+            receipt_digest(&unsigned).or_panic("receipt digest"),
             hash(&case.receipt_digest),
             "{}",
             case.id
@@ -245,6 +250,39 @@ fn every_shared_receipted_case_verifies_in_the_mirror() {
         checked += 1;
     }
     assert_eq!(checked, 7);
+}
+
+fn assert_tampered_log(case: &Case, protocol: &layerx_wire::receipt::ProtocolReceipt) {
+    assert_eq!(case.expected["refusedAt"], "R5");
+    let logs = case.receipt_json["logs"].as_array().or_panic("log view");
+    let effects: Vec<_> = protocol
+        .effects()
+        .iter()
+        .filter(|effect| effect.kind() == 3)
+        .collect();
+    assert_eq!(logs.len(), 1, "{}", case.id);
+    assert_eq!(effects.len(), logs.len(), "{}", case.id);
+    let body = effects[0].body();
+    let topics = logs[0]["topics"].as_array().or_panic("topics");
+    assert_eq!(
+        &body[..20],
+        hex(logs[0]["address"].as_str().or_panic("address"))
+    );
+    assert_eq!(usize::from(body[20]), topics.len());
+    assert_eq!(body.len(), 21 + 32 * topics.len() + 32);
+    for (index, topic) in topics.iter().enumerate() {
+        assert_eq!(
+            &body[21 + 32 * index..21 + 32 * (index + 1)],
+            hex(topic.as_str().or_panic("topic"))
+        );
+    }
+    let view_digest = Sha256::digest(hex(logs[0]["data"].as_str().or_panic("data")));
+    assert_ne!(
+        &body[body.len() - 32..],
+        &view_digest[..],
+        "{}: signed log digest must expose the altered JSON view",
+        case.id
+    );
 }
 
 #[test]
@@ -290,7 +328,7 @@ fn every_shared_v3_case_is_classified_at_the_signature_only_boundary() {
                 let verification = mirror_result
                     .unwrap_or_else(|error| panic!("{}: mirror receipt: {error:?}", case.id));
                 assert_eq!(verification.value(), &signed, "{}", case.id);
-                let protocol = verification.value().protocol().expect("protocol receipt");
+                let protocol = verification.value().protocol().or_panic("protocol receipt");
                 match case.id.as_str() {
                     "V3-activity-id-not-raw-hash" => {
                         assert_eq!(case.expected["refusedAt"], "R4");
@@ -314,39 +352,7 @@ fn every_shared_v3_case_is_classified_at_the_signature_only_boundary() {
                             case.id
                         );
                     }
-                    "V3-tampered-log" => {
-                        assert_eq!(case.expected["refusedAt"], "R5");
-                        let logs = case.receipt_json["logs"].as_array().expect("log view");
-                        let effects: Vec<_> = protocol
-                            .effects()
-                            .iter()
-                            .filter(|effect| effect.kind() == 3)
-                            .collect();
-                        assert_eq!(logs.len(), 1, "{}", case.id);
-                        assert_eq!(effects.len(), logs.len(), "{}", case.id);
-                        let body = effects[0].body();
-                        let topics = logs[0]["topics"].as_array().expect("topics");
-                        assert_eq!(
-                            &body[..20],
-                            hex(logs[0]["address"].as_str().expect("address"))
-                        );
-                        assert_eq!(usize::from(body[20]), topics.len());
-                        assert_eq!(body.len(), 21 + 32 * topics.len() + 32);
-                        for (index, topic) in topics.iter().enumerate() {
-                            assert_eq!(
-                                &body[21 + 32 * index..21 + 32 * (index + 1)],
-                                hex(topic.as_str().expect("topic"))
-                            );
-                        }
-                        let view_digest =
-                            Sha256::digest(hex(logs[0]["data"].as_str().expect("data")));
-                        assert_ne!(
-                            &body[body.len() - 32..],
-                            view_digest.as_slice(),
-                            "{}: signed log digest must expose the altered JSON view",
-                            case.id
-                        );
-                    }
+                    "V3-tampered-log" => assert_tampered_log(case, protocol),
                     id => panic!("unclassified shared sequencer-receipt client refusal: {id}"),
                 }
             }
@@ -378,4 +384,26 @@ fn shared_signature_and_decode_refusals_reach_the_mirror_consumer() {
         checked += 1;
     }
     assert_eq!(checked, 3);
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

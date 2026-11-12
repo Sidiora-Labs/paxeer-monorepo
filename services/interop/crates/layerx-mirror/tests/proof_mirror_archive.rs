@@ -1,18 +1,18 @@
-//! Proves: CommittedBlock -> Archive::from_committed / Archive::bytes -> ArchiveData::decode / MirrorVerifier::committed_receipt
+//! Proves: `CommittedBlock` -> `Archive::from_committed` / `Archive::bytes` -> `ArchiveData::decode` / `MirrorVerifier::committed_receipt`
 //!
 //! The crossing under proof is the public Rust archive boundary. Producer state
-//! uses the signed receipts emitted by rpc/sequencer_receipt_vectors_test.go,
-//! retained in fixtures/committed_blocks.json; that fixture adds block coordinates.
+//! uses the signed receipts emitted by `rpc/sequencer_receipt_vectors_test.go`,
+//! retained in `fixtures/committed_blocks.json`; that fixture adds block coordinates.
 //! No RPC server, archive codec, observation decoder or verifier is replaced.
-//! CommittedBlockSource::acquire's public signature is also checked below; this
+//! `CommittedBlockSource::acquire`'s public signature is also checked below; this
 //! proof does not claim to exercise an external node or a chain publication.
 //! Each iteration rebuilds the producer and decodes a fresh owned byte vector;
 //! this boundary has no persistent state or cache to reopen.
 //!
-//! Repaired defect: src/committed.rs CommittedBlock::validate_archive and
-//! src/publisher.rs Archive::from_committed now refuse incomplete public blocks:
+//! Repaired defect: src/committed.rs `CommittedBlock::validate_archive` and
+//! src/publisher.rs `Archive::from_committed` now refuse incomplete public blocks:
 //! previously a transaction list with missing or extra receipts could be archived.
-//! src/runtime.rs RuntimeConfig::committed_network_id shares the checked source
+//! src/runtime.rs `RuntimeConfig::committed_network_id` shares the checked source
 //! identity conversion between runtime validation, acquisition and this consumer.
 
 use layerx_mirror::committed::{
@@ -206,7 +206,7 @@ fn proof_mirror_archive() {
                 result
                     .value()
                     .protocol()
-                    .map(|receipt| receipt.activity_id()),
+                    .map(layerx_wire::receipt::ProtocolReceipt::activity_id),
                 Some(*transaction)
             );
             assert_eq!(

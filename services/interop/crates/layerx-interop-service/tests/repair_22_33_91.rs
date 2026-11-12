@@ -1,5 +1,5 @@
 #[path = "support/settlement_fixture.rs"]
-mod fixture;
+pub mod fixture;
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
 

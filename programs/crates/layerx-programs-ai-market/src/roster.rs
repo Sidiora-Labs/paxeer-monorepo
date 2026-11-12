@@ -473,7 +473,7 @@ pub(crate) fn rollover_roster_parts<'c: 's, 's>(
     {
         return Err(WRONG_EPOCH);
     }
-    let rewards = reward_state(state.section(Section::SettlementClaims)?, &market)?;
+    let rewards = reward_state(state.room_market()?.0, &market)?;
     rollover_roster_prepared(
         state,
         &market,

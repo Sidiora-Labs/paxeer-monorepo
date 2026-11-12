@@ -34,20 +34,22 @@ fn fixture_case() -> &'static str {
     FIXTURE
         .split_once("\"id\": \"V1-layerxledger-pay-exact\"")
         .and_then(|(_, rest)| rest.split("\"id\":").next())
-        .unwrap_or_else(|| panic!("missing recorded pay-exact case"))
+        .or_panic("missing recorded pay-exact case")
 }
 
 fn field<'a>(case: &'a str, name: &str) -> &'a str {
     case.split_once(&format!("\"{name}\": \""))
         .and_then(|(_, rest)| rest.split_once('"'))
-        .map(|(value, _)| value)
-        .unwrap_or_else(|| panic!("missing fixture field {name}"))
+        .map_or_else(
+            || panic!("missing fixture field {name}"),
+            |(value, _)| value,
+        )
 }
 
 fn hex(value: &str) -> Vec<u8> {
     let value = value
         .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("fixture value is not hex"));
+        .or_panic("fixture value is not hex");
     assert_eq!(value.len() % 2, 0);
     (0..value.len())
         .step_by(2)
@@ -103,12 +105,12 @@ fn signed_recorded_payment(
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     digest.update([0]);
-    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    let receipt_signer = SigningKey::from_bytes(&[0x5e; 32]);
     assert_eq!(
-        signer.verifying_key().to_bytes(),
+        receipt_signer.verifying_key().to_bytes(),
         array(field(case, "publicKey"))
     );
-    let signature = signer.sign(&digest.finalize()).to_bytes();
+    let signature = receipt_signer.sign(&digest.finalize()).to_bytes();
     unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
     unsigned.extend_from_slice(&signature);
     unsigned
@@ -119,8 +121,7 @@ fn recorded_evidence() -> SequencerEvidence {
     let recorded_topics: Vec<[u8; 32]> = case
         .split_once("\"topics\": [")
         .and_then(|(_, rest)| rest.split_once(']'))
-        .map(|(topics, _)| topics)
-        .unwrap_or_else(|| panic!("missing fixture topics"))
+        .map_or_else(|| panic!("missing fixture topics"), |(topics, _)| topics)
         .split('"')
         .filter(|value| value.starts_with("0x"))
         .map(array)
@@ -131,7 +132,7 @@ fn recorded_evidence() -> SequencerEvidence {
     let log_index = u64::from_str_radix(
         field(case, "logIndex")
             .strip_prefix("0x")
-            .unwrap_or_else(|| panic!("invalid log index")),
+            .or_panic("invalid log index"),
         16,
     )
     .unwrap_or_else(|error| panic!("invalid log index: {error}"));
@@ -154,7 +155,7 @@ fn recorded_keys() -> [SequencerAuthorization; 1] {
         case.split_once(&format!("\"{name}\": "))
             .and_then(|(_, rest)| rest.split(|c: char| !c.is_ascii_digit()).next())
             .and_then(|value| value.parse().ok())
-            .unwrap_or_else(|| panic!("missing fixture bound {name}"))
+            .or_panic(&format!("missing fixture bound {name}"))
     };
     [SequencerAuthorization::new(
         array(field(case, "keyId")),
@@ -202,7 +203,7 @@ fn registration_pins_the_spec_and_conformance_suite_and_refuses_duplicates() {
     let mut core = registered_core();
     let declared = core
         .adapter(&adapter_id("x402"))
-        .unwrap_or_else(|| panic!("registered adapter missing"));
+        .or_panic("registered adapter missing");
     assert_eq!(declared.spec().version().as_str(), "2.0.0");
     assert_eq!(declared.spec().document_digest(), [0x51; 32]);
     assert_eq!(declared.conformance().vector_count(), 96);
@@ -260,6 +261,39 @@ fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
     assert_eq!(no_receipt, Err(GatewayError::ReceiptRequired));
     assert_nothing_recorded(&core, &alice, key);
 
+    for (label, unproved, authorities, expected) in unproved_cases(&evidence, &keys) {
+        let before = format!("{core:?}");
+        let rejected = core
+            .settle_with_sequencer_evidence(&alice, key, &unproved, &authorities, &trace, 12)
+            .err()
+            .or_panic("expected Err value");
+        assert_eq!(*rejected.error(), expected, "{label}");
+        assert_eq!(rejected.trace(), &trace, "{label}");
+        assert_nothing_recorded(&core, &alice, key);
+        assert_eq!(format!("{core:?}"), before, "{label} must write nothing");
+    }
+
+    let settled = core
+        .settle_with_sequencer_evidence(&alice, key, &evidence, &keys, &trace, 13)
+        .unwrap_or_else(|error| panic!("recorded receipt with pinned keys: {error}"));
+    assert_eq!(
+        settled,
+        TranslationStatus::ReceiptVerified {
+            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
+                .or_panic("native receipt digest"),
+        }
+    );
+}
+
+fn unproved_cases(
+    evidence: &SequencerEvidence,
+    keys: &[SequencerAuthorization],
+) -> Vec<(
+    &'static str,
+    SequencerEvidence,
+    Vec<SequencerAuthorization>,
+    SequencerSettlementError,
+)> {
     let signature_rejected =
         SequencerSettlementError::Gateway(GatewayError::ReceiptRejected(VerificationFailure {
             check: ReceiptCheck::SequencerSignature,
@@ -268,34 +302,8 @@ fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
     let last = tampered.signed_receipt.len() - 1;
     tampered.signed_receipt[last] ^= 0x01;
 
-    let foreign_signer = SigningKey::from_bytes(&[0x99; 32]);
-    let foreign_public_key = foreign_signer.verifying_key().to_bytes();
-    let case = fixture_case();
-    assert_ne!(foreign_public_key, array::<32>(field(case, "publicKey")));
-    let foreign_authority = vec![SequencerAuthorization::new(
-        array(field(case, "keyId")),
-        foreign_public_key,
-        1000,
-        1999,
-    )];
-    let unknown_authority = vec![SequencerAuthorization::new(
-        [0x99; 32],
-        array(field(case, "publicKey")),
-        1000,
-        1999,
-    )];
-    let expired_authority = vec![SequencerAuthorization::new(
-        array(field(case, "keyId")),
-        array(field(case, "publicKey")),
-        1000,
-        1000,
-    )];
-    let future_authority = vec![SequencerAuthorization::new(
-        array(field(case, "keyId")),
-        array(field(case, "publicKey")),
-        1002,
-        1999,
-    )];
+    let [foreign_authority, unknown_authority, expired_authority, future_authority] =
+        invalid_authorities();
     let mut unsigned = evidence.clone();
     unsigned
         .signed_receipt
@@ -316,7 +324,7 @@ fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
     let mut submitted = evidence.clone();
     submitted.rung = SettlementRung::Submitted;
 
-    for (label, unproved, authorities, expected) in [
+    vec![
         (
             "tampered signature",
             tampered,
@@ -376,27 +384,44 @@ fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
             keys.to_vec(),
             SequencerSettlementError::Gateway(GatewayError::ReceiptPending),
         ),
-    ] {
-        let before = format!("{core:?}");
-        let rejected = core
-            .settle_with_sequencer_evidence(&alice, key, &unproved, &authorities, &trace, 12)
-            .unwrap_err();
-        assert_eq!(*rejected.error(), expected, "{label}");
-        assert_eq!(rejected.trace(), &trace, "{label}");
-        assert_nothing_recorded(&core, &alice, key);
-        assert_eq!(format!("{core:?}"), before, "{label} must write nothing");
-    }
+    ]
+}
 
-    let settled = core
-        .settle_with_sequencer_evidence(&alice, key, &evidence, &keys, &trace, 13)
-        .unwrap_or_else(|error| panic!("recorded receipt with pinned keys: {error}"));
-    assert_eq!(
-        settled,
-        TranslationStatus::ReceiptVerified {
-            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
-                .unwrap_or_else(|error| panic!("native receipt digest: {error:?}")),
-        }
-    );
+fn invalid_authorities() -> [Vec<SequencerAuthorization>; 4] {
+    let foreign_signer = SigningKey::from_bytes(&[0x99; 32]);
+    let foreign_public_key = foreign_signer.verifying_key().to_bytes();
+    let case = fixture_case();
+    assert_ne!(foreign_public_key, array::<32>(field(case, "publicKey")));
+    let foreign_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        foreign_public_key,
+        1000,
+        1999,
+    )];
+    let unknown_authority = vec![SequencerAuthorization::new(
+        [0x99; 32],
+        array(field(case, "publicKey")),
+        1000,
+        1999,
+    )];
+    let expired_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        array(field(case, "publicKey")),
+        1000,
+        1000,
+    )];
+    let future_authority = vec![SequencerAuthorization::new(
+        array(field(case, "keyId")),
+        array(field(case, "publicKey")),
+        1002,
+        1999,
+    )];
+    [
+        foreign_authority,
+        unknown_authority,
+        expired_authority,
+        future_authority,
+    ]
 }
 
 #[test]
@@ -417,8 +442,8 @@ fn a_verified_receipt_terminates_the_translation_and_binds_the_audit_chain() {
     let settled = core
         .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 14)
         .unwrap_or_else(|error| panic!("settle: {error}"));
-    let receipt_digest = canonical_receipt_digest(&material.signed_receipt)
-        .unwrap_or_else(|error| panic!("native receipt digest: {error:?}"));
+    let receipt_digest =
+        canonical_receipt_digest(&material.signed_receipt).or_panic("native receipt digest");
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified { receipt_digest }
@@ -451,12 +476,12 @@ fn a_verified_receipt_terminates_the_translation_and_binds_the_audit_chain() {
 
     let chain = core
         .principal_audit(&alice)
-        .unwrap_or_else(|| panic!("principal audit chain missing"));
+        .or_panic("principal audit chain missing");
     let completed = chain
         .entries()
         .iter()
         .find(|entry| entry.kind() == AuditEventKind::TranslationCompleted)
-        .unwrap_or_else(|| panic!("completion was not audited"));
+        .or_panic("completion was not audited");
     assert_eq!(completed.subject(), receipt_digest);
     assert_eq!(completed.trace(), &trace);
     let head = chain.head().unwrap_or_else(|error| panic!("head: {error}"));
@@ -559,12 +584,10 @@ fn principals_are_isolated_across_every_gateway_surface() {
         "the same key under another principal is an independent translation, not a replay"
     );
 
-    let alice_chain = core
-        .principal_audit(&alice)
-        .unwrap_or_else(|| panic!("alice audit missing"));
+    let alice_chain = core.principal_audit(&alice).or_panic("alice audit missing");
     let mallory_chain = core
         .principal_audit(&mallory)
-        .unwrap_or_else(|| panic!("mallory audit missing"));
+        .or_panic("mallory audit missing");
     assert_eq!(alice_chain.entries().len(), 1);
     assert_eq!(mallory_chain.entries().len(), 1);
     let alice_head = alice_chain
@@ -675,9 +698,7 @@ fn traces_propagate_onto_audits_errors_and_boundary_headers() {
     )
     .unwrap_or_else(|error| panic!("settle: {error}"));
 
-    let chain = core
-        .principal_audit(&alice)
-        .unwrap_or_else(|| panic!("audit missing"));
+    let chain = core.principal_audit(&alice).or_panic("audit missing");
     assert_eq!(chain.entries()[0].trace(), &begin_trace);
     assert_eq!(chain.entries()[1].trace(), &settle_trace);
 
@@ -757,24 +778,26 @@ fn payment_exact_log(log_index: u64, payment_reference: [u8; 32]) -> SequencerLo
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../precompiles/layerxledger/abi.json"
     )))
-    .unwrap();
+    .or_panic("expected Ok value");
     let event = abi
         .as_array()
-        .unwrap()
+        .or_panic("expected Some value")
         .iter()
         .find(|entry| entry["name"] == "PaymentExact")
-        .unwrap();
+        .or_panic("expected Some value");
     let mut topics = vec![keccak256(
         b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
     )];
-    for input in event["inputs"].as_array().unwrap() {
+    for input in event["inputs"].as_array().or_panic("expected Some value") {
         if input["indexed"] == true {
-            topics.push(match input["name"].as_str().unwrap() {
-                "paymentReference" => payment_reference,
-                "from" => PAYER,
-                "to" => PAYEE,
-                name => panic!("unexpected indexed PaymentExact field: {name}"),
-            });
+            topics.push(
+                match input["name"].as_str().or_panic("expected Some value") {
+                    "paymentReference" => payment_reference,
+                    "from" => PAYER,
+                    "to" => PAYEE,
+                    name => panic!("unexpected indexed PaymentExact field: {name}"),
+                },
+            );
         }
     }
     SequencerLog::new(
@@ -891,13 +914,11 @@ fn encode_sequencer_receipt(
 }
 
 fn signed_sequencer_receipt(logs: &[SequencerLog]) -> Vec<u8> {
-    let signer = SigningKey::from_bytes(&SEQUENCER_SEED);
-    let unsigned = encode_sequencer_receipt(logs, None)
-        .unwrap_or_else(|error| panic!("unsigned receipt: {error:?}"));
-    let digest =
-        wire_receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
-    encode_sequencer_receipt(logs, Some(signer.sign(&digest).to_bytes()))
-        .unwrap_or_else(|error| panic!("signed receipt: {error:?}"))
+    let receipt_signer = SigningKey::from_bytes(&SEQUENCER_SEED);
+    let unsigned = encode_sequencer_receipt(logs, None).or_panic("unsigned receipt");
+    let digest = wire_receipt_digest(&unsigned).or_panic("receipt digest");
+    encode_sequencer_receipt(logs, Some(receipt_signer.sign(&digest).to_bytes()))
+        .or_panic("signed receipt")
 }
 
 fn receipt_keys(first: u64, last: u64) -> [SequencerAuthorization; 1] {
@@ -935,7 +956,7 @@ fn assert_nothing_recorded(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32
     );
     let chain = core
         .principal_audit(alice)
-        .unwrap_or_else(|| panic!("principal audit chain missing"));
+        .or_panic("principal audit chain missing");
     assert_eq!(chain.entries().len(), 1);
     assert!(
         chain
@@ -947,20 +968,19 @@ fn assert_nothing_recorded(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32
 }
 
 fn assert_settled(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32], receipt: &[u8]) {
-    let receipt_digest = canonical_receipt_digest(receipt)
-        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
+    let receipt_digest = canonical_receipt_digest(receipt).or_panic("receipt digest");
     assert_eq!(
         core.translation(alice, key),
         Some(TranslationStatus::ReceiptVerified { receipt_digest })
     );
     let chain = core
         .principal_audit(alice)
-        .unwrap_or_else(|| panic!("principal audit chain missing"));
+        .or_panic("principal audit chain missing");
     let completed = chain
         .entries()
         .iter()
         .find(|entry| entry.kind() == AuditEventKind::TranslationCompleted)
-        .unwrap_or_else(|| panic!("completion was not audited"));
+        .or_panic("completion was not audited");
     assert_eq!(completed.subject(), receipt_digest);
     let head = chain.head().unwrap_or_else(|error| panic!("head: {error}"));
     verify_export("alice", &chain.export(), &head)
@@ -991,8 +1011,7 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: canonical_receipt_digest(&receipt)
-                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
+            receipt_digest: canonical_receipt_digest(&receipt).or_panic("receipt digest")
         }
     );
     assert_settled(&core, &alice, key, &receipt);
@@ -1070,8 +1089,7 @@ fn a_payment_drawn_receipt_matched_by_its_idempotency_key_settles_the_translatio
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: canonical_receipt_digest(&receipt)
-                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
+            receipt_digest: canonical_receipt_digest(&receipt).or_panic("receipt digest")
         }
     );
     assert_settled(&core, &alice, key, &receipt);
@@ -1209,5 +1227,27 @@ fn payment_amount_above_uint128_is_refused_without_settling() {
             .map_err(|error| *error.error());
         assert_eq!(refused, Err(SequencerSettlementError::PaymentUnmatched));
         assert_nothing_recorded(&core, &alice, key);
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

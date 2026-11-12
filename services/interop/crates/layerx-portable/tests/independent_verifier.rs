@@ -1,5 +1,5 @@
 //! Offline portable receipt verification against independently pinned receipt keys.
-//! The Python bridge implements FORMAT.md without importing any LayerX SDK.
+//! The Python bridge implements FORMAT.md without importing any `LayerX` SDK.
 
 use layerx_portable::{
     PortableReceiptError, PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT,
@@ -36,6 +36,10 @@ impl IndependentVerifier {
         })
     }
 
+    /// Verifies each recorded receipt vector against its pinned keys.
+    ///
+    /// # Errors
+    /// Returns a vector or proof error when a recorded receipt is invalid.
     pub fn verify_all_golden_vectors(&self) -> Result<Vec<VerificationOutcome>, String> {
         positive_vectors()?
             .iter()
@@ -174,6 +178,112 @@ fn independent_implementation_can_enumerate_vectors() -> Result<(), String> {
     Ok(())
 }
 
+fn assert_substitutions(
+    verifier: &IndependentVerifier,
+    case: &Value,
+    keys: &[ReceiptKeyEntry],
+    bytes: &[u8],
+    document: &Value,
+    height: u64,
+    outcome: &VerificationOutcome,
+) -> Result<(), String> {
+    for field in ["signedReceipt", "receiptDigest", "rawTransaction"] {
+        let length = decode_hex(&document[field])?.len();
+        for index in [0, length / 2, length - 1] {
+            let mut altered = document.clone();
+            altered[field] = flip_byte(&document[field], index)?;
+            assert!(
+                verifier
+                    .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), keys)
+                    .is_err(),
+                "{}: accepted {field} byte {index}",
+                case["id"]
+            );
+        }
+    }
+    for field in ["keyId", "publicKey"] {
+        let mut altered = document.clone();
+        altered["receiptKey"][field] = flip_byte(&document["receiptKey"][field], 0)?;
+        assert!(verifier
+            .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), keys)
+            .is_err());
+    }
+    let key = keys[0];
+    for (field, endpoint) in [
+        ("firstHeight", key.first_batch_number()),
+        ("lastHeight", key.last_batch_number()),
+    ] {
+        let mut altered = document.clone();
+        altered["receiptKey"][field] = json!(format!("{:#x}", endpoint ^ 1));
+        assert!(verifier
+            .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), keys)
+            .is_err());
+    }
+    let mut later_inclusion = document.clone();
+    later_inclusion["inclusionHeight"] = json!(format!("{:#x}", key.last_batch_number() + 1));
+    assert_eq!(
+        verifier
+            .verify_vector_against_pinned_keys(later_inclusion.to_string().as_bytes(), keys)
+            .map_err(|error| error.to_string())?,
+        outcome.clone(),
+        "the key window covers signed height, regardless of later inclusion"
+    );
+    for (first, last) in [
+        (height, height),
+        (height + 1, key.last_batch_number() + 1),
+        (0, height - 1),
+    ] {
+        let narrowed_key = ReceiptKeyEntry::new(key.sequencer_id(), key.public_key(), first, last);
+        let mut narrowed = later_inclusion.clone();
+        narrowed["receiptKey"]["firstHeight"] = json!(format!("{first:#x}"));
+        narrowed["receiptKey"]["lastHeight"] = json!(format!("{last:#x}"));
+        let result = verifier
+            .verify_vector_against_pinned_keys(narrowed.to_string().as_bytes(), &[narrowed_key]);
+        if first == height && last == height {
+            assert_eq!(result.map_err(|error| error.to_string())?, outcome.clone());
+        } else {
+            assert!(
+                result.is_err(),
+                "the carried key must cover the signed height"
+            );
+        }
+    }
+    let mut wrong_public_key = key.public_key();
+    wrong_public_key[0] ^= 1;
+    for untrusted in [
+        vec![],
+        vec![ReceiptKeyEntry::new(
+            key.sequencer_id(),
+            wrong_public_key,
+            key.first_batch_number(),
+            key.last_batch_number(),
+        )],
+        vec![ReceiptKeyEntry::new(
+            key.sequencer_id(),
+            key.public_key(),
+            height + 1,
+            key.last_batch_number(),
+        )],
+        vec![ReceiptKeyEntry::new(
+            key.sequencer_id(),
+            key.public_key(),
+            0,
+            height - 1,
+        )],
+        vec![key, key],
+    ] {
+        assert!(verifier
+            .verify_vector_against_pinned_keys(bytes, &untrusted)
+            .is_err());
+    }
+    let mut altered = document.clone();
+    altered["inclusionHeight"] = json!(format!("{:#x}", height - 1));
+    assert!(verifier
+        .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), keys)
+        .is_err());
+    Ok(())
+}
+
 #[test]
 fn independent_verifier_accepts_a_v2_proof_and_refuses_substitutions() -> Result<(), String> {
     let verifier = IndependentVerifier::new("independent-v2-verifier");
@@ -210,103 +320,7 @@ fn independent_verifier_accepts_a_v2_proof_and_refuses_substitutions() -> Result
         assert_eq!(document["signedReceipt"], case["signedReceipt"]);
         assert_eq!(document["rawTransaction"], case["rawTransaction"]);
 
-        for field in ["signedReceipt", "receiptDigest", "rawTransaction"] {
-            let length = decode_hex(&document[field])?.len();
-            for index in [0, length / 2, length - 1] {
-                let mut altered = document.clone();
-                altered[field] = flip_byte(&document[field], index)?;
-                assert!(
-                    verifier
-                        .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), &keys)
-                        .is_err(),
-                    "{}: accepted {field} byte {index}",
-                    case["id"]
-                );
-            }
-        }
-        for field in ["keyId", "publicKey"] {
-            let mut altered = document.clone();
-            altered["receiptKey"][field] = flip_byte(&document["receiptKey"][field], 0)?;
-            assert!(verifier
-                .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), &keys)
-                .is_err());
-        }
-        let key = keys[0];
-        for (field, endpoint) in [
-            ("firstHeight", key.first_batch_number()),
-            ("lastHeight", key.last_batch_number()),
-        ] {
-            let mut altered = document.clone();
-            altered["receiptKey"][field] = json!(format!("{:#x}", endpoint ^ 1));
-            assert!(verifier
-                .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), &keys)
-                .is_err());
-        }
-        let mut later_inclusion = document.clone();
-        later_inclusion["inclusionHeight"] = json!(format!("{:#x}", key.last_batch_number() + 1));
-        assert_eq!(
-            verifier
-                .verify_vector_against_pinned_keys(later_inclusion.to_string().as_bytes(), &keys)
-                .map_err(|error| error.to_string())?,
-            outcome,
-            "the key window covers signed height, regardless of later inclusion"
-        );
-        for (first, last) in [
-            (height, height),
-            (height + 1, key.last_batch_number() + 1),
-            (0, height - 1),
-        ] {
-            let narrowed_key =
-                ReceiptKeyEntry::new(key.sequencer_id(), key.public_key(), first, last);
-            let mut narrowed = later_inclusion.clone();
-            narrowed["receiptKey"]["firstHeight"] = json!(format!("{first:#x}"));
-            narrowed["receiptKey"]["lastHeight"] = json!(format!("{last:#x}"));
-            let result = verifier.verify_vector_against_pinned_keys(
-                narrowed.to_string().as_bytes(),
-                &[narrowed_key],
-            );
-            if first == height && last == height {
-                assert_eq!(result.map_err(|error| error.to_string())?, outcome);
-            } else {
-                assert!(
-                    result.is_err(),
-                    "the carried key must cover the signed height"
-                );
-            }
-        }
-        let mut wrong_public_key = key.public_key();
-        wrong_public_key[0] ^= 1;
-        for untrusted in [
-            vec![],
-            vec![ReceiptKeyEntry::new(
-                key.sequencer_id(),
-                wrong_public_key,
-                key.first_batch_number(),
-                key.last_batch_number(),
-            )],
-            vec![ReceiptKeyEntry::new(
-                key.sequencer_id(),
-                key.public_key(),
-                height + 1,
-                key.last_batch_number(),
-            )],
-            vec![ReceiptKeyEntry::new(
-                key.sequencer_id(),
-                key.public_key(),
-                0,
-                height - 1,
-            )],
-            vec![key, key],
-        ] {
-            assert!(verifier
-                .verify_vector_against_pinned_keys(&bytes, &untrusted)
-                .is_err());
-        }
-        let mut altered = document.clone();
-        altered["inclusionHeight"] = json!(format!("{:#x}", height - 1));
-        assert!(verifier
-            .verify_vector_against_pinned_keys(altered.to_string().as_bytes(), &keys)
-            .is_err());
+        assert_substitutions(&verifier, &case, &keys, &bytes, &document, height, &outcome)?;
     }
     Ok(())
 }

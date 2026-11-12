@@ -6,15 +6,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed={}", source_path.display());
 
     let source = fs::read_to_string(source_path)?;
-    let original = "word_u64(123456789)";
-    if source.matches(original).count() != 1 {
+    let plain = "word_u64(123456789)";
+    let separated = "word_u64(123_456_789)";
+    if source.matches(plain).count() + source.matches(separated).count() != 1 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "hosted gateway ABI quantity vector is absent or ambiguous",
         )
         .into());
     }
-    let source = source.replacen(original, "word_u64(123_456_789)", 1);
+    let source = source.replacen(plain, separated, 1);
     let fixture = "\"../tests/fixtures/paxeer-abi-vectors.json\"";
     if source.matches(fixture).count() != 1 {
         return Err(io::Error::new(

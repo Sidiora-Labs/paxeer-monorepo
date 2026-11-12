@@ -19,10 +19,10 @@ mod native {
             assert!(endpoint.url.starts_with("https://"));
             assert!(endpoint.url.ends_with('/'));
         }
-        let source = CommittedBlockSource::open(&rpc.config).expect("native root source");
+        let source = CommittedBlockSource::open(&rpc.config).or_panic("native root source");
         let block = source
             .acquire(committed_height(&document))
-            .expect("committed block");
+            .or_panic("committed block");
         let coordinate = CommittedCoordinate {
             height: block.header.height,
             block_hash: block.header.block_hash,
@@ -35,9 +35,9 @@ mod native {
                 latest_committed: Some(coordinate),
             },
         )
-        .expect("native archive");
+        .or_panic("native archive");
         let observation = MirrorObservation::from_archive(
-            MirrorSourceId::new("native-root-regression").expect("source id"),
+            MirrorSourceId::new("native-root-regression").or_panic("source id"),
             MirrorTargetIdentity::Ethereum {
                 chain_id: 1,
                 genesis_hash: [1; 32],
@@ -56,35 +56,39 @@ mod native {
                 reference_head_hash: [6; 32],
             },
         )
-        .expect("archive observation");
+        .or_panic("archive observation");
         let verifier = MirrorVerifier::admit_committed(archive.bytes(), observation)
-            .expect("mirror archive admission");
+            .or_panic("mirror archive admission");
         let key = &document["receiptKey"];
         let keys = [SequencerAuthorization::new(
-            support::bytes(&key["keyId"]).try_into().expect("key id"),
+            support::bytes(&key["keyId"]).try_into().or_panic("key id"),
             support::bytes(&key["publicKey"])
                 .try_into()
-                .expect("public key"),
-            key["firstHeight"].as_u64().expect("first height"),
-            key["lastHeight"].as_u64().expect("last height"),
+                .or_panic("public key"),
+            key["firstHeight"].as_u64().or_panic("first height"),
+            key["lastHeight"].as_u64().or_panic("last height"),
         )];
-        assert_eq!(verifier.committed().expect("coordinate"), coordinate);
+        assert_eq!(verifier.committed().or_panic("coordinate"), coordinate);
         assert_eq!(
             block.receipts.len(),
-            document["receipts"].as_array().expect("receipts").len()
+            document["receipts"].as_array().or_panic("receipts").len()
         );
         for (index, canonical) in block.receipts.iter().enumerate() {
-            let verified = verifier
+            let receipt_proof = verifier
                 .committed_receipt(index, &keys)
-                .expect("mirror receipt");
-            assert_eq!(verified.level(), MirrorEvidenceLevel::Committed);
-            assert_eq!(verified.batch_number(), block.header.height);
+                .or_panic("mirror receipt");
+            assert_eq!(receipt_proof.level(), MirrorEvidenceLevel::Committed);
+            assert_eq!(receipt_proof.batch_number(), block.header.height);
             assert_eq!(
-                layerx_wire::receipt::encode(verified.value()).expect("receipt bytes"),
+                layerx_wire::receipt::encode(receipt_proof.value()).or_panic("receipt bytes"),
                 *canonical
             );
         }
-        let requests = rpc.requests.lock().expect("request transcript");
+        let requests = rpc.requests.lock().or_panic("request transcript");
+        assert_rpc_receipt_requests(requests.as_slice(), block.receipts.len());
+    }
+
+    fn assert_rpc_receipt_requests(requests: &[(usize, Value)], receipt_count: usize) {
         for endpoint in 0..2 {
             assert_eq!(
                 requests
@@ -92,7 +96,7 @@ mod native {
                     .filter(|(peer, request)| *peer == endpoint
                         && request["method"] == "pax_sequencerReceipt")
                     .count(),
-                block.receipts.len()
+                receipt_count
             );
         }
     }
@@ -110,7 +114,7 @@ mod publication {
         fixture
             .journal(directory)
             .record(archive.commitment(), stage)
-            .expect("persisted stage")
+            .or_panic("persisted stage")
             .clone()
     }
 
@@ -128,7 +132,7 @@ mod publication {
             let journal = fixture.journal(directory);
             let record = journal
                 .record(archive.commitment(), progress.stage)
-                .expect("reopened stage");
+                .or_panic("reopened stage");
             assert_eq!(record.phase, progress.phase);
             assert_eq!(record.commitment, archive.commitment());
             assert_eq!(record.committed, archive.data().committed_coordinate());
@@ -166,7 +170,7 @@ mod publication {
             archive.commitment()
         );
         assert_eq!(
-            layerx_mirror::ArchiveData::decode(&retrieved).expect("retrieved archive codec"),
+            layerx_mirror::ArchiveData::decode(&retrieved).or_panic("retrieved archive codec"),
             *archive.data()
         );
     }
@@ -191,7 +195,7 @@ mod publication {
                     assert_eq!(after.transaction, before.transaction);
                     assert_eq!(after.signed_payload, before.signed_payload);
                 }
-                let network = fixture.network.lock().unwrap();
+                let network = fixture.network.lock().or_panic("expected Ok value");
                 assert_eq!(
                     network
                         .transactions
@@ -220,10 +224,14 @@ mod publication {
             let snapshot = snapshots
                 .iter()
                 .find(|s| s.phase == PublicationPhase::Pending)
-                .expect("pending snapshot");
+                .or_panic("pending snapshot");
             let before = fixture.boundary_record(snapshot, &archive);
             fixture.restore(snapshot);
-            fixture.network.lock().unwrap().observation = Observation::Pending;
+            fixture
+                .network
+                .lock()
+                .or_panic("expected Ok value")
+                .observation = Observation::Pending;
             for _ in 0..2 {
                 let mut client = fixture.open(&snapshot.directory);
                 assert_eq!(client.advance(&archive).phase, PublicationPhase::Pending);
@@ -237,11 +245,15 @@ mod publication {
                     fixture.journal(&snapshot.directory).cursor().latest_batch,
                     None
                 );
-                let network = fixture.network.lock().unwrap();
+                let network = fixture.network.lock().or_panic("expected Ok value");
                 assert_eq!(network.signatures, snapshot.network.signatures);
                 assert_eq!(network.broadcasts, snapshot.network.broadcasts);
             }
-            fixture.network.lock().unwrap().observation = Observation::Finalized;
+            fixture
+                .network
+                .lock()
+                .or_panic("expected Ok value")
+                .observation = Observation::Finalized;
             finish_reopening_every_advance(&fixture, &snapshot.directory, &archive);
             let after = recovered_record(&fixture, &snapshot.directory, &archive, before.stage);
             assert_eq!(after.transaction, before.transaction);
@@ -257,11 +269,11 @@ mod publication {
         let snapshot = snapshots
             .iter()
             .find(|s| s.phase == PublicationPhase::Pending)
-            .expect("pending snapshot");
+            .or_panic("pending snapshot");
         let before = fixture.boundary_record(snapshot, &archive);
         fixture.restore(snapshot);
         {
-            let mut network = fixture.network.lock().unwrap();
+            let mut network = fixture.network.lock().or_panic("expected Ok value");
             network.observation = Observation::Missing;
             network.blockhash_valid = false;
             network.recent_blockhash = [0x44; 32];
@@ -281,11 +293,15 @@ mod publication {
             None
         );
         {
-            let network = fixture.network.lock().unwrap();
+            let network = fixture.network.lock().or_panic("expected Ok value");
             assert_eq!(network.signatures, snapshot.network.signatures);
             assert_eq!(network.broadcasts, snapshot.network.broadcasts);
         }
-        fixture.network.lock().unwrap().observation = Observation::Pending;
+        fixture
+            .network
+            .lock()
+            .or_panic("expected Ok value")
+            .observation = Observation::Pending;
         let mut client = fixture.open(&snapshot.directory);
         assert_eq!(client.advance(&archive).phase, PublicationPhase::Pending);
         drop(client);
@@ -296,7 +312,11 @@ mod publication {
             replacement.stage_payload_digest,
             before.stage_payload_digest
         );
-        fixture.network.lock().unwrap().observation = Observation::Finalized;
+        fixture
+            .network
+            .lock()
+            .or_panic("expected Ok value")
+            .observation = Observation::Finalized;
         finish_reopening_every_advance(&fixture, &snapshot.directory, &archive);
         assert_eq!(
             recovered_record(&fixture, &snapshot.directory, &archive, before.stage).transaction,
@@ -315,7 +335,7 @@ mod publication {
                 recovered_record(&fixture, &directory, &archive, PublicationStage::Finalize);
             assert_eq!(before.phase, PublicationPhase::RetrievedVerified);
             let (signatures, broadcasts) = {
-                let mut network = fixture.network.lock().unwrap();
+                let mut network = fixture.network.lock().or_panic("expected Ok value");
                 network.observation = Observation::Missing;
                 network.recent_blockhash = [0x45; 32];
                 (network.signatures, network.broadcasts.len())
@@ -330,12 +350,16 @@ mod publication {
             assert_eq!(reorged.signed_payload, before.signed_payload);
             assert_eq!(fixture.journal(&directory).cursor().latest_batch, None);
             assert_eq!(fixture.journal(&directory).cursor().latest_committed, None);
-            fixture.network.lock().unwrap().observation = Observation::Finalized;
+            fixture
+                .network
+                .lock()
+                .or_panic("expected Ok value")
+                .observation = Observation::Finalized;
             finish_reopening_every_advance(&fixture, &directory, &archive);
             let after =
                 recovered_record(&fixture, &directory, &archive, PublicationStage::Finalize);
             assert_eq!(after.stage_payload_digest, before.stage_payload_digest);
-            let network = fixture.network.lock().unwrap();
+            let network = fixture.network.lock().or_panic("expected Ok value");
             assert_eq!(network.broadcasts.len(), broadcasts + 1);
             match chain {
                 MirrorChain::Ethereum => {

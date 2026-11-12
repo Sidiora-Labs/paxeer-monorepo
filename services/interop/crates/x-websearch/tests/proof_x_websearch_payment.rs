@@ -1,17 +1,17 @@
-//! Proves: SettlementReceipt and Grant -> public Rust settlement/payment APIs -> decode_payment_exact and read_payer_grant consumers.
+//! Proves: `SettlementReceipt` and Grant -> public Rust settlement/payment APIs -> `decode_payment_exact` and `read_payer_grant` consumers.
 //!
 //! The interface inventory names the public Rust item as the crossing and this
 //! integration test as its first external consumer. The receipt input is the
-//! output of rpc/sequencer_receipt_vectors_test.go, authenticated below before
+//! output of `rpc/sequencer_receipt_vectors_test.go`, authenticated below before
 //! its decoded logs are consumed. No RPC transport or payment plane is replaced.
 //! The stateless boundary is crossed afresh twice, then malformed results are
 //! refused by the same decoders. The RPC refusal uses the real sidecar server.
 //!
-//! Repairs settlement.rs::decode: a submitted answer carrying signingKey must
+//! Repairs `settlement.rs::decode`: a submitted answer carrying signingKey must
 //! be refused, just like one carrying keyId or receipt. payment.rs documents
 //! the distinction between decoding an event and authenticating its receipt.
-//! Outside scope: precompiles/layerxledger/payments.go::getPayerGrant currently
-//! returns LXP_NO_PAYER_GRANT unconditionally; these API proofs do not claim a
+//! Outside scope: `precompiles/layerxledger/payments.go::getPayerGrant` currently
+//! returns `LXP_NO_PAYER_GRANT` unconditionally; these API proofs do not claim a
 //! successful live ledger grant lookup. Transport failure must remain an error,
 //! never be converted into an absent grant.
 

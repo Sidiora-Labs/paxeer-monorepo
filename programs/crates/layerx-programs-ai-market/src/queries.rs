@@ -553,7 +553,7 @@ pub(crate) fn stored_header(
     if stored_snapshot_epoch(frame.sections[Section::IdentityRoster.index()])? != epoch {
         return Err(WRONG_ROSTER);
     }
-    let settlement = frame.sections[Section::SettlementClaims.index()];
+    let settlement = state::room_market_parts(frame.sections[Section::SettlementClaims.index()])?.0;
     let roster = match epoch {
         Some(epoch) => {
             Presence::Present(crate::rewards::committed_row(settlement, epoch)?.row.roster)
@@ -1132,7 +1132,7 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11
         Err(BAD_VERSION) => Availability::UnsupportedVersion,
         Err(_) => Availability::ContentUnavailable,
     };
-    let settlement = shared.section(Section::SettlementClaims)?;
+    let settlement = shared.room_market()?.0;
     if !settlement.is_empty() {
         *out.guest_index_mut(5) = decoded(settlement, || {
             settlement
@@ -1380,7 +1380,7 @@ pub fn participant_rows(
         crate::evaluators::authority::evaluator_region(shared.section(Section::IdentityRoster)?)?;
     let (history, _) =
         crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?)?;
-    let settlement = shared.section(Section::SettlementClaims)?;
+    let settlement = shared.room_market()?.0;
     let rewards = if settlement.is_empty() {
         None
     } else {

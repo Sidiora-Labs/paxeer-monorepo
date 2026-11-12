@@ -1,5 +1,7 @@
 #[path = "support/journal_entries.rs"]
 mod journal_entries;
+#[path = "support/journal_remove.rs"]
+mod journal_remove;
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
@@ -526,7 +528,7 @@ fn full_cycle() -> TestResult {
     });
     let path = std::env::temp_dir().join(format!("paxeer-cycle-{}.jsonl", std::process::id()));
     if path.exists() {
-        journal_entries::remove(&path)?;
+        journal_remove::remove(&path)?;
     }
     let recorded = recording(path.clone(), account, sponsor)?;
     let start = || open_station(&config, &signer, &recorded, &path);
@@ -581,7 +583,7 @@ fn full_cycle() -> TestResult {
     let recovered = Journal::open(&path)?;
     assert_eq!(recovered.state().items[&key].completion, Some(expected));
     drop(recovered);
-    journal_entries::remove(&path)?;
+    journal_remove::remove(&path)?;
     *recorded.phase.borrow_mut() = "consumed".into();
     let mut station = start()?;
     assert_eq!(
@@ -595,7 +597,7 @@ fn full_cycle() -> TestResult {
     assert_eq!(count.get(), 2);
     assert_eq!(recorded.sent.borrow().len(), 2);
     drop(station);
-    journal_entries::remove(&path)?;
+    journal_remove::remove(&path)?;
     Ok(())
 }
 struct SharedSigner(Rc<CountedSigner>);
@@ -632,7 +634,7 @@ impl Lane {
             std::process::id()
         ));
         if path.exists() {
-            journal_entries::remove(&path)?;
+            journal_remove::remove(&path)?;
         }
         let recorded = recording(path.clone(), account_signer.address(), inner.address())?;
         Ok(Self {
@@ -689,7 +691,7 @@ impl Lane {
             .count()
     }
     fn finish(self) -> TestResult {
-        journal_entries::remove(&self.path)?;
+        journal_remove::remove(&self.path)?;
         Ok(())
     }
 }
@@ -1078,7 +1080,7 @@ fn quote_refused_when_governed_rate_is_stale_or_missing() -> TestResult {
     });
     let path = std::env::temp_dir().join(format!("paxeer-rate-{}.jsonl", std::process::id()));
     if path.exists() {
-        journal_entries::remove(&path)?;
+        journal_remove::remove(&path)?;
     }
     let recorded = recording(path.clone(), account, sponsor)?;
     let mut station = open_station(&config, &signer, &recorded, &path)?;
@@ -1110,7 +1112,7 @@ fn quote_refused_when_governed_rate_is_stale_or_missing() -> TestResult {
         assert_eq!(count.get(), 0);
     }
     drop(station);
-    journal_entries::remove(&path)?;
+    journal_remove::remove(&path)?;
     Ok(())
 }
 
@@ -1440,7 +1442,7 @@ fn authenticated_retry_real_https_retains_unknown_liability_within_deadline() ->
     assert_eq!(reopened.state(), &before);
     assert_eq!(std::fs::read(&path)?, durable);
     drop(reopened);
-    journal_entries::remove(&path)?;
+    journal_remove::remove(&path)?;
     std::fs::remove_dir(&directory)?;
     Ok(())
 }
@@ -1541,7 +1543,7 @@ fn first_use_replay_state_real_https_preserves_retained_storage() -> TestResult 
         assert!(station.journal().state().items.is_empty());
         assert!(std::fs::read(&state)?.is_empty());
         drop(station);
-        journal_entries::remove(&state)?;
+        journal_remove::remove(&state)?;
     }
     std::fs::remove_dir(&directory)?;
     Ok(())
