@@ -235,7 +235,11 @@ mod tests {
         let required_names: Vec<&str> = params
             .iter()
             .filter(|param| param["required"] == true)
-            .map(|param| param["name"].as_str().expect("parameter has a name"))
+            .map(|param| {
+                param["name"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "parameter has a name"))
+            })
             .collect();
         assert_eq!(
             required_names,
@@ -249,7 +253,7 @@ mod tests {
         assert_eq!(params[2]["required"], false);
         let supplied = envelope["params"]
             .as_array()
-            .expect("request supplies positional parameters");
+            .unwrap_or_else(|| panic!("{}", "request supplies positional parameters"));
         for (position, param) in params.iter().enumerate() {
             if param["required"] == true {
                 assert!(
