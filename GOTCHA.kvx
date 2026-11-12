@@ -21480,3 +21480,18 @@ fix = "Under the race detector the case schedules a declared fraction of the rat
 title = "The source capacity cases of the indexer module read commit timestamps of the database"
 symptom = "The capacity measurement of services/launchpad/indexer/internal/source reads the setting track_commit_timestamp of PostgreSQL and refuses a database where it is off. Its cases run against the database of the test stage."
 fix = "The database of the test stage runs with track_commit_timestamp on, and the record of the module names the prerequisite."
+
+[gotcha.4332]
+title = "The retired reference catalogue lists the live names that share a retired word"
+symptom = "The check of tools/paxeer-x/tests/retired_callers_test.py reads the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py. Both names belong to live code, the custody module of the node and a fixture module of the qualification tools."
+fix = "The catalogue tools/paxeer-x/retired_callers.json carries one allowed reference with its citation for each live name."
+
+[gotcha.4333]
+title = "The web client under apps/web/src/api/generated is the output of the API generator"
+symptom = "The build of the human workspace compares the committed client with a fresh run of the generator of services/human/tools/api-gen over the API schema directory, so the committed client follows every change of the schema."
+fix = "The client is regenerated with the generator target of the Makefile after a schema change and committed without a hand edit."
+
+[gotcha.4334]
+title = "The lint recipe of the agent workspace bounds a function at seven inputs"
+symptom = "The recipe counts the receiver with the inputs. A function of the agent daemon that needs more values takes them one by one only up to that bound."
+fix = "A function with more values takes one parameter structure."

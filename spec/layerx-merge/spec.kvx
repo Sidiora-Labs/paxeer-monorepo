@@ -13600,6 +13600,12 @@ value = "Under the race detector the complete workload case of services/launchpa
 basis = "Gotchas 4330 and 4331."
 affects = []
 
+[decision.3415]
+title = "The wave 6 gate task may regenerate the web client, group the inputs of one agent daemon function and list two live names in the retired reference catalogue"
+value = "The paths of task 17.5.7 gain apps/web/src/api/generated, services/agent/crates/layerx-agentd/src/main.rs and tools/paxeer-x/retired_callers.json. Under apps/web/src/api/generated the task commits only the output of the generator target of the Makefile. In the agent daemon file the change is limited to the function terms and its callers: the inputs move into one parameter structure, the behaviour and every signed value stay the same, and no lint allowance is added. In the catalogue the task adds one allowed reference for the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and one for the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py, each with its citation in the form of the neighbouring entries. The check program stays unchanged."
+basis = "Gotchas 4332 to 4334. Decisions 3051 and 3413."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -341480,7 +341486,7 @@ do_1 = "Run gates.run_wave(6, root) from spec/layerx-merge/programme/gates.py (p
 do_2 = "Record the evidence line in logs/waves/6 named by [wave.6] of spec/layerx-merge/programme/data/wave-gates.kvx (planned); a nonzero exit fails the wave and files a finding in spec/layerx-merge/qualification.kvx:1 format."
 do_3 = "Create spec/layerx-merge/programme/tests/test_wave_6_gate.py (planned) with the test named below; it runs the real script, never --list alone."
 symbols = ["test_wave_6_gate_passes"]
-touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py", "tools/workspace/platform-dependency-roots.txt"]
+touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py", "tools/workspace/platform-dependency-roots.txt", "apps/web/src/api/generated", "services/agent/crates/layerx-agentd/src/main.rs", "tools/paxeer-x/retired_callers.json"]
 tests = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
@@ -341527,6 +341533,7 @@ do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.
 do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 22.39.409, which carry the readers of the settlement section, the generated files of the agent TypeScript SDK, the recipes of the developer dashboard, the lints of the platform and interop crates, the terminal vectors of the program ABI, the lifecycle cases, the output directory of the program recipes, the compiler fetch of the install step and the record of what each part of the test and lint recipes covers. Change none of those in this task and drop from its tree each change that those tasks carry. The gate runs in the checkout of the task and makes no second checkout. The permitted outputs of scripts/gates/run_gate.py hold the ignored build directory of the C SDK example."
 do_33 = "do_33 Decision 3349: the task now requires tasks 22.39.426 to 22.39.433, 22.39.441 and 22.39.454, which own the parts of the workspace test and lint recipes. Change nothing for those parts in this task."
 do_34 = "do_34 Decision 3413, gotcha 4329. Add one row for each of the two Package.resolved files of the Swift samples to tools/workspace/platform-dependency-roots.txt in the form of the neighbouring rows, so that sh scripts/workspace/check-platform-dependencies.sh passes. Change nothing else in the inventory and nothing in the check script. Then run the install target of the workspace and go on with the wave commands."
+do_35 = "do_35 Decision 3415, gotchas 4332 to 4334. Run the generator target of the Makefile for the web client and commit its output under apps/web/src/api/generated without a hand edit, so that make human-check-api passes. Move the inputs of the function terms of services/agent/crates/layerx-agentd/src/main.rs into one parameter structure, without a lint allowance and without a change of behaviour, and run the lint recipe of the agent workspace. Add the two allowed references of decision 3415 to tools/paxeer-x/retired_callers.json in the form of the neighbouring entries and run python3 tools/paxeer-x/tests/retired_callers_test.py with the deleted option. Then go on with the wave commands."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
