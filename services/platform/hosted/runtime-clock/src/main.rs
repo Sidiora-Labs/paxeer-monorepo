@@ -1,3 +1,5 @@
+//! Supervises a child process with a local runtime clock service.
+
 mod server;
 
 use std::ffi::OsString;

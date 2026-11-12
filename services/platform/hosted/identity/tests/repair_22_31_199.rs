@@ -95,10 +95,7 @@ fn identity_compaction_replay_verify_after_snapshotted_signup() {
     verify(&mut store, &signup);
     drop(store);
     let verify_journal = directory.read("journal.log");
-    assert_eq!(
-        verify_journal.iter().filter(|byte| **byte == b'\n').count(),
-        1
-    );
+    assert_eq!(verify_journal.split(|byte| *byte == b'\n').count() - 1, 1);
 
     let store = directory.open();
     assert_verified(&store, &signup);

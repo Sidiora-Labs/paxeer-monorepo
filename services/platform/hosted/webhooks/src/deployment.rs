@@ -9,7 +9,7 @@ fn documents(manifest: &str) -> Result<Vec<Value>, String> {
         .collect()
 }
 
-/// Bind the webhook verifier to the same ConfigMap key the authority consumes.
+/// Bind the webhook verifier to the same `ConfigMap` key the authority consumes.
 ///
 /// # Errors
 /// Refuses missing, duplicate, ambiguous or invalid network configuration.
