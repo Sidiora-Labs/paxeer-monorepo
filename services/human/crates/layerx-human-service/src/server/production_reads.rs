@@ -292,88 +292,10 @@ mod activity_detail_contract_tests {
     use layerx_proof::receipt::{verify, AuthorizedBatch};
     use std::io::{BufRead as _, BufReader, Read as _, Write as _};
     use std::net::{TcpListener, TcpStream};
-    use std::time::{Duration, Instant};
-
-    fn append_receipt_signature(
-        encoder: &mut layerx_wire::encode::Encoder,
-        signature: Option<[u8; 64]>,
-    ) {
-        encoder
-            .u8(u8::from(signature.is_some()))
-            .or_fail("signature presence");
-        if let Some(signature) = signature {
-            encoder.bytes(&signature, 64).or_fail("signature");
-        }
-    }
+    use std::time::Duration;
 
     fn pinned_activity_receipt(signature: Option<[u8; 64]>) -> Vec<u8> {
-        let bytes = layerx_intents::vectors::receipt(None).or_fail("producer receipt");
-        let decoded = layerx_wire::receipt::decode(&bytes).or_fail("canonical producer receipt");
-        let receipt = decoded
-            .protocol()
-            .unwrap_or_else(|| panic!("{}", "protocol receipt"));
-        let mut batch_id = [0; 32];
-        batch_id[24..].copy_from_slice(&42_u64.to_be_bytes());
-        let mut encoder = layerx_wire::encode::Encoder::new(4096);
-        encoder
-            .structure_header_version(0x5201, receipt.protocol_version())
-            .or_fail("header");
-        encoder.u16(receipt.protocol_version()).or_fail("version");
-        encoder
-            .bytes(&receipt.activity_id(), 32)
-            .or_fail("activity");
-        encoder.u64(receipt.global_sequence()).or_fail("sequence");
-        encoder
-            .bytes(&receipt.previous_state_root(), 32)
-            .or_fail("previous root");
-        encoder
-            .bytes(&receipt.resulting_state_root(), 32)
-            .or_fail("resulting root");
-        encoder
-            .bytes(&receipt.activity_root(), 32)
-            .or_fail("activity root");
-        encoder.i32(receipt.result_code()).or_fail("result");
-        assert!(receipt.effects().is_empty());
-        encoder.sequence_length(0, 512).or_fail("effects");
-        encoder.u128(receipt.fee_charged()).or_fail("fee");
-        encoder.bytes(&batch_id, 32).or_fail("height-encoded batch");
-        encoder.u16(receipt.module_id()).or_fail("module");
-        encoder
-            .u32(receipt.module_version())
-            .or_fail("module version");
-        encoder
-            .u32(receipt.parameter_version())
-            .or_fail("parameter version");
-        encoder.u8(receipt.operation()).or_fail("operation");
-        encoder.bytes(&receipt.asset(), 32).or_fail("asset");
-        encoder.u128(receipt.amount()).or_fail("amount");
-        encoder.bytes(&receipt.from(), 32).or_fail("from");
-        encoder
-            .u128(receipt.debit_balance_before())
-            .or_fail("debit before");
-        encoder
-            .u128(receipt.debit_balance_after())
-            .or_fail("debit after");
-        encoder
-            .u64(receipt.debit_sequence())
-            .or_fail("debit sequence");
-        encoder.bytes(&receipt.to(), 32).or_fail("to");
-        encoder
-            .u128(receipt.credit_balance_before())
-            .or_fail("credit before");
-        encoder
-            .u128(receipt.credit_balance_after())
-            .or_fail("credit after");
-        encoder
-            .bytes(&receipt.transfer_set_root(), 32)
-            .or_fail("transfer root");
-        encoder
-            .bytes(&receipt.authorization_hash(), 32)
-            .or_fail("authorization");
-        encoder.bytes(&receipt.context_hash(), 32).or_fail("key id");
-        encoder.u64(receipt.timestamp()).or_fail("timestamp");
-        append_receipt_signature(&mut encoder, signature);
-        encoder.finish()
+        layerx_intents::vectors::activity_receipt(42, signature).or_fail("activity receipt")
     }
 
     type ActivityCase = (
@@ -474,16 +396,13 @@ mod activity_detail_contract_tests {
         let address = listener.local_addr().or_fail("HTTP address");
         listener.set_nonblocking(true).or_fail("bounded accept");
         let internal_client = record_http_responses(cases, address);
-        let started = Instant::now();
+        let mut accept_steps = 0..30_000;
         for _ in 0..count * 2 {
             let mut stream = loop {
                 match listener.accept() {
                     Ok((stream, _)) => break stream,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(
-                            started.elapsed() < Duration::from_secs(60),
-                            "HTTP consumer deadline"
-                        );
+                        assert!(accept_steps.next().is_some(), "HTTP consumer deadline");
                         std::thread::sleep(Duration::from_millis(2));
                     }
                     Err(error) => panic!("HTTP accept: {error}"),
