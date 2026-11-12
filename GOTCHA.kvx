@@ -21435,3 +21435,13 @@ fix = "Chart definitions name the registered key, and the type check of a fronte
 title = "The Chainflow price feed carries the price of SID and no supply or market value for it"
 symptom = "For the coin id sidiora the reply of api/v3/coins/ carries current_price.usd, while market_cap.usd, circulating_supply and total_supply are null."
 fix = "The explorer backend derives the circulating supply of SID itself and multiplies it with the price."
+
+[gotcha.4323]
+title = "The dependency policy of the programs workspace reads the features of a path dependency outside the workspace"
+symptom = "The programs workspace takes the proof crate services/interop/crates/layerx-committed-proof as a path dependency, and the default features of its Ed25519 dependency bring the standard library features of the signature crates into the metadata of the programs workspace."
+fix = "The Ed25519 declaration of the proof crate names the features it needs without the defaults."
+
+[gotcha.4324]
+title = "The price history of the Chainflow feed carries prices and no supply"
+symptom = "The history route of the feed answers times and candle prices. The market value of a PAX history point is the closing price times a circulating supply that the source has to bring itself, and the coin reply of api/v3/coins/ followed by the coin id carries that supply."
+fix = "The source reads the circulating supply from the coin reply when it builds the PAX history."
