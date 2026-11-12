@@ -21355,3 +21355,18 @@ fix = "The fuel table states the batch at which it measures the operation."
 title = "The interface rows of the inference series name no file of the proof tasks"
 symptom = "The fifteen interface rows of the inference series name symbols of the AI market program, of the agent daemon and of the peer package. No row names a file that task 22.38.36, 22.38.37 or 22.38.38 adds."
 fix = "The closing task of the series reconciles the rows without the proof tasks."
+
+[gotcha.4307]
+title = "The pay precompile assigns the stream of an ask a 32-byte identifier"
+symptom = "The operation streamOpenForAsk assigns the stream the idempotency key of the call as its identifier. The ask record of the AI market program holds the stream identifier as a 128-bit number and the agent daemon expands that number with sixteen leading zero bytes."
+fix = "The identifier that streamOpenForAsk assigns has sixteen leading zero bytes (decision 3388)."
+
+[gotcha.4308]
+title = "The node builds the options of its RPC server in RegisterLocalServices"
+symptom = "The px inference reads of the RPC server answer inference_program_not_configured until the server receives the option WithPxInferenceProgram. The node builds the options of the server in the function RegisterLocalServices of node/app.go."
+fix = "The node reads the program identifier and the reader address from its configuration and passes the option (decision 3389)."
+
+[gotcha.4309]
+title = "The native result source of the agent daemon reads the validator set at a consensus endpoint"
+symptom = "The function program_reader of the agent daemon connects the native result source to the node endpoint of the configuration. The validator set that the source reads is served by the consensus endpoint of a node."
+fix = "The agent daemon takes a setting for the consensus endpoint (decision 3390)."
