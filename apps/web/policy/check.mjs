@@ -18,7 +18,7 @@ const approvedLocalPackages = {
   "@paxeer/wallet": {
     resolved: "../../sdk/wallet",
     version: "0.1.0",
-    license: "UNLICENSED",
+    license: "Apache-2.0",
     private: true,
   },
 };
@@ -93,7 +93,7 @@ export function checkDependencyPolicy({ manifest, lockfile, budget, localManifes
       assert.equal(metadata.license, approval.license, `${name} local package license disposition changed`);
     }
     if (approval.private === true) {
-      assert.equal(actual.private, true, `${name} internal license disposition requires a private package`);
+      assert.equal(actual.private, true, `${name} requires a private package`);
     }
     assert.deepEqual(pinned.dependencies, actual.dependencies, `${name} lockfile dependencies changed`);
     localTargets.add(approval.resolved);
@@ -102,22 +102,16 @@ export function checkDependencyPolicy({ manifest, lockfile, budget, localManifes
   for (const [path, metadata] of Object.entries(lockfile.packages)) {
     if (path === "") continue;
     let pinned = metadata;
-    let target = path;
     if (metadata.link === true) {
       const name = path.startsWith("node_modules/") ? path.slice("node_modules/".length) : "";
       assert.ok(Object.hasOwn(approvedLocalPackages, name), `${path} is an unapproved local package link`);
       const approval = approvedLocalPackages[name];
       assert.equal(metadata.resolved, approval.resolved, `${name} must resolve to its checked-in package`);
-      target = metadata.resolved;
-      pinned = lockfile.packages[target];
+      pinned = lockfile.packages[metadata.resolved];
     }
     assert.equal(typeof pinned.version, "string", `${path} is not pinned to a version`);
-    const internalWallet = target === approvedLocalPackages["@paxeer/wallet"].resolved &&
-      localTargets.has(target) && pinned.name === "@paxeer/wallet" &&
-      pinned.version === "0.1.0" && pinned.license === "UNLICENSED" &&
-      localManifests["@paxeer/wallet"].private === true;
     assert.ok(
-      allowedLicenses.has(pinned.license) || internalWallet,
+      allowedLicenses.has(pinned.license),
       `${path} uses non-allowlisted license ${pinned.license}`,
     );
     assert.ok(

@@ -4,16 +4,15 @@ import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
 import type { ActivityEntryDetail, Money, MoneyDirection } from "../../api/index.ts";
 import { LabelValue, SignedWordedAmount } from "../../kit/money";
-import { protocolAmount } from "../../kit/model.ts";
 import { PrivateFigure } from "../../settings/privacy";
-import { formatEntryTimestamp, plainSentence, signedBaseUnits, toKitDirection, unsignedBaseUnits } from "./model.ts";
+import { formatEntryTimestamp, plainSentence, signedBaseUnits, toKitDirection } from "./model.ts";
 
 export function ActivityDetailAmount({ money, direction, fee = false }: Readonly<{
   money: Money;
   direction?: MoneyDirection;
   fee?: boolean;
 }>) {
-  const value = fee ? protocolAmount(-unsignedBaseUnits(money)) : signedBaseUnits(money, direction);
+  const value = fee ? signedBaseUnits(money, "out") : signedBaseUnits(money, direction);
   return (
     <span title={formatCopy("move.amount.hint", { currency: money.currency })}>
       <SignedWordedAmount
