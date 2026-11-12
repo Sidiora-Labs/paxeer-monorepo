@@ -196916,7 +196916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.457]
 title = "Have the wallet gateway source file of the platform command line tool compile in each member that includes it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.417", "22.39.425"]
