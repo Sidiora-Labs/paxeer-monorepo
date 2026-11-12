@@ -13306,6 +13306,36 @@ value = "The configuration file .golangci.yml of the repository root and the cov
 basis = "Decision 3364 and gotcha 4282."
 affects = ["22.39.170"]
 
+[decision.3366]
+title = "A module that includes source of another member whose lint another task holds carries the allow attribute for the clippy lints of the workspace table"
+value = "The file is linted in the member that holds it: task 22.39.403 holds services/platform/hosted/paxeer, task 22.39.445 holds the AI market program and task 22.39.404 holds the committed proof library of the interop workspace. In the gateway member the module that holds the included source carries allow for the clippy groups and lints that the lint table of the workspace names, and the included files stay as they are. Task 22.39.417 lists the gateway member alone; this replaces the last sentence of decision 3361."
+basis = "Gotcha 4283 and decisions 3361 and 3362."
+affects = ["22.39.417"]
+
+[decision.3367]
+title = "The verification of a task in the arbiter member runs the library cases and compiles every test target"
+value = "The case that reads the native replay corpus is a release gate under decision 1806 and runs where the corpus is present."
+basis = "Gotcha 4284 and decision 1806."
+affects = ["22.39.456"]
+
+[decision.3368]
+title = "The build of a launchpad web flow task reads the type check for the files of the flow"
+value = "The build runs the type check of the application and reads its findings for the paths of the task. Task 22.39.399 holds the type check of the whole application, the file apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts among its files."
+basis = "Gotcha 4285 and decisions 3327 and 3352."
+affects = ["22.40.14", "22.39.399"]
+
+[decision.3369]
+title = "A file operation on a configured path in a launchpad Go module carries a lint comment with its reason"
+value = "In launchpad Go modules a line that opens or creates a file on a path given by the configuration or by the caller carries a nolint comment that names the linter and the reason. Decision 3365 holds for every other line."
+basis = "Gotcha 4287 and decision 3365."
+affects = ["22.39.473", "22.39.474"]
+
+[decision.3370]
+title = "Integer conversions of the launchpad indexer go through checked conversion functions"
+value = "In the indexer module a conversion between integer types of different sign or width goes through a function that returns an error when the value is outside the range of the target type. Task 22.39.491 holds the conversions and runs after the coverage task of the module. Lint comments on file paths stay under decision 3369."
+basis = "Gotcha 4288 and decisions 3365 and 3369."
+affects = ["22.39.491", "22.39.170"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -42966,6 +42996,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.491]
+title = "Route the integer conversions of the launchpad indexer through checked conversion functions"
+reqs = ["22998.1"]
+touches = ["services/launchpad/indexer"]
+tests = []
+verification_contract = "anvil --version > /dev/null && test -s services/launchpad/indexer/repair_22_39_491.kvx && n=$(grep -r -E 'nolint:gosec' --include='*.go' --exclude='*_test.go' services/launchpad/indexer | wc -l) && test $n -le 40 && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=indexer"
+do_1 = "do_1 Decision 3370. In services/launchpad/indexer each conversion between integer types of different sign or width goes through a checked conversion function of the module that returns an error when the value is outside the range of the target type. The caller returns that error on its existing error path."
+symbols = []
 
 [capability.22.39.490]
 title = "Pass the race and coverage stages of the launchpad Makefile in the security and security control modules"
@@ -164096,7 +164135,7 @@ do_1 = "do_1 Decision 3327, gotcha 4255. Build the SDK packages as the build of 
 do_2 = "do_2 Repair each finding at its cause. For the pool detail, read what the route of the launchpad API returns for the pool and make the type of the operation table and the transport type agree with it, in the SDK package that declares it; a file that a generator of the package writes is changed through its generator and its input. For a missing declaration add the declaration package to the development dependencies of apps/launchpad/web together with the lock file. For a test file correct the types and keep every assertion. Use no ts-ignore, no ts-expect-error, no cast to any and no exclusion in tsconfig.json to quiet a finding."
 do_3 = "do_3 Search the Makefile, the files under .github/workflows and tests/ci for the place where the launchpad web application is checked and record whether the type check runs there; change no workflow file. Run the type check of the web application, the type check of apps/launchpad/mobile and the test command of the web application outside the counted gates until both type checks have zero findings and the tests pass. Record in apps/launchpad/web/repair_22_39_399.kvx each finding, its cause and its repair, and the result of the search. Then run the counted build once and the counted verification once."
 symbols = []
-touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src"]
+touches = ["apps/launchpad/web/src/app/breakpoints.test.ts", "apps/launchpad/web/src/core/market/pool-resolver.ts", "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx", "apps/launchpad/web/src/widgets/meta-ag/repair-22-33-987.test.ts", "apps/launchpad/web/package.json", "apps/launchpad/pnpm-lock.yaml", "sdk/launchpad/packages/sdk/src", "sdk/launchpad/packages/sdk-v2/src", "apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts"]
 tests = []
 planned_paths = ["apps/launchpad/web/repair_22_39_399.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
@@ -164112,6 +164151,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3368. The type check also reads apps/launchpad/web/src/widgets/create-chain/chain-launch.test.ts, where the case that compares the local interface with the published one reads the name of an input: correct the types of the case and keep what it asserts."
 
 [task.22.40.16]
 title = "Show launched chains and trade on the home chain in the launchpad mobile application"
@@ -164188,7 +164228,7 @@ symbols = []
 touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts", "apps/launchpad/web/src/widgets/trading/use-trade-panel.ts", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/trade/home-chain.ts", "apps/launchpad/web/src/widgets/trade/home-chain.test.ts", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.test.tsx"]
-build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit"
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && (grep -q -E '^tsc-exit 0$' $d/tsc.log || grep -q -E 'error TS[0-9]+: ' $d/tsc.log) && ! grep -E '^src/(widgets/trade/|widgets/swap/|widgets/holder-rewards/|core/network/contracts|widgets/trading/use-trade-panel|widgets/trading/token-market-layout)' $d/tsc.log"
 verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/trade/home-chain.test.ts src/widgets/holder-rewards/chain-revenue.test.tsx"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164202,6 +164242,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 The active trade panel and the token page layout are apps/launchpad/web/src/widgets/trading/use-trade-panel.ts and apps/launchpad/web/src/widgets/trading/token-market-layout.tsx. Connect the home chain trade and the chain revenue claim there and keep the cases that read those two files passing."
+do_5 = "do_5 Decision 3368 and gotcha 4285. The build reads the type check for the paths of this task. A finding in a file of another flow is listed in the closing report and stays with task 22.39.399."
+do_6 = "do_6 Gotcha 4286. The build reads the finding lines of the type check for the paths of this task, whatever value the package manager returns."
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"
@@ -196885,7 +196927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.456]
 title = "Have the dispute case over a host call of the arbiter isolate the storage write step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.447"]
@@ -196900,7 +196942,7 @@ touches = ["programs/crates/layerx-programs-arbiter"]
 tests = []
 planned_paths = ["programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx"]
 build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets"
-verify_cmd = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
+verify_cmd = "test -s programs/crates/layerx-programs-arbiter/repair_22_39_456.kvx && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --lib && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --no-run && cargo clippy --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter --all-targets --no-deps -- -D warnings"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -196912,6 +196954,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3367 and gotcha 4284. The verification runs the library cases of the member, compiles every test target and runs the lint."
 
 [task.22.39.453]
 title = "Bring the bench, fuzz and integration test members of the programs workspace through the lint of the recipe"
@@ -196945,7 +196988,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.452]
 title = "Bring the program SDK and its lint member of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197808,7 +197851,7 @@ do_1 = "do_1 Decision 3340, gotcha 4264. The recipe platform-lint lints every me
 do_2 = "do_2 Repair each finding in the code: add the documentation a lint asks for where it states a fact about the function, and change the shape of the code where a lint names it. Add no allow attribute and change no lint level and no manifest. Keep every public name, every public signature and every answer, so that no other member changes. Run the tests of the owned members by hand: each case that passed before passes unchanged."
 do_3 = "do_3 Record in services/platform/hosted/gateway/repair_22_39_417.kvx as product facts: each lint and the files changed for it. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/gateway", "services/interop/crates/layerx-committed-proof/src"]
+touches = ["services/platform/hosted/gateway"]
 tests = []
 planned_paths = ["services/platform/hosted/gateway/repair_22_39_417.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
@@ -197826,6 +197869,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 Decision 3342, gotcha 4265. The verification now lints the member with the option --no-deps, so a finding in a member it depends on is outside this task and is not changed here."
 do_5 = "do_5 Decision 3361 and gotcha 4278. Put allow(unused) on each module declaration by path that names a source file of another member, and nothing else on it. Repair the findings the lint reads in services/interop/crates/layerx-committed-proof/src in those files, keep every public name and signature there, and run the tests of that member at the base revision and on the tree. Keep no copy of a file of another member. Then run the lint of the gateway member over all targets by hand until it prints no finding, then the build once and the verification once."
+do_6 = "do_6 Decision 3366 and gotcha 4283. The module of tests/repair_22_31_345.rs that includes src/main.rs of services/platform/hosted/paxeer, the modules of tests/repair_22_33_1439.rs that declare sources of the AI market program and of the program SDK, and the module of src/lib.rs that declares the committed proof library carry allow for the clippy groups and lints that the lint table of the workspace names. The included files stay as they are at the base, the committed proof sources among them."
 
 [task.22.39.416]
 title = "Bring the oracle feeder member of the platform through the workspace lint"
@@ -229423,6 +229467,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.39.491]
+title = "Route the integer conversions of the launchpad indexer through checked conversion functions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.39.478"]
+reqs = ["22998.1"]
+capabilities = ["22.39.491"]
+interfaces = []
+do_1 = "do_1 Decision 3370. In services/launchpad/indexer each conversion between integer types of different sign or width goes through a checked conversion function of the module that returns an error when the value is outside the range of the target type. The caller returns that error on its existing error path."
+do_2 = "do_2 The lint comments for the security linter on integer conversions are removed with the repair. Lint comments on file paths and on the started command stay under decision 3369. Public names, signatures, stored values and wire values stay as they are. A line whose repair would change one of them keeps its lint comment under decision 3365. Each checked conversion function has table cases for the lower bound, the upper bound and one value past each."
+do_3 = "do_3 Before the build, run the three targets of the verification by hand with MODULES=indexer until each passes, and keep coverage at the threshold the Makefile declares. Record in services/launchpad/indexer/repair_22_39_491.kvx the number of conversions repaired per file and each line that keeps a lint comment with its reason. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/indexer"]
+tests = []
+planned_paths = ["services/launchpad/indexer/repair_22_39_491.kvx"]
+build_cmd = "cd services/launchpad/indexer && go vet ./..."
+verify_cmd = "anvil --version > /dev/null && test -s services/launchpad/indexer/repair_22_39_491.kvx && n=$(grep -r -E 'nolint:gosec' --include='*.go' --exclude='*_test.go' services/launchpad/indexer | wc -l) && test $n -le 40 && GOFLAGS=-timeout=15m make -C services/launchpad lint race cover-check MODULES=indexer"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 480
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.490]
 title = "Pass the race and coverage stages of the launchpad Makefile in the security and security control modules"
 status = "pending"
@@ -229905,7 +229979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.474]
 title = "Pass the lint stage of the launchpad Makefile in the security and security control modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229935,7 +230009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.473]
 title = "Pass the lint stage of the launchpad Makefile in the notifications module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229965,7 +230039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.472]
 title = "Pass the lint stage of the launchpad Makefile in the discovery module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -229995,7 +230069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.471]
 title = "Pass the lint stage of the launchpad Makefile in the user module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230025,7 +230099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.470]
 title = "Pass the lint stage of the launchpad Makefile in the social module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230055,7 +230129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.469]
 title = "Pass the lint stage of the launchpad Makefile in the metadata module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230085,7 +230159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.468]
 title = "Pass the lint stage of the launchpad Makefile in the livestream module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230115,7 +230189,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.467]
 title = "Pass the lint stage of the launchpad Makefile in the gateway module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230145,7 +230219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.466]
 title = "Pass the lint stage of the launchpad Makefile in the trading charts module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230175,7 +230249,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.465]
 title = "Pass the lint stage of the launchpad Makefile in the statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230205,7 +230279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.464]
 title = "Pass the lint stage of the launchpad Makefile in the ranking module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230235,7 +230309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.463]
 title = "Pass the lint stage of the launchpad Makefile in the PnL tracker module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230265,7 +230339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.462]
 title = "Pass the lint stage of the launchpad Makefile in the indexer module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230295,7 +230369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.461]
 title = "Pass the lint stage of the launchpad Makefile in the API module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230325,7 +230399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.460]
 title = "Pass the lint stage of the launchpad Makefile in the protocol SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230355,7 +230429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.459]
 title = "Pass the lint stage of the launchpad Makefile in the shared SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230385,7 +230459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.458]
 title = "Pin the linter release of the launchpad lint stage and keep the launchpad wiring test in step with the baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -232343,7 +232417,7 @@ title = "Bring the remaining stages of the launchpad Makefile ci target to green
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490"]
+requires = ["22.39.168", "22.39.154", "22.39.162", "22.39.117", "22.39.458", "22.39.475", "22.39.476", "22.39.477", "22.39.478", "22.39.479", "22.39.480", "22.39.481", "22.39.482", "22.39.483", "22.39.484", "22.39.485", "22.39.486", "22.39.487", "22.39.488", "22.39.489", "22.39.490", "22.39.491"]
 reqs = ["22998.1"]
 capabilities = ["22.39.170"]
 interfaces = []

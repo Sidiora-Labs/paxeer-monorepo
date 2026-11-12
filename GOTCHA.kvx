@@ -21235,3 +21235,33 @@ fix = "A task that retires baseline entries or adds a package to a launchpad mod
 title = "The linter of the launchpad modules lists a bounded number of findings by default"
 symptom = "golangci-lint prints at most 50 findings per linter and at most 3 findings with the same text unless told otherwise."
 fix = "A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Decision 3365."
+
+[gotcha.4283]
+title = "Targets of the gateway member of the platform include sources of the chain boundary member, of the AI market program and of the committed proof library"
+symptom = "tests/repair_22_31_345.rs of services/platform/hosted/gateway includes src/main.rs of services/platform/hosted/paxeer by path, tests/repair_22_33_1439.rs declares sources of the AI market program by path, and src/lib.rs declares the committed proof library of the interop workspace by path. The lint of the including target reads those files again."
+fix = "Decision 3366."
+
+[gotcha.4284]
+title = "Two test files of the arbiter member read a native replay corpus named by the environment"
+symptom = "tests/authority_from_prestate.rs and tests/verified_step.rs of programs/crates/layerx-programs-arbiter read the variable LAYERX_AUTHENTICATED_REPLAY_INPUTS, so a run of every test of the member needs the corpus."
+fix = "Decision 3367."
+
+[gotcha.4285]
+title = "The type check of the launchpad web application reads every file of the application"
+symptom = "pnpm --dir apps/launchpad/web exec tsc --noEmit reads the source and test files of every flow, so the build of a flow task reads files of other flows."
+fix = "Decision 3368."
+
+[gotcha.4286]
+title = "The package manager returns 1 when a command it runs ends with findings"
+symptom = "pnpm exec returns 1 when the type checker ends with findings, whatever value the type checker returns."
+fix = "The build of a launchpad web flow task reads the finding lines of the type check."
+
+[gotcha.4287]
+title = "The security linter reports a file opened on a path held in a variable"
+symptom = "gosec reports each call that opens or creates a file on a path held in a variable, also where the path comes from the configuration of the command."
+fix = "Decision 3369."
+
+[gotcha.4288]
+title = "The security linter reports a conversion between integer types of different sign or width"
+symptom = "gosec reports each conversion between integer types of different sign or width, also where the code bounds the value before the conversion."
+fix = "Decision 3370."
