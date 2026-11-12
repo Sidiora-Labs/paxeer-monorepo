@@ -1,8 +1,8 @@
 use crate::types::GuestIndex as _;
 use crate::{
-    codec::{Reader, Writer, domain_hash},
+    codec::{domain_hash, Reader, Writer},
     errors::{
-        BAD_VERSION, CAPACITY, CodecResult, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY,
+        CodecResult, BAD_VERSION, CAPACITY, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY,
         F01_POLICY_MISMATCH, F01_VERSION_MISMATCH, NON_CANONICAL,
     },
     types::{AccountId, Digest32, PolicyDigest, Presence, PrincipalId, RubricDigest, Version},
@@ -445,6 +445,8 @@ pub struct RoomProfile {
     pub canary_relative_tolerance_bps: u16,
 }
 impl RoomProfile {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn validate(&self) -> CodecResult<()> {
         if self.minimum_bond == 0
             || self.max_generated_tokens == 0
@@ -463,6 +465,8 @@ impl RoomProfile {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < ROOM_PROFILE_BYTES {
@@ -488,6 +492,8 @@ impl RoomProfile {
         Ok(w.len())
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         if r.u16()? != ROOM_PROFILE_VERSION {
@@ -526,11 +532,15 @@ impl MarketPolicy {
         &self.room_profile
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn validate(&self) -> CodecResult<()> {
         self.task_policy.validate()?;
         self.room_profile.validate()
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < MARKET_POLICY_BYTES {
@@ -547,6 +557,8 @@ impl MarketPolicy {
         Ok(w.len())
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         if r.u16()? != MARKET_POLICY_VERSION {
@@ -561,6 +573,8 @@ impl MarketPolicy {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn digest(&self) -> CodecResult<PolicyDigest> {
         let mut bytes = [0; MARKET_POLICY_BYTES];
         self.encode(&mut bytes)?;

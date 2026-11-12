@@ -781,6 +781,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "layerx-ai-market-test-values"
+version = "0.1.0"
+
+[[package]]
 name = "layerx-committed-proof"
 version = "0.1.0"
 dependencies = [
@@ -894,6 +898,7 @@ name = "layerx-programs-ai-market"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "layerx-ai-market-test-values",
  "layerx-committed-proof",
  "layerx-program-sdk",
  "layerx-programs-runtime",

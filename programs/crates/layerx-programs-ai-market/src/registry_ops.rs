@@ -1,9 +1,9 @@
 use crate::types::GuestIndex as _;
 use crate::{
-    codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer, derive_market},
+    codec::{self, derive_market, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch::{self, Operation},
     errors::{
-        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F01_ACCOUNT_BINDING_MISSING,
+        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_ACCOUNT_BINDING_MISSING,
         F01_ACTIVATION_TOO_EARLY, F01_ALREADY_ACTIVATED, F01_ALREADY_CREATED,
         F01_CAPACITY_UNAVAILABLE, F01_GRANT_ALREADY_REVOKED, F01_INVALID_REASON,
         F01_LIFECYCLE_CLOSED, F01_NO_PENDING_POLICY, F01_PENDING_POLICY_EXISTS,
@@ -12,18 +12,19 @@ use crate::{
         WRONG_CONFIG, WRONG_MARKET,
     },
     policy::{
+        fold_policy_history, initial_policy_history_root, next_config_version,
+        validate_policy_records, PendingPolicy, PolicyHistoryHeader, TaskPolicyV1,
         MAX_RECENT_POLICY_HEADERS, PENDING_POLICY_BYTES, POLICY_HISTORY_HEADER_BYTES,
-        PendingPolicy, PolicyHistoryHeader, TASK_POLICY_BYTES, TaskPolicyV1, fold_policy_history,
-        initial_policy_history_root, next_config_version, validate_policy_records,
+        TASK_POLICY_BYTES,
     },
     registry::{
+        check_f01_capacity, derive_rewards_account, market_clock, MarketHeader, OperatorGrant,
         COMMON_SECTION_HEADER_BYTES, F01_SECTION_CAP, MARKET_HEADER_ABSENT_BYTES,
-        MARKET_HEADER_PRESENT_BYTES, MarketHeader, OPERATOR_GRANT_BYTES, OperatorGrant,
-        check_f01_capacity, derive_rewards_account, market_clock,
+        MARKET_HEADER_PRESENT_BYTES, OPERATOR_GRANT_BYTES,
     },
     state::{
-        ActorSlot, Control, ReplayDecision, ReplayRequest, ReplayTable, RetainedResult, Section,
-        SharedState, decode_replay,
+        decode_replay, ActorSlot, Control, ReplayDecision, ReplayRequest, ReplayTable,
+        RetainedResult, Section, SharedState,
     },
     types::{
         AccountId, AssetId, ChainDomain, Digest32, MarketId, MetadataDigest, PolicyDigest,
@@ -551,7 +552,7 @@ impl CreateRequest {
             rewards: AccountId,
             refund: AccountId,
         );
-        let treasury = r.presence(|r| r.principal_id())?;
+        let treasury = r.presence(super::codec::Reader::principal_id)?;
         let policy = TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?;
         let metadata = r.metadata_digest()?;
         r.finish()?;

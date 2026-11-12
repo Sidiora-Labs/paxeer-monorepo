@@ -11,8 +11,8 @@ use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::GuestIndex as _;
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    MAX_STATE_BYTES, admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps,
-    queries, rewards, rooms, tasks, value_adapter, workers,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
+    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -124,7 +124,7 @@ impl Operation {
         if matches!(self.0, 0x0106 | 0x0107) && length != 40 && length != 48 {
             return Err(NON_CANONICAL);
         }
-        if self == Self::RecordDeal && (length < 145 || (length - 145) % 36 != 0) {
+        if self == Self::RecordDeal && (length < 145 || !(length - 145).is_multiple_of(36)) {
             return Err(NON_CANONICAL);
         }
         if length < m.payload_min || length > m.payload_max {
@@ -1140,10 +1140,10 @@ pub const OPERATIONS: &[OperationMetadata] = &[
 
 static OPERATION_INDICES: [[u8; 32]; 12] = {
     let mut indices = [[u8::MAX; 32]; 12];
-    let mut i = 0;
-    while i < OPERATIONS.len() {
-        let selector = OPERATIONS[i].operation.0 as usize;
-        indices[selector >> 8][selector & 0xff] = i as u8;
+    let mut i = 0_u8;
+    while (i as usize) < OPERATIONS.len() {
+        let selector = OPERATIONS[i as usize].operation.0 as usize;
+        indices[selector >> 8][selector & 0xff] = i;
         i += 1;
     }
     indices
@@ -1317,7 +1317,7 @@ pub fn route(
     } else if operation == FUND {
         present(current).and_then(|current| {
             reward_step(
-                rewards::apply_fund(ctx, &envelope, request, current, next, scratch, event)?,
+                &rewards::apply_fund(ctx, &envelope, request, current, next, scratch, event)?,
                 &mut record,
             )
         })
@@ -1328,13 +1328,15 @@ pub fn route(
             envelope_bytes,
             current,
             next,
-            scratch,
-            event,
-            &mut record,
+            (scratch, event, &mut record),
         )
     };
     result_epilogue(
-        operation, request, current, step, event, scratch, &record, result,
+        operation,
+        request,
+        current,
+        step,
+        (event, scratch, &record, result),
     )
 }
 
@@ -1358,11 +1360,10 @@ fn result_epilogue(
     request: RequestDigest,
     current: Option<&[u8]>,
     step: CodecResult<Step>,
-    event: &[u8],
-    scratch: &[u8],
-    record: &[u8; RECORD_PAYLOAD_BYTES],
-    result: &mut [u8],
+    context: (&[u8], &[u8], &[u8; RECORD_PAYLOAD_BYTES], &mut [u8]),
 ) -> CodecResult<Routed> {
+    let (event, scratch, record, result) = context;
+
     let framed = match step {
         Ok(Step::Applied {
             revision,
@@ -1370,7 +1371,11 @@ fn result_epilogue(
             event_len,
             payload,
         }) => applied_frame(
-            operation, request, revision, event, event_len, &payload, record, result,
+            operation,
+            request,
+            revision,
+            event,
+            (event_len, &payload, record, result),
         )
         .map(|result_len| Routed::Applied {
             operation,
@@ -1578,10 +1583,7 @@ fn route_canary_score(
                     event_len,
                     payload: Payload::record(payload.guest_index(..n), &mut record)?,
                 }),
-                event,
-                scratch,
-                &record,
-                result,
+                (event, scratch, &record, result),
             )
         }
         Ok(canary::Outcome::Retained(retained)) => {
@@ -1631,11 +1633,10 @@ fn applied_frame(
     request: RequestDigest,
     revision: u64,
     event: &[u8],
-    event_len: usize,
-    payload: &Payload,
-    record: &[u8; RECORD_PAYLOAD_BYTES],
-    out: &mut [u8],
+    context: (usize, &Payload, &[u8; RECORD_PAYLOAD_BYTES], &mut [u8]),
 ) -> CodecResult<usize> {
+    let (event_len, payload, record, out) = context;
+
     let mut topic = [0; 64];
     let topic_len = codec::event_topic(operation, &mut topic)?;
     let body = event.get(..event_len).ok_or(NON_CANONICAL)?;
@@ -1663,10 +1664,10 @@ fn transition(
     envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
@@ -1679,9 +1680,7 @@ fn transition(
             envelope_bytes,
             current,
             next,
-            scratch,
-            event,
-            record_out,
+            (scratch, event, record_out),
         );
     }
     let (inner, carry) = scratch
@@ -1695,9 +1694,7 @@ fn transition(
                 envelope_bytes,
                 Some(current),
                 next,
-                inner,
-                event,
-                record_out,
+                (inner, event, record_out),
             )?;
             let written = match &step {
                 Step::Applied { state_len, .. } => Some(*state_len),
@@ -1719,9 +1716,7 @@ type TransitionHandler = fn(
     &[u8],
     Option<&[u8]>,
     &mut [u8],
-    &mut [u8],
-    &mut [u8],
-    &mut [u8; RECORD_PAYLOAD_BYTES],
+    (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step>;
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1731,10 +1726,10 @@ fn transition_inner(
     envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     let handler: TransitionHandler = match envelope.envelope.operation.0 {
         0x0101..=0x0104 | 0x0106..=0x0109 => handle_registry,
         0x0105 => handle_advance,
@@ -1758,9 +1753,7 @@ fn transition_inner(
         envelope_bytes,
         current,
         next,
-        scratch,
-        event,
-        record_out,
+        (scratch, event, record_out),
     )
 }
 
@@ -1771,10 +1764,10 @@ fn handle_registry(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     registry(ctx, envelope, current, next, scratch, event, record_out)
 }
 
@@ -1785,10 +1778,10 @@ fn handle_advance(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, _record_out) = context;
+
     let a = epoch::advance_activation(ctx, envelope, present(current)?, next, scratch, event)?;
     Ok(Step::Applied {
         revision: a.revision,
@@ -1805,10 +1798,10 @@ fn handle_close(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     close(
         ctx,
         envelope,
@@ -1827,10 +1820,10 @@ fn handle_open_epoch(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     let sections = state::SectionReader::new(present(current)?)?;
     match epoch::open_epoch_sections(ctx, envelope, &sections, next, scratch, event)? {
         epoch::Outcome::Opened {
@@ -1845,12 +1838,15 @@ fn handle_open_epoch(
             payload: Payload::Suffix,
         }),
         epoch::Outcome::AlreadyApplied { .. } => {
-            let cursor = crate::evaluators::authority::CommittedSnapshot::read(
-                sections.section(state::Section::IdentityRoster),
-            )?
-            .worker_count() as u16;
-            _record_out[..2].copy_from_slice(&cursor.to_be_bytes());
-            _record_out[2..4].copy_from_slice(&cursor.to_be_bytes());
+            let cursor = u16::try_from(
+                crate::evaluators::authority::CommittedSnapshot::read(
+                    sections.section(state::Section::IdentityRoster),
+                )?
+                .worker_count(),
+            )
+            .map_err(|_| crate::errors::CAPACITY)?;
+            record_out[..2].copy_from_slice(&cursor.to_be_bytes());
+            record_out[2..4].copy_from_slice(&cursor.to_be_bytes());
             Ok(Step::Unchanged(Payload::Record(4)))
         }
     }
@@ -1863,10 +1859,10 @@ fn handle_tasks(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     match tasks::apply(ctx, envelope, present(current)?, next, scratch, event)? {
         tasks::Outcome::Applied {
             receipt,
@@ -1894,10 +1890,10 @@ fn handle_identity(
     envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     let operation = envelope.envelope.operation;
     identity(
         ctx,
@@ -1905,9 +1901,7 @@ fn handle_identity(
         envelope_bytes,
         present(current)?,
         next,
-        scratch,
-        event,
-        record_out,
+        (scratch, event, record_out),
     )
 }
 
@@ -1918,10 +1912,10 @@ fn handle_assessment(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     assessment(
         ctx,
         envelope,
@@ -1940,10 +1934,10 @@ fn handle_settlement(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     settlement(
         ctx,
         envelope,
@@ -1962,10 +1956,10 @@ fn handle_admission(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, _record_out) = context;
+
     match admission::apply_admission(ctx, envelope, present(current)?, next, scratch, event) {
         admission::AdmissionOutcome::Applied {
             revision,
@@ -1990,10 +1984,10 @@ fn handle_read(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     _next: &mut [u8],
-    scratch: &mut [u8],
-    _event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, _event, record_out) = context;
+
     read(ctx, envelope, present(current)?, scratch, record_out)
 }
 
@@ -2004,10 +1998,10 @@ fn handle_rooms(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     let current = present(current)?;
     let operation = envelope.envelope.operation;
     let outcome = match operation {
@@ -2049,10 +2043,10 @@ fn handle_laps(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, _record_out) = context;
+
     match laps::apply_settle_laps(ctx, envelope, present(current)?, next, scratch, event)? {
         laps::Outcome::Applied {
             revision,
@@ -2075,10 +2069,10 @@ fn handle_split_payout(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, record_out) = context;
+
     match rewards::apply_split_payout(ctx, envelope, present(current)?, next, scratch, event)? {
         rooms::Outcome::Applied {
             revision,
@@ -2105,10 +2099,10 @@ fn handle_canary(
     _envelope_bytes: &[u8],
     current: Option<&[u8]>,
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, _record_out) = context;
+
     let operation = envelope.envelope.operation;
     let outcome = if operation == ChallengeLap {
         canary::apply_challenge_lap(ctx, envelope, present(current)?, next, scratch, event)?
@@ -2175,9 +2169,11 @@ fn close(
 }
 
 fn reward_step(
-    outcome: rewards::Outcome,
+    outcome: &rewards::Outcome,
     record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
 ) -> CodecResult<Step> {
+    let outcome = *outcome;
+
     match outcome {
         rewards::Outcome::Applied {
             response,
@@ -2227,7 +2223,7 @@ fn settlement(
             )),
         },
         0x0601..=0x0605 => reward_step(
-            rewards::apply(ctx, envelope, current, next, scratch, event)?,
+            &rewards::apply(ctx, envelope, current, next, scratch, event)?,
             record_out,
         ),
 
@@ -2284,10 +2280,10 @@ fn identity(
     envelope_bytes: &[u8],
     bytes: &[u8],
     next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    _record_out: &mut [u8; RECORD_PAYLOAD_BYTES],
+    context: (&mut [u8], &mut [u8], &mut [u8; RECORD_PAYLOAD_BYTES]),
 ) -> CodecResult<Step> {
+    let (scratch, event, _record_out) = context;
+
     let state = state::decode_shared_state(bytes)?;
     let section = bound_section(ctx, &state)?;
     match operation.0 {
@@ -2452,7 +2448,7 @@ fn registry(
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn bound_section<'a>(ctx: &CallContext, state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -2479,7 +2475,7 @@ fn rebind(
     let (revision, section_len) = {
         let state = state::decode_shared_state(next.get(..state_len).ok_or(NON_CANONICAL)?)?;
         let mut section = PolicySection::decode(
-            *state
+            state
                 .feature_sections
                 .guest_index(Section::PolicyLifecycle.index()),
         )?;

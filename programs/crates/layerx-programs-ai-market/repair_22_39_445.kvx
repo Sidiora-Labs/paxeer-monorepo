@@ -1,0 +1,128 @@
+[ai_market]
+identity_hash = "Market identity hashes use the canonical 32-byte identity value."
+aggregation_progress = "Aggregation progress reports the opened epoch, phase, cursor and worker count."
+validation = "Market operations return errors when their inputs cannot be processed."
+encoding = "Market fixtures retain their canonical bytes, bounded fields and replay assertions."
+test_values = "Required test values preserve the caller location and panic when an expected value is absent."
+
+[lint_locations]
+assertions_on_constants = 2
+assigning_clones = 4
+bool_to_int_with_if = 9
+cast_possible_truncation = 105
+cast_precision_loss = 11
+dead_code = 120
+derived_hash_with_manual_eq = 3
+doc_markdown = 107
+drop_non_drop = 6
+duplicate_mod = 5
+expect_used = 45
+explicit_auto_deref = 38
+format_collect = 8
+if_not_else = 3
+inline_always = 18
+items_after_statements = 4
+large_enum_variant = 2
+large_types_passed_by_value = 20
+len_zero = 2
+manual_inspect = 4
+manual_is_multiple_of = 3
+manual_range_patterns = 1
+many_single_char_names = 1
+map_unwrap_or = 1
+match_wildcard_for_single_variants = 4
+missing_errors_doc = 141
+missing_panics_doc = 8
+must_use_candidate = 14
+needless_borrow = 9
+needless_borrows_for_generic_args = 3
+needless_lifetimes = 1
+needless_pass_by_value = 5
+op_ref = 1
+private_interfaces = 1
+range_plus_one = 3
+redundant_closure_for_method_calls = 39
+redundant_guards = 1
+redundant_locals = 8
+semicolon_if_nothing_returned = 7
+similar_names = 2
+single_element_loop = 8
+single_match_else = 5
+too_many_arguments = 36
+too_many_lines = 64
+type_complexity = 7
+unnecessary_wraps = 4
+unnested_or_patterns = 1
+unreadable_literal = 78
+unused_braces = 6
+unused_imports = 55
+unused_must_use = 2
+unused_self = 15
+unused_variables = 1
+unwrap_used = 1640
+used_underscore_binding = 2
+wildcard_imports = 7
+
+[item_exception.1]
+file = "src/canary.rs"
+item = "Outcome"
+lint = "clippy::large_enum_variant"
+reason = "The public outcome carries the applied commitment inline."
+
+[item_exception.2]
+file = "src/rooms.rs"
+item = "apply_record_deal"
+lint = "clippy::too_many_arguments"
+reason = "The public deal operation takes separate admission and worker views."
+
+[item_exception.3]
+file = "tests/repair_22_33_260.rs"
+item = "grow"
+lint = "clippy::too_many_arguments"
+reason = "The shared producer takes explicit identity and roster inputs."
+
+[item_exception.4]
+file = "tests/fixtures/f11_producers.rs"
+item = "grow"
+lint = "clippy::too_many_arguments"
+reason = "The shared producer takes explicit identity and roster inputs."
+
+[item_exception.5]
+file = "tests/fuel_budget.rs"
+item = "every_routed_operation_fits_the_protocol_cpu_fuel_cap"
+lint = "private_interfaces"
+reason = "The public test entry point returns the private checked journey result."
+
+[item_exception.6]
+file = "tests/fuel_budget.rs"
+item = "resumable_participant_retry_proof"
+lint = "dead_code"
+reason = "The shared retry proof is consumed by the participant retry suite."
+
+[item_exception.7]
+file = "tests/repair_22_33_261.rs"
+item = "RewardCall"
+lint = "dead_code"
+reason = "The shared market producer is consumed by independent integration suites."
+
+[item_exception.8]
+file = "tests/repair_22_33_261.rs"
+item = "ExecutionFixture"
+lint = "dead_code"
+reason = "The shared market producer is consumed by independent integration suites."
+
+[item_exception.9]
+file = "tests/repair_22_33_261.rs"
+item = "execution_height_fixture"
+lint = "dead_code"
+reason = "The shared market producer is consumed by independent integration suites."
+
+[item_exception.10]
+file = "tests/repair_22_33_261.rs"
+item = "native_reward_calls"
+lint = "dead_code"
+reason = "The shared market producer is consumed by independent integration suites."
+
+[shared_test_support]
+lint = "dead_code"
+behavior = "Each integration suite selects the shared producer operations needed for its market trajectory."

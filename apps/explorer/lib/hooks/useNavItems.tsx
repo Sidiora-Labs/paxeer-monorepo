@@ -293,7 +293,7 @@ export default function useNavItems(): ReturnType {
 
       const items = [
         config.features.stats.isEnabled && {
-          text: 'Chain stats',
+          text: 'Network stats',
           nextRoute: { pathname: '/stats' as const },
           icon: 'navigation/chain_stats',
           isActive: pathname.startsWith('/stats'),
@@ -458,7 +458,6 @@ export default function useNavItems(): ReturnType {
     const shellLink = (item: NavItem): NavItem => {
       const titles: Record<string, string> = {
         'Top accounts': 'Accounts',
-        'Chain stats': 'Network stats',
         API: 'API docs',
         'Verify contract': 'Contract verification',
       };
@@ -466,11 +465,11 @@ export default function useNavItems(): ReturnType {
     };
     const statsItems = statsNavItem?.subItems.flat() || [];
     const networkItems = [
-      ...statsItems.filter((item) => item.text === 'Chain stats'),
+      ...statsItems.filter((item) => item.text === 'Network stats'),
       validators,
       epochs,
       ...statsItems.filter((item) => item.text === 'Gas tracker'),
-      ...statsItems.filter((item) => ![ 'Chain stats', 'Gas tracker' ].includes(item.text)),
+      ...statsItems.filter((item) => ![ 'Network stats', 'Gas tracker' ].includes(item.text)),
     ].filter(Boolean);
     const exploreItems = [
       blocks,
