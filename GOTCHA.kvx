@@ -21445,3 +21445,8 @@ fix = "The Ed25519 declaration of the proof crate names the features it needs wi
 title = "The price history of the Chainflow feed carries prices and no supply"
 symptom = "The history route of the feed answers times and candle prices. The market value of a PAX history point is the closing price times a circulating supply that the source has to bring itself, and the coin reply of api/v3/coins/ followed by the coin id carries that supply."
 fix = "The source reads the circulating supply from the coin reply when it builds the PAX history."
+
+[gotcha.4325]
+title = "The construct inspection of the wallet attestor signs only the calls whose owner debit it reads from the call"
+symptom = "The inspection of services/wallet/attestor/internal/policy/construct.go passes constant methods, a list of methods without an owner debit and a list of methods whose source, asset and amount it reads from the arguments. Every other method of a native precompile is answered selector_not_allowed, also where the selectors rule of the policy lists it. The program call of layerxprograms and the stream metering method of layerxpay belong to neither list."
+fix = "A program call is signed where the rules of the account name the program and the entry point, and the stream metering method is inspected with the methods of its kind."
