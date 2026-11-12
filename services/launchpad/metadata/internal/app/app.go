@@ -150,6 +150,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 		}
 	}()
+	return newRuntime(ctx, cfg, logger, secretStop, pool, rdb, tracker, metrics, checks, &owned)
+}
+
+func newRuntime(ctx context.Context, cfg config.Config, logger *slog.Logger, secretStop context.CancelFunc, pool *pgxpool.Pool, rdb *goredis.Client, tracker *process.Tracker, metrics *telemetry.Metrics, checks map[string]sharedhttp.Check, owned *bool) (*App, error) {
+	var err error
 	var rpc *ethclient.Client
 	var connected *metadata.ConnectedMedia
 	var publication *metadata.PublicationService
@@ -182,7 +187,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		rpc = ethclient.NewClient(chainClient)
 		defer func() {
-			if !owned {
+			if !*owned {
 				rpc.Close()
 			}
 		}()
@@ -352,7 +357,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 			rpc = ethclient.NewClient(chain)
 			defer func() {
-				if !owned {
+				if !*owned {
 					rpc.Close()
 				}
 			}()
@@ -385,7 +390,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		if devMedia != nil {
 			defer func() {
-				if !owned {
+				if !*owned {
 					devMedia.pool.Close()
 				}
 			}()
@@ -516,7 +521,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 		}()
 	}
-	owned = true
+	*owned = true
 	instance := &App{secretStop: secretStop, mediaStop: mediaStop, mediaDone: mediaDone, tlsConfig: serverTLS, tlsCertFile: cfg.TLSCertFile, tlsKeyFile: cfg.TLSKeyFile, tracker: tracker, Router: runtimeHandler(tracker, mux, metrics), rpc: rpc, pool: pool, redis: rdb, logger: logger}
 	if devMedia != nil {
 		instance.devMediaPool = devMedia.pool
