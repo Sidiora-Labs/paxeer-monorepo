@@ -230084,7 +230084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.469]
 title = "Pass the lint stage of the launchpad Makefile in the metadata module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230144,7 +230144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.467]
 title = "Pass the lint stage of the launchpad Makefile in the gateway module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230204,7 +230204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.465]
 title = "Pass the lint stage of the launchpad Makefile in the statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230264,7 +230264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.463]
 title = "Pass the lint stage of the launchpad Makefile in the PnL tracker module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230324,7 +230324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.461]
 title = "Pass the lint stage of the launchpad Makefile in the API module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230354,7 +230354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.460]
 title = "Pass the lint stage of the launchpad Makefile in the protocol SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230384,7 +230384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.459]
 title = "Pass the lint stage of the launchpad Makefile in the shared SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
