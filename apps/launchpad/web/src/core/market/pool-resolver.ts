@@ -139,7 +139,7 @@ export async function resolvePoolSnapshot(input: string, deps: ResolverDeps, sig
       }),
     optionalMetadata(token, deps, signal),
   ]);
-  const registry = detail?.data.pool as (V2ContractTypes['Pool'] & { createdAt?: string }) | undefined;
+  const registry = detail?.data.pool;
   return {
     pool: resolved.identity,
     token: metadata.value?.data.token ?? detail?.data.token ?? null,

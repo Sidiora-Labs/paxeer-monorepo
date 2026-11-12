@@ -123,7 +123,7 @@ impl Server {
                         }
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        std::thread::sleep(Duration::from_millis(1))
+                        std::thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("{error}"),
                 }
@@ -228,7 +228,7 @@ fn journal_torn_tail_reopens_every_interrupted_append_and_preserves_prior_record
         ));
         let mut records = Vec::new();
         let mut reopened = required(Journal::open::<Record>(&recovery, |record| {
-            records.push(record)
+            records.push(record);
         }));
         assert_eq!(records, vec![first.clone()], "cut at {interrupted_after}");
         assert_eq!(reopened.len(), 1);
@@ -237,13 +237,14 @@ fn journal_torn_tail_reopens_every_interrupted_append_and_preserves_prior_record
         drop(reopened);
         let mut records = Vec::new();
         let reopened = required(Journal::open::<Record>(&recovery, |record| {
-            records.push(record)
+            records.push(record);
         }));
         assert_eq!(records, vec![first.clone(), second.clone()]);
         assert_eq!(reopened.len(), 2);
         drop(reopened);
     }
-    for bad in [b"not json\n".as_slice(), b"{}\n", &[b'x'; 64 * 1024]] {
+    let oversized = vec![b'x'; 64 * 1024];
+    for bad in [b"not json\n".as_slice(), b"{}\n", oversized.as_slice()] {
         let mut corrupt = prefix.clone();
         corrupt.extend_from_slice(bad);
         required(fs::write(recovery.join("journal.log"), &corrupt));
@@ -321,7 +322,7 @@ fn observation(resource: &str, source_sequence: u64) -> Observation {
 enum QueueEntry {
     Enqueue {
         transition: String,
-        observation: Observation,
+        observation: Box<Observation>,
     },
     Acknowledge {
         id: String,
@@ -338,8 +339,8 @@ impl QueueEntry {
                 transition,
                 observation,
             } => assert_eq!(
-                required(state.enqueue(transition, observation.clone())),
-                *observation
+                required(state.enqueue(transition, (**observation).clone())),
+                **observation
             ),
             Self::Acknowledge { id, observed } => required(state.acknowledge(id, *observed)),
             Self::Compact { resource } => required(state.compact_through("journey", resource)),
@@ -360,7 +361,7 @@ impl QueueStore {
     fn open(path: &Path) -> Self {
         let mut entries = Vec::new();
         let journal = required(Journal::open::<QueueEntry>(path, |entry| {
-            entries.push(entry)
+            entries.push(entry);
         }));
         let checkpoint = path.join("checkpoint.json");
         let Checkpoint { records, mut state } = if checkpoint.exists() {
@@ -401,7 +402,7 @@ impl QueueStore {
         let emitted = required(self.state.enqueue(transition, observation));
         required(self.journal.append(&QueueEntry::Enqueue {
             transition: transition.to_owned(),
-            observation: emitted.clone(),
+            observation: Box::new(emitted.clone()),
         }));
         emitted
     }
@@ -571,10 +572,13 @@ fn producer_retention_growth_sustains_delivery_and_reopens_at_durable_boundaries
     required(store.state.validate());
     let state = required(serde_json::to_value(&store.state));
     assert_eq!(
-        state["retained"].as_object().map(|map| map.len()),
+        state["retained"].as_object().map(serde_json::Map::len),
         Some(MAX_RETAINED_OBSERVATIONS)
     );
-    assert_eq!(state["counters"].as_object().map(|map| map.len()), Some(1));
+    assert_eq!(
+        state["counters"].as_object().map(serde_json::Map::len),
+        Some(1)
+    );
     let expired = first.unwrap_or_else(|| panic!("first observation missing"));
     assert!(store.state.enqueue("live-1", expired.clone()).is_err());
     assert!(store.state.enqueue("renamed-expired", expired).is_err());
@@ -626,7 +630,7 @@ fn producer_retention_growth_sustains_delivery_and_reopens_at_durable_boundaries
     required(store.state.validate());
     let state = required(serde_json::to_value(&store.state));
     for field in ["retained", "counters", "compacted"] {
-        assert_eq!(state[field].as_object().map(|map| map.len()), Some(0));
+        assert_eq!(state[field].as_object().map(serde_json::Map::len), Some(0));
     }
     drop(store);
     let mut store = QueueStore::open(&root.0.join("producer"));
@@ -678,7 +682,7 @@ fn producer_retention_growth_bounds_counters_and_compacts_only_closed_acknowledg
     assert_eq!(
         required(serde_json::to_value(&store.state))["counters"]
             .as_object()
-            .map(|map| map.len()),
+            .map(serde_json::Map::len),
         Some(1)
     );
 }

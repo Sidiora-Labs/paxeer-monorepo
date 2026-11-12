@@ -10,10 +10,7 @@ import type tailwindPostcss from '@tailwindcss/postcss';
 const appDir = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const postcssPlugin = require.resolve('@tailwindcss/postcss');
-type Stylesheet = Extract<
-  Parameters<NonNullable<ReturnType<typeof tailwindPostcss>['Once']>>[0],
-  { type: 'root' }
->;
+type Stylesheet = Parameters<NonNullable<Extract<ReturnType<typeof tailwindPostcss>, { postcssPlugin: string }>['Once']>>[0];
 const postcss = createRequire(postcssPlugin)('postcss') as { parse(css: string): Stylesheet };
 const nodeEntry = createRequire(postcssPlugin).resolve('@tailwindcss/node');
 const { compile } = (await import(pathToFileURL(nodeEntry).href)) as {
@@ -34,9 +31,10 @@ async function build(candidates: string[]): Promise<string> {
   // assertion below works with both compiler generations. Values and cascade
   // order come entirely from the real compiler output.
   css.walkAtRules('media', (media) => {
-    if (!media.nodes?.length || !media.nodes.every((node) => node.type === 'rule')) return;
+    const nodes = media.nodes;
+    if (!nodes?.length || !nodes.every((node) => node.type === 'rule')) return;
     media.replaceWith(
-      ...media.nodes.map((rule) =>
+      ...nodes.map((rule) =>
         rule.clone({ nodes: [media.clone({ nodes: rule.nodes.map((node) => node.clone()) })] })
       )
     );
