@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::collections::VecDeque;
 use std::error::Error;
 use std::io::{Read as _, Write as _};
@@ -16,8 +20,8 @@ use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
 use x_websearch::payment::{hex, unhex};
 use x_websearch::program::{
-    decode_request_record, observation_bytes, program_record, register, ProgramAttestor,
-    ProgramExchange, ProgramRelay, ProgramRequest, Step,
+    decode_request_record, observation_bytes, program_record, register, KernelError,
+    ProgramAttestor, ProgramExchange, ProgramRelay, ProgramRequest, Step,
 };
 use x_websearch::submit::{
     fulfil_program_calldata, fulfil_program_gas_limit, Fees, Journal, JournalState, Outcome,
@@ -37,6 +41,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(name: &str) -> Checked<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("x-websearch-program-{}-{name}", std::process::id()));
         std::fs::create_dir(&path)?;
@@ -190,7 +195,7 @@ fn the_program_exchange_collects_peer_signatures_by_program_and_request() -> Che
     let next_key = (next_request.program_id, next_request.request_id);
     let other_key = (other_program.program_id, other_program.request_id);
     exchange.record(local.clone())?;
-    exchange.record(peer.clone())?;
+    assert_eq!(exchange.record(peer.clone()), Err(KernelError::Journal));
     assert_eq!(
         exchange.answer(key).ok_or("no answer")?.record(),
         local.record()

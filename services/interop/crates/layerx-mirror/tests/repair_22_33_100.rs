@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 // Audit finding/test mapping and wiring requests: ../src/repair_22_33_100.kvx
 
 mod peer {
@@ -337,6 +341,7 @@ mod peer {
 
     impl TestRpc {
         pub fn new() -> Self {
+            super::test_network::isolate().unwrap_or_else(|e| panic!("private test network: {e}"));
             let documents = vec![fixture(); 3];
             let state = Arc::new(Mutex::new(PeerState {
                 head: 1000,

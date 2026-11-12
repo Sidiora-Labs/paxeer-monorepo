@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use serde_json::{json, Value};
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -104,6 +108,7 @@ fn answer_rpc(
 
 impl Gateway {
     pub(crate) fn start_with_chain_id(chain_id: Option<u64>) -> std::io::Result<Self> {
+        test_network::isolate()?;
         let mut ledger_calls = if chain_id.is_some() {
             let recording: Value =
                 serde_json::from_slice(&std::fs::read(fixtures().join("gateway/metered.json"))?)?;
