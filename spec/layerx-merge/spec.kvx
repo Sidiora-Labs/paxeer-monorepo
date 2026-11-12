@@ -13594,6 +13594,12 @@ value = "The paths of task 17.5.7 gain tools/workspace/platform-dependency-roots
 basis = "Gotcha 4329. Decision 3349."
 affects = []
 
+[decision.3414]
+title = "The decoder burst case runs a declared fraction of its rate under the race detector"
+value = "Under the race detector the complete workload case of services/launchpad/indexer/internal/decode keeps its duration and schedules its deliveries at the full rate divided by one constant, declared in a file that is built only with the race build tag. The constant is not above 4. The assertions on conservation, on zero drops and on the latency bound stay as they are. Without the race detector the case runs the full rate, so the test stage and the coverage stage keep the full workload. No other case changes its bounds."
+basis = "Gotchas 4330 and 4331."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -230455,6 +230461,7 @@ time_limit_minutes = 600
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3414, gotchas 4330 and 4331. Add one file with the race build tag and one without it to services/launchpad/indexer/internal/decode that declare the rate divisor of the complete workload case, 1 without the race detector and at most 4 with it, and let the case divide its scheduled rate by it. Keep the duration and every assertion. Name the divisor and the prerequisite track_commit_timestamp on for the source capacity cases in services/launchpad/indexer/repair_22_39_478.kvx. Change no other bound."
 
 [task.22.39.477]
 title = "Pass the race and coverage stages of the launchpad Makefile in the API module"

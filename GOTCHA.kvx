@@ -21470,3 +21470,13 @@ fix = "The intents crate gains the constructors those two files need, and the fi
 title = "The platform dependency inventory lists the resolved package files of the Swift samples"
 symptom = "The inventory check of scripts/workspace/check-platform-dependencies.sh compares the tracked manifests and resolved package files under services/platform with the rows of tools/workspace/platform-dependency-roots.txt. The Swift samples first-payment-swift and mobile-payment-ios each track a Package.resolved file next to their Package.swift."
 fix = "The inventory carries one row for every tracked Package.resolved file of the samples."
+
+[gotcha.4330]
+title = "The decoder burst case of the indexer module schedules its complete workload in every test stage"
+symptom = "The case of services/launchpad/indexer/internal/decode that schedules the complete five minute workload asserts that no delivery is dropped and that the latency bound holds. The race stage of the launchpad Makefile runs the same case with the race detector, under which the process runs several times slower on any machine."
+fix = "Under the race detector the case schedules a declared fraction of the rate and keeps every assertion."
+
+[gotcha.4331]
+title = "The source capacity cases of the indexer module read commit timestamps of the database"
+symptom = "The capacity measurement of services/launchpad/indexer/internal/source reads the setting track_commit_timestamp of PostgreSQL and refuses a database where it is off. Its cases run against the database of the test stage."
+fix = "The database of the test stage runs with track_commit_timestamp on, and the record of the module names the prerequisite."
