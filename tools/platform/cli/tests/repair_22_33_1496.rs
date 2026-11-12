@@ -1,14 +1,14 @@
 //! Task 22.33.1496 / audit 22.30.89. Finding -> executable proof:
-//! test_retired_endpoint_program_calls -> test_retired_endpoint_program_calls
-//! program_capture_path_gap -> program_capture_path_gap
-//! test_retired_endpoint_program_lifecycle -> test_retired_endpoint_program_lifecycle
-//! program_lifecycle_third_shape -> program_lifecycle_third_shape proves calldata,
+//! `test_retired_endpoint_program_calls` -> `test_retired_endpoint_program_calls`
+//! `program_capture_path_gap` -> `program_capture_path_gap`
+//! `test_retired_endpoint_program_lifecycle` -> `test_retired_endpoint_program_lifecycle`
+//! `program_lifecycle_third_shape` -> `program_lifecycle_third_shape` proves calldata,
 //! receipt authentication and ordinary-call refusal; lifecycle execution and
 //! resultant state still require the producer transcripts requested below.
-//! test_retired_endpoint_program_registry -> test_retired_endpoint_program_registry
-//! proof_rpc_expected_failure -> proof_rpc_expected_failure
-//! test_retired_endpoint_rpc_identity -> test_retired_endpoint_rpc_identity
-//! test_retired_endpoint_wallet_commands -> test_retired_endpoint_wallet_commands
+//! `test_retired_endpoint_program_registry` -> `test_retired_endpoint_program_registry`
+//! `proof_rpc_expected_failure` -> `proof_rpc_expected_failure`
+//! `test_retired_endpoint_rpc_identity` -> `test_retired_endpoint_rpc_identity`
+//! `test_retired_endpoint_wallet_commands` -> `test_retired_endpoint_wallet_commands`
 //!
 //! Baseline: no gate was run before implementation, as required by the explicit
 //! gate order; the new test target did not exist on the supplied base.
@@ -24,7 +24,7 @@
 //! state reads; the existing native-program-v4 vectors explicitly claim encoding
 //! only, and are not evidence of deployed execution. No lifecycle result is
 //! invented here to fill that missing producer interface.
-//! Wiring request (node/kernel, domains 1/2): rpc/sequencer_receipt_vectors_test.go
+//! Wiring request (node/kernel, domains 1/2): `rpc/sequencer_receipt_vectors_test.go`
 //! must publish a Programs revert as well as the existing Ledger revert; the
 //! latter is verified as a genuine revert and refused as lifecycle evidence.
 
@@ -59,25 +59,26 @@ fn bytes(value: &Value) -> Vec<u8> {
         "producer bytes",
         value
             .as_str()
-            .expect("hex string")
+            .unwrap_or_else(|| panic!("{}", "hex string"))
             .strip_prefix("0x")
-            .expect("hex prefix"),
+            .unwrap_or_else(|| panic!("{}", "hex prefix")),
     )
-    .expect("producer hex")
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "producer hex"))
 }
 
 fn case(id: &str) -> Value {
-    let corpus: Value = serde_json::from_str(CORPUS).expect("node producer corpus");
+    let corpus: Value = serde_json::from_str(CORPUS)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "node producer corpus"));
     assert_eq!(
         corpus["provenance"]["generator"],
         "rpc/sequencer_receipt_vectors_test.go"
     );
     corpus["cases"]
         .as_array()
-        .expect("producer cases")
+        .unwrap_or_else(|| panic!("{}", "producer cases"))
         .iter()
         .find(|case| case["id"] == id)
-        .expect("recorded node case")
+        .unwrap_or_else(|| panic!("{}", "recorded node case"))
         .clone()
 }
 
@@ -91,20 +92,37 @@ fn authentic(case: &Value) {
     assert_eq!(case["receiptJson"]["receipt"], case["signedReceipt"]);
     let pin = &case["pinnedKey"];
     let pins = [SequencerAuthorization::new(
-        bytes(&pin["keyId"]).try_into().expect("key id"),
-        bytes(&pin["publicKey"]).try_into().expect("public key"),
-        pin["firstHeight"].as_u64().expect("first height"),
-        pin["lastHeight"].as_u64().expect("last height"),
+        bytes(&pin["keyId"])
+            .try_into()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "key id")),
+        bytes(&pin["publicKey"])
+            .try_into()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "public key")),
+        pin["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{}", "first height")),
+        pin["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{}", "last height")),
     )];
     let receipt = bytes(&case["signedReceipt"]);
-    let verified = verify_sequencer_signature(&receipt, &pins)
-        .expect("independently pinned authentic node receipt");
+    let verified = verify_sequencer_signature(&receipt, &pins).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "independently pinned authentic node receipt"
+        )
+    });
     assert_eq!(
-        verified.protocol().expect("protocol receipt").activity_id(),
+        verified
+            .protocol()
+            .unwrap_or_else(|| panic!("{}", "protocol receipt"))
+            .activity_id(),
         transaction_hash(&raw)
     );
     let mut damaged = receipt;
-    *damaged.last_mut().expect("signature byte") ^= 1;
+    *damaged
+        .last_mut()
+        .unwrap_or_else(|| panic!("{}", "signature byte")) ^= 1;
     assert!(verify_sequencer_signature(&damaged, &pins).is_err());
 }
 
@@ -156,9 +174,17 @@ impl Transcript {
                 )
             })
             .collect();
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback peer");
-        let endpoint = format!("http://{}", listener.local_addr().expect("peer address"));
-        listener.set_nonblocking(true).expect("nonblocking peer");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback peer"));
+        let endpoint = format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "peer address"))
+        );
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking peer"));
         let observed = Arc::new(Mutex::new(Vec::new()));
         let seen = observed.clone();
         let stop = Arc::new(AtomicBool::new(false));
@@ -173,62 +199,27 @@ impl Transcript {
                     }
                     Err(error) => panic!("peer accept: {error}"),
                 };
-                socket
-                    .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("read deadline");
-                socket
-                    .set_write_timeout(Some(Duration::from_secs(3)))
-                    .expect("write deadline");
-                let mut reader = std::io::BufReader::new(socket);
-                let mut line = String::new();
-                assert!(reader.read_line(&mut line).expect("request line") > 0);
-                let request_path = line
-                    .split_whitespace()
-                    .nth(1)
-                    .expect("request path")
-                    .to_owned();
-                assert!(line.starts_with("POST "));
-                let mut length = None;
-                let mut bearer = None;
-                let mut header_bytes = line.len();
-                loop {
-                    line.clear();
-                    assert!(reader.read_line(&mut line).expect("header") > 0);
-                    header_bytes += line.len();
-                    assert!(header_bytes <= 16_384);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    let (key, value) = line.split_once(':').expect("header delimiter");
-                    if key.eq_ignore_ascii_case("content-length") {
-                        length = Some(value.trim().parse::<usize>().expect("content length"));
-                    }
-                    if key.eq_ignore_ascii_case("authorization") {
-                        bearer = Some(value.trim().to_owned());
-                    }
-                }
-                let length = length.expect("bounded body length");
-                assert!(length <= 4 * 1024 * 1024);
-                let mut body = vec![0; length];
-                reader.read_exact(&mut body).expect("request body");
-                let request: Value = serde_json::from_slice(&body).expect("RPC request");
-                assert_eq!(request["jsonrpc"], "2.0");
-                seen.lock().expect("observation lock").push(Observed {
-                    path: request_path.clone(),
-                    authorization: bearer.clone(),
-                    request: request.clone(),
-                });
+                let (mut reader, request_path, bearer, request) = read_transcript_request(socket);
+                seen.lock()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "observation lock"))
+                    .push(Observed {
+                        path: request_path.clone(),
+                        authorization: bearer.clone(),
+                        request: request.clone(),
+                    });
                 let (status, body) = if request_path != path {
                     (
                         404,
                         serde_json::to_vec(&json!({"error":"route absent"}))
-                            .expect("route refusal"),
+                            .unwrap_or_else(|error| panic!("{}: {error:?}", "route refusal")),
                     )
                 } else if bearer != authorization {
                     (
                         401,
                         serde_json::to_vec(&json!({"error":"authentication required"}))
-                            .expect("authentication refusal"),
+                            .unwrap_or_else(|error| {
+                                panic!("{}: {error:?}", "authentication refusal")
+                            }),
                     )
                 } else if capture.as_ref().is_some_and(|(method, params)| {
                     request["method"] == *method && request["params"] == *params
@@ -236,10 +227,13 @@ impl Transcript {
                     reader
                         .get_ref()
                         .shutdown(std::net::Shutdown::Both)
-                        .expect("drop captured reply");
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "drop captured reply"));
                     continue;
                 } else if let Some(result) = exchanges.get(&(
-                    request["method"].as_str().expect("RPC method").to_owned(),
+                    request["method"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "RPC method"))
+                        .to_owned(),
                     request["params"].to_string(),
                 )) {
                     (
@@ -247,14 +241,16 @@ impl Transcript {
                         serde_json::to_vec(
                             &json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
                         )
-                        .expect("recorded reply"),
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded reply")),
                     )
                 } else {
                     panic!("unrecorded producer operation: {request}");
                 };
                 let socket = reader.get_mut();
-                write!(socket, "HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("response header");
-                socket.write_all(&body).expect("response body");
+                write!(socket, "HTTP/1.1 {status} Reply\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "response header"));
+                socket
+                    .write_all(&body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "response body"));
             }
         });
         Self {
@@ -278,8 +274,82 @@ impl Transcript {
     }
 
     fn observations(&self) -> Vec<Observed> {
-        self.observed.lock().expect("observations").clone()
+        self.observed
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "observations"))
+            .clone()
     }
+}
+
+fn read_transcript_request(
+    socket: std::net::TcpStream,
+) -> (
+    std::io::BufReader<std::net::TcpStream>,
+    String,
+    Option<String>,
+    Value,
+) {
+    socket
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "read deadline"));
+    socket
+        .set_write_timeout(Some(Duration::from_secs(3)))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "write deadline"));
+    let mut reader = std::io::BufReader::new(socket);
+    let mut line = String::new();
+    assert!(
+        reader
+            .read_line(&mut line)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "request line"))
+            > 0
+    );
+    let request_path = line
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or_else(|| panic!("{}", "request path"))
+        .to_owned();
+    assert!(line.starts_with("POST "));
+    let mut length = None;
+    let mut bearer = None;
+    let mut header_bytes = line.len();
+    loop {
+        line.clear();
+        assert!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "header"))
+                > 0
+        );
+        header_bytes += line.len();
+        assert!(header_bytes <= 16_384);
+        if line == "\r\n" {
+            break;
+        }
+        let (key, value) = line
+            .split_once(':')
+            .unwrap_or_else(|| panic!("{}", "header delimiter"));
+        if key.eq_ignore_ascii_case("content-length") {
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "content length")),
+            );
+        }
+        if key.eq_ignore_ascii_case("authorization") {
+            bearer = Some(value.trim().to_owned());
+        }
+    }
+    let length = length.unwrap_or_else(|| panic!("{}", "bounded body length"));
+    assert!(length <= 4 * 1024 * 1024);
+    let mut body = vec![0; length];
+    reader
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
+    let request: Value = serde_json::from_slice(&body)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "RPC request"));
+    assert_eq!(request["jsonrpc"], "2.0");
+    (reader, request_path, bearer, request)
 }
 
 impl Drop for Transcript {
@@ -287,9 +357,9 @@ impl Drop for Transcript {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("peer worker")
+            .unwrap_or_else(|| panic!("{}", "peer worker"))
             .join()
-            .expect("peer assertions");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "peer assertions"));
     }
 }
 
@@ -310,7 +380,8 @@ fn switched_off(endpoint: &str) -> Proof {
         for client in [&node, &gateway] {
             let refusal = client
                 .call(method, &json!([]))
-                .expect_err("retired method must be refused before transport");
+                .err()
+                .unwrap_or_else(|| panic!("{}", "retired method must be refused before transport"));
             assert_eq!(
                 refusal,
                 format!("rpc_method_unavailable: {method} is switched off")
@@ -326,10 +397,18 @@ fn receipt_policy(recorded: &Value) -> layerx_sdk::rpc_verification::ReceiptPoli
         protocol_version: 2,
         network_id: 125,
         sequencer: layerx_proof::inclusion::SequencerAuthorization::new(
-            bytes(&pin["keyId"]).try_into().expect("key id"),
-            bytes(&pin["publicKey"]).try_into().expect("public key"),
-            pin["firstHeight"].as_u64().expect("decimal first height"),
-            pin["lastHeight"].as_u64().expect("decimal last height"),
+            bytes(&pin["keyId"])
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "key id")),
+            bytes(&pin["publicKey"])
+                .try_into()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "public key")),
+            pin["firstHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("{}", "decimal first height")),
+            pin["lastHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("{}", "decimal last height")),
         ),
         trusted_checkpoint_context_digest: None,
     }
@@ -350,7 +429,8 @@ fn authenticated_root_receipt(recorded: &Value) -> Proof {
     let unauthenticated = RpcClient::new(&peer.endpoint, None)?;
     let refused = unauthenticated
         .call("pax_sequencerReceipt", &params)
-        .expect_err("node authentication must be preserved");
+        .err()
+        .unwrap_or_else(|| panic!("{}", "node authentication must be preserved"));
     assert!(refused.contains("401"), "{refused}");
     let client = RpcClient::new(&peer.endpoint, Some(Zeroizing::new(credential.clone())))?;
     let returned = client.call("pax_sequencerReceipt", &params)?;
@@ -400,7 +480,9 @@ fn root_receipt() -> Proof {
     let cli = crate::http::Client::new(&peer.endpoint, None)?;
     let returned = programs::sequencer_receipt(
         &cli,
-        recorded["receiptJson"]["txHash"].as_str().expect("hash"),
+        recorded["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "hash")),
     )?;
     assert_eq!(
         returned, recorded["receiptJson"],
@@ -414,11 +496,21 @@ fn root_receipt() -> Proof {
     hosted_wallet()
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn test_retired_endpoint_program_calls() -> Proof {
     root_receipt()
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn program_capture_path_gap() -> Proof {
     let recorded = case(PROGRAM);
@@ -470,14 +562,19 @@ pub fn program_capture_path_gap() -> Proof {
     let answer = programs::rpc_call(
         &client,
         "eth_call",
-        json!([{"to":recorded["receiptJson"]["to"],"data":format!("0x{}", encoding::hex_encode(&simulated))},"pending"]),
+        &json!([{"to":recorded["receiptJson"]["to"],"data":format!("0x{}", encoding::hex_encode(&simulated))},"pending"]),
     )?;
     assert_eq!(programs::simulated_program_result(&answer)?, expected);
     let submitted = programs::submit_program_transaction(&client, &raw)?;
     assert_eq!(submitted["tx_hash"], recorded["receiptJson"]["txHash"]);
     assert_eq!(submitted["rung"], "submitted");
     assert_eq!(
-        programs::sequencer_receipt(&client, submitted["tx_hash"].as_str().expect("hash"))?,
+        programs::sequencer_receipt(
+            &client,
+            submitted["tx_hash"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "hash"))
+        )?,
         recorded["receiptJson"]
     );
     assert_eq!(peer.observations().len(), 3);
@@ -488,14 +585,14 @@ pub fn program_capture_path_gap() -> Proof {
     let revert_client = crate::http::Client::new(&revert_peer.endpoint, None)?;
     let hash = reverted["receiptJson"]["txHash"]
         .as_str()
-        .expect("reverted hash");
+        .unwrap_or_else(|| panic!("{}", "reverted hash"));
     let result = programs::sequencer_receipt(&revert_client, hash)?;
     assert_eq!(result, reverted["receiptJson"]);
     assert_eq!(result["status"], "0x0");
     assert_eq!(result["vmError"], "execution reverted");
     assert!(result["returnData"]
         .as_str()
-        .expect("Error(string)")
+        .unwrap_or_else(|| panic!("{}", "Error(string)"))
         .starts_with("0x08c379a0"));
     assert!(
         programs::simulated_program_result(&result["returnData"]).is_err(),
@@ -504,6 +601,11 @@ pub fn program_capture_path_gap() -> Proof {
     Ok(())
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn test_retired_endpoint_program_lifecycle() -> Proof {
     use layerx_crypto::evm_transaction::Eip1559Call;
@@ -541,7 +643,7 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
         let vector: Value = serde_json::from_str(source).map_err(|error| error.to_string())?;
         let payload = encoding::hex_decode(
             "lifecycle payload",
-            vector["payload_hex"].as_str().expect("producer payload"),
+            vector["payload_hex"].as_str().unwrap_or_else(|| panic!("{}", "producer payload")),
         )?;
         let data = programs::lifecycle_calldata(ordinal, &payload, fee)?;
         assert_eq!(
@@ -549,7 +651,7 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
             vector["evm"]["calldata"]
         );
         let transaction = Eip1559Call {
-            chain_id: vector["evm"]["chainId"].as_u64().expect("producer chain"),
+            chain_id: vector["evm"]["chainId"].as_u64().unwrap_or_else(|| panic!("{}", "producer chain")),
             nonce: 7,
             max_priority_fee_per_gas: 2,
             max_fee_per_gas: 200,
@@ -562,7 +664,7 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
         };
         let raw = programs::sign_program_transaction(
             &transaction,
-            account.evm_secret().expect("derived EVM secret"),
+            account.evm_secret().unwrap_or_else(|| panic!("{}", "derived EVM secret")),
             &account.evm_address(),
         )?;
         let params = json!([format!("0x{}", encoding::hex_encode(&raw))]);
@@ -584,7 +686,7 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
             assert_eq!(outcome["rung"], "unknown");
             let detail = outcome["detail"]
                 .as_str()
-                .expect("recoverable submission detail");
+                .unwrap_or_else(|| panic!("{}", "recoverable submission detail"));
             if key.as_deref() == Some(credential.as_str()) {
                 assert!(detail.contains("POST / failed:"), "{detail}");
                 assert!(!detail.contains("401"), "authenticated capture: {detail}");
@@ -594,32 +696,173 @@ pub fn test_retired_endpoint_program_lifecycle() -> Proof {
             assert!(outcome.get("receipt").is_none());
             expected_headers.push(key.map(|key| format!("LayerX-Key {key}")));
         }
-        let count = peer.observations().len();
-        switched_off(&peer.endpoint)?;
-        let seen = peer.observations();
-        assert_eq!(count, 3, "each lifecycle invocation sends exactly once");
-        assert_eq!(seen.len(), count, "lx_ refuses before lifecycle transport");
-        for (seen, authorization) in seen.iter().zip(expected_headers) {
-            assert_eq!(seen.path, "/");
-            assert_eq!(seen.authorization, authorization);
-            assert_eq!(
-                seen.request,
-                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":params})
-            );
-            let (sent, signature) = decode_signed(&bytes(&seen.request["params"][0]))
-                .map_err(|error| error.to_string())?;
-            assert_eq!(sent, transaction);
-            assert_eq!(
-                recover_sender(&sent, &signature).map_err(|error| error.to_string())?,
-                account.evm_address()
-            );
-        }
+        assert_lifecycle_capture(&peer, &params, &transaction, account.evm_address(), expected_headers)?;
     }
     hosted_wallet()
 }
 
+fn assert_lifecycle_capture(
+    peer: &Transcript,
+    params: &Value,
+    transaction: &layerx_crypto::evm_transaction::Eip1559Call,
+    signer: [u8; 20],
+    expected_headers: Vec<Option<String>>,
+) -> Proof {
+    let count = peer.observations().len();
+    switched_off(&peer.endpoint)?;
+    let seen = peer.observations();
+    assert_eq!(count, 3, "each lifecycle invocation sends exactly once");
+    assert_eq!(seen.len(), count, "lx_ refuses before lifecycle transport");
+    for (seen, authorization) in seen.iter().zip(expected_headers) {
+        assert_eq!(seen.path, "/");
+        assert_eq!(seen.authorization, authorization);
+        assert_eq!(
+            seen.request,
+            json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":params})
+        );
+        let (sent, signature) =
+            decode_signed(&bytes(&seen.request["params"][0])).map_err(|error| error.to_string())?;
+        assert_eq!(&sent, transaction);
+        assert_eq!(
+            recover_sender(&sent, &signature).map_err(|error| error.to_string())?,
+            signer
+        );
+    }
+    Ok(())
+}
+
+fn assert_revert_lifecycle(
+    hash: &str,
+    receipt: &Value,
+    policy: &layerx_sdk::rpc_verification::ReceiptPolicy,
+) {
+    assert_eq!(receipt["status"], "0x0");
+    assert_eq!(receipt["vmError"], "execution reverted");
+    assert!(receipt["returnData"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{}", "revert data"))
+        .starts_with("0x08c379a0"));
+    let refusal = programs::lifecycle_receipt_result_verified(hash, receipt, policy)
+        .err()
+        .unwrap_or_else(|| {
+            panic!(
+                "{}",
+                "a Ledger revert cannot authenticate a Programs lifecycle"
+            )
+        });
+    assert!(
+        refusal.contains("outside the Programs execution scope"),
+        "{refusal}"
+    );
+}
+
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn program_lifecycle_third_shape() -> Proof {
+    let lifecycle_topics = validated_lifecycle_topics()?;
+    // These are authentic execution receipts, not the old txHash/rung-only objects.
+    for id in [PROGRAM, REVERT] {
+        let recorded = case(id);
+        authentic(&recorded);
+        let peer = Transcript::receipt(&recorded);
+        let client = crate::http::Client::new(&peer.endpoint, None)?;
+        let hash = recorded["receiptJson"]["txHash"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "hash"));
+        let receipt = programs::sequencer_receipt(&client, hash)?;
+        assert_eq!(receipt, recorded["receiptJson"]);
+        let policy = receipt_policy(&recorded);
+        let (verified, canonical) = layerx_sdk::rpc_verification::verify_node_receipt(
+            &receipt,
+            transaction_hash(&bytes(&recorded["rawTransaction"])),
+            &policy,
+        )
+        .map_err(|e| format!("{e:?}"))?;
+        assert_eq!(canonical, bytes(&recorded["signedReceipt"]));
+        assert_eq!(
+            verified
+                .protocol()
+                .unwrap_or_else(|| panic!("{}", "execution facts"))
+                .result_code(),
+            i32::from(id == REVERT)
+        );
+        if id == REVERT {
+            assert_revert_lifecycle(hash, &receipt, &policy);
+        } else {
+            let raw = bytes(&recorded["rawTransaction"]);
+            let (call, signature) = decode_signed(&raw).map_err(|e| e.to_string())?;
+            assert_eq!(call.chain_id, 125);
+            assert_eq!(
+                format!("0x{}", encoding::hex_encode(&call.to)),
+                receipt["to"]
+            );
+            assert_eq!(
+                format!(
+                    "0x{}",
+                    encoding::hex_encode(
+                        &recover_sender(&call, &signature).map_err(|e| e.to_string())?
+                    )
+                ),
+                receipt["from"]
+            );
+            assert_eq!(
+                &call.data[..4],
+                &[0x54, 0xbd, 0x2b, 0x48],
+                "Programs call selector"
+            );
+            assert!(programs::lifecycle_event_topic(&call.data).is_err());
+            let logs = receipt["logs"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{}", "authenticated logs"));
+            assert_eq!(logs.len(), 1);
+            assert_eq!(
+                logs[0]["address"],
+                "0x000000000000000000000000000000000000101d"
+            );
+            assert_eq!(
+                logs[0]["topics"],
+                json!([
+                    "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
+                    format!("0x{}", encoding::hex_encode(&call.data[4..36])),
+                ]),
+                "ProgramCallOutcome for the called program"
+            );
+            let protocol = verified
+                .protocol()
+                .unwrap_or_else(|| panic!("{}", "authenticated Programs execution"));
+            assert_eq!(protocol.module_id(), 12);
+            assert_eq!(protocol.operation(), 2);
+            assert_eq!(receipt["status"], "0x1");
+            assert_eq!(receipt["vmError"], "");
+            let refusal = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)
+                .err()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{}",
+                        "an ordinary Programs call cannot prove lifecycle completion"
+                    )
+                });
+            assert!(
+                refusal.contains("omitted an authenticated program lifecycle event"),
+                "{refusal}"
+            );
+            assert_pending_and_tampered_lifecycle(
+                hash,
+                &receipt,
+                &policy,
+                canonical,
+                &lifecycle_topics,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn validated_lifecycle_topics() -> Result<Vec<&'static str>, String> {
     let mut lifecycle_topics = Vec::new();
     for (ordinal, fee, source) in [
         (
@@ -668,7 +911,7 @@ pub fn program_lifecycle_third_shape() -> Proof {
         let vector: Value = serde_json::from_str(source).map_err(|e| e.to_string())?;
         let payload = encoding::hex_decode(
             "lifecycle payload",
-            vector["payload_hex"].as_str().expect("unprefixed payload"),
+            vector["payload_hex"].as_str().unwrap_or_else(|| panic!("{}", "unprefixed payload")),
         )?;
         let calldata = programs::lifecycle_calldata(ordinal, &payload, fee)?;
         lifecycle_topics.push(programs::lifecycle_event_topic(&calldata)?);
@@ -677,158 +920,94 @@ pub fn program_lifecycle_third_shape() -> Proof {
             vector["evm"]["calldata"]
         );
     }
-    // These are authentic execution receipts, not the old txHash/rung-only objects.
-    for id in [PROGRAM, REVERT] {
-        let recorded = case(id);
-        authentic(&recorded);
-        let peer = Transcript::receipt(&recorded);
-        let client = crate::http::Client::new(&peer.endpoint, None)?;
-        let hash = recorded["receiptJson"]["txHash"].as_str().expect("hash");
-        let receipt = programs::sequencer_receipt(&client, hash)?;
-        assert_eq!(receipt, recorded["receiptJson"]);
-        let policy = receipt_policy(&recorded);
-        let (verified, canonical) = layerx_sdk::rpc_verification::verify_node_receipt(
-            &receipt,
-            transaction_hash(&bytes(&recorded["rawTransaction"])),
-            &policy,
-        )
-        .map_err(|e| format!("{e:?}"))?;
-        assert_eq!(canonical, bytes(&recorded["signedReceipt"]));
-        assert_eq!(
-            verified.protocol().expect("execution facts").result_code(),
-            if id == REVERT { 1 } else { 0 }
-        );
-        if id == REVERT {
-            assert_eq!(receipt["status"], "0x0");
-            assert_eq!(receipt["vmError"], "execution reverted");
-            assert!(receipt["returnData"]
-                .as_str()
-                .expect("revert data")
-                .starts_with("0x08c379a0"));
-            let refusal = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)
-                .expect_err("a Ledger revert cannot authenticate a Programs lifecycle");
-            assert!(
-                refusal.contains("outside the Programs execution scope"),
-                "{refusal}"
-            );
-        } else {
-            let raw = bytes(&recorded["rawTransaction"]);
-            let (call, signature) = decode_signed(&raw).map_err(|e| e.to_string())?;
-            assert_eq!(call.chain_id, 125);
-            assert_eq!(
-                format!("0x{}", encoding::hex_encode(&call.to)),
-                receipt["to"]
-            );
-            assert_eq!(
-                format!(
-                    "0x{}",
-                    encoding::hex_encode(
-                        &recover_sender(&call, &signature).map_err(|e| e.to_string())?
-                    )
-                ),
-                receipt["from"]
-            );
-            assert_eq!(
-                &call.data[..4],
-                &[0x54, 0xbd, 0x2b, 0x48],
-                "Programs call selector"
-            );
-            assert!(programs::lifecycle_event_topic(&call.data).is_err());
-            let logs = receipt["logs"].as_array().expect("authenticated logs");
-            assert_eq!(logs.len(), 1);
-            assert_eq!(
-                logs[0]["address"],
-                "0x000000000000000000000000000000000000101d"
-            );
-            assert_eq!(
-                logs[0]["topics"],
-                json!([
-                    "0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0",
-                    format!("0x{}", encoding::hex_encode(&call.data[4..36])),
-                ]),
-                "ProgramCallOutcome for the called program"
-            );
-            let protocol = verified
-                .protocol()
-                .expect("authenticated Programs execution");
-            assert_eq!(protocol.module_id(), 12);
-            assert_eq!(protocol.operation(), 2);
-            assert_eq!(receipt["status"], "0x1");
-            assert_eq!(receipt["vmError"], "");
-            let refusal = programs::lifecycle_receipt_result_verified(hash, &receipt, &policy)
-                .expect_err("an ordinary Programs call cannot prove lifecycle completion");
-            assert!(
-                refusal.contains("omitted an authenticated program lifecycle event"),
-                "{refusal}"
-            );
-            let pending = programs::lifecycle_receipt_result_verified(hash, &Value::Null, &policy)?;
-            assert_eq!(
-                pending,
-                json!({"txHash":hash,"rung":"submitted","state":"pending"})
-            );
-            let submitted = json!({"txHash":hash,"rung":"submitted"});
-            assert_eq!(
-                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
-                pending
-            );
-            let submitted = json!({"txHash":hash,"rung":"submitted","nonce":receipt["nonce"]});
-            assert_eq!(
-                programs::lifecycle_receipt_result_verified(hash, &submitted, &policy)?,
-                json!({"txHash":hash,"rung":"submitted","state":"pending","nonce":receipt["nonce"]})
-            );
-            assert!(programs::lifecycle_receipt_result_verified(
+    Ok(lifecycle_topics)
+}
+
+fn assert_pending_and_tampered_lifecycle(
+    hash: &str,
+    receipt: &Value,
+    policy: &layerx_sdk::rpc_verification::ReceiptPolicy,
+    canonical: Vec<u8>,
+    lifecycle_topics: &[&str],
+) -> Proof {
+    let pending = programs::lifecycle_receipt_result_verified(hash, &Value::Null, policy)?;
+    assert_eq!(
+        pending,
+        json!({"txHash":hash,"rung":"submitted","state":"pending"})
+    );
+    let submitted = json!({"txHash":hash,"rung":"submitted"});
+    assert_eq!(
+        programs::lifecycle_receipt_result_verified(hash, &submitted, policy)?,
+        pending
+    );
+    let submitted = json!({"txHash":hash,"rung":"submitted","nonce":receipt["nonce"]});
+    assert_eq!(
+        programs::lifecycle_receipt_result_verified(hash, &submitted, policy)?,
+        json!({"txHash":hash,"rung":"submitted","state":"pending","nonce":receipt["nonce"]})
+    );
+    assert!(programs::lifecycle_receipt_result_verified(
+        hash,
+        &json!({"txHash":hash,"rung":"submitted","nonce":"0x00"}),
+        policy,
+    )
+    .is_err());
+    for rung in ["receipted", "committed"] {
+        assert!(
+            programs::lifecycle_receipt_result_verified(
                 hash,
-                &json!({"txHash":hash,"rung":"submitted","nonce":"0x00"}),
-                &policy,
+                &json!({"txHash":hash,"rung":rung}),
+                policy,
             )
-            .is_err());
-            for rung in ["receipted", "committed"] {
-                assert!(
-                    programs::lifecycle_receipt_result_verified(
-                        hash,
-                        &json!({"txHash":hash,"rung":rung}),
-                        &policy,
-                    )
-                    .is_err(),
-                    "terminal labels are not authenticated execution"
-                );
-            }
-            let mut damaged = canonical;
-            *damaged.last_mut().expect("signature byte") ^= 1;
-            for (field, replacement) in [
-                ("status", json!("0x0")),
-                ("txHash", json!(format!("0x{}", "00".repeat(32)))),
-                (
-                    "receipt",
-                    json!(format!("0x{}", encoding::hex_encode(&damaged))),
-                ),
-            ] {
-                let mut changed = receipt.clone();
-                changed[field] = replacement;
-                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
-                    .expect_err("tampered execution facts must fail authentication");
-                assert!(
-                    refusal.contains("lifecycle receipt verification failed"),
-                    "{refusal}"
-                );
-            }
-            for topic in &lifecycle_topics {
-                let mut changed = receipt.clone();
-                changed["logs"][0]["topics"][0] = json!(format!("0x{topic}"));
-                let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, &policy)
-                    .expect_err(
-                        "relabelling a signed call log cannot authenticate a lifecycle event",
-                    );
-                assert!(
-                    refusal.contains("lifecycle receipt verification failed"),
-                    "{refusal}"
-                );
-            }
-        }
+            .is_err(),
+            "terminal labels are not authenticated execution"
+        );
+    }
+    let mut damaged = canonical;
+    *damaged
+        .last_mut()
+        .unwrap_or_else(|| panic!("{}", "signature byte")) ^= 1;
+    for (field, replacement) in [
+        ("status", json!("0x0")),
+        ("txHash", json!(format!("0x{}", "00".repeat(32)))),
+        (
+            "receipt",
+            json!(format!("0x{}", encoding::hex_encode(&damaged))),
+        ),
+    ] {
+        let mut changed = (*receipt).clone();
+        changed[field] = replacement;
+        let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, policy)
+            .err()
+            .unwrap_or_else(|| panic!("{}", "tampered execution facts must fail authentication"));
+        assert!(
+            refusal.contains("lifecycle receipt verification failed"),
+            "{refusal}"
+        );
+    }
+    for topic in lifecycle_topics {
+        let mut changed = (*receipt).clone();
+        changed["logs"][0]["topics"][0] = json!(format!("0x{topic}"));
+        let refusal = programs::lifecycle_receipt_result_verified(hash, &changed, policy)
+            .err()
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}",
+                    "relabelling a signed call log cannot authenticate a lifecycle event",
+                )
+            });
+        assert!(
+            refusal.contains("lifecycle receipt verification failed"),
+            "{refusal}"
+        );
     }
     Ok(())
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn test_retired_endpoint_program_registry() -> Proof {
     let recorded_head: Value = serde_json::from_str(include_str!(
@@ -849,46 +1028,13 @@ pub fn test_retired_endpoint_program_registry() -> Proof {
         assert_eq!(
             record["responses"]
                 .as_array()
-                .expect("recorded responses")
+                .unwrap_or_else(|| panic!("{}", "recorded responses"))
                 .len(),
             1
         );
         assert_eq!(record["responses"][0]["match"], json!([]));
     }
-    let head_result = recorded_head["responses"][0]["result"].clone();
-    let head = u64::from_str_radix(
-        head_result
-            .as_str()
-            .expect("recorded head")
-            .strip_prefix("0x")
-            .expect("quantity prefix"),
-        16,
-    )
-    .map_err(|error| error.to_string())?;
-    let logs = recorded_logs["responses"][0]["result"].clone();
-    assert_eq!(logs, json!([]));
-    let mut exchanges = vec![Exchange {
-        method: "eth_blockNumber",
-        params: json!([]),
-        result: head_result,
-    }];
-    let mut upper = head;
-    loop {
-        let lower = upper.saturating_sub(1999);
-        exchanges.push(Exchange {
-            method: "eth_getLogs",
-            params: json!([{
-                "address":"0x000000000000000000000000000000000000101d",
-                "fromBlock":format!("0x{lower:x}"), "toBlock":format!("0x{upper:x}"),
-                "topics":["0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"]
-            }]),
-            result: logs.clone(),
-        });
-        if lower == 0 {
-            break;
-        }
-        upper = lower - 1;
-    }
+    let (head, logs, exchanges) = registry_exchanges(&recorded_head, &recorded_logs)?;
     let credential = format!("registry:lxp_live_{}", "e".repeat(64));
     let invalid = format!("registry:lxp_live_{}", "f".repeat(64));
     let peer = Transcript::start(
@@ -901,8 +1047,9 @@ pub fn test_retired_endpoint_program_registry() -> Proof {
             Some(key) => http::Client::new_gateway(&peer.endpoint, Zeroizing::new(key))?,
             None => http::Client::new(&peer.endpoint, None)?,
         };
-        let refusal =
-            programs::registry_list(&client).expect_err("registry requires node authentication");
+        let refusal = programs::registry_list(&client)
+            .err()
+            .unwrap_or_else(|| panic!("{}", "registry requires node authentication"));
         assert!(refusal.contains("401"), "{refusal}");
     }
     let client = http::Client::new_gateway(&peer.endpoint, Zeroizing::new(credential.clone()))?;
@@ -942,22 +1089,75 @@ pub fn test_retired_endpoint_program_registry() -> Proof {
     hosted_wallet()
 }
 
+fn registry_exchanges(
+    recorded_head: &Value,
+    recorded_logs: &Value,
+) -> Result<(u64, Value, Vec<Exchange>), String> {
+    let head_result = recorded_head["responses"][0]["result"].clone();
+    let head = u64::from_str_radix(
+        head_result
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "recorded head"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("{}", "quantity prefix")),
+        16,
+    )
+    .map_err(|error| error.to_string())?;
+    let logs = recorded_logs["responses"][0]["result"].clone();
+    assert_eq!(logs, json!([]));
+    let mut exchanges = vec![Exchange {
+        method: "eth_blockNumber",
+        params: json!([]),
+        result: head_result,
+    }];
+    let mut upper = head;
+    loop {
+        let lower = upper.saturating_sub(1999);
+        exchanges.push(Exchange {
+            method: "eth_getLogs",
+            params: json!([{
+                "address":"0x000000000000000000000000000000000000101d",
+                "fromBlock":format!("0x{lower:x}"), "toBlock":format!("0x{upper:x}"),
+                "topics":["0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"]
+            }]),
+            result: logs.clone(),
+        });
+        if lower == 0 {
+            break;
+        }
+        upper = lower - 1;
+    }
+    Ok((head, logs, exchanges))
+}
+
+fn assert_service_observations(
+    service: &Transcript,
+    did: &str,
+    invalid_key: &str,
+    service_key: &str,
+) {
+    let seen = service.observations();
+    assert_eq!(
+        seen.len(),
+        3,
+        "retired and root-hosted methods must refuse before transport"
+    );
+    for (seen, authorization) in seen.iter().zip([
+        None,
+        Some(format!("LayerX-Key {invalid_key}")),
+        Some(format!("LayerX-Key {service_key}")),
+    ]) {
+        assert_eq!(seen.path, "/services/wallet");
+        assert_eq!(seen.authorization, authorization);
+        assert_eq!(
+            seen.request,
+            json!({"jsonrpc":"2.0", "id":1, "method":"px_getBalances", "params":[did]})
+        );
+    }
+}
+
 fn hosted_wallet() -> Proof {
-    let vectors: Value = serde_json::from_str(include_str!(
-        "../../../../services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
-    ))
-    .map_err(|e| e.to_string())?;
-    let vector = vectors["cases"]
-        .as_array()
-        .expect("bank ABI cases")
-        .iter()
-        .find(|v| v["name"] == "bank.all_balances")
-        .expect("committed bank producer");
-    let rows = wallet_gateway::evm::decode_coins(&encoding::hex_decode(
-        "bank ABI result",
-        vector["result"].as_str().expect("unprefixed bank ABI hex"),
-    )?).map_err(|e| format!("{e:?}"))?.into_iter()
-        .map(|(denom, amount)| json!({"denom":denom, "amount":wallet_gateway::evm::uint256_decimal(&amount)})).collect();
+    let (rows, expected_balances) = bank_fixture()?;
     let did = format!("did:layerx:{}", "61".repeat(32));
     let account = wallet_gateway::account_document(
         Some([0x42; 20]),
@@ -984,7 +1184,7 @@ fn hosted_wallet() -> Proof {
     )?;
     let rendered = wallet_reads::balances(response["result"].clone(), &did, None)?;
     assert_eq!(rendered, output);
-    assert_eq!(rendered["balances"], vector["out"]["response"]);
+    assert_eq!(rendered["balances"], expected_balances);
     let uncredentialed = crate::http::Client::new(&peer.endpoint, None)?;
     let refused = uncredentialed
         .post(
@@ -992,7 +1192,8 @@ fn hosted_wallet() -> Proof {
             &json!({"jsonrpc":"2.0","id":1,"method":"px_getBalances","params":[did]}),
             None,
         )
-        .expect_err("hosted service needs authentication");
+        .err()
+        .unwrap_or_else(|| panic!("{}", "hosted service needs authentication"));
     assert!(refused.contains("401"), "{refused}");
     switched_off(&peer.endpoint)?;
     assert_eq!(
@@ -1015,7 +1216,8 @@ fn hosted_wallet() -> Proof {
     let node = RpcClient::new(&service.endpoint, None)?;
     let refused = node
         .call("px_requestFunds", &json!([did, "61".repeat(32)]))
-        .expect_err("hosted method needs an explicit service route");
+        .err()
+        .unwrap_or_else(|| panic!("{}", "hosted method needs an explicit service route"));
     assert!(
         refused.starts_with("gateway_endpoint_required:"),
         "{refused}"
@@ -1031,7 +1233,8 @@ fn hosted_wallet() -> Proof {
         };
         let refused = client
             .post("/services/wallet", &request, None)
-            .expect_err("service authentication required");
+            .err()
+            .unwrap_or_else(|| panic!("{}", "service authentication required"));
         assert!(refused.contains("401"), "{refused}");
     }
     let client = http::Client::new_gateway(&service.endpoint, Zeroizing::new(service_key.clone()))?;
@@ -1041,33 +1244,45 @@ fn hosted_wallet() -> Proof {
         output
     );
     switched_off(&service.endpoint)?;
-    let seen = service.observations();
-    assert_eq!(
-        seen.len(),
-        3,
-        "retired and root-hosted methods must refuse before transport"
-    );
-    for (seen, authorization) in seen.iter().zip([
-        None,
-        Some(format!("LayerX-Key {invalid_key}")),
-        Some(format!("LayerX-Key {service_key}")),
-    ]) {
-        assert_eq!(seen.path, "/services/wallet");
-        assert_eq!(seen.authorization, authorization);
-        assert_eq!(
-            seen.request,
-            json!({"jsonrpc":"2.0", "id":1, "method":"px_getBalances", "params":[did]})
-        );
-    }
+    assert_service_observations(&service, &did, &invalid_key, &service_key);
     Ok(())
 }
 
+fn bank_fixture() -> Result<(Vec<Value>, Value), String> {
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../../services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
+    ))
+    .map_err(|e| e.to_string())?;
+    let vector = vectors["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", "bank ABI cases"))
+        .iter()
+        .find(|v| v["name"] == "bank.all_balances")
+        .unwrap_or_else(|| panic!("{}", "committed bank producer"));
+    let rows = wallet_gateway::evm::decode_coins(&encoding::hex_decode(
+        "bank ABI result",
+        vector["result"].as_str().unwrap_or_else(|| panic!("{}", "unprefixed bank ABI hex")),
+    )?).map_err(|e| format!("{e:?}"))?.into_iter()
+        .map(|(denom, amount)| json!({"denom":denom, "amount":wallet_gateway::evm::uint256_decimal(&amount)})).collect::<Vec<Value>>();
+    Ok((rows, vector["out"]["response"].clone()))
+}
+
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn proof_rpc_expected_failure() -> Proof {
     hosted_wallet()?;
     root_receipt()
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn test_retired_endpoint_rpc_identity() -> Proof {
     let recorded = case(PROGRAM);
@@ -1084,6 +1299,11 @@ pub fn test_retired_endpoint_rpc_identity() -> Proof {
     hosted_wallet()
 }
 
+/// # Errors
+/// Returns an error if the CLI or receipt response violates its contract.
+///
+/// # Panics
+/// Panics if a required fixture assertion is false.
 #[test]
 pub fn test_retired_endpoint_wallet_commands() -> Proof {
     hosted_wallet()?;
