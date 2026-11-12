@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -275,6 +279,7 @@ fn serve_rpc(
 
 impl TestRpc {
     pub fn new(documents: Vec<Value>) -> Self {
+        test_network::isolate().unwrap_or_else(|e| panic!("private test network: {e}"));
         let directory = std::env::temp_dir().join(format!(
             "layerx-committed-{}-{}",
             std::process::id(),

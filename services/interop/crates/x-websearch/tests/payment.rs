@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::error::Error;
 use std::fmt::Write as _;
 use std::io::{Read as _, Write as _};
@@ -244,6 +248,7 @@ impl Gateway {
     }
 
     fn listen(rules: Vec<Rule>) -> Outcome<Self> {
+        test_network::isolate()?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let rules = Arc::new(Mutex::new(rules));
