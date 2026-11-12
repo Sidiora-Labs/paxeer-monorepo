@@ -290701,7 +290701,7 @@ do_7 = "do_7 Decision 3411, gotcha 4327. Add to the ignore list of programs/deny
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440"]
