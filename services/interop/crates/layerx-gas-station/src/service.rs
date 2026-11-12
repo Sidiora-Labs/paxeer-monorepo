@@ -545,30 +545,14 @@ where
             }
         }
         let local_now = self.now()?;
-        if deadline < local_now
-            && self
-                .station
-                .journal()
-                .state()
-                .items
-                .get(&key)
-                .is_some_and(|item| item.submission.is_none() && item.completion.is_none())
-        {
+        if deadline < local_now && self.quote_unsubmitted(key) {
             return Err(ServiceError::ExpiredQuote);
         }
         let now = self
             .station
             .chain_time()
             .map_err(|error| ServiceError::from(&error))?;
-        if deadline < now
-            && self
-                .station
-                .journal()
-                .state()
-                .items
-                .get(&key)
-                .is_some_and(|item| item.submission.is_none() && item.completion.is_none())
-        {
+        if deadline < now && self.quote_unsubmitted(key) {
             return Err(ServiceError::ExpiredQuote);
         }
         let progress = self
@@ -585,6 +569,15 @@ where
             )
             .map_err(|error| ServiceError::from(&error))?;
         self.submission_rung(key, progress)
+    }
+
+    fn quote_unsubmitted(&self, key: Key) -> bool {
+        self.station
+            .journal()
+            .state()
+            .items
+            .get(&key)
+            .is_some_and(|item| item.submission.is_none() && item.completion.is_none())
     }
 
     /// Answers a submission at the rung the sequencer holds it: receipted or

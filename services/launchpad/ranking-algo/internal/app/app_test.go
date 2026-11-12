@@ -316,6 +316,46 @@ func TestNewServesAndRanks(t *testing.T) {
 			t.Fatal("runtime document pin mismatch admitted")
 		}
 	})
+	t.Run("runtime binding fields", func(t *testing.T) {
+		for _, tc := range []struct {
+			name   string
+			change func(*config.RankingRuntimeBinding)
+		}{
+			{"gateway identity", func(b *config.RankingRuntimeBinding) { b.GatewayDNS = "" }},
+			{"CA document", func(b *config.RankingRuntimeBinding) { b.CASHA256 = strings.Repeat("0", 64) }},
+			{"client certificate", func(b *config.RankingRuntimeBinding) { b.ClientCertSHA256 = strings.Repeat("0", 64) }},
+			{"client key", func(b *config.RankingRuntimeBinding) { b.ClientKeyReference = "RANKING_ABSENT_CLIENT_KEY" }},
+			{"visibility endpoint", func(b *config.RankingRuntimeBinding) {
+				b.VisibilityEndpoint = strings.Replace(b.VisibilityEndpoint, "https://", "http://", 1)
+			}},
+			{"server certificate", func(b *config.RankingRuntimeBinding) { b.ServerCertSHA256 = strings.Repeat("0", 64) }},
+			{"server key", func(b *config.RankingRuntimeBinding) { b.ServerKeyReference = "RANKING_ABSENT_SERVER_KEY" }},
+			{"recovery schema", func(b *config.RankingRuntimeBinding) { b.RecoverySchema = "invalid-schema" }},
+			{"source schema", func(b *config.RankingRuntimeBinding) { b.SourceSchema = "invalid-schema" }},
+			{"ranking schema", func(b *config.RankingRuntimeBinding) { b.RankingSchema = "invalid-schema" }},
+			{"cache namespace", func(b *config.RankingRuntimeBinding) { b.CacheNamespace = "!" }},
+			{"cursor secret", func(b *config.RankingRuntimeBinding) { b.CursorKeyReference = "RANKING_ABSENT_CURSOR_KEY" }},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				changed := binding
+				tc.change(&changed)
+				raw, err := json.Marshal(changed)
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg, err := config.Load()
+				if err != nil {
+					t.Fatal(err)
+				}
+				cfg.RankingRuntimeFile = filepath.Join(t.TempDir(), "ranking-runtime.json")
+				cfg.RankingRuntimeSHA256 = writeBound(t, cfg.RankingRuntimeFile, raw)
+				if instance, err := New(ctx, cfg, quietLogger()); err == nil {
+					instance.Close()
+					t.Fatal("invalid runtime binding accepted")
+				}
+			})
+		}
+	})
 
 	runCtx, stop := context.WithCancel(ctx)
 	done := make(chan error, 1)
@@ -409,6 +449,9 @@ func TestNewServesAndRanks(t *testing.T) {
 		if code, _ := get(observerClient, "/health/ready"); code != http.StatusServiceUnavailable {
 			t.Fatalf("health/ready without visibility = %d, want 503", code)
 		}
+		if code, body := get(gatewayClient, "/internal/v2/rankings/inputs"); code != http.StatusServiceUnavailable || body["code"] != "RANKING_INPUT_UNAVAILABLE" {
+			t.Fatalf("ranking inputs without visibility = %d %v", code, body)
+		}
 	})
 
 	t.Run("publishes and becomes ready", func(t *testing.T) {
@@ -448,6 +491,16 @@ func TestNewServesAndRanks(t *testing.T) {
 			if code, body := get(gatewayClient, "/rankings/"+category); code != http.StatusOK {
 				t.Fatalf("%s = %d %v", category, code, body)
 			}
+		}
+		response, err := gatewayClient.Get(base + "/internal/v2/rankings/inputs") //nolint:noctx // bounded client timeout
+		if err != nil {
+			t.Fatal(err)
+		}
+		var input ranker.InputSnapshot
+		decodeErr := json.NewDecoder(response.Body).Decode(&input)
+		closeErr := response.Body.Close()
+		if decodeErr != nil || closeErr != nil || response.StatusCode != http.StatusOK || response.Header.Get("Cache-Control") != "no-store" || !input.Complete || len(input.Candidates) != 1 {
+			t.Fatalf("complete ranking inputs: status %d, input %+v, decode %v, close %v", response.StatusCode, input, decodeErr, closeErr)
 		}
 	})
 

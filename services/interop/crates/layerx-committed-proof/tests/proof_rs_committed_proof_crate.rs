@@ -1,14 +1,14 @@
-//! Proves: Header::hash/merkle::root/verify_commit/verify_receipted -> public CommittedProof/digest -> committed::verify_committed/CommittedBlock.
+//! Proves: `Header::hash/merkle::root/verify_commit/verify_receipted` -> public CommittedProof/digest -> `committed::verify_committed/CommittedBlock`.
 //!
 //! Signed inputs are emitted by daemon/committed-fixture/vector_v4.go::recordV4
-//! and rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors, then
+//! and `rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors`, then
 //! decoded into the public Rust types without replacing any verifier or transport.
 //! This stateless boundary is crossed afresh twice, with refusals between reads.
 //!
 //! Repairs services/interop/crates/layerx-committed-proof/src/lib.rs::verify_header:
-//! a malformed producer timestamp previously panicked inside Header::hash; public
-//! verification must return ProofError::InvalidCommit. Header hashing and commit
-//! verification now share Timestamp::is_valid so their encoding bounds agree.
+//! a malformed producer timestamp previously panicked inside `Header::hash`; public
+//! verification must return `ProofError::InvalidCommit`. Header hashing and commit
+//! verification now share `Timestamp::is_valid` so their encoding bounds agree.
 
 use layerx_committed_proof::{
     commit::{verify_commit, BlockIdFlag, Commit, CommitSig},
@@ -162,7 +162,14 @@ fn proof(case: &Value) -> CommittedProof {
         batch_index: number(batch, "index"),
         batch_aunts: array(batch, "aunts")
             .iter()
-            .map(|aunt| hex_bytes(aunt.as_str().unwrap()).try_into().unwrap())
+            .map(|aunt| {
+                hex_bytes(
+                    aunt.as_str()
+                        .unwrap_or_else(|| panic!("expected Some value")),
+                )
+                .try_into()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            })
             .collect(),
         signed_receipt: bytes(case, "signedReceipt"),
         activity_ids: vec![fixed(&case["receiptJson"], "txHash")],
@@ -193,11 +200,51 @@ fn committed_digest(case: &Value, proof: &CommittedProof) -> Result<[u8; 32], Pr
     layerx_committed_proof::verify_committed(
         &bytes(case, "rawTransaction"),
         &proof.signed_receipt,
-        &serde_json::to_vec(&case["receiptJson"]).unwrap(),
+        &serde_json::to_vec(&case["receiptJson"])
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         fixed(case, "prevSeqHash"),
         &pins(case),
         proof.execution_header.hash(),
     )
+}
+
+fn assert_malformed_proofs(
+    case: &Value,
+    produced: &CommittedProof,
+    set: &[Validator],
+    chain: &str,
+    digest: [u8; 32],
+    expected: CommittedBlock,
+) {
+    let mut wrong_signer = (*produced).clone();
+    wrong_signer.commit.signatures[0]
+        .signature
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected Some value"))[0] ^= 1;
+    assert_eq!(
+        verify_committed(digest, &wrong_signer, set, chain),
+        Err(ProofError::InvalidCommitSignature)
+    );
+    let mut malformed = (*produced).clone();
+    malformed.batch_aunts.clear();
+    assert_eq!(
+        verify_committed(digest, &malformed, set, chain),
+        Err(ProofError::InvalidProof)
+    );
+    let mut malformed = (*produced).clone();
+    malformed.signed_receipt.truncate(68);
+    assert_eq!(
+        committed_digest(case, &malformed),
+        Err(ProofError::InvalidReceipt)
+    );
+    assert_eq!(
+        verify_committed(digest, &malformed, set, chain),
+        Err(ProofError::InvalidReceipt)
+    );
+    // A failed input never poisons the next complete verification.
+    let digest = committed_digest(case, produced)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    assert_eq!(verify_committed(digest, produced, set, chain), Ok(expected));
 }
 
 #[test]
@@ -205,20 +252,22 @@ fn proof_rs_committed_proof_crate() {
     // Each iteration decodes new producer bytes and calls all public functions;
     // neither the authenticated digest nor the committed result is reused.
     for _ in 0..2 {
-        let vectors: Value = serde_json::from_str(VECTORS).unwrap();
-        let recording: Value = serde_json::from_slice(RECORDING).unwrap();
+        let vectors: Value = serde_json::from_str(VECTORS)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        let recording: Value = serde_json::from_slice(RECORDING)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let source_hash: [u8; 32] = Sha256::digest(RECORDING).into();
         let recorded_hash: [u8; 32] = hex_bytes(&format!(
             "0x{}",
             string(&vectors["provenance"], "sourceSha256")
         ))
         .try_into()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(source_hash, recorded_hash);
         let case = array(&vectors, "cases")
             .iter()
             .find(|case| string(case, "id") == "committed-payExact")
-            .unwrap();
+            .unwrap_or_else(|| panic!("expected Some value"));
         assert_eq!(case["receiptJson"], recording["settlement"]["receipt"]);
         assert_eq!(case["signedReceipt"], recording["positive"]["receipt"]);
         assert_eq!(
@@ -237,7 +286,7 @@ fn proof_rs_committed_proof_crate() {
         );
         assert_eq!(
             set.iter()
-                .map(|validator| validator.voting_power as u64)
+                .map(|validator| u64::from_ne_bytes((validator.voting_power).to_ne_bytes()))
                 .sum::<u64>(),
             number(&case["expected"], "power")
         );
@@ -264,10 +313,15 @@ fn proof_rs_committed_proof_crate() {
                 chain,
                 &set,
                 produced.header.hash(),
-                produced.header.height.try_into().unwrap(),
+                produced
+                    .header
+                    .height
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
                 &produced.commit
             ),
-            Ok(number(&case["expected"], "power") - set[1].voting_power as u64),
+            Ok(number(&case["expected"], "power")
+                - u64::from_ne_bytes((set[1].voting_power).to_ne_bytes())),
         );
         assert_eq!(
             verify_proof(
@@ -279,63 +333,37 @@ fn proof_rs_committed_proof_crate() {
             ),
             Ok(())
         );
-        let digest = committed_digest(case, &produced).unwrap();
+        let digest = committed_digest(case, &produced)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         // This exact producer return value crosses the public Rust API.
         assert_eq!(
             verify_committed(digest, &produced, &set, chain),
             Ok(expected)
         );
 
-        let mut wrong_signer = produced.clone();
-        wrong_signer.commit.signatures[0]
-            .signature
-            .as_mut()
-            .unwrap()[0] ^= 1;
-        assert_eq!(
-            verify_committed(digest, &wrong_signer, &set, chain),
-            Err(ProofError::InvalidCommitSignature)
-        );
-        let mut malformed = produced.clone();
-        malformed.batch_aunts.clear();
-        assert_eq!(
-            verify_committed(digest, &malformed, &set, chain),
-            Err(ProofError::InvalidProof)
-        );
-        let mut malformed = produced.clone();
-        malformed.signed_receipt.truncate(68);
-        assert_eq!(
-            committed_digest(case, &malformed),
-            Err(ProofError::InvalidReceipt)
-        );
-        assert_eq!(
-            verify_committed(digest, &malformed, &set, chain),
-            Err(ProofError::InvalidReceipt)
-        );
-        // A failed input never poisons the next complete verification.
-        let digest = committed_digest(case, &produced).unwrap();
-        assert_eq!(
-            verify_committed(digest, &produced, &set, chain),
-            Ok(expected)
-        );
+        assert_malformed_proofs(case, &produced, &set, chain, digest, expected);
     }
 }
 
 #[test]
 fn proof_rs_receipted_producer_digest_crosses_public_boundary_twice() {
     for _ in 0..2 {
-        let receipts: Value = serde_json::from_str(RECEIPTS).unwrap();
+        let receipts: Value = serde_json::from_str(RECEIPTS)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let case = array(&receipts, "cases")
             .iter()
             .find(|case| string(case, "id") == "V1-layerxledger-pay-exact")
-            .unwrap();
+            .unwrap_or_else(|| panic!("expected Some value"));
         let raw = bytes(case, "rawTransaction");
         let receipt = bytes(case, "signedReceipt");
-        let view = serde_json::to_vec(&case["receiptJson"]).unwrap();
+        let view = serde_json::to_vec(&case["receiptJson"])
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let previous = fixed(case, "prevSeqHash");
         let keys = pins(case);
         let authenticate =
             |receipt: &[u8], view: &[u8]| verify_receipted(&raw, receipt, view, previous, &keys);
-        let digest = authenticate(&receipt, &view).unwrap();
+        let digest = authenticate(&receipt, &view)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(digest, fixed(case, "receiptDigest"));
         // A digest returned by the public receipt verifier is usable directly
         // by the public Merkle producer and inclusion consumer.
@@ -367,15 +395,17 @@ fn proof_rs_receipted_producer_digest_crosses_public_boundary_twice() {
 
 #[test]
 fn proof_rs_malformed_producer_timestamps_are_refused_without_panicking() {
-    let vectors: Value = serde_json::from_str(VECTORS).unwrap();
+    let vectors: Value = serde_json::from_str(VECTORS)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let case = array(&vectors, "cases")
         .iter()
         .find(|case| string(case, "id") == "committed-payExact")
-        .unwrap();
+        .unwrap_or_else(|| panic!("expected Some value"));
     let valid = proof(case);
     let set = validators(case);
     let chain = string(&vectors["provenance"], "chainId");
-    let digest = committed_digest(case, &valid).unwrap();
+    let digest = committed_digest(case, &valid)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     for time in [
         Timestamp {
             seconds: -62_135_596_801,
@@ -417,7 +447,11 @@ fn proof_rs_malformed_producer_timestamps_are_refused_without_panicking() {
                 chain,
                 &set,
                 valid.header.hash(),
-                valid.header.height.try_into().unwrap(),
+                valid
+                    .header
+                    .height
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
                 &malformed
             ),
             Err(ProofError::InvalidCommit)

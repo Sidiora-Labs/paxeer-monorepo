@@ -1,11 +1,11 @@
 //! Task 22.31.165 repair record (audit 22.30.111, decision 2515).
-//! Finding 1: finding_1_facilitator_evidence_crosses_every_transport.
-//! Finding 2: finding_2_subscription_seller_capture_binds_grant_purpose_reference.
-//! Finding 3: finding_3_identifiers_share_the_model_parser.
-//! Finding 4: finding_4_consensus_requires_independent_authority_and_transitions.
-//! Finding 8: finding_8_every_advertised_scheme_settles_native_output.
+//! Finding 1: `finding_1_facilitator_evidence_crosses_every_transport`.
+//! Finding 2: `finding_2_subscription_seller_capture_binds_grant_purpose_reference`.
+//! Finding 3: `finding_3_identifiers_share_the_model_parser`.
+//! Finding 4: `finding_4_consensus_requires_independent_authority_and_transitions`.
+//! Finding 8: `finding_8_every_advertised_scheme_settles_native_output`.
 //! Baseline: not run; the mandatory implementation-first gate order forbids the
-//! contradictory do_9 baseline run. None of these tests existed on the base.
+//! contradictory `do_9` baseline run. None of these tests existed on the base.
 //! Wiring request: services/interop/crates/layerx-interop-service/src (domain 11)
 //! must provision independently authenticated per-network consensus checkpoints
 //! and advance them with signed successors before using committed buyer capture.
@@ -71,12 +71,20 @@ const TRANSPORTS: [TransportKind; 3] =
     [TransportKind::Http, TransportKind::Mcp, TransportKind::A2a];
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
 }
 
 fn word(text: &str) -> [u8; 32] {
     assert_eq!(text.len(), 64);
-    std::array::from_fn(|index| u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).unwrap())
+    std::array::from_fn(|index| {
+        u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).or_panic("expected Ok value")
+    })
 }
 
 fn offer(scheme: &str) -> PaymentRequirements {
@@ -89,7 +97,7 @@ fn offer(scheme: &str) -> PaymentRequirements {
         network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(1000),
         asset: hex(&ASSET),
-        pay_to: hex(&account_identifiers(ACCOUNT).unwrap()[1]),
+        pay_to: hex(&account_identifiers(ACCOUNT).or_panic("expected Ok value")[1]),
         max_timeout_seconds: 90,
         extra: Some(json!({"layerx": profile})),
     }
@@ -106,9 +114,11 @@ fn payment(accepted: PaymentRequirements, reference: [u8; 32]) -> BuiltPayment {
         }),
         extensions: BTreeMap::new(),
     };
-    payload.validate().unwrap();
+    payload.validate().or_panic("expected Ok value");
     BuiltPayment {
-        header: header_value(encode_payment_payload(TransportKind::Http, &payload).unwrap()),
+        header: header_value(
+            encode_payment_payload(TransportKind::Http, &payload).or_panic("expected Ok value"),
+        ),
         payload,
         idempotency_key: reference,
     }
@@ -136,7 +146,7 @@ fn payment_log(scheme: &str, reference: [u8; 32]) -> SequencerLog {
             topic,
             if scheme == "exact" { reference } else { GRANT },
             PAYER,
-            account_identifiers(ACCOUNT).unwrap()[1],
+            account_identifiers(ACCOUNT).or_panic("expected Ok value")[1],
         ],
         data,
         0,
@@ -159,66 +169,83 @@ fn encoded_receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8
     let mut summary = vec![0; 8 * 3 + 4 + 20 * 2];
     summary.extend_from_slice(&Sha256::digest(b""));
     summary.extend_from_slice(&0_u32.to_be_bytes());
-    summary.extend_from_slice(&u32::try_from(logs.len()).unwrap().to_be_bytes());
+    summary.extend_from_slice(
+        &u32::try_from(logs.len())
+            .or_panic("expected Ok value")
+            .to_be_bytes(),
+    );
     summary.push(4);
     summary.extend_from_slice(b"uhpx");
     let mut encoder = Encoder::new(16384);
     encoder
         .structure_header_version(0x5201, PROTOCOL_VERSION)
-        .unwrap();
-    encoder.u16(PROTOCOL_VERSION).unwrap();
-    encoder.bytes(&TRANSACTION, 32).unwrap();
-    encoder.u64(9).unwrap();
+        .or_panic("expected Ok value");
+    encoder.u16(PROTOCOL_VERSION).or_panic("expected Ok value");
+    encoder
+        .bytes(&TRANSACTION, 32)
+        .or_panic("expected Ok value");
+    encoder.u64(9).or_panic("expected Ok value");
     for value in [[0x62; 32], sequence_hash(), [0x64; 32]] {
-        encoder.bytes(&value, 32).unwrap();
+        encoder.bytes(&value, 32).or_panic("expected Ok value");
     }
-    encoder.i32(0).unwrap();
+    encoder.i32(0).or_panic("expected Ok value");
     let mut effects = vec![(1, summary)];
     for log in logs {
         let mut body = log.address().to_vec();
-        body.push(u8::try_from(log.topics().len()).unwrap());
+        body.push(u8::try_from(log.topics().len()).or_panic("expected Ok value"));
         for topic in log.topics() {
             body.extend_from_slice(topic);
         }
         body.extend_from_slice(&Sha256::digest(log.data()));
         effects.push((3, body));
     }
-    encoder.sequence_length(effects.len(), 4096).unwrap();
+    encoder
+        .sequence_length(effects.len(), 4096)
+        .or_panic("expected Ok value");
     for (ordinal, (kind, body)) in effects.into_iter().enumerate() {
-        encoder.u16(12).unwrap();
-        encoder.u16(u16::try_from(ordinal).unwrap()).unwrap();
-        encoder.u16(0).unwrap();
-        encoder.u8(kind).unwrap();
-        encoder.u8(0).unwrap();
-        encoder.bytes(&[0; 32], 32).unwrap();
-        encoder.bytes(&body, 256).unwrap();
+        encoder.u16(12).or_panic("expected Ok value");
+        encoder
+            .u16(u16::try_from(ordinal).or_panic("expected Ok value"))
+            .or_panic("expected Ok value");
+        encoder.u16(0).or_panic("expected Ok value");
+        encoder.u8(kind).or_panic("expected Ok value");
+        encoder.u8(0).or_panic("expected Ok value");
+        encoder.bytes(&[0; 32], 32).or_panic("expected Ok value");
+        encoder.bytes(&body, 256).or_panic("expected Ok value");
     }
     let mut height = [0; 32];
     height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
-    encoder.u128(1).unwrap();
-    encoder.bytes(&height, 32).unwrap();
-    encoder.u16(12).unwrap();
-    encoder.u32(1).unwrap();
-    encoder.u32(0).unwrap();
-    encoder.u8(2).unwrap();
-    encoder.bytes(&ASSET, 32).unwrap();
-    encoder.u128(1000).unwrap();
-    encoder.bytes(&PAYER, 32).unwrap();
-    encoder.u128(5000).unwrap();
-    encoder.u128(4000).unwrap();
-    encoder.u64(1).unwrap();
+    encoder.u128(1).or_panic("expected Ok value");
+    encoder.bytes(&height, 32).or_panic("expected Ok value");
+    encoder.u16(12).or_panic("expected Ok value");
+    encoder.u32(1).or_panic("expected Ok value");
+    encoder.u32(0).or_panic("expected Ok value");
+    encoder.u8(2).or_panic("expected Ok value");
+    encoder.bytes(&ASSET, 32).or_panic("expected Ok value");
+    encoder.u128(1000).or_panic("expected Ok value");
+    encoder.bytes(&PAYER, 32).or_panic("expected Ok value");
+    encoder.u128(5000).or_panic("expected Ok value");
+    encoder.u128(4000).or_panic("expected Ok value");
+    encoder.u64(1).or_panic("expected Ok value");
     encoder
-        .bytes(&account_identifiers(ACCOUNT).unwrap()[1], 32)
-        .unwrap();
-    encoder.u128(0).unwrap();
-    encoder.u128(1000).unwrap();
+        .bytes(
+            &account_identifiers(ACCOUNT).or_panic("expected Ok value")[1],
+            32,
+        )
+        .or_panic("expected Ok value");
+    encoder.u128(0).or_panic("expected Ok value");
+    encoder.u128(1000).or_panic("expected Ok value");
     for value in [0x66, 0x67, 0x68] {
-        encoder.bytes(&[value; 32], 32).unwrap();
+        encoder
+            .bytes(&[value; 32], 32)
+            .or_panic("expected Ok value");
     }
-    encoder.u64(HEIGHT).unwrap();
-    encoder.u8(u8::from(signature.is_some())).unwrap();
+    encoder.u64(HEIGHT).or_panic("expected Ok value");
+    encoder
+        .u8(u8::from(signature.is_some()))
+        .or_panic("expected Ok value");
     if let Some(signature) = signature {
-        encoder.bytes(&signature, 64).unwrap();
+        encoder.bytes(&signature, 64).or_panic("expected Ok value");
     }
     encoder.finish()
 }
@@ -237,17 +264,23 @@ fn receipt_keys() -> Vec<SequencerAuthorization> {
 fn evidence(scheme: &str, reference: [u8; 32]) -> SequencerEvidence {
     let logs = vec![payment_log(scheme, reference)];
     let unsigned = encoded_receipt(&logs, None);
-    let digest = layerx_wire::hash::receipt_digest(&unsigned).unwrap();
+    let digest = layerx_wire::hash::receipt_digest(&unsigned).or_panic("expected Ok value");
     let signature = SigningKey::from_bytes(&[0x72; 32]).sign(&digest).to_bytes();
     let signed_receipt = encoded_receipt(&logs, Some(signature));
-    let decoded = layerx_wire::receipt::decode(&signed_receipt).unwrap();
+    let decoded = layerx_wire::receipt::decode(&signed_receipt).or_panic("expected Ok value");
     assert_eq!(
-        layerx_wire::receipt::encode(&decoded).unwrap(),
+        layerx_wire::receipt::encode(&decoded).or_panic("expected Ok value"),
         signed_receipt
     );
     let keys = receipt_keys();
-    let receipt = verify_sequencer_signature(&signed_receipt, keys.as_slice()).unwrap();
-    assert_eq!(verify_logs(&receipt, logs.clone()).unwrap().logs(), logs);
+    let receipt =
+        verify_sequencer_signature(&signed_receipt, keys.as_slice()).or_panic("expected Ok value");
+    assert_eq!(
+        verify_logs(&receipt, logs.clone())
+            .or_panic("expected Ok value")
+            .logs(),
+        logs
+    );
     SequencerEvidence {
         transaction_hash: TRANSACTION,
         signed_receipt,
@@ -258,12 +291,21 @@ fn evidence(scheme: &str, reference: [u8; 32]) -> SequencerEvidence {
 
 fn gateway() -> (GatewayCore, PrincipalId, TraceId) {
     let trace = TraceId::mint([0x73; 16]);
-    let principal = PrincipalId::new("repair-buyer").unwrap();
-    let suite = ConformanceSuite::new(AdapterId::new("x402-v2").unwrap(), 1, [0x75; 32]).unwrap();
+    let principal = PrincipalId::new("repair-buyer").or_panic("expected Ok value");
+    let suite = ConformanceSuite::new(
+        AdapterId::new("x402-v2").or_panic("expected Ok value"),
+        1,
+        [0x75; 32],
+    )
+    .or_panic("expected Ok value");
     let mut gateway = GatewayCore::new();
     gateway
-        .register_adapter(x402_adapter_descriptor(suite).unwrap(), &trace, 0)
-        .unwrap();
+        .register_adapter(
+            x402_adapter_descriptor(suite).or_panic("expected Ok value"),
+            &trace,
+            0,
+        )
+        .or_panic("expected Ok value");
     (gateway, principal, trace)
 }
 
@@ -287,23 +329,27 @@ fn seller_settlement(
         extensions: BTreeMap::new(),
     };
     let seller = Seller::new(required)
-        .unwrap()
+        .or_panic("expected Ok value")
         .with_receipt_keys(receipt_keys());
     assert_eq!(
-        seller.payment_required().unwrap().body.accepts[0],
+        seller
+            .payment_required()
+            .or_panic("expected Ok value")
+            .body
+            .accepts[0],
         payment.payload.accepted
     );
     let (mut gateway, principal, trace) = gateway();
     let translation = TranslationRequest::new(
-        AdapterId::new("x402").unwrap(),
+        AdapterId::new("x402").or_panic("expected Ok value"),
         TranslationKind::StateChanging,
         payment.idempotency_key,
         [0x75; 32],
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     gateway
         .begin_translation(&principal, &translation, &trace, 0)
-        .unwrap();
+        .or_panic("expected Ok value");
     let executed = ExecutedPayment {
         evidence,
         committed: commitment.map(|value| CommittedSettlementProof {
@@ -323,7 +369,7 @@ fn seller_settlement(
         &trace,
         1,
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let SellerOutcome::Settled {
         response,
         receipt_digest,
@@ -347,9 +393,9 @@ fn header_value(wire: TransportValue) -> String {
 }
 
 fn received(transport: TransportKind, response: &SettlementResponse) -> String {
-    let wire = encode_settlement(transport, response).unwrap();
-    let response = decode_settlement(transport, &wire).unwrap();
-    header_value(encode_settlement(TransportKind::Http, &response).unwrap())
+    let wire = encode_settlement(transport, response).or_panic("expected Ok value");
+    let response = decode_settlement(transport, &wire).or_panic("expected Ok value");
+    header_value(encode_settlement(TransportKind::Http, &response).or_panic("expected Ok value"))
 }
 
 fn validators(key: &SigningKey) -> Vec<Validator> {
@@ -369,9 +415,9 @@ fn header(
     Header {
         version: ConsensusVersion { block: 11, app: 0 },
         chain_id: chain.to_owned(),
-        height: height as i64,
+        height: i64::from_ne_bytes(height.to_ne_bytes()),
         time: Timestamp {
-            seconds: 1700000000 + height as i64,
+            seconds: 1_700_000_000 + i64::from_ne_bytes(height.to_ne_bytes()),
             nanos: 0,
         },
         last_block_id: BlockId {
@@ -408,11 +454,15 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     encode_length_delimited(1, &block_id.hash, &mut id);
     encode_length_delimited(2, &parts, &mut id);
     let mut time = Vec::new();
-    encode_varint_field(1, header.time.seconds as u64, &mut time);
+    encode_varint_field(
+        1,
+        u64::from_ne_bytes(header.time.seconds.to_ne_bytes()),
+        &mut time,
+    );
     let mut vote = Vec::new();
     encode_varint_field(1, 2, &mut vote);
     vote.push(0x11);
-    vote.extend_from_slice(&(header.height as u64).to_le_bytes());
+    vote.extend_from_slice(&(u64::from_ne_bytes(header.height.to_ne_bytes())).to_le_bytes());
     encode_length_delimited(4, &id, &mut vote);
     encode_length_delimited(5, &time, &mut vote);
     encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -420,7 +470,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     encode_varint(vote.len() as u64, &mut sign_bytes);
     sign_bytes.extend(vote);
     let commit = Commit {
-        height: header.height as u64,
+        height: u64::from_ne_bytes(header.height.to_ne_bytes()),
         round: 0,
         block_id,
         signatures: vec![CommitSig {
@@ -434,7 +484,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
         &header.chain_id,
         &validators(key),
         header.hash(),
-        header.height as u64,
+        u64::from_ne_bytes(header.height.to_ne_bytes()),
         &commit
     )
     .is_ok());
@@ -476,8 +526,8 @@ fn commitment(
         signed_receipt: evidence.signed_receipt.clone(),
         activity_ids: vec![TRANSACTION],
     };
-    let digest = canonical_receipt_digest(&evidence.signed_receipt).unwrap();
-    let block = verify_committed(digest, &proof, &set, chain).unwrap();
+    let digest = canonical_receipt_digest(&evidence.signed_receipt).or_panic("expected Ok value");
+    let block = verify_committed(digest, &proof, &set, chain).or_panic("expected Ok value");
     evidence.rung = SettlementRung::Committed {
         block_number: block.number,
         block_hash: block.hash,
@@ -503,7 +553,7 @@ fn facilitator(schemes: &[&str]) -> Facilitator {
         extensions: vec![],
         signers: BTreeMap::new(),
     })
-    .unwrap()
+    .or_panic("expected Ok value")
 }
 
 fn facilitator_settlement(
@@ -523,14 +573,14 @@ fn facilitator_settlement(
         payment_requirements: offer(scheme),
     };
     let stable = [0x42; 32];
-    let identity =
-        SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single).unwrap();
+    let identity = SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single)
+        .or_panic("expected Ok value");
     request.payment_payload.payload["idempotencyKey"] = json!(hex(&identity.idempotency_key));
     let request = decode_facilitator_request(
         transport,
-        &encode_facilitator_request(transport, &request).unwrap(),
+        &encode_facilitator_request(transport, &request).or_panic("expected Ok value"),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let mut evidence = evidence(scheme, identity.idempotency_key);
     let mut plane_commitment = None;
     let mut anchor = None;
@@ -542,7 +592,7 @@ fn facilitator_settlement(
                 proof.proof.execution_header.clone(),
                 proof.validators.clone(),
             )
-            .unwrap(),
+            .or_panic("expected Ok value"),
         );
         plane_commitment = Some(proof);
     }
@@ -561,23 +611,26 @@ fn facilitator_settlement(
             &trace,
             1,
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     assert!(response.success);
     assert_eq!(
         gateway.translation(&principal, identity.idempotency_key),
         Some(TranslationStatus::ReceiptVerified {
-            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt).unwrap()
+            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
+                .or_panic("expected Ok value")
         })
     );
-    let wire = encode_facilitator_settlement(transport, &response).unwrap();
-    let response = decode_facilitator_settlement(transport, &wire).unwrap();
+    let wire = encode_facilitator_settlement(transport, &response).or_panic("expected Ok value");
+    let response = decode_facilitator_settlement(transport, &wire).or_panic("expected Ok value");
     let payload = decode_payment_payload(
         transport,
-        &encode_payment_payload(transport, &request.payment_payload).unwrap(),
+        &encode_payment_payload(transport, &request.payment_payload).or_panic("expected Ok value"),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let payment = BuiltPayment {
-        header: header_value(encode_payment_payload(TransportKind::Http, &payload).unwrap()),
+        header: header_value(
+            encode_payment_payload(TransportKind::Http, &payload).or_panic("expected Ok value"),
+        ),
         payload,
         idempotency_key: identity.idempotency_key,
     };
@@ -599,7 +652,7 @@ fn finding_1_facilitator_evidence_crosses_every_transport() {
                 &anchors,
                 &trace,
             )
-            .unwrap();
+            .or_panic("expected Ok value");
             assert_eq!(captured.response, response);
             assert_eq!(captured.transaction_hash, TRANSACTION);
             assert_eq!(
@@ -608,12 +661,12 @@ fn finding_1_facilitator_evidence_crosses_every_transport() {
             );
             assert_eq!(
                 captured.receipt_digest,
-                canonical_receipt_digest(&captured.canonical_receipt).unwrap()
+                canonical_receipt_digest(&captured.canonical_receipt).or_panic("expected Ok value")
             );
             assert_eq!(
                 response.extensions["layerx"]["logs"]
                     .as_array()
-                    .unwrap()
+                    .or_panic("expected Some value")
                     .len(),
                 1
             );
@@ -626,9 +679,9 @@ fn finding_1_facilitator_evidence_crosses_every_transport() {
                 missing
                     .extensions
                     .get_mut("layerx")
-                    .unwrap()
+                    .or_panic("expected Some value")
                     .as_object_mut()
-                    .unwrap()
+                    .or_panic("expected Some value")
                     .remove(field);
                 assert!(Buyer::capture_settlement_with_consensus(
                     &received(transport, &missing),
@@ -640,7 +693,10 @@ fn finding_1_facilitator_evidence_crosses_every_transport() {
                 .is_err());
             }
             let mut tampered = response.clone();
-            tampered.extensions.get_mut("layerx").unwrap()["logs"][0]["data"] =
+            tampered
+                .extensions
+                .get_mut("layerx")
+                .or_panic("expected Some value")["logs"][0]["data"] =
                 json!(format!("0x{}", "00".repeat(64)));
             assert!(Buyer::capture_settlement_with_consensus(
                 &received(transport, &tampered),
@@ -662,8 +718,8 @@ fn finding_2_subscription_seller_capture_binds_grant_purpose_reference() {
         let response = seller_settlement(&payment, evidence(scheme, REFERENCE), None);
         for transport in TRANSPORTS {
             let header = received(transport, &response);
-            let captured =
-                Buyer::capture_settlement(&header, &payment, &receipt_keys(), &trace).unwrap();
+            let captured = Buyer::capture_settlement(&header, &payment, &receipt_keys(), &trace)
+                .or_panic("expected Ok value");
             assert_eq!(captured.response, response);
             assert_eq!(
                 captured.response.extensions["layerx"]["purposeHash"],
@@ -675,8 +731,13 @@ fn finding_2_subscription_seller_capture_binds_grant_purpose_reference() {
                     "grant" => changed.payload.payload["grantId"] = json!(hex(&[0x8b; 32])),
                     "reference" => changed.idempotency_key = [0x75; 32],
                     "purpose" => {
-                        changed.payload.accepted.extra.as_mut().unwrap()["layerx"]["purposeHash"] =
-                            json!("7d".repeat(32))
+                        changed
+                            .payload
+                            .accepted
+                            .extra
+                            .as_mut()
+                            .or_panic("expected Some value")["layerx"]["purposeHash"] =
+                            json!("7d".repeat(32));
                     }
                     "scheme" => changed.payload.accepted.scheme = "unsupported".to_owned(),
                     _ => unreachable!(),
@@ -687,7 +748,10 @@ fn finding_2_subscription_seller_capture_binds_grant_purpose_reference() {
                 );
             }
             let mut changed = response.clone();
-            changed.extensions.get_mut("layerx").unwrap()["purposeHash"] = json!("7d".repeat(32));
+            changed
+                .extensions
+                .get_mut("layerx")
+                .or_panic("expected Some value")["purposeHash"] = json!("7d".repeat(32));
             assert!(Buyer::capture_settlement(
                 &received(transport, &changed),
                 &payment,
@@ -698,9 +762,9 @@ fn finding_2_subscription_seller_capture_binds_grant_purpose_reference() {
             changed
                 .extensions
                 .get_mut("layerx")
-                .unwrap()
+                .or_panic("expected Some value")
                 .as_object_mut()
-                .unwrap()
+                .or_panic("expected Some value")
                 .remove("purposeHash");
             assert!(Buyer::capture_settlement(
                 &received(transport, &changed),
@@ -729,11 +793,14 @@ fn finding_3_identifiers_share_the_model_parser() {
                     }
                     accepted.asset.insert_str(0, asset_prefix);
                     accepted.pay_to.insert_str(0, payee_prefix);
-                    accepted.validate().unwrap();
-                    accepted.layerx_terms().unwrap();
+                    accepted.validate().or_panic("expected Ok value");
+                    accepted.layerx_terms().or_panic("expected Ok value");
                     assert_eq!(
-                        accepted.layerx_facts().unwrap(),
-                        (ASSET, account_identifiers(ACCOUNT).unwrap()[1])
+                        accepted.layerx_facts().or_panic("expected Ok value"),
+                        (
+                            ASSET,
+                            account_identifiers(ACCOUNT).or_panic("expected Ok value")[1]
+                        )
                     );
                     let payment = payment(accepted, REFERENCE);
                     let response = seller_settlement(&payment, evidence("exact", REFERENCE), None);
@@ -744,7 +811,7 @@ fn finding_3_identifiers_share_the_model_parser() {
                             &receipt_keys(),
                             &trace,
                         )
-                        .unwrap();
+                        .or_panic("expected Ok value");
                         assert_eq!(captured.response, response);
                     }
                 }
@@ -787,7 +854,7 @@ fn finding_4_consensus_requires_independent_authority_and_transitions() {
         good_commitment.proof.execution_header.clone(),
         validators(&good_key),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let response = seller_settlement(
         &payment,
         good_evidence.clone(),
@@ -800,32 +867,56 @@ fn finding_4_consensus_requires_independent_authority_and_transitions() {
         }],
         receipt_keys(),
     )
-    .unwrap()
+    .or_panic("expected Ok value")
     .with_consensus_anchors(vec![anchor.clone()])
-    .unwrap();
+    .or_panic("expected Ok value");
+    assert_consensus_responses(
+        &payment,
+        &trace,
+        &response,
+        &buyer,
+        &good_commitment,
+        &good_evidence,
+        &good_key,
+    );
+    assert_consensus_transitions(&payment, &trace, good_commitment, good_evidence, &good_key);
+}
+
+fn assert_consensus_responses(
+    payment: &BuiltPayment,
+    trace: &TraceId,
+    response: &SettlementResponse,
+    buyer: &Buyer,
+    good_commitment: &FacilitatorCommitment,
+    good_evidence: &SequencerEvidence,
+    good_key: &SigningKey,
+) {
     for transport in TRANSPORTS {
-        let header = received(transport, &response);
+        let header = received(transport, response);
         assert_eq!(
-            buyer.capture(&header, &payment, &trace).unwrap().rung,
+            buyer
+                .capture(&header, payment, trace)
+                .or_panic("expected Ok value")
+                .rung,
             "committed"
         );
-        assert!(Buyer::capture_settlement(&header, &payment, &receipt_keys(), &trace).is_err());
+        assert!(Buyer::capture_settlement(&header, payment, &receipt_keys(), trace).is_err());
         let wrong_network = TrustedConsensusAnchor::new(
             "eip155:126".to_owned(),
             good_commitment.proof.execution_header.clone(),
-            validators(&good_key),
+            validators(good_key),
         )
-        .unwrap();
+        .or_panic("expected Ok value");
         assert!(Buyer::capture_settlement_with_consensus(
             &header,
-            &payment,
+            payment,
             &receipt_keys(),
             &[wrong_network],
-            &trace
+            trace
         )
         .is_err());
         for (chain, signer) in [
-            ("response-selected-chain", good_key.clone()),
+            ("response-selected-chain", good_key.to_owned()),
             (CHAIN, SigningKey::from_bytes(&[0x52; 32])),
         ] {
             let mut hostile_evidence = evidence("exact", REFERENCE);
@@ -835,36 +926,79 @@ fn finding_4_consensus_requires_independent_authority_and_transitions() {
                 good_evidence.signed_receipt
             );
             let hostile_response =
-                seller_settlement(&payment, hostile_evidence, Some(hostile_commitment));
+                seller_settlement(payment, hostile_evidence, Some(hostile_commitment));
             assert!(hostile_response.success);
             assert!(buyer
-                .capture(&received(transport, &hostile_response), &payment, &trace)
+                .capture(&received(transport, &hostile_response), payment, trace)
                 .is_err());
         }
         for field in ["signature", "inclusion", "coordinates"] {
             let mut changed = response.clone();
-            let evidence = changed.extensions.get_mut("layerx").unwrap();
+            let evidence = changed
+                .extensions
+                .get_mut("layerx")
+                .or_panic("expected Some value");
             match field {
                 "signature" => {
                     evidence["proof"]["commit"]["signatures"][0]["signature"] =
-                        json!(format!("0x{}", "00".repeat(64)))
+                        json!(format!("0x{}", "00".repeat(64)));
                 }
                 "inclusion" => {
                     evidence["proof"]["batchProof"]["aunts"][0] =
-                        json!(format!("0x{}", "00".repeat(32)))
+                        json!(format!("0x{}", "00".repeat(32)));
                 }
                 "coordinates" => evidence["blockNumber"] = json!("0x3e9"),
                 _ => unreachable!(),
             }
             assert!(
                 buyer
-                    .capture(&received(transport, &changed), &payment, &trace)
+                    .capture(&received(transport, &changed), payment, trace)
                     .is_err(),
                 "{field}"
             );
         }
     }
+}
 
+fn assert_invalid_anchor_advances(
+    checkpoint: &mut TrustedConsensusAnchor,
+    root: &Header,
+    intermediate: &Header,
+    good_key: &SigningKey,
+    middle: &SigningKey,
+) {
+    let rogue_key = SigningKey::from_bytes(&[0x56; 32]);
+    let rogue = header(
+        CHAIN,
+        HEIGHT - 1,
+        &validators(&rogue_key),
+        &validators(good_key),
+        root.hash().to_vec(),
+    );
+    assert!(checkpoint
+        .advance(
+            rogue.clone(),
+            &signed_commit(&rogue, &rogue_key),
+            validators(&rogue_key)
+        )
+        .is_err());
+    let mut bad_commit = signed_commit(intermediate, middle);
+    bad_commit.signatures[0]
+        .signature
+        .as_mut()
+        .or_panic("expected Some value")[0] ^= 1;
+    assert!(checkpoint
+        .advance(intermediate.clone(), &bad_commit, validators(middle))
+        .is_err());
+}
+
+fn assert_consensus_transitions(
+    payment: &BuiltPayment,
+    trace: &TraceId,
+    good_commitment: FacilitatorCommitment,
+    good_evidence: SequencerEvidence,
+    good_key: &SigningKey,
+) {
     // Two independently signed validator changes lead from the trusted root
     // to the actual execution header. No response can choose that root.
     let old = SigningKey::from_bytes(&[0x53; 32]);
@@ -880,7 +1014,7 @@ fn finding_4_consensus_requires_independent_authority_and_transitions() {
         CHAIN,
         HEIGHT - 1,
         &validators(&middle),
-        &validators(&good_key),
+        &validators(good_key),
         root.hash().to_vec(),
     );
     let mut execution = good_commitment.proof.execution_header.clone();
@@ -888,84 +1022,71 @@ fn finding_4_consensus_requires_independent_authority_and_transitions() {
     let successor = header(
         CHAIN,
         HEIGHT + 1,
-        &validators(&good_key),
-        &validators(&good_key),
+        &validators(good_key),
+        &validators(good_key),
         execution.hash().to_vec(),
     );
     let mut moved_commitment = good_commitment;
     moved_commitment.proof.execution_header = execution.clone();
     moved_commitment.proof.header = successor.clone();
-    moved_commitment.proof.commit = signed_commit(&successor, &good_key);
+    moved_commitment.proof.commit = signed_commit(&successor, good_key);
     let mut moved_evidence = good_evidence;
     moved_evidence.rung = SettlementRung::Committed {
         block_number: HEIGHT,
         block_hash: execution.hash(),
     };
-    let moved_response = seller_settlement(&payment, moved_evidence, Some(moved_commitment));
+    let moved_response = seller_settlement(payment, moved_evidence, Some(moved_commitment));
     let mut checkpoint =
         TrustedConsensusAnchor::new("eip155:125".to_owned(), root.clone(), validators(&old))
-            .unwrap();
+            .or_panic("expected Ok value");
     let capture = |checkpoint: &TrustedConsensusAnchor| {
         Buyer::capture_settlement_with_consensus(
             &received(TransportKind::Http, &moved_response),
-            &payment,
+            payment,
             &receipt_keys(),
-            &[checkpoint.clone()],
-            &trace,
+            std::slice::from_ref(checkpoint),
+            trace,
         )
     };
     assert!(capture(&checkpoint).is_err());
     assert!(checkpoint
         .advance(
             execution.clone(),
-            &signed_commit(&execution, &good_key),
-            validators(&good_key)
+            &signed_commit(&execution, good_key),
+            validators(good_key)
         )
         .is_err());
-    let rogue_key = SigningKey::from_bytes(&[0x56; 32]);
-    let rogue = header(
-        CHAIN,
-        HEIGHT - 1,
-        &validators(&rogue_key),
-        &validators(&good_key),
-        root.hash().to_vec(),
-    );
-    assert!(checkpoint
-        .advance(
-            rogue.clone(),
-            &signed_commit(&rogue, &rogue_key),
-            validators(&rogue_key)
-        )
-        .is_err());
-    let mut bad_commit = signed_commit(&intermediate, &middle);
-    bad_commit.signatures[0].signature.as_mut().unwrap()[0] ^= 1;
-    assert!(checkpoint
-        .advance(intermediate.clone(), &bad_commit, validators(&middle))
-        .is_err());
+    assert_invalid_anchor_advances(&mut checkpoint, &root, &intermediate, good_key, &middle);
     checkpoint
         .advance(
             intermediate.clone(),
             &signed_commit(&intermediate, &middle),
             validators(&middle),
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     assert!(capture(&checkpoint).is_err());
     checkpoint
         .advance(
             execution.clone(),
-            &signed_commit(&execution, &good_key),
-            validators(&good_key),
+            &signed_commit(&execution, good_key),
+            validators(good_key),
         )
-        .unwrap();
-    assert_eq!(capture(&checkpoint).unwrap().rung, "committed");
+        .or_panic("expected Ok value");
+    assert_eq!(
+        capture(&checkpoint).or_panic("expected Ok value").rung,
+        "committed"
+    );
     checkpoint
         .advance(
             successor.clone(),
-            &signed_commit(&successor, &good_key),
-            validators(&good_key),
+            &signed_commit(&successor, good_key),
+            validators(good_key),
         )
-        .unwrap();
-    assert_eq!(capture(&checkpoint).unwrap().rung, "committed");
+        .or_panic("expected Ok value");
+    assert_eq!(
+        capture(&checkpoint).or_panic("expected Ok value").rung,
+        "committed"
+    );
 }
 
 #[test]
@@ -986,7 +1107,7 @@ fn finding_8_every_advertised_scheme_settles_native_output() {
                     &anchors,
                     &trace,
                 )
-                .unwrap();
+                .or_panic("expected Ok value");
                 assert_eq!(captured.response, response);
                 if kind.scheme != "exact" {
                     assert_eq!(
@@ -1024,7 +1145,7 @@ fn finding_8_every_advertised_scheme_settles_native_output() {
         };
         let identity =
             SettlementIdentity::derive(&principal, &request, REFERENCE, SettlementStep::Single)
-                .unwrap();
+                .or_panic("expected Ok value");
         let mut produced = evidence(
             if mismatch == "event" {
                 "exact"
@@ -1063,5 +1184,27 @@ fn finding_8_every_advertised_scheme_settles_native_output() {
             gateway.translation(&principal, identity.idempotency_key),
             Some(TranslationStatus::Pending)
         );
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

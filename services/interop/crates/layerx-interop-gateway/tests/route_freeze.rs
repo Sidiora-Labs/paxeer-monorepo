@@ -117,7 +117,8 @@ fn settling_routes_keep_their_paths_and_methods() {
 #[test]
 fn receipt_pending_answers_submitted_with_202() {
     let trace = TraceId::mint([0x11; 16]);
-    let principal = PrincipalId::new("route-freeze-buyer").unwrap();
+    let principal = PrincipalId::new("route-freeze-buyer")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let key = [0x31; 32];
     let evidence = SequencerEvidence {
         transaction_hash: [0x41; 32],
@@ -130,33 +131,42 @@ fn receipt_pending_answers_submitted_with_202() {
         if !expected.state_changing() {
             continue;
         }
-        let route = interop_gateway_routes(method, path).unwrap();
-        let adapter = AdapterId::new(route.adapter().unwrap().id()).unwrap();
+        let route = interop_gateway_routes(method, path)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        let adapter = AdapterId::new(
+            route
+                .adapter()
+                .unwrap_or_else(|| panic!("expected Some value"))
+                .id(),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let spec = PinnedSpec::new(
             adapter.clone(),
-            SpecVersion::parse("1.0.0").unwrap(),
+            SpecVersion::parse("1.0.0")
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
             [0x51; 32],
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let suite = ConformanceSuite::new(
-            AdapterId::new("route-freeze-vectors").unwrap(),
+            AdapterId::new("route-freeze-vectors")
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
             2,
             [0x52; 32],
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let mut core = GatewayCore::new();
         core.register_adapter(
             AdapterDescriptor::new(adapter.clone(), spec, suite),
             &trace,
             1,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let request =
             TranslationRequest::new(adapter, TranslationKind::StateChanging, key, [0x42; 32])
-                .unwrap();
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(
             core.begin_translation(&principal, &request, &trace, 2)
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
             TranslationStatus::Pending
         );
         let before = format!("{core:?}");
@@ -164,20 +174,22 @@ fn receipt_pending_answers_submitted_with_202() {
         for now in [3, 4] {
             let error = core
                 .settle_with_sequencer_evidence(&principal, key, &evidence, &[], &trace, now)
-                .unwrap_err();
+                .err()
+                .unwrap_or_else(|| panic!("expected Err value"));
             assert_eq!(error.trace(), &trace);
             let SequencerSettlementError::Gateway(error) = *error.error() else {
                 panic!("submitted settlement must return a gateway error");
             };
             assert_eq!(error, GatewayError::ReceiptPending);
-            let (status, state) = ExternalState::settlement_error_response(error).unwrap();
+            let (status, state) = ExternalState::settlement_error_response(error)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
             assert_eq!(status, 202, "{path}");
             assert_eq!(state, ExternalState::Submitted, "{path}");
             assert_eq!(state.label(), "submitted", "{path}");
             assert_eq!(request.idempotency_key(), key);
             assert_eq!(
                 core.begin_translation(&principal, &request, &trace, now)
-                    .unwrap(),
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
                 TranslationStatus::Pending
             );
             assert_eq!(

@@ -1273,7 +1273,7 @@ mod tests {
         assert_eq!(words[3], [0x11; 32]);
         assert_eq!(words[4], uint_word(archive.bytes().len() as u64));
         assert_eq!(words[5], uint_word(3));
-        assert_eq!(words[6], Sha256::digest(archive.bytes()).as_slice());
+        assert_eq!(words[6], &Sha256::digest(archive.bytes())[..]);
         assert_eq!(
             words[7],
             chunk_chain_root(archive.bytes(), MIN_CHUNK_BYTES)
@@ -1281,7 +1281,13 @@ mod tests {
         );
         assert_eq!(payloads.len(), 5);
         for (index, payload) in payloads[1..4].iter().enumerate() {
-            assert_eq!(payload.stage, PublicationStage::Chunk(index as u32));
+            assert_eq!(
+                payload.stage,
+                PublicationStage::Chunk(
+                    u32::try_from(index)
+                        .unwrap_or_else(|error| panic!("chunk index fits u32: {error:?}"))
+                )
+            );
         }
         assert_eq!(payloads[4].stage, PublicationStage::Finalize);
     }

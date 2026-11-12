@@ -321,9 +321,7 @@ pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRo
         if region.snapshot().is_some() {
             return Err(WRONG_ROSTER);
         }
-        let settlement = *state
-            .feature_sections
-            .guest_index(Section::SettlementClaims.index());
+        let settlement = state.room_market()?.0;
         if !settlement.is_empty() {
             let rewards =
                 decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
@@ -345,9 +343,7 @@ pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRo
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
-    let settlement = *state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
+    let settlement = state.room_market()?.0;
     let rewards = decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(WRONG_ROSTER)?)?;
     Ok(Some(captured_roster_with(
         &admission, &policy, &region, rewards,
@@ -360,7 +356,7 @@ pub(crate) fn committed_roster(state: &SharedState<'_>) -> CodecResult<CapturedR
         state.section(Section::PolicyLifecycle)?,
         state.section(Section::IdentityRoster)?,
         state.section(Section::ReputationAdmission)?,
-        state.section(Section::SettlementClaims)?,
+        state.room_market()?.0,
     )
 }
 
@@ -371,6 +367,7 @@ pub(crate) fn committed_roster_sections(
     admission: &[u8],
     settlement: &[u8],
 ) -> CodecResult<CapturedRoster> {
+    let settlement = crate::state::room_market_parts(settlement)?.0;
     if opening_pending(&PolicySection::decode(policy)?) {
         return Err(WRONG_EPOCH);
     }
@@ -873,7 +870,10 @@ fn compose_sections(
     {
         return Err(WRONG_EPOCH);
     }
-    let rewards = read_rewards(reader.section(Section::SettlementClaims), &section.header)?;
+    let rewards = read_rewards(
+        crate::state::room_market_parts(reader.section(Section::SettlementClaims))?.0,
+        &section.header,
+    )?;
     let (journal_out, rest) = scratch
         .split_at_mut_checked(MAX_STATE_BYTES)
         .ok_or(CAPACITY)?;
@@ -1205,7 +1205,7 @@ pub(crate) fn open_epoch_sections(
     )?;
     let admission = AdmissionTable::decode(table)?;
     if let Some(roster) = already_opened(
-        sections.section(Section::SettlementClaims),
+        crate::state::room_market_parts(sections.section(Section::SettlementClaims))?.0,
         &section.header,
         e,
         epoch,
@@ -1261,9 +1261,7 @@ fn opened_readiness(
     policy: &TaskPolicyV1,
     epoch: u64,
 ) -> CodecResult<Readiness> {
-    let section = *state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
+    let section = state.room_market()?.0;
     let rewards = decode_reward_state(section.get(..REWARD_STATE_BYTES).ok_or(READINESS_BLOCKED)?)?;
     let row = rewards.row(epoch)?;
     if row.status != EpochStatus::Reserved {
@@ -1548,7 +1546,7 @@ pub fn carry_reputation<T>(
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed_epoch_row(state: &SharedState<'_>, epoch: u64) -> CodecResult<RewardEpoch> {
-    Ok(crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)?.row)
+    Ok(crate::rewards::committed_row(state.room_market()?.0, epoch)?.row)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1556,7 +1554,7 @@ fn epoch_row<'a>(
     state: &SharedState<'a>,
     epoch: u64,
 ) -> CodecResult<(RewardState<'a>, RewardEpoch)> {
-    let settlement = state.section(Section::SettlementClaims)?;
+    let settlement = state.room_market()?.0;
     let rewards = decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(WRONG_EPOCH)?)?;
     let row = rewards.row(epoch)?;
     Ok((rewards, row))

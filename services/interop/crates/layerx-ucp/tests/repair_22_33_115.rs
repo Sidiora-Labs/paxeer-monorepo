@@ -1,5 +1,5 @@
 #[path = "support/producer_checkout.rs"]
-mod producer_checkout;
+pub mod producer_checkout;
 
 #[path = "sequenced_vectors.rs"]
 mod sequenced_vectors;
@@ -37,9 +37,9 @@ fn ucp_native_payment_encoding_carries_checkout_key() {
         "https://layerx.dev/2026-04-08/specification/402",
         "https://layerx.dev/2026-04-08/schemas/402.json",
     )
-    .unwrap();
-    let merchant =
-        MerchantProfile::layerx("https://merchant.example/ucp", handler.clone()).unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let merchant = MerchantProfile::layerx("https://merchant.example/ucp", handler.clone())
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let platform = PlatformProfile {
         profile_url: "https://buyer.example/profile".into(),
         capabilities: merchant.capabilities().to_vec(),
@@ -51,13 +51,18 @@ fn ucp_native_payment_encoding_carries_checkout_key() {
         total_minor: 100,
         layerx_asset: [0x31; 32],
         layerx_recipient: [0x32; 32],
-        idempotency_key: UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000").unwrap(),
-        negotiated: NegotiatedCapabilities::negotiate(&platform, &handler).unwrap(),
+        idempotency_key: UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000")
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        negotiated: NegotiatedCapabilities::negotiate(&platform, &handler)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
     };
     let config = UcpServiceConfig::new(
-        MerchantCurrencyBinding::new(*b"USD", checkout.layerx_asset, 2, 6).unwrap(),
+        MerchantCurrencyBinding::new(*b"USD", checkout.layerx_asset, 2, 6)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
     );
-    let intent = checkout.payment_intent(&config).unwrap();
+    let intent = checkout
+        .payment_intent(&config)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(intent.amount, 1_000_000);
     assert_eq!(
         intent.idempotency_key,
@@ -65,7 +70,9 @@ fn ucp_native_payment_encoding_carries_checkout_key() {
     );
     let payer = [0x33; 32];
     let expires_at = 1_750_000_000_123_u64;
-    let calldata = intent.encode_pay_exact(payer, expires_at).unwrap();
+    let calldata = intent
+        .encode_pay_exact(payer, expires_at)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(calldata.len(), 196);
     assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
     assert_eq!(&calldata[4..36], &payer);
@@ -88,13 +95,13 @@ fn ucp_native_payment_encoding_carries_checkout_key() {
         intent.encode_pay_exact(payer, 0),
         Err(UcpError::InvalidCheckout)
     );
-    checkout.idempotency_key =
-        UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174001").unwrap();
+    checkout.idempotency_key = UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174001")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let changed = checkout
         .payment_intent(&config)
-        .unwrap()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
         .encode_pay_exact(payer, expires_at)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(&changed[..164], &calldata[..164]);
     assert_ne!(&changed[164..], &calldata[164..]);
     assert_eq!(

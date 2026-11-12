@@ -762,10 +762,11 @@ mod optional_signature_serde {
     use serde::{Deserialize as _, Serialize as _};
 
     pub fn serialize<S: serde::Serializer>(
-        value: &Option<[u8; 65]>,
+        value: &impl std::borrow::Borrow<Option<[u8; 65]>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {
         value
+            .borrow()
             .as_ref()
             .map(|bytes| crate::hex::prefixed(bytes))
             .serialize(serializer)
@@ -794,6 +795,9 @@ impl History {
             .join(hex::prefixed(&Sha256::digest(key.as_bytes())))
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn lookup(&self, key: &str) -> Result<Option<Item>, JournalError> {
         let bytes = match fs::read(self.item_path(key)) {
             Ok(bytes) => bytes,
@@ -871,6 +875,9 @@ pub struct Journal {
 }
 
 impl Journal {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn open(path: &Path) -> Result<Self, JournalError> {
         let history = History {
             root: path.with_extension("history"),
@@ -958,6 +965,9 @@ impl Journal {
         self.history.clone()
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn lookup(&self, key: &str) -> Result<Option<Item>, JournalError> {
         match self.state.items.get(key) {
             Some(item) => Ok(Some(item.clone())),
@@ -967,6 +977,9 @@ impl Journal {
 
     /// Archives closed records, then atomically replaces the log with exactly
     /// the remaining state. Uncommitted .tmp files are never used for recovery.
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn checkpoint(&mut self) -> Result<(), JournalError> {
         if self.failed {
             return Err(JournalError::Io("journal requires reopen".to_owned()));
@@ -1017,31 +1030,31 @@ impl Journal {
 
     /// Validate a single affected record, fsync its entry, then publish its new
     /// state. No append clones unrelated pending records or historical items.
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn append(&mut self, entry: &Entry) -> Result<(), JournalError> {
         if self.failed {
             return Err(JournalError::Io("journal requires reopen".to_owned()));
         }
         let mut next = State::default();
-        match entry {
-            Entry::Cursor { stream, .. } => {
-                if let Some(cursor) = self.state.cursors.get(stream) {
-                    next.cursors.insert(stream.clone(), *cursor);
-                }
+        if let Entry::Cursor { stream, .. } = entry {
+            if let Some(cursor) = self.state.cursors.get(stream) {
+                next.cursors.insert(stream.clone(), *cursor);
             }
-            _ => {
-                let key = entry
-                    .item_key()
-                    .ok_or_else(|| JournalError::Conflict("missing item".to_owned()))?;
-                if let Some(item) = self.lookup(key)? {
-                    if !self.state.items.contains_key(key) {
-                        if matches!(entry, Entry::Observed { observation, .. } if *observation == item.observation)
-                        {
-                            return Ok(());
-                        }
-                        return Err(JournalError::Conflict(format!("{key} is archived")));
+        } else {
+            let key = entry
+                .item_key()
+                .ok_or_else(|| JournalError::Conflict("missing item".to_owned()))?;
+            if let Some(item) = self.lookup(key)? {
+                if !self.state.items.contains_key(key) {
+                    if matches!(entry, Entry::Observed { observation, .. } if *observation == item.observation)
+                    {
+                        return Ok(());
                     }
-                    next.items.insert(key.to_owned(), item);
+                    return Err(JournalError::Conflict(format!("{key} is archived")));
                 }
+                next.items.insert(key.to_owned(), item);
             }
         }
         next.apply(entry)?;
@@ -1245,8 +1258,119 @@ mod tests {
         assert_eq!(lines, 3, "refused entries are never written");
     }
 
-    #[test]
-    fn only_a_pending_submission_can_revert_and_replay_without_changing_its_identity() {
+    fn assert_pending_reversion(
+        key: &str,
+        observation: Observation,
+        submitted: &Entry,
+        raw: &[u8],
+        tx_hash: [u8; 32],
+    ) {
+        let pending_path = directory("pending-reverted").join("journal.jsonl");
+        let mut pending_journal = open(&pending_path);
+        append(
+            &mut pending_journal,
+            &Entry::Observed {
+                item: key.to_owned(),
+                observation,
+            },
+        );
+        append(&mut pending_journal, submitted);
+        let pending_bytes =
+            fs::read(&pending_path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        refused(
+            &mut pending_journal,
+            &Entry::Reverted {
+                item: key.to_owned(),
+                tx_hash: [0xee; 32],
+            },
+        );
+        assert_eq!(
+            fs::read(&pending_path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            pending_bytes
+        );
+        append(
+            &mut pending_journal,
+            &Entry::Reverted {
+                item: key.to_owned(),
+                tx_hash,
+            },
+        );
+        let item = &pending_journal.state().items[key];
+        assert_eq!(item.submissions.len(), 1);
+        assert_eq!(item.submissions[0].tx_hash, tx_hash);
+        assert_eq!(item.submissions[0].raw.as_slice(), raw);
+        assert_eq!(item.submissions[0].status, SubmissionStatus::Reverted);
+        assert!(item.pending().is_none());
+        assert!(item.is_open());
+        assert_eq!(open(&pending_path).state(), pending_journal.state());
+    }
+
+    fn assert_receipted_rejections(
+        journal: &mut Journal,
+        path: &Path,
+        key: &str,
+        raw: &[u8],
+        tx_hash: [u8; 32],
+    ) {
+        let before_refusal =
+            fs::read(path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        refused(
+            journal,
+            &Entry::Dropped {
+                item: key.to_owned(),
+                tx_hash,
+            },
+        );
+        refused(
+            journal,
+            &Entry::Completed {
+                item: key.to_owned(),
+                completion: Completion::Included {
+                    tx_hash,
+                    block_number: 1001,
+                },
+            },
+        );
+        refused(
+            journal,
+            &Entry::Reverted {
+                item: key.to_owned(),
+                tx_hash: [0xee; 32],
+            },
+        );
+        refused(
+            journal,
+            &Entry::Reverted {
+                item: key.to_owned(),
+                tx_hash,
+            },
+        );
+        assert_eq!(
+            fs::read(path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            before_refusal
+        );
+        let item = &journal.state().items[key];
+        assert_eq!(item.submissions.len(), 1);
+        assert_eq!(item.submissions[0].tx_hash, tx_hash);
+        assert_eq!(item.submissions[0].raw.as_slice(), raw);
+        assert_eq!(
+            item.submissions[0].status,
+            SubmissionStatus::Receipted {
+                sequence: 5,
+                height: 1002
+            }
+        );
+        assert_eq!(
+            item.pending()
+                .unwrap_or_else(|| panic!("expected Some value"))
+                .tx_hash,
+            tx_hash
+        );
+        assert!(item.is_open());
+        assert_eq!(open(path).state(), journal.state());
+    }
+
+    fn signed_inbound_submission() -> (Observation, Vec<u8>, [u8; 32], [u8; 32]) {
         use k256::ecdsa::SigningKey;
         use layerx_crypto::evm_transaction::Eip1559Call;
         use sha3::{Digest as _, Keccak256};
@@ -1265,13 +1389,14 @@ mod tests {
         let mut secret = [0; 32];
         secret[31] = 0xa1;
         let (signature, recovery) = SigningKey::from_slice(&secret)
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             .sign_prehash_recoverable(&deposit.digest())
-            .unwrap();
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let mut recoverable = [0; 65];
         recoverable[..64].copy_from_slice(&signature.to_bytes());
         recoverable[64] = recovery.to_byte();
-        let signature = crate::attestation::to_attestor_signature(recoverable).unwrap();
+        let signature = crate::attestation::to_attestor_signature(recoverable)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         secret[31] = 0xb1;
         let raw = Eip1559Call {
             chain_id: 229,
@@ -1283,12 +1408,12 @@ mod tests {
             data: crate::abi::encode_bridge_in(&deposit, &[signature]),
         }
         .sign(&secret)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let tx_hash: [u8; 32] = Keccak256::digest(&raw).into();
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
             "../tests/fixtures/inbound_sequencer_receipt.json"
         ))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(hex::prefixed(&tx_hash), fixture["transactionHash"]);
         let observation = Observation::inbound(
             &deposit,
@@ -1297,6 +1422,13 @@ mod tests {
                 block_hash: [0xbb; 32],
             },
         );
+        (observation, raw, tx_hash, secret)
+    }
+
+    #[test]
+    fn only_a_pending_submission_can_revert_and_replay_without_changing_its_identity() {
+        use k256::ecdsa::SigningKey;
+        let (observation, raw, tx_hash, secret) = signed_inbound_submission();
         let key = observation.key();
         let path = directory("receipted-reverted").join("journal.jsonl");
         let mut journal = open(&path);
@@ -1310,47 +1442,16 @@ mod tests {
         let submitted = Entry::Submitted {
             item: key.clone(),
             submitter: crate::attestation::ethereum_address(
-                SigningKey::from_slice(&secret).unwrap().verifying_key(),
+                SigningKey::from_slice(&secret)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                    .verifying_key(),
             ),
             nonce: 5,
             tx_hash,
             raw: raw.clone(),
         };
         append(&mut journal, &submitted);
-        let pending_path = directory("pending-reverted").join("journal.jsonl");
-        let mut pending_journal = open(&pending_path);
-        append(
-            &mut pending_journal,
-            &Entry::Observed {
-                item: key.clone(),
-                observation,
-            },
-        );
-        append(&mut pending_journal, &submitted);
-        let pending_bytes = fs::read(&pending_path).unwrap();
-        refused(
-            &mut pending_journal,
-            &Entry::Reverted {
-                item: key.clone(),
-                tx_hash: [0xee; 32],
-            },
-        );
-        assert_eq!(fs::read(&pending_path).unwrap(), pending_bytes);
-        append(
-            &mut pending_journal,
-            &Entry::Reverted {
-                item: key.clone(),
-                tx_hash,
-            },
-        );
-        let item = &pending_journal.state().items[&key];
-        assert_eq!(item.submissions.len(), 1);
-        assert_eq!(item.submissions[0].tx_hash, tx_hash);
-        assert_eq!(item.submissions[0].raw, raw);
-        assert_eq!(item.submissions[0].status, SubmissionStatus::Reverted);
-        assert!(item.pending().is_none());
-        assert!(item.is_open());
-        assert_eq!(open(&pending_path).state(), pending_journal.state());
+        assert_pending_reversion(&key, observation, &submitted, &raw, tx_hash);
         append(
             &mut journal,
             &Entry::Receipted {
@@ -1361,7 +1462,9 @@ mod tests {
             },
         );
         assert_eq!(journal.state().items[&key].submissions.len(), 1);
-        let pending = journal.state().items[&key].pending().unwrap();
+        let pending = journal.state().items[&key]
+            .pending()
+            .unwrap_or_else(|| panic!("expected Some value"));
         assert_eq!(pending.tx_hash, tx_hash);
         assert_eq!(pending.raw, raw);
         assert_eq!(
@@ -1371,53 +1474,7 @@ mod tests {
                 height: 1002
             }
         );
-        let before_refusal = fs::read(&path).unwrap();
-        refused(
-            &mut journal,
-            &Entry::Dropped {
-                item: key.clone(),
-                tx_hash,
-            },
-        );
-        refused(
-            &mut journal,
-            &Entry::Completed {
-                item: key.clone(),
-                completion: Completion::Included {
-                    tx_hash,
-                    block_number: 1001,
-                },
-            },
-        );
-        refused(
-            &mut journal,
-            &Entry::Reverted {
-                item: key.clone(),
-                tx_hash: [0xee; 32],
-            },
-        );
-        refused(
-            &mut journal,
-            &Entry::Reverted {
-                item: key.clone(),
-                tx_hash,
-            },
-        );
-        assert_eq!(fs::read(&path).unwrap(), before_refusal);
-        let item = &journal.state().items[&key];
-        assert_eq!(item.submissions.len(), 1);
-        assert_eq!(item.submissions[0].tx_hash, tx_hash);
-        assert_eq!(item.submissions[0].raw, raw);
-        assert_eq!(
-            item.submissions[0].status,
-            SubmissionStatus::Receipted {
-                sequence: 5,
-                height: 1002
-            }
-        );
-        assert_eq!(item.pending().unwrap().tx_hash, tx_hash);
-        assert!(item.is_open());
-        assert_eq!(open(&path).state(), journal.state());
+        assert_receipted_rejections(&mut journal, &path, &key, &raw, tx_hash);
         append(
             &mut journal,
             &Entry::Completed {
@@ -1428,7 +1485,8 @@ mod tests {
                 },
             },
         );
-        let completed = fs::read(&path).unwrap();
+        let completed =
+            fs::read(&path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         refused(
             &mut journal,
             &Entry::Completed {
@@ -1436,7 +1494,10 @@ mod tests {
                 completion: Completion::AlreadyBridged,
             },
         );
-        assert_eq!(fs::read(&path).unwrap(), completed);
+        assert_eq!(
+            fs::read(&path).unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            completed
+        );
         assert_eq!(open(&path).state(), journal.state());
     }
 

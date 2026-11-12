@@ -44,6 +44,9 @@ impl std::fmt::Display for TransportFault {
 impl std::error::Error for TransportFault {}
 
 impl PaxeerEndpoint {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn new(
         url: impl Into<String>,
         request_timeout: Duration,
@@ -95,6 +98,9 @@ impl PaxeerEndpoint {
 pub struct PaxeerTransport;
 
 impl PaxeerTransport {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn call(
         endpoint: &PaxeerEndpoint,
         method: &str,
@@ -226,7 +232,7 @@ fn trust_anchor(der: Option<&[u8]>) -> Result<X509, TransportFault> {
     Ok(cert)
 }
 
-fn transport(error: std::io::Error) -> TransportFault {
+fn transport(error: &std::io::Error) -> TransportFault {
     TransportFault::Transport {
         detail: error.to_string(),
     }
@@ -260,9 +266,9 @@ fn call_target(
     }
     let mut tcp = connected.ok_or(TransportFault::Connect { detail: last_error })?;
     tcp.set_read_timeout(Some(endpoint.request_timeout))
-        .map_err(transport)?;
+        .map_err(|error| transport(&error))?;
     tcp.set_write_timeout(Some(endpoint.request_timeout))
-        .map_err(transport)?;
+        .map_err(|error| transport(&error))?;
     let body = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
     let response = if target.tls {
         let authentication = |error: openssl::error::ErrorStack| TransportFault::Authentication {
@@ -321,7 +327,7 @@ fn line<R: BufRead>(reader: &mut R, budget: &mut usize) -> Result<Vec<u8>, Trans
     let count = reader
         .take((limit + 1) as u64)
         .read_until(b'\n', &mut bytes)
-        .map_err(transport)?;
+        .map_err(|error| transport(&error))?;
     if count > limit {
         return Err(TransportFault::ResponseTooLarge);
     }
@@ -338,8 +344,8 @@ fn exchange<S: Read + Write>(
     target: &Target,
     body: &str,
 ) -> Result<Vec<u8>, TransportFault> {
-    write!(stream, "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", target.path, target.authority, body.len(), body).map_err(transport)?;
-    stream.flush().map_err(transport)?;
+    write!(stream, "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", target.path, target.authority, body.len(), body).map_err(|error| transport(&error))?;
+    stream.flush().map_err(|error| transport(&error))?;
     let mut reader = BufReader::new(stream);
     let mut budget = MAXIMUM_RESPONSE_BYTES;
     let status_line = line(&mut reader, &mut budget)?;
@@ -437,5 +443,7 @@ fn read_body<R: Read>(
     *budget -= length;
     let start = body.len();
     body.resize(start + length, 0);
-    reader.read_exact(&mut body[start..]).map_err(transport)
+    reader
+        .read_exact(&mut body[start..])
+        .map_err(|error| transport(&error))
 }

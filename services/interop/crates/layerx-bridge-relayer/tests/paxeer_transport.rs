@@ -36,42 +36,69 @@ fn response(body: &str, chunked: bool) -> Vec<u8> {
 }
 
 fn request(stream: &mut TcpStream) -> Value {
-    stream.set_read_timeout(Some(TIMEOUT)).unwrap();
-    stream.set_write_timeout(Some(TIMEOUT)).unwrap();
+    stream
+        .set_read_timeout(Some(TIMEOUT))
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    stream
+        .set_write_timeout(Some(TIMEOUT))
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
-    reader.read_line(&mut line).unwrap();
+    reader
+        .read_line(&mut line)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(line, "POST / HTTP/1.1\r\n");
     let mut length = None;
     loop {
         line.clear();
-        assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+        assert_ne!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            0
+        );
         if line == "\r\n" {
             break;
         }
         if let Some(value) = line.strip_prefix("Content-Length: ") {
-            length = Some(value.trim().parse::<usize>().unwrap());
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            );
         }
     }
-    let mut bytes = vec![0; length.unwrap()];
-    reader.read_exact(&mut bytes).unwrap();
-    let value: Value = serde_json::from_slice(&bytes).unwrap();
+    let mut bytes = vec![0; length.unwrap_or_else(|| panic!("expected Some value"))];
+    reader
+        .read_exact(&mut bytes)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let value: Value = serde_json::from_slice(&bytes)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(value["jsonrpc"], "2.0");
     assert_eq!(value["id"], 1);
     value
 }
 
 fn emulator(answers: Vec<Vec<u8>>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/", listener.local_addr().unwrap()),
+        format!(
+            "http://{}/",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        ),
         TIMEOUT,
         None,
         125,
         true,
     )
-    .unwrap();
-    listener.set_nonblocking(true).unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let worker = thread::spawn(move || {
         let mut requests = Vec::new();
         for answer in answers {
@@ -87,8 +114,12 @@ fn emulator(answers: Vec<Vec<u8>>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
                 }
             };
             requests.push(request(&mut stream));
-            stream.write_all(&answer).unwrap();
-            stream.flush().unwrap();
+            stream
+                .write_all(&answer)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+            stream
+                .flush()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         }
         // Keep the listener alive to catch a forbidden method after a mismatch.
         let deadline = Instant::now() + Duration::from_millis(100);
@@ -96,7 +127,7 @@ fn emulator(answers: Vec<Vec<u8>>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
             match listener.accept() {
                 Ok(_) => panic!("unexpected JSON-RPC request after the recorded answers"),
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(2))
+                    thread::sleep(Duration::from_millis(2));
                 }
                 Err(error) => panic!("accept failed: {error}"),
             }
@@ -137,11 +168,15 @@ fn a_loopback_emulator_answers_after_the_chain_id_check() {
         PaxeerTransport::call(&endpoint, "eth_chainId", &json!([])),
         Ok(json!("0x7d"))
     );
-    let requests = worker.join().unwrap();
+    let requests = worker
+        .join()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
         requests
             .iter()
-            .map(|value| value["method"].as_str().unwrap())
+            .map(|value| value["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")))
             .collect::<Vec<_>>(),
         [
             "eth_chainId",
@@ -187,7 +222,13 @@ fn a_loopback_emulator_answers_after_the_chain_id_check() {
             PaxeerTransport::call(&endpoint, "eth_blockNumber", &json!([])),
             Err(expected)
         );
-        assert_eq!(worker.join().unwrap().len(), 2);
+        assert_eq!(
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                .len(),
+            2
+        );
     }
 }
 
@@ -201,7 +242,9 @@ fn a_wrong_chain_id_is_refused_before_the_method_is_sent() {
             actual: 126
         })
     );
-    let requests = worker.join().unwrap();
+    let requests = worker
+        .join()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0]["method"], "eth_chainId");
     assert_eq!(requests[0]["params"], json!([]));
@@ -252,7 +295,8 @@ fn a_plaintext_url_off_loopback_is_refused() {
         PaxeerEndpoint::new("http://localhost/", TIMEOUT, None, 0, true),
         Err(TransportFault::UnexpectedValue { .. })
     ));
-    let mut endpoint = PaxeerEndpoint::new("http://localhost/", TIMEOUT, None, 125, true).unwrap();
+    let mut endpoint = PaxeerEndpoint::new("http://localhost/", TIMEOUT, None, 125, true)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     endpoint.url = "http://192.0.2.1/".to_owned();
     assert_eq!(
         PaxeerTransport::call(&endpoint, "eth_blockNumber", &json!([])),
@@ -261,23 +305,48 @@ fn a_plaintext_url_off_loopback_is_refused() {
 }
 
 fn certificate() -> Vec<u8> {
-    let key = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
-    let mut name = X509NameBuilder::new().unwrap();
-    name.append_entry_by_text("CN", "localhost").unwrap();
+    let key = PKey::from_rsa(
+        Rsa::generate(2048).unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let mut name =
+        X509NameBuilder::new().unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    name.append_entry_by_text("CN", "localhost")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let name = name.build();
-    let mut certificate = X509::builder().unwrap();
-    certificate.set_version(2).unwrap();
-    certificate.set_subject_name(&name).unwrap();
-    certificate.set_issuer_name(&name).unwrap();
-    certificate.set_pubkey(&key).unwrap();
+    let mut certificate =
+        X509::builder().unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     certificate
-        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
+        .set_version(2)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     certificate
-        .set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    certificate.sign(&key, MessageDigest::sha256()).unwrap();
-    certificate.build().to_der().unwrap()
+        .set_subject_name(&name)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .set_issuer_name(&name)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .set_pubkey(&key)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .set_not_before(
+            &Asn1Time::days_from_now(0)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .set_not_after(
+            &Asn1Time::days_from_now(1)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .sign(&key, MessageDigest::sha256())
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    certificate
+        .build()
+        .to_der()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
 }
 
 #[test]
@@ -290,7 +359,10 @@ fn an_https_endpoint_without_a_trust_anchor_is_refused() {
     trailing.push(0);
     let mut two_certificates = der.clone();
     two_certificates.extend_from_slice(&der);
-    let pem = X509::from_der(&der).unwrap().to_pem().unwrap();
+    let pem = X509::from_der(&der)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        .to_pem()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     for anchor in [
         None,
         Some(vec![]),

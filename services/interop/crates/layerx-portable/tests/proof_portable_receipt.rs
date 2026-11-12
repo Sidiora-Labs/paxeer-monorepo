@@ -1,13 +1,13 @@
-//! Proves: PortableReceiptV2::{export_with_transaction, from_sequencer_receipt} -> PortableReceiptV2::to_json / verify_portable_json -> PortableVerifiedReceiptV2::raw_transaction
+//! Proves: `PortableReceiptV2::{export_with_transaction`, `from_sequencer_receipt`} -> `PortableReceiptV2::to_json` / `verify_portable_json` -> `PortableVerifiedReceiptV2::raw_transaction`
 //!
-//! The input recording is emitted by rpc/sequencer_receipt_vectors_test.go using
+//! The input recording is emitted by `rpc/sequencer_receipt_vectors_test.go` using
 //! node/sequencer's real receipt builder and signer. No portable proof is loaded:
 //! each exporter builds it here, then is dropped before the public JSON consumer
 //! decodes and verifies its bytes. There is no persistent state; two independent
 //! passes through every recorded successful and reverted outcome prove repeat use.
 //!
 //! Repairs services/interop/crates/layerx-portable/src/receipt.rs,
-//! PortableReceiptV2::from_sequencer_receipt: selecting the first matching pin
+//! `PortableReceiptV2::from_sequencer_receipt`: selecting the first matching pin
 //! discarded duplicate key ids before verification. The exporter must enforce
 //! the same complete pinned-key policy as the JSON consumer, including ambiguity.
 
@@ -56,7 +56,7 @@ fn recording() -> Vec<RecordedReceipt> {
     let recording: Recording = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .expect("real sequencer recording decodes");
+    .unwrap_or_else(|error| panic!("real sequencer recording decodes: {error:?}"));
     assert_eq!(
         recording.provenance.generator,
         "rpc/sequencer_receipt_vectors_test.go"
@@ -69,14 +69,19 @@ fn recording() -> Vec<RecordedReceipt> {
 }
 
 fn bytes(encoded: &str) -> Vec<u8> {
-    let digits = encoded.strip_prefix("0x").expect("recorded hex prefix");
+    let digits = encoded
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("recorded hex prefix"));
     assert_eq!(digits.len() % 2, 0);
     digits
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("ASCII hex"), 16)
-                .expect("recorded hex digits")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("ASCII hex: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("recorded hex digits: {error:?}"))
         })
         .collect()
 }
@@ -85,21 +90,23 @@ fn quantity(encoded: &Value) -> u64 {
     u64::from_str_radix(
         encoded
             .as_str()
-            .expect("recorded quantity")
+            .unwrap_or_else(|| panic!("recorded quantity"))
             .strip_prefix("0x")
-            .expect("quantity prefix"),
+            .unwrap_or_else(|| panic!("quantity prefix")),
         16,
     )
-    .expect("recorded quantity digits")
+    .unwrap_or_else(|error| panic!("recorded quantity digits: {error:?}"))
 }
 
 impl RecordedReceipt {
     fn key(&self) -> ReceiptKeyEntry {
         ReceiptKeyEntry::new(
-            bytes(&self.pinned_key.key_id).try_into().expect("key id"),
+            bytes(&self.pinned_key.key_id)
+                .try_into()
+                .unwrap_or_else(|error| panic!("key id: {error:?}")),
             bytes(&self.pinned_key.public_key)
                 .try_into()
-                .expect("public key"),
+                .unwrap_or_else(|error| panic!("public key: {error:?}")),
             self.pinned_key.first_height,
             self.pinned_key.last_height,
         )
@@ -112,7 +119,12 @@ impl RecordedReceipt {
             quantity(&self.receipt_json["height"]),
             &bytes(&self.raw_transaction),
         )
-        .expect("real signed outcome exports with its transaction")
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "real signed outcome exports with its transaction"
+            )
+        })
     }
 
     fn assert_observed(&self, observed: &PortableVerifiedReceiptV2, carries_raw: bool) {
@@ -140,7 +152,7 @@ impl RecordedReceipt {
             bytes(
                 self.receipt_json["txHash"]
                     .as_str()
-                    .expect("transaction hash")
+                    .unwrap_or_else(|| panic!("transaction hash"))
             )
         );
         assert_eq!(
@@ -149,10 +161,7 @@ impl RecordedReceipt {
         );
         assert_eq!(observed.height(), quantity(&self.receipt_json["height"]));
         assert_eq!(observed.inclusion_height(), observed.height());
-        assert_eq!(
-            observed.result_code(),
-            if self.vector == "V2" { 1 } else { 0 }
-        );
+        assert_eq!(observed.result_code(), i32::from(self.vector == "V2"));
     }
 }
 
@@ -174,16 +183,24 @@ fn proof_portable_receipt_producers_reach_the_consumer_twice() {
                 ReceiptKeyEntry::new([0x99; 32], key.public_key(), 0, u64::MAX),
                 key,
             ];
-            let direct_json = case.export().to_json().expect("producer JSON transport");
+            let direct_json = case
+                .export()
+                .to_json()
+                .unwrap_or_else(|error| panic!("producer JSON transport: {error:?}"));
             for transaction in [Some(raw.as_slice()), None] {
                 let rpc_json = PortableReceiptV2::from_sequencer_receipt(
                     &case.receipt_json,
                     &keys,
                     transaction,
                 )
-                .expect("RPC answer exports under independently pinned keys")
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{}: {error:?}",
+                        "RPC answer exports under independently pinned keys"
+                    )
+                })
                 .to_json()
-                .expect("RPC producer JSON transport");
+                .unwrap_or_else(|error| panic!("RPC producer JSON transport: {error:?}"));
                 if transaction.is_some() {
                     assert_eq!(rpc_json, direct_json, "both producers emit the same proof");
                 }
@@ -193,7 +210,12 @@ fn proof_portable_receipt_producers_reach_the_consumer_twice() {
                     [(&direct_json, true), (&rpc_json, transaction.is_some())]
                 {
                     let PortableVerified::V2(observed) = verify_portable_json(json, &keys)
-                        .expect("public format dispatch decodes and verifies the producer output");
+                        .unwrap_or_else(|error| {
+                            panic!(
+                                "{}: {error:?}",
+                                "public format dispatch decodes and verifies the producer output"
+                            )
+                        });
                     case.assert_observed(&observed, carries_raw);
                 }
             }
@@ -205,19 +227,24 @@ fn proof_portable_receipt_producers_reach_the_consumer_twice() {
 fn proof_portable_receipt_consumer_refuses_corrupted_transport_and_wrong_pins() {
     let case = recording().remove(0);
     let key = case.key();
-    let json = case.export().to_json().expect("producer JSON");
-    let original: Value = serde_json::from_slice(&json).expect("producer wire object");
+    let json = case
+        .export()
+        .to_json()
+        .unwrap_or_else(|error| panic!("producer JSON: {error:?}"));
+    let original: Value = serde_json::from_slice(&json)
+        .unwrap_or_else(|error| panic!("producer wire object: {error:?}"));
     assert_eq!(original["format"], PORTABLE_RECEIPT_FORMAT);
     for _ in 0..2 {
         // A valid observation cannot cache trust for the next decode.
-        let PortableVerified::V2(observed) =
-            verify_portable_json(&json, &[key]).expect("original verifies");
+        let PortableVerified::V2(observed) = verify_portable_json(&json, &[key])
+            .unwrap_or_else(|error| panic!("original verifies: {error:?}"));
         case.assert_observed(&observed, true);
         let mut malformed = original.clone();
         malformed["rawTransaction"] = "0xAB".into();
         assert_eq!(
             verify_portable_json(
-                &serde_json::to_vec(&malformed).expect("malformed wire"),
+                &serde_json::to_vec(&malformed)
+                    .unwrap_or_else(|error| panic!("malformed wire: {error:?}")),
                 &[key]
             ),
             Err(PortableReceiptError::InvalidHex("rawTransaction"))
@@ -225,7 +252,8 @@ fn proof_portable_receipt_consumer_refuses_corrupted_transport_and_wrong_pins() 
         malformed["rawTransaction"] = "0x00".into();
         assert_eq!(
             verify_portable_json(
-                &serde_json::to_vec(&malformed).expect("substituted wire"),
+                &serde_json::to_vec(&malformed)
+                    .unwrap_or_else(|error| panic!("substituted wire: {error:?}")),
                 &[key]
             ),
             Err(PortableReceiptError::RawTransactionMismatch)
@@ -258,7 +286,7 @@ fn proof_portable_receipt_export_preserves_the_full_pinned_key_policy() {
     let json = case
         .export()
         .to_json()
-        .expect("unambiguous producer output");
+        .unwrap_or_else(|error| panic!("unambiguous producer output: {error:?}"));
     let mut wrong_public_key = key.public_key();
     wrong_public_key[0] ^= 1;
     let conflicting = ReceiptKeyEntry::new(

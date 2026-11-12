@@ -11,6 +11,10 @@ pub enum Disposition<'a> {
     Required { manifest: &'a Path, pin: &'a str },
 }
 
+/// Selects the captured boundary inputs required for verification.
+///
+/// # Errors
+/// Rejects a missing required manifest, a missing pin, or invalid input values.
 pub fn prerequisite<'a>(
     manifest: Option<&'a Path>,
     pin: Option<&'a str>,

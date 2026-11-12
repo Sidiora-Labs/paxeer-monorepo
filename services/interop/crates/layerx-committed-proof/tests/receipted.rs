@@ -16,19 +16,19 @@ const COMMITTED_FIXTURE: &str =
 fn string<'a>(case: &'a serde_json::Value, name: &str) -> &'a str {
     case[name]
         .as_str()
-        .unwrap_or_else(|| panic!("invalid fixture string {name}"))
+        .or_panic(&format!("invalid fixture string {name}"))
 }
 
 fn number(case: &serde_json::Value, name: &str) -> u64 {
     case[name]
         .as_u64()
-        .unwrap_or_else(|| panic!("invalid fixture number {name}"))
+        .or_panic(&format!("invalid fixture number {name}"))
 }
 
 fn bytes(case: &serde_json::Value, name: &str) -> Vec<u8> {
     let hex = string(case, name)
         .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("missing fixture hex prefix {name}"));
+        .or_panic(&format!("missing fixture hex prefix {name}"));
     decode_hex(hex, name)
 }
 
@@ -51,13 +51,13 @@ fn hash(case: &serde_json::Value, name: &str) -> [u8; 32] {
 
 #[test]
 fn receipt_denominations_are_bound_to_signed_payment_asset_and_summary() {
-    let fixture: serde_json::Value = serde_json::from_str(FIXTURE).unwrap();
+    let fixture: serde_json::Value = serde_json::from_str(FIXTURE).or_panic("expected Ok value");
     let case = fixture["cases"]
         .as_array()
-        .unwrap()
+        .or_panic("expected Some value")
         .iter()
         .find(|case| string(case, "id") == "V1-pax-transfer")
-        .unwrap();
+        .or_panic("expected Some value");
     let raw = bytes(case, "rawTransaction");
     let receipt = bytes(case, "signedReceipt");
     let previous = hash(case, "prevSeqHash");
@@ -72,7 +72,7 @@ fn receipt_denominations_are_bound_to_signed_payment_asset_and_summary() {
         verify_receipted(
             &raw,
             &receipt,
-            &serde_json::to_vec(view).unwrap(),
+            &serde_json::to_vec(view).or_panic("expected Ok value"),
             previous,
             &keys,
         )
@@ -88,7 +88,10 @@ fn receipt_denominations_are_bound_to_signed_payment_asset_and_summary() {
             assert_eq!(verify(&altered), Err(ProofError::ReceiptViewMismatch));
         }
         let mut missing = case["receiptJson"].clone();
-        missing.as_object_mut().unwrap().remove(field);
+        missing
+            .as_object_mut()
+            .or_panic("expected Some value")
+            .remove(field);
         assert_eq!(verify(&missing), Err(ProofError::ReceiptViewMismatch));
     }
     let mut both_changed = case["receiptJson"].clone();
@@ -106,7 +109,7 @@ fn receipted_fixture_cases_verify_or_refuse() {
         serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("invalid fixture: {error}"));
     let cases = fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing fixture cases"));
+        .or_panic("missing fixture cases");
     let expected_v1_cases = cases
         .iter()
         .filter(|case| string(case, "vector") == "V1")
@@ -141,170 +144,20 @@ fn receipted_fixture_cases_verify_or_refuse() {
             if result != expected {
                 failures.push(format!("{id}: expected {expected:?}, got {result:?}"));
             }
-            let height = u64::from_str_radix(
-                string(&case["receiptJson"], "height")
-                    .strip_prefix("0x")
-                    .unwrap_or_else(|| panic!("{id}: missing height prefix")),
-                16,
-            )
-            .unwrap_or_else(|error| panic!("{id}: invalid height: {error}"));
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &receipt,
-                    &view,
-                    previous,
-                    &[(key_id, key, height, height)]
-                ),
-                expected,
-                "{id}: inclusive height bounds"
-            );
-            for (first, last) in [(0, height - 1), (height + 1, u64::MAX)] {
-                assert_eq!(
-                    verify_receipted(
-                        &raw,
-                        &receipt,
-                        &view,
-                        previous,
-                        &[(key_id, key, first, last)]
-                    ),
-                    Err(ProofError::UnpinnedReceiptSignature),
-                    "{id}: pin excludes receipt height"
-                );
-            }
-            let mut wrong_key = key;
-            wrong_key[0] ^= 1;
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &receipt,
-                    &view,
-                    previous,
-                    &[(key_id, wrong_key, first, last), (key_id, key, first, last)],
-                ),
-                expected,
-                "{id}: matching standby pin"
-            );
-            let mut wrong_signing_key = case["receiptJson"].clone();
-            wrong_signing_key["signingKey"] = format!("0x{}", "00".repeat(32)).into();
-            let wrong_signing_key = serde_json::to_vec(&wrong_signing_key)
-                .unwrap_or_else(|error| panic!("{id}: invalid altered JSON view: {error}"));
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &receipt,
-                    &wrong_signing_key,
-                    previous,
-                    &[(key_id, key, first, last)]
-                ),
-                Err(ProofError::ReceiptViewMismatch),
-                "{id}: JSON signing key must match the verified pin"
-            );
-            let mut wrong_id = key_id;
-            wrong_id[0] ^= 1;
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &receipt,
-                    &view,
-                    previous,
-                    &[(wrong_id, key, first, last)]
-                ),
-                Err(ProofError::UnpinnedReceiptSignature),
-                "{id}: public key alone does not pin a key id"
-            );
-            for name in case["receiptJson"]
-                .as_object()
-                .unwrap_or_else(|| panic!("{id}: view must be an object"))
-                .keys()
-            {
-                let mut altered = case["receiptJson"].clone();
-                altered[name] = serde_json::Value::Null;
-                let altered = serde_json::to_vec(&altered)
-                    .unwrap_or_else(|error| panic!("{id}: cannot serialize altered view: {error}"));
-                assert_eq!(
-                    verify_receipted(
-                        &raw,
-                        &receipt,
-                        &altered,
-                        previous,
-                        &[(key_id, key, first, last)]
-                    ),
-                    Err(ProofError::ReceiptViewMismatch),
-                    "{id}: JSON field {name} must be bound"
-                );
-            }
-            let mut wrong_previous = previous;
-            wrong_previous[0] ^= 1;
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &receipt,
-                    &view,
-                    wrong_previous,
-                    &[(key_id, key, first, last)]
-                ),
-                Err(ProofError::ReceiptSequenceMismatch),
-                "{id}: predecessor mismatch"
-            );
-            let mut wrong_raw = raw.clone();
-            wrong_raw[0] ^= 1;
-            assert_eq!(
-                verify_receipted(
-                    &wrong_raw,
-                    &receipt,
-                    &view,
-                    previous,
-                    &[(key_id, key, first, last)]
-                ),
-                Err(ProofError::ReceiptActivityMismatch),
-                "{id}: raw transaction mismatch"
-            );
-            let mut trailing = receipt.clone();
-            trailing.push(0);
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &trailing,
-                    &view,
-                    previous,
-                    &[(key_id, key, first, last)]
-                ),
-                Err(ProofError::InvalidReceipt),
-                "{id}: trailing bytes"
-            );
-            assert_eq!(
-                verify_receipted(&raw, &receipt, &view, previous, &[]),
-                Err(ProofError::UnpinnedReceiptSignature),
-                "{id}: empty pins"
-            );
-            let mut tampered = receipt.clone();
-            let last_byte = tampered.len() - 1;
-            tampered[last_byte] ^= 1;
-            assert_eq!(
-                verify_receipted(
-                    &raw,
-                    &tampered,
-                    &view,
-                    previous,
-                    &[(key_id, key, first, last)]
-                ),
-                Err(ProofError::UnpinnedReceiptSignature),
-                "{id}: tampered signature"
-            );
-            for length in 0..receipt.len() {
-                assert!(
-                    verify_receipted(
-                        &raw,
-                        &receipt[..length],
-                        &view,
-                        previous,
-                        &[(key_id, key, first, last)]
-                    )
-                    .is_err(),
-                    "{id}: truncated receipt at {length}"
-                );
-            }
+            let context = ReceiptCase {
+                case,
+                raw: &raw,
+                receipt: &receipt,
+                view: &view,
+                previous,
+                key_id,
+                key,
+                first,
+                last,
+                id,
+            };
+            assert_pin_boundaries(&context, expected);
+            assert_receipt_mutations(&context);
         } else {
             refused += 1;
             let expected_error = match string(&case["expected"], "refusedAt") {
@@ -332,6 +185,224 @@ fn receipted_fixture_cases_verify_or_refuse() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
+#[derive(Clone, Copy)]
+struct ReceiptCase<'a> {
+    case: &'a serde_json::Value,
+    raw: &'a [u8],
+    receipt: &'a [u8],
+    view: &'a [u8],
+    previous: [u8; 32],
+    key_id: [u8; 32],
+    key: [u8; 32],
+    first: u64,
+    last: u64,
+    id: &'a str,
+}
+
+fn assert_pin_boundaries(ctx: &ReceiptCase<'_>, expected: Result<[u8; 32], ProofError>) {
+    let ReceiptCase {
+        case,
+        raw,
+        receipt,
+        view,
+        previous,
+        key_id,
+        key,
+        first,
+        last,
+        id,
+    } = *ctx;
+    let height = u64::from_str_radix(
+        string(&case["receiptJson"], "height")
+            .strip_prefix("0x")
+            .or_panic(&format!("{id}: missing height prefix")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("{id}: invalid height: {error}"));
+    assert_eq!(
+        verify_receipted(
+            raw,
+            receipt,
+            view,
+            previous,
+            &[(key_id, key, height, height)]
+        ),
+        expected,
+        "{id}: inclusive height bounds"
+    );
+    for (first, last) in [(0, height - 1), (height + 1, u64::MAX)] {
+        assert_eq!(
+            verify_receipted(raw, receipt, view, previous, &[(key_id, key, first, last)]),
+            Err(ProofError::UnpinnedReceiptSignature),
+            "{id}: pin excludes receipt height"
+        );
+    }
+    let mut wrong_key = key;
+    wrong_key[0] ^= 1;
+    assert_eq!(
+        verify_receipted(
+            raw,
+            receipt,
+            view,
+            previous,
+            &[(key_id, wrong_key, first, last), (key_id, key, first, last)],
+        ),
+        expected,
+        "{id}: matching standby pin"
+    );
+    let mut wrong_signing_key = case["receiptJson"].clone();
+    wrong_signing_key["signingKey"] = format!("0x{}", "00".repeat(32)).into();
+    let wrong_signing_key = serde_json::to_vec(&wrong_signing_key)
+        .unwrap_or_else(|error| panic!("{id}: invalid altered JSON view: {error}"));
+    assert_eq!(
+        verify_receipted(
+            raw,
+            receipt,
+            &wrong_signing_key,
+            previous,
+            &[(key_id, key, first, last)]
+        ),
+        Err(ProofError::ReceiptViewMismatch),
+        "{id}: JSON signing key must match the verified pin"
+    );
+    let mut wrong_id = key_id;
+    wrong_id[0] ^= 1;
+    assert_eq!(
+        verify_receipted(
+            raw,
+            receipt,
+            view,
+            previous,
+            &[(wrong_id, key, first, last)]
+        ),
+        Err(ProofError::UnpinnedReceiptSignature),
+        "{id}: public key alone does not pin a key id"
+    );
+}
+
+fn assert_receipt_mutations(ctx: &ReceiptCase<'_>) {
+    let ReceiptCase {
+        raw,
+        receipt,
+        view,
+        previous,
+        key_id,
+        key,
+        first,
+        last,
+        id,
+        ..
+    } = *ctx;
+    assert_view_field_mutations(ctx);
+    let mut wrong_previous = previous;
+    wrong_previous[0] ^= 1;
+    assert_eq!(
+        verify_receipted(
+            raw,
+            receipt,
+            view,
+            wrong_previous,
+            &[(key_id, key, first, last)]
+        ),
+        Err(ProofError::ReceiptSequenceMismatch),
+        "{id}: predecessor mismatch"
+    );
+    let mut wrong_raw = raw.to_vec();
+    wrong_raw[0] ^= 1;
+    assert_eq!(
+        verify_receipted(
+            &wrong_raw,
+            receipt,
+            view,
+            previous,
+            &[(key_id, key, first, last)]
+        ),
+        Err(ProofError::ReceiptActivityMismatch),
+        "{id}: raw transaction mismatch"
+    );
+    let mut trailing = receipt.to_vec();
+    trailing.push(0);
+    assert_eq!(
+        verify_receipted(
+            raw,
+            &trailing,
+            view,
+            previous,
+            &[(key_id, key, first, last)]
+        ),
+        Err(ProofError::InvalidReceipt),
+        "{id}: trailing bytes"
+    );
+    assert_eq!(
+        verify_receipted(raw, receipt, view, previous, &[]),
+        Err(ProofError::UnpinnedReceiptSignature),
+        "{id}: empty pins"
+    );
+    let mut tampered = receipt.to_vec();
+    let last_byte = tampered.len() - 1;
+    tampered[last_byte] ^= 1;
+    assert_eq!(
+        verify_receipted(
+            raw,
+            &tampered,
+            view,
+            previous,
+            &[(key_id, key, first, last)]
+        ),
+        Err(ProofError::UnpinnedReceiptSignature),
+        "{id}: tampered signature"
+    );
+    for length in 0..receipt.len() {
+        assert!(
+            verify_receipted(
+                raw,
+                &receipt[..length],
+                view,
+                previous,
+                &[(key_id, key, first, last)]
+            )
+            .is_err(),
+            "{id}: truncated receipt at {length}"
+        );
+    }
+}
+
+fn assert_view_field_mutations(ctx: &ReceiptCase<'_>) {
+    let ReceiptCase {
+        case,
+        raw,
+        receipt,
+        previous,
+        key_id,
+        key,
+        first,
+        last,
+        id,
+        ..
+    } = *ctx;
+    for name in case["receiptJson"]
+        .as_object()
+        .or_panic(&format!("{id}: view must be an object"))
+        .keys()
+    {
+        let mut altered = case["receiptJson"].clone();
+        altered[name] = serde_json::Value::Null;
+        let altered = serde_json::to_vec(&altered)
+            .unwrap_or_else(|error| panic!("{id}: cannot serialize altered view: {error}"));
+        assert_eq!(
+            verify_receipted(
+                raw,
+                receipt,
+                &altered,
+                previous,
+                &[(key_id, key, first, last)]
+            ),
+            Err(ProofError::ReceiptViewMismatch),
+            "{id}: JSON field {name} must be bound"
+        );
+    }
+}
+
 #[test]
 fn receipted_operation_zero_is_carried_into_signature_check() {
     let fixture: serde_json::Value =
@@ -339,7 +410,7 @@ fn receipted_operation_zero_is_carried_into_signature_check() {
     let mut checked = 0;
     let cases = fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing fixture cases"));
+        .or_panic("missing fixture cases");
     let expected_v1_cases = cases
         .iter()
         .filter(|case| string(case, "vector") == "V1")
@@ -371,7 +442,9 @@ fn receipted_operation_zero_is_carried_into_signature_check() {
         let operation_offset = receipt
             .windows(10)
             .position(|bytes| bytes == [0, 12, 0, 0, 0, 1, 0, 0, 0, 0])
-            .unwrap_or_else(|| panic!("{id}: missing module-12 trailer and parameter version"))
+            .or_panic(&format!(
+                "{id}: missing module-12 trailer and parameter version"
+            ))
             + 10;
         assert_eq!(receipt[operation_offset], 2, "{id}: fixture operation");
         let mut zero_operation = receipt.clone();
@@ -449,7 +522,7 @@ fn committed_fixture_view_verifies_and_binds_block_fields_and_rung() {
     let height = u64::from_str_radix(
         string(view, "height")
             .strip_prefix("0x")
-            .unwrap_or_else(|| panic!("missing committed height prefix")),
+            .or_panic("missing committed height prefix"),
         16,
     )
     .unwrap_or_else(|error| panic!("invalid committed height: {error}"));
@@ -461,7 +534,7 @@ fn committed_fixture_view_verifies_and_binds_block_fields_and_rung() {
     )];
     let validators: Vec<_> = fixture["settlement"]["validators"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing committed validators"))
+        .or_panic("missing committed validators")
         .iter()
         .map(|validator| {
             assert_eq!(
@@ -504,14 +577,12 @@ fn committed_fixture_view_verifies_and_binds_block_fields_and_rung() {
     let mut wrong_hash = view.clone();
     let mut flipped = hash(view, "blockHash");
     flipped[0] ^= 1;
-    wrong_hash["blockHash"] = format!(
-        "0x{}",
-        flipped
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    )
-    .into();
+    let mut flipped_hex = String::from("0x");
+    for byte in flipped {
+        use std::fmt::Write as _;
+        write!(&mut flipped_hex, "{byte:02x}").or_panic("hex rendering");
+    }
+    wrong_hash["blockHash"] = flipped_hex.into();
     let mut wrong_number = view.clone();
     wrong_number["blockNumber"] = format!("0x{:x}", height + 1).into();
     for (name, altered) in [("blockHash", wrong_hash), ("blockNumber", wrong_number)] {
@@ -528,4 +599,26 @@ fn committed_fixture_view_verifies_and_binds_block_fields_and_rung() {
         Err(ProofError::ReceiptViewMismatch),
         "receipted verifier must refuse the committed view"
     );
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }
