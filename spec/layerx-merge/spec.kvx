@@ -198260,7 +198260,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.403]
 title = "Pass the lint of the platform crates with warnings denied"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.412", "22.39.413", "22.39.414", "22.39.415", "22.39.416", "22.39.417", "22.39.418", "22.39.419", "22.39.420", "22.39.421", "22.39.422", "22.39.423", "22.39.424", "22.39.425", "22.39.457"]
