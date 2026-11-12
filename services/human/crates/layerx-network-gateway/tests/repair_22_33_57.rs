@@ -1,9 +1,11 @@
-//! The focused repair gate executes the original repaired cases and the hosted
-//! ABI -> loopback HTTP -> production client -> WalletObservation proofs.
+//! The gateway decoder, balance, asset, and HTTP cases exercise the production client.
 
-#[path = "chain_assets.rs"]
-mod chain_assets;
-#[path = "chain_balances.rs"]
-mod chain_balances;
-#[path = "proof_human_network_gateway.rs"]
-mod proof_human_network_gateway;
+mod chain_assets {
+    include!("chain_assets.rs");
+}
+mod chain_balances {
+    include!("chain_balances.rs");
+}
+mod proof_human_network_gateway {
+    include!("proof_human_network_gateway.rs");
+}

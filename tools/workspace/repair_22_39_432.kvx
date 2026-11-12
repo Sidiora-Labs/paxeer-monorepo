@@ -1,0 +1,6 @@
+[static_check]
+contracts = "TypeScript checks the contract test sources included by contracts/tsconfig.json without emitting files."
+dapp_tests = "Node checks the JavaScript syntax of files in tests/integration/dapp_tests."
+rpc_tests = "TypeScript checks the RPC test sources included by tests/integration/rpc_tests/tsconfig.json without emitting files."
+manifest_test = "The manifest test target depends on the static check."
+manifest_lint = "The manifest lint target depends on the static check."

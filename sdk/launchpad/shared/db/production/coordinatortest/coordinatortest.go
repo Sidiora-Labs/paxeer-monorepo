@@ -322,8 +322,7 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	name := "coordinator" + tag
 	created := []string{}
 	// Registered first so it runs last: the database goes first, then every
-	// cluster-global role this bootstrap created, then the shared ledger
-	// owner if no other private database still uses it.
+	// cluster-global role this bootstrap created.
 	t.Cleanup(func() {
 		c, err := pgx.ConnectConfig(context.Background(), adminConfig)
 		if err != nil {
@@ -338,10 +337,6 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			if _, err = c.Exec(context.Background(), "DROP ROLE IF EXISTS "+pgx.Identifier{created[i]}.Sanitize()); err != nil {
 				t.Logf("drop test role %s: %v", created[i], err)
 			}
-		}
-		var used bool
-		if err = c.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM pg_shdepend d JOIN pg_roles r ON r.oid=d.refobjid WHERE r.rolname='migration_control_owner')").Scan(&used); err == nil && !used {
-			_, _ = c.Exec(context.Background(), "DROP ROLE IF EXISTS migration_control_owner")
 		}
 	})
 	if _, err = control.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {

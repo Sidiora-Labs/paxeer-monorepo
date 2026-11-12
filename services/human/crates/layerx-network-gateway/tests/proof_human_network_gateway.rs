@@ -1,18 +1,6 @@
-//! Proves: decode_account / decode_account_balances / decode_assets / decode_network -> AccountJoin / AccountBalances / AssetBalance / AssetTable / AssetEntry / NetworkHead -> WalletObservation (the production core of journeys::observed::NetworkObservation).
-//!
-//! The crossing under contract is the public Rust result, not a separate
-//! daemon. Parser inputs are built in this process; only actual decoder outputs
-//! cross into the consumer. No transport or consumer is replaced, and no
-//! externally provisioned producer, configuration or fixture is needed.
-//!
-//! Repairs services/human/crates/layerx-network-gateway/src/lib.rs:
-//! decode_account_balances accepted duplicate denominations, allowing
-//! NetworkObservation::balance in
-//! services/human/crates/layerx-human-service/src/journeys/observed.rs to silently
-//! select the first conflicting amount. Both decoded and directly supplied
-//! AccountBalances now refuse that ambiguity. NetworkObservation delegates its
-//! accept/balance/joined operations to the same WalletObservation tested
-//! here; its service-specific address and amount wrappers remain in observed.rs.
+// Gateway decoder outputs feed wallet observations and retain network evidence.
+
+include!("support/required.rs");
 
 use layerx_network_gateway::{
     decode_account, decode_account_balances, decode_assets, decode_network, AccountBalances,
@@ -84,13 +72,13 @@ impl ProducerState {
 
     fn observe(&self) -> WalletObservation {
         let account: AccountJoin = decode_account(&self.account)
-            .expect("src/lib.rs::decode_account must produce the account join");
+            .required_with("src/lib.rs::decode_account must produce the account join");
         let balances: AccountBalances = decode_account_balances(&self.balances)
-            .expect("src/lib.rs::decode_account_balances must produce bank balances");
+            .required_with("src/lib.rs::decode_account_balances must produce bank balances");
         let assets: AssetTable = decode_assets(&self.assets)
-            .expect("src/lib.rs::decode_assets must produce the asset table");
+            .required_with("src/lib.rs::decode_assets must produce the asset table");
         let network: NetworkHead = decode_network(&self.network)
-            .expect("src/lib.rs::decode_network must produce the network head");
+            .required_with("src/lib.rs::decode_network must produce the network head");
 
         assert_eq!(account.account, balances.account);
         assert_eq!(account.evidence, Evidence::GatewayReported);
@@ -99,7 +87,7 @@ impl ProducerState {
         assert_eq!(network.evidence, Evidence::GatewayReported);
         let paxeer = account
             .paxeer
-            .expect("bound account must report its Paxeer half");
+            .required_with("bound account must report its Paxeer half");
         assert_eq!(Some(paxeer.address), balances.account.evm_address);
         assert_eq!(paxeer.height, balances.height);
         assert_eq!(paxeer.nonce, 3);
@@ -108,7 +96,9 @@ impl ProducerState {
         assert_eq!(network.network_id, "gateway-proof");
         assert_eq!(network.chain_id, 125);
         assert_eq!(network.latest_block, balances.height);
-        let consensus = network.consensus.expect("producer supplied consensus");
+        let consensus = network
+            .consensus
+            .required_with("producer supplied consensus");
         assert_eq!(consensus.latest_height, balances.height);
         assert_eq!(consensus.latest_block_hash, [0xa1; 32]);
         assert_eq!(consensus.latest_app_hash, [0xb2; 32]);
@@ -118,7 +108,7 @@ impl ProducerState {
         // This is the production acceptance function called by the human
         // service, operating on the producer's actual public Rust result.
         let observed = WalletObservation::accept(balances)
-            .expect("human consumer must accept the produced bound balance table");
+            .required_with("human consumer must accept the produced bound balance table");
         assert_eq!(observed.joined(), &expected);
         assert_eq!(observed.wallet(), paxeer.address);
         assert_eq!(observed.balance("upax"), Some(paxeer.balance));
@@ -127,8 +117,11 @@ impl ProducerState {
         assert_eq!(assets.assets.len(), 2);
         for entry in &assets.assets {
             let entry: &AssetEntry = entry;
-            let denom = entry.denom.as_deref().expect("bank asset denomination");
-            let row: &AssetBalance = expected.asset(denom).expect("produced bank row");
+            let denom = entry
+                .denom
+                .as_deref()
+                .required_with("bank asset denomination");
+            let row: &AssetBalance = expected.asset(denom).required_with("produced bank row");
             assert_eq!(observed.balance(denom), Some(row.amount));
             assert_eq!(entry.kind, "bank");
         }
@@ -164,7 +157,7 @@ fn proof_human_network_gateway_refuses_malformed_and_ambiguous_balances() {
     let mut malformed = producer.balances.clone();
     malformed["balances"][0]
         .as_object_mut()
-        .unwrap()
+        .required()
         .remove("amount");
     assert_eq!(
         decode_account_balances(&malformed).and_then(WalletObservation::accept),
@@ -179,7 +172,7 @@ fn proof_human_network_gateway_refuses_malformed_and_ambiguous_balances() {
     );
     // Public types also permit a caller to supply rows directly, as the
     // human service's existing accept callers do. Guard that boundary too.
-    let mut direct = decode_account_balances(&producer.balances).unwrap();
+    let mut direct = decode_account_balances(&producer.balances).required();
     direct.balances.push(AssetBalance {
         denom: "upax".to_owned(),
         amount: 1.into(),
@@ -202,7 +195,7 @@ fn proof_human_network_gateway_refuses_unbound_wallet_and_wrong_identity() {
         decode_account_balances(&unbound).and_then(WalletObservation::accept),
         Err(GatewayError::Unbound)
     );
-    let mut identities = decode_account(&producer.account).unwrap().account;
+    let mut identities = decode_account(&producer.account).required().account;
     assert_eq!(
         identities.retain_lookup(AccountIdentifier::Evm([0x28; 20])),
         Err(GatewayError::Unbound)
@@ -225,8 +218,9 @@ fn proof_human_network_gateway_refuses_unbound_wallet_and_wrong_identity() {
     );
     let mut malformed_assets = producer.assets.clone();
     malformed_assets["assets"][0]["supply"] = json!("340282366920938463463374607431768211456");
-    let wide = decode_assets(&malformed_assets).expect("uint256 supply reaches the consumer");
-    let supply = wide.assets[0].supply.expect("observed supply");
+    let wide =
+        decode_assets(&malformed_assets).required_with("uint256 supply reaches the consumer");
+    let supply = wide.assets[0].supply.required_with("observed supply");
     assert_eq!(
         supply.to_string(),
         "340282366920938463463374607431768211456"
@@ -245,8 +239,10 @@ fn proof_human_network_gateway_refuses_unbound_wallet_and_wrong_identity() {
     );
 }
 
-#[path = "support/hosted_gateway.rs"]
-mod hosted_gateway;
+#[allow(dead_code)]
+mod hosted_gateway {
+    include!("support/hosted_gateway.rs");
+}
 
 #[test]
 fn hosted_gateway_http_reaches_wallet_with_exact_bank_and_supply() {
@@ -273,19 +269,20 @@ fn hosted_gateway_http_reaches_wallet_with_exact_bank_and_supply() {
     let decoded = transcript
         .endpoint
         .get_balances(selector)
-        .expect("recorded bank response over HTTP");
+        .required_with("recorded bank response over HTTP");
     let account = transcript
         .endpoint
         .get_account(selector)
-        .expect("hosted account response over HTTP");
+        .required_with("hosted account response over HTTP");
     let assets = transcript
         .endpoint
         .list_assets()
-        .expect("hosted sixteen-row supply response over HTTP");
+        .required_with("hosted sixteen-row supply response over HTTP");
     transcript.finish();
 
     let expected = decoded.clone();
-    let observed = WalletObservation::accept(decoded).expect("production Human wallet consumer");
+    let observed =
+        WalletObservation::accept(decoded).required_with("production Human wallet consumer");
     assert_eq!(observed.joined(), &expected);
     assert_eq!(account.account, observed.joined().account);
     assert_eq!(Some(observed.wallet()), selector.evm_address());
@@ -297,16 +294,16 @@ fn hosted_gateway_http_reaches_wallet_with_exact_bank_and_supply() {
     assert_eq!(assets.assets.len(), 16);
     assert_eq!(assets.joined_limit, 16);
     assert_eq!(
-        assets.assets[0].supply.unwrap().to_string(),
+        assets.assets[0].supply.required().to_string(),
         hosted_gateway::MAXIMUM
     );
-    assert_eq!(assets.assets[0].supply.unwrap().to_be_bytes(), [0xff; 32]);
+    assert_eq!(assets.assets[0].supply.required().to_be_bytes(), [0xff; 32]);
     assert_eq!(assets.assets[1].supply, None);
     assert_eq!(assets.assets[1].name, None);
     for (denom, word) in hosted_gateway::coins() {
         let amount = observed
             .balance(&denom)
-            .expect("every recorded denom reaches consumer");
+            .required_with("every recorded denom reaches consumer");
         assert_eq!(amount.to_be_bytes(), word);
         assert_eq!(
             amount.to_string(),
@@ -314,9 +311,9 @@ fn hosted_gateway_http_reaches_wallet_with_exact_bank_and_supply() {
         );
     }
     let large_denom = hosted_gateway::coins()[1].0.clone();
-    let large = observed.balance(&large_denom).unwrap();
+    let large = observed.balance(&large_denom).required();
     assert_eq!(large.to_string(), hosted_gateway::TWO_TO_200);
-    let paxeer = account.paxeer.unwrap();
+    let paxeer = account.paxeer.required();
     assert_eq!(paxeer.balance, large);
     assert_eq!(paxeer.height, observed.joined().height);
     assert_eq!(paxeer.nonce, 42);
@@ -338,7 +335,10 @@ fn hosted_gateway_http_keeps_malformed_values_separate_from_large_values() {
     let mut invalid = Vec::new();
     for field in ["amount", "denom"] {
         let mut result = hosted_gateway::balances();
-        result["balances"][1].as_object_mut().unwrap().remove(field);
+        result["balances"][1]
+            .as_object_mut()
+            .required()
+            .remove(field);
         invalid.push(result);
     }
     for amount in [
@@ -398,12 +398,10 @@ fn hosted_gateway_http_keeps_malformed_values_separate_from_large_values() {
     transcript.finish();
 }
 
-#[test]
-fn hosted_gateway_http_refuses_bad_framing_refusals_and_wrong_binding() {
+fn framing_transcript(selector: AccountIdentifier) -> hosted_gateway::Transcript {
     use hosted_gateway::{Exchange, Response, Transcript};
-    let selector = hosted_gateway::selector();
     let params = json!([selector.canonical_text()]);
-    let transcript = Transcript::serve(vec![
+    Transcript::serve(vec![
         Exchange {
             method: "px_getBalances",
             params: params.clone(),
@@ -446,7 +444,13 @@ fn hosted_gateway_http_refuses_bad_framing_refusals_and_wrong_binding() {
             params,
             response: Response::Result(hosted_gateway::balances()),
         },
-    ]);
+    ])
+}
+
+#[test]
+fn hosted_gateway_http_refuses_bad_framing_refusals_and_wrong_binding() {
+    let selector = hosted_gateway::selector();
+    let transcript = framing_transcript(selector);
     assert_eq!(
         transcript
             .endpoint
@@ -498,11 +502,11 @@ fn hosted_gateway_http_refuses_bad_framing_refusals_and_wrong_binding() {
         .endpoint
         .get_balances(selector)
         .and_then(WalletObservation::accept)
-        .expect("refusals do not poison the next real observation");
+        .required_with("refusals do not poison the next real observation");
     assert_eq!(
         recovered
             .balance(&hosted_gateway::coins()[1].0)
-            .unwrap()
+            .required()
             .to_string(),
         hosted_gateway::TWO_TO_200
     );

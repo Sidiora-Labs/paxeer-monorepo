@@ -17,6 +17,7 @@ import (
 )
 
 func TestPhase2ReaderCompatibility(t *testing.T) {
+	requireProductionEnv(t, "L07_POSTGRES_DSN", "L07_READER_PASSWORD", "L07_OLD_READER_BIN", "L07_NEW_READER_BIN")
 	frozenPool, row := phase2FrozenPool(t)
 	pool, readerDSN := phase2MigrationFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

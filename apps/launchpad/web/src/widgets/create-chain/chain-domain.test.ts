@@ -25,7 +25,8 @@ function chain_domain_validates_names_tiers_cost_and_wallet_params() {
 
   const operator = '0x1111111111111111111111111111111111111111';
   const now = 1700000000000;
-  const draft: c.ChainDraft = { draftId: 'chain-1', version: 1, creator: operator, chainId: 125, name: 'demo', tier: 'pro', feeShareBps: 60, updatedAt: now };
+  const draft: c.ChainDraft = { draftId: 'chain-1', version: 2, creator: operator, chainId: 125, name: 'demo',
+    tokenName: 'Demo Token', tokenSymbol: 'DMT', feeStrategy: 0, tier: 'pro', feeShareBps: 60, updatedAt: now };
   expect(c.validateChainDraft(draft, now)).toEqual({});
   expect(c.validateChainDraft(draft, now + 30 * 86400000)).toEqual({});
   for (const feeShareBps of [0, 5000]) expect(c.validateChainDraft({ ...draft, feeShareBps }, now)).toEqual({});
@@ -34,6 +35,12 @@ function chain_domain_validates_names_tiers_cost_and_wallet_params() {
     ['creator', 'not-an-address', 'invalid_creator'],
     ['chainId', 1, 'wrong_chain'],
     ['name', 'ABC', 'invalid_chain_name'],
+    ['tokenName', '', 'invalid_text'],
+    ['tokenName', 'a'.repeat(51), 'invalid_text'],
+    ['tokenSymbol', '', 'invalid_text'],
+    ['tokenSymbol', 'a'.repeat(11), 'invalid_text'],
+    ['feeStrategy', 4, 'invalid_fee_strategy'],
+    ['feeStrategy', -1, 'invalid_fee_strategy'],
     ['tier', 'enterprise', 'invalid_tier'],
     ['tier', 'toString', 'invalid_tier'],
     ['feeShareBps', -1, 'invalid_fee_share'],
@@ -41,7 +48,7 @@ function chain_domain_validates_names_tiers_cost_and_wallet_params() {
     ['feeShareBps', 1.5, 'invalid_fee_share'],
     ['feeShareBps', '60', 'invalid_fee_share'],
     ['draftId', '', 'invalid_identity'],
-    ['version', 0, 'invalid_identity'],
+    ['version', 1, 'invalid_identity'],
     ['updatedAt', now + 1, 'draft_expired'],
     ['updatedAt', NaN, 'draft_expired'],
   ]) expect(c.validateChainDraft({ ...draft, [field]: value }, now)[field === 'version' ? 'draftId' : field]).toBe(error);
@@ -124,4 +131,4 @@ function chain_domain_validates_names_tiers_cost_and_wallet_params() {
   }
 }
 
-test(chain_domain_validates_names_tiers_cost_and_wallet_params);
+test(chain_domain_validates_names_tiers_cost_and_wallet_params.name, chain_domain_validates_names_tiers_cost_and_wallet_params);
