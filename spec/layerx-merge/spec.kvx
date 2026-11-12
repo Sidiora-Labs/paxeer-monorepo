@@ -13540,6 +13540,18 @@ value = "The verification of task 22.39.441 runs every step of the recipe human-
 basis = "Decision 3383."
 affects = ["22.39.441"]
 
+[decision.3405]
+title = "The statistics page charts of SID read the registered secondary coin chart resource"
+value = "The SID price chart and the SID market value chart of the statistics page read general:stats_charts_secondary_coin_market, the route api/v2/stats/charts/secondary-coin-market, as the charts of the home page do. One resource name serves both pages. The verification of the task type checks the whole explorer frontend."
+basis = "Gotcha 4321. Decision 3393."
+affects = ["22.35.17"]
+
+[decision.3406]
+title = "The market value of SID is the price times the circulating supply"
+value = "The market value of the secondary coin is the figure of the feed when the feed gives one. Otherwise it is the price times the circulating supply. The circulating supply is the figure of the feed when the feed gives one. Otherwise it is the total supply the explorer holds for the SID token less the balances the explorer holds for the addresses of a setting that lists the non-circulating addresses. The list is empty by default, and with an empty list the circulating supply equals the total supply. For the secondary coin this replaces the fallback of decisions 3392 and 3396."
+basis = "Gotcha 4322. Decisions 3392 and 3396."
+affects = ["22.35.18"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43200,6 +43212,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.35.18]
+title = "Take the market value of SID from the price times the circulating supply in the explorer backend"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+do_1 = "do_1 Gotcha 4322, decision 3406, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of the secondary coin is market_cap.usd of the feed reply when it is present. Where it is null the market value is the price times the circulating supply. The circulating supply is circulating_supply of the feed reply when it is present. Where that is null too, it is the total supply the explorer holds for the SID token of the tokens setting less the sum of the current balances the explorer holds in that token for the addresses of the new setting MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES, a comma separated list of addresses that is empty by default and is read in services/explorer/backend/config/runtime.exs. With an empty list the circulating supply equals the total supply. The result is never below zero, and where the explorer holds no total supply the market value stays empty. The available supply of the result, the market value of the statistics response, the SID token row and the market value points of the secondary coin history carry figures of this one rule. The figures of PAX and of the WPAX row stay as decision 3396 states them."
+symbols = []
+
+[capability.22.35.17]
+title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/lib/api/services/general", "apps/explorer/lib/api/useQueryClientConfig.tsx", "apps/explorer/types/api", "apps/explorer/ui/home", "apps/explorer/ui/snippets/topBar"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-17.spec.tsx ui/stats/repair-22-35-15.spec.tsx ui/home/repair-22-35-13.spec.tsx ui/snippets/topBar/repair-22-35-13.spec.tsx"
+do_1 = "do_1 Gotcha 4321, decision 3405, decision 3393. The chart definitions of apps/explorer/ui/stats/explorerCharts.ts name only resources registered in apps/explorer/lib/api/services/general/misc.ts: general:stats_charts_txs, general:stats_charts_market and general:stats_charts_secondary_coin_market. The SID price chart and the SID market value chart read general:stats_charts_secondary_coin_market and take closing_price and market_cap from its items. The widget of apps/explorer/ui/stats/ExplorerChartWidget.tsx and every other reader of a chart resource under apps/explorer type check against the response type of the registered name. Give the secondary coin chart resource the same stale time as the two other chart resources in apps/explorer/lib/api/useQueryClientConfig.tsx."
+symbols = []
 
 [capability.22.35.16]
 title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
@@ -164391,6 +164421,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.17]
+title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.13", "22.35.15"]
+reqs = ["22998.1"]
+capabilities = ["22.35.17"]
+interfaces = []
+do_1 = "do_1 Gotcha 4321, decision 3405, decision 3393. The chart definitions of apps/explorer/ui/stats/explorerCharts.ts name only resources registered in apps/explorer/lib/api/services/general/misc.ts: general:stats_charts_txs, general:stats_charts_market and general:stats_charts_secondary_coin_market. The SID price chart and the SID market value chart read general:stats_charts_secondary_coin_market and take closing_price and market_cap from its items. The widget of apps/explorer/ui/stats/ExplorerChartWidget.tsx and every other reader of a chart resource under apps/explorer type check against the response type of the registered name. Give the secondary coin chart resource the same stale time as the two other chart resources in apps/explorer/lib/api/useQueryClientConfig.tsx."
+do_2 = "do_2 Run the type check of the whole project first and repair every finding it reports under the listed paths, not only the first one. Then run the production build of the frontend once by hand the way docker/explorer-frontend/Dockerfile runs it, with NODE_OPTIONS=--max-old-space-size=8192 and yarn build, and repair every compile or lint finding it reports under the listed paths. A stop of that build for another reason than a compile or lint finding is outside this task. The pages, the counters and the charts of tasks 22.35.13, 22.35.14 and 22.35.15 keep their content."
+do_3 = "do_3 Tests: apps/explorer/ui/stats/repair-22-35-17.spec.tsx asserts that every chart definition names a key of the general services list, and renders the SID price chart and the SID market value chart from a response of the secondary coin chart route. Record the resource names and the routes in apps/explorer/ui/stats/repair-22-35-17.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/explorer/ui/stats", "apps/explorer/ui/pages/Stats.tsx", "apps/explorer/lib/api/services/general", "apps/explorer/lib/api/useQueryClientConfig.tsx", "apps/explorer/types/api", "apps/explorer/ui/home", "apps/explorer/ui/snippets/topBar"]
+tests = []
+planned_paths = ["apps/explorer/ui/stats/repair-22-35-17.spec.tsx", "apps/explorer/ui/stats/repair-22-35-17.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/stats/repair-22-35-17.spec.tsx ui/stats/repair-22-35-15.spec.tsx ui/home/repair-22-35-13.spec.tsx ui/snippets/topBar/repair-22-35-13.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -426123,6 +426183,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.18]
+title = "Take the market value of SID from the price times the circulating supply in the explorer backend"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.16"]
+reqs = ["22998.1"]
+capabilities = ["22.35.18"]
+interfaces = []
+do_1 = "do_1 Gotcha 4322, decision 3406, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source the market value of the secondary coin is market_cap.usd of the feed reply when it is present. Where it is null the market value is the price times the circulating supply. The circulating supply is circulating_supply of the feed reply when it is present. Where that is null too, it is the total supply the explorer holds for the SID token of the tokens setting less the sum of the current balances the explorer holds in that token for the addresses of the new setting MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES, a comma separated list of addresses that is empty by default and is read in services/explorer/backend/config/runtime.exs. With an empty list the circulating supply equals the total supply. The result is never below zero, and where the explorer holds no total supply the market value stays empty. The available supply of the result, the market value of the statistics response, the SID token row and the market value points of the secondary coin history carry figures of this one rule. The figures of PAX and of the WPAX row stay as decision 3396 states them."
+do_2 = "do_2 Add the setting with an empty value to services/explorer/deploy/env/backend.example.env with one line that says what it lists."
+do_3 = "do_3 Tests: services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs serves replies from a local stand-in address and asserts four cases by value: a reply with a market value keeps it; a reply without a market value and with a circulating supply gives the price times that supply; a reply without both and an empty list gives the price times the held total supply; a list of two addresses with loaded balances gives the price times the total supply less those balances. A fifth case asserts an empty market value when no total supply is held. Record the setting and the order of the rule in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_18.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_circulating_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

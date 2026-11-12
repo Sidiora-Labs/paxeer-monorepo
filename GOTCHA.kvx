@@ -21425,3 +21425,13 @@ fix = "The boundary check names the two files with a reason and accepts the mono
 title = "The dependency policy of apps/web records the wallet package under its earlier licence field"
 symptom = "Decision 2775 set the licence field of sdk/wallet/package.json to Apache-2.0. The policy check of apps/web still expects the earlier field for the local package @paxeer/wallet, so the lint script of apps/web stops at the policy step."
 fix = "The policy and its record state Apache-2.0 for the package and keep the checks of its name, path and version."
+
+[gotcha.4321]
+title = "The SID chart route of the explorer API is registered under one resource name in the explorer frontend"
+symptom = "The general services list of apps/explorer/lib/api/services/general/misc.ts registers the route api/v2/stats/charts/secondary-coin-market under the key stats_charts_secondary_coin_market, and a chart definition that names another key does not type check."
+fix = "Chart definitions name the registered key, and the type check of a frontend task covers the whole project."
+
+[gotcha.4322]
+title = "The Chainflow price feed carries the price of SID and no supply or market value for it"
+symptom = "For the coin id sidiora the reply of api/v3/coins/ carries current_price.usd, while market_cap.usd, circulating_supply and total_supply are null."
+fix = "The explorer backend derives the circulating supply of SID itself and multiplies it with the price."
