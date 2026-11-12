@@ -4,11 +4,17 @@
 package consumer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
+	"regexp"
+	"sync"
+	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -16,10 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"log/slog"
-	"regexp"
-	"sync"
-	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
@@ -30,6 +32,7 @@ import (
 // SwapConsumer subscribes to the Redis swap channel and processes swaps through
 // the candle builder.
 type SwapConsumer struct {
+	source     *DevelopmentSource
 	builder    *engine.Builder
 	subscriber *sharedredis.Subscriber
 	logger     *slog.Logger
@@ -51,47 +54,9 @@ func New(builder *engine.Builder, redisURL string, logger *slog.Logger) (*SwapCo
 // Start subscribes to the swap channel and processes events until ctx is cancelled.
 func (sc *SwapConsumer) Start(ctx context.Context) error {
 	errc, err := sc.subscriber.Subscribe(ctx, constants.ChannelSwap, func(ctx context.Context, payload []byte) error {
-		var data struct {
-			EventName      string                 `json:"eventName"`
-			BlockNumber    int64                  `json:"blockNumber"`
-			BlockTimestamp int64                  `json:"blockTimestamp"`
-			TxHash         string                 `json:"txHash"`
-			LogIndex       int                    `json:"logIndex"`
-			Args           map[string]interface{} `json:"args"`
-		}
-		decoder := json.NewDecoder(bytes.NewReader(payload))
-		decoder.UseNumber()
-		if err := decoder.Decode(&data); err != nil {
-			sc.logger.Error("consumer: unmarshal swap", slog.String("err", err.Error()))
-			return fmt.Errorf("consumer: invalid swap envelope: %w", err)
-		}
-
-		swap := engine.SwapEvent{
-			PoolID:      asString(data.Args["poolId"]),
-			PoolAddress: asString(data.Args["poolAddress"]),
-			Sender:      asString(data.Args["sender"]),
-			IsBuy:       asBool(data.Args["isBuy"]),
-			AmountIn:    asString(data.Args["amountIn"]),
-			AmountOut:   asString(data.Args["amountOut"]),
-			Fee:         asString(data.Args["fee"]),
-			Price:       asString(data.Args["price"]),
-			TxHash:      data.TxHash,
-			LogIndex:    data.LogIndex,
-		}
-
-		// Resolve the block timestamp. The indexer envelope (identical on the Redis
-		// and webhook paths) carries it top-level as blockTimestamp; fall back to
-		// args.blockTimestamp / args.timestamp for legacy message shapes. A height
-		// is never a timestamp.
-		switch {
-		case data.BlockTimestamp > 0:
-			swap.BlockTimestamp = data.BlockTimestamp
-		case asInt64(data.Args["blockTimestamp"]) > 0:
-			swap.BlockTimestamp = asInt64(data.Args["blockTimestamp"])
-		case asInt64(data.Args["timestamp"]) > 0:
-			swap.BlockTimestamp = asInt64(data.Args["timestamp"])
-		default:
-			return fmt.Errorf("consumer: authenticated block timestamp unavailable")
+		swap, err := DecodeDevelopmentSwap(payload)
+		if err != nil {
+			return err
 		}
 
 		if err := sc.builder.ProcessSwap(ctx, swap); err != nil {
@@ -103,6 +68,9 @@ func (sc *SwapConsumer) Start(ctx context.Context) error {
 		return fmt.Errorf("consumer: subscribe: %w", err)
 	}
 
+	if sc.source != nil {
+		go sc.source.Run(ctx)
+	}
 	sc.logger.Info("candle swap consumer started")
 
 	go func() {
@@ -213,7 +181,7 @@ func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Me
 		}
 	}
 	if cfg.SeriesCheckpoint != nil {
-		if message.Sequence > uint64(^uint64(0)>>1) {
+		if message.Sequence > math.MaxInt64 {
 			return ErrAccountingAuthority
 		}
 		if err := cfg.Exact.RecordAttempt(ctx, cfg.ConsumerID, cfg.Generation, message.EventID, delivery.Hash(message.Wire), int64(message.Sequence), "received", false); err != nil {
@@ -256,7 +224,7 @@ func (c *AccountingConsumer) Consume(ctx context.Context, message *natsdriver.Me
 		if publication.Fill != nil {
 			pools = append(pools, publication.Fill.PoolAddress)
 		}
-		if publication.Facet != "market" || publication.Fill == nil || publication.Enrichment != nil || len(publication.Positions) != 1 || publication.Positions[0].ProjectionVersion != cfg.ProjectionVersion || publication.Positions[0].PartitionKind != "market" || publication.Positions[0].PartitionKey != "125:"+publication.Fill.PoolAddress || publication.PublicationID != message.EventID || publication.PublicationID != envelope.EventID {
+		if publication.Facet != marketPartitionKind || publication.Fill == nil || publication.Enrichment != nil || len(publication.Positions) != 1 || publication.Positions[0].ProjectionVersion != cfg.ProjectionVersion || publication.Positions[0].PartitionKind != marketPartitionKind || publication.Positions[0].PartitionKey != "125:"+publication.Fill.PoolAddress || publication.PublicationID != message.EventID || publication.PublicationID != envelope.EventID {
 			return publication, &delivery.IntegrityFailure{Class: delivery.PartitionBinding, AffectedPools: pools, Cause: delivery.ErrIntegrity}
 		}
 		return publication, nil
@@ -385,7 +353,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 	lease := func(ctx context.Context, fill accounting.FillV1) (delivery.PartitionLease, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress}
+		key := delivery.ConsumerKey{ConsumerID: config.ConsumerID, ProjectionGeneration: config.Generation, PartitionKind: marketPartitionKind, PartitionKey: "125:" + fill.PoolAddress}
 		l, err := config.Partitions.Acquire(ctx, key, config.Owner, 30*time.Second)
 		if err != nil {
 			return l, err
@@ -400,7 +368,7 @@ func NewSourceVerifiedAccountingConsumer(config SourceVerifiedAccountingConfig) 
 		defer func() {
 			cleanup, stop := context.WithTimeout(context.Background(), time.Second)
 			defer stop()
-			tx.Rollback(cleanup)
+			chartcleanup.Rollback(cleanup, tx)
 		}()
 		b, err := loadBootstrap(ctx, tx, fill.PoolAddress)
 		if err != nil {

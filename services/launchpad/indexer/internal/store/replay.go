@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
 )
@@ -67,7 +69,7 @@ func (s *Store) AdmitReplay(ctx context.Context, r ReplayRequest) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, r.Scope()); err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (s *Store) AdmitReplay(ctx context.Context, r ReplayRequest) error {
 		return err
 	}
 	digest := delivery.Hash(body)
-	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_replay_jobs(job_id,request_digest,request,chain_id,source_stream,target,generation,projection_revision,mode,authorization_id,from_height,to_height,progress_height,status) VALUES($1,$2,$3,125,$4,$5,$6,$7,$8,$9,$10,$11,$10-1,'queued') ON CONFLICT DO NOTHING`, r.JobID, digest, body, r.SourceStream, r.Target, r.Generation, r.ProjectionRevision, r.Mode, r.AuthorizationID, r.FromHeight, r.ToHeight)
+	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_replay_jobs(job_id,request_digest,request,chain_id,source_stream,target,generation,projection_revision,mode,authorization_id,from_height,to_height,progress_height,status) VALUES($1,$2,$3,125,$4,$5,$6,$7,$8,$9,$10::bigint,$11,$10::bigint-1,'queued') ON CONFLICT DO NOTHING`, r.JobID, digest, body, r.SourceStream, r.Target, r.Generation, r.ProjectionRevision, r.Mode, r.AuthorizationID, r.FromHeight, r.ToHeight)
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	if err != nil {
 		return j, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var body []byte
 	var alive bool
 	err = tx.QueryRow(ctx, `SELECT request,progress_height,status,COALESCE(owner,''),fence,COALESCE(expires_at>clock_timestamp(),false) FROM indexer.indexer_replay_jobs WHERE job_id=$1 FOR UPDATE`, id).Scan(&body, &j.Progress, &j.Status, &j.Owner, &j.Fence, &alive)
@@ -216,7 +218,7 @@ func (s *Store) CommitReplaySegment(ctx context.Context, j ReplayJob, segment Re
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var locked bool
 	err = tx.QueryRow(ctx, `SELECT status='running' AND owner=$2 AND fence=$3 AND expires_at>clock_timestamp() AND progress_height=$4 FROM indexer.indexer_replay_jobs WHERE job_id=$1 FOR UPDATE`, j.Request.JobID, j.Owner, j.Fence, j.Progress).Scan(&locked)
 	if err != nil {
@@ -316,7 +318,7 @@ func (s *Store) TransitionReplay(ctx context.Context, scope OperationScope, jobI
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -344,7 +346,7 @@ func (s *Store) BindReplayCheckpoint(ctx context.Context, request ReplayRequest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, request.Scope()); err != nil {
 		return err
 	}
@@ -385,7 +387,7 @@ func (s *Store) RecordReplayConflict(ctx context.Context, request ReplayRequest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, request.Scope()); err != nil {
 		return err
 	}
@@ -404,7 +406,7 @@ func (s *Store) ResumeReplay(ctx context.Context, scope OperationScope, jobID st
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -430,7 +432,7 @@ func (s *Store) PauseReplayLease(ctx context.Context, job ReplayJob, reason stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, job.Request.Scope()); err != nil {
 		return err
 	}

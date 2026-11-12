@@ -7,13 +7,27 @@ package app
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"math"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
@@ -24,15 +38,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"io"
-	"log/slog"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -108,7 +113,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		var e error
 		metrics, e = telemetry.New("indexerd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -120,7 +125,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != valueProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -138,7 +143,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	defer func() {
 		if !secretOwned {
-			pool.Close()
+			shareddb.ClosePool(pool)
 		}
 	}()
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
@@ -167,7 +172,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 
 	var sources *source.Bundle
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		sources = &source.Bundle{}
 	} else {
 		sources, err = source.Create(ctx, cfg, logger)
@@ -181,13 +186,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			_ = sources.Close()
 		}
 	}()
-	targets, err := publisher.BuildTargets(cfg.WebhookURLs, cfg.WebhookHMACSecret, cfg.WebhookHMACSecrets)
+	_, err = publisher.BuildTargets(cfg.WebhookURLs, cfg.WebhookHMACSecret, cfg.WebhookHMACSecrets)
 	if err != nil {
 		return nil, err
 	}
 
 	st := store.New(pool)
-	pub := publisher.New(publisher.Options{Targets: targets, Logger: logger, Redis: rdb})
+	pub := publisher.New(publisher.Options{Logger: logger, Redis: rdb})
 
 	deps := processor.Deps{
 		Source:              sources.Log,
@@ -197,7 +202,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Decoder:             decode.NewDecoder(),
 		NFT:                 nftReader,
 		EventEmitterAddress: cfg.EventEmitterAddress,
-		ChainID:             int32(cfg.ChainID),
+		ChainID:             int32(cfg.ChainID), //nolint:gosec // configured chain identity uses the existing 32-bit field
 		StartBlock:          cfg.IndexerStartBlock,
 		BatchSize:           cfg.IndexerBatchSize,
 		Concurrency:         cfg.IndexerConcurrency,
@@ -217,6 +222,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
 	var selectionAuthority *source.SelectionAuthority
+	status := httpapi.StatusDeps{Mode: httpapi.StatusLegacy}
+
 	defer func() {
 		if !secretOwned {
 			workers.Close()
@@ -228,7 +235,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 		}
 	}()
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		if cfg.IndexerBatchSize < 1 || cfg.IndexerBatchSize > 64 {
 			return nil, errors.New("indexer: qualified batch size outside 1..64")
 		}
@@ -238,6 +245,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		var d deliveryRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
+			return nil, err
+		}
+		if err = d.validateStatus(); err != nil {
 			return nil, err
 		}
 		if d.Schema != "indexer" || d.Owner == "" || d.CanonicalStreamID == "" || d.ProjectionVersion == "" || d.DeploymentID == "" {
@@ -258,14 +268,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}()
 		var qualified *receipt.RPCQualification
 		switch doc.Realm {
-		case "production":
+		case valueProduction:
 			// A pruned node cannot serve the chain-identity anchor forever; once
 			// the anchor leaves every source's window, identity is proven by the
 			// durable anchor-descended ingestion instead.
 			qualified, err = receipt.NewRPCQualificationWithAttestation(ctx, runtimeRPC, doc.Production, func(c context.Context, anchor receipt.BlockAnchor) error {
 				return attestDurableAnchor(c, pool, d.CanonicalStreamID, anchor)
 			})
-		case "private_fixture":
+		case valuePrivateFixture:
 			if cfg.RuntimeProfile != "owned_local" {
 				return nil, errors.New("indexer: private fixture requires owned local profile")
 			}
@@ -310,6 +320,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
+		status.Mode = httpapi.StatusCanonical
+		status.Delivery = durable
+		status.CanonicalStreamID = d.CanonicalStreamID
+		status.MaxDeliveryLag = time.Duration(d.MaxDeliveryLagMS) * time.Millisecond
+		if policy := d.DeadLetters; policy != nil {
+			status.DeadLetters = httpapi.AuditedDeadLetters{DB: pool, DeliverySchema: d.Schema, SecuritySchema: policy.SecuritySchema, Audience: policy.Audience, PolicyVersion: policy.PolicyVersion, Verifier: policy.verifier()}
+		}
 		partitions, e := delivery.NewPartitionStore(pool, d.Schema)
 		if e != nil {
 			return nil, e
@@ -345,10 +362,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			}
 			return nil
 		}
-		if lifecycle.Committed.GenesisHash != doc.Production.GenesisHash && doc.Realm == "production" || lifecycle.Committed.GenesisHash != doc.PrivateFixture.GenesisHash && doc.Realm == "private_fixture" {
+		if lifecycle.Committed.GenesisHash != doc.Production.GenesisHash && doc.Realm == valueProduction || lifecycle.Committed.GenesisHash != doc.PrivateFixture.GenesisHash && doc.Realm == valuePrivateFixture {
 			return nil, errors.New("indexer: committed provider genesis disagrees with receipt authority")
 		}
-		if doc.Realm == "production" {
+		if doc.Realm == valueProduction {
 			if e = bindRuntimeAnchor(&lifecycle, doc.Production); e != nil {
 				return nil, e
 			}
@@ -392,7 +409,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		var durableHeight atomic.Uint64
-		durableHeight.Store(uint64(watermark))
+		durableHeight.Store(uint64(watermark)) //nolint:gosec // persisted chain values use the existing unsigned protocol representation
 		deps.Head = &canonicalRuntimeHead{source: history.RPC, store: st, stream: d.CanonicalStreamID, height: &durableHeight}
 		deps.Source = history.RPC
 		sources.Log = history
@@ -405,7 +422,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return durableBlockHash(c, pool, d.CanonicalStreamID, height, lifecycle)
 		}}
 		deps.Reserves = qualified
-		if doc.Realm == "production" {
+		if doc.Realm == valueProduction {
 			inventory := postgresMarketInventory{pool: pool}
 			newAuthority := func(c context.Context) (*receipt.RPCQualification, error) {
 				a, e := receipt.NewRPCQualificationWithAttestation(c, runtimeRPC, doc.Production, func(c context.Context, anchor receipt.BlockAnchor) error {
@@ -475,7 +492,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		var persistentPublisher delivery.PersistentPublisher = brokerPublisher
 		if cfg.FixturePubAckBarrier != "" {
-			if cfg.RuntimeProfile != "owned_local" || doc.Realm != "private_fixture" {
+			if cfg.RuntimeProfile != "owned_local" || doc.Realm != valuePrivateFixture {
 				return nil, errors.New("indexer: fixture barrier forbidden")
 			}
 			persistentPublisher = fixturePublishBarrier{Publisher: brokerPublisher, Path: cfg.FixturePubAckBarrier}
@@ -484,7 +501,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		replay = &processor.ReplayRunner{Store: st, Source: historicalQualified, Deliveries: durable, Owner: d.Owner, DeliverySchema: d.Schema, BatchSize: lifecycle.ReplayBatchSize}
 		if lifecycle.Archive.Enabled {
 			catalog := doc.Production.CatalogJSON
-			if doc.Realm == "private_fixture" {
+			if doc.Realm == valuePrivateFixture {
 				catalog = doc.PrivateFixture.CatalogJSON
 			}
 			binary, e := runtimeBinaryDigest()
@@ -590,10 +607,10 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		deps.AccountingProjectionVersion = d.ProjectionVersion
 		deps.InventoryGeneration = d.Generation
 		deps.InventoryProjectionVersion = d.InventoryProjectionVersion
-		deps.LegacyProjection = doc.Realm == "production"
+		deps.LegacyProjection = doc.Realm == valueProduction
 	}
 	proc := processor.New(deps)
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		secretChecks["ingestion"] = proc.Ready
 	}
 	backfill := processor.NewBackfill(proc, cfg.BackfillFromBlock, cfg.BackfillBatchSize)
@@ -607,12 +624,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
-	httpapi.RegisterStatus(router, httpapi.StatusDeps{
-		Store:     st,
-		ChainID:   int32(cfg.ChainID),
-		Publisher: pub,
-		StartTime: time.Now(),
-	})
+	status.Store, status.ChainID, status.Publisher, status.StartTime = st, int32(cfg.ChainID), pub, time.Now() //nolint:gosec // configured chain identity uses the existing 32-bit field
+	httpapi.RegisterStatus(router, status)
 
 	if selectionAuthority != nil {
 		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
@@ -676,7 +689,7 @@ func (a *App) Close() {
 	}
 	_ = a.sources.Close()
 	a.chain.Close()
-	a.pool.Close()
+	shareddb.ClosePool(a.pool)
 	if err := a.redis.Close(); err != nil && a.logger != nil {
 		a.logger.Warn("redis close", slog.String("err", err.Error()))
 	}
@@ -851,18 +864,46 @@ type receiptRuntimeDocument struct {
 	PrivateFixture receipt.PrivateFixtureRPCOptions `json:"privateFixture"`
 }
 type deliveryRuntimeDocument struct {
-	Schema                     string            `json:"schema"`
-	Owner                      string            `json:"owner"`
-	Epoch                      int64             `json:"epoch"`
-	Region                     string            `json:"region"`
-	Stream                     string            `json:"stream"`
-	CanonicalStreamID          string            `json:"canonicalStreamId"`
-	DeploymentID               string            `json:"deploymentId"`
-	ProjectionVersion          string            `json:"projectionVersion"`
-	InventoryProjectionVersion string            `json:"inventoryProjectionVersion"`
-	Generation                 string            `json:"generation"`
-	Policy                     delivery.Policy   `json:"policy"`
-	Subjects                   map[string]string `json:"subjects"`
+	MaxDeliveryLagMS           int64                 `json:"maxDeliveryLagMs"`
+	DeadLetters                *DeadLetterParameters `json:"deadLetters,omitempty"`
+	Schema                     string                `json:"schema"`
+	Owner                      string                `json:"owner"`
+	Epoch                      int64                 `json:"epoch"`
+	Region                     string                `json:"region"`
+	Stream                     string                `json:"stream"`
+	CanonicalStreamID          string                `json:"canonicalStreamId"`
+	DeploymentID               string                `json:"deploymentId"`
+	ProjectionVersion          string                `json:"projectionVersion"`
+	InventoryProjectionVersion string                `json:"inventoryProjectionVersion"`
+	Generation                 string                `json:"generation"`
+	Policy                     delivery.Policy       `json:"policy"`
+	Subjects                   map[string]string     `json:"subjects"`
+}
+
+func (d deliveryRuntimeDocument) validateStatus() error {
+	if d.MaxDeliveryLagMS <= 0 || d.MaxDeliveryLagMS > math.MaxInt64/int64(time.Millisecond) {
+		return errors.New("indexer: explicit positive bounded delivery lag budget required")
+	}
+	if d.DeadLetters != nil {
+		return d.DeadLetters.validate()
+	}
+	return nil
+}
+
+func (p DeadLetterParameters) verifier() auth.ServiceAssertionVerifier {
+	return auth.ServiceAssertionVerifier{Transport: auth.AssertionTransport{AssertionHeader: p.AssertionHeader, SignatureHeader: p.SignatureHeader}, Issuer: p.Issuer, Audience: p.Audience, PeerCertSHA256: p.PeerCertSHA256, Key: append(ed25519.PublicKey(nil), p.PublicKey...)}
+}
+
+var statusSchema = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
+var statusToken = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+var statusDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var statusHeader = regexp.MustCompile(`^[!#$%&'*+.^_` + "`" + `|~0-9A-Za-z-]{1,128}$`)
+
+func (p DeadLetterParameters) validate() error {
+	if !statusSchema.MatchString(p.SecuritySchema) || !statusToken.MatchString(p.Audience) || !statusToken.MatchString(p.Issuer) || !statusToken.MatchString(p.PolicyVersion) || !statusDigest.MatchString(p.PeerCertSHA256) || len(p.PublicKey) != ed25519.PublicKeySize || !statusHeader.MatchString(p.AssertionHeader) || !statusHeader.MatchString(p.SignatureHeader) || strings.EqualFold(p.AssertionHeader, p.SignatureHeader) || strings.EqualFold(p.AssertionHeader, "X-Request-ID") || strings.EqualFold(p.SignatureHeader, "X-Request-ID") {
+		return errors.New("indexer: incomplete or invalid dead-letter policy")
+	}
+	return nil
 }
 
 var inventoryToken = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
@@ -1110,7 +1151,7 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 		defer cancel()
 		return 0, errors.Join(err, h.store.QuarantineCommittedHead(cleanup, h.stream))
 	}
-	if head.Height > uint64(^uint64(0)>>1) {
+	if head.Height > ^uint64(0)>>1 {
 		return 0, errors.New("indexer: committed head exceeds durable integer range")
 	}
 	if err = h.store.RetainCommittedHead(ctx, h.stream, int64(head.Height), strings.ToLower(head.Hash.Hex()), head.SourceID); err != nil {
@@ -1313,7 +1354,7 @@ func runtimeBinaryDigest() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer executable.Close()
+	defer checked.Close(executable)
 	hash := sha256.New()
 	if _, err = io.Copy(hash, executable); err != nil {
 		return "", err

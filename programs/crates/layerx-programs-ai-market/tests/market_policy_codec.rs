@@ -872,16 +872,22 @@ fn exact_maximum_worksheet_measured_owned_records_and_capacity_refusals() -> Che
     assert_eq!(too_many.measured_worksheet(), Err(F01_CAPACITY_UNAVAILABLE));
     too_many.task_count = usize::MAX;
     assert_eq!(too_many.measured_worksheet(), Err(F01_CAPACITY_UNAVAILABLE));
-    assert_eq!(check_f01_capacity(16335, 196_608), Ok(()));
-    assert_eq!(check_f01_capacity(16376, 196_608), Ok(()));
+    assert_eq!(
+        check_f01_capacity(16335, layerx_programs_ai_market::MAX_STATE_BYTES),
+        Ok(())
+    );
+    assert_eq!(
+        check_f01_capacity(16376, layerx_programs_ai_market::MAX_STATE_BYTES),
+        Ok(())
+    );
     for size in [16377, 16384, 16385, usize::MAX] {
         assert_eq!(
-            check_f01_capacity(size, 196_608),
+            check_f01_capacity(size, layerx_programs_ai_market::MAX_STATE_BYTES),
             Err(F01_CAPACITY_UNAVAILABLE)
         );
     }
     assert_eq!(
-        check_f01_capacity(16335, 196_609),
+        check_f01_capacity(16335, layerx_programs_ai_market::MAX_STATE_BYTES + 1),
         Err(F01_CAPACITY_UNAVAILABLE)
     );
     assert_eq!(

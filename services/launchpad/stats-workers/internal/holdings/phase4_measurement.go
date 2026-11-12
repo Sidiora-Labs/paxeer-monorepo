@@ -9,11 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -133,7 +133,7 @@ func (a *phase4Artifacts) append(name string, value any) error {
 	f := a.files[name]
 	if f == nil {
 		var err error
-		f, err = os.OpenFile(filepath.Join(a.directory, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		f, err = createExclusivePath(filepath.Join(a.directory, name))
 		if err != nil {
 			return err
 		}
@@ -172,11 +172,11 @@ func phase4BoundFile(path, expected string, limit int64) ([]byte, error) {
 	if !info.Mode().IsRegular() || info.Size() > limit {
 		return nil, errors.New("nonregular or oversized authority input")
 	}
-	file, err := os.Open(path)
+	file, err := openReadOnlyPath(path)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer closeResource(file)
 	raw, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err != nil {
 		return nil, err
@@ -353,7 +353,7 @@ func phase4HTTP(ctx context.Context, client *http.Client, address string) ([]byt
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	defer response.Body.Close()
+	defer closeResource(response.Body)
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 1048577))
 	if err == nil && len(raw) > 1048576 {
 		err = errors.New("HTTP byte budget exceeded")
@@ -423,7 +423,7 @@ func phase4Observe(ctx context.Context, pg *pgxpool.Pool, js nats.JetStreamConte
 	if err = pg.QueryRow(ctx, pendingQuery, p.SourceStream, tokens).Scan(&observation.PendingProjectionEvents, &observation.OldestPendingMS, &observation.MissingPendingCommitTimestamps); err != nil {
 		return 0, err
 	}
-	if err = a.append("database.ndjson", map[string]any{"phase": phase, "measurement": observation}); err != nil {
+	if err = a.append("database.ndjson", map[string]any{valuePhase: phase, "measurement": observation}); err != nil {
 		return 0, err
 	}
 	if !observation.SourceLeaseAlive || !observation.CanonicalHeadHealthy || observation.RawSourceHeight != observation.SourceHeight {
@@ -457,8 +457,11 @@ func phase4Observe(ctx context.Context, pg *pgxpool.Pool, js nats.JetStreamConte
 	if err != nil {
 		return 0, err
 	}
-	if err = a.append("broker.ndjson", map[string]any{"phase": phase, "observedUtcNs": time.Now().UnixNano(), "consumerInfo": info}); err != nil {
+	if err = a.append("broker.ndjson", map[string]any{valuePhase: phase, valueObservedUTCNS: time.Now().UnixNano(), "consumerInfo": info}); err != nil {
 		return 0, err
+	}
+	if info.NumAckPending < 0 || uint64(info.NumAckPending) > math.MaxUint64-info.NumPending {
+		return 0, errors.New("broker pending count invalid")
 	}
 	return info.NumPending + uint64(info.NumAckPending), nil
 }
@@ -487,7 +490,7 @@ func phase4Hosts(ctx context.Context, client *http.Client, p Phase4Plan, a *phas
 		if err = scanner.Err(); err != nil {
 			return err
 		}
-		if err = a.append("hosts.ndjson", map[string]any{"phase": phase, "hostId": h.ID, "role": h.Role, "observedUtcNs": time.Now().UnixNano(), "raw": string(raw), "sha256": phase4Hash(raw)}); err != nil {
+		if err = a.append("hosts.ndjson", map[string]any{valuePhase: phase, "hostId": h.ID, "role": h.Role, valueObservedUTCNS: time.Now().UnixNano(), valueRaw: string(raw), "sha256": phase4Hash(raw)}); err != nil {
 			return err
 		}
 		for _, name := range h.RequiredMetrics {
@@ -503,14 +506,14 @@ func phase4Hosts(ctx context.Context, client *http.Client, p Phase4Plan, a *phas
 func phase4Generator(p Phase4Plan, a *phase4Artifacts, phase string) error {
 	values := map[string]string{}
 	for _, name := range []string{"stat", "meminfo", "self/status"} {
-		raw, err := os.ReadFile("/proc/" + name)
+		raw, err := readPath("/proc/" + name)
 		if err != nil {
 			return err
 		}
 		values[name] = string(raw)
 	}
-	for _, name := range []string{"rx_bytes", "tx_bytes"} {
-		raw, err := os.ReadFile(filepath.Join("/sys/class/net", p.GeneratorNIC, "statistics", name))
+	for _, name := range []string{valueRxBytes, "tx_bytes"} {
+		raw, err := readPath(filepath.Join("/sys/class/net", p.GeneratorNIC, "statistics", name))
 		if err != nil {
 			return err
 		}
@@ -539,7 +542,7 @@ func phase4Generator(p Phase4Plan, a *phase4Artifacts, phase string) error {
 	if rss == 0 || rss > p.MaxGeneratorRSSBytes {
 		return errors.New("generator RSS unavailable or exceeds approved envelope")
 	}
-	return a.append("generator.ndjson", map[string]any{"phase": phase, "hostId": p.GeneratorHostID, "observedUtcNs": time.Now().UnixNano(), "resources": values, "rssBytes": rss, "heapAllocBytes": heap.HeapAlloc, "nicCapacityBitsPerSecond": p.GeneratorNICBitsPerSecond})
+	return a.append("generator.ndjson", map[string]any{valuePhase: phase, "hostId": p.GeneratorHostID, valueObservedUTCNS: time.Now().UnixNano(), "resources": values, "rssBytes": rss, "heapAllocBytes": heap.HeapAlloc, "nicCapacityBitsPerSecond": p.GeneratorNICBitsPerSecond})
 }
 func phase4ReadPhase(ctx context.Context, client *http.Client, p Phase4Plan, a *phase4Artifacts, phase Phase4Phase) (Phase4Summary, error) {
 	started := time.Now()
@@ -574,7 +577,7 @@ func phase4ReadPhase(ctx context.Context, client *http.Client, p Phase4Plan, a *
 					if err == nil {
 						var body phase4HolderWire
 						err = json.Unmarshal(raw, &body)
-						if err == nil && (body.Data.Coverage != "complete" || (body.Quality != "complete" && body.Quality != "stale")) {
+						if err == nil && (body.Data.Coverage != valueComplete || (body.Quality != valueComplete && body.Quality != "stale")) {
 							err = errors.New("valid holder read unavailable")
 						}
 					}
@@ -658,7 +661,7 @@ type phase4HolderWire struct {
 }
 
 func phase4Reference(ctx context.Context, pg *pgxpool.Pool, p Phase4Plan, pool Phase4Pool, wire phase4HolderWire, a *phase4Artifacts) error {
-	if wire.Data.Token != pool.Token || wire.Data.Pool != pool.Pool || wire.Data.Coverage != "complete" || (wire.Quality != "complete" && wire.Quality != "stale") || wire.Data.Position == nil || wire.Watermark.Integrity != "healthy" || wire.Revision != wire.Watermark.ProjectionRevision || wire.Watermark.Height != wire.Data.Position.Height || wire.Watermark.BlockHash != wire.Data.Position.BlockHash {
+	if wire.Data.Token != pool.Token || wire.Data.Pool != pool.Pool || wire.Data.Coverage != valueComplete || (wire.Quality != valueComplete && wire.Quality != "stale") || wire.Data.Position == nil || wire.Watermark.Integrity != "healthy" || wire.Revision != wire.Watermark.ProjectionRevision || wire.Watermark.Height != wire.Data.Position.Height || wire.Watermark.BlockHash != wire.Data.Position.BlockHash {
 		return errors.New("public response lacks identical canonical watermark")
 	}
 	position, err := wire.Data.Position.Normalize()
@@ -675,7 +678,7 @@ func phase4Reference(ctx context.Context, pg *pgxpool.Pool, p Phase4Plan, pool P
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	var complete, creation, creationTransaction string
 	var metadata []byte
 	if err = tx.QueryRow(ctx, `SELECT count(DISTINCT c.height)::text,k.height::text,k.transaction_hash,k.payload FROM indexer.indexer_canonical_creations_v1 k JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=125 AND c.stream_id=$2 AND c.height BETWEEN k.height AND $3::bigint AND c.fetch_complete AND c.required_decode_complete WHERE k.token=$1 GROUP BY k.height,k.transaction_hash,k.payload`, pool.Token, p.SourceStream, position.Height).Scan(&complete, &creation, &creationTransaction, &metadata); err != nil {
@@ -727,7 +730,8 @@ func phase4Reference(ctx context.Context, pg *pgxpool.Pool, p Phase4Plan, pool P
 		}
 	}
 	reference := `WITH events AS (SELECT from_address,to_address,amount_raw FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::bigint AND (height,transaction_index,log_index)<=($3::bigint,$4::bigint,$5::bigint)), deltas AS (SELECT from_address AS address,-amount_raw AS delta FROM events WHERE from_address<>$6 UNION ALL SELECT to_address,amount_raw FROM events WHERE to_address<>$6), expected AS (SELECT address,sum(delta) AS balance FROM deltas GROUP BY address)`
-	args := []any{pool.Token, creation, position.Height, position.TransactionIndex, position.LogIndex, Zero}
+	args := make([]any, 0, 7)
+	args = append(args, pool.Token, creation, position.Height, position.TransactionIndex, position.LogIndex, Zero)
 	var negative int64
 	var supply string
 	if err = tx.QueryRow(ctx, reference+` SELECT count(*) FILTER(WHERE balance<0),COALESCE(sum(balance),0)::text FROM expected`, args...).Scan(&negative, &supply); err != nil {
@@ -817,7 +821,10 @@ func phase4Reference(ctx context.Context, pg *pgxpool.Pool, p Phase4Plan, pool P
 	if err = tx.QueryRow(ctx, "SELECT count(*) FILTER(WHERE category='external_wallet'),count(*) FILTER(WHERE category='unknown'),COALESCE(sum(balance) FILTER(WHERE category='external_wallet'),0)::text FROM "+pgx.Identifier{p.HolderSchema}.Sanitize()+".snapshot_balances WHERE snapshot_id=$1", wire.Data.SnapshotID).Scan(&external, &unknown, &circulating); err != nil {
 		return err
 	}
-	if uint64(external) != wire.Data.Distribution.ExternalWalletCount || uint64(unknown) != wire.Data.Distribution.UnknownCount || circulating != wire.Data.Distribution.CirculatingRaw || wire.Data.Distribution.InclusiveDenominator.Raw != supply || wire.Data.Distribution.InclusiveDenominator.Policy != "indexed_supply_v1" || wire.Data.Distribution.CirculatingDenominator.Raw != circulating || wire.Data.Distribution.CirculatingDenominator.Policy != "verified_external_wallets_v1" {
+	if external < 0 || unknown < 0 {
+		return errors.New("durable category count invalid")
+	}
+	if uint64(external) != wire.Data.Distribution.ExternalWalletCount || uint64(unknown) != wire.Data.Distribution.UnknownCount || circulating != wire.Data.Distribution.CirculatingRaw || wire.Data.Distribution.InclusiveDenominator.Raw != supply || wire.Data.Distribution.InclusiveDenominator.Policy != valueIndexedSupplyV1 || wire.Data.Distribution.CirculatingDenominator.Raw != circulating || wire.Data.Distribution.CirculatingDenominator.Policy != valueVerifiedExternalWalletsV1 {
 		return errors.New("durable category arithmetic/denominator policy differs")
 	}
 	rows, err = tx.Query(ctx, reference+` SELECT address,balance::text FROM expected WHERE balance>0 ORDER BY address`, args[:6]...)
@@ -877,7 +884,7 @@ func phase4Reconcile(ctx context.Context, pg *pgxpool.Pool, client *http.Client,
 		if status != 200 {
 			return errors.New("reconciliation API failed")
 		}
-		if err = a.append("reconciliation-api.ndjson", map[string]any{"observedUtcNs": time.Now().UnixNano(), "pool": pool.Pool, "raw": json.RawMessage(raw), "sha256": phase4Hash(raw)}); err != nil {
+		if err = a.append("reconciliation-api.ndjson", map[string]any{valueObservedUTCNS: time.Now().UnixNano(), "pool": pool.Pool, valueRaw: json.RawMessage(raw), "sha256": phase4Hash(raw)}); err != nil {
 			return err
 		}
 		var wire phase4HolderWire
@@ -955,12 +962,16 @@ func phase4Calibration(ctx context.Context, p Phase4Plan, a *phase4Artifacts) er
 		}
 	}
 	program := "import json,sys;sys.path.insert(0,sys.argv[1]);from calibration import evaluate;r=evaluate(json.load(open(sys.argv[2])),candidate=sys.argv[3],topology=sys.argv[4],generator=sys.argv[5]);print(json.dumps(r));sys.exit(0 if r['generator_calibrated'] else 1)"
-	command := exec.CommandContext(ctx, p.PythonExecutable, "-c", program, filepath.Join(p.SourceRoot, "tools/launchpad/production/load"), p.CalibrationPath, p.Candidate, p.Topology, p.Generator)
+	command, stop := phase4Command(ctx, p.PythonExecutable, "-c", program, filepath.Join(p.SourceRoot, "tools/launchpad/production/load"), p.CalibrationPath, p.Candidate, p.Topology, p.Generator)
+	defer stop()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	output, err := command.Output()
 	if len(output) > 1048576 {
 		return errors.New("calibration output byte bound")
 	}
-	if captureErr := a.append("calibration.ndjson", map[string]any{"sourceSha256": p.Sources["tools/launchpad/production/load/calibration.py"], "reportsSha256": p.CalibrationSHA256, "raw": string(output), "exitSuccess": err == nil}); captureErr != nil {
+	if captureErr := a.append("calibration.ndjson", map[string]any{"sourceSha256": p.Sources["tools/launchpad/production/load/calibration.py"], "reportsSha256": p.CalibrationSHA256, valueRaw: string(output), "exitSuccess": err == nil}); captureErr != nil {
 		return captureErr
 	}
 	if err != nil {
@@ -1064,7 +1075,8 @@ func phase4Feeder(ctx context.Context, p Phase4Plan, a *phase4Artifacts) error {
 	if _, err := os.Lstat(p.Feeder.Output); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("fresh real feeder receipt output required")
 	}
-	command := exec.CommandContext(ctx, p.Feeder.Executable, p.Feeder.Args...)
+	command, stop := phase4Command(ctx, p.Feeder.Executable, p.Feeder.Args...)
+	defer stop()
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {
 		if command.Process == nil {
@@ -1081,18 +1093,21 @@ func phase4Feeder(ctx context.Context, p Phase4Plan, a *phase4Artifacts) error {
 		}
 		command.Env = append(command.Env, key+"="+value)
 	}
-	stdout, err := os.OpenFile(filepath.Join(a.directory, "source-feeder.stdout"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	stdout, err := createExclusivePath(filepath.Join(a.directory, "source-feeder.stdout"))
 	if err != nil {
 		return err
 	}
-	defer stdout.Close()
-	stderr, err := os.OpenFile(filepath.Join(a.directory, "source-feeder.stderr"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	defer closeResource(stdout)
+	stderr, err := createExclusivePath(filepath.Join(a.directory, "source-feeder.stderr"))
 	if err != nil {
 		return err
 	}
-	defer stderr.Close()
+	defer closeResource(stderr)
 	command.Stdout = &phase4BoundedWriter{target: stdout, remaining: 67108864}
 	command.Stderr = &phase4BoundedWriter{target: stderr, remaining: 67108864}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err = command.Run(); err != nil {
 		return errors.New("actual source feeder failed")
 	}
@@ -1103,25 +1118,32 @@ func phase4Feeder(ctx context.Context, p Phase4Plan, a *phase4Artifacts) error {
 		return err
 	}
 	info, err := os.Lstat(p.Feeder.Output)
-	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 || uint64(info.Size()) > p.MaxReceiptBytes {
+	if err != nil {
+		return err
+	}
+	receiptSize := info.Size()
+	if !info.Mode().IsRegular() || receiptSize <= 0 || uint64(receiptSize) > p.MaxReceiptBytes {
 		return errors.New("actual source receipt output missing or exceeds approved storage envelope")
 	}
-	input, err := os.Open(p.Feeder.Output)
+	input, err := openReadOnlyPath(p.Feeder.Output)
 	if err != nil {
 		return err
 	}
-	defer input.Close()
-	receipt, err := os.OpenFile(filepath.Join(a.directory, "source-receipts.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	defer closeResource(input)
+	receipt, err := createExclusivePath(filepath.Join(a.directory, "source-receipts.ndjson"))
 	if err != nil {
 		return err
 	}
-	defer receipt.Close()
+	defer closeResource(receipt)
 	hasher := sha256.New()
+	if p.MaxReceiptBytes > math.MaxInt64-1 {
+		return errors.New("receipt storage envelope invalid")
+	}
 	size, err := io.Copy(io.MultiWriter(receipt, hasher), io.LimitReader(input, int64(p.MaxReceiptBytes)+1))
 	if err != nil {
 		return err
 	}
-	if uint64(size) > p.MaxReceiptBytes {
+	if size < 0 || uint64(size) > p.MaxReceiptBytes {
 		return errors.New("receipt storage envelope exceeded")
 	}
 	if err = receipt.Sync(); err != nil {
@@ -1175,7 +1197,7 @@ func RunPhase4Measurement(ctx context.Context, planPath, planSHA256, output stri
 				}
 				continue
 			}
-			file, err := os.Open(filepath.Join(output, entry.Name()))
+			file, err := openReadOnlyPath(filepath.Join(output, entry.Name()))
 			if err != nil {
 				if retErr == nil {
 					retErr = err
@@ -1184,7 +1206,7 @@ func RunPhase4Measurement(ctx context.Context, planPath, planSHA256, output stri
 			}
 			hash := sha256.New()
 			_, err = io.Copy(hash, file)
-			file.Close()
+			err = errors.Join(err, file.Close())
 			if err != nil {
 				if retErr == nil {
 					retErr = err
@@ -1321,7 +1343,7 @@ func RunPhase4Measurement(ctx context.Context, planPath, planSHA256, output stri
 					return
 				}
 				cpu, nic, saturationErr := phase4Saturation(before, after, p.GeneratorNICBitsPerSecond)
-				if err = a.append("generator-intervals.ndjson", map[string]any{"phase": phase.Name, "before": before, "after": after, "cpuFraction": cpu, "nicFraction": nic, "targetPassed": saturationErr == nil}); err != nil {
+				if err = a.append("generator-intervals.ndjson", map[string]any{valuePhase: phase.Name, "before": before, "after": after, "cpuFraction": cpu, "nicFraction": nic, "targetPassed": saturationErr == nil}); err != nil {
 					measurement <- err
 					return
 				}
@@ -1382,11 +1404,11 @@ func RunPhase4Measurement(ctx context.Context, planPath, planSHA256, output stri
 }
 
 func phase4WriteFile(path string, raw []byte) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := createExclusivePath(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer closeResource(file)
 	if _, err = file.Write(raw); err != nil {
 		return err
 	}
@@ -1436,8 +1458,8 @@ func phase4Counters(p Phase4Plan) (out phase4GeneratorCounters, err error) {
 			out.Idle += n
 		}
 	}
-	for _, kind := range []string{"rx_bytes", "tx_bytes"} {
-		raw, err = os.ReadFile(filepath.Join("/sys/class/net", p.GeneratorNIC, "statistics", kind))
+	for _, kind := range []string{valueRxBytes, "tx_bytes"} {
+		raw, err = readPath(filepath.Join("/sys/class/net", p.GeneratorNIC, "statistics", kind))
 		if err != nil {
 			return out, err
 		}
@@ -1445,7 +1467,7 @@ func phase4Counters(p Phase4Plan) (out phase4GeneratorCounters, err error) {
 		if parseErr != nil {
 			return out, parseErr
 		}
-		if kind == "rx_bytes" {
+		if kind == valueRxBytes {
 			out.RX = n
 		} else {
 			out.TX = n

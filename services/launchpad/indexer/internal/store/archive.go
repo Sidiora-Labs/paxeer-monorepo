@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
 )
@@ -80,7 +82,7 @@ func (s *Store) CheckArchiveSource(ctx context.Context, segment ReplaySegment) e
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	return verifyArchiveSourceTx(ctx, tx, segment)
 }
 func (s *Store) CompleteArchive(ctx context.Context, m ArchiveManifest, segment ReplaySegment) error {
@@ -110,7 +112,7 @@ func (s *Store) CompleteArchive(ctx context.Context, m ArchiveManifest, segment 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if err = verifyArchiveSourceTx(ctx, tx, segment); err != nil {
 		return err
 	}
@@ -152,7 +154,7 @@ func (s *Store) RetentionEligible(ctx context.Context, scope OperationScope) (bo
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return false, err
 	}

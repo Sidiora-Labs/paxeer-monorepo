@@ -131,6 +131,9 @@ impl Registrar {
     }
 
     /// Opens the same worker boundary with an explicit Programs RPC endpoint.
+    ///
+    /// # Errors
+    /// Refuses an invalid endpoint, unavailable authority or corrupt durable state.
     pub fn open_with_builder_and_chain(
         config: &Config,
         now: u64,
@@ -365,40 +368,8 @@ impl Registrar {
             return Err("program-state synchronization requires an observed time".to_owned());
         }
         let prior_cursor = self.program_state.cursor()?;
-        let mut complete = prior_cursor;
-        let mut programs = BTreeSet::new();
-        let mut caught_up = false;
-        let mut feed_head = 0_u64;
-        for _ in 0..MAX_CHANGE_PAGES {
-            if self.node_state.request_deadline_expired() {
-                return Err(
-                    "registry request deadline expired during protocol synchronization".to_owned(),
-                );
-            }
-            let (notices, next, scanned, current) = self.node_state.changes(complete)?;
-            programs.extend(notices.into_iter().map(|notice| notice.program));
-            if next == complete && !current {
-                return Err("node program-state change feed made no progress".to_owned());
-            }
-            complete = next;
-            if scanned < feed_head {
-                return Err("node program-state scan head regressed".to_owned());
-            }
-            feed_head = scanned;
-            if current {
-                caught_up = true;
-                break;
-            }
-        }
-        if !caught_up {
-            return Err("node program-state change feed exceeded its page bound".to_owned());
-        }
-        if prior_cursor.sequence == 0 || self.balance_reads.is_empty() {
-            programs.extend(self.registry.program_ids());
-        }
-        if let Some(program) = requested {
-            programs.insert(program);
-        }
+        let (programs, complete, feed_head) =
+            self.scan_changed_programs(prior_cursor, requested)?;
         let (current_head, head_authority) = self.node_state.current_head_authority(now)?;
         if complete.sequence > feed_head || feed_head > current_head.freshness.observed_sequence {
             return Err(
@@ -426,7 +397,7 @@ impl Registrar {
             }
             let profile2 = match abi {
                 Some(2) => false,
-                Some(3 | 4 | 5) => true,
+                Some(3..=5) => true,
                 _ => return Err("program account ABI is unsupported".to_owned()),
             };
             let record = if profile2 {
@@ -487,6 +458,48 @@ impl Registrar {
         self.current_head = Some(current_head);
         self.head_authority = Some(head_authority);
         Ok(())
+    }
+
+    fn scan_changed_programs(
+        &self,
+        prior_cursor: ProgramStateCursor,
+        requested: Option<ProgramId>,
+    ) -> Result<(BTreeSet<ProgramId>, ProgramStateCursor, u64), String> {
+        let mut complete = prior_cursor;
+        let mut programs = BTreeSet::new();
+        let mut caught_up = false;
+        let mut feed_head = 0_u64;
+        for _ in 0..MAX_CHANGE_PAGES {
+            if self.node_state.request_deadline_expired() {
+                return Err(
+                    "registry request deadline expired during protocol synchronization".to_owned(),
+                );
+            }
+            let (notices, next, scanned, current) = self.node_state.changes(complete)?;
+            programs.extend(notices.into_iter().map(|notice| notice.program));
+            if next == complete && !current {
+                return Err("node program-state change feed made no progress".to_owned());
+            }
+            complete = next;
+            if scanned < feed_head {
+                return Err("node program-state scan head regressed".to_owned());
+            }
+            feed_head = scanned;
+            if current {
+                caught_up = true;
+                break;
+            }
+        }
+        if !caught_up {
+            return Err("node program-state change feed exceeded its page bound".to_owned());
+        }
+        if prior_cursor.sequence == 0 || self.balance_reads.is_empty() {
+            programs.extend(self.registry.program_ids());
+        }
+        if let Some(program) = requested {
+            programs.insert(program);
+        }
+        Ok((programs, complete, feed_head))
     }
 
     fn program_route(&mut self, request: &Request, now: u64, deadline: Instant) -> Response {
@@ -617,7 +630,7 @@ impl Registrar {
             };
         }
         if abi != Some(2)
-            && !matches!(abi, Some(3 | 4 | 5) if self.account_profile2_reads.contains_key(&read.entry.program))
+            && !matches!(abi, Some(3..=5) if self.account_profile2_reads.contains_key(&read.entry.program))
         {
             return refusal(
                 502,
@@ -789,20 +802,7 @@ impl Registrar {
                 "current native interface differs from verified deployment",
             );
         }
-        interface_response(
-            hex::encode(&program.bytes()),
-            version.number,
-            hex::encode(&version.code_hash),
-            version.abi_version,
-            hex::encode(interface.canonical_encoding()),
-            hex::encode(interface.digest().as_bytes()),
-            hex::encode(&version.deployment_receipt_digest),
-            hex::encode(&head.state_root),
-            head.freshness.observed_sequence,
-            head.freshness.observed_at,
-            valid_through,
-            source_json(version.source),
-        )
+        interface_response(program, version, interface, &head, valid_through)
     }
 
     fn verify(
@@ -1051,6 +1051,26 @@ impl Registrar {
             };
             return settled(lease, &mut record, state, now, response);
         }
+        self.persist_publication(
+            lease,
+            record,
+            now,
+            publication_now,
+            (program, artifact.version),
+            response,
+        )
+    }
+
+    fn persist_publication(
+        &mut self,
+        lease: &VerificationLease,
+        mut record: VerificationRecord,
+        now: u64,
+        publication_now: u64,
+        program_version: (ProgramId, u32),
+        response: Response,
+    ) -> Response {
+        let (program, version) = program_version;
         let read = self.read(&hex::encode(&program.bytes()), publication_now);
         if read.status != 200 {
             return read;
@@ -1066,7 +1086,7 @@ impl Registrar {
                 "verified version evidence is absent",
             );
         };
-        versions.retain(|version| version["version"].as_u64() == Some(u64::from(artifact.version)));
+        versions.retain(|entry| entry["version"].as_u64() == Some(u64::from(version)));
         if versions.len() != 1 {
             return refusal(
                 503,
@@ -1127,6 +1147,10 @@ impl Registrar {
         settled(lease, &mut record, state, now, response)
     }
 
+    /// Reads a deployment verified against the current protocol state.
+    ///
+    /// # Errors
+    /// Returns a refusal for unavailable or inconsistent deployment evidence.
     pub fn source_deployment(
         &mut self,
         program: ProgramId,
@@ -1607,7 +1631,7 @@ impl Registrar {
                 Ok(head) => head,
                 Err(error) => return refusal(503, "protocol_state_unavailable", &error),
             };
-        refresh_head(journal, verified)
+        refresh_head(journal, &verified)
     }
 
     fn ingest_source(&mut self, body: &[u8], deadline: Instant) -> Response {
@@ -1935,6 +1959,7 @@ fn source_request(body: &[u8]) -> Option<(String, [u8; 32])> {
     Some((uri, digest))
 }
 
+#[cfg(test)]
 fn deployment_ingress_unavailable(_untrusted_body: &[u8]) -> Response {
     refusal(
         503,
@@ -2011,6 +2036,7 @@ fn node_state(config: &Config) -> Result<NodeProgramStateSource, String> {
         &config.sequencer_trust_history,
         config.staleness_ms,
     )?;
+    // Cross-check the node response with the independently authenticated evidence source.
     NodeProgramStateSource::connect_with_identity(
         &config.node_endpoint,
         config.node_authorization.clone(),
@@ -2053,51 +2079,49 @@ fn deployment_provenance_json(evidence: &VerifiedDeploymentEvidence) -> Value {
     })
 }
 
-fn deployment_response(evidence: &layerx_programs::VerifiedDeploymentEvidence) -> Response {
+// Keep the registry producer's field names and numeric freshness in one serializer.
+fn interface_response(
+    program: ProgramId,
+    version: &RegistryVersion,
+    interface: &ProgramInterface,
+    head: &AccountStateHead,
+    valid_through: u64,
+) -> Response {
     Response {
         status: 200,
         body: json!({
-            "activity_id": hex::encode(&evidence.activity_id()),
-            "receipt_digest": hex::encode(&evidence.receipt_digest()),
-            "state": "deployed",
+            "program_id": hex::encode(&program.bytes()),
+            "version": version.number,
+            "code_hash": hex::encode(&version.code_hash),
+            "abi_version": version.abi_version,
+            "interface": hex::encode(interface.canonical_encoding()),
+            "interface_digest": hex::encode(interface.digest().as_bytes()),
+            "deployment_receipt_digest": hex::encode(&version.deployment_receipt_digest),
+            "state_root": hex::encode(&head.state_root),
+            "observed_sequence": head.freshness.observed_sequence,
+            "observed_at": head.freshness.observed_at,
+            "valid_through": valid_through,
+            "source": source_json(version.source),
+            "verification": "deployment-interface-and-current-head-verified",
         })
         .to_string(),
     }
 }
 
-// Keep the registry producer's field names and numeric freshness in one serializer.
-fn interface_response(
-    program_id: String,
-    version: u32,
-    code_hash: String,
-    abi_version: u16,
-    interface: String,
-    interface_digest: String,
-    deployment_receipt_digest: String,
-    state_root: String,
-    observed_sequence: u64,
-    observed_at: u64,
-    valid_through: u64,
-    source: Value,
-) -> Response {
-    Response {
-        status: 200,
-        body: json!({
-            "program_id": program_id,
-            "version": version,
-            "code_hash": code_hash,
-            "abi_version": abi_version,
-            "interface": interface,
-            "interface_digest": interface_digest,
-            "deployment_receipt_digest": deployment_receipt_digest,
-            "state_root": state_root,
-            "observed_sequence": observed_sequence,
-            "observed_at": observed_at,
-            "valid_through": valid_through,
-            "source": source,
-            "verification": "deployment-interface-and-current-head-verified",
-        })
-        .to_string(),
+fn refresh_head(journal: &FileDeploymentJournal, verified: &ProgramHead) -> Response {
+    let head = ObservedHead {
+        sequence: verified.sequence,
+        observed_at: verified.observed_at,
+    };
+    match journal.refresh_head(head) {
+        Ok(()) => Response {
+            status: 200,
+            body:
+                json!({"observed": true, "sequence": head.sequence, "observed_at": head.observed_at,
+                "state_root": hex::encode(&verified.state_root)})
+                .to_string(),
+        },
+        Err(error) => refusal(400, "invalid_argument", &error),
     }
 }
 
@@ -2152,22 +2176,5 @@ mod tests {
     fn deployment_ingress_does_not_accept_caller_proof_bytes() {
         let untrusted = br#"{"proof_hex":"00"}"#;
         assert_eq!(deployment_ingress_unavailable(untrusted).status, 503);
-    }
-}
-
-fn refresh_head(journal: &FileDeploymentJournal, verified: ProgramHead) -> Response {
-    let head = ObservedHead {
-        sequence: verified.sequence,
-        observed_at: verified.observed_at,
-    };
-    match journal.refresh_head(head) {
-        Ok(()) => Response {
-            status: 200,
-            body:
-                json!({"observed": true, "sequence": head.sequence, "observed_at": head.observed_at,
-                "state_root": hex::encode(&verified.state_root)})
-                .to_string(),
-        },
-        Err(error) => refusal(400, "invalid_argument", &error),
     }
 }

@@ -33,10 +33,7 @@ export function explorerLinkPath(target: ExplorerLinkTarget): string {
       }
       return `/tx/${target.transactionHash.toLowerCase()}`;
     case "historical-receipt":
-      if (target.frozen !== true || !validExplorerIdentifier(target.receiptId)) {
-        throw new TypeError("Invalid frozen historical receipt identity");
-      }
-      return `/paxeer-x/receipts/${target.receiptId.toLowerCase()}`;
+      return historicalReceiptLinkPath(target);
     case "transaction":
       if (!TRANSACTION_HASH_GRAMMAR.test(target.transactionHash)) {
         throw new TypeError("Invalid transaction hash");

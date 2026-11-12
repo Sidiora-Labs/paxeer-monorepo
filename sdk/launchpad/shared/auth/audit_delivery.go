@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -98,7 +99,11 @@ func (b AuditBridge) stageOne(ctx context.Context, id int64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer func() {
+		if cleanupErr := tx.Rollback(context.WithoutCancel(ctx)); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('security-audit-delivery:'||$1::text,0))`, id); err != nil {
 		return false, err
 	}
@@ -197,14 +202,18 @@ func (s AuditSink) Consume(ctx context.Context, wire []byte, ack delivery.Delive
 }
 
 func (l Ledger) RecordDenial(ctx context.Context, event AuditEvent) error {
-	if l.Pool == nil || event.Result != "denied" {
+	if l.Pool == nil || event.Result != valueDenied {
 		return ErrScopeDenied
 	}
 	tx, err := l.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer func() {
+		if cleanupErr := tx.Rollback(context.WithoutCancel(ctx)); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	if err = AppendAudit(ctx, tx, l.AuditKey, event); err != nil {
 		return err
 	}

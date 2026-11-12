@@ -29,104 +29,104 @@ type Rule struct {
 // Authority defaults to supplemental. A declared ABI alone is never proof of
 // concrete emission. Callers still validate registered origin and permissions.
 func Authority(role, event string) Rule {
-	if role == "EventEmitter" {
+	if role == roleEventEmitter {
 		switch event {
-		case "RoleGranted", "RoleRevoked", "RoleAdminChanged", "Upgraded", "TypedEmitterPermission":
-			return Rule{"primary", "control_transition", false}
+		case "RoleGranted", "RoleRevoked", "RoleAdminChanged", eventUpgraded, "TypedEmitterPermission":
+			return Rule{kindPrimary, effectControlTransition, false}
 		case "Swap":
-			return Rule{"conditional_primary", "core_fill", true}
+			return Rule{kindConditionalPrimary, effectCoreFill, true}
 		case "PoolStateUpdated":
-			return Rule{"conditional_primary", "reserve_state", true}
+			return Rule{kindConditionalPrimary, effectReserveState, true}
 		case "ConfigUpdated":
-			return Rule{"conditional_primary", "configuration", true}
+			return Rule{kindConditionalPrimary, "configuration", true}
 		case "EventLog", "EventLog1", "EventLog2":
-			return Rule{"supplemental", "none", true}
+			return Rule{"supplemental", effectNone, true}
 		default:
-			return Rule{"corroboration", "none", true}
+			return Rule{kindCorroboration, effectNone, true}
 		}
 	}
-	if role == "SidioraFactory" && event == "MarketCreated" {
-		return Rule{"primary", "market_attachment", false}
+	if role == roleSidioraFactory && event == eventMarketCreated {
+		return Rule{kindPrimary, effectMarketAttachment, false}
 	}
 	if role == "Router" {
 		switch event {
-		case "Buy", "Sell", "MultihopSwap":
+		case eventBuy, "Sell", "MultihopSwap":
 			return Rule{"route_primary", "route_execution", false}
-		case "MarketCreated":
-			return Rule{"corroboration", "none", false}
+		case eventMarketCreated:
+			return Rule{kindCorroboration, effectNone, false}
 		}
 	}
-	if role == "SidioraERC20" || role == "SidioraNFT" {
+	if role == roleSidioraERC20 || role == "SidioraNFT" {
 		switch event {
 		case "Transfer":
-			return Rule{"primary", "asset_movement", false}
+			return Rule{kindPrimary, "asset_movement", false}
 		case "Approval", "ApprovalForAll":
-			return Rule{"primary", "asset_permission", false}
+			return Rule{kindPrimary, "asset_permission", false}
 		case "PoolNFTMinted", "FeeStrategyChanged":
-			return Rule{"primary", "nft_strategy", false}
+			return Rule{kindPrimary, "nft_strategy", false}
 		}
 	}
 	if role == "FeeAccumulator" {
 		switch event {
-		case "FeeRecorded", "FeesClaimed", "FeesBurned", "AirdropTriggered", "AirdropClaimed", "LpRewardsSent", "OpticalSurplusRecorded", "OpticalSurplusClaimed":
-			return Rule{"primary", event, false}
+		case "FeeRecorded", eventFeesClaimed, "FeesBurned", "AirdropTriggered", "AirdropClaimed", "LpRewardsSent", "OpticalSurplusRecorded", "OpticalSurplusClaimed":
+			return Rule{kindPrimary, event, false}
 		case "ProtocolFeeSwept":
-			return Rule{"declared_not_emitted", "none", false}
+			return Rule{"declared_not_emitted", effectNone, false}
 		}
 	}
 	if role == "PECOR" {
 		switch event {
 		case "SimpleSwap", "MarketOrderExecuted", "NativeSwap", "FeesCollected":
-			return Rule{"primary", event, false}
+			return Rule{kindPrimary, event, false}
 		case "TrackerCallFailed":
 			return Rule{"diagnostic", "enrichment_missing", false}
 		}
 	}
 	if role == "MetaAGRouter" && (event == "BestRouteSwap" || event == "MultiHopSwap") {
-		return Rule{"primary", "route_execution", false}
+		return Rule{kindPrimary, "route_execution", false}
 	}
 	if role == "TransactionTracker" {
-		return Rule{"corroboration", "none", false}
+		return Rule{kindCorroboration, effectNone, false}
 	}
 	if role == "PECOROrders" {
 		switch event {
 		case "LimitOrderCreated", "StopLimitOrderCreated":
-			return Rule{"primary", "order_created", false}
+			return Rule{kindPrimary, effectOrderCreated, false}
 		case "StopLimitActivated":
-			return Rule{"primary", "order_triggered", false}
+			return Rule{kindPrimary, effectOrderTriggered, false}
 		case "LimitOrderExecuted", "StopLimitExecuted":
-			return Rule{"primary", "order_filled", false}
+			return Rule{kindPrimary, effectOrderFilled, false}
 		case "OrderExecutionFailed":
 			return Rule{"diagnostic", "order_unchanged", false}
 		case "OrderExpiredAndRefunded":
-			return Rule{"primary", "expired_refunded", false}
+			return Rule{kindPrimary, effectExpiredRefunded, false}
 		case "LimitOrderCancelled", "StopLimitCancelled":
-			return Rule{"primary", "order_cancelled", false}
+			return Rule{kindPrimary, effectOrderCancelled, false}
 		case "OrderMinimumOutputUpdated":
-			return Rule{"primary", "minimum_output", false}
+			return Rule{kindPrimary, effectMinimumOutput, false}
 		}
 	}
-	if role == "PECORVault" {
+	if role == rolePECORVault {
 		switch event {
-		case "Deposit", "Withdrawal", "NativeDeposit", "NativeWithdrawal", "EmergencyWithdraw":
-			return Rule{"primary", "funding_movement", false}
+		case "Deposit", "Withdrawal", eventNativeDeposit, "NativeWithdrawal", "EmergencyWithdraw":
+			return Rule{kindPrimary, effectFundingMovement, false}
 		case "ReservesUpdated", "ReservesSync":
-			return Rule{"primary", "reserve_state", false}
+			return Rule{kindPrimary, effectReserveState, false}
 		case "TokenRegistered", "StablecoinStatusUpdated":
-			return Rule{"primary", "asset_configuration", false}
+			return Rule{kindPrimary, "asset_configuration", false}
 		}
 	}
 	if role == "OpticalRegistry" {
 		switch event {
 		case "OpticalDeregistered", "OpticalRegistered", "OpticalIdentityReviewed", "OpticalMetadataUpdated":
-			return Rule{"primary", "optical_configuration", false}
+			return Rule{kindPrimary, "optical_configuration", false}
 		}
 	}
 	switch event {
-	case "RoleGranted", "RoleRevoked", "Upgraded", "PauseToggled", "OwnershipTransferStarted", "OwnershipTransferred", "GuardianTransferStarted", "GuardianTransferred":
-		return Rule{"primary", "control_transition", false}
+	case "RoleGranted", "RoleRevoked", eventUpgraded, "PauseToggled", "OwnershipTransferStarted", "OwnershipTransferred", "GuardianTransferStarted", "GuardianTransferred":
+		return Rule{kindPrimary, effectControlTransition, false}
 	}
-	return Rule{"supplemental", "none", false}
+	return Rule{"supplemental", effectNone, false}
 }
 func CoreSwapCoverage(mirrorAuthorized bool) string {
 	if mirrorAuthorized {

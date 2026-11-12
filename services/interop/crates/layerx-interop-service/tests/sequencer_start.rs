@@ -1,5 +1,5 @@
 #[path = "support/active_inputs.rs"]
-mod active_inputs;
+pub mod active_inputs;
 
 use layerx_platform_gateway::http;
 use openssl::asn1::Asn1Time;
@@ -47,7 +47,13 @@ impl Drop for Gateway {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }
 
 impl Fixture {

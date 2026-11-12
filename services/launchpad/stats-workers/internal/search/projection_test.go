@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
-	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"os"
 	"strings"
@@ -93,11 +93,7 @@ func TestRealBrokerInboxProjectionAndOutboxAtomicity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nc, err := nats.Connect(brokerURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(nc.Close)
+	nc := internaltest.ConnectNATS(t, brokerURL)
 	js, err := jetstream.New(nc)
 	if err != nil {
 		t.Fatal(err)

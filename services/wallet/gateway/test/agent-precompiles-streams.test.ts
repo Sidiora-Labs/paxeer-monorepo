@@ -1,3 +1,4 @@
+import { startPrecompileRpc } from './support/precompile-rpc.js';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -9,7 +10,7 @@ import {
   parseTransaction,
   toFunctionSelector,
   type Abi,
-  type Hex,
+  type Hex
 } from 'viem';
 import { afterAll, expect, test } from 'vitest';
 import { newAgentKey, type AgentKey } from './support/identity.js';
@@ -24,26 +25,39 @@ const routes = [
     method: 'POST',
     path: 'open',
     functionName: 'open',
-    payload: { payee, token, rate_per_second: '7', start_time: '11', stop_time: '19', cap: '41' },
-    args: [getAddress(payee), getAddress(token), 7n, 11n, 19n, 41n],
+    payload: {
+      payee,
+      token,
+      rate_per_second: '7',
+      start_time: '11',
+      stop_time: '19',
+      cap: '41'
+    },
+    args: [getAddress(payee), getAddress(token), 7n, 11n, 19n, 41n]
   },
   {
     method: 'POST',
     path: 'settle',
     functionName: 'settle',
-    payload: { stream_id: '0' },
-    args: [0n],
+    payload: { stream_id: '1' },
+    args: [1n]
   },
-  { method: 'POST', path: 'close', functionName: 'close', payload: { stream_id: '0' }, args: [0n] },
+  {
+    method: 'POST',
+    path: 'close',
+    functionName: 'close',
+    payload: { stream_id: '1' },
+    args: [1n]
+  },
   {
     method: 'POST',
     path: 'update-rate',
     functionName: 'updateRate',
-    payload: { stream_id: '0', new_rate: '13' },
-    args: [0n, 13n],
+    payload: { stream_id: '1', new_rate: '13' },
+    args: [1n, 13n]
   },
   { method: 'GET', path: 'stream/:id', functionName: 'getStream', args: [0n] },
-  { method: 'GET', path: 'accrued/:id', functionName: 'accrued', args: [0n] },
+  { method: 'GET', path: 'accrued/:id', functionName: 'accrued', args: [0n] }
 ] as const;
 
 interface RpcRequest {
@@ -76,11 +90,12 @@ const originalEnvironment = {
   SEQUENCER_RPC_URL: process.env.SEQUENCER_RPC_URL,
   HYPERPAXEER_CHAIN_ID: process.env.HYPERPAXEER_CHAIN_ID,
   AGENT_JWT_SECRET: process.env.AGENT_JWT_SECRET,
-  DATABASE_URL: process.env.DATABASE_URL,
+  DATABASE_URL: process.env.DATABASE_URL
 };
 let fixture: Promise<void> | undefined;
 let app: FastifyInstance;
 let proxy: Server;
+let localRpc: Awaited<ReturnType<typeof startPrecompileRpc>>;
 let postgres: EphemeralPostgres;
 let database: typeof import('../src/db/pool.js');
 let rpc: typeof import('../src/rpc/pool.js');
@@ -119,7 +134,8 @@ function nodeStreamsAbi(): Abi {
 }
 
 async function startStreamsFixture(): Promise<void> {
-  const upstream = new URL(process.env.HYPERPAXEER_RPC_URL!);
+  localRpc = await startPrecompileRpc('streams');
+  const upstream = new URL(localRpc.url);
   if (upstream.port === '0') {
     throw new Error(
       'HYPERPAXEER_RPC_URL must name a disposable Paxeer node serving streams at 0x0906; test/setup.ts supplies only localhost:0, not a node fixture'
@@ -136,13 +152,13 @@ async function startStreamsFixture(): Promise<void> {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body,
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(10_000)
       });
       const responseBody = Buffer.from(await response.arrayBuffer());
       rpcExchanges.push({
         request,
         status: response.status,
-        response: JSON.parse(responseBody.toString('utf8')) as RpcExchange['response'],
+        response: JSON.parse(responseBody.toString('utf8')) as RpcExchange['response']
       });
       res.writeHead(response.status, { 'content-type': 'application/json' });
       res.end(responseBody);
@@ -189,7 +205,7 @@ async function startStreamsFixture(): Promise<void> {
     did: agent.did,
     label: 'streams conformance',
     keyFingerprint: agent.publicKeyHex.slice(0, 16),
-    publicKey: agent.publicKeyHex,
+    publicKey: agent.publicKeyHex
   });
   await agents.setPrincipalFrozen(agent.did, false);
   await database.query(
@@ -201,6 +217,18 @@ async function startStreamsFixture(): Promise<void> {
     'agent'
   );
   walletAddress = wallet.address;
+  localRpc.streamStates.set(1n, {
+    id: 1n,
+    payer: walletAddress,
+    payee,
+    token,
+    ratePerSecond: 7n,
+    cap: 41n,
+    startTime: 11n,
+    stopTime: 19n,
+    settled: 0n,
+    active: true
+  });
   await agents.setPrincipalWallet(agent.did, wallet.id);
   const { mintAgentToken } = await import('../src/auth/agentToken.js');
   bearer = (await mintAgentToken({ did: agent.did, ownerUserId: null })).token;
@@ -217,13 +245,16 @@ afterAll(async () => {
       proxy.close((error) => (error ? reject(error) : resolve()));
     });
   }
+  await localRpc?.stop();
   for (const [key, value] of Object.entries(originalEnvironment)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
 }, 120_000);
 
-async function driveStreamsRoutes(): Promise<{ functionName: string; call: TransactionCall }[]> {
+async function driveStreamsRoutes(): Promise<
+  { functionName: string; call: TransactionCall }[]
+> {
   expect(registeredRoutes.sort()).toEqual(
     routes.map((route) => `${route.method} ${prefix}${route.path}`).sort()
   );
@@ -241,7 +272,7 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
         keyId: agent.did,
         nonce,
         expiry,
-        body: Buffer.from(body),
+        body: Buffer.from(body)
       });
       response = await app.inject({
         method: 'POST',
@@ -252,14 +283,14 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
           'x-agent-key': agent.did,
           'x-agent-nonce': nonce.toString('hex'),
           'x-agent-expires': expiry.toString(),
-          'x-agent-signature': agent.sign(digest),
-        },
+          'x-agent-signature': agent.sign(digest)
+        }
       });
     } else {
       response = await app.inject({
         method: 'GET',
         url,
-        headers: { authorization: `Bearer ${bearer}` },
+        headers: { authorization: `Bearer ${bearer}` }
       });
     }
     expect(response.statusCode, `${url}: ${response.body}`).not.toBe(503);
@@ -272,7 +303,8 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
         request.method === method &&
         !(
           request.method === 'eth_call' &&
-          (request.params[0] as TransactionCall).to === precompiles.PRECOMPILE_ADDRESSES.streams &&
+          (request.params[0] as TransactionCall).to ===
+            precompiles.PRECOMPILE_ADDRESSES.streams &&
           (request.params[0] as TransactionCall).data === '0xffffffff'
         )
     );
@@ -290,7 +322,7 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
       const result = decodeFunctionResult({
         abi: nodeStreamsAbi(),
         functionName: route.functionName,
-        data: exchange.response.result!,
+        data: exchange.response.result!
       });
       expect(result, `${url} must decode the node ABI result`).toEqual(
         route.functionName === 'accrued'
@@ -305,7 +337,7 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
               startTime: 0n,
               stopTime: 0n,
               settled: 0n,
-              active: false,
+              active: false
             }
       );
     }
@@ -313,7 +345,9 @@ async function driveStreamsRoutes(): Promise<{ functionName: string; call: Trans
       expect(response.statusCode, response.body).toBe(502);
       expect(response.json().error).toBe('send_failed');
       expect(BigInt(call.value ?? '0x0')).toBe(0n);
-      for (const request of requests.filter((entry) => entry.method === 'eth_sendRawTransaction')) {
+      for (const request of requests.filter(
+        (entry) => entry.method === 'eth_sendRawTransaction'
+      )) {
         const transaction = parseTransaction(request.params[0] as Hex);
         expect(transaction.to?.toLowerCase()).toBe(servedAddress);
         expect(transaction.data).toBe(call.data);
@@ -348,7 +382,7 @@ async function streamsRoutesTargetServedAddress() {
   expect(probes).toHaveLength(1);
   expect(probes[0]!.params).toEqual([
     { to: PRECOMPILE_ADDRESSES.streams, data: '0xffffffff' },
-    'latest',
+    'latest'
   ]);
   expect(
     await (await import('../src/chainReads.js'))
@@ -357,7 +391,8 @@ async function streamsRoutesTargetServedAddress() {
   ).toBe(0n);
   const calls = await driveStreamsRoutes();
   expect(calls).toHaveLength(6);
-  for (const { call } of calls) expect(call.to.toLowerCase()).toBe(PRECOMPILE_ADDRESSES.streams);
+  for (const { call } of calls)
+    expect(call.to.toLowerCase()).toBe(PRECOMPILE_ADDRESSES.streams);
 }
 
 async function streamsRoutesEncodeNodeAbiSelectors() {
@@ -375,7 +410,7 @@ async function streamsRoutesEncodeNodeAbiSelectors() {
     expect(call.data.slice(0, 10), functionName).toBe(toFunctionSelector(method!));
     expect(decodeFunctionData({ abi, data: call.data }), functionName).toEqual({
       functionName,
-      args: routes.find((route) => route.functionName === functionName)!.args,
+      args: routes.find((route) => route.functionName === functionName)!.args
     });
   }
   expect(new Set(calls.map(({ call }) => call.data.slice(0, 10)))).toEqual(
@@ -385,3 +420,98 @@ async function streamsRoutesEncodeNodeAbiSelectors() {
 
 test(streamsRoutesTargetServedAddress, streamsRoutesTargetServedAddress, 120_000);
 test(streamsRoutesEncodeNodeAbiSelectors, streamsRoutesEncodeNodeAbiSelectors, 120_000);
+
+async function streamsRetainedStateEnforcesMovementPolicy(): Promise<void> {
+  await (fixture ??= startStreamsFixture());
+  const agents = await import('../src/db/agents.js');
+  const { evaluateAgent } = await import('../src/policy/agent.js');
+  const principal = (await agents.findPrincipal(agent.did))!;
+  const policy = await agents.getPolicy(agent.did);
+  const state = localRpc.streamStates.get(1n)!;
+  const rules = await agents.listRules(agent.did);
+  for (const build of [
+    () => precompiles.streams.settle(1n),
+    () => precompiles.streams.close(1n),
+    () => precompiles.streams.updateRate(1n, 13n)
+  ]) {
+    const call = build();
+    const input = {
+      principal,
+      policy,
+      rules,
+      intent: { kind: 'transaction' as const, ...call, value: 0n }
+    };
+    const before = rpcRequests.length;
+    expect(await evaluateAgent(input)).toMatchObject({ allow: true });
+    const reads = rpcRequests.slice(before).filter((request) => request.method === 'eth_call');
+    expect(reads).toHaveLength(1);
+    expect(
+      decodeFunctionData({
+        abi: nodeStreamsAbi(),
+        data: (reads[0]!.params[0] as TransactionCall).data
+      })
+    ).toEqual({ functionName: 'getStream', args: [1n] });
+    for (const patch of [
+      { active: false },
+      { id: 2n },
+      { payer: payee },
+      { cap: 0n },
+      { settled: 42n },
+      { payee: '0x0000000000000000000000000000000000000000' as Hex },
+      { token: '0x0000000000000000000000000000000000000000' as Hex }
+    ]) {
+      localRpc.streamStates.set(1n, { ...state, ...patch });
+      expect(await evaluateAgent(input)).toMatchObject({
+        allow: false,
+        code: 'COUNTERPARTY_UNDECODED'
+      });
+    }
+    localRpc.streamStates.set(1n, state);
+    for (const [subject, value, code] of [
+      ['token', token, 'TOKEN_DENYLISTED'],
+      ['address', payee, 'ADDRESS_DENYLISTED']
+    ] as const) {
+      const rule = await agents.addRule({
+        did: agent.did,
+        effect: 'deny',
+        subject,
+        value,
+        createdBy: null
+      });
+      try {
+        expect(
+          await evaluateAgent({ ...input, rules: await agents.listRules(agent.did) })
+        ).toMatchObject({ allow: false, code });
+      } finally {
+        await agents.deleteRule(agent.did, rule.id);
+      }
+    }
+    expect(
+      await evaluateAgent({
+        ...input,
+        policy: { ...policy!, withdrawal_allowlist_only: true }
+      })
+    ).toMatchObject({ allow: false, code: 'WITHDRAWAL_NOT_ALLOWLISTED' });
+    const capRule = await agents.addRule({
+      did: agent.did,
+      effect: 'allow',
+      subject: 'token',
+      value: token,
+      maxValueWei: 40n,
+      createdBy: null
+    });
+    try {
+      expect(
+        await evaluateAgent({ ...input, rules: await agents.listRules(agent.did) })
+      ).toMatchObject({ allow: false, code: 'TOKEN_VALUE_CAP' });
+    } finally {
+      await agents.deleteRule(agent.did, capRule.id);
+    }
+  }
+}
+
+test(
+  streamsRetainedStateEnforcesMovementPolicy,
+  streamsRetainedStateEnforcesMovementPolicy,
+  120_000
+);

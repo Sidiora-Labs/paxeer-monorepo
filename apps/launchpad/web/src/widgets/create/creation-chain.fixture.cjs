@@ -18,17 +18,11 @@ function creationSourceAuthority(sourceRoot, manifest, candidateRevision) {
       assert.ok(!seen.has(entry.path), 'Duplicate source authority');
       seen.add(entry.path);
       const absolute = fs.realpathSync(path.resolve(root, entry.path));
-      assert.ok(
-        absolute.startsWith(root + path.sep),
-        'Source escaped candidate root',
-      );
+      assert.ok(absolute.startsWith(root + path.sep), 'Source escaped candidate root');
       assert.equal(
-        crypto
-          .createHash('sha256')
-          .update(fs.readFileSync(absolute))
-          .digest('hex'),
+        crypto.createHash('sha256').update(fs.readFileSync(absolute)).digest('hex'),
         entry.sha256,
-        `Current source drift: ${entry.path}`,
+        `Current source drift: ${entry.path}`
       );
       return { path: entry.path, sha256: entry.sha256 };
     })
@@ -50,9 +44,7 @@ function creationSourceAuthority(sourceRoot, manifest, candidateRevision) {
     'optical-preset-picker.tsx',
   ];
   const required = [
-    ...ownedNames.map(
-      (name) => `apps/launchpad/web/src/widgets/create/${name}`,
-    ),
+    ...ownedNames.map((name) => `apps/launchpad/web/src/widgets/create/${name}`),
     'apps/launchpad/web/src/core/runtime-authority.ts',
     'apps/launchpad/web/src/widgets/create/cap-admission.ts',
     'apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts',
@@ -60,7 +52,7 @@ function creationSourceAuthority(sourceRoot, manifest, candidateRevision) {
   for (const name of required)
     assert.ok(
       files.some((entry) => entry.path === name),
-      `Unbound actual source ${name}`,
+      `Unbound actual source ${name}`
     );
   return files;
 }
@@ -71,46 +63,38 @@ function creationEthersEntry(contractRoot) {
 
 function creationDependencyAuthority(contractRoot) {
   const entry = fs.realpathSync(creationEthersEntry(contractRoot)),
-    dependencyRoot = fs.realpathSync(
-      path.join(contractRoot, 'node_modules/ethers'),
-    );
+    dependencyRoot = fs.realpathSync(path.join(contractRoot, 'node_modules/ethers'));
   assert.ok(
     entry.startsWith(dependencyRoot + path.sep),
-    'Ethers dependency escaped its installed package',
+    'Ethers dependency escaped its installed package'
   );
   const project = JSON.parse(
-      fs.readFileSync(path.join(contractRoot, 'package.json'), 'utf8'),
+      fs.readFileSync(path.join(contractRoot, 'package.json'), 'utf8')
     ),
     dependency = JSON.parse(
-      fs.readFileSync(path.join(dependencyRoot, 'package.json'), 'utf8'),
+      fs.readFileSync(path.join(dependencyRoot, 'package.json'), 'utf8')
     );
   assert.equal(dependency.name, 'ethers');
   assert.ok(
     project.devDependencies?.ethers || project.dependencies?.ethers,
-    'Contract project must own ethers',
+    'Contract project must own ethers'
   );
   return {
     entry,
     version: dependency.version,
-    sha256: crypto
-      .createHash('sha256')
-      .update(fs.readFileSync(entry))
-      .digest('hex'),
+    sha256: crypto.createHash('sha256').update(fs.readFileSync(entry)).digest('hex'),
   };
 }
 
 function creationPresetControls(group) {
-  assert.ok(
-    group && group.role === 'radiogroup',
-    'Rendered Trading rules group required',
-  );
+  assert.ok(group && group.role === 'radiogroup', 'Rendered Trading rules group required');
   const cards = group.cards;
   assert.ok(
     cards.some((card) => card.text.includes('Standard')),
-    'Standard control missing',
+    'Standard control missing'
   );
   const addresses = cards.flatMap((card) =>
-    card.addresses.filter((value) => /^0x[0-9a-fA-F]{40}$/.test(value)),
+    card.addresses.filter((value) => /^0x[0-9a-fA-F]{40}$/.test(value))
   );
   assert.ok(addresses.length <= 50, 'Actual registry preset cache exceeded50');
   assert.equal(new Set(addresses).size, addresses.length);
@@ -127,7 +111,7 @@ module.exports = {
 async function fixture() {
   const roots = creationChainRoots(
     process.env.L27_SOURCE_ROOT,
-    process.env.CONTRACT_SOURCE_ROOT,
+    process.env.CONTRACT_SOURCE_ROOT
   );
   const contractRoot = roots.contracts;
   const fs = await import('node:fs');
@@ -155,12 +139,11 @@ async function fixture() {
     feesRouterAddr;
   let deployer, alice, bob, charlie;
   const consumedArtifacts = [];
+  const creationTransactions = {};
   const checkedBuilds = new Set();
   function verifyBuild(artifactFile) {
     const artifact = JSON.parse(fs.readFileSync(artifactFile));
-    const dbg = JSON.parse(
-      fs.readFileSync(artifactFile.replace(/\.json$/, '.dbg.json')),
-    );
+    const dbg = JSON.parse(fs.readFileSync(artifactFile.replace(/\.json$/, '.dbg.json')));
     const buildPath = path.resolve(path.dirname(artifactFile), dbg.buildInfo);
     const build = JSON.parse(fs.readFileSync(buildPath));
     function check(source) {
@@ -171,18 +154,13 @@ async function fixture() {
       assert.ok(entry, `Missing compiled dependency ${source}`);
       if (source.startsWith('contracts/')) {
         const actual = fs.readFileSync(path.join(contractRoot, source), 'utf8');
-        assert.ok(
-          actual === entry.content,
-          `Compiled artifact source drift: ${source}`,
-        );
+        assert.ok(actual === entry.content, `Compiled artifact source drift: ${source}`);
       }
       for (const m of entry.content.matchAll(
-        /import\s+(?:[^;]*?from\s*)?["']([^"']+)["']\s*;/g,
+        /import\s+(?:[^;]*?from\s*)?["']([^"']+)["']\s*;/g
       )) {
         const dep = m[1].startsWith('.')
-          ? path.posix.normalize(
-              path.posix.join(path.posix.dirname(source), m[1]),
-            )
+          ? path.posix.normalize(path.posix.join(path.posix.dirname(source), m[1]))
           : m[1];
         check(dep);
       }
@@ -194,16 +172,16 @@ async function fixture() {
     assert.ok(
       Number.isSafeInteger(Number(process.env.L27_OWNED_ANVIL_PID)) &&
         Number(process.env.L27_OWNED_ANVIL_PID) > 0,
-      'Fixture requires the runner-owned fresh Anvil child',
+      'Fixture requires the runner-owned fresh Anvil child'
     );
     process.kill(Number(process.env.L27_OWNED_ANVIL_PID), 0);
     assert.equal(
       (await provider.getNetwork()).chainId,
       125n,
-      'Fixture chain identity must be125; wrong-chain execution rejected before deployment',
+      'Fixture chain identity must be125; wrong-chain execution rejected before deployment'
     );
     [deployer, alice, bob, charlie] = await Promise.all(
-      [0, 1, 2, 3].map((index) => provider.getSigner(index)),
+      [0, 1, 2, 3].map((index) => provider.getSigner(index))
     );
     const artifactFiles = [];
     function walk(dir) {
@@ -216,9 +194,7 @@ async function fixture() {
     }
     walk(contractRoot + '/artifacts/contracts');
     const getContractFactory = async (name) => {
-      const files = artifactFiles.filter(
-        (f) => path.basename(f) === name + '.json',
-      );
+      const files = artifactFiles.filter((f) => path.basename(f) === name + '.json');
       assert.equal(files.length, 1, `Unique current artifact ${name}`);
       verifyBuild(files[0]);
       const bytes = fs.readFileSync(files[0]);
@@ -228,7 +204,15 @@ async function fixture() {
         path: files[0],
         sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
       });
-      return new ethers.ContractFactory(a.abi, a.bytecode, deployer);
+      const factory = new ethers.ContractFactory(a.abi, a.bytecode, deployer);
+      const deploy = factory.deploy.bind(factory);
+      factory.deploy = async (...args) => {
+        const contract = await deploy(...args);
+        await contract.waitForDeployment();
+        creationTransactions[contract.target] = contract.deploymentTransaction().hash;
+        return contract;
+      };
+      return factory;
     };
     async function deployFullStack() {
       const Proxy = await getContractFactory('UUPSProxy');
@@ -238,7 +222,7 @@ async function fixture() {
         'USD Ledger',
         'USDL',
         ethers.parseUnits('1000000000', 6),
-        deployer.address,
+        deployer.address
       );
       await usdl.waitForDeployment();
 
@@ -246,9 +230,7 @@ async function fixture() {
       const emitterImpl = await EventEmitter.deploy();
       const emitterProxy = await Proxy.deploy(
         await emitterImpl.getAddress(),
-        EventEmitter.interface.encodeFunctionData('initialize', [
-          deployer.address,
-        ]),
+        EventEmitter.interface.encodeFunctionData('initialize', [deployer.address])
       );
       eventEmitter = EventEmitter.attach(await emitterProxy.getAddress());
       await eventEmitter.reinitializeV2(deployer.address);
@@ -262,7 +244,7 @@ async function fixture() {
           await usdl.getAddress(),
           await eventEmitter.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       configProxy = Config.attach(await proxy.getAddress());
 
@@ -274,7 +256,7 @@ async function fixture() {
         Treasury.interface.encodeFunctionData('initialize', [
           await eventEmitter.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       treasuryProxy = Treasury.attach(await proxy.getAddress());
 
@@ -286,7 +268,7 @@ async function fixture() {
         Registry.interface.encodeFunctionData('initialize', [
           await eventEmitter.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       registryProxy = Registry.attach(await proxy.getAddress());
 
@@ -302,7 +284,7 @@ async function fixture() {
           await eventEmitter.getAddress(),
           await usdl.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       accumulatorProxy = Acc.attach(await proxy.getAddress());
 
@@ -316,7 +298,7 @@ async function fixture() {
           'SIDNFT',
           await eventEmitter.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       nftProxy = NFT.attach(await proxy.getAddress());
 
@@ -324,10 +306,7 @@ async function fixture() {
       const Pool = await getContractFactory('SidioraPool');
       const poolImpl = await Pool.deploy();
       const PoolBeacon = await getContractFactory('PoolBeacon');
-      beacon = await PoolBeacon.deploy(
-        await poolImpl.getAddress(),
-        deployer.address,
-      );
+      beacon = await PoolBeacon.deploy(await poolImpl.getAddress(), deployer.address);
       await beacon.waitForDeployment();
 
       // Factory
@@ -345,7 +324,7 @@ async function fixture() {
           await accumulatorProxy.getAddress(),
           await usdl.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       factoryProxy = Factory.attach(await proxy.getAddress());
 
@@ -360,7 +339,7 @@ async function fixture() {
           await configProxy.getAddress(),
           await usdl.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       router = Router.attach(await proxy.getAddress());
       routerAddr = await router.getAddress();
@@ -374,7 +353,7 @@ async function fixture() {
           await registryProxy.getAddress(),
           await configProxy.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       quoter = Quoter.attach(await proxy.getAddress());
 
@@ -388,7 +367,7 @@ async function fixture() {
           await accumulatorProxy.getAddress(),
           await registryProxy.getAddress(),
           deployer.address,
-        ]),
+        ])
       );
       feesRouter = FeesRouter.attach(await proxy.getAddress());
       feesRouterAddr = await feesRouter.getAddress();
@@ -396,34 +375,18 @@ async function fixture() {
       // Wire all roles
       const FACTORY_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FACTORY_ROLE'));
       const MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('MINTER_ROLE'));
-      const DEPOSITOR_ROLE = ethers.keccak256(
-        ethers.toUtf8Bytes('DEPOSITOR_ROLE'),
-      );
+      const DEPOSITOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes('DEPOSITOR_ROLE'));
       const ROUTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('ROUTER_ROLE'));
-      const FEES_ROUTER_ROLE = ethers.keccak256(
-        ethers.toUtf8Bytes('FEES_ROUTER_ROLE'),
-      );
+      const FEES_ROUTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('FEES_ROUTER_ROLE'));
       const STRATEGY_SETTER_ROLE = ethers.keccak256(
-        ethers.toUtf8Bytes('STRATEGY_SETTER_ROLE'),
+        ethers.toUtf8Bytes('STRATEGY_SETTER_ROLE')
       );
-      await registryProxy.grantRole(
-        FACTORY_ROLE,
-        await factoryProxy.getAddress(),
-      );
-      await accumulatorProxy.grantRole(
-        FACTORY_ROLE,
-        await factoryProxy.getAddress(),
-      );
+      await registryProxy.grantRole(FACTORY_ROLE, await factoryProxy.getAddress());
+      await accumulatorProxy.grantRole(FACTORY_ROLE, await factoryProxy.getAddress());
       await nftProxy.grantRole(MINTER_ROLE, await factoryProxy.getAddress());
       await nftProxy.grantRole(STRATEGY_SETTER_ROLE, feesRouterAddr);
-      await treasuryProxy.grantRole(
-        DEPOSITOR_ROLE,
-        await accumulatorProxy.getAddress(),
-      );
-      await treasuryProxy.grantRole(
-        DEPOSITOR_ROLE,
-        await factoryProxy.getAddress(),
-      );
+      await treasuryProxy.grantRole(DEPOSITOR_ROLE, await accumulatorProxy.getAddress());
+      await treasuryProxy.grantRole(DEPOSITOR_ROLE, await factoryProxy.getAddress());
       await treasuryProxy.grantRole(DEPOSITOR_ROLE, routerAddr);
       await eventEmitter.setPoolRegistry(await registryProxy.getAddress());
       await eventEmitter.setSidioraFactory(await factoryProxy.getAddress());
@@ -434,45 +397,42 @@ async function fixture() {
         accumulatorProxy,
         nftProxy,
       ]) {
-        await eventEmitter.setAuthorizedEmitter(
-          await producer.getAddress(),
-          true,
-        );
+        await eventEmitter.setAuthorizedEmitter(await producer.getAddress(), true);
       }
       await eventEmitter.setTypedEmitter(
         await configProxy.getAddress(),
         eventEmitter.interface.getFunction('emitConfigUpdated').selector,
-        true,
+        true
       );
       await eventEmitter.setTypedEmitter(
         await registryProxy.getAddress(),
         eventEmitter.interface.getFunction('emitPoolRegistered').selector,
-        true,
+        true
       );
       await eventEmitter.setTypedEmitter(
         await accumulatorProxy.getAddress(),
         eventEmitter.interface.getFunction('emitFeeFlow').selector,
-        true,
+        true
       );
       for (const name of ['emitFeeRecorded', 'emitFeeDistributed']) {
         await eventEmitter.setTypedEmitter(
           await accumulatorProxy.getAddress(),
           eventEmitter.interface.getFunction(name).selector,
-          true,
+          true
         );
       }
       for (const name of ['emitFeeStrategyChanged', 'emitNftMint']) {
         await eventEmitter.setTypedEmitter(
           await nftProxy.getAddress(),
           eventEmitter.interface.getFunction(name).selector,
-          true,
+          true
         );
       }
       await eventEmitter.setAuthorizedEmitter(routerAddr, true);
       await eventEmitter.setTypedEmitter(
         routerAddr,
         eventEmitter.interface.getFunction('emitRouterTrade').selector,
-        true,
+        true
       );
       await factoryProxy.grantRole(ROUTER_ROLE, routerAddr);
       await accumulatorProxy.grantRole(FEES_ROUTER_ROLE, feesRouterAddr);
@@ -501,9 +461,7 @@ async function fixture() {
       assert.equal(before - (await usdl.balanceOf(alice.address)), 1000000n);
       receipts.push(r.toJSON());
       const events = r.logs
-        .filter(
-          (l) => l.address.toLowerCase() === factoryProxy.target.toLowerCase(),
-        )
+        .filter((l) => l.address.toLowerCase() === factoryProxy.target.toLowerCase())
         .map((l) => {
           try {
             const e = factoryProxy.interface.parseLog(l);
@@ -557,18 +515,12 @@ async function fixture() {
     const resolved = await domain.resolveCreation(
       { ...a, events: [...b.events, ...a.events] },
       expected,
-      registry,
+      registry
     );
     assert.equal(resolved.poolAddress, a.events[0].pool.toLowerCase());
     assert.equal(
-      (
-        await domain.resolveCreation(
-          { ...a, events: b.events },
-          expected,
-          registry,
-        )
-      ).state,
-      'resolution_delayed',
+      (await domain.resolveCreation({ ...a, events: b.events }, expected, registry)).state,
+      'resolution_delayed'
     );
     assert.equal(
       (
@@ -578,23 +530,19 @@ async function fixture() {
             events: a.events.map((e) => ({ ...e, emitter: router.target })),
           },
           expected,
-          registry,
+          registry
         )
       ).state,
-      'resolution_delayed',
+      'resolution_delayed'
     );
     await assert.rejects(
-      domain.resolveCreation(
-        { ...a, events: [...a.events, ...a.events] },
-        expected,
-        registry,
-      ),
+      domain.resolveCreation({ ...a, events: [...a.events, ...a.events] }, expected, registry)
     );
     await assert.rejects(
       domain.resolveCreation(a, expected, async (pool, block) => ({
         ...(await registry(pool, block)),
         blockHash: b.blockHash,
-      })),
+      }))
     );
     const d = {
       chainId: 125,
@@ -624,7 +572,7 @@ async function fixture() {
         Registry.interface.encodeFunctionData('initialize', [
           eventEmitter.target,
           deployer.address,
-        ]),
+        ])
       );
       const revision = crypto
         .createHash('sha256')
@@ -635,23 +583,24 @@ async function fixture() {
         const id = contract.target,
           slot = await provider.getStorage(
             id,
-            '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
+            '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
           );
         const implementation = ethers.getAddress('0x' + slot.slice(-40));
         pins.push({
           address: id,
           runtimeHash: ethers.keccak256(await provider.getCode(id)),
           implementation,
-          implementationHash: ethers.keccak256(
-            await provider.getCode(implementation),
-          ),
+          implementationHash: ethers.keccak256(await provider.getCode(implementation)),
         });
       }
       phase2 = {
         ownedFixture: true,
         rpcUrl: 'http://127.0.0.1:22700',
         creator: alice.address,
+        tradingAccount: bob.address,
+        chartAccount: charlie.address,
         admin: deployer.address,
+        accounts: (await provider.send('eth_accounts', [])).map(ethers.getAddress),
         deployment: {
           ...d,
           revision,
@@ -672,6 +621,78 @@ async function fixture() {
         createA: a.transactionHash,
         createB: b.transactionHash,
       };
+      const roles = {};
+      for (const [name, contract] of Object.entries({
+        EventEmitter: eventEmitter,
+        ProtocolConfig: configProxy,
+        Router: router,
+        Quoter: quoter,
+        SidioraFactory: factoryProxy,
+        PoolRegistry: registryProxy,
+        FeeAccumulator: accumulatorProxy,
+        SidioraNFT: nftProxy,
+        FeesRouter: feesRouter,
+        OpticalRegistry: proxy,
+        PoolBeacon: beacon,
+        USDL: usdl,
+      })) {
+        const runtime = await provider.getCode(contract.target);
+        assert.notEqual(runtime, '0x', `Missing actual ${name} runtime`);
+        const kind =
+          name === 'USDL' ? 'direct' : name === 'PoolBeacon' ? 'beacon' : 'erc1967';
+        const identity = {
+          address: contract.target,
+          kind,
+          runtimeHash: ethers.keccak256(runtime),
+        };
+        if (kind !== 'direct') {
+          identity.implementationAddress =
+            kind === 'beacon'
+              ? await beacon.implementation()
+              : ethers.getAddress(
+                  '0x' +
+                    (
+                      await provider.getStorage(
+                        contract.target,
+                        '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+                      )
+                    ).slice(-40)
+                );
+          identity.implementationHash = ethers.keccak256(
+            await provider.getCode(identity.implementationAddress)
+          );
+        }
+        roles[name] = identity;
+      }
+      const block = await provider.getBlock('latest');
+      phase2.authorityDeployment = {
+        schemaVersion: 1,
+        deploymentVersion: 'private-fixture-creation125',
+        sourceManifestSha256: crypto
+          .createHash('sha256')
+          .update(JSON.stringify(consumedArtifacts))
+          .digest('hex'),
+        chainId: 125,
+        activationHeight: block.number,
+        status: 'active',
+        roles,
+        native: { symbol: 'PAX', decimals: 18 },
+        settlement: { symbol: 'USDL', decimals: 6 },
+        creationFeeRaw: String(await configProxy.creationFee()),
+        governance: {
+          mode: 'timelock-handoff',
+          expectedBeaconOwner: await beacon.owner(),
+          timelockDelaySeconds: 172800,
+        },
+        marketModel: 'AMM',
+        graduation: false,
+        coreOracleRequired: false,
+      };
+      phase2.creationTransactions = creationTransactions;
+      phase2.genesisHash = (await provider.getBlock(0)).hash;
+      phase2.pool = resolved.poolAddress;
+      phase2.token = resolved.tokenAddress;
+      await (await usdl.connect(alice).approve(routerAddr, 0n)).wait();
     }
     fs.writeFileSync(
       process.env.FIXTURE_OUTPUT,
@@ -694,8 +715,8 @@ async function fixture() {
           ],
         },
         null,
-        2,
-      ),
+        2
+      )
     );
     console.log('L27 actual factory receipt checks passed');
   }
@@ -706,12 +727,10 @@ async function fixture() {
   }
 }
 if (require.main === module)
-  (process.env.L27_PHASE4 === '1' ? phase4Measurement() : fixture()).catch(
-    (e) => {
-      console.error(e instanceof Error ? e.message : 'Creation harness failed');
-      process.exitCode = 1;
-    },
-  );
+  (process.env.L27_PHASE4 === '1' ? phase4Measurement() : fixture()).catch((e) => {
+    console.error(e instanceof Error ? e.message : 'Creation harness failed');
+    process.exitCode = 1;
+  });
 
 async function phase4Measurement() {
   const fs = await import('node:fs'),
@@ -720,23 +739,19 @@ async function phase4Measurement() {
     url = await import('node:url');
   const { default: assert } = await import('node:assert/strict');
   const { spawn } = await import('node:child_process');
-  const sha = (bytes) =>
-    crypto.createHash('sha256').update(bytes).digest('hex');
+  const sha = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
   const required = (value, name) => {
     assert.ok(
       value !== undefined && value !== null && value !== '',
-      `Missing actual input: ${name}`,
+      `Missing actual input: ${name}`
     );
     return value;
   };
   const config = JSON.parse(
-    fs.readFileSync(
-      required(process.env.L27_PHASE4_CONFIG, 'L27_PHASE4_CONFIG'),
-      'utf8',
-    ),
+    fs.readFileSync(required(process.env.L27_PHASE4_CONFIG, 'L27_PHASE4_CONFIG'), 'utf8')
   );
   const sourceRoot = fs.realpathSync(
-    required(process.env.L27_SOURCE_ROOT, 'L27_SOURCE_ROOT'),
+    required(process.env.L27_SOURCE_ROOT, 'L27_SOURCE_ROOT')
   );
   assert.equal(config.schemaVersion, 1);
   assert.equal(config.realm, 'private-anvil125');
@@ -751,51 +766,39 @@ async function phase4Measurement() {
   assert.equal(origin.protocol, 'https:');
   assert.ok(['http:', 'https:'].includes(rpcOrigin.protocol));
   const sourceManifest = JSON.parse(
-    fs.readFileSync(
-      required(config.source_manifest_file, 'source_manifest_file'),
-      'utf8',
-    ),
+    fs.readFileSync(required(config.source_manifest_file, 'source_manifest_file'), 'utf8')
   );
   const sourceFiles = creationSourceAuthority(
     sourceRoot,
     sourceManifest,
-    required(config.candidate_revision, 'candidate_revision'),
+    required(config.candidate_revision, 'candidate_revision')
   );
   const sourceDigest = sha(JSON.stringify(sourceFiles));
-  const output = path.resolve(
-    required(process.env.L27_PHASE4_OUTPUT, 'L27_PHASE4_OUTPUT'),
-  );
+  const output = path.resolve(required(process.env.L27_PHASE4_OUTPUT, 'L27_PHASE4_OUTPUT'));
   assert.ok(
     !fs.existsSync(path.join(output, 'result.json')),
-    'Stale result evidence is rejected',
+    'Stale result evidence is rejected'
   );
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
   const privateDir = path.join(output, '.private');
   fs.mkdirSync(privateDir, { recursive: true, mode: 0o700 });
   const { chromium } = await import(
     url.pathToFileURL(
-      fs.realpathSync(required(config.playwright_module, 'playwright_module')),
+      fs.realpathSync(required(config.playwright_module, 'playwright_module'))
     ).href
   );
-  const roots = creationChainRoots(
-    sourceRoot,
-    process.env.CONTRACT_SOURCE_ROOT,
-  );
+  const roots = creationChainRoots(sourceRoot, process.env.CONTRACT_SOURCE_ROOT);
   const dependencyProvenance = creationDependencyAuthority(roots.contracts);
-  const ethers = await import(
-    url.pathToFileURL(dependencyProvenance.entry).href
-  );
+  const ethers = await import(url.pathToFileURL(dependencyProvenance.entry).href);
   const { poolPath } = await import(
-    url.pathToFileURL(
-      path.join(roots.web, 'src/core/app-foundation/navigation.ts'),
-    ).href
+    url.pathToFileURL(path.join(roots.web, 'src/core/app-foundation/navigation.ts')).href
   );
   const provider = new ethers.JsonRpcProvider(rpcOrigin.href, 125, {
     staticNetwork: true,
     cacheTimeout: -1,
   });
   const chain = JSON.parse(
-    fs.readFileSync(required(config.chain_file, 'chain_file'), 'utf8'),
+    fs.readFileSync(required(config.chain_file, 'chain_file'), 'utf8')
   );
   assert.equal(chain.productionActivation, false);
   assert.equal(chain.manifest.chainId, 125);
@@ -808,7 +811,7 @@ async function phase4Measurement() {
     assert.equal(
       ethers.keccak256(code),
       identity.runtimeHash,
-      `Deployment runtime mismatch ${role}`,
+      `Deployment runtime mismatch ${role}`
     );
     if (identity.implementationAddress) {
       const impl = await provider.getCode(identity.implementationAddress);
@@ -816,11 +819,11 @@ async function phase4Measurement() {
       if (identity.kind === 'erc1967') {
         const slot = await provider.getStorage(
           identity.address,
-          '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc',
+          '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
         );
         assert.equal(
           ethers.getAddress('0x' + slot.slice(-40)),
-          ethers.getAddress(identity.implementationAddress),
+          ethers.getAddress(identity.implementationAddress)
         );
       }
     }
@@ -852,22 +855,19 @@ async function phase4Measurement() {
         'function createMarket(string,string,uint8,address) returns(address,address,uint256)',
         'function buy(address,uint256,uint256,uint256) returns(uint256)',
       ],
-      signer,
+      signer
     );
   const protocol = new ethers.Contract(
     role('ProtocolConfig'),
-    [
-      'function creationFee() view returns(uint256)',
-      'function setCreationFee(uint256)',
-    ],
-    adminSigner,
+    ['function creationFee() view returns(uint256)', 'function setCreationFee(uint256)'],
+    adminSigner
   );
   const registry = new ethers.Contract(
     role('PoolRegistry'),
     [
       'function getPoolMetadata(address) view returns((address creator,address token,address optical,uint256 nftId,uint256 createdAt,uint256 createdBlock))',
     ],
-    provider,
+    provider
   );
   const factoryInterface = new ethers.Interface([
     'event MarketCreated(address indexed token,address indexed pool,address indexed creator,uint256 nftId,address optical)',
@@ -875,7 +875,7 @@ async function phase4Measurement() {
   assert.match(
     await provider.send('web3_clientVersion', []),
     /anvil/i,
-    'Faults require an actual private Anvil node',
+    'Faults require an actual private Anvil node'
   );
   const browser = await chromium.launch({ headless: true });
   let context;
@@ -898,9 +898,7 @@ async function phase4Measurement() {
   async function fault(name) {
     const control = required(controls[name], `fault_controls.${name}`);
     assert.ok(
-      Array.isArray(control.argv) &&
-        control.argv.length > 0 &&
-        control.argv.length <= 32,
+      Array.isArray(control.argv) && control.argv.length > 0 && control.argv.length <= 32
     );
     assert.equal(typeof control.executable, 'string');
     const executable = fs.realpathSync(control.executable);
@@ -908,7 +906,7 @@ async function phase4Measurement() {
     assert.equal(
       sha(fs.readFileSync(executable)),
       control.sha256,
-      'Fault control executable drift',
+      'Fault control executable drift'
     );
     const begin = performance.now();
     const exit = await new Promise((resolve, reject) => {
@@ -957,10 +955,7 @@ async function phase4Measurement() {
     const mined = await receipt(hash);
     assert.equal(mined.status, 1);
     const logs = mined.logs
-      .filter(
-        (log) =>
-          log.address.toLowerCase() === role('SidioraFactory').toLowerCase(),
-      )
+      .filter((log) => log.address.toLowerCase() === role('SidioraFactory').toLowerCase())
       .map((log) => {
         try {
           return factoryInterface.parseLog(log);
@@ -971,7 +966,7 @@ async function phase4Measurement() {
       .filter(
         (log) =>
           log?.name === 'MarketCreated' &&
-          log.args.creator.toLowerCase() === wallet.toLowerCase(),
+          log.args.creator.toLowerCase() === wallet.toLowerCase()
       );
     assert.equal(logs.length, 1);
     const event = logs[0];
@@ -991,10 +986,7 @@ async function phase4Measurement() {
   try {
     context = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
-      storageState: required(
-        config.browser_storage_state,
-        'browser_storage_state',
-      ),
+      storageState: required(config.browser_storage_state, 'browser_storage_state'),
     });
     await context.tracing.start({
       screenshots: true,
@@ -1003,81 +995,71 @@ async function phase4Measurement() {
     });
     const page = await context.newPage();
     const pendingResponses = [];
-    await page.exposeFunction(
-      '__creationActualWallet',
-      async ({ method, params = [] }) => {
-        const begin = performance.now();
-        const observation = {
-          scenario: activeScenario,
-          method,
-          startedMs: begin - started,
-        };
-        requests.push(observation);
-        if (method === 'eth_accounts' || method === 'eth_requestAccounts')
-          return [wallet];
-        if (
-          method === 'wallet_getPermissions' ||
-          method === 'wallet_requestPermissions'
-        )
-          return [{ parentCapability: 'eth_accounts' }];
-        if (method === 'wallet_switchEthereumChain') {
-          assert.equal(params[0].chainId, '0x7d');
-          return null;
-        }
-        if (method === 'personal_sign') {
-          const message = params[0].length === 42 ? params[1] : params[0],
-            account = params[0] === message ? params[1] : params[0];
-          assert.equal(account.toLowerCase(), wallet.toLowerCase());
-          const signature = await signer.signMessage(ethers.getBytes(message));
-          observation.durationMs = performance.now() - begin;
-          return signature;
-        }
-        assert.ok(
-          !/^(anvil_|hardhat_|debug_)/.test(method),
-          'Browser cannot issue fixture administration',
-        );
-        if (method === 'eth_sendTransaction') {
-          const input = params[0];
-          assert.equal(input.from.toLowerCase(), wallet.toLowerCase());
-          observation.to = input.to?.toLowerCase();
-          observation.selector = input.data?.slice(0, 10);
-          observation.walletPending = true;
-          if (holdSigning)
-            await new Promise((resolve) => {
-              releaseSigning = resolve;
-            });
-          const tx = await provider.send(method, params);
-          observation.transactionHash = tx;
-          observation.durationMs = performance.now() - begin;
-          transactions.push({ ...observation });
-          return tx;
-        }
-        if (method === 'eth_getTransactionReceipt')
-          observation.transactionHash = params[0];
-        if (method === 'eth_call' || method === 'eth_estimateGas') {
-          observation.to = params[0]?.to?.toLowerCase();
-          observation.selector = params[0]?.data?.slice(0, 10);
-          observation.block = params[1] ?? null;
-        }
-        if (method === 'eth_getLogs') {
-          observation.fromBlock = params[0]?.fromBlock;
-          observation.toBlock = params[0]?.toBlock;
-          observation.to =
-            typeof params[0]?.address === 'string'
-              ? params[0].address.toLowerCase()
-              : null;
-          if (observation.to === role('SidioraFactory').toLowerCase())
-            assert.equal(
-              observation.fromBlock,
-              observation.toBlock,
-              'Unbounded creation fallback scan',
-            );
-        }
-        const value = await provider.send(method, params);
+    await page.exposeFunction('__creationActualWallet', async ({ method, params = [] }) => {
+      const begin = performance.now();
+      const observation = {
+        scenario: activeScenario,
+        method,
+        startedMs: begin - started,
+      };
+      requests.push(observation);
+      if (method === 'eth_accounts' || method === 'eth_requestAccounts') return [wallet];
+      if (method === 'wallet_getPermissions' || method === 'wallet_requestPermissions')
+        return [{ parentCapability: 'eth_accounts' }];
+      if (method === 'wallet_switchEthereumChain') {
+        assert.equal(params[0].chainId, '0x7d');
+        return null;
+      }
+      if (method === 'personal_sign') {
+        const message = params[0].length === 42 ? params[1] : params[0],
+          account = params[0] === message ? params[1] : params[0];
+        assert.equal(account.toLowerCase(), wallet.toLowerCase());
+        const signature = await signer.signMessage(ethers.getBytes(message));
         observation.durationMs = performance.now() - begin;
-        return value;
-      },
-    );
+        return signature;
+      }
+      assert.ok(
+        !/^(anvil_|hardhat_|debug_)/.test(method),
+        'Browser cannot issue fixture administration'
+      );
+      if (method === 'eth_sendTransaction') {
+        const input = params[0];
+        assert.equal(input.from.toLowerCase(), wallet.toLowerCase());
+        observation.to = input.to?.toLowerCase();
+        observation.selector = input.data?.slice(0, 10);
+        observation.walletPending = true;
+        if (holdSigning)
+          await new Promise((resolve) => {
+            releaseSigning = resolve;
+          });
+        const tx = await provider.send(method, params);
+        observation.transactionHash = tx;
+        observation.durationMs = performance.now() - begin;
+        transactions.push({ ...observation });
+        return tx;
+      }
+      if (method === 'eth_getTransactionReceipt') observation.transactionHash = params[0];
+      if (method === 'eth_call' || method === 'eth_estimateGas') {
+        observation.to = params[0]?.to?.toLowerCase();
+        observation.selector = params[0]?.data?.slice(0, 10);
+        observation.block = params[1] ?? null;
+      }
+      if (method === 'eth_getLogs') {
+        observation.fromBlock = params[0]?.fromBlock;
+        observation.toBlock = params[0]?.toBlock;
+        observation.to =
+          typeof params[0]?.address === 'string' ? params[0].address.toLowerCase() : null;
+        if (observation.to === role('SidioraFactory').toLowerCase())
+          assert.equal(
+            observation.fromBlock,
+            observation.toBlock,
+            'Unbounded creation fallback scan'
+          );
+      }
+      const value = await provider.send(method, params);
+      observation.durationMs = performance.now() - begin;
+      return value;
+    });
     await page.addInitScript(() => {
       const listeners = new Map(),
         wallet = {
@@ -1087,8 +1069,7 @@ async function phase4Measurement() {
             if (!listeners.has(name)) listeners.set(name, new Set());
             listeners.get(name).add(callback);
           },
-          removeListener: (name, callback) =>
-            listeners.get(name)?.delete(callback),
+          removeListener: (name, callback) => listeners.get(name)?.delete(callback),
         };
       Object.defineProperty(window, 'ethereum', {
         value: wallet,
@@ -1104,13 +1085,9 @@ async function phase4Measurement() {
         provider: wallet,
       });
       window.addEventListener('eip6963:requestProvider', () =>
-        window.dispatchEvent(
-          new CustomEvent('eip6963:announceProvider', { detail }),
-        ),
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }))
       );
-      window.dispatchEvent(
-        new CustomEvent('eip6963:announceProvider', { detail }),
-      );
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }));
       window.__creationStorageMeasurements = [];
       const actualSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
@@ -1131,8 +1108,7 @@ async function phase4Measurement() {
         request.method() !== 'POST' ||
         !(
           endpoint.origin === rpcOrigin.origin ||
-          (endpoint.origin === origin.origin &&
-            endpoint.pathname === config.browser_rpc_path)
+          (endpoint.origin === origin.origin && endpoint.pathname === config.browser_rpc_path)
         )
       )
         return;
@@ -1147,8 +1123,7 @@ async function phase4Measurement() {
       }
       const rows = [];
       for (const call of calls) {
-        if (typeof call.method !== 'string' || !Array.isArray(call.params))
-          continue;
+        if (typeof call.method !== 'string' || !Array.isArray(call.params)) continue;
         const row = {
           scenario: activeScenario,
           method: call.method,
@@ -1162,8 +1137,7 @@ async function phase4Measurement() {
           row.selector = call.params[0]?.data?.slice(0, 10);
           row.block = call.params[1] ?? null;
         }
-        if (call.method === 'eth_getTransactionReceipt')
-          row.transactionHash = call.params[0];
+        if (call.method === 'eth_getTransactionReceipt') row.transactionHash = call.params[0];
         if (call.method === 'eth_getLogs') {
           row.to =
             typeof call.params[0]?.address === 'string'
@@ -1201,10 +1175,7 @@ async function phase4Measurement() {
             requestId: headers['x-request-id'] ?? null,
           };
         responses.push(sample);
-        if (
-          endpoint.pathname.includes('/metadata-publications/') &&
-          response.ok()
-        ) {
+        if (endpoint.pathname.includes('/metadata-publications/') && response.ok()) {
           const value = (await response.json()).data;
           sample.publication = {
             operationId: value.operationId,
@@ -1219,31 +1190,24 @@ async function phase4Measurement() {
         if (response.request().isNavigationRequest())
           assert.equal(
             headers[
-              required(
-                config.source_revision_header,
-                'source_revision_header',
-              ).toLowerCase()
+              required(config.source_revision_header, 'source_revision_header').toLowerCase()
             ],
             config.candidate_revision,
-            'Served candidate revision mismatch',
+            'Served candidate revision mismatch'
           );
       })();
       pending.catch((error) => {
         failures.push({
           scenario: activeScenario,
           error:
-            error instanceof Error
-              ? error.message
-              : 'Actual response observation failed',
+            error instanceof Error ? error.message : 'Actual response observation failed',
         });
       });
       pendingResponses.push(pending);
     });
     const journal = async () =>
       page.evaluate(async (creator) => {
-        const draftText = localStorage.getItem(
-            `creation-draft-v2:125:${creator}`,
-          ),
+        const draftText = localStorage.getItem(`creation-draft-v2:125:${creator}`),
           draft = draftText ? JSON.parse(draftText) : null;
         const attempts = await new Promise((resolve, reject) => {
           const request = indexedDB.open('sidiora-creation-v2', 1);
@@ -1264,7 +1228,7 @@ async function phase4Measurement() {
                 get.result
                   .filter((row) => row.key.startsWith(`125:${creator}:`))
                   .map((row) => row.value)
-                  .sort((a, b) => b.createdAt - a.createdAt),
+                  .sort((a, b) => b.createdAt - a.createdAt)
               );
             };
           };
@@ -1277,14 +1241,12 @@ async function phase4Measurement() {
       }, wallet.toLowerCase());
     const countCreates = () =>
       requests.filter(
-        (row) =>
-          row.method === 'eth_sendTransaction' &&
-          row.selector === createSelector,
+        (row) => row.method === 'eth_sendTransaction' && row.selector === createSelector
       ).length;
     const currentAttempt = (rows) =>
       required(
         rows.find((row) => !row.deliberateNew),
-        'Current actual launch journal',
+        'Current actual launch journal'
       );
     let scenarioCreateStart = 0;
     let poolA,
@@ -1306,9 +1268,7 @@ async function phase4Measurement() {
         name,
         atMs: begin - started,
         bodySha256: sha(body),
-        draftBytes: state.draft
-          ? Buffer.byteLength(JSON.stringify(state.draft))
-          : 0,
+        draftBytes: state.draft ? Buffer.byteLength(JSON.stringify(state.draft)) : 0,
         attemptCount: state.attempts.length,
         attempt: attempt
           ? {
@@ -1334,19 +1294,19 @@ async function phase4Measurement() {
       assert.ok(
         !state.draft ||
           !Object.keys(state.draft).some((key) =>
-            /signature|token|secret|approval/i.test(key),
-          ),
+            /signature|token|secret|approval/i.test(key)
+          )
       );
       if (name === 'feeMismatch') {
         assert.equal(await protocol.creationFee(), 2000000n);
         assert.ok(
           (await page.getByRole('alert').count()) > 0,
-          'Creation fee mismatch must be visible',
+          'Creation fee mismatch must be visible'
         );
         assert.equal(
           countCreates(),
           scenarioCreateStart,
-          'Mismatched fee must not broadcast creation',
+          'Mismatched fee must not broadcast creation'
         );
       }
       if (name === 'feeRestored') {
@@ -1357,10 +1317,8 @@ async function phase4Measurement() {
       if (name === 'approved') {
         assert.ok(transactions.some((row) => row.selector === '0x095ea7b3'));
         assert.equal(
-          await page
-            .getByRole('button', { name: 'Create coin', exact: true })
-            .count(),
-          1,
+          await page.getByRole('button', { name: 'Create coin', exact: true }).count(),
+          1
         );
         assert.equal(countCreates(), scenarioCreateStart);
       }
@@ -1368,7 +1326,7 @@ async function phase4Measurement() {
         assert.equal(state.draft.symbol, config.token.symbol_after);
         assert.equal(
           await page.getByLabel('Ticker', { exact: true }).inputValue(),
-          config.token.symbol_after,
+          config.token.symbol_after
         );
         const preview = await page.getByLabel('Coin card preview').innerText();
         assert.ok(preview.includes(config.token.symbol_after));
@@ -1377,24 +1335,18 @@ async function phase4Measurement() {
       if (name === 'draftReloaded') {
         assert.equal(state.draft.symbol, config.token.symbol_after);
         assert.equal(
-          await page
-            .getByRole('button', { name: 'Create coin', exact: true })
-            .count(),
-          1,
+          await page.getByRole('button', { name: 'Create coin', exact: true }).count(),
+          1
         );
         assert.equal(countCreates(), scenarioCreateStart);
       }
       if (name === 'poolA') {
         const row = currentAttempt(state.attempts);
-        poolA = await resolvePool(
-          required(row.createTxHash, 'pool A signed hash'),
-        );
+        poolA = await resolvePool(required(row.createTxHash, 'pool A signed hash'));
         assert.equal(row.poolAddress, poolA.pool);
       }
       if (name === 'poolB') {
-        poolB = await resolvePool(
-          required(config.pool_b_hash, 'actual pool B hash'),
-        );
+        poolB = await resolvePool(required(config.pool_b_hash, 'actual pool B hash'));
         assert.notEqual(poolA.pool, poolB.pool);
         assert.ok(BigInt(poolB.blockHeight) > BigInt(poolA.blockHeight));
         const logs = await provider.getLogs({
@@ -1413,7 +1365,7 @@ async function phase4Measurement() {
           await page
             .getByRole('link', { name: 'View coin', exact: true })
             .getAttribute('href'),
-          poolPath(125, poolA.pool),
+          poolPath(125, poolA.pool)
         );
       }
       if (name === 'metadataCreated') {
@@ -1429,9 +1381,8 @@ async function phase4Measurement() {
         assert.match(body, /Token created|metadata pending/i);
         assert.equal(countCreates(), createdBeforeMetadata);
         assert.ok(
-          responses.some(
-            (row) => row.scenario === activeScenario && row.status >= 500,
-          ) || (await page.getByRole('alert').count()) > 0,
+          responses.some((row) => row.scenario === activeScenario && row.status >= 500) ||
+            (await page.getByRole('alert').count()) > 0
         );
       }
       if (name === 'metadataPublished' || name === 'metadataRetryPublished') {
@@ -1441,26 +1392,21 @@ async function phase4Measurement() {
         assert.ok(row.metadataOperationId);
         assert.ok(row.metadataAttemptCount <= 5);
         assert.equal(countCreates(), createdBeforeMetadata);
-        if (name === 'metadataPublished')
-          metadataRevision = row.metadataRevision;
+        if (name === 'metadataPublished') metadataRevision = row.metadataRevision;
         else assert.equal(row.metadataRevision, metadataRevision);
       }
       if (name === 'purchaseQuote') {
         const row = currentAttempt(state.attempts);
         assert.equal(row.state, 'resolved');
-        const numeric = await page
-          .locator('dd[data-purchase-raw]')
-          .evaluateAll((nodes) =>
-            nodes.map((node) => ({
-              raw: node.getAttribute('data-purchase-raw'),
-              text: node.textContent,
-            })),
-          );
+        const numeric = await page.locator('dd[data-purchase-raw]').evaluateAll((nodes) =>
+          nodes.map((node) => ({
+            raw: node.getAttribute('data-purchase-raw'),
+            text: node.textContent,
+          }))
+        );
         assert.equal(numeric.length, 2);
         assert.ok(
-          numeric.every(
-            (value) => /^\d+$/.test(value.raw) && value.text.trim().length > 0,
-          ),
+          numeric.every((value) => /^\d+$/.test(value.raw) && value.text.trim().length > 0)
         );
         quoteBefore = {
           minOut: BigInt(numeric[1].raw),
@@ -1469,11 +1415,7 @@ async function phase4Measurement() {
           token: row.tokenAddress,
         };
         assert.ok(quoteBefore.minOut > 1n);
-        const token = new ethers.Contract(
-          quoteBefore.token,
-          erc20Abi,
-          provider,
-        );
+        const token = new ethers.Contract(quoteBefore.token, erc20Abi, provider);
         tokenBalanceBefore = await token.balanceOf(wallet);
       }
       if (name === 'reservesChanged') {
@@ -1482,9 +1424,9 @@ async function phase4Measurement() {
             (row) =>
               row.scenario === activeScenario &&
               row.status === 1 &&
-              row.transactionHash === config.other_trade_hash,
+              row.transactionHash === config.other_trade_hash
           ),
-          'Missing actual other trader receipt',
+          'Missing actual other trader receipt'
         );
       }
       if (name === 'purchaseOutcome') {
@@ -1493,43 +1435,32 @@ async function phase4Measurement() {
         if (row.purchaseTxHash) {
           const mined = await receipt(row.purchaseTxHash);
           if (mined.status === 1) {
-            const token = new ethers.Contract(
-              quoteBefore.token,
-              erc20Abi,
-              provider,
-            );
+            const token = new ethers.Contract(quoteBefore.token, erc20Abi, provider);
             assert.ok(
-              (await token.balanceOf(wallet)) - tokenBalanceBefore >=
-                quoteBefore.minOut,
+              (await token.balanceOf(wallet)) - tokenBalanceBefore >= quoteBefore.minOut
             );
           } else assert.match(body, /Token created|purchase.*revert/i);
         } else
           assert.ok(
             (await page.getByRole('alert').count()) > 0,
-            'Stale quote must be rejected explicitly',
+            'Stale quote must be rejected explicitly'
           );
       }
       if (name === 'invalidOptical' || name === 'registryChanged') {
         assert.ok((await page.getByRole('alert').count()) > 0);
         assert.equal(
-          await page
-            .getByRole('radio', { name: /^Standard/ })
-            .getAttribute('aria-checked'),
-          'false',
+          await page.getByRole('radio', { name: /^Standard/ }).getAttribute('aria-checked'),
+          'false'
         );
         assert.ok(
-          await page
-            .getByRole('button', { name: 'Create coin', exact: true })
-            .isDisabled(),
+          await page.getByRole('button', { name: 'Create coin', exact: true }).isDisabled()
         );
         assert.equal(countCreates(), scenarioCreateStart);
       }
       if (name === 'standardReview') {
         assert.equal(
-          await page
-            .getByRole('radio', { name: /^Standard/ })
-            .getAttribute('aria-checked'),
-          'true',
+          await page.getByRole('radio', { name: /^Standard/ }).getAttribute('aria-checked'),
+          'true'
         );
         assert.ok(!/bonding.curve|graduation/i.test(body));
       }
@@ -1538,9 +1469,7 @@ async function phase4Measurement() {
         assert.ok((await provider.getBalance(wallet)) > 0n);
         assert.match(body, /Not enough USDL/);
         assert.ok(
-          await page
-            .getByRole('button', { name: 'Create coin', exact: true })
-            .isDisabled(),
+          await page.getByRole('button', { name: 'Create coin', exact: true }).isDisabled()
         );
         assert.equal(countCreates(), scenarioCreateStart);
       }
@@ -1549,9 +1478,7 @@ async function phase4Measurement() {
         assert.equal(await provider.getBalance(wallet), 0n);
         assert.match(body, /Not enough PAX/);
         assert.ok(
-          await page
-            .getByRole('button', { name: 'Create coin', exact: true })
-            .isDisabled(),
+          await page.getByRole('button', { name: 'Create coin', exact: true }).isDisabled()
         );
         assert.equal(countCreates(), scenarioCreateStart);
       }
@@ -1561,9 +1488,9 @@ async function phase4Measurement() {
             (row) =>
               row.scenario === activeScenario &&
               row.walletPending &&
-              row.selector === createSelector,
+              row.selector === createSelector
           ).length,
-          1,
+          1
         );
         assert.equal(currentAttempt(state.attempts).state, 'signing_locked');
       }
@@ -1587,7 +1514,7 @@ async function phase4Measurement() {
           (row) =>
             row.scenario === 'capacity' &&
             row.to === role('Quoter').toLowerCase() &&
-            row.selector === quoterSelector,
+            row.selector === quoterSelector
         ).length;
       }
       await page.screenshot({
@@ -1596,9 +1523,7 @@ async function phase4Measurement() {
       });
     }
     async function actions(steps) {
-      assert.ok(
-        Array.isArray(steps) && steps.length > 0 && steps.length <= 100,
-      );
+      assert.ok(Array.isArray(steps) && steps.length > 0 && steps.length <= 100);
       for (const step of steps) {
         if (step.op === 'checkpoint') {
           await checkpoint(step.name);
@@ -1630,9 +1555,7 @@ async function phase4Measurement() {
           }
           if (step.name === 'workerResume') {
             await fault('workerResume');
-            restoreFaults = restoreFaults.filter(
-              (name) => name !== 'workerResume',
-            );
+            restoreFaults = restoreFaults.filter((name) => name !== 'workerResume');
             continue;
           }
           if (step.name === 'metadataDown') {
@@ -1642,9 +1565,7 @@ async function phase4Measurement() {
           }
           if (step.name === 'metadataUp') {
             await fault('metadataUp');
-            restoreFaults = restoreFaults.filter(
-              (name) => name !== 'metadataUp',
-            );
+            restoreFaults = restoreFaults.filter((name) => name !== 'metadataUp');
             continue;
           }
           if (step.name === 'registryChange') {
@@ -1654,21 +1575,18 @@ async function phase4Measurement() {
           }
           if (step.name === 'registryRestore') {
             await fault('registryRestore');
-            restoreFaults = restoreFaults.filter(
-              (name) => name !== 'registryRestore',
-            );
+            restoreFaults = restoreFaults.filter((name) => name !== 'registryRestore');
             continue;
           }
           if (step.name === 'createPoolB') {
             await receipt(
-              (await usdl.connect(signer).approve(role('Router'), 1000000n))
-                .hash,
+              (await usdl.connect(signer).approve(role('Router'), 1000000n)).hash
             );
             const tx = await router.createMarket(
               required(config.token.name, 'token.name'),
               required(config.token.symbol_after, 'token.symbol_after'),
               0,
-              ethers.ZeroAddress,
+              ethers.ZeroAddress
             );
             config.pool_b_hash = tx.hash;
             await receipt(tx.hash);
@@ -1677,38 +1595,26 @@ async function phase4Measurement() {
           if (step.name === 'otherTraderBuy') {
             assert.ok(
               quoteBefore,
-              'Review the actual creator quote before changing reserves',
+              'Review the actual creator quote before changing reserves'
             );
-            const input = BigInt(
-              required(config.other_buy_raw, 'other_buy_raw'),
-            );
+            const input = BigInt(required(config.other_buy_raw, 'other_buy_raw'));
             assert.ok(input > 0n);
             const quoter = new ethers.Contract(
               role('Quoter'),
               [
                 'function quoteExactInput(address,uint256,bool) view returns((uint256 amountOut,uint256 feeAmount,uint256 priceImpactBps))',
               ],
-              provider,
+              provider
             );
-            const quote = await quoter.quoteExactInput(
-              quoteBefore.pool,
-              input,
-              true,
-            );
+            const quote = await quoter.quoteExactInput(quoteBefore.pool, input, true);
             const minimum = (quote.amountOut * 9900n) / 10000n;
             assert.ok(minimum > 1n);
             await receipt(
-              (await usdl.connect(otherSigner).approve(role('Router'), input))
-                .hash,
+              (await usdl.connect(otherSigner).approve(role('Router'), input)).hash
             );
             const trade = await router
               .connect(otherSigner)
-              .buy(
-                quoteBefore.pool,
-                input,
-                minimum,
-                Math.floor(Date.now() / 1000) + 120,
-              );
+              .buy(quoteBefore.pool, input, minimum, Math.floor(Date.now() / 1000) + 120);
             config.other_trade_hash = trade.hash;
             await receipt(trade.hash);
             continue;
@@ -1728,33 +1634,22 @@ async function phase4Measurement() {
                 : step.name === 'insufficientPax'
                   ? 1000000n
                   : savedUsdl;
-            await provider.send('anvil_setBalance', [
-              wallet,
-              ethers.toQuantity(savedPax),
-            ]);
+            await provider.send('anvil_setBalance', [wallet, ethers.toQuantity(savedPax)]);
             const current = await usdl.balanceOf(wallet);
             if (current > target)
               await receipt(
-                (await usdl.connect(signer).transfer(admin, current - target))
-                  .hash,
+                (await usdl.connect(signer).transfer(admin, current - target)).hash
               );
             if (current < target)
-              await receipt(
-                (await usdl.transfer(wallet, target - current)).hash,
-              );
+              await receipt((await usdl.transfer(wallet, target - current)).hash);
             if (step.name === 'insufficientPax')
               await provider.send('anvil_setBalance', [wallet, '0x0']);
             if (step.name === 'restoreFunding')
-              await provider.send('anvil_setBalance', [
-                wallet,
-                ethers.toQuantity(savedPax),
-              ]);
+              await provider.send('anvil_setBalance', [wallet, ethers.toQuantity(savedPax)]);
             continue;
           }
           if (step.name === 'otherTradeReceipt') {
-            await receipt(
-              required(config.other_trade_hash, 'actual other_trade_hash'),
-            );
+            await receipt(required(config.other_trade_hash, 'actual other_trade_hash'));
             continue;
           }
           throw new Error(`Unrecognized actual control ${step.name}`);
@@ -1770,31 +1665,19 @@ async function phase4Measurement() {
           continue;
         }
         if (step.op === 'wait') {
-          assert.ok(
-            Number.isInteger(step.ms) && step.ms >= 1 && step.ms <= 30000,
-          );
+          assert.ok(Number.isInteger(step.ms) && step.ms >= 1 && step.ms <= 30000);
           await page.waitForTimeout(step.ms);
           continue;
         }
         assert.ok(
-          [
-            'fill',
-            'click',
-            'doubleClick',
-            'press',
-            'visible',
-            'text',
-            'file',
-          ].includes(step.op),
+          ['fill', 'click', 'doubleClick', 'press', 'visible', 'text', 'file'].includes(
+            step.op
+          )
         );
         assert.equal(typeof step.selector, 'string');
         assert.ok(step.selector.length <= 512);
         const element = page.locator(step.selector);
-        assert.equal(
-          await element.count(),
-          1,
-          'Actual unique UI element is required',
-        );
+        assert.equal(await element.count(), 1, 'Actual unique UI element is required');
         if (step.op === 'fill') await element.fill(step.value);
         if (step.op === 'click') await element.click();
         if (step.op === 'doubleClick')
@@ -1805,16 +1688,12 @@ async function phase4Measurement() {
         if (step.op === 'press') await element.press(step.key);
         if (step.op === 'visible')
           await element.waitFor({ state: 'visible', timeout: 30000 });
-        if (step.op === 'text')
-          assert.equal((await element.innerText()).trim(), step.value);
+        if (step.op === 'text') assert.equal((await element.innerText()).trim(), step.value);
         if (step.op === 'file') {
-          const asset = required(
-            config.approved_image_file,
-            'approved_image_file',
-          );
+          const asset = required(config.approved_image_file, 'approved_image_file');
           assert.equal(
             sha(fs.readFileSync(asset)),
-            required(config.approved_image_sha256, 'approved_image_sha256'),
+            required(config.approved_image_sha256, 'approved_image_sha256')
           );
           await element.setInputFiles(asset);
         }
@@ -1844,15 +1723,12 @@ async function phase4Measurement() {
       const begin = performance.now();
       try {
         await actions(
-          required(
-            config.scenario_actions[String(number)],
-            `scenario_actions.${number}`,
-          ),
+          required(config.scenario_actions[String(number)], `scenario_actions.${number}`)
         );
         for (const point of requiredPoints[number])
           assert.ok(
             checkpoints.has(`${activeScenario}:${point}`),
-            `Missing actual checkpoint ${point}`,
+            `Missing actual checkpoint ${point}`
           );
         samples.push({
           kind: 'scenario',
@@ -1863,10 +1739,7 @@ async function phase4Measurement() {
       } catch (error) {
         failures.push({
           scenario: activeScenario,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Unknown actual scenario failure',
+          error: error instanceof Error ? error.message : 'Unknown actual scenario failure',
         });
         samples.push({
           kind: 'scenario',
@@ -1885,7 +1758,7 @@ async function phase4Measurement() {
       (row) =>
         row.scenario === 'capacity' &&
         row.method === 'eth_call' &&
-        row.to === role('OpticalRegistry').toLowerCase(),
+        row.to === role('OpticalRegistry').toLowerCase()
     );
     assert.ok(opticalCalls.length > 0, 'No actual bounded registry reads');
     const tradingRules = page.getByRole('radiogroup', {
@@ -1905,52 +1778,46 @@ async function phase4Measurement() {
         cards: [...group.querySelectorAll('[role="radio"]')].map((card) => ({
           text: card.textContent,
           addresses: [...card.querySelectorAll('[title]')].map((node) =>
-            node.getAttribute('title'),
+            node.getAttribute('title')
           ),
         })),
-      })),
+      }))
     );
     assert.equal(
       requests.filter(
         (row) =>
           row.scenario === 'capacity' &&
           row.method === 'eth_estimateGas' &&
-          presetOptions.includes(row.to),
+          presetOptions.includes(row.to)
       ).length,
       0,
-      'Render simulated optical presets',
+      'Render simulated optical presets'
     );
     const opticalKeys = new Set();
     for (const row of opticalCalls) {
       const key = `${required(config.registry_revision, 'registry_revision')}:${row.block}:${row.selector}`;
       assert.ok(
         !opticalKeys.has(key),
-        'Registry revision render did not reuse bounded cached definitions',
+        'Registry revision render did not reuse bounded cached definitions'
       );
       opticalKeys.add(key);
     }
     const observed = await journal();
-    assert.ok(
-      observed.storageWrites.length >= 2,
-      'No actual autosave timing samples',
-    );
+    assert.ok(observed.storageWrites.length >= 2, 'No actual autosave timing samples');
     for (const write of observed.storageWrites) assert.ok(write.bytes <= 65536);
     for (let index = 1; index < observed.storageWrites.length; index++)
       assert.ok(
-        observed.storageWrites[index].at -
-          observed.storageWrites[index - 1].at >=
-          1000,
-        'Autosave debounce below1000ms',
+        observed.storageWrites[index].at - observed.storageWrites[index - 1].at >= 1000,
+        'Autosave debounce below1000ms'
       );
     const mutations = responses.filter((row) =>
-      ['POST', 'PUT', 'PATCH', 'DELETE'].includes(row.method),
+      ['POST', 'PUT', 'PATCH', 'DELETE'].includes(row.method)
     );
     assert.ok(
       !mutations.some(
-        (row) =>
-          row.scenario === 'capacity' && /metadata|assets/.test(row.path),
+        (row) => row.scenario === 'capacity' && /metadata|assets/.test(row.path)
       ),
-      'Draft typing caused server mutation',
+      'Draft typing caused server mutation'
     );
     const feeSelector = new ethers.Interface([
       'function creationFee() view returns(uint256)',
@@ -1959,83 +1826,69 @@ async function phase4Measurement() {
       (row) =>
         row.method === 'eth_call' &&
         row.to === role('ProtocolConfig').toLowerCase() &&
-        row.selector === feeSelector,
+        row.selector === feeSelector
     );
     const readKeys = new Set();
     for (const row of configReads) {
       const key = `${config.candidate_revision}:${row.block}`;
       assert.ok(
         !readKeys.has(key),
-        'Fee configuration was not cached by unchanged deployment/block identity',
+        'Fee configuration was not cached by unchanged deployment/block identity'
       );
       readKeys.add(key);
     }
-    assert.ok(
-      configReads.length > 0,
-      'No actual fee dependency calls observed',
-    );
+    assert.ok(configReads.length > 0, 'No actual fee dependency calls observed');
     const balances = requests.filter(
       (row) =>
         row.scenario === 'capacity' &&
         row.method === 'eth_call' &&
-        ['0x70a08231', '0xdd62ed3e'].includes(row.selector),
+        ['0x70a08231', '0xdd62ed3e'].includes(row.selector)
     );
     assert.ok(balances.length > 0, 'No actual balance/allowance samples');
     assert.ok(
       balances.every((row) => row.batchSize > 1),
-      'Balance/allowance review did not use a batched transport read',
+      'Balance/allowance review did not use a batched transport read'
     );
     const estimates = requests.filter(
-      (row) => row.scenario === 'capacity' && row.method === 'eth_estimateGas',
+      (row) => row.scenario === 'capacity' && row.method === 'eth_estimateGas'
     );
     assert.ok(estimates.length > 0, 'No actual on-demand gas estimate');
     const gasBudget = JSON.parse(
-      fs.readFileSync(
-        required(config.gas_budget_file, 'gas_budget_file'),
-        'utf8',
-      ),
+      fs.readFileSync(required(config.gas_budget_file, 'gas_budget_file'), 'utf8')
     );
     assert.ok(
       sourceFiles.some(
         (entry) =>
-          entry.path === gasBudget.sourcePath &&
-          entry.sha256 === gasBudget.sourceSha256,
+          entry.path === gasBudget.sourcePath && entry.sha256 === gasBudget.sourceSha256
       ),
-      'Gas rate policy is not bound to current source',
+      'Gas rate policy is not bound to current source'
     );
     assert.ok(
-      Number.isSafeInteger(gasBudget.minimumIntervalMs) &&
-        gasBudget.minimumIntervalMs > 0,
+      Number.isSafeInteger(gasBudget.minimumIntervalMs) && gasBudget.minimumIntervalMs > 0
     );
     for (let index = 1; index < estimates.length; index++)
       assert.ok(
         estimates[index].startedMs - estimates[index - 1].startedMs >=
           gasBudget.minimumIntervalMs,
-        'On-demand gas estimate exceeded declared rate',
+        'On-demand gas estimate exceeded declared rate'
       );
-    const settled = samples.filter(
-      (row) => row.name === 'settledPurchaseInput',
-    );
+    const settled = samples.filter((row) => row.name === 'settledPurchaseInput');
     assert.ok(settled.length >= 2, 'Missing real settled-input quote samples');
     for (let index = 1; index < settled.length; index++)
       assert.equal(
         settled[index].quoteCalls - settled[index - 1].quoteCalls,
         1,
-        'Settled input caused more than one quote request',
+        'Settled input caused more than one quote request'
       );
     for (const row of requests.filter(
-      (row) =>
-        row.method === 'eth_getLogs' &&
-        row.to === role('SidioraFactory').toLowerCase(),
+      (row) => row.method === 'eth_getLogs' && row.to === role('SidioraFactory').toLowerCase()
     ))
       assert.equal(
         row.fromBlock,
         row.toBlock,
-        'Creation fallback scanned more than the receipt block',
+        'Creation fallback scanned more than the receipt block'
       );
-    const receiptReads = requests.filter(
-      (row) => row.method === 'eth_getTransactionReceipt',
-    );
+    const receiptReads = requests.filter((row) => row.method === 'eth_getTransactionReceipt');
     for (let index = 1; index < receiptReads.length; index++) {
       const current = receiptReads[index],
         prior = receiptReads[index - 1];
@@ -2045,50 +1898,38 @@ async function phase4Measurement() {
       ) {
         assert.ok(
           current.startedMs > prior.startedMs,
-          'Duplicate receipt lookup in one retry',
+          'Duplicate receipt lookup in one retry'
         );
         assert.ok(
           current.startedMs - prior.startedMs <= 10000,
-          'Receipt retry interval exceeded10s',
+          'Receipt retry interval exceeded10s'
         );
       }
     }
     for (const row of responses.filter((row) => row.publication)) {
       assert.ok(row.publication.attemptCount <= 5);
       assert.equal(
-        Date.parse(row.publication.expiresAt) -
-          Date.parse(row.publication.acceptedAt),
-        1800000,
+        Date.parse(row.publication.expiresAt) - Date.parse(row.publication.acceptedAt),
+        1800000
       );
     }
-    const polls = responses.filter(
-      (row) => row.method === 'GET' && row.publication,
-    );
-    assert.ok(
-      polls.length >= 2,
-      'Insufficient actual automatic publication polling samples',
-    );
+    const polls = responses.filter((row) => row.method === 'GET' && row.publication);
+    assert.ok(polls.length >= 2, 'Insufficient actual automatic publication polling samples');
     for (let index = 1; index < polls.length; index++) {
-      if (
-        polls[index].publication.operationId ===
-        polls[index - 1].publication.operationId
-      ) {
+      if (polls[index].publication.operationId === polls[index - 1].publication.operationId) {
         const delay = polls[index].atMs - polls[index - 1].atMs;
         assert.ok(
           delay >= 1000 && delay <= 30000,
-          'Publication polling interval outside1s..30s',
+          'Publication polling interval outside1s..30s'
         );
       }
     }
     await actions(required(config.fairness_actions, 'fairness_actions'));
     const fairness = JSON.parse(
       fs.readFileSync(
-        required(
-          config.quote_budget_evidence_file,
-          'quote_budget_evidence_file',
-        ),
-        'utf8',
-      ),
+        required(config.quote_budget_evidence_file, 'quote_budget_evidence_file'),
+        'utf8'
+      )
     );
     assert.equal(fairness.sourceRevision, config.candidate_revision);
     assert.equal(fairness.genesisHash, chain.genesisHash);
@@ -2096,33 +1937,27 @@ async function phase4Measurement() {
       sourceFiles.some(
         (entry) =>
           entry.path === fairness.providerSourcePath &&
-          entry.sha256 === fairness.providerSourceSha256,
+          entry.sha256 === fairness.providerSourceSha256
       ),
-      'Shared quote provider evidence is not current-source bound',
+      'Shared quote provider evidence is not current-source bound'
     );
-    assert.ok(
-      Array.isArray(fairness.admissions) && fairness.admissions.length >= 2,
-    );
+    assert.ok(Array.isArray(fairness.admissions) && fairness.admissions.length >= 2);
     const priorities = new Set();
     for (const admission of fairness.admissions) {
       assert.ok(
-        [wallet.toLowerCase(), other.toLowerCase()].includes(
-          admission.actor.toLowerCase(),
-        ),
+        [wallet.toLowerCase(), other.toLowerCase()].includes(admission.actor.toLowerCase())
       );
       assert.ok(
         responses.some(
           (row) =>
-            row.requestId === admission.requestId &&
-            row.status >= 200 &&
-            row.status < 300,
+            row.requestId === admission.requestId && row.status >= 200 && row.status < 300
         ),
-        'Shared quote budget sample lacks an actual successful correlated response',
+        'Shared quote budget sample lacks an actual successful correlated response'
       );
       assert.ok(
         Number.isFinite(admission.acceptedAtMs) &&
           admission.acceptedAtMs >= Date.parse(startedAt) &&
-          admission.acceptedAtMs <= Date.now(),
+          admission.acceptedAtMs <= Date.now()
       );
       assert.equal(admission.bypass, false);
       priorities.add(admission.priority);
@@ -2130,20 +1965,19 @@ async function phase4Measurement() {
     assert.equal(
       priorities.size,
       1,
-      'Creation first purchase used a preferred shared quote priority',
+      'Creation first purchase used a preferred shared quote priority'
     );
     assert.ok(
-      new Set(fairness.admissions.map((row) => row.actor.toLowerCase()))
-        .size === 2,
-      'Missing normal trader fairness sample',
+      new Set(fairness.admissions.map((row) => row.actor.toLowerCase())).size === 2,
+      'Missing normal trader fairness sample'
     );
     const axeSource = fs.readFileSync(
       required(config.axe_browser_script, 'axe_browser_script'),
-      'utf8',
+      'utf8'
     );
     assert.equal(
       sha(axeSource),
-      required(config.axe_browser_script_sha256, 'axe_browser_script_sha256'),
+      required(config.axe_browser_script_sha256, 'axe_browser_script_sha256')
     );
     for (const viewport of [
       { width: 1440, height: 1000 },
@@ -2158,28 +1992,21 @@ async function phase4Measurement() {
             type: 'tag',
             values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
           },
-        }),
+        })
       );
       fs.writeFileSync(
         path.join(privateDir, `axe-${viewport.width}.json`),
         JSON.stringify(axe, null, 2),
-        { mode: 0o600 },
+        { mode: 0o600 }
       );
-      assert.equal(
-        axe.violations.length,
-        0,
-        'Actual creation accessibility violations',
-      );
+      assert.equal(axe.violations.length, 0, 'Actual creation accessibility violations');
       const geometry = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
         width: window.innerWidth,
         main: document.querySelectorAll('main').length,
       }));
       assert.equal(geometry.main, 1);
-      assert.ok(
-        geometry.scroll <= geometry.width,
-        'Creation page horizontal overflow',
-      );
+      assert.ok(geometry.scroll <= geometry.width, 'Creation page horizontal overflow');
       await page.keyboard.press('Tab');
       const focus = await page.evaluate(() => {
         const node = document.activeElement;
@@ -2190,7 +2017,7 @@ async function phase4Measurement() {
       });
       assert.ok(
         focus.tag && focus.tag !== 'BODY',
-        'Keyboard focus did not reach a real control',
+        'Keyboard focus did not reach a real control'
       );
       samples.push({
         kind: 'accessibility',
@@ -2209,8 +2036,7 @@ async function phase4Measurement() {
     if (!failures.length)
       failures.push({
         scenario: activeScenario,
-        error:
-          error instanceof Error ? error.message : 'Actual harness failure',
+        error: error instanceof Error ? error.message : 'Actual harness failure',
       });
     throw error;
   } finally {
@@ -2228,20 +2054,14 @@ async function phase4Measurement() {
     }
     if (savedPax !== undefined) {
       try {
-        await provider.send('anvil_setBalance', [
-          wallet,
-          ethers.toQuantity(savedPax),
-        ]);
+        await provider.send('anvil_setBalance', [wallet, ethers.toQuantity(savedPax)]);
         const current = await usdl.balanceOf(wallet);
         if (current > savedUsdl)
           await receipt(
-            (await usdl.connect(signer).transfer(admin, current - savedUsdl))
-              .hash,
+            (await usdl.connect(signer).transfer(admin, current - savedUsdl)).hash
           );
         if (current < savedUsdl)
-          await receipt(
-            (await usdl.transfer(wallet, savedUsdl - current)).hash,
-          );
+          await receipt((await usdl.transfer(wallet, savedUsdl - current)).hash);
       } catch {
         failures.push({
           scenario: 'cleanup',
@@ -2293,29 +2113,23 @@ async function phase4Measurement() {
         .filter((value) => Number.isFinite(value))
         .sort((a, b) => a - b),
       percentile = (percentage) =>
-        latencies.length
-          ? latencies[Math.ceil(latencies.length * percentage) - 1]
-          : null;
-    fs.writeFileSync(
-      path.join(output, 'requests.json'),
-      JSON.stringify(requests, null, 2),
-      { mode: 0o600 },
-    );
+        latencies.length ? latencies[Math.ceil(latencies.length * percentage) - 1] : null;
+    fs.writeFileSync(path.join(output, 'requests.json'), JSON.stringify(requests, null, 2), {
+      mode: 0o600,
+    });
     fs.writeFileSync(
       path.join(output, 'responses.json'),
       JSON.stringify(responses, null, 2),
-      { mode: 0o600 },
+      {
+        mode: 0o600,
+      }
     );
-    fs.writeFileSync(
-      path.join(output, 'receipts.json'),
-      JSON.stringify(receipts, null, 2),
-      { mode: 0o600 },
-    );
-    fs.writeFileSync(
-      path.join(output, 'samples.json'),
-      JSON.stringify(samples, null, 2),
-      { mode: 0o600 },
-    );
+    fs.writeFileSync(path.join(output, 'receipts.json'), JSON.stringify(receipts, null, 2), {
+      mode: 0o600,
+    });
+    fs.writeFileSync(path.join(output, 'samples.json'), JSON.stringify(samples, null, 2), {
+      mode: 0o600,
+    });
     const artifacts = [];
     function inventory(dir) {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -2352,7 +2166,7 @@ async function phase4Measurement() {
         p99Ms: percentile(0.99),
       },
       scenarioCount: samples.filter(
-        (row) => row.kind === 'scenario' && row.outcome === 'passed',
+        (row) => row.kind === 'scenario' && row.outcome === 'passed'
       ).length,
       failures,
       artifacts,
@@ -2361,11 +2175,9 @@ async function phase4Measurement() {
       sharedLoadRestore: 'deferred_to_serial9.1',
       manualAssistiveTechnology: 'not_claimed',
     };
-    fs.writeFileSync(
-      path.join(output, 'result.json'),
-      JSON.stringify(result, null, 2),
-      { mode: 0o600 },
-    );
+    fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2), {
+      mode: 0o600,
+    });
     if (failures.length) process.exitCode = 1;
   }
 }

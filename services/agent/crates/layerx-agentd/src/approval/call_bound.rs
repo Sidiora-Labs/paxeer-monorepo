@@ -469,14 +469,14 @@ pub(crate) fn read<C: CallCarrier>(
 pub(crate) fn hold<C: CallCarrier>(
     store: &mut Store,
     peer: &HumanPeer,
-    session: [u8; 32],
-    generation: u64,
+    session_identity: ([u8; 32], u64),
     prepared: &EvmPrepared,
     staged: StagedProgramReservation<'_>,
     admitted_at_ms: u64,
     receipt_keys: &[SequencerAuthorization],
 ) -> Result<C, CallApprovalError> {
     crate::prepare::verify_call_binding(prepared).map_err(|_| CallApprovalError::Binding)?;
+    let (session, generation) = session_identity;
     let tenant = owner(peer)?;
     let canonical_bytes = prepared.call.encode_unsigned();
     let preparation = Sha256::digest(&canonical_bytes).into();
@@ -546,11 +546,14 @@ pub(crate) fn decide<C: CallCarrier>(
     peer: &HumanPeer,
     id: [u8; 32],
     digest: [u8; 32],
-    decision_key: [u8; 32],
-    grant: bool,
-    sequence: u64,
-    core_ms: u64,
+    decision: &CallDecision,
 ) -> Result<C, CallApprovalError> {
+    let CallDecision {
+        key: decision_key,
+        grant,
+        sequence,
+        core_ms,
+    } = *decision;
     let held: C = read(store, peer, id)?;
     let mut call = held.call().ok_or(CallApprovalError::Version)?.clone();
     if call.held_digest()? != digest || decision_key == [0; 32] {
@@ -593,9 +596,9 @@ pub(crate) fn queue<C: CallCarrier>(
     id: [u8; 32],
     verified: &VerifiedSubmission,
     registry: &layerx_types::payload::ModuleRegistry,
-    sequence: u64,
-    core_ms: u64,
+    observation: (u64, u64),
 ) -> Result<C, CallApprovalError> {
+    let (sequence, core_ms) = observation;
     let held: C = read(store, peer, id)?;
     let mut call = held.call().ok_or(CallApprovalError::Version)?.clone();
     let prepared = call.restore()?;
@@ -764,35 +767,60 @@ pub(crate) fn settle_with_debits<C: CallCarrier>(
 macro_rules! impl_call_approval {
     ($carrier:ty) => {
         impl $carrier {
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
+            #[allow(clippy::too_many_arguments, reason = "Preserve the public call approval API generated for both carrier types.")]
             pub fn hold_call(store: &mut crate::store::Store, peer: &crate::human::HumanPeer,
                 session: [u8;32], generation: u64, prepared: &crate::prepare::EvmPrepared,
                 staged: crate::budget::StagedProgramReservation<'_>, admitted_at_ms: u64,
                 receipt_keys: &[layerx_proof::inclusion::SequencerAuthorization]) -> Result<Self, super::call_bound::CallApprovalError> {
-                super::call_bound::hold(store, peer, session, generation, prepared, staged, admitted_at_ms, receipt_keys)
+                super::call_bound::hold(store, peer, (session, generation), prepared, staged, admitted_at_ms, receipt_keys)
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn read_call(store: &crate::store::Store, peer: &crate::human::HumanPeer, id: [u8;32]) -> Result<Self, super::call_bound::CallApprovalError> {
                 super::call_bound::read(store, peer, id)
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn restore_call(&self) -> Result<crate::prepare::EvmPrepared, super::call_bound::CallApprovalError> {
                 if !super::call_bound::validate(self)? { return Err(super::call_bound::CallApprovalError::Version); }
                 self.call_bound.as_ref().ok_or(super::call_bound::CallApprovalError::Version)?.restore()
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn call_state(&self) -> Result<super::call_bound::CallApprovalState, super::call_bound::CallApprovalError> {
                 if !super::call_bound::validate(self)? { return Err(super::call_bound::CallApprovalError::Version); }
                 self.call_bound.as_ref().ok_or(super::call_bound::CallApprovalError::Version)?.state()
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn call_held_digest(&self) -> Result<[u8;32], super::call_bound::CallApprovalError> {
                 if !super::call_bound::validate(self)? { return Err(super::call_bound::CallApprovalError::Version); }
                 self.call_bound.as_ref().ok_or(super::call_bound::CallApprovalError::Version)?.held_digest()
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn call_preparation_id(&self) -> Result<[u8;32], super::call_bound::CallApprovalError> {
                 if !super::call_bound::validate(self)? { return Err(super::call_bound::CallApprovalError::Version); }
                 Ok(self.call_bound.as_ref().ok_or(super::call_bound::CallApprovalError::Version)?.preparation)
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn call_budget(&self) -> Result<crate::budget::ProgramBudgetReservation, super::call_bound::CallApprovalError> {
                 if !super::call_bound::validate(self)? { return Err(super::call_bound::CallApprovalError::Version); }
                 self.call_bound.as_ref().ok_or(super::call_bound::CallApprovalError::Version)?.budget()
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn restore_call_budget(&self, budgets: &crate::budget::BudgetLimiter) -> Result<(), super::call_bound::CallApprovalError> {
                 if matches!(self.call_state()?, super::call_bound::CallApprovalState::Awaiting | super::call_bound::CallApprovalState::Granted
                     | super::call_bound::CallApprovalState::Signed | super::call_bound::CallApprovalState::Queued) {
@@ -800,24 +828,41 @@ macro_rules! impl_call_approval {
                 }
                 Ok(())
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
+            #[allow(clippy::too_many_arguments, reason = "Preserve the public call approval API generated for both carrier types.")]
             pub fn decide_call(store: &mut crate::store::Store, budgets: &crate::budget::BudgetLimiter, peer: &crate::human::HumanPeer,
                 id: [u8;32], digest: [u8;32], key: [u8;32], grant: bool, sequence: u64, core_ms: u64) -> Result<Self, super::call_bound::CallApprovalError> {
-                super::call_bound::decide(store, budgets, peer, id, digest, key, grant, sequence, core_ms)
+                super::call_bound::decide(store, budgets, peer, id, digest, &super::call_bound::CallDecision { key, grant, sequence, core_ms })
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
+            #[allow(clippy::too_many_arguments, reason = "Preserve the public call approval API generated for both carrier types.")]
             pub fn queue_call(store: &mut crate::store::Store, outbox: &mut crate::outbox::Outbox, peer: &crate::human::HumanPeer,
                 id: [u8;32], verified: &crate::sign::VerifiedSubmission, registry: &layerx_types::payload::ModuleRegistry,
                 sequence: u64, core_ms: u64) -> Result<Self, super::call_bound::CallApprovalError> {
-                super::call_bound::queue(store, outbox, peer, id, verified, registry, sequence, core_ms)
+                super::call_bound::queue(store, outbox, peer, id, verified, registry, (sequence, core_ms))
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn recover_call_submission(store: &mut crate::store::Store, outbox: &mut crate::outbox::Outbox,
                 peer: &crate::human::HumanPeer, id: [u8;32]) -> Result<Self, super::call_bound::CallApprovalError> {
                 super::call_bound::recover(store, outbox, peer, id)
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn settle_call_with_debits(store: &mut crate::store::Store, budgets: &crate::budget::BudgetLimiter,
                 peer: &crate::human::HumanPeer, id: [u8;32], receipt: &[u8],
                 proof: &crate::budget::program_settlement::VerifiedProgramDebitSettlement) -> Result<Self, super::call_bound::CallApprovalError> {
                 super::call_bound::settle_with_debits(store, budgets, peer, id, receipt, proof)
             }
+            /// # Errors
+            /// Returns an error if the approval binding, version, budget or state transition is invalid,
+            /// or its durable store operation fails.
             pub fn settle_call(store: &mut crate::store::Store, budgets: &crate::budget::BudgetLimiter, peer: &crate::human::HumanPeer,
                 id: [u8;32], receipt: &[u8]) -> Result<Self, super::call_bound::CallApprovalError> {
                 super::call_bound::settle(store, budgets, peer, id, receipt)

@@ -18,6 +18,46 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+func TestRoleMatchesApprovedApartFromAnAbsentStagedPin(t *testing.T) {
+	approved := Current().Roles["Router"]
+	if approved.StagedRuntimeHash == "" || approved.StagedUpgrade == "" {
+		t.Fatal("approved router must carry the staged pin")
+	}
+	cases := []struct {
+		name   string
+		change func(*Role)
+		want   bool
+	}{
+		{"equal", func(*Role) {}, true},
+		{"absent pair", func(r *Role) { r.StagedRuntimeHash, r.StagedUpgrade = "", "" }, true},
+		{"different pair", func(r *Role) { r.StagedRuntimeHash = common.HexToHash("0x01").Hex(); r.StagedUpgrade += "-other" }, false},
+		{"different staged hash", func(r *Role) { r.StagedRuntimeHash = common.HexToHash("0x01").Hex() }, false},
+		{"different upgrade", func(r *Role) { r.StagedUpgrade += "-other" }, false},
+		{"missing staged hash", func(r *Role) { r.StagedRuntimeHash = "" }, false},
+		{"missing upgrade", func(r *Role) { r.StagedUpgrade = "" }, false},
+		{"different address", func(r *Role) { r.Address = common.HexToAddress("0x01").Hex() }, false},
+		{"different runtime hash", func(r *Role) { r.RuntimeHash = common.HexToHash("0x01").Hex() }, false},
+		{"different kind", func(r *Role) { r.Kind = "direct" }, false},
+		{"different implementation address", func(r *Role) { r.ImplementationAddress = common.HexToAddress("0x01").Hex() }, false},
+		{"different implementation hash", func(r *Role) { r.ImplementationHash = common.HexToHash("0x01").Hex() }, false},
+		{"different beacon address", func(r *Role) { r.BeaconAddress = common.HexToAddress("0x01").Hex() }, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			role := approved
+			tc.change(&role)
+			if got := role.MatchesApproved(approved); got != tc.want {
+				t.Fatalf("MatchesApproved = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	withoutPin := approved
+	withoutPin.StagedRuntimeHash, withoutPin.StagedUpgrade = "", ""
+	if !withoutPin.MatchesApproved(withoutPin) || approved.MatchesApproved(withoutPin) {
+		t.Fatal("only the supplied role may omit the approved staged pin")
+	}
+}
+
 func TestCurrentMatchesFrozenDeployment(t *testing.T) {
 	m := Current()
 	var f struct {
@@ -31,7 +71,7 @@ func TestCurrentMatchesFrozenDeployment(t *testing.T) {
 			PoolBeacon   string `json:"poolBeacon"`
 		}
 	}
-	b, e := os.ReadFile("../../../../../sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json")
+	b, e := os.ReadFile("client-deployment.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -203,18 +243,21 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// This immutable reviewed blob predates a key-sorting rewrite of the checkout
-	// manifest. Preserve its exact byte digest and all frozen deployment provenance.
+	// manifest. Preserve its exact historical digest and compare its data to Current.
 	approved := exec.CommandContext(ctx, "git", "-C", root, "show", "dd845c4ecc0802bef5548e086ef431ec99fe1f12")
 	reviewedSource, e := approved.Output()
 	if e != nil {
 		t.Fatalf("read reviewed manifest blob: %v", e)
 	}
-	if fmt.Sprintf("%x", sha256.Sum256(reviewedSource)) != m.SourceManifestSHA256 {
-		t.Fatal("reviewed manifest digest differs from Current")
+	if fmt.Sprintf("%x", sha256.Sum256(reviewedSource)) != "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a" {
+		t.Fatal("historical reviewed manifest digest drift")
 	}
 	checkedOut, e := os.ReadFile(filepath.Join(root, "contracts/launchpad/deployments/paxeer-x-network-addresses.json"))
 	if e != nil {
 		t.Fatal(e)
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(checkedOut)) != m.SourceManifestSHA256 {
+		t.Fatal("checked-out manifest digest differs from Current")
 	}
 	var original, current any
 	if e = json.Unmarshal(reviewedSource, &original); e != nil {
@@ -231,7 +274,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal(e)
 	}
 	sourcePath := filepath.Join(contractRoot, "deployments/paxeer-x-network-addresses.json")
-	if e = os.WriteFile(sourcePath, reviewedSource, 0600); e != nil {
+	if e = os.WriteFile(sourcePath, checkedOut, 0600); e != nil {
 		t.Fatal(e)
 	}
 	script := `const {deriveDeployment,renderHelper,checkClient}=require(process.argv[1]);
@@ -240,7 +283,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
  checkClient(process.argv[3],data,helper);
  process.stdout.write(helper);`
 	browser := exec.CommandContext(ctx, "node", "-e", script,
-		filepath.Join(root, "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"),
+		filepath.Join(root, "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.cjs"),
 		contractRoot, filepath.Join(root, "apps/launchpad/web/src"))
 	rendered, e := browser.CombinedOutput()
 	if e != nil {
@@ -250,7 +293,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 		t.Fatal("browser generator does not reproduce deployment.ts")
 	}
 	generator := exec.CommandContext(ctx, "python3", "generate.py", "--source", sourcePath,
-		"--frozen-client", filepath.Join(root, "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json"),
+		"--frozen-client", "client-deployment.json",
 		"--output", "current.json", "--check")
 	if output, err := generator.CombinedOutput(); err != nil {
 		t.Fatalf("manifest generator: %v\n%s", err, output)
@@ -290,7 +333,7 @@ func TestCurrentManifestValid(t *testing.T) {
 	if m.SchemaVersion != 1 || m.DeploymentVersion != "paxeer125-v6.12.0" || m.Status != "active" || m.ChainID != 125 {
 		t.Fatalf("deployment identity %d %s %s %d", m.SchemaVersion, m.DeploymentVersion, m.Status, m.ChainID)
 	}
-	if m.SourceManifestSHA256 != "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a" {
+	if m.SourceManifestSHA256 != "6ec466f0cade69ad3da3ea55485afe6d13ec47722bba46864df156ea0900ee6b" {
 		t.Fatalf("source manifest %s", m.SourceManifestSHA256)
 	}
 	if m.ActivationHeight <= generation2Height {
@@ -305,7 +348,9 @@ func TestCurrentManifestValid(t *testing.T) {
 	if m.MarketModel != "AMM" || m.Graduation || m.CoreOracleRequired {
 		t.Fatalf("market policy %s %v %v", m.MarketModel, m.Graduation, m.CoreOracleRequired)
 	}
-	surface := func(a string) Role { return Role{Address: a, Kind: "surface", RuntimeHash: surfaceRuntimeHash} }
+	surface := func(a string) Role {
+		return Role{Address: a, Kind: "surface", RuntimeHash: surfaceRuntimeHash, StagedRuntimeHash: stagedSurfaceRuntimeHash, StagedUpgrade: stagedSurfaceUpgrade}
+	}
 	want := map[string]Role{
 		"SidioraFactory": surface("0x3993D004166738d1069B5C4e0a923f7B9D5D8830"),
 		"Router":         surface("0x78FB06f525cD964388f2305A489035263E31C6e4"),
@@ -373,6 +418,31 @@ func TestCurrentManifestValid(t *testing.T) {
 			if active, ok := protocol.ActiveAddresses.Roles[name]; !ok || active != a {
 				t.Fatalf("generation 2 role %s %s", name, r.Address)
 			}
+		}
+	}
+}
+
+func TestManifestInstalledAndStagedSurfaceIdentities(t *testing.T) {
+	m := Current()
+	if m.DeploymentVersion != "paxeer125-v6.12.0" || m.ActivationHeight != 37220320 {
+		t.Fatalf("installed deployment epoch changed: %s at %d", m.DeploymentVersion, m.ActivationHeight)
+	}
+	if StagedSurfaceRuntimeHash != "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993" || StagedSurfaceRuntimeHash == surfaceRuntimeHash {
+		t.Fatalf("staged surface identity = %s", StagedSurfaceRuntimeHash)
+	}
+	generator, err := os.ReadFile("generate.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, hash := range map[string]string{"SURFACE_RUNTIME_HASH": surfaceRuntimeHash, "STAGED_SURFACE_RUNTIME_HASH": StagedSurfaceRuntimeHash} {
+		if !strings.Contains(string(generator), "\n"+name+" = '"+hash+"'\n") {
+			t.Fatalf("manifest generator %s differs from Go identity %s", name, hash)
+		}
+	}
+	for _, name := range []string{"ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "Treasury"} {
+		role := m.Roles[name]
+		if role.Kind != "surface" || role.RuntimeHash != surfaceRuntimeHash || role.RuntimeHash == StagedSurfaceRuntimeHash {
+			t.Fatalf("%s does not carry the installed surface identity: %+v", name, role)
 		}
 	}
 }

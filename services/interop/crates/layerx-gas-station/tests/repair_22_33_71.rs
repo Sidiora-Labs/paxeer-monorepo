@@ -10,8 +10,7 @@ mod publication {
 }
 
 mod http {
-    include!("support/service_harness.rs");
-    include!("support/service_repairs.rs");
+    include!("service.rs");
 }
 
 #[test]

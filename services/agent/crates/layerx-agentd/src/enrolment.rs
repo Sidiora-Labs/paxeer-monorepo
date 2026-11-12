@@ -290,7 +290,7 @@ impl ListenerDeclaration {
     pub fn new(
         socket: PathBuf,
         owner_uid: u32,
-        owner_gid: u32,
+        group_id: u32,
         mode: u32,
         admitted_uids: Vec<u32>,
     ) -> Result<Self, EnrolmentError> {
@@ -346,7 +346,7 @@ impl ListenerDeclaration {
         Ok(Self {
             socket,
             owner_uid,
-            owner_gid,
+            owner_gid: group_id,
             mode,
             admitted_uids,
         })
@@ -963,6 +963,9 @@ impl BindingPublisher {
         listener.check_directory()
     }
 
+    /// # Errors
+    /// Returns an error if the enrolment path, session, identity or observed publication does not
+    /// satisfy the binding contract.
     pub fn validate_existing(
         &self,
         sessions: &SessionRegistry,
@@ -1044,7 +1047,7 @@ impl BindingPublisher {
                     }
                 }
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                    missing.push((path, expected))
+                    missing.push((path, expected));
                 }
                 Err(error) => return Err(error.into()),
             }
@@ -1252,6 +1255,9 @@ fn open_and_publish(
     )
 }
 
+/// # Errors
+/// Returns an error if the enrolment path, session, identity or observed publication does not
+/// satisfy the binding contract.
 pub fn enrol_observed(
     store: &mut Store,
     sessions: &mut SessionRegistry,
@@ -1644,15 +1650,15 @@ mod verified_expiry_tests {
 
     #[test]
     fn matching_carrier_advertises_floor_seconds_and_keeps_the_sequence_bound() {
-        let root = directory("match");
-        let (mut store, identity, publisher) = records(&root);
+        let workspace = directory("match");
+        let (mut store, identity, binding_publisher) = records(&workspace);
         let mut sessions = SessionRegistry::default();
         let published = must(enrol_with_verified_expiry(
             &mut store,
             &mut sessions,
             &identity,
             VerifiedExpiryEnrolment::new(request(), expiry(10_000_999)),
-            &publisher,
+            &binding_publisher,
         ));
         assert_eq!(published.session_id, SESSION);
         let record = sessions
@@ -1661,7 +1667,7 @@ mod verified_expiry_tests {
         assert_eq!(record.request.expiry_seconds, Some(10_000));
         assert_eq!(record.request.expiry_sequence, 300);
         drop(store);
-        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[test]
@@ -1873,7 +1879,8 @@ mod web_payment_binding_tests {
     use serde_json::json;
 
     #[test]
-    fn web_payment_binding_preserves_the_selected_key_and_complete_governed_index() {
+    fn web_payment_binding_preserves_the_selected_key_and_complete_governed_index(
+    ) -> Result<(), String> {
         let keys = vec![
             ReceiptKeyEntry {
                 key_id: [1; 32],
@@ -1899,8 +1906,10 @@ mod web_payment_binding_tests {
             3,
             100,
         )
-        .expect("valid governed web declaration");
-        let published = declaration.document().expect("validated web authority");
+        .map_err(|error| format!("{error:?}"))?;
+        let published = declaration
+            .document()
+            .map_err(|error| format!("{error:?}"))?;
         assert_eq!(published["network"], "eip155:125");
         assert_eq!(
             published["payer_address"],
@@ -1924,5 +1933,6 @@ mod web_payment_binding_tests {
                 .collect::<Vec<_>>())
         );
         assert!(published.get("sequencer_public_key").is_none());
+        Ok(())
     }
 }

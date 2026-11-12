@@ -190,7 +190,7 @@ fn record_digest(header_tail: &[u8], raw_transaction: &[u8]) -> [u8; RECORD_DIGE
 }
 
 /// In-process JSON-RPC producer with authenticated, durable transaction admission.
-/// The retired Unix LNI listener is replaced by the same HTTP boundary NodeRpc uses.
+/// Uses the same HTTP boundary as `NodeRpc` for signed EVM transaction submission.
 pub struct EvidenceNode {
     journal: AdmissionJournal,
     receipt_key: [u8; 32],
@@ -201,6 +201,8 @@ pub struct EvidenceNode {
 }
 
 impl EvidenceNode {
+    /// # Panics
+    /// Panics if the request count is zero or the admission journal cannot be opened.
     #[must_use]
     pub fn new(directory: &Path, network_id: u32, signer: &SigningKey, requests: usize) -> Self {
         assert!(
@@ -307,6 +309,9 @@ impl EvidenceNode {
     }
 
     /// Serves a finite number of real JSON-RPC requests and returns the producer state.
+    ///
+    /// # Panics
+    /// Panics if the listener or a request is invalid, or if a response cannot be sent.
     #[must_use]
     pub fn serve(mut self, listener: TcpListener) -> JoinHandle<Self> {
         listener
@@ -343,7 +348,8 @@ impl EvidenceNode {
                         );
                     }
                 }
-                let length = length.expect("evidence_node.rs: content length required");
+                let length =
+                    length.unwrap_or_else(|| panic!("evidence_node.rs: content length required"));
                 assert!(length <= 2 * MAX_MESSAGE_BYTES);
                 let mut body = vec![0; length];
                 reader
@@ -354,7 +360,7 @@ impl EvidenceNode {
                 assert_eq!(request["jsonrpc"], "2.0");
                 let method = request["method"]
                     .as_str()
-                    .expect("evidence_node.rs: method required");
+                    .unwrap_or_else(|| panic!("evidence_node.rs: method required"));
                 self.served.push(method.to_owned());
                 let mut response = self.result(method, &request["params"]);
                 response["jsonrpc"] = json!("2.0");

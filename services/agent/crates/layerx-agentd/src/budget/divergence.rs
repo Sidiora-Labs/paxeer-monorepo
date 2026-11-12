@@ -16,8 +16,8 @@ pub struct DivergenceAuditRecord {
     pub protocol_consumed: u128,
     pub last_verified_receipt: Option<[u8; 32]>,
     pub observed_head_sequence: u64,
-    pub window_start_sequence: u64,
-    pub window_end_sequence: u64,
+    pub window_start_ms: u64,
+    pub window_end_ms: u64,
 }
 
 /// Open divergence with the allowance safe to enforce until resolution.
@@ -44,8 +44,8 @@ pub(crate) fn build_alert(
             protocol_consumed: state.protocol_consumed(),
             last_verified_receipt: state.last_verified_receipt(),
             observed_head_sequence: state.observed_head_sequence(),
-            window_start_sequence: state.window_start_sequence(),
-            window_end_sequence: state.window_end_sequence(),
+            window_start_ms: state.window_start_ms(),
+            window_end_ms: state.window_end_ms(),
         },
         health: BudgetHealth {
             ready_for_writes: false,

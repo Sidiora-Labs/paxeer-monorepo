@@ -9,14 +9,15 @@ import sys
 
 
 CONSENSUS_PATHS = (
-    "modules/perps/keeper/",
     "precompiles/perps/",
-    "modules/layerxcustody/keeper/",
-    "modules/layerxcustody/types/",
+    "precompiles/bank/",
+    "sdk/x/bank/keeper/",
+    "sdk/x/bank/types/",
     "node/app.go",
     "node/sequencer/",
     "programs/crates/layerx-programs-market/src/",
 )
+CONSENSUS_MODULE_PATH = re.compile(r"^modules/[^/]+/(?:keeper|types)/")
 DEFAULT_LIST = "docs/release/consensus-commits.md"
 HISTORY_ARGS = (
     "log",
@@ -74,9 +75,12 @@ def consensus_changes_from_history(history):
         path = next(fields, None)
         if not path:
             raise ValueError("Missing raw consensus history path")
-        if not path.endswith("_test.go") and any(
-            path.startswith(prefix) if prefix.endswith("/") else path == prefix
-            for prefix in CONSENSUS_PATHS
+        if not path.endswith("_test.go") and (
+            CONSENSUS_MODULE_PATH.match(path)
+            or any(
+                path.startswith(prefix) if prefix.endswith("/") else path == prefix
+                for prefix in CONSENSUS_PATHS
+            )
         ):
             changes[sha].append(path)
     return changes

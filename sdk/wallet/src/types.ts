@@ -396,7 +396,6 @@ export interface HistoryQuery {
 export type KernelBackendName =
   | 'core_agent_boundary'
   | 'public_core'
-  | 'independent_receipt_authority'
   | 'identity'
   | 'program_registry';
 
@@ -533,7 +532,6 @@ export interface EvidenceRef {
   class: EvidenceClass;
   verification: VerificationLevel;
   tx_hash?: string;
-  settlement_domain?: string;
 }
 
 export interface JourneyStage {

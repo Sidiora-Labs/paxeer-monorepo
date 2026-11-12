@@ -9,6 +9,12 @@ import (
 )
 
 func TestPhase4MediaProductionEnvelope(t *testing.T) {
+	for _, name := range []string{"L41_ENVELOPE_CONFIG", "L41_ENVELOPE_CONFIG_SHA256"} {
+		if os.Getenv(name) == "" {
+			t.Skipf("protected owner fixture unavailable: %s is not set", name)
+		}
+	}
+
 	path := os.Getenv("L41_ENVELOPE_CONFIG")
 	sha := os.Getenv("L41_ENVELOPE_CONFIG_SHA256")
 	if path == "" || !digest.MatchString(sha) {

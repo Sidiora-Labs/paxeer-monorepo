@@ -30,12 +30,10 @@ npm|services/platform/hosted/dashboard/web/package.json|covered-by-human-dashboa
 rust|services/platform/hosted/faucet/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/feeder/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/gateway/Cargo.toml|covered-by-platform-cargo
-rust|services/platform/hosted/gateway/tests/local/Cargo.toml|locked-independent
 rust|services/platform/hosted/identity/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/indexer/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/internal/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/node/tests/probe/Cargo.toml|locked-independent
-rust|services/platform/hosted/paxai-storage-keeper/Cargo.toml|locked-independent
 rust|services/platform/hosted/paxai-worker/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/paxeer/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/registry/Cargo.toml|covered-by-platform-cargo
@@ -53,3 +51,6 @@ rust|services/platform/ramps/toolkit/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/benchmark/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/kvx/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/workspace-gate/Cargo.toml|covered-by-platform-cargo
+python|services/platform/hosted/paxeer/requirements.txt|covered-by-python-source:services/platform/hosted/paxeer/evm.py
+rust|services/platform/perf-db/Cargo.toml|locked-independent
+rust|services/platform/perf-db/src/storage/repair_139/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/repair_139_test.go

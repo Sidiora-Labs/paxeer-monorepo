@@ -213,7 +213,7 @@ mod deployment {
             );
             assert_ne!(foreign.request_digest()?, request);
             assert_eq!(MAX_ENVELOPE_BYTES, 16_384);
-            assert_eq!(MAX_STATE_BYTES, 196_608);
+            assert_eq!(MAX_STATE_BYTES, 245_760);
             let oversized = vec![0; MAX_ENVELOPE_BYTES + 1];
             assert_eq!(decode_envelope(&oversized).err(), Some(CAPACITY));
             Ok(())
@@ -278,6 +278,11 @@ mod guest {
     }
 
     fn handle(input: &[u8]) -> Result<EntryResponse<'static>, ProgramRefusal<'static>> {
+        // The diagnostic artifact is built separately; deployment builds erase
+        // this branch and retain the ordinary ABI entrypoint below.
+        if option_env!("PAXAI_AGGREGATION_PROBE").is_some() {
+            return aggregation_probe(input);
+        }
         let arena = ARENA.try_borrow_mut().ok_or(EMPTY_REFUSAL)?.leak();
         let Arena {
             current,
@@ -301,12 +306,15 @@ mod guest {
             principal: call.principal(),
             height: call.height(),
         };
-        let current_len = match call.read_state(current) {
-            Ok(Some(state)) => match state.encoded_len() {
-                Ok(n) if n <= current.len() => Some(n),
-                Ok(_) => return Err(failure(crate::errors::NON_CANONICAL, result)),
-                Err(error) => return Err(failure(error, result)),
-            },
+        let current = match call.read_encoded_state(current) {
+            Ok(Some(bytes)) => {
+                if !matches!(input.get(8..10), Some([0x0a, 0x01 | 0x02])) {
+                    if let Err(error) = crate::state::retain_current(bytes) {
+                        return Err(failure(error, result));
+                    }
+                }
+                Some(bytes)
+            }
             Ok(None) => None,
             Err(AdapterError::Application(error)) => return Err(failure(error, result)),
             Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
@@ -314,7 +322,7 @@ mod guest {
         let routed = dispatch::route(
             &ctx,
             input,
-            current_len.map(|n| current.guest_index(..n)),
+            current,
             Buffers {
                 next,
                 scratch,
@@ -337,12 +345,12 @@ mod guest {
                     operation,
                     dispatch::ChallengeLap | dispatch::ResolveChallenge
                 ) {
-                    let Some(n) = current_len else {
+                    let Some(current) = current else {
                         return Err(EMPTY_REFUSAL);
                     };
                     match crate::canary::stage_value(
                         operation,
-                        current.guest_index(..n),
+                        current,
                         next.guest_index(..state_len),
                     ) {
                         Ok(()) => {}
@@ -356,7 +364,25 @@ mod guest {
                     operation,
                     body: event.guest_index(..event_len),
                 }];
-                match call.stage_state_and_events(next.guest_index(..state_len), &events) {
+                let staged = if matches!(
+                    operation,
+                    dispatch::OPEN_EPOCH
+                        | dispatch::BeginAggregation
+                        | dispatch::ProcessAggregation
+                        | dispatch::FinalizeAggregation
+                ) {
+                    let Some(current) = current else {
+                        return Err(EMPTY_REFUSAL);
+                    };
+                    call.stage_preserved_state_and_events(
+                        current,
+                        next.guest_index(..state_len),
+                        &events,
+                    )
+                } else {
+                    call.stage_state_and_events(next.guest_index(..state_len), &events)
+                };
+                match staged {
                     Ok(()) => Ok(EntryResponse::new(
                         CallResult::OK,
                         result.guest_index(..result_len),
@@ -383,6 +409,101 @@ mod guest {
             Err(error) => Err(failure(error, result)),
         }
     }
+
+    fn aggregation_probe(input: &[u8]) -> Result<EntryResponse<'static>, ProgramRefusal<'static>> {
+        use crate::{codec, state, state::Section};
+        use layerx_program_sdk::Context;
+        let arena = ARENA.try_borrow_mut().ok_or(EMPTY_REFUSAL)?.leak();
+        let call = DirectCall::read_context().map_err(|_| EMPTY_REFUSAL)?;
+        let bytes = call
+            .read_encoded_state(&mut arena.current)
+            .map_err(|_| EMPTY_REFUSAL)?
+            .ok_or(EMPTY_REFUSAL)?;
+        let fuel = || Context::remaining_fuel().map_err(|_| EMPTY_REFUSAL);
+        let start = fuel()?;
+        let frame = codec::decode_state(bytes).map_err(|_| EMPTY_REFUSAL)?;
+        let decoded = fuel()?;
+        let control = state::decode_control(frame.sections[Section::Control.index()])
+            .map_err(|_| EMPTY_REFUSAL)?;
+        let n = state::encode_control(&control, &mut arena.scratch).map_err(|_| EMPTY_REFUSAL)?;
+        let replayed = fuel()?;
+        if &arena.scratch[..n] != frame.sections[Section::Control.index()] {
+            return Err(EMPTY_REFUSAL);
+        }
+        let start_roster = fuel()?;
+        let roster = crate::epoch::committed_roster_sections(
+            frame.sections[Section::PolicyLifecycle.index()],
+            frame.sections[Section::IdentityRoster.index()],
+            frame.sections[Section::ReputationAdmission.index()],
+            frame.sections[Section::SettlementClaims.index()],
+        )
+        .map_err(|_| EMPTY_REFUSAL)?;
+        let roster_end = fuel()?;
+        let snapshot = crate::evaluators::authority::CommittedSnapshot::read(
+            frame.sections[Section::IdentityRoster.index()],
+        )
+        .map_err(|_| EMPTY_REFUSAL)?;
+        for i in 0..snapshot
+            .worker_count()
+            .min(crate::aggregation::WORKERS_PER_CHUNK)
+        {
+            if snapshot.worker(i).map_err(|_| EMPTY_REFUSAL)? != roster.workers()[i] {
+                return Err(EMPTY_REFUSAL);
+            }
+        }
+        let chunk_end = fuel()?;
+        let n = codec::encode_state(&frame, &mut arena.next).map_err(|_| EMPTY_REFUSAL)?;
+        let copied = fuel()?;
+        let produced = codec::decode_state(&arena.next[..n]).map_err(|_| EMPTY_REFUSAL)?;
+        let compare_start = fuel()?;
+        if !codec::equal_bytes(
+            frame.sections[Section::Control.index()],
+            produced.sections[Section::Control.index()],
+        ) {
+            return Err(EMPTY_REFUSAL);
+        }
+        let compare_end = fuel()?;
+        let ctx = CallContext {
+            chain: crate::deployment_chain_domain().map_err(|_| EMPTY_REFUSAL)?,
+            program: call.program(),
+            principal: call.principal(),
+            height: call.height(),
+        };
+        let envelope = codec::decode_envelope(input).map_err(|_| EMPTY_REFUSAL)?;
+        crate::epoch::aggregate(
+            &ctx,
+            &envelope,
+            bytes,
+            &mut arena.next,
+            &mut arena.scratch,
+            &mut arena.event,
+        )
+        .map_err(|_| EMPTY_REFUSAL)?;
+        let measurements = [
+            start - decoded,
+            decoded - replayed,
+            start_roster - roster_end,
+            roster_end - chunk_end,
+            chunk_end - copied,
+            compare_start - compare_end,
+        ];
+        let mut w = codec::Writer::new(&mut arena.result);
+        for measured in measurements {
+            w.u64(measured).map_err(|_| EMPTY_REFUSAL)?;
+        }
+        let samples = crate::aggregation::PROBE_FUEL
+            .try_borrow_mut()
+            .ok_or(EMPTY_REFUSAL)?;
+        for pair in samples[..8].windows(2) {
+            w.u64(pair[0].checked_sub(pair[1]).ok_or(EMPTY_REFUSAL)?)
+                .map_err(|_| EMPTY_REFUSAL)?;
+        }
+        w.put(roster.binding.roster.as_bytes())
+            .map_err(|_| EMPTY_REFUSAL)?;
+        w.u64(samples[8].checked_sub(samples[0]).ok_or(EMPTY_REFUSAL)?)
+            .map_err(|_| EMPTY_REFUSAL)?;
+        Ok(EntryResponse::new(CallResult::OK, &arena.result[..144]))
+    }
 }
 
 pub use errors::{
@@ -401,7 +522,8 @@ pub const MAX_PAYLOAD_BYTES: usize = 15_965;
 pub const MAX_RESULT_BYTES: usize = 16_384;
 pub const RESULT_HEADER_BYTES: usize = 82;
 pub const MAX_RESULT_PAYLOAD_BYTES: usize = 16_302;
-pub const MAX_STATE_BYTES: usize = 196_608;
+pub const MAX_STATE_BYTES: usize = 245_760;
+const _: () = assert!(MAX_STATE_BYTES <= layerx_program_sdk::MAX_STORAGE_VALUE_BYTES);
 pub const MAX_EVENT_BYTES: usize = 2_048;
 pub const MAX_EVENTS: usize = 2;
 pub const MAX_WORKERS: usize = 32;

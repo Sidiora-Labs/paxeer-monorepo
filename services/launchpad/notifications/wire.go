@@ -11,13 +11,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 )
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
@@ -77,13 +79,13 @@ func providerClient() *http.Client {
 		return (&net.Dialer{Timeout: 3 * time.Second}).DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
 	}}}
 }
-func sendRequest(client *http.Client, req *http.Request) (int, http.Header, []byte, error) {
+func sendRequest(client *http.Client, req *http.Request) (status int, headers http.Header, body []byte, sendErr error) {
 	response, e := client.Do(req)
 	if e != nil {
 		return 0, nil, nil, e
 	}
-	defer response.Body.Close()
-	body, e := io.ReadAll(io.LimitReader(response.Body, 65537))
+	defer func() { sendErr = errors.Join(sendErr, response.Body.Close()) }()
+	body, e = io.ReadAll(io.LimitReader(response.Body, 65537))
 	if len(body) > 65536 {
 		return 0, nil, nil, ErrInvalid
 	}
@@ -102,7 +104,7 @@ func jsonRequest(ctx context.Context, method, endpoint string, body any) (*http.
 }
 func validateLink(p Payload) error {
 	u, e := url.Parse(p.AuthenticatedDeepLink)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || !strings.HasPrefix(u.Path, "/notifications/") {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || !strings.HasPrefix(u.Path, "/notifications/") {
 		return ErrInvalid
 	}
 	return nil
@@ -160,7 +162,7 @@ func (s socialAuthority) Publish(ctx context.Context, kind, id string, raw json.
 	if kind != "callout-target-ref-v2" {
 		return ErrInvalid
 	}
-	return s.rpc.call(ctx, "POST", "/internal/v2/social/callout-authority", json.RawMessage(raw), nil)
+	return s.rpc.call(ctx, "POST", "/internal/v2/social/callout-authority", raw, nil)
 }
 
 type sourceAuthority struct {
@@ -182,7 +184,7 @@ func (s sourceAuthority) VerifiedAccount(ctx context.Context, actor string) (boo
 	return s.accounts.VerifiedAccount(ctx, actor)
 }
 func (s sourceAuthority) ResolvePublic(ctx context.Context, kind, id string) (discovery.PublicResource, error) {
-	if kind == "pool" || kind == "milestone" {
+	if kind == resourcePool || kind == "milestone" {
 		if s.pools == nil {
 			return discovery.PublicResource{}, ErrUnavailable
 		}

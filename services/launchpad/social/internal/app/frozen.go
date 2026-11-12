@@ -38,10 +38,10 @@ func (r *socialConnectedRuntime) prepareFrozen(ctx context.Context, redis *gored
 type frozenRoute struct{ method, path string }
 
 var frozenStoreRoutes = []frozenRoute{
-	{"GET", "/v2/pools/{poolAddress}/callouts"},
-	{"GET", "/v2/bounties"}, {"POST", "/v2/bounties"}, {"GET", "/v2/bounties/stats"},
-	{"GET", "/v2/bounties/{bountyId}"}, {"GET", "/v2/bounties/{bountyId}/submissions"},
-	{"POST", "/v2/bounties/{bountyId}/submissions"}, {"POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept"},
+	{getMethod, "/v2/pools/{poolAddress}/callouts"},
+	{getMethod, "/v2/bounties"}, {postMethod, "/v2/bounties"}, {getMethod, "/v2/bounties/stats"},
+	{getMethod, "/v2/bounties/{bountyId}"}, {getMethod, "/v2/bounties/{bountyId}/submissions"},
+	{postMethod, "/v2/bounties/{bountyId}/submissions"}, {postMethod, "/v2/bounties/{bountyId}/submissions/{submissionId}:accept"},
 }
 
 func (r *socialConnectedRuntime) registerFrozen(mux chi.Router) error {
@@ -73,40 +73,40 @@ func frozenPublicRead(r *http.Request) bool {
 		return false
 	}
 	p := strings.Split(r.URL.Path, "/")
-	if len(p) == 5 && p[1] == "v2" && p[2] == "pools" && common.IsAddr(p[3]) && (p[4] == "comments" || p[4] == "callouts") {
+	if len(p) == 5 && p[1] == "v2" && p[2] == "pools" && common.IsAddr(p[3]) && (p[4] == commentsResource || p[4] == "callouts") {
 		return true
 	}
-	if len(p) == 3 && p[1] == "v2" && p[2] == "bounties" {
+	if len(p) == 3 && p[1] == "v2" && p[2] == bountiesResource {
 		return true
 	}
-	if len(p) == 4 && p[1] == "v2" && p[2] == "bounties" {
+	if len(p) == 4 && p[1] == "v2" && p[2] == bountiesResource {
 		if p[3] == "stats" {
 			return true
 		}
 		_, e := uuid.Parse(p[3])
 		return e == nil
 	}
-	if len(p) == 5 && p[1] == "v2" && p[2] == "bounties" && p[4] == "submissions" {
+	if len(p) == 5 && p[1] == "v2" && p[2] == bountiesResource && p[4] == "submissions" {
 		_, e := uuid.Parse(p[3])
 		return e == nil
 	}
 	// The interaction comment list is the second view of these same rows.
-	return len(p) == 6 && p[1] == "v2" && p[2] == "social" && p[3] == "pool" && common.IsAddr(p[4]) && p[5] == "comments"
+	return len(p) == 6 && p[1] == "v2" && p[2] == socialService && p[3] == poolResource && common.IsAddr(p[4]) && p[5] == commentsResource
 }
 
 func frozenError(w http.ResponseWriter, req *http.Request, err error) {
-	status, code := 503, "DEPENDENCY_UNAVAILABLE"
+	status, code := 503, dependencyUnavailableCode
 	switch {
 	case errors.Is(err, interactions.ErrInvalid), errors.Is(err, safety.ErrInvalid):
 		status, code = 422, "FIELD_INVALID"
 	case errors.Is(err, interactions.ErrDenied), errors.Is(err, safety.ErrForbidden):
-		status, code = 403, "SCOPE_DENIED"
+		status, code = 403, scopeDeniedCode
 	case errors.Is(err, interactions.ErrRevision), errors.Is(err, safety.ErrConflict):
 		status, code = 409, "REVISION_CONFLICT"
 	case errors.Is(err, interactions.ErrDepth):
 		status, code = 422, "THREAD_DEPTH_EXCEEDED"
 	case errors.Is(err, pgx.ErrNoRows):
-		status, code = 404, "NOT_FOUND"
+		status, code = 404, notFoundCode
 	}
 	frozenWriteError(w, req, status, code)
 }
@@ -375,12 +375,12 @@ func (r *socialConnectedRuntime) createFrozenCallout(w http.ResponseWriter, req 
 		frozenError(w, req, err)
 		return
 	}
-	defer tx.Rollback(req.Context())
+	defer rollbackTx(req.Context(), tx)
 	ctx := req.Context()
 	pool := strings.ToLower(body.PoolAddress)
 	// Use the bound account/session, canonical-pool and safety authorities in
 	// the same transaction that records the callout and its reference authority.
-	err = r.store.Authority.Check(ctx, tx, interactions.Request{Actor: actor, Pool: pool, Action: "comment"})
+	err = r.store.Authority.Check(ctx, tx, interactions.Request{Actor: actor, Pool: pool, Action: commentAction})
 	if err == nil {
 		_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "callout:"+actor+":"+client.String())
 	}

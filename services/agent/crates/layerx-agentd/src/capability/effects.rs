@@ -214,6 +214,9 @@ pub fn derive(
     )
 }
 
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn derive_native_effects(
     disclosure: &Disclosure,
     verified: &VerifiedInputs,
@@ -360,6 +363,7 @@ pub struct NativeRegistrationContext {
 }
 
 impl NativeRegistrationContext {
+    #[must_use]
     pub const fn new(principal: super::VerifiedLedgerPrincipal, fee_asset: [u8; 32]) -> Self {
         Self {
             principal: Some(principal),
@@ -430,6 +434,9 @@ fn native_registration_terms<'a>(
 }
 
 /// Derives supply authority from the EVM signer's live ledger owner and gas fee account.
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn derive_native_registration(
     disclosure: &Disclosure,
     context: impl Into<NativeRegistrationContext>,
@@ -446,6 +453,9 @@ pub fn derive_native_registration(
     Ok(plan)
 }
 
+/// # Errors
+/// Returns an error if the disclosure does not describe a supported native operation or its
+/// effects cannot be resolved without overflow.
 pub fn native_registration_commitment(
     disclosure: &Disclosure,
     protocol_version: u16,
@@ -490,6 +500,7 @@ const fn untyped_kind(disclosure: &Disclosure) -> &'static str {
     } else if disclosure.session_grant.is_some() {
         "SessionGrant"
     } else if disclosure.evm_payout_binding.is_some() {
+        // The disclosure field still ships; report its unsupported kind without authorizing it.
         "EvmPayoutBinding"
     } else {
         "Send"
@@ -576,8 +587,6 @@ fn native_effects(
     verified: &VerifiedInputs,
 ) -> Result<(), EffectsError> {
     match native {
-        DisclosedNativeOperation::ProgramDeploy(_)
-        | DisclosedNativeOperation::ProgramUpgrade(_) => {}
         DisclosedNativeOperation::ProgramCall(call) => program_call_effects(plan, call)?,
         DisclosedNativeOperation::LegacyProgramCall(call) => {
             if call.capabilities().as_slice().iter().any(|capability| {
@@ -624,7 +633,9 @@ fn native_effects(
                 }
             }
         }
-        DisclosedNativeOperation::IdentityRegistration(_)
+        DisclosedNativeOperation::ProgramDeploy(_)
+        | DisclosedNativeOperation::ProgramUpgrade(_)
+        | DisclosedNativeOperation::IdentityRegistration(_)
         | DisclosedNativeOperation::RecoveryPolicy(_) => {}
         DisclosedNativeOperation::BudgetCreate(budget) => {
             plan.transfer(

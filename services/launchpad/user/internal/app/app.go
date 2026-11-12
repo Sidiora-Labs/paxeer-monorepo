@@ -16,6 +16,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/account"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -26,13 +34,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nkeys"
-	"io"
-	"log/slog"
-	"net/http"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,6 +50,10 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/db/sqlcdb"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/user"
+)
+
+const (
+	nodeEnvProduction = "production"
 )
 
 // rateLimitMax / rateLimitWindow mirror the TS registerRateLimit(app, {max:60,
@@ -89,7 +94,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvProduction {
 		var e error
 		metrics, e = telemetry.New("userd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -98,14 +103,14 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}
 	accountHealth := &accountRuntimeHealth{}
 	secretChecks := map[string]sharedhttp.Check{}
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvProduction {
 		secretChecks["account_workers"] = accountHealth.Check
 	}
 	if secretCheck != nil {
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != nodeEnvProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -161,7 +166,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Window: rateLimitWindow,
 			Redis:  rdb,
 		}))
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvProduction {
 			handlers.RegisterRoutes(gr)
 			registerDevelopmentProfileReads(gr, sqlcdb.New(pool))
 			registerDevelopmentProfileWrites(gr, cfg, pool, rdb, logger)
@@ -174,7 +179,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var accountNATS *nats.Conn
 	var accountRPC *sharedauth.ReportedHashBackend
 	var committedBlocks sharedauth.CommittedBlockProvider
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvProduction {
 		if err = cfg.ValidateAccountRuntime(); err != nil {
 			pool.Close()
 			_ = rdb.Close()
@@ -358,7 +363,7 @@ func registerDevelopmentProfileWrites(r chi.Router, cfg config.Config, pool *pgx
 		Reads:    account.DevelopmentProfileReads{Queries: sqlcdb.New(pool), Clock: time.Now},
 		Identity: identity,
 		Invalidate: func(ctx context.Context, wallet string) error {
-			return sharedredis.CacheInvalidate(ctx, rdb, "user:json:"+wallet)
+			return sharedredis.CacheInvalidate(ctx, rdb, user.ProfileCacheKey(cfg.PublicURL, wallet))
 		},
 		Clock: time.Now,
 	}
@@ -599,7 +604,11 @@ func (a accountAssetsAuthority) callDecoded(ctx context.Context, method, path st
 	if e != nil {
 		return errors.New("DEPENDENCY_UNAVAILABLE")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("account response close", "error", err)
+		}
+	}()
 	if response.StatusCode == 404 {
 		return account.ErrMissing
 	}
@@ -738,7 +747,11 @@ func (o notificationDeletionOwner) DeleteAccount(ctx context.Context, id, deleti
 	if e != nil {
 		return errors.New("DEPENDENCY_UNAVAILABLE")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("identity response close", "error", err)
+		}
+	}()
 	if response.StatusCode != 200 {
 		return errors.New("DEPENDENCY_UNAVAILABLE")
 	}
@@ -798,6 +811,12 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 		out.AccountID = id.String()
 		out.DeviceInstallationID = device.String()
 		out.EncryptedEndpointRef = hex.EncodeToString(fingerprint)
+		if e != nil {
+			return out, raw, e
+		}
+		if revision < 0 {
+			return out, raw, account.ErrState
+		}
 		out.Revision = uint64(revision)
 		out.Status = "active"
 		if !eligible {

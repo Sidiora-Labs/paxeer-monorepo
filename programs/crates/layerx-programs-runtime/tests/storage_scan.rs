@@ -268,6 +268,8 @@ fn expected_cursor(
     max_bytes: u32,
     after: &[u8],
 ) -> Vec<u8> {
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
     let mut cursor = vec![1, 65];
     cursor.extend_from_slice(&owner.bytes());
     cursor.push(0);
@@ -275,22 +277,34 @@ fn expected_cursor(
     cursor.extend_from_slice(&0u16.to_be_bytes());
     cursor.extend_from_slice(&max_entries.to_be_bytes());
     cursor.extend_from_slice(&max_bytes.to_be_bytes());
-    cursor.extend_from_slice(&(after.len() as u16).to_be_bytes());
+    cursor.extend_from_slice(
+        &(u16::try_from(after.len()).assert_success("fixture fits u16")).to_be_bytes(),
+    );
     cursor.extend_from_slice(after);
     cursor
 }
 
 fn expected_page(entries: &[(&[u8], &[u8])], cursor: Option<&[u8]>) -> Vec<u8> {
-    let mut page = (entries.len() as u16).to_be_bytes().to_vec();
+    use layerx_programs_runtime::test_support::AssertSuccess as _;
+
+    let mut page = (u16::try_from(entries.len()).assert_success("fixture fits u16"))
+        .to_be_bytes()
+        .to_vec();
     for (key, value) in entries {
-        page.extend_from_slice(&(key.len() as u16).to_be_bytes());
+        page.extend_from_slice(
+            &(u16::try_from(key.len()).assert_success("fixture fits u16")).to_be_bytes(),
+        );
         page.extend_from_slice(key);
-        page.extend_from_slice(&(value.len() as u32).to_be_bytes());
+        page.extend_from_slice(
+            &(u32::try_from(value.len()).assert_success("fixture fits u32")).to_be_bytes(),
+        );
         page.extend_from_slice(value);
     }
     let cursor = cursor.unwrap_or_default();
     page.push(u8::from(!cursor.is_empty()));
-    page.extend_from_slice(&(cursor.len() as u16).to_be_bytes());
+    page.extend_from_slice(
+        &(u16::try_from(cursor.len()).assert_success("fixture fits u16")).to_be_bytes(),
+    );
     page.extend_from_slice(cursor);
     page
 }
@@ -440,6 +454,20 @@ fn candidate_scan_paginates_across_activities_and_is_insertion_order_independent
         principal_read(),
         &mut left,
         13,
+    );
+    let right_second = execute(
+        &scan_guest(b"", &cursor, 1, 93, 128, 13, 128, 13),
+        owner,
+        actor,
+        principal_read(),
+        &mut right,
+        13,
+    );
+    assert_eq!(second.response(), right_second.response());
+    assert_eq!(second.execution().usage(), right_second.execution().usage());
+    assert_eq!(
+        second.canonical_evidence(),
+        right_second.canonical_evidence()
     );
     assert_eq!(second.execution().usage().storage_read_bytes, 13);
     assert_eq!(

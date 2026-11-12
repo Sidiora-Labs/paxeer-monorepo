@@ -10,6 +10,7 @@ pub use layerx_proof::receipt::ReceiptKeys;
 
 pub mod ai_views;
 pub mod authority_evidence;
+pub mod encoding;
 pub mod evm;
 pub mod explorer_target;
 pub mod http;
@@ -37,15 +38,10 @@ pub const ROUTER_METHODS: [&str; 17] = [
 
 #[must_use]
 pub fn router_method(name: &str) -> bool {
-    !name.starts_with("lx_")
-        && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
+    !name.starts_with("lx_") && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
 }
 
-use layerx_proof::program::{
-    verify_authorized_program_execution_with_payers, verify_program_execution_with_payers,
-    AuthorizedProgramExecutionExpectation, OccupancyPayer, ProgramExecutionExpectation,
-    VerifiedProgramExecution,
-};
+use layerx_proof::program::{verify_authorized_program_execution_with_payers, verify_program_execution_with_payers, AuthorizedProgramExecutionExpectation, OccupancyPayer, ProgramExecutionExpectation, VerifiedProgramExecution};
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, ReceiptCheck};
 use layerx_types::intent::{ProgramCallFailure, ProgramCallOutcome, ProgramLegacyValue};
 pub use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -65,10 +61,7 @@ const KEY_BYTES: usize = 32;
 #[doc(hidden)]
 pub fn pay_timing(stage: &str, started: Instant) {
     if std::env::var_os("LAYERX_PAY_TIMING").is_some() {
-        eprintln!(
-            "pay_timing stage={stage} duration_us={}",
-            started.elapsed().as_micros()
-        );
+        eprintln!("pay_timing stage={stage} duration_us={}", started.elapsed().as_micros());
     }
 }
 
@@ -89,34 +82,15 @@ pub enum AccessError {
 /// # Errors
 /// Returns a typed authentication or persistence failure without exposing the
 /// presented secret.
-pub fn authenticate_gateway_key(
-    store: &RedisStore,
-    authorization: &str,
-) -> Result<KeyRecord, AccessError> {
-    let credentials = authorization
-        .strip_prefix("LayerX-Key ")
-        .ok_or(AccessError::Unauthenticated)?;
+pub fn authenticate_gateway_key(store: &RedisStore, authorization: &str) -> Result<KeyRecord, AccessError> {
+    let credentials = authorization.strip_prefix("LayerX-Key ").ok_or(AccessError::Unauthenticated)?;
     let (id, secret) = credentials
         .split_once(':')
-        .filter(|(id, secret)| {
-            valid_key_identifier(id)
-                && secret.starts_with(KEY_PREFIX)
-                && secret.len() == KEY_PREFIX.len() + KEY_BYTES * 2
-        })
+        .filter(|(id, secret)| valid_key_identifier(id) && secret.starts_with(KEY_PREFIX) && secret.len() == KEY_PREFIX.len() + KEY_BYTES * 2)
         .ok_or(AccessError::Unauthenticated)?;
-    let record = store
-        .key(id)
-        .map_err(|_| AccessError::PersistenceUnavailable)?
-        .ok_or(AccessError::Unauthenticated)?;
+    let record = store.key(id).map_err(|_| AccessError::PersistenceUnavailable)?.ok_or(AccessError::Unauthenticated)?;
     let candidate = gateway_digest(&[b"gateway-key-v1", record.salt.as_bytes(), secret.as_bytes()]);
-    if record.disabled
-        || record
-            .secret_digest
-            .as_bytes()
-            .ct_eq(candidate.as_bytes())
-            .unwrap_u8()
-            != 1
-    {
+    if record.disabled || record.secret_digest.as_bytes().ct_eq(candidate.as_bytes()).unwrap_u8() != 1 {
         return Err(AccessError::Unauthenticated);
     }
     Ok(record)
@@ -124,10 +98,7 @@ pub fn authenticate_gateway_key(
 
 /// # Errors
 /// Refuses a principal lookup unless the durable gateway key authenticates.
-pub fn gateway_principal(
-    store: &RedisStore,
-    authorization: &str,
-) -> Result<serde_json::Value, AccessError> {
+pub fn gateway_principal(store: &RedisStore, authorization: &str) -> Result<serde_json::Value, AccessError> {
     let record = authenticate_gateway_key(store, authorization)?;
     Ok(serde_json::json!({"ok": true, "result": {"principal_digest": record.principal_digest}}))
 }
@@ -148,29 +119,13 @@ pub fn gateway_digest(parts: &[&[u8]]) -> String {
 /// bounded subject and outcome participate; request payloads and credentials
 /// never reach the durable audit stream.
 #[must_use]
-pub fn gateway_audit_event(
-    principal_digest: &str,
-    action: &str,
-    subject: &str,
-    outcome: &str,
-    observed_at: u64,
-) -> String {
-    let event = gateway_digest(&[
-        b"gateway-audit-v1",
-        action.as_bytes(),
-        subject.as_bytes(),
-        outcome.as_bytes(),
-        &observed_at.to_be_bytes(),
-    ]);
+pub fn gateway_audit_event(principal_digest: &str, action: &str, subject: &str, outcome: &str, observed_at: u64) -> String {
+    let event = gateway_digest(&[b"gateway-audit-v1", action.as_bytes(), subject.as_bytes(), outcome.as_bytes(), &observed_at.to_be_bytes()]);
     format!("{principal_digest}:{event}")
 }
 
 fn valid_key_identifier(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    !value.is_empty() && value.len() <= 64 && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -183,14 +138,7 @@ impl PrincipalId {
     /// Returns [`GatewayError::InvalidRequest`] for an invalid identifier.
     pub fn new(value: impl Into<String>) -> Result<Self, GatewayError> {
         let value = value.into();
-        if value.is_empty()
-            || value.len() > 128
-            || !value.bytes().all(|byte| {
-                byte.is_ascii_lowercase()
-                    || byte.is_ascii_digit()
-                    || matches!(byte, b'-' | b'_' | b'.' | b':')
-            })
-        {
+        if value.is_empty() || value.len() > 128 || !value.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.' | b':')) {
             return Err(GatewayError::InvalidRequest);
         }
         Ok(Self(value))
@@ -219,17 +167,10 @@ impl Quota {
     /// # Errors
     /// Returns [`GatewayError::InvalidRequest`] for a zero or excessive bound.
     pub const fn new(requests: u64, window_seconds: u64) -> Result<Self, GatewayError> {
-        if requests == 0
-            || requests > 1_000_000
-            || window_seconds == 0
-            || window_seconds > 2_592_000
-        {
+        if requests == 0 || requests > 1_000_000 || window_seconds == 0 || window_seconds > 2_592_000 {
             return Err(GatewayError::InvalidRequest);
         }
-        Ok(Self {
-            requests,
-            window_seconds,
-        })
+        Ok(Self { requests, window_seconds })
     }
 
     #[must_use]
@@ -250,11 +191,7 @@ pub struct IssuedKey {
 
 impl std::fmt::Debug for IssuedKey {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("IssuedKey")
-            .field("id", &self.id)
-            .field("secret", &"[REDACTED]")
-            .finish()
+        formatter.debug_struct("IssuedKey").field("id", &self.id).field("secret", &"[REDACTED]").finish()
     }
 }
 
@@ -277,8 +214,7 @@ impl IssuedKey {
     #[must_use]
     pub fn derive(provisioning_key: &[u8; 32], context: &[u8]) -> Self {
         let identifier = hmac_sha256(provisioning_key, b"layerx-gateway-key-id-v1", context);
-        let mut secret_bytes =
-            hmac_sha256(provisioning_key, b"layerx-gateway-key-secret-v1", context);
+        let mut secret_bytes = hmac_sha256(provisioning_key, b"layerx-gateway-key-secret-v1", context);
         let id = hex(&identifier[..12]);
         let secret = format!("{KEY_PREFIX}{}", hex(&secret_bytes));
         secret_bytes.zeroize();
@@ -314,13 +250,7 @@ pub struct AuthorityFacts {
 
 impl AuthorityFacts {
     #[must_use]
-    pub const fn new(
-        batch_id: [u8; 32],
-        asset: [u8; 32],
-        previous_state_root: [u8; 32],
-        resulting_state_root: [u8; 32],
-        sequencer_public_key: [u8; 32],
-    ) -> Self {
+    pub const fn new(batch_id: [u8; 32], asset: [u8; 32], previous_state_root: [u8; 32], resulting_state_root: [u8; 32], sequencer_public_key: [u8; 32]) -> Self {
         Self {
             batch_id,
             asset,
@@ -335,10 +265,7 @@ impl AuthorityFacts {
     /// facts, so key selection does not read a hash batch ID as a height.
     #[must_use]
     pub(crate) const fn with_authenticated_batch_number(self, batch_number: u64) -> Self {
-        Self {
-            authenticated_batch_number: Some(batch_number),
-            ..self
-        }
+        Self { authenticated_batch_number: Some(batch_number), ..self }
     }
 
     #[must_use]
@@ -348,13 +275,7 @@ impl AuthorityFacts {
 
     #[must_use]
     pub fn authorized(self) -> AuthorizedBatch {
-        AuthorizedBatch::new(
-            self.batch_id,
-            self.asset,
-            self.previous_state_root,
-            self.resulting_state_root,
-            self.sequencer_public_key,
-        )
+        AuthorizedBatch::new(self.batch_id, self.asset, self.previous_state_root, self.resulting_state_root, self.sequencer_public_key)
     }
 }
 
@@ -425,33 +346,16 @@ struct ActivityResult {
 ///
 /// # Errors
 /// Returns a typed verification error without a partially verified value.
-pub fn verify_activity_operation(
-    receipt_bytes: &[u8],
-    authority: AuthorityFacts,
-    trusted_sequencer_key: &[u8; 32],
-    expected_activity_id: Option<[u8; 32]>,
-) -> Result<VerifiedOperation, GatewayError> {
-    if authority
-        .sequencer_public_key()
-        .ct_eq(trusted_sequencer_key)
-        .unwrap_u8()
-        != 1
-    {
+pub fn verify_activity_operation(receipt_bytes: &[u8], authority: AuthorityFacts, trusted_sequencer_key: &[u8; 32], expected_activity_id: Option<[u8; 32]>) -> Result<VerifiedOperation, GatewayError> {
+    if authority.sequencer_public_key().ct_eq(trusted_sequencer_key).unwrap_u8() != 1 {
         return Err(GatewayError::UntrustedSequencer);
     }
-    let verified = verify_outcome(receipt_bytes, &authority.authorized())
-        .map_err(|failure| GatewayError::Receipt(failure.check))?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
+    let verified = verify_outcome(receipt_bytes, &authority.authorized()).map_err(|failure| GatewayError::Receipt(failure.check))?;
+    let protocol = verified.receipt().protocol().ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
     if expected_activity_id.is_some_and(|expected| protocol.activity_id() != expected) {
         return Err(GatewayError::ActivityMismatch);
     }
-    let receipt_digest = verified
-        .evidence()
-        .receipt_digest()
-        .ok_or(GatewayError::VerificationRequired)?;
+    let receipt_digest = verified.evidence().receipt_digest().ok_or(GatewayError::VerificationRequired)?;
     let response = serde_json::to_vec(&ActivityResult {
         activity_id: hex(&protocol.activity_id()),
         batch_id: hex(&protocol.batch_id()),
@@ -488,20 +392,8 @@ pub struct ProgramExpectation<'a> {
 ///
 /// Refuses untrusted sequencers and every receipt, activity, program, ABI,
 /// terminal, graph, occupancy, or transfer-authority mismatch.
-pub fn verify_program_operation(
-    receipt_bytes: &[u8],
-    terminal_payload: &[u8],
-    call_graph: &[u8],
-    authority: AuthorityFacts,
-    trusted_sequencer_key: &[u8; 32],
-    expected: ProgramExpectation<'_>,
-) -> Result<VerifiedOperation, GatewayError> {
-    if authority
-        .sequencer_public_key()
-        .ct_eq(trusted_sequencer_key)
-        .unwrap_u8()
-        != 1
-    {
+pub fn verify_program_operation(receipt_bytes: &[u8], terminal_payload: &[u8], call_graph: &[u8], authority: AuthorityFacts, trusted_sequencer_key: &[u8; 32], expected: ProgramExpectation<'_>) -> Result<VerifiedOperation, GatewayError> {
+    if authority.sequencer_public_key().ct_eq(trusted_sequencer_key).unwrap_u8() != 1 {
         return Err(GatewayError::UntrustedSequencer);
     }
     let verified = verify_authorized_program_execution_with_payers(
@@ -515,21 +407,10 @@ pub fn verify_program_operation(
             program_id: expected.program_id,
             guest_abi_version: expected.guest_abi_version,
         },
-        &[OccupancyPayer {
-            did: expected.actor_did,
-            account: None,
-        }],
+        &[OccupancyPayer { did: expected.actor_did, account: None }],
     )
     .map_err(|_| GatewayError::VerificationRequired)?;
-    render_verified_program_operation(
-        &verified,
-        terminal_payload,
-        call_graph,
-        expected.program_id,
-        expected.guest_abi_version,
-        *trusted_sequencer_key,
-        "executed",
-    )
+    render_verified_program_operation(&verified, terminal_payload, call_graph, expected.program_id, expected.guest_abi_version, *trusted_sequencer_key, "executed")
 }
 
 /// Verifies a non-committing Programs simulation against a separately pinned
@@ -539,14 +420,7 @@ pub fn verify_program_operation(
 ///
 /// Refuses every receipt or terminal mismatch without returning a partial
 /// simulation result.
-pub fn verify_program_simulation_operation(
-    receipt_bytes: &[u8],
-    terminal_payload: &[u8],
-    call_graph: &[u8],
-    trusted_previous_state_root: [u8; 32],
-    trusted_sequencer_key: [u8; 32],
-    expected: ProgramExpectation<'_>,
-) -> Result<VerifiedOperation, GatewayError> {
+pub fn verify_program_simulation_operation(receipt_bytes: &[u8], terminal_payload: &[u8], call_graph: &[u8], trusted_previous_state_root: [u8; 32], trusted_sequencer_key: [u8; 32], expected: ProgramExpectation<'_>) -> Result<VerifiedOperation, GatewayError> {
     let verified = verify_program_execution_with_payers(
         receipt_bytes,
         terminal_payload,
@@ -559,47 +433,16 @@ pub fn verify_program_simulation_operation(
             program_id: expected.program_id,
             guest_abi_version: expected.guest_abi_version,
         },
-        &[OccupancyPayer {
-            did: expected.actor_did,
-            account: None,
-        }],
+        &[OccupancyPayer { did: expected.actor_did, account: None }],
     )
     .map_err(|_| GatewayError::VerificationRequired)?;
-    render_verified_program_operation(
-        &verified,
-        terminal_payload,
-        call_graph,
-        expected.program_id,
-        expected.guest_abi_version,
-        trusted_sequencer_key,
-        "simulated",
-    )
+    render_verified_program_operation(&verified, terminal_payload, call_graph, expected.program_id, expected.guest_abi_version, trusted_sequencer_key, "simulated")
 }
 
-fn render_verified_program_operation(
-    verified: &VerifiedProgramExecution,
-    terminal_payload: &[u8],
-    call_graph: &[u8],
-    expected_program_id: [u8; 32],
-    expected_guest_abi_version: u16,
-    sequencer_public_key: [u8; 32],
-    state: &str,
-) -> Result<VerifiedOperation, GatewayError> {
-    let protocol = verified
-        .receipt()
-        .receipt()
-        .protocol()
-        .ok_or(GatewayError::VerificationRequired)?;
-    let receipt_digest = verified
-        .receipt()
-        .evidence()
-        .receipt_digest()
-        .ok_or(GatewayError::VerificationRequired)?;
-    let state = if state == "executed" && !verified.outcome().is_completed() {
-        "refused"
-    } else {
-        state
-    };
+fn render_verified_program_operation(verified: &VerifiedProgramExecution, terminal_payload: &[u8], call_graph: &[u8], expected_program_id: [u8; 32], expected_guest_abi_version: u16, sequencer_public_key: [u8; 32], state: &str) -> Result<VerifiedOperation, GatewayError> {
+    let protocol = verified.receipt().receipt().protocol().ok_or(GatewayError::VerificationRequired)?;
+    let receipt_digest = verified.receipt().evidence().receipt_digest().ok_or(GatewayError::VerificationRequired)?;
+    let state = if state == "executed" && !verified.outcome().is_completed() { "refused" } else { state };
     let outcome = program_outcome_json(verified.outcome());
     let response = serde_json::to_vec(&serde_json::json!({
         "state": state,
@@ -696,10 +539,7 @@ pub enum ProductionRoute<'a> {
 }
 
 fn canonical_program_id(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 /// Parses the exact production route set shared with the emulator. Emulator
@@ -707,17 +547,12 @@ fn canonical_program_id(value: &str) -> bool {
 ///
 /// # Errors
 /// Returns [`GatewayError::InvalidRoute`] for drift or unsafe identifiers.
-pub fn production_route<'a>(
-    method: &str,
-    path: &'a str,
-) -> Result<ProductionRoute<'a>, GatewayError> {
+pub fn production_route<'a>(method: &str, path: &'a str) -> Result<ProductionRoute<'a>, GatewayError> {
     match (method, path) {
         ("POST", "/v1/settle") => Ok(ProductionRoute::Settle),
         ("GET", "/v1/state") => Ok(ProductionRoute::State),
         ("GET", path) => {
-            let id = path
-                .strip_prefix("/v1/receipts/")
-                .ok_or(GatewayError::InvalidRoute)?;
+            let id = path.strip_prefix("/v1/receipts/").ok_or(GatewayError::InvalidRoute)?;
             if id.len() == 64 && id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
                 Ok(ProductionRoute::Receipt(id))
             } else {
@@ -728,28 +563,20 @@ pub fn production_route<'a>(
     }
 }
 
+/// # Panics
+///
+/// Panics when the compiled route catalogue or location map is invalid.
 #[must_use]
 pub fn unified_service_catalogue() -> &'static serde_json::Value {
     static CATALOGUE: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
     CATALOGUE.get_or_init(|| {
-        let mut catalogue: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../tools/paxeer-x/route-catalogue.json"
-        ))
-        .expect("compiled unified route catalogue");
-        let locations: serde_json::Map<String, serde_json::Value> =
-            serde_json::from_str(include_str!("../route-locations.json"))
-                .expect("compiled node and hosted gateway locations");
-        catalogue
-            .as_object_mut()
-            .expect("route catalogue is an object")
-            .extend(locations);
-        catalogue["routes"]
-            .as_array_mut()
-            .expect("route catalogue has a routes array")
-            .retain(|route| {
-                let path = route["path"].as_str().expect("route path is a string");
-                path != "/rpc" && !path.starts_with("/rpc/")
-            });
+        let mut catalogue: serde_json::Value = serde_json::from_str(include_str!("../../../../../tools/paxeer-x/route-catalogue.json")).unwrap_or_else(|error| panic!("compiled unified route catalogue: {error}"));
+        let locations: serde_json::Map<String, serde_json::Value> = serde_json::from_str(include_str!("../route-locations.json")).unwrap_or_else(|error| panic!("compiled node and hosted gateway locations: {error}"));
+        catalogue.as_object_mut().unwrap_or_else(|| panic!("route catalogue is an object")).extend(locations);
+        catalogue["routes"].as_array_mut().unwrap_or_else(|| panic!("route catalogue has a routes array")).retain(|route| {
+            let path = route["path"].as_str().unwrap_or_else(|| panic!("route path is a string"));
+            path != "/rpc" && !path.starts_with("/rpc/")
+        });
         catalogue
     })
 }
@@ -757,50 +584,20 @@ pub fn unified_service_catalogue() -> &'static serde_json::Value {
 #[must_use]
 pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serde_json::Value> {
     let (path, query) = http::split_target(target).ok()?;
-    if path.len() > 2048
-        || path.contains('%')
-        || path.split('/').any(|part| part == "." || part == "..")
-    {
+    if path.len() > 2048 || path.contains('%') || path.split('/').any(|part| part == "." || part == "..") {
         return None;
     }
     let wallet_contract = match path {
-        "/v1/wallet/sponsored/quote"
-        | "/v1/wallet/evm/review"
-        | "/v1/wallet/evm/approve"
-        | "/v1/wallet/evm/sign"
-        | "/v1/wallet/sponsored/submit"
-        | "/v1/wallet/sponsored/status"
-        | "/v1/wallet/sign-digest"
-        | "/v1/wallet/sign-custody"
-        | "/v1/wallet/lx/review"
-        | "/v1/wallet/lx/approve"
-        | "/v1/wallet/lx/sign" => Some(method == "POST" && query.is_none()),
+        "/v1/wallet/sponsored/quote" | "/v1/wallet/evm/review" | "/v1/wallet/evm/approve" | "/v1/wallet/evm/sign" | "/v1/wallet/sponsored/submit" | "/v1/wallet/sponsored/status" | "/v1/wallet/sign-digest" | "/v1/wallet/lx/review" | "/v1/wallet/lx/approve" | "/v1/wallet/lx/sign" => {
+            Some(method == "POST" && query.is_none())
+        }
         _ if path.starts_with("/v1/wallet/custody/") => {
             let id = path.strip_prefix("/v1/wallet/custody/")?;
-            Some(
-                method == "GET"
-                    && query.is_none()
-                    && id.strip_prefix("0x").is_some_and(canonical_program_id),
-            )
+            Some(method == "GET" && query.is_none() && id.strip_prefix("0x").is_some_and(canonical_program_id))
         }
-        _ if path.starts_with("/v1/wallet/lx/approvals/")
-            || path.starts_with("/v1/wallet/evm/approvals/") =>
-        {
-            let id = path
-                .strip_prefix("/v1/wallet/lx/approvals/")
-                .or_else(|| path.strip_prefix("/v1/wallet/evm/approvals/"))?;
-            Some(
-                method == "GET"
-                    && query.is_none()
-                    && id.len() == 36
-                    && id.bytes().enumerate().all(|(index, byte)| {
-                        if matches!(index, 8 | 13 | 18 | 23) {
-                            byte == b'-'
-                        } else {
-                            byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
-                        }
-                    }),
-            )
+        _ if path.starts_with("/v1/wallet/lx/approvals/") || path.starts_with("/v1/wallet/evm/approvals/") => {
+            let id = path.strip_prefix("/v1/wallet/lx/approvals/").or_else(|| path.strip_prefix("/v1/wallet/evm/approvals/"))?;
+            Some(method == "GET" && query.is_none() && id.len() == 36 && id.bytes().enumerate().all(|(index, byte)| if matches!(index, 8 | 13 | 18 | 23) { byte == b'-' } else { byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte) }))
         }
         _ => None,
     };
@@ -810,34 +607,24 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
     if wallet_contract == Some(false) || path == "/v1/sync/readiness" && query.is_some() {
         return None;
     }
-    unified_service_catalogue()["routes"]
-        .as_array()?
-        .iter()
-        .find(|entry| {
-            if entry["proxy"] != true
-                || entry["method"] != method
-                || entry["upstream"] == "layerx-explorer"
-            {
-                return false;
-            }
-            let Some(template) = entry["path"].as_str() else {
-                return false;
-            };
-            let expected: Vec<_> = template.split('/').collect();
-            let actual: Vec<_> = path.split('/').collect();
-            expected.len() == actual.len()
-                && expected.iter().zip(actual).all(|(left, right)| {
-                    if left.starts_with(':') || left.starts_with('{') && left.ends_with('}') {
-                        !right.is_empty()
-                            && right.len() <= 512
-                            && right
-                                .bytes()
-                                .all(|byte| byte.is_ascii_alphanumeric() || b"-._:".contains(&byte))
-                    } else {
-                        *left == right
-                    }
-                })
-        })
+    unified_service_catalogue()["routes"].as_array()?.iter().find(|entry| {
+        if entry["proxy"] != true || entry["method"] != method || entry["upstream"] == "layerx-explorer" {
+            return false;
+        }
+        let Some(template) = entry["path"].as_str() else {
+            return false;
+        };
+        let expected: Vec<_> = template.split('/').collect();
+        let actual: Vec<_> = path.split('/').collect();
+        expected.len() == actual.len()
+            && expected.iter().zip(actual).all(|(left, right)| {
+                if left.starts_with(':') || left.starts_with('{') && left.ends_with('}') {
+                    !right.is_empty() && right.len() <= 512 && right.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"-._:".contains(&byte))
+                } else {
+                    *left == right
+                }
+            })
+    })
 }
 
 #[derive(Clone, Default)]
@@ -846,6 +633,10 @@ pub struct HpxIngressPolicy {
 }
 
 impl HpxIngressPolicy {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the protected file cannot be read or contains invalid key material.
     pub fn from_protected_file(path: &std::path::Path) -> Result<Self, String> {
         use std::io::Read;
         use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
@@ -855,48 +646,22 @@ impl HpxIngressPolicy {
             schema: String,
             trusted_proxies: Vec<String>,
         }
-        if !path.is_absolute()
-            || path.components().any(|part| {
-                part.as_os_str()
-                    .to_str()
-                    .is_some_and(|part| part == ".env" || part.starts_with(".env."))
-            })
-        {
+        if !path.is_absolute() || path.components().any(|part| part.as_os_str().to_str().is_some_and(|part| part == ".env" || part.starts_with(".env."))) {
             return Err("HPX ingress path invalid".into());
         }
-        let mut file = std::fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(0x20000)
-            .open(path)
-            .map_err(|_| "HPX ingress policy unavailable")?;
-        let metadata = file
-            .metadata()
-            .map_err(|_| "HPX ingress policy unavailable")?;
-        let owner = std::fs::metadata("/proc/self")
-            .map_err(|_| "HPX ingress owner unavailable")?
-            .uid();
-        if !metadata.is_file()
-            || metadata.uid() != owner
-            || metadata.nlink() != 1
-            || metadata.mode() & 0o077 != 0
-            || metadata.len() > 16_384
-        {
+        let mut file = std::fs::OpenOptions::new().read(true).custom_flags(0x20000).open(path).map_err(|_| "HPX ingress policy unavailable")?;
+        let metadata = file.metadata().map_err(|_| "HPX ingress policy unavailable")?;
+        let owner = std::fs::metadata("/proc/self").map_err(|_| "HPX ingress owner unavailable")?.uid();
+        if !metadata.is_file() || metadata.uid() != owner || metadata.nlink() != 1 || metadata.mode() & 0o077 != 0 || metadata.len() > 16_384 {
             return Err("HPX ingress policy not protected".into());
         }
         let mut bytes = Vec::new();
-        file.by_ref()
-            .take(16_385)
-            .read_to_end(&mut bytes)
-            .map_err(|_| "HPX ingress policy unreadable")?;
+        file.by_ref().take(16_385).read_to_end(&mut bytes).map_err(|_| "HPX ingress policy unreadable")?;
         if bytes.len() > 16_384 {
             return Err("HPX ingress policy exceeds bound".into());
         }
-        let document: Policy =
-            serde_json::from_slice(&bytes).map_err(|_| "HPX ingress policy malformed")?;
-        if document.schema != "layerx.hpx-ingress.v1"
-            || document.trusted_proxies.is_empty()
-            || document.trusted_proxies.len() > 32
-        {
+        let document: Policy = serde_json::from_slice(&bytes).map_err(|_| "HPX ingress policy malformed")?;
+        if document.schema != "layerx.hpx-ingress.v1" || document.trusted_proxies.is_empty() || document.trusted_proxies.len() > 32 {
             return Err("HPX ingress policy shape invalid".into());
         }
         let mut trusted_proxies = std::collections::BTreeSet::new();
@@ -909,22 +674,17 @@ impl HpxIngressPolicy {
         Ok(Self { trusted_proxies })
     }
 
-    pub fn client_address(
-        &self,
-        peer: std::net::SocketAddr,
-        forwarded: Option<&str>,
-    ) -> Result<std::net::IpAddr, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the client address cannot be derived from the request.
+    pub fn client_address(&self, peer: std::net::SocketAddr, forwarded: Option<&str>) -> Result<std::net::IpAddr, String> {
         let mut current = normalized_hpx_ip(peer.ip());
         if !self.trusted_proxies.contains(&current) {
             return Ok(current);
         }
         let chain = forwarded.ok_or("HPX trusted ingress chain absent")?;
-        if chain.is_empty()
-            || chain.len() > 1024
-            || chain
-                .bytes()
-                .any(|byte| !byte.is_ascii_graphic() && byte != b' ')
-        {
+        if chain.is_empty() || chain.len() > 1024 || chain.bytes().any(|byte| !byte.is_ascii_graphic() && byte != b' ') {
             return Err("HPX trusted ingress chain exceeds bound".into());
         }
         let parts: Vec<_> = chain.split(',').collect();
@@ -955,20 +715,14 @@ impl HpxIngressPolicy {
 
 fn normalized_hpx_ip(ip: std::net::IpAddr) -> std::net::IpAddr {
     match ip {
-        std::net::IpAddr::V6(ip) => ip
-            .to_ipv4_mapped()
-            .map_or(std::net::IpAddr::V6(ip), std::net::IpAddr::V4),
-        ip => ip,
+        std::net::IpAddr::V6(ip) => ip.to_ipv4_mapped().map_or(std::net::IpAddr::V6(ip), std::net::IpAddr::V4),
+        ip @ std::net::IpAddr::V4(_) => ip,
     }
 }
 
 fn canonical_hpx_ip(value: &str) -> Result<std::net::IpAddr, String> {
     let ip: std::net::IpAddr = value.parse().map_err(|_| "HPX ingress address invalid")?;
-    if ip.to_string() != value
-        || normalized_hpx_ip(ip) != ip
-        || ip.is_unspecified()
-        || ip.is_multicast()
-    {
+    if ip.to_string() != value || normalized_hpx_ip(ip) != ip || ip.is_unspecified() || ip.is_multicast() {
         return Err("HPX ingress address not canonical".into());
     }
     Ok(ip)
@@ -1065,37 +819,29 @@ struct ReceiptKeyEntry {
 }
 
 impl ReceiptKeyList {
+    #[must_use]
     pub fn entries(&self) -> &[SequencerAuthorization] {
         &self.0
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the quota configuration is invalid.
     pub fn from_config(document: &str) -> Result<Self, &'static str> {
         if document.len() > 256 * 1024 {
             return Err("receipt key list");
         }
-        let entries: Vec<ReceiptKeyEntry> =
-            serde_json::from_str(document).map_err(|_| "receipt key list")?;
+        let entries: Vec<ReceiptKeyEntry> = serde_json::from_str(document).map_err(|_| "receipt key list")?;
         if entries.is_empty() {
             return Err("receipt key list");
         }
         let mut keys = Vec::with_capacity(entries.len());
         for entry in entries {
-            let id: [u8; 32] = layerx_platform_internal::base64::decode(&entry.key_id)
-                .and_then(|bytes| bytes.try_into().ok())
-                .ok_or("sequencer ID")?;
-            let public_key: [u8; 32] = layerx_platform_internal::base64::decode(&entry.public_key)
-                .and_then(|bytes| bytes.try_into().ok())
-                .ok_or("sequencer public key")?;
-            let authorization = configured_sequencer(
-                &hex(&id),
-                &hex(&public_key),
-                &entry.first_height.to_string(),
-                &entry.last_height.to_string(),
-            )?;
-            if keys
-                .iter()
-                .any(|key: &SequencerAuthorization| key.sequencer_id() == id)
-            {
+            let id: [u8; 32] = layerx_platform_internal::base64::decode(&entry.key_id).and_then(|bytes| bytes.try_into().ok()).ok_or("sequencer ID")?;
+            let public_key: [u8; 32] = layerx_platform_internal::base64::decode(&entry.public_key).and_then(|bytes| bytes.try_into().ok()).ok_or("sequencer public key")?;
+            let authorization = configured_sequencer(&hex(&id), &hex(&public_key), &entry.first_height.to_string(), &entry.last_height.to_string())?;
+            if keys.iter().any(|key: &SequencerAuthorization| key.sequencer_id() == id) {
                 return Err("duplicate receipt key ID");
             }
             keys.push(authorization);
@@ -1103,6 +849,7 @@ impl ReceiptKeyList {
         Ok(Self(keys))
     }
 
+    #[must_use]
     pub fn single(&self) -> Option<&SequencerAuthorization> {
         match self.0.as_slice() {
             [authorization] => Some(authorization),
@@ -1110,10 +857,11 @@ impl ReceiptKeyList {
         }
     }
 
-    pub fn authorization_for_key(
-        &self,
-        public_key: [u8; 32],
-    ) -> Result<&SequencerAuthorization, GatewayError> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the key cannot be authorized.
+    pub fn authorization_for_key(&self, public_key: [u8; 32]) -> Result<&SequencerAuthorization, GatewayError> {
         let mut matching = self.0.iter().filter(|key| key.public_key() == public_key);
         let authorization = matching.next().ok_or(GatewayError::UntrustedSequencer)?;
         if matching.next().is_some() {
@@ -1122,15 +870,9 @@ impl ReceiptKeyList {
         Ok(authorization)
     }
 
-    fn authorization_at(
-        &self,
-        public_key: [u8; 32],
-        height: u64,
-    ) -> Result<&SequencerAuthorization, GatewayError> {
+    fn authorization_at(&self, public_key: [u8; 32], height: u64) -> Result<&SequencerAuthorization, GatewayError> {
         let authorization = self.authorization_for_key(public_key)?;
-        if !(authorization.first_batch_number()..=authorization.last_batch_number())
-            .contains(&height)
-        {
+        if !(authorization.first_batch_number()..=authorization.last_batch_number()).contains(&height) {
             return Err(GatewayError::UntrustedSequencer);
         }
         Ok(authorization)
@@ -1144,10 +886,7 @@ impl ReceiptKeyList {
     /// Refuses an unconfigured key, a batch outside that key's window, or a
     /// batch ID that is not a canonical height when no authenticated number is
     /// attached.
-    pub fn authorization_for_facts(
-        &self,
-        authority: AuthorityFacts,
-    ) -> Result<&SequencerAuthorization, GatewayError> {
+    pub fn authorization_for_facts(&self, authority: AuthorityFacts) -> Result<&SequencerAuthorization, GatewayError> {
         let batch_number = match authority.authenticated_batch_number {
             Some(batch_number) => batch_number,
             None => batch_height(authority.batch_id)?,
@@ -1160,26 +899,14 @@ impl ReceiptKeyList {
     ///
     /// # Errors
     /// Refuses a receipt no configured key signed within its window.
-    pub fn authorization_for_receipt(
-        &self,
-        receipt_bytes: &[u8],
-    ) -> Result<&SequencerAuthorization, GatewayError> {
-        let receipt = layerx_wire::receipt::decode(receipt_bytes)
-            .map_err(|_| GatewayError::Receipt(ReceiptCheck::Decode))?;
-        let height = batch_height(
-            receipt
-                .protocol()
-                .ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?
-                .batch_id(),
-        )?;
+    pub fn authorization_for_receipt(&self, receipt_bytes: &[u8]) -> Result<&SequencerAuthorization, GatewayError> {
+        let receipt = layerx_wire::receipt::decode(receipt_bytes).map_err(|_| GatewayError::Receipt(ReceiptCheck::Decode))?;
+        let height = batch_height(receipt.protocol().ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?.batch_id())?;
         let signer = self
             .0
             .iter()
             .filter(|key| (key.first_batch_number()..=key.last_batch_number()).contains(&height))
-            .find(|key| {
-                layerx_proof::receipt::verify_sequencer_signature(receipt_bytes, key.public_key())
-                    .is_ok()
-            })
+            .find(|key| layerx_proof::receipt::verify_sequencer_signature(receipt_bytes, key.public_key()).is_ok())
             .ok_or(GatewayError::UntrustedSequencer)?;
         self.authorization_at(signer.public_key(), height)
     }
@@ -1188,37 +915,23 @@ impl ReceiptKeyList {
     ///
     /// # Errors
     /// Refuses an unconfigured sequencer ID or a batch outside its window.
-    pub fn authorization_for_header(
-        &self,
-        sequencer_id: [u8; 32],
-        batch_number: u64,
-    ) -> Result<&SequencerAuthorization, GatewayError> {
-        let named = self
-            .0
-            .iter()
-            .find(|key| key.sequencer_id() == sequencer_id)
-            .ok_or(GatewayError::UntrustedSequencer)?;
+    pub fn authorization_for_header(&self, sequencer_id: [u8; 32], batch_number: u64) -> Result<&SequencerAuthorization, GatewayError> {
+        let named = self.0.iter().find(|key| key.sequencer_id() == sequencer_id).ok_or(GatewayError::UntrustedSequencer)?;
         if !(named.first_batch_number()..=named.last_batch_number()).contains(&batch_number) {
             return Err(GatewayError::UntrustedSequencer);
         }
         Ok(named)
     }
 
-    pub fn verify_receipt(
-        &self,
-        receipt_bytes: &[u8],
-    ) -> Result<layerx_wire::receipt::Receipt, GatewayError> {
-        let receipt = layerx_wire::receipt::decode(receipt_bytes)
-            .map_err(|_| GatewayError::Receipt(ReceiptCheck::Decode))?;
-        let protocol = receipt
-            .protocol()
-            .ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the receipt is invalid for the expected execution.
+    pub fn verify_receipt(&self, receipt_bytes: &[u8]) -> Result<layerx_wire::receipt::Receipt, GatewayError> {
+        let receipt = layerx_wire::receipt::decode(receipt_bytes).map_err(|_| GatewayError::Receipt(ReceiptCheck::Decode))?;
+        let protocol = receipt.protocol().ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
         self.authorization_for_header(protocol.context_hash(), batch_height(protocol.batch_id())?)?;
-        layerx_proof::receipt::verify_sequencer_signature(
-            receipt_bytes,
-            ReceiptKeys::HeightRanges(self.0.as_slice()),
-        )
-        .map_err(|failure| GatewayError::Receipt(failure.check))
+        layerx_proof::receipt::verify_sequencer_signature(receipt_bytes, ReceiptKeys::HeightRanges(self.0.as_slice())).map_err(|failure| GatewayError::Receipt(failure.check))
     }
 }
 
@@ -1227,9 +940,7 @@ fn batch_height(batch_id: [u8; 32]) -> Result<u64, GatewayError> {
     if prefix != [0; 24] {
         return Err(GatewayError::Receipt(ReceiptCheck::BatchId));
     }
-    Ok(u64::from_be_bytes(height.try_into().map_err(|_| {
-        GatewayError::Receipt(ReceiptCheck::BatchId)
-    })?))
+    Ok(u64::from_be_bytes(height.try_into().map_err(|_| GatewayError::Receipt(ReceiptCheck::BatchId))?))
 }
 
 /// Verifies a live-read receipt under the configured key its authority facts
@@ -1238,54 +949,28 @@ fn batch_height(batch_id: [u8; 32]) -> Result<u64, GatewayError> {
 /// # Errors
 /// Refuses an unconfigured key or out-of-window height as an untrusted
 /// sequencer, and every receipt or activity mismatch.
-pub fn verify_live_receipt(
-    receipt_bytes: &[u8],
-    authority: AuthorityFacts,
-    keys: &ReceiptKeyList,
-    expected_activity_id: Option<[u8; 32]>,
-) -> Result<VerifiedOperation, GatewayError> {
+pub fn verify_live_receipt(receipt_bytes: &[u8], authority: AuthorityFacts, keys: &ReceiptKeyList, expected_activity_id: Option<[u8; 32]>) -> Result<VerifiedOperation, GatewayError> {
     let authorization = keys.authorization_for_facts(authority)?;
-    verify_activity_operation(
-        receipt_bytes,
-        authority,
-        &authorization.public_key(),
-        expected_activity_id,
-    )
+    verify_activity_operation(receipt_bytes, authority, &authorization.public_key(), expected_activity_id)
 }
 
-pub fn verify_settlement_receipt(
-    receipt_bytes: &[u8],
-    authority: AuthorityFacts,
-    keys: &ReceiptKeyList,
-    expected_activity_id: [u8; 32],
-) -> Result<VerifiedOperation, GatewayError> {
+///
+/// # Errors
+///
+/// Returns an error when the settlement receipt is invalid for the expected execution.
+pub fn verify_settlement_receipt(receipt_bytes: &[u8], authority: AuthorityFacts, keys: &ReceiptKeyList, expected_activity_id: [u8; 32]) -> Result<VerifiedOperation, GatewayError> {
     let receipt = keys.verify_receipt(receipt_bytes)?;
-    let protocol = receipt
-        .protocol()
-        .ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
-    let authorization = keys
-        .0
-        .iter()
-        .find(|key| key.sequencer_id() == protocol.context_hash())
-        .ok_or(GatewayError::UntrustedSequencer)?;
+    let protocol = receipt.protocol().ok_or(GatewayError::Receipt(ReceiptCheck::ReceiptShape))?;
+    let authorization = keys.0.iter().find(|key| key.sequencer_id() == protocol.context_hash()).ok_or(GatewayError::UntrustedSequencer)?;
     if authority.sequencer_public_key() != authorization.public_key() {
         return Err(GatewayError::UntrustedSequencer);
     }
     let batch = authority.authorized();
     for (matches, check) in [
-        (
-            protocol.batch_id() == batch.batch_id(),
-            ReceiptCheck::BatchId,
-        ),
+        (protocol.batch_id() == batch.batch_id(), ReceiptCheck::BatchId),
         (protocol.asset() == batch.asset(), ReceiptCheck::Asset),
-        (
-            protocol.previous_state_root() == batch.previous_state_root(),
-            ReceiptCheck::PreviousStateRoot,
-        ),
-        (
-            protocol.resulting_state_root() == batch.resulting_state_root(),
-            ReceiptCheck::ResultingStateRoot,
-        ),
+        (protocol.previous_state_root() == batch.previous_state_root(), ReceiptCheck::PreviousStateRoot),
+        (protocol.resulting_state_root() == batch.resulting_state_root(), ReceiptCheck::ResultingStateRoot),
     ] {
         if !matches {
             return Err(GatewayError::Receipt(check));
@@ -1294,10 +979,8 @@ pub fn verify_settlement_receipt(
     if protocol.activity_id() != expected_activity_id {
         return Err(GatewayError::ActivityMismatch);
     }
-    let unsigned = layerx_wire::receipt::encode_unsigned(&receipt)
-        .map_err(|_| GatewayError::Receipt(ReceiptCheck::CanonicalEncoding))?;
-    let receipt_digest = layerx_wire::hash::receipt_digest(&unsigned)
-        .map_err(|_| GatewayError::Receipt(ReceiptCheck::CanonicalEncoding))?;
+    let unsigned = layerx_wire::receipt::encode_unsigned(&receipt).map_err(|_| GatewayError::Receipt(ReceiptCheck::CanonicalEncoding))?;
+    let receipt_digest = layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| GatewayError::Receipt(ReceiptCheck::CanonicalEncoding))?;
     let response = serde_json::to_vec(&ActivityResult {
         activity_id: hex(&protocol.activity_id()),
         batch_id: hex(&protocol.batch_id()),
@@ -1322,19 +1005,13 @@ pub fn verify_settlement_receipt(
 ///
 /// # Errors
 /// Returns the invalid pin name for malformed keys, identities or bounds.
-pub fn configured_sequencer(
-    id: &str,
-    key: &str,
-    first: &str,
-    last: &str,
-) -> Result<SequencerAuthorization, &'static str> {
+pub fn configured_sequencer(id: &str, key: &str, first: &str, last: &str) -> Result<SequencerAuthorization, &'static str> {
     let authorization = SequencerAuthorization::from_config(id, key, first, last)?;
     if authorization.sequencer_id() == [0; 32] {
         return Err("sequencer ID");
     }
     let bytes = authorization.public_key();
-    let key =
-        ed25519_dalek::VerifyingKey::from_bytes(&bytes).map_err(|_| "sequencer public key")?;
+    let key = ed25519_dalek::VerifyingKey::from_bytes(&bytes).map_err(|_| "sequencer public key")?;
     let mut y = bytes;
     y[31] &= 0x7f;
     let mut prime = [0xff; 32];
@@ -1348,20 +1025,12 @@ pub fn configured_sequencer(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        production_route, router_method, GatewayError, IssuedKey, ProductionRoute, ReceiptKeyList,
-        ROUTER_METHODS,
-    };
+    use super::{production_route, router_method, GatewayError, IssuedKey, ProductionRoute, ReceiptKeyList, ROUTER_METHODS};
 
     #[test]
     fn repair_22_31_370_wallet_routes_match_exact_contract() {
-        for path in [
-            "/v1/wallet/evm/review",
-            "/v1/wallet/evm/approve",
-            "/v1/wallet/evm/sign",
-            "/v1/wallet/sponsored/quote",
-        ] {
-            let row = super::unified_service_route("POST", path).expect("wallet route");
+        for path in ["/v1/wallet/evm/review", "/v1/wallet/evm/approve", "/v1/wallet/evm/sign", "/v1/wallet/sponsored/quote"] {
+            let row = super::unified_service_route("POST", path).unwrap_or_else(|| panic!("wallet route"));
             assert_eq!(row["upstream"], "wallet-gateway");
             assert_eq!(row["authentication"], "requireAuth");
             assert!(super::unified_service_route("GET", path).is_none());
@@ -1370,16 +1039,8 @@ mod tests {
         let status = "/v1/wallet/evm/approvals/12345678-1234-4234-8234-123456789abc";
         assert!(super::unified_service_route("GET", status).is_some());
         assert!(super::unified_service_route("POST", status).is_none());
-        for id in [
-            "bad",
-            "12345678-1234-4234-8234-123456789abZ",
-            "%2e%2e",
-            "../review",
-        ] {
-            assert!(
-                super::unified_service_route("GET", &format!("/v1/wallet/evm/approvals/{id}"))
-                    .is_none()
-            );
+        for id in ["bad", "12345678-1234-4234-8234-123456789abZ", "%2e%2e", "../review"] {
+            assert!(super::unified_service_route("GET", &format!("/v1/wallet/evm/approvals/{id}")).is_none());
         }
     }
 
@@ -1390,10 +1051,7 @@ mod tests {
             assert!(pair[0].as_bytes() < pair[1].as_bytes(), "{pair:?}");
         }
         for name in ROUTER_METHODS {
-            assert!(
-                name.starts_with("px_") || name.starts_with("pax_"),
-                "{name}"
-            );
+            assert!(name.starts_with("px_") || name.starts_with("pax_"), "{name}");
             assert!(router_method(name), "{name}");
         }
     }
@@ -1426,13 +1084,7 @@ mod tests {
         ] {
             assert!(!router_method(name), "{name}");
         }
-        for name in [
-            "eth_chainId",
-            "eth_sign",
-            "net_version",
-            "web3_clientVersion",
-            "px_getBalances",
-        ] {
+        for name in ["eth_chainId", "eth_sign", "net_version", "web3_clientVersion", "px_getBalances"] {
             assert!(router_method(name), "{name}");
         }
         for name in ["", "px_unknown", "pax_unknown", "getBalances"] {
@@ -1442,9 +1094,7 @@ mod tests {
 
     #[test]
     fn receipt_keys_list_loads() -> Result<(), Box<dyn std::error::Error>> {
-        let key = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32])
-            .verifying_key()
-            .to_bytes();
+        let key = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32]).verifying_key().to_bytes();
         let document = serde_json::json!([
             { "keyId": layerx_platform_internal::base64::encode(&[1; 32]),
               "publicKey": layerx_platform_internal::base64::encode(&key),
@@ -1501,46 +1151,18 @@ mod tests {
         ];
         for path in retired {
             for method in ["POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
-                for target in [
-                    path.clone(),
-                    format!("{path}/"),
-                    format!("{path}?limit=1"),
-                    format!("{path}/extra"),
-                ] {
-                    assert_eq!(
-                        production_route(method, &target),
-                        Err(GatewayError::InvalidRoute),
-                        "{method} {target}"
-                    );
+                for target in [path.clone(), format!("{path}/"), format!("{path}?limit=1"), format!("{path}/extra")] {
+                    assert_eq!(production_route(method, &target), Err(GatewayError::InvalidRoute), "{method} {target}");
                 }
             }
         }
-        assert_eq!(
-            production_route("POST", "/v1/settle"),
-            Ok(ProductionRoute::Settle)
-        );
-        assert_eq!(
-            production_route("GET", "/v1/state"),
-            Ok(ProductionRoute::State)
-        );
+        assert_eq!(production_route("POST", "/v1/settle"), Ok(ProductionRoute::Settle));
+        assert_eq!(production_route("GET", "/v1/state"), Ok(ProductionRoute::State));
         for identifier in [identifier, "A".repeat(64)] {
-            assert_eq!(
-                production_route("GET", &format!("/v1/receipts/{identifier}")),
-                Ok(ProductionRoute::Receipt(&identifier))
-            );
+            assert_eq!(production_route("GET", &format!("/v1/receipts/{identifier}")), Ok(ProductionRoute::Receipt(&identifier)));
         }
-        for (method, path) in [
-            ("GET", "/v1/settle"),
-            ("POST", "/v1/settle/"),
-            ("POST", "/v1/state"),
-            ("GET", "/v1/state/"),
-            ("GET", "/v1/receipts/aa"),
-            ("GET", "/v1/receipts/../state"),
-        ] {
-            assert_eq!(
-                production_route(method, path),
-                Err(GatewayError::InvalidRoute)
-            );
+        for (method, path) in [("GET", "/v1/settle"), ("POST", "/v1/settle/"), ("POST", "/v1/state"), ("GET", "/v1/state/"), ("GET", "/v1/receipts/aa"), ("GET", "/v1/receipts/../state")] {
+            assert_eq!(production_route(method, path), Err(GatewayError::InvalidRoute));
         }
     }
 }
@@ -1571,7 +1193,7 @@ mod authorization_config_tests {
     }
 }
 
-// Use the shared consensus codec while the gateway manifest is outside this repair's scope.
+#[allow(unused, clippy::all, clippy::pedantic, clippy::unwrap_used, clippy::expect_used, clippy::float_arithmetic, clippy::lossy_float_literal)]
 #[path = "../../../../interop/crates/layerx-committed-proof/src/lib.rs"]
 pub mod committed_proof;
 pub use committed_proof::{commit, header, merkle, proto, ProofError};

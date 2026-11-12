@@ -775542,3 +775542,513 @@ callers = []
 status = "new"
 contract = "contracts/inference-market.md#qualification"
 notes = "planned by task 22.38.36 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.chainlaunch-method-launchchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 45
+signature = "launchChain(string,string,uint8,address,string,uint64,uint64,uint16)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchchainwithpermit]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 151
+signature = "launchChainWithPermit(string,string,uint8,address,string,uint64,uint64,uint16,tuple)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-openchainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 190
+signature = "openChainRevenueEpoch(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-claimchainrevenue]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 219
+signature = "claimChainRevenue(uint32,uint64)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-claimchainrevenuebatch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 243
+signature = "claimChainRevenueBatch(uint32,uint64[])"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-pauselaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 262
+signature = "pauseLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-resumelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 275
+signature = "resumeLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-retirelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 288
+signature = "retireLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 301
+signature = "launchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchedchainofpool]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 350
+signature = "launchedChainOfPool(address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-homechainof]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 369
+signature = "homeChainOf(address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-chainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 393
+signature = "chainRevenueEpoch(uint32,uint64)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-chainrevenueclaimable]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 452
+signature = "chainRevenueClaimable(uint32,uint64,address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainlaunched]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3250
+signature = "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainrevenueepochopened]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3299
+signature = "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainrevenueclaimed]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3342
+signature = "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-launchedchainretired]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3379
+signature = "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-error-wrongchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4234
+signature = "WrongChain()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-notlaunchedchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4224
+signature = "NotLaunchedChain()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-notfeerightholder]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4219
+signature = "NotFeeRightHolder()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-epochtooearly]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4214
+signature = "EpochTooEarly()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-nothingtodistribute]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4229
+signature = "NothingToDistribute()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-alreadyclaimed]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 3876
+signature = "AlreadyClaimed()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-store-launchedchain]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 60
+signature = "LaunchedChainPrefix     = []byte{0x53}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-launchedchainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 61
+signature = "ChainPoolPrefix         = []byte{0x54}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-homechainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 62
+signature = "HomeChainPrefix         = []byte{0x55}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenuelastepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 64
+signature = "ChainRevenueLastPrefix  = []byte{0x57}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenueepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 63
+signature = "ChainRevenueEpochPrefix = []byte{0x56}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenueclaim]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 65
+signature = "ChainRevenueClaimPrefix = []byte{0x58}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-launchchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch.go"
+line = 16
+signature = "func (k *Keeper) LaunchChain(ctx sdk.Context, caller NestedCaller, evm *vm.EVM, creator common.Address,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getlaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 13
+signature = "func (k *Keeper) GetLaunchedChain(ctx sdk.Context, number uint64) (types.LaunchedChain, bool, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getlaunchedchainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 51
+signature = "func (k *Keeper) RegistryNumberByPool(ctx sdk.Context, pool common.Address) (uint64, bool) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-gethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 60
+signature = "func (k *Keeper) HomeChainByPool(ctx sdk.Context, pool common.Address) uint64 {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-sethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 65
+signature = "func (k *Keeper) SetHomeChainByPool(ctx sdk.Context, pool common.Address, chain uint64) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-checkhomechain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/homechain.go"
+line = 10
+signature = "func (k *Keeper) checkHomeChain(ctx sdk.Context, pool common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 75
+signature = "func (k *Keeper) GetChainRevenueEpoch(ctx sdk.Context, chain, epoch uint64) (types.ChainRevenueEpoch, bool, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getchainrevenuelastepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 109
+signature = "func (k *Keeper) LastChainRevenueEpoch(ctx sdk.Context, chain uint64) uint64 {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-hasclaimedchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 114
+signature = "func (k *Keeper) HasChainRevenueClaim(ctx sdk.Context, chain, epoch uint64, holder common.Address) bool {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-openchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 18
+signature = "func (k *Keeper) OpenChainRevenueEpoch(ctx sdk.Context, caller NestedCaller, chain uint64) (types.ChainRevenueEpoch, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-claimchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 159
+signature = "func (k *Keeper) ClaimChainRevenue(ctx sdk.Context, caller NestedCaller, chain, epoch uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-claimchainrevenuebatch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 198
+signature = "func (k *Keeper) ClaimChainRevenueBatch(ctx sdk.Context, caller NestedCaller, chain uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-chainrevenueclaimable]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 139
+signature = "func (k *Keeper) ChainRevenueClaimable(ctx sdk.Context, caller NestedCaller, chain, epoch uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-pauselaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 32
+signature = "func (k *Keeper) PauseLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-resumelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 41
+signature = "func (k *Keeper) ResumeLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-retirelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 50
+signature = "func (k *Keeper) RetireLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-route-list]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 80
+signature = "GET /v2/chains"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-route-detail]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 81
+signature = "GET /v2/chains/{chain}"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-route-revenue]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 82
+signature = "GET /v2/chains/{chain}/revenue"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-listlaunchedchains]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 84
+signature = "list(query: ChainPageQuery = {}, options: ChainRequestOptions = {}): Promise<ChainsResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-getlaunchedchain]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 88
+signature = "get(chain: string, options: ChainRequestOptions = {}): Promise<ChainDetailResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-getlaunchedchainrevenue]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 92
+signature = "revenue(chain: string, query: ChainRevenueQuery = {}, options: ChainRequestOptions = {}): Promise<ChainRevenueResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"

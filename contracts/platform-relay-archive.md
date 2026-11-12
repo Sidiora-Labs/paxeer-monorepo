@@ -1,6 +1,6 @@
 # Relay and archive migration contract
 
-The standalone relay/archive service is **retired**. Its former `services/platform/relay_archive` tree is absent. This page preserves contract anchors for migration; it does not describe a service to install. Paxeer is one BFT network: the kernel participates in `paxd` block proposal, and a receipt is final when its block commits. Full and archive `paxd` nodes provide chain history. Tenant domains do not require a relay process or another chain.
+The standalone relay/archive service is **retired**. This page preserves contract anchors for migration; it does not describe a service to install. Paxeer is one BFT network: the kernel participates in `paxd` block proposal, and a receipt is final when its block commits. Full and archive `paxd` nodes provide chain history. Tenant domains do not require a relay process or another chain.
 
 See [the retirement inventory](../spec/layerx-merge/programme/data/retired.kvx), component `replica`, for the deletion boundary. Use [hosted history and indexing](platform-hosted.md#indexer-http-routes) for application projections and [the gateway](platform-gateway.md#gateway-jsonrpc-methods) for hosted history methods. An indexer's completeness watermark and an archive node's retained state are different guarantees.
 
@@ -27,8 +27,6 @@ The old relay store and state-archive formats are retired, including the files o
 ## Relay archive HTTP routes
 
 The former runtime, forwarding and state-archive HTTP endpoints are retired. Public Ethereum JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`, with chain ID 125 (`0x7d`). The retired `/rpc` family is not a public network route. Hosted indexer HTTP reads are documented [separately](platform-hosted.md#indexer-http-routes); their deployment address is configuration, not a public node alias.
-
-<a id="relay-archive-jsonrpc-methods"></a>
 
 ## Relay archive JSON-RPC methods
 

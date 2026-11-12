@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
@@ -23,9 +31,12 @@ enum Request {
 }
 
 fn serve(exchanges: Vec<(Request, Value)>) -> (String, JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    listener.set_nonblocking(true).unwrap();
-    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let listener = require_ok(TcpListener::bind("127.0.0.1:0"), "required test value");
+    require_ok(listener.set_nonblocking(true), "required test value");
+    let endpoint = format!(
+        "http://{}",
+        require_ok(listener.local_addr(), "required test value")
+    );
     let worker = thread::spawn(move || {
         for (expected, mut answer) in exchanges {
             let deadline = Instant::now() + Duration::from_secs(5);
@@ -39,15 +50,20 @@ fn serve(exchanges: Vec<(Request, Value)>) -> (String, JoinHandle<()>) {
                     Err(error) => panic!("accept: {error}"),
                 }
             };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
+            require_ok(
+                stream.set_read_timeout(Some(Duration::from_secs(5))),
+                "required test value",
+            );
+            require_ok(
+                stream.set_write_timeout(Some(Duration::from_secs(5))),
+                "required test value",
+            );
             let mut reader = BufReader::new(stream);
             let mut line = String::new();
-            assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+            assert_ne!(
+                require_ok(reader.read_line(&mut line), "required test value"),
+                0
+            );
             let path = match &expected {
                 Request::Simulation(_) => "/v1/programs/simulate",
                 Request::Rpc(_, _) => "/",
@@ -56,22 +72,29 @@ fn serve(exchanges: Vec<(Request, Value)>) -> (String, JoinHandle<()>) {
             let mut length = None;
             loop {
                 line.clear();
-                assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+                assert_ne!(
+                    require_ok(reader.read_line(&mut line), "required test value"),
+                    0
+                );
                 if line == "\r\n" {
                     break;
                 }
                 if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(value.trim().parse::<usize>().unwrap());
+                    length = Some(require_ok(
+                        value.trim().parse::<usize>(),
+                        "required test value",
+                    ));
                 }
             }
-            let length = length.unwrap();
+            let length = require_some(length, "required test value");
             assert!(length < 64 * 1024);
             let mut body = vec![0; length];
-            reader.read_exact(&mut body).unwrap();
+            require_ok(reader.read_exact(&mut body), "required test value");
             match expected {
                 Request::Simulation(signed) => assert_eq!(body, signed),
                 Request::Rpc(method, params) => {
-                    let request: Value = serde_json::from_slice(&body).unwrap();
+                    let request: Value =
+                        require_ok(serde_json::from_slice(&body), "required test value");
                     assert_eq!(request["jsonrpc"], "2.0");
                     assert_eq!(request["method"], method);
                     assert_eq!(request["params"], params);
@@ -81,20 +104,34 @@ fn serve(exchanges: Vec<(Request, Value)>) -> (String, JoinHandle<()>) {
             }
             let text = answer.to_string();
             let mut stream = reader.into_inner();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}", text.len()).unwrap();
-            stream.flush().unwrap();
+            require_ok(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}", text.len()), "required test value");
+            require_ok(stream.flush(), "required test value");
         }
     });
     (endpoint, worker)
 }
 
 fn fixture() -> (Value, Vec<u8>, Vec<u8>) {
-    let value: Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
-    ))
-    .unwrap();
-    let payload = hex::decode(value["payload_hex"].as_str().unwrap()).unwrap();
-    let signed = hex::decode(value["signed_activity_hex"].as_str().unwrap()).unwrap();
+    let value: Value = require_ok(
+        serde_json::from_str(include_str!(
+            "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
+        )),
+        "required test value",
+    );
+    let payload = require_ok(
+        hex::decode(require_some(
+            value["payload_hex"].as_str(),
+            "required test value",
+        )),
+        "required test value",
+    );
+    let signed = require_ok(
+        hex::decode(require_some(
+            value["signed_activity_hex"].as_str(),
+            "required test value",
+        )),
+        "required test value",
+    );
     (value, payload, signed)
 }
 
@@ -117,7 +154,7 @@ fn simulation_document() -> Value {
 #[test]
 fn program_hex_unicode_panic_simulation_fields_refuse_and_owner_remains_available() {
     let (_, payload, signed) = fixture();
-    let native = NativeProgramCall::decode(&payload).unwrap();
+    let native = require_ok(NativeProgramCall::decode(&payload), "required test value");
     let mut exchanges = Vec::new();
     let mut invalid = Vec::new();
     for field in ["receipt", "terminal_payload", "call_graph"] {
@@ -149,13 +186,19 @@ fn program_hex_unicode_panic_simulation_fields_refuse_and_owner_remains_availabl
         exchanges.push((Request::Simulation(signed.clone()), simulation_document()));
     }
     let (endpoint, server) = serve(exchanges);
-    let mut owner = EmulatorProgramSimulationTransport::connect(&endpoint).unwrap();
+    let mut owner = require_ok(
+        EmulatorProgramSimulationTransport::connect(&endpoint),
+        "required test value",
+    );
     for _ in 0..cases {
         assert!(matches!(
             owner.simulate_native_exact(native, 1000, &signed),
             Err(ProgramOperationError::UnverifiedReceipt)
         ));
-        let recovered = owner.simulate_native_exact(native, 1000, &signed).unwrap();
+        let recovered = require_ok(
+            owner.simulate_native_exact(native, 1000, &signed),
+            "required test value",
+        );
         assert_eq!(recovered.receipt, [0, 0xaa, 0xff]);
         assert_eq!(
             recovered.terminal_payload,
@@ -164,13 +207,13 @@ fn program_hex_unicode_panic_simulation_fields_refuse_and_owner_remains_availabl
         assert!(recovered.call_graph.is_empty());
         assert_eq!(recovered.evidence_signature, [0x55; 64]);
     }
-    server.join().unwrap();
+    require_ok(server.join(), "required test value");
 }
 
 #[test]
 fn program_hex_simulation_bounds_are_enforced_before_decoding() {
     let (_, payload, signed) = fixture();
-    let native = NativeProgramCall::decode(&payload).unwrap();
+    let native = require_ok(NativeProgramCall::decode(&payload), "required test value");
     let mut exchanges = Vec::new();
     for field in ["receipt", "terminal_payload", "call_graph"] {
         for length in [MAX_MESSAGE_BYTES + 1, MAX_MESSAGE_BYTES] {
@@ -180,13 +223,19 @@ fn program_hex_simulation_bounds_are_enforced_before_decoding() {
         }
     }
     let (endpoint, server) = serve(exchanges);
-    let mut owner = EmulatorProgramSimulationTransport::connect(&endpoint).unwrap();
+    let mut owner = require_ok(
+        EmulatorProgramSimulationTransport::connect(&endpoint),
+        "required test value",
+    );
     for field in ["receipt", "terminal_payload", "call_graph"] {
         assert!(matches!(
             owner.simulate_native_exact(native, 1000, &signed),
             Err(ProgramOperationError::UnverifiedReceipt)
         ));
-        let recovered = owner.simulate_native_exact(native, 1000, &signed).unwrap();
+        let recovered = require_ok(
+            owner.simulate_native_exact(native, 1000, &signed),
+            "required test value",
+        );
         let bytes = match field {
             "receipt" => recovered.receipt,
             "terminal_payload" => recovered.terminal_payload,
@@ -195,7 +244,7 @@ fn program_hex_simulation_bounds_are_enforced_before_decoding() {
         assert_eq!(bytes.len(), MAX_MESSAGE_BYTES);
         assert!(bytes.iter().all(|byte| *byte == 0xaf));
     }
-    server.join().unwrap();
+    require_ok(server.join(), "required test value");
 }
 
 fn word(value: usize) -> [u8; 32] {
@@ -226,8 +275,11 @@ fn successful_call() -> Value {
 #[test]
 fn program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available() {
     let (fixture, payload, _) = fixture();
-    let native = NativeProgramCall::decode(&payload).unwrap();
-    let precompile = ProgramOperations::<SequencerEndpoint>::call_precompile(native, 1000).unwrap();
+    let native = require_ok(NativeProgramCall::decode(&payload), "required test value");
+    let precompile = require_ok(
+        ProgramOperations::<SequencerEndpoint>::call_precompile(native, 1000),
+        "required test value",
+    );
     let transaction = Eip1559Call {
         chain_id: 125,
         nonce: 7,
@@ -235,15 +287,18 @@ fn program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available() {
         max_fee_per_gas: 10,
         gas_limit: 1_000_000,
         to: precompile.target.address(),
-        data: precompile.encode().unwrap(),
+        data: require_ok(precompile.encode(), "required test value"),
     };
     assert_eq!(
         format!("0x{}", hex::encode(&transaction.data)),
         fixture["evm"]["calldata"]
     );
-    let signed = transaction.sign(&[0xa5; 32]).unwrap();
-    let (_, signature) = decode_signed(&signed).unwrap();
-    let sender = recover_sender(&transaction, &signature).unwrap();
+    let signed = require_ok(transaction.sign(&[0xa5; 32]), "required test value");
+    let (_, signature) = require_ok(decode_signed(&signed), "required test value");
+    let sender = require_ok(
+        recover_sender(&transaction, &signature),
+        "required test value",
+    );
     let params = json!([{"from": format!("0x{}", hex::encode(sender)),
         "to": format!("0x{}", hex::encode(transaction.to)),
         "data": format!("0x{}", hex::encode(&transaction.data))}, "pending"]);
@@ -311,16 +366,44 @@ fn program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available() {
             exchanges.push((Request::Rpc("eth_call", params.clone()), successful_call()));
         }
     }
+    continue_program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available_1_repair_22_33_1527(ContinueProgramHexUnicodePanicNodeRevertsRefuseAndOwnerRemainsAvailable1Repair22331527Context { native, transaction, signed, sender, cases, exchanges });
+}
+
+struct ContinueProgramHexUnicodePanicNodeRevertsRefuseAndOwnerRemainsAvailable1Repair22331527Context<
+    'a,
+> {
+    native: NativeProgramCall<'a>,
+    transaction: Eip1559Call,
+    signed: Vec<u8>,
+    sender: [u8; 20],
+    cases: Vec<(String, ProgramOperationError)>,
+    exchanges: Vec<(Request, Value)>,
+}
+
+fn continue_program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available_1_repair_22_33_1527(
+    context: ContinueProgramHexUnicodePanicNodeRevertsRefuseAndOwnerRemainsAvailable1Repair22331527Context<'_>,
+) {
+    let ContinueProgramHexUnicodePanicNodeRevertsRefuseAndOwnerRemainsAvailable1Repair22331527Context { native, transaction, signed, sender, cases, exchanges } = context;
+
     let (endpoint, server) = serve(exchanges);
-    let mut endpoint = SequencerEndpoint::new(&endpoint, &[]).unwrap();
-    let mut owner =
-        NodeProgramSimulationTransport::new(&mut endpoint, ModuleRegistry::new(&[]).unwrap(), 42);
+    let mut endpoint = require_ok(
+        SequencerEndpoint::new(&endpoint, &[]),
+        "required test value",
+    );
+    let mut owner = NodeProgramSimulationTransport::new(
+        &mut endpoint,
+        require_ok(ModuleRegistry::new(&[]), "required test value"),
+        42,
+    );
     for _ in [true, false] {
         for (_, expected) in &cases {
             assert!(
                 matches!(owner.simulate_native_exact(native, 1000, &signed), Err(actual) if actual == *expected)
             );
-            let recovered = owner.simulate_native_exact(native, 1000, &signed).unwrap();
+            let recovered = require_ok(
+                owner.simulate_native_exact(native, 1000, &signed),
+                "required test value",
+            );
             match recovered.evidence {
                 ProgramSimulationEvidence::EvmPending {
                     activity_id,
@@ -337,9 +420,11 @@ fn program_hex_unicode_panic_node_reverts_refuse_and_owner_remains_available() {
                     assert_eq!(result.terminal_kind, 1);
                     assert_eq!(result.response, b"answer");
                 }
-                other => panic!("unexpected evidence: {other:?}"),
+                other @ ProgramSimulationEvidence::SequencerSigned { .. } => {
+                    panic!("unexpected evidence: {other:?}")
+                }
             }
         }
     }
-    server.join().unwrap();
+    require_ok(server.join(), "required test value");
 }

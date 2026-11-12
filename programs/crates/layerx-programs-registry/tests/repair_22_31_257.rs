@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -35,7 +36,7 @@ fn hash(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 fn program() -> ProgramId {
-    ProgramId::new([0x31; 32]).unwrap()
+    ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn policy() -> UpgradePolicy {
     UpgradePolicy::Authority([0x51; 32])
@@ -48,13 +49,19 @@ fn transcript() -> BTreeMap<String, Vec<u8>> {
     );
     text.lines()
         .map(|line| {
-            let (key, value) = line.split_once('=').unwrap();
-            (key.into(), layerx_programs::hex::decode(value).unwrap())
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("expected value"));
+            (
+                key.into(),
+                layerx_programs::hex::decode(value).unwrap_or_else(|error| panic!("{error:?}")),
+            )
         })
         .collect()
 }
 fn descriptor(version: usize) -> ProgramInterface {
-    ProgramInterface::decode(&transcript()[&format!("interface.{version}")]).unwrap()
+    ProgramInterface::decode(&transcript()[&format!("interface.{version}")])
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn code(version: usize) -> Vec<u8> {
     transcript()[&format!("wasm.{version}")].clone()
@@ -68,7 +75,7 @@ fn interface_key() -> Vec<u8> {
     programs_state_key(&interface_state_key(program()))
 }
 fn records() -> [DeploymentRecord; 2] {
-    let mut runtime = Lifecycle::declared().unwrap();
+    let mut runtime = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
     let first = runtime
         .deploy(Deploy {
             program: program(),
@@ -77,7 +84,7 @@ fn records() -> [DeploymentRecord; 2] {
             abi_version: 1,
             upgrade_policy: policy(),
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let second = runtime
         .upgrade(Upgrade {
             program: program(),
@@ -87,7 +94,7 @@ fn records() -> [DeploymentRecord; 2] {
             abi_version: 1,
             migration: None,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     [first, second]
         .iter()
         .enumerate()
@@ -104,11 +111,11 @@ fn records() -> [DeploymentRecord; 2] {
                 39 + i as u64,
                 1_700_000_001_123 + i as u64 * 1000,
             )
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
         })
         .collect::<Vec<_>>()
         .try_into()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn program_value(version: usize) -> Vec<u8> {
     record_value(&records()[version - 1])
@@ -167,8 +174,9 @@ fn capability_fixture() -> (ChainFixture, ChainDeploymentProof, ProgramInterface
     entries[0].capabilities = vec![InterfaceCapability::ReceiptRead {
         receipt_digest: [1; 32],
     }];
-    let published = ProgramInterface::bind(&wasm, 1, entries).unwrap();
-    let mut lifecycle = Lifecycle::declared().unwrap();
+    let published =
+        ProgramInterface::bind(&wasm, 1, entries).unwrap_or_else(|error| panic!("{error:?}"));
+    let mut lifecycle = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
     let receipt = lifecycle
         .deploy(Deploy {
             program: program(),
@@ -177,7 +185,7 @@ fn capability_fixture() -> (ChainFixture, ChainDeploymentProof, ProgramInterface
             abi_version: 1,
             upgrade_policy: policy(),
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let record = DeploymentRecord::from_deployment(
         &receipt,
         &ProgramVersion {
@@ -189,7 +197,7 @@ fn capability_fixture() -> (ChainFixture, ChainDeploymentProof, ProgramInterface
         38,
         1_700_000_000_123,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let chain = ChainFixture::new(
         CHAIN,
         &SEEDS,
@@ -197,22 +205,29 @@ fn capability_fixture() -> (ChainFixture, ChainDeploymentProof, ProgramInterface
             (program_key(), record_value(&record)),
             (
                 interface_key(),
-                interface_state_value(program(), 1, &published).unwrap(),
+                interface_state_value(program(), 1, &published)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
             ),
         ],
     )
-    .unwrap();
-    let interface_state =
-        decode_commitment_proof(&chain.encode_key(&interface_key()).unwrap()).unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let interface_state = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let proof = ChainDeploymentProof::from_state_proofs(
         ChainProgramStateProof {
             program: program(),
-            ops: chain.prove(&program_key()).unwrap(),
+            ops: chain
+                .prove(&program_key())
+                .unwrap_or_else(|error| panic!("{error:?}")),
         },
         wasm,
         &interface_state,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     (chain, proof, published)
 }
 fn state_fixture(version: usize, value: Option<Vec<u8>>) -> (ChainFixture, ChainDeploymentProof) {
@@ -220,37 +235,59 @@ fn state_fixture(version: usize, value: Option<Vec<u8>>) -> (ChainFixture, Chain
     if let Some(value) = value {
         rows.push((interface_key(), value));
     }
-    let chain = ChainFixture::new(CHAIN, &SEEDS, rows).unwrap();
-    let witness = decode_commitment_proof(&chain.encode_key(&interface_key()).unwrap()).unwrap();
+    let chain = ChainFixture::new(CHAIN, &SEEDS, rows).unwrap_or_else(|error| panic!("{error:?}"));
+    let witness = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let deployment = ChainDeploymentProof::from_state_proofs(
         ChainProgramStateProof {
             program: program(),
-            ops: chain.prove(&program_key()).unwrap(),
+            ops: chain
+                .prove(&program_key())
+                .unwrap_or_else(|error| panic!("{error:?}")),
         },
         code(version),
         &witness,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     (chain, deployment)
 }
 fn witness(proof: &ChainDeploymentProof) -> CommitmentProof {
-    decode_commitment_proof(proof.interface.as_deref().unwrap()).unwrap()
+    decode_commitment_proof(
+        proof
+            .interface
+            .as_deref()
+            .unwrap_or_else(|| panic!("expected value")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn set_witness(proof: &mut ChainDeploymentProof, witness: &CommitmentProof) {
-    proof.interface = Some(witness.encode().unwrap());
+    proof.interface = Some(witness.encode().unwrap_or_else(|error| panic!("{error:?}")));
 }
 fn value(version: usize) -> Vec<u8> {
-    interface_state_value(program(), version as u32, &descriptor(version)).unwrap()
+    interface_state_value(
+        program(),
+        u32::try_from(version).unwrap_or_else(|error| panic!("{error:?}")),
+        &descriptor(version),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn alternate() -> ProgramInterface {
     let mut entries = descriptor(1).entries().to_vec();
     entries[0].discriminator = [9; 4];
     entries[0].calldata = ValueSchema::layerx(ValueType::Bytes { max_len: 65 });
-    ProgramInterface::bind(&code(1), 1, entries).unwrap()
+    ProgramInterface::bind(&code(1), 1, entries).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn sign(fixture: &mut ChainFixture) {
     fixture.commit.height = fixture.header.height;
-    fixture.commit.block_id.hash = fixture.header.hash().unwrap().to_vec();
+    fixture.commit.block_id.hash = fixture
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_vec();
     let timestamp = Timestamp {
         seconds: fixture.header.time.seconds,
         nanos: fixture.header.time.nanos,
@@ -262,7 +299,7 @@ fn sign(fixture: &mut ChainFixture) {
         Some(&fixture.commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let mut keys = SEEDS.iter().map(SigningKey::from_bytes).collect::<Vec<_>>();
     keys.sort_by_key(|key| TrustedValidator::new(key.verifying_key().to_bytes(), 1).address);
     fixture.commit.signatures = keys
@@ -284,45 +321,41 @@ struct Admission {
     verifier: ProtocolDeploymentVerifier,
     now: u64,
 }
-fn admission(version: usize) -> Admission {
-    let producer = transcript();
-    let transaction = &producer[if version == 1 { "deploy" } else { "upgrade" }];
-    let prior_rows = if version == 1 {
-        vec![(b"unrelated".to_vec(), vec![1])]
-    } else {
-        vec![(program_key(), program_value(1))]
-    };
-    let mut prior = ChainFixture::new(CHAIN, &SEEDS, prior_rows).unwrap();
-    prior.header.height = 37 + version as i64;
-    prior.header.time.seconds += version as i64 - 1;
-    let tx_root = hash_from_byte_slices(&[&hash(transaction)]);
-    prior.header.data_hash = tx_root.to_vec();
-    sign(&mut prior);
-    let (mut chain, _) = state_fixture(version, Some(value(version)));
-    chain.header.height = prior.header.height + 1;
-    chain.header.time.seconds = prior.header.time.seconds + 1;
-    chain.header.last_block_id.hash = prior.commit.block_id.hash.clone();
-    chain.header.last_block_id.part_set_total = prior.commit.block_id.part_set_header.total;
-    chain.header.last_block_id.part_set_hash = prior.commit.block_id.part_set_header.hash.clone();
-    let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
-    assert_eq!(result_root.as_slice(), producer["success.root"]);
-    chain.header.last_results_hash = result_root.to_vec();
-    sign(&mut chain);
-    let commitment = decode_commitment_proof(&chain.encode_key(&program_key()).unwrap()).unwrap();
-    let interface_state =
-        decode_commitment_proof(&chain.encode_key(&interface_key()).unwrap()).unwrap();
+fn bound_proof(
+    version: usize,
+    chain: &ChainFixture,
+    prior: &ChainFixture,
+    transaction: &[u8],
+    producer: &BTreeMap<String, Vec<u8>>,
+    tx_root: [u8; 32],
+    result_root: [u8; 32],
+) -> DeploymentProof {
+    let commitment = decode_commitment_proof(
+        &chain
+            .encode_key(&program_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let interface_state = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let state = ChainProgramStateProof {
         program: program(),
-        ops: chain.prove(&program_key()).unwrap(),
+        ops: chain
+            .prove(&program_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
     };
     let mut status_key = b"wind-down\0s".to_vec();
     status_key.extend_from_slice(&program().bytes());
     let status_ops = chain
         .prove_absent(&programs_state_key(&status_key))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let deployment =
         ChainDeploymentProof::from_state_proofs(state.clone(), code(version), &interface_state)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
     let mut proof = DeploymentProof {
         state: ProgramStateProof {
             commitment,
@@ -351,8 +384,13 @@ fn admission(version: usize) -> Admission {
     };
     proof
         .bind_execution(&DeploymentExecutionProof {
-            transaction: transaction.clone(),
-            previous: decode_commitment_proof(&prior.encode_key(&program_key()).unwrap()).unwrap(),
+            transaction: transaction.to_vec(),
+            previous: decode_commitment_proof(
+                &prior
+                    .encode_key(&program_key())
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}")),
             result: TxResult {
                 code: 0,
                 data: producer["success"].clone(),
@@ -365,19 +403,68 @@ fn admission(version: usize) -> Admission {
                 leaf_hash: result_root,
                 aunts: vec![],
             },
-            interface_ops: chain.prove(&interface_key()).unwrap(),
+            interface_ops: chain
+                .prove(&interface_key())
+                .unwrap_or_else(|error| panic!("{error:?}")),
             migration: None,
             migration_ops: vec![],
             migration_previous_ops: vec![],
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    proof
+}
+
+fn admission(version: usize) -> Admission {
+    let producer = transcript();
+    let transaction = &producer[if version == 1 { "deploy" } else { "upgrade" }];
+    let prior_rows = if version == 1 {
+        vec![(b"unrelated".to_vec(), vec![1])]
+    } else {
+        vec![(program_key(), program_value(1))]
+    };
+    let mut prior =
+        ChainFixture::new(CHAIN, &SEEDS, prior_rows).unwrap_or_else(|error| panic!("{error:?}"));
+    prior.header.height = 37 + i64::try_from(version).unwrap_or_else(|error| panic!("{error:?}"));
+    prior.header.time.seconds +=
+        i64::try_from(version).unwrap_or_else(|error| panic!("{error:?}")) - 1;
+    let tx_root = hash_from_byte_slices(&[&hash(transaction)]);
+    prior.header.data_hash = tx_root.to_vec();
+    sign(&mut prior);
+    let (mut chain, _) = state_fixture(version, Some(value(version)));
+    chain.header.height = prior.header.height + 1;
+    chain.header.time.seconds = prior.header.time.seconds + 1;
+    chain
+        .header
+        .last_block_id
+        .hash
+        .clone_from(&prior.commit.block_id.hash);
+    chain.header.last_block_id.part_set_total = prior.commit.block_id.part_set_header.total;
+    chain
+        .header
+        .last_block_id
+        .part_set_hash
+        .clone_from(&prior.commit.block_id.part_set_header.hash);
+    let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+    assert_eq!(result_root.as_slice(), producer["success.root"]);
+    chain.header.last_results_hash = result_root.to_vec();
+    sign(&mut chain);
+    let proof = bound_proof(
+        version,
+        &chain,
+        &prior,
+        transaction,
+        &producer,
+        tx_root,
+        result_root,
+    );
     let verifier = ProtocolDeploymentVerifier::from_chain_trust(
         CHAIN,
         chain.verifier.validators.validators().to_vec(),
         5000,
     )
-    .unwrap();
-    let now = chain.header.time.seconds as u64 * 1000 + chain.header.time.nanos as u64 / 1_000_000;
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let now = u64::from_le_bytes((chain.header.time.seconds).to_le_bytes()) * 1000
+        + u64::from_le_bytes(i64::from(chain.header.time.nanos).to_le_bytes()) / 1_000_000;
     Admission {
         chain,
         proof,
@@ -392,11 +479,16 @@ fn deployment_interface_authentication_presence() {
     let head = chain
         .verifier
         .verify_head(&chain.header, &chain.commit)
-        .unwrap();
-    let verified = proof.verify(&head).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let verified = proof
+        .verify(&head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(verified.interface(), Some(&descriptor(1)));
     assert_eq!(
-        verified.interface().unwrap().digest(),
+        verified
+            .interface()
+            .unwrap_or_else(|| panic!("expected value"))
+            .digest(),
         descriptor(1).digest()
     );
     assert_eq!(verified.program(), program());
@@ -425,9 +517,12 @@ fn deployment_interface_authentication_presence() {
         let candidate_head = candidate_chain
             .verifier
             .verify_head(&candidate_chain.header, &candidate_chain.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(
-            candidate_proof.verify(&candidate_head).unwrap().interface(),
+            candidate_proof
+                .verify(&candidate_head)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .interface(),
             Some(&original)
         );
         let mut entries = original.entries().to_vec();
@@ -438,18 +533,23 @@ fn deployment_interface_authentication_presence() {
             _ => {
                 entries[0].capabilities = vec![InterfaceCapability::ReceiptRead {
                     receipt_digest: [2; 32],
-                }]
+                }];
             }
         }
-        let substitute = ProgramInterface::bind(&candidate_proof.code, 1, entries).unwrap();
+        let substitute = ProgramInterface::bind(&candidate_proof.code, 1, entries)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_ne!(substitute.digest(), original.digest());
         let mut changed = candidate_proof.clone();
         let mut substituted_witness = witness(&changed);
-        substituted_witness.value = Some(interface_state_value(program(), 1, &substitute).unwrap());
+        substituted_witness.value = Some(
+            interface_state_value(program(), 1, &substitute)
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        );
         set_witness(&mut changed, &substituted_witness);
         assert!(changed.verify(&candidate_head).is_err());
         replacements.push(Some(
-            interface_state_value(program(), 1, &substitute).unwrap(),
+            interface_state_value(program(), 1, &substitute)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         ));
     }
     for replacement in replacements {
@@ -470,8 +570,10 @@ fn deployment_interface_authentication_absence() {
     let head = chain
         .verifier
         .verify_head(&chain.header, &chain.commit)
-        .unwrap();
-    let verified = proof.verify(&head).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let verified = proof
+        .verify(&head)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(!verified.interface_present());
     assert_eq!(verified.interface(), None);
     let mut changed = proof.clone();
@@ -487,7 +589,7 @@ fn deployment_interface_authentication_absence() {
     let present_head = present
         .verifier
         .verify_head(&present.header, &present.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let mut hidden = presence;
     hidden.interface = proof.interface;
     assert!(hidden.verify(&present_head).is_err());
@@ -497,12 +599,22 @@ fn deployment_interface_authentication_absence() {
 fn deployment_interface_authentication_record_binding() {
     let good = value(1);
     let mut invalid_values = vec![
-        interface_state_value(ProgramId::new([0x32; 32]).unwrap(), 1, &descriptor(1)).unwrap(),
-        interface_state_value(program(), 2, &descriptor(1)).unwrap(),
-        interface_state_value(program(), 1, &descriptor(2)).unwrap(),
+        interface_state_value(
+            ProgramId::new([0x32; 32]).unwrap_or_else(|error| panic!("{error:?}")),
+            1,
+            &descriptor(1),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}")),
+        interface_state_value(program(), 2, &descriptor(1))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        interface_state_value(program(), 1, &descriptor(2))
+            .unwrap_or_else(|error| panic!("{error:?}")),
     ];
-    let abi = ProgramInterface::bind(&code(1), 2, descriptor(1).entries().to_vec()).unwrap();
-    invalid_values.push(interface_state_value(program(), 1, &abi).unwrap());
+    let abi = ProgramInterface::bind(&code(1), 2, descriptor(1).entries().to_vec())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    invalid_values.push(
+        interface_state_value(program(), 1, &abi).unwrap_or_else(|error| panic!("{error:?}")),
+    );
     for offset in [36, 68] {
         let mut changed = good.clone();
         changed[offset] ^= 1;
@@ -517,17 +629,20 @@ fn deployment_interface_authentication_record_binding() {
         let head = chain
             .verifier
             .verify_head(&chain.header, &chain.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         // These are valid membership proofs; rejection must come from record binding.
         let witness = witness(&proof);
         layerx_programs::verify_state(
             &head,
             "lxphost",
             &interface_key(),
-            witness.value.as_deref().unwrap(),
+            witness
+                .value
+                .as_deref()
+                .unwrap_or_else(|| panic!("expected value")),
             &witness.proof_ops,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         assert!(proof.verify(&head).is_err());
     }
 }
@@ -538,7 +653,7 @@ fn deployment_interface_authentication_proof_binding() {
     let head = chain
         .verifier
         .verify_head(&chain.header, &chain.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     for index in 0..2 {
         for field in 0..3 {
             let mut changed = proof.clone();
@@ -570,14 +685,17 @@ fn deployment_interface_authentication_proof_binding() {
     assert!(changed.verify(&head).is_err());
     let (other, mut other_proof) = state_fixture(
         1,
-        Some(interface_state_value(program(), 1, &alternate()).unwrap()),
+        Some(
+            interface_state_value(program(), 1, &alternate())
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ),
     );
     assert_ne!(chain.header.app_hash, other.header.app_hash);
     other_proof.interface = proof.interface.clone();
     let other_head = other
         .verifier
         .verify_head(&other.header, &other.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(other_proof.verify(&other_head).is_err());
     let mut same_root = chain;
     same_root.header.height += 1;
@@ -586,11 +704,15 @@ fn deployment_interface_authentication_proof_binding() {
     let new_head = same_root
         .verifier
         .verify_head(&same_root.header, &same_root.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(head.app_hash(), new_head.app_hash());
     assert!(proof.verify(&new_head).is_err());
     let mut trailing = proof;
-    trailing.interface.as_mut().unwrap().push(0);
+    trailing
+        .interface
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected value"))
+        .push(0);
     assert!(trailing.verify(&head).is_err());
 }
 
@@ -603,13 +725,13 @@ impl Temp {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).unwrap();
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("{error:?}"));
         Self(path)
     }
 }
 impl Drop for Temp {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).unwrap_or_else(|error| panic!("{error:?}"));
     }
 }
 
@@ -620,31 +742,37 @@ fn deployment_interface_authentication_transport_recovery() {
     let mut expected = Vec::new();
     for version in [1, 2] {
         let input = admission(version);
-        let transported =
-            DeploymentProof::decode(&input.proof.canonical_encoding().unwrap()).unwrap();
+        let transported = DeploymentProof::decode(
+            &input
+                .proof
+                .canonical_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(transported, input.proof);
         let evidence = input
             .verifier
             .verify_deployment(&transported, input.now)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(evidence.record(), &records()[version - 1]);
         assert_eq!(evidence.interface(), Some(&descriptor(version)));
         assert_eq!(
             evidence.receipt_digest(),
             hash(&transcript()[if version == 1 { "deploy" } else { "upgrade" }])
         );
-        live.record_verified_deployment(&evidence).unwrap();
+        live.record_verified_deployment(&evidence)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         input
             .proof
             .publish_canonical(&temp.0.join(format!("{version}.admission")))
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         fs::write(
             temp.0.join(format!("{version}.envelope")),
             DeploymentEnvelope::from_evidence(&evidence)
                 .canonical_encoding()
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("{error:?}")),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
         expected.push(evidence);
     }
     assert_eq!(live.latest_version(program()), Ok(2));
@@ -653,27 +781,35 @@ fn deployment_interface_authentication_transport_recovery() {
     for (i, expected) in expected.into_iter().enumerate() {
         let version = i + 1;
         let envelope = DeploymentEnvelope::decode(
-            &fs::read(temp.0.join(format!("{version}.envelope"))).unwrap(),
+            &fs::read(temp.0.join(format!("{version}.envelope")))
+                .unwrap_or_else(|error| panic!("{error:?}")),
         )
-        .unwrap();
-        let proof =
-            DeploymentProof::read_canonical(&temp.0.join(format!("{version}.admission"))).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        let proof = DeploymentProof::read_canonical(&temp.0.join(format!("{version}.admission")))
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(envelope.proof(), &proof);
         let fresh = admission(version);
         let evidence = fresh
             .verifier
             .verify_deployment(envelope.proof(), fresh.now)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(evidence, expected);
         assert_eq!(envelope.record(), evidence.record());
         assert_eq!(envelope.receipt_digest(), evidence.receipt_digest());
         assert_eq!(
-            evidence.interface().unwrap().digest(),
+            evidence
+                .interface()
+                .unwrap_or_else(|| panic!("expected value"))
+                .digest(),
             descriptor(version).digest()
         );
-        recovered.record_verified_deployment(&evidence).unwrap();
+        recovered
+            .record_verified_deployment(&evidence)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(
-            recovered.resolve_deployment(evidence.clone()).unwrap(),
+            recovered
+                .resolve_deployment(evidence.clone())
+                .unwrap_or_else(|error| panic!("{error:?}")),
             expected
         );
         let mut changed = proof;
@@ -693,7 +829,7 @@ fn deployment_interface_authentication_current_historical() {
         .chain
         .verifier
         .verify_head(&input.chain.header, &input.chain.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let mut chain = input.chain;
     let old_header = chain.header.clone();
     let old_commit = chain.commit.clone();
@@ -704,7 +840,7 @@ fn deployment_interface_authentication_current_historical() {
     let current = chain
         .verifier
         .verify_head(&chain.header, &chain.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let trust = vec![
         (old_header, old_commit, chain.verifier.validators.clone()),
         (
@@ -713,16 +849,16 @@ fn deployment_interface_authentication_current_historical() {
             chain.verifier.validators.clone(),
         ),
     ];
-    let now = current.time_ms() as u64;
+    let now = u64::from_le_bytes((current.time_ms()).to_le_bytes());
     let current_evidence = input
         .verifier
         .verify_deployment(&input.proof, input.now)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         input
             .verifier
             .verify_historical_deployment(&input.proof, &current, &trust, now)
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         current_evidence
     );
     assert_eq!(current_evidence.interface(), Some(&descriptor(1)));
@@ -732,17 +868,28 @@ fn deployment_interface_authentication_current_historical() {
     invalid.push(hidden);
     let mut substituted = input.proof.clone();
     let mut altered = witness(&substituted.deployment);
-    altered.value = Some(interface_state_value(program(), 1, &alternate()).unwrap());
+    altered.value = Some(
+        interface_state_value(program(), 1, &alternate())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    );
     set_witness(&mut substituted.deployment, &altered);
     invalid.push(substituted);
     let mut cross_version = input.proof.clone();
     cross_version.deployment.interface = admission(2).proof.deployment.interface;
     invalid.push(cross_version);
     for changed in invalid {
-        let transported = DeploymentProof::decode(&changed.canonical_encoding().unwrap()).unwrap();
+        let transported = DeploymentProof::decode(
+            &changed
+                .canonical_encoding()
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
         assert!(input
             .verifier
-            .verify_deployment(&transported, old.time_ms() as u64)
+            .verify_deployment(
+                &transported,
+                u64::from_le_bytes((old.time_ms()).to_le_bytes())
+            )
             .is_err());
         assert!(input
             .verifier

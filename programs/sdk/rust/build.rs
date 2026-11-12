@@ -1,20 +1,27 @@
 extern crate alloc;
 
+#[allow(dead_code)]
 #[path = "src/abi_policy.rs"]
 mod abi_policy;
 
+#[allow(dead_code)]
 #[path = "src/bindgen.rs"]
 mod bindgen;
-#[path = "src/bindgen_go.rs"]
-mod bindgen_go;
-#[path = "src/bindgen_jvm.rs"]
-mod bindgen_jvm;
-#[path = "src/bindgen_python.rs"]
-mod bindgen_python;
-#[path = "src/bindgen_swift.rs"]
-mod bindgen_swift;
+#[allow(dead_code)]
 #[path = "src/bindgen_dotnet.rs"]
 mod bindgen_dotnet;
+#[allow(dead_code)]
+#[path = "src/bindgen_go.rs"]
+mod bindgen_go;
+#[allow(dead_code)]
+#[path = "src/bindgen_jvm.rs"]
+mod bindgen_jvm;
+#[allow(dead_code)]
+#[path = "src/bindgen_python.rs"]
+mod bindgen_python;
+#[allow(dead_code)]
+#[path = "src/bindgen_swift.rs"]
+mod bindgen_swift;
 
 use bindgen::BindingGenerator;
 use std::env;

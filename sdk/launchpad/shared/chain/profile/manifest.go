@@ -29,7 +29,7 @@ func BindManifest(m deployment.Manifest, endpointVersion, manifestHash, capabili
 	if err := p.Validate(big.NewInt(int64(m.ChainID))); err != nil {
 		return ManifestBinding{}, err
 	}
-	if m.Native.Decimals != 18 || m.Native.Symbol != "PAX" || m.Settlement.Decimals != 6 || m.Settlement.Symbol != "USDL" {
+	if m.Native.Decimals != 18 || m.Native.Symbol != valuePAX || m.Settlement.Decimals != 6 || m.Settlement.Symbol != "USDL" {
 		return ManifestBinding{}, errors.New("chain asset scale mismatch")
 	}
 	return ManifestBinding{p, hash, capabilityHash, interfaceHash}, nil

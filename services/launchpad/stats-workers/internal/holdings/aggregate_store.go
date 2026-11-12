@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"math/big"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func rawBand(raw string) int {
@@ -31,11 +32,17 @@ func (r *Repository) aggregateDeltaTx(ctx context.Context, tx pgx.Tx, token, cat
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, "UPDATE "+r.schema+".aggregates SET population=population+$4,raw=raw+$5::numeric WHERE token=$1 AND category=$2 AND band=$3", token, category, rawBand(raw), sign, n.String())
-	return err
+	tag, err := tx.Exec(ctx, "UPDATE "+r.schema+".aggregates SET population=population+$4,raw=raw+$5::numeric WHERE token=$1 AND category=$2 AND band=$3 AND population+$4>=0 AND raw+$5::numeric>=0", token, category, rawBand(raw), sign, n.String())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrIntegrity
+	}
+	return nil
 }
 func (r *Repository) balanceDeltaTx(ctx context.Context, tx pgx.Tx, token, address, value string) error {
-	old, category := "0", "unknown"
+	old, category := "0", valueUnknown
 	err := tx.QueryRow(ctx, "SELECT balance::text,category FROM "+r.schema+".balances WHERE token=$1 AND address=$2", token, address).Scan(&old, &category)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -77,7 +84,7 @@ func (r *Repository) ClassifyTx(ctx context.Context, tx pgx.Tx, token, address, 
 		return ErrIntegrity
 	}
 	switch category {
-	case "unknown", "external_wallet", "pool_reserve", "burn", "treasury", "router":
+	case valueUnknown, valueExternal_wallet, valuePool_reserve, valueBurn, valueTreasury, valueRouter:
 	default:
 		return ErrIntegrity
 	}
@@ -97,7 +104,7 @@ func (r *Repository) ClassifyTx(ctx context.Context, tx pgx.Tx, token, address, 
 		}
 		return ErrConflict
 	}
-	raw, old := "0", "unknown"
+	raw, old := "0", valueUnknown
 	err = tx.QueryRow(ctx, "SELECT balance::text,category FROM "+r.schema+".balances WHERE token=$1 AND address=$2", token, address).Scan(&raw, &old)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
@@ -118,7 +125,7 @@ func (r *Repository) ClassifyTx(ctx context.Context, tx pgx.Tx, token, address, 
 	return err
 }
 func (r *Repository) distributionTx(ctx context.Context, tx pgx.Tx, s Snapshot, creator string) (Distribution, error) {
-	out := Distribution{Policy: DistributionPolicy, Supply: s.Supply, InclusiveDenominator: Denominator{Raw: s.Supply, Policy: "indexed_supply_v1", ExcludedCategories: []string{}}, CirculatingDenominator: Denominator{Policy: "verified_external_wallets_v1", ExcludedCategories: []string{"unknown", "pool_reserve", "burn", "treasury", "router"}}}
+	out := Distribution{Policy: DistributionPolicy, Supply: s.Supply, InclusiveDenominator: Denominator{Raw: s.Supply, Policy: valueIndexedSupplyV1, ExcludedCategories: []string{}}, CirculatingDenominator: Denominator{Policy: valueVerifiedExternalWalletsV1, ExcludedCategories: []string{valueUnknown, valuePool_reserve, valueBurn, valueTreasury, valueRouter}}}
 	sums := [10]*big.Int{}
 	for i := range sums {
 		sums[i] = new(big.Int)
@@ -145,11 +152,11 @@ func (r *Repository) distributionTx(ctx context.Context, tx pgx.Tx, s Snapshot, 
 		out.AllPositiveCount += n
 		out.Bands[band].Count += n
 		sums[band].Add(sums[band], v)
-		if category == "external_wallet" {
+		if category == valueExternal_wallet {
 			out.ExternalWalletCount += n
 			circulating.Add(circulating, v)
 		}
-		if category == "unknown" {
+		if category == valueUnknown {
 			out.UnknownCount += n
 		}
 	}
@@ -200,12 +207,12 @@ func (r *Repository) distributionTx(ctx context.Context, tx pgx.Tx, s Snapshot, 
 			return out, err
 		}
 		out.Creator = BasisPoints(raw, s.Supply)
-		if category != "external_wallet" {
+		if category != valueExternal_wallet {
 			raw = "0"
 		}
 		out.CirculatingCreator = BasisPoints(raw, out.CirculatingRaw)
 	}
-	if s.Coverage != "complete" {
+	if s.Coverage != valueComplete {
 		out.Top10 = Ratio{Reason: s.Coverage}
 		out.Creator = out.Top10
 		out.CirculatingTop10 = out.Top10

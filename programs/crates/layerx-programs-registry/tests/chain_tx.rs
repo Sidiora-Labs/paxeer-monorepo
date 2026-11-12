@@ -7,8 +7,10 @@ use layerx_programs::chain_proof::{
 };
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/merkle.rs"]
 mod merkle;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/tx.rs"]
 mod tx;
 
@@ -99,7 +101,7 @@ fn three_tx_block(txs: [&[u8]; 3]) -> ([u8; 32], [SimpleProof; 3]) {
     let root = inner_hash(&left, &leaves[2]);
     assert_eq!(
         root,
-        hash_from_byte_slices(&hashes.each_ref().map(|hash| hash.as_slice()))
+        hash_from_byte_slices(&hashes.each_ref().map(<[u8; 32]>::as_slice))
     );
     (
         root,

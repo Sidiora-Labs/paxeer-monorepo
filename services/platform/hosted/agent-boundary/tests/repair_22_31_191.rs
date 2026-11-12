@@ -88,8 +88,8 @@ fn producer_case() -> Value {
 fn key_document(case: &Value) -> Value {
     let pin = &case["pinnedKey"];
     json!([{
-        "keyId": base64(&decode_hex(pin["keyId"].as_str().unwrap())),
-        "publicKey": base64(&decode_hex(pin["publicKey"].as_str().unwrap())),
+        "keyId": base64(&decode_hex(pin["keyId"].as_str().unwrap_or_else(|| panic!("key ID")))),
+        "publicKey": base64(&decode_hex(pin["publicKey"].as_str().unwrap_or_else(|| panic!("public key")))),
         "firstHeight": pin["firstHeight"],
         "lastHeight": pin["lastHeight"],
     }])
@@ -156,7 +156,13 @@ impl RecordedProducer {
                 let request: Value = must(serde_json::from_slice(&body));
                 assert_eq!(request["jsonrpc"], "2.0");
                 assert_eq!(request["method"], "pax_sequencerReceipt");
-                assert_eq!(request["params"].as_array().unwrap().len(), 1);
+                assert_eq!(
+                    request["params"]
+                        .as_array()
+                        .unwrap_or_else(|| panic!("parameters"))
+                        .len(),
+                    1
+                );
                 let result = if request["params"][0] == receipt["txHash"] {
                     receipt.clone()
                 } else {
@@ -216,6 +222,43 @@ fn openssl(directory: &Path, args: &[&str]) {
     );
 }
 
+fn prepare_tls_material(directory: &Path) {
+    openssl(
+        directory,
+        &[
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
+            "-nodes",
+            "-keyout",
+            "key.pem",
+            "-out",
+            "cert.pem",
+            "-days",
+            "1",
+            "-subj",
+            "/CN=localhost",
+            "-addext",
+            "subjectAltName=DNS:localhost",
+        ],
+    );
+    openssl(
+        directory,
+        &[
+            "x509", "-in", "cert.pem", "-outform", "DER", "-out", "cert.der",
+        ],
+    );
+    openssl(
+        directory,
+        &[
+            "pkcs8", "-topk8", "-nocrypt", "-in", "key.pem", "-outform", "DER", "-out", "key.der",
+        ],
+    );
+}
+
 impl Boundary {
     fn start(url: &str, keys: &Value) -> Self {
         let mut unique = [0; 16];
@@ -223,41 +266,7 @@ impl Boundary {
         let directory =
             std::env::temp_dir().join(format!("boundary-repair-22-31-191-{}", hex(&unique)));
         must(fs::create_dir(&directory));
-        openssl(
-            &directory,
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "ec",
-                "-pkeyopt",
-                "ec_paramgen_curve:P-256",
-                "-nodes",
-                "-keyout",
-                "key.pem",
-                "-out",
-                "cert.pem",
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
-        );
-        openssl(
-            &directory,
-            &[
-                "x509", "-in", "cert.pem", "-outform", "DER", "-out", "cert.der",
-            ],
-        );
-        openssl(
-            &directory,
-            &[
-                "pkcs8", "-topk8", "-nocrypt", "-in", "key.pem", "-outform", "DER", "-out",
-                "key.der",
-            ],
-        );
+        prepare_tls_material(&directory);
         for plane in ["gateway", "registry", "webhook"] {
             must(fs::write(directory.join(plane), format!("{plane}-token")));
         }
@@ -349,7 +358,13 @@ impl Boundary {
         must(write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
         must(stream.flush());
         let (headers, body) = read_message(&mut stream);
-        let status = must(headers.split_whitespace().nth(1).unwrap().parse());
+        let status = must(
+            headers
+                .split_whitespace()
+                .nth(1)
+                .unwrap_or_else(|| panic!("HTTP status"))
+                .parse(),
+        );
         (status, must(serde_json::from_slice(&body)))
     }
 }
@@ -407,14 +422,15 @@ fn finding_037_readiness_and_receipts_need_only_chain_dependencies() {
         boundary.request("GET", "/readyz", ""),
         (200, expected_ready)
     );
-    let transaction = case["receiptJson"]["txHash"].as_str().unwrap();
+    let transaction = case["receiptJson"]["txHash"]
+        .as_str()
+        .unwrap_or_else(|| panic!("transaction hash"));
     let receipt = case["signedReceipt"]
         .as_str()
-        .unwrap()
+        .unwrap_or_else(|| panic!("signed receipt"))
         .strip_prefix("0x")
-        .unwrap();
-    let expected =
-        json!({"activity_id": transaction.strip_prefix("0x").unwrap(), "receipt": receipt});
+        .unwrap_or_else(|| panic!("receipt hex prefix"));
+    let expected = json!({"activity_id": transaction.strip_prefix("0x").unwrap_or_else(|| panic!("transaction hex prefix")), "receipt": receipt});
     assert_eq!(
         boundary.request(
             "GET",
@@ -441,7 +457,7 @@ fn finding_037_readiness_and_receipts_need_only_chain_dependencies() {
         ),
         (
             200,
-            json!({"transaction_hash": transaction.strip_prefix("0x").unwrap(), "receipt": receipt})
+            json!({"transaction_hash": transaction.strip_prefix("0x").unwrap_or_else(|| panic!("transaction hex prefix")), "receipt": receipt})
         )
     );
     assert_eq!(
@@ -489,7 +505,9 @@ fn finding_037_receipt_reads_enforce_the_pinned_key_height() {
     keys[0]["lastHeight"] = json!(999);
     keys[0]["firstHeight"] = json!(1);
     let boundary = Boundary::start(&producer.url(), &keys);
-    let transaction = case["receiptJson"]["txHash"].as_str().unwrap();
+    let transaction = case["receiptJson"]["txHash"]
+        .as_str()
+        .unwrap_or_else(|| panic!("transaction hash"));
     assert_eq!(
         boundary.request(
             "GET",

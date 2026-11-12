@@ -170,7 +170,7 @@ func TestAuthGasConformance(t *testing.T) {
 	next, err := lxphost.NextSequence(ctx, hostKey)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{true, ""}, call(sender, "isLive", capabilityID, next-1, timestamp))
-	require.Equal(t, []interface{}{""}, call(sender, "checkActivity", capabilityID, uint32(0x00090004), fixture.asset, big.NewInt(5)))
+	require.Equal(t, []interface{}{""}, call(sender, "checkActivity", capabilityID, uint32(0x00010005), fixture.asset, big.NewInt(5)))
 	call(sender, "revokeGrant", sessionID, uint8(1), next)
 	predecessor, err := a.LayerXHost.ReadGrant(ctx, sessionID)
 	require.NoError(t, err)

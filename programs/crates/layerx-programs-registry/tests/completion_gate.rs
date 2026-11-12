@@ -75,7 +75,7 @@ fn programs_completion_retired_surfaces_absent() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(3)
-        .expect("registry crate must be inside the Programs workspace");
+        .unwrap_or_else(|| panic!("{}", "registry crate must be inside the Programs workspace"));
     let mut failures = Vec::new();
     let mut sources = BTreeMap::new();
 

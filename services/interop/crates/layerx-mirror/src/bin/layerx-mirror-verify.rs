@@ -161,29 +161,29 @@ fn execute() -> Result<Value, &'static str> {
     let archive = sources
         .read(batch_number, &policy)
         .map_err(|error| match error {
-            layerx_mirror::source::MirrorSourceError::Divergent => "divergent",
+            layerx_mirror::source::MirrorSourceError::Divergent
+            | layerx_mirror::source::MirrorSourceError::RpcDivergent => "divergent",
             layerx_mirror::source::MirrorSourceError::InsufficientAgreement => {
                 "insufficient-agreement"
             }
             layerx_mirror::source::MirrorSourceError::Missing => "missing",
             layerx_mirror::source::MirrorSourceError::RateLimited { .. } => "rate-limited",
-            layerx_mirror::source::MirrorSourceError::RpcDivergent => "divergent",
             _ => "unavailable",
         })?;
     let evidence_checker = MirrorVerifier::from_committed_source(archive).map_err(|_| "proof")?;
-    verify_evidence(evidence_checker, request.evidence, &keys)
+    verify_evidence(&evidence_checker, &request.evidence, &keys)
 }
 
 pub(crate) fn verify_evidence(
-    evidence_checker: MirrorVerifier,
-    evidence: EvidenceRequest,
+    evidence_checker: &MirrorVerifier,
+    evidence: &EvidenceRequest,
     keys: &[SequencerAuthorization],
 ) -> Result<Value, &'static str> {
     let committed = evidence_checker.committed().map_err(|_| "proof")?;
     match evidence {
         EvidenceRequest::Receipt { index } => {
             let verified = evidence_checker
-                .committed_receipt(index, keys)
+                .committed_receipt(*index, keys)
                 .map_err(|_| "proof")?;
             let observation = verified.observation().ok_or("proof")?;
             let unsigned =

@@ -2,7 +2,7 @@ import { address, hash, raw } from '../create/creation-domain';
 import type { ChainSubmission } from './chain-adapters';
 import { validateChainDraft, type ChainDraft } from './chain-domain';
 
-const submissionKey = 'chain-submission-v1';
+const submissionKey = 'chain-submission-v2';
 
 export class ChainDraftStorage {
   private creator: string;
@@ -12,20 +12,26 @@ export class ChainDraftStorage {
   }
 
   private key() {
-    return `chain-draft-v1:125:${this.creator}`;
+    return `chain-draft-v2:125:${this.creator}`;
   }
 
   private checked(draft: ChainDraft, kind: 'draft' | 'submission'): ChainDraft {
     const now = Date.now();
     const errors = validateChainDraft(draft, kind === 'draft' ? now : draft?.updatedAt);
-    delete errors.name;
-    if (Object.keys(errors).length || draft.version !== 1 || address(draft.creator) !== this.creator
+    if (kind === 'draft') {
+      delete errors.name;
+      if (draft.tokenName === '') delete errors.tokenName;
+      if (draft.tokenSymbol === '') delete errors.tokenSymbol;
+    }
+    if (Object.keys(errors).length || draft.version !== 2 || address(draft.creator) !== this.creator
       || !Number.isSafeInteger(now) || draft.updatedAt > now
-      || typeof draft.name !== 'string' || draft.name.length > 32) {
+      || typeof draft.name !== 'string' || draft.name.length > 32
+      || typeof draft.tokenName !== 'string' || new TextEncoder().encode(draft.tokenName).length > 50
+      || typeof draft.tokenSymbol !== 'string' || new TextEncoder().encode(draft.tokenSymbol).length > 10) {
       throw new Error('Your saved chain draft is invalid or expired.');
     }
-    const { draftId, version, creator, chainId, name, tier, feeShareBps, updatedAt } = draft;
-    return { draftId, version, creator, chainId, name, tier, feeShareBps, updatedAt };
+    const { draftId, version, creator, chainId, name, tokenName, tokenSymbol, feeStrategy, tier, feeShareBps, updatedAt } = draft;
+    return { draftId, version, creator, chainId, name, tokenName, tokenSymbol, feeStrategy, tier, feeShareBps, updatedAt };
   }
 
   saveDraft(draft: ChainDraft): void {
@@ -33,6 +39,7 @@ export class ChainDraftStorage {
   }
 
   restoreDraft(): ChainDraft | null {
+    localStorage.removeItem(`chain-draft-v1:125:${this.creator}`);
     const body = localStorage.getItem(this.key());
     if (body === null) return null;
     if (body.length > 4096) throw new Error('Your saved chain draft is too large.');
@@ -55,6 +62,7 @@ export class ChainDraftStorage {
   }
 
   static restoreSubmission(): { draft: ChainDraft; submission: ChainSubmission } | null {
+    localStorage.removeItem('chain-submission-v1');
     const body = localStorage.getItem(submissionKey);
     if (body === null) return null;
     if (body.length > 4096) throw new Error('Your saved submission is too large.');

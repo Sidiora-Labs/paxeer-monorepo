@@ -1,4 +1,12 @@
 //! The in-scope repair record maps audit findings to these production-path cases.
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
@@ -329,15 +337,16 @@ fn finding_8_shutdown_batches_append_across_two_reopen_cycles() {
             let mut expected = b"shutdown-audit:".to_vec();
             expected.extend((index as u64).to_be_bytes());
             assert_eq!(id, &expected);
-            store
-                .get(&must(TenantKey::new(
+            require_some(
+                store.get(&must(TenantKey::new(
                     tenant(),
                     ObjectKind::Audit,
                     id.clone(),
-                )))
-                .expect("durable audit")
-                .bytes()
-                .to_vec()
+                ))),
+                "durable audit",
+            )
+            .bytes()
+            .to_vec()
         })
         .collect();
     assert_eq!(
@@ -347,7 +356,7 @@ fn finding_8_shutdown_batches_append_across_two_reopen_cycles() {
 }
 
 fn unhex(value: &Value) -> Vec<u8> {
-    let text = value.as_str().expect("hex string");
+    let text = require_some(value.as_str(), "hex string");
     must(hex::decode(text.strip_prefix("0x").unwrap_or(text)))
 }
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
@@ -357,21 +366,23 @@ fn node_case() -> Value {
     let producer: Value = must(serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     )));
-    producer["cases"]
-        .as_array()
-        .expect("node cases")
-        .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("node-produced receipt")
-        .clone()
+    require_some(
+        producer["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "node cases"))
+            .iter()
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact"),
+        "node-produced receipt",
+    )
+    .clone()
 }
 fn receipt_key(case: &Value) -> ReceiptKeyEntry {
     let key = &case["pinnedKey"];
     ReceiptKeyEntry {
         key_id: fixed(&key["keyId"]),
         public_key: fixed(&key["publicKey"]),
-        first_height: key["firstHeight"].as_u64().expect("height"),
-        last_height: key["lastHeight"].as_u64().expect("height"),
+        first_height: require_some(key["firstHeight"].as_u64(), "height"),
+        last_height: require_some(key["lastHeight"].as_u64(), "height"),
     }
 }
 fn committed_block(
@@ -464,14 +475,13 @@ fn finding_6_authenticated_transaction_binding_survives_restart_and_refuses_fore
     assert_eq!(hash, fixed(&case["receiptJson"]["txHash"]));
     let key = receipt_key(&case);
     let receipt = must(VerifiedReceipt::verify(hash, &receipt_bytes, &[key]));
-    let height = u64::from_str_radix(
-        case["receiptJson"]["height"]
-            .as_str()
-            .expect("height")
-            .trim_start_matches("0x"),
-        16,
-    )
-    .expect("height");
+    let height = require_ok(
+        u64::from_str_radix(
+            require_some(case["receiptJson"]["height"].as_str(), "height").trim_start_matches("0x"),
+            16,
+        ),
+        "height",
+    );
     let (block, commit, header, validators) = committed_block(vec![raw.clone()], height, 4);
     let verified = must(VerifiedBlock::verify_with_header(
         &block,
@@ -486,6 +496,29 @@ fn finding_6_authenticated_transaction_binding_survives_restart_and_refuses_fore
         progress.observe_block(&block, &commit, "125", &validators),
         Err(FinalityError::InvalidCommit)
     ));
+    finish_finding_6_authenticated_transaction_binding_survives_restart_and_refuses_foreign_blocks_2_repair_22_31_368(FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks2Repair2231368Context { raw, receipt_bytes, key, receipt, height, block, commit, header, validators, verified, progress });
+}
+
+struct FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks2Repair2231368Context
+{
+    raw: Vec<u8>,
+    receipt_bytes: Vec<u8>,
+    key: ReceiptKeyEntry,
+    receipt: VerifiedReceipt,
+    height: u64,
+    block: SequencerBlock,
+    commit: BlockCommit,
+    header: CheckpointHeader,
+    validators: Vec<Validator>,
+    verified: VerifiedBlock,
+    progress: SubmissionProgress,
+}
+
+fn finish_finding_6_authenticated_transaction_binding_survives_restart_and_refuses_foreign_blocks_2_repair_22_31_368(
+    context: FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks2Repair2231368Context,
+) {
+    let FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks2Repair2231368Context { raw, receipt_bytes, key, receipt, height, block, commit, header, validators, verified, mut progress } = context;
+
     assert_eq!(must(progress.rung_at([1; 32], 0)), Rung::Receipted);
     let directory = Directory::new();
     let mut store = must(Store::open(&directory.0));
@@ -525,7 +558,7 @@ fn finding_6_authenticated_transaction_binding_survives_restart_and_refuses_fore
     .is_err());
     assert!(progress.observe_verified_block(&foreign_verified).is_err());
     let mut substituted = block.clone();
-    substituted.transactions = foreign.transactions.clone();
+    substituted.transactions.clone_from(&foreign.transactions);
     assert!(
         VerifiedBlock::verify_with_header(&substituted, &commit, &header, "125", &validators)
             .is_err()
@@ -550,6 +583,28 @@ fn finding_6_authenticated_transaction_binding_survives_restart_and_refuses_fore
         &receipt,
         Some(&verified),
     ));
+    finish_finding_6_authenticated_transaction_binding_survives_restart_and_refuses_foreign_blocks_1_repair_22_31_368(FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks1Repair2231368Context { raw, receipt_bytes, key, receipt, height, validators, progress, directory, store, record });
+}
+
+struct FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks1Repair2231368Context
+{
+    raw: Vec<u8>,
+    receipt_bytes: Vec<u8>,
+    key: ReceiptKeyEntry,
+    receipt: VerifiedReceipt,
+    height: u64,
+    validators: Vec<Validator>,
+    progress: SubmissionProgress,
+    directory: Directory,
+    store: Store,
+    record: finality::FinalityRecord,
+}
+
+fn finish_finding_6_authenticated_transaction_binding_survives_restart_and_refuses_foreign_blocks_1_repair_22_31_368(
+    context: FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks1Repair2231368Context,
+) {
+    let FinishFinding6AuthenticatedTransactionBindingSurvivesRestartAndRefusesForeignBlocks1Repair2231368Context { raw, receipt_bytes, key, receipt, height, validators, progress, directory, store, record } = context;
+
     assert_eq!(record.receipt_bytes, receipt_bytes);
     drop(store);
     drop(progress);
@@ -692,7 +747,7 @@ fn finding_10_retained_evm_producer_queues_transmits_and_restores_exact_bytes() 
                 length = Some(must(value.trim().parse::<usize>()));
             }
         }
-        let mut body = vec![0; length.expect("HTTP length")];
+        let mut body = vec![0; require_some(length, "HTTP length")];
         must(reader.read_exact(&mut body));
         let request: Value = must(serde_json::from_slice(&body));
         assert_eq!(request["method"], "eth_sendRawTransaction");

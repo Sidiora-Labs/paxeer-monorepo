@@ -33,10 +33,10 @@ impl TrustedValidator {
             bytes.push(0x10);
             let mut power = self.voting_power;
             while power >= 0x80 {
-                bytes.push((power as u8 & 0x7f) | 0x80);
+                bytes.push((power.to_le_bytes()[0] & 0x7f) | 0x80);
                 power >>= 7;
             }
-            bytes.push(power as u8);
+            bytes.push(power.to_le_bytes()[0]);
         }
         bytes
     }
@@ -49,6 +49,10 @@ pub struct ValidatorSet {
 }
 
 impl ValidatorSet {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn new(validators: Vec<TrustedValidator>) -> Result<Self, ChainProofError> {
         let mut addresses = BTreeSet::new();
         let mut total_power = 0_u64;

@@ -1,10 +1,10 @@
-//! Task 22.33.90, audit 22.30.110, finding proof_namespace_registry.
-//! Proving tests: proof_namespace_registry_consumes_both_public_verifiers and
-//! proof_namespace_registry_preserves_consensus_refusals.
+//! Task 22.33.90, audit 22.30.110, finding `proof_namespace_registry`.
+//! Proving tests: `proof_namespace_registry_consumes_both_public_verifiers` and
+//! `proof_namespace_registry_preserves_consensus_refusals`.
 //! Wiring request: domain 11 (fm-interop), spec/layerx-merge/interfaces.kvx,
 //! interface 11.rs-committed-proof-verify-committed-j47: qualify the four-argument
-//! path as layerx_committed_proof::committed::verify_committed and document the
-//! separate six-argument layerx_committed_proof::verify_committed receipt-view helper.
+//! path as `layerx_committed_proof::committed::verify_committed` and document the
+//! separate six-argument `layerx_committed_proof::verify_committed` receipt-view helper.
 //! Baseline: no earlier gate evidence exists; no unchanged-tree verify was run
 //! because the task's explicit gate order requires complete implementation first.
 //! Qualification revision, command, exit and private log are recorded by hf-done.
@@ -157,7 +157,14 @@ fn proof(case: &Value) -> CommittedProof {
         batch_index: number(batch, "index"),
         batch_aunts: array(batch, "aunts")
             .iter()
-            .map(|aunt| hex_bytes(aunt.as_str().unwrap()).try_into().unwrap())
+            .map(|aunt| {
+                hex_bytes(
+                    aunt.as_str()
+                        .unwrap_or_else(|| panic!("expected Some value")),
+                )
+                .try_into()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            })
             .collect(),
         signed_receipt: bytes(case, "signedReceipt"),
         activity_ids: vec![fixed(&case["receiptJson"], "txHash")],
@@ -179,7 +186,7 @@ fn receipt_view_digest(case: &Value, view: &Value) -> Result<[u8; 32], ProofErro
     layerx_committed_proof::verify_committed(
         &bytes(case, "rawTransaction"),
         &bytes(case, "signedReceipt"),
-        &serde_json::to_vec(view).unwrap(),
+        &serde_json::to_vec(view).unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         fixed(case, "prevSeqHash"),
         &[(
             fixed(pin, "keyId"),
@@ -193,25 +200,28 @@ fn receipt_view_digest(case: &Value, view: &Value) -> Result<[u8; 32], ProofErro
 
 #[test]
 fn proof_namespace_registry_consumes_both_public_verifiers() {
-    let vectors: Value = serde_json::from_str(VECTORS).unwrap();
+    let vectors: Value = serde_json::from_str(VECTORS)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(number(&vectors, "version"), 4);
     let source_digest = hex_bytes(&format!(
         "0x{}",
         string(&vectors["provenance"], "sourceSha256")
     ));
-    assert_eq!(source_digest, Sha256::digest(RECORDING).as_slice());
+    assert_eq!(source_digest, &Sha256::digest(RECORDING)[..]);
     let case = array(&vectors, "cases")
         .iter()
         .find(|case| string(case, "id") == "committed-payExact")
-        .unwrap();
-    let recording: Value = serde_json::from_slice(RECORDING).unwrap();
+        .unwrap_or_else(|| panic!("expected Some value"));
+    let recording: Value = serde_json::from_slice(RECORDING)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(case["signedReceipt"], recording["positive"]["receipt"]);
     let proof = proof(case);
     let set = validators(case);
     let chain_id = string(&vectors["provenance"], "chainId");
 
     // A downstream crate consumes both public paths, with their distinct outputs.
-    let digest: [u8; 32] = receipt_view_digest(case, &case["receiptJson"]).unwrap();
+    let digest: [u8; 32] = receipt_view_digest(case, &case["receiptJson"])
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let signed = bytes(case, "signedReceipt");
     let mut expected_digest = Sha256::new();
     expected_digest.update(b"LXP/v1/receipt\0");
@@ -220,11 +230,15 @@ fn proof_namespace_registry_consumes_both_public_verifiers() {
     assert_eq!(digest, <[u8; 32]>::from(expected_digest.finalize()));
     let block: CommittedBlock =
         layerx_committed_proof::committed::verify_committed(digest, &proof, &set, chain_id)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
         block,
         CommittedBlock {
-            number: proof.execution_header.height.try_into().unwrap(),
+            number: proof
+                .execution_header
+                .height
+                .try_into()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
             hash: fixed(&case["receiptJson"], "blockHash"),
         }
     );
@@ -246,7 +260,8 @@ fn proof_namespace_registry_consumes_both_public_verifiers() {
 
 #[test]
 fn proof_namespace_registry_preserves_consensus_refusals() {
-    let vectors: Value = serde_json::from_str(VECTORS).unwrap();
+    let vectors: Value = serde_json::from_str(VECTORS)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let chain_id = string(&vectors["provenance"], "chainId");
     for (id, expected) in [
         (
@@ -259,8 +274,9 @@ fn proof_namespace_registry_preserves_consensus_refusals() {
         let case = array(&vectors, "cases")
             .iter()
             .find(|case| string(case, "id") == id)
-            .unwrap();
-        let digest = receipt_view_digest(case, &case["receiptJson"]).unwrap();
+            .unwrap_or_else(|| panic!("expected Some value"));
+        let digest = receipt_view_digest(case, &case["receiptJson"])
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(
             layerx_committed_proof::committed::verify_committed(
                 digest,

@@ -90,10 +90,16 @@ fn every_entry_point_round_trips_its_canonical_request() {
         );
         let mut truncated = encoded.as_slice().to_vec();
         truncated.pop();
-        assert!(Request::decode(&truncated).is_err(), "{method} accepts a short encoding");
+        assert!(
+            Request::decode(&truncated).is_err(),
+            "{method} accepts a short encoding"
+        );
         let mut trailing = encoded.as_slice().to_vec();
         trailing.push(0);
-        assert!(Request::decode(&trailing).is_err(), "{method} accepts trailing bytes");
+        assert!(
+            Request::decode(&trailing).is_err(),
+            "{method} accepts trailing bytes"
+        );
     }
 }
 

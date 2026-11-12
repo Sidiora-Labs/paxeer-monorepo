@@ -57,7 +57,10 @@ impl TaskLedger {
             .write(true)
             .create(true)
             .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32);
+            .custom_flags(
+                i32::try_from(rustix::fs::OFlags::NOFOLLOW.bits())
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            );
         let lock = options
             .open(path.with_extension("lock"))
             .map_err(|e| format!("task ledger lock: {e}"))?;
@@ -167,7 +170,7 @@ impl TaskLedger {
             else {
                 continue;
             };
-            match runtime.rpc("pax_sequencerReceipt", json!([hash])) {
+            match runtime.rpc("pax_sequencerReceipt", &json!([hash])) {
                 Ok(receipt) => {
                     let expected = crate::programs::transaction_hash(&hash)?;
                     if let Ok((verified, _)) = layerx_sdk::rpc_verification::verify_node_receipt(
@@ -231,8 +234,8 @@ impl Runtime {
     fn loopback(endpoint: &str, network_id: u32) -> Result<Self, String> {
         Self::connect(endpoint, network_id, None)
     }
-    fn rpc(&self, method: &str, params: Value) -> Result<Value, String> {
-        let request = layerx_platform_cli::rpc::request(method, &params)?;
+    fn rpc(&self, method: &str, params: &Value) -> Result<Value, String> {
+        let request = layerx_platform_cli::rpc::request(method, params)?;
         let response = self.client.post("/", &request, None)?;
         layerx_platform_cli::rpc::decode_response(method, &response)
     }
@@ -253,6 +256,7 @@ impl Runtime {
         }
         Ok(format!("0x{}", hex_encode(&transaction_hash(&bytes))))
     }
+    #[cfg(test)]
     fn invoke(&self, tool: ToolDefinition, arguments: &Value) -> Result<Value, String> {
         let result = self.invoke_task(tool, arguments)?;
         if result["rung"] == "unknown" {
@@ -297,7 +301,7 @@ impl Runtime {
                 if arguments.as_object().is_none_or(|a| a.len() != 1) {
                     return Err("receipt.get requires only activity_id".into());
                 }
-                self.rpc("pax_sequencerReceipt", json!([arguments["activity_id"]]))
+                self.rpc("pax_sequencerReceipt", &json!([arguments["activity_id"]]))
             }
             "faucet.request" => {
                 let endpoint = self
@@ -405,7 +409,9 @@ pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result
     if let Some(path) = receipt_policy {
         runtime = runtime.with_policy(crate::programs::read_lifecycle_policy(path)?)?;
     }
-    runtime.environment = configuration.current_environment.clone();
+    configuration
+        .current_environment
+        .clone_into(&mut runtime.environment);
     runtime.faucet_endpoint = faucet_endpoint.map(str::to_owned);
     let runtime = Arc::new(runtime);
     let card = Arc::new(agent_card(
@@ -627,23 +633,21 @@ fn send(
             "activity.submit requires signed raw_transaction hex",
         );
     }
-    let hash = if tool.name == "activity.submit" {
-        match runtime.signed_hash(&instruction.arguments) {
-            Ok(hash) => Some(hash),
-            Err(error) => {
-                let rejected =
-                    build_task(&ids, &context, message, tool.name, &timestamp, Err(error));
-                let Ok(mut ledger) = tasks.lock() else {
-                    return failure(identifier, -32603, "the task ledger is unavailable");
-                };
-                if let Err(error) = ledger.reserve(&ids.0, rejected.clone()) {
-                    return failure(identifier, -32005, &error);
-                }
-                return success(identifier, rejected);
-            }
-        }
-    } else {
-        None
+    let hash = match reserve_signed_submission(
+        runtime,
+        tasks,
+        &SignedSubmission {
+            ids: &ids,
+            context: &context,
+            message,
+            tool_name: tool.name,
+            timestamp: &timestamp,
+            arguments: &instruction.arguments,
+            identifier: &identifier,
+        },
+    ) {
+        Ok(hash) => hash,
+        Err(response) => return response,
     };
     let mut pending = build_task(
         &ids,
@@ -669,21 +673,66 @@ fn send(
     if let Some(hash) = hash {
         task["txHash"] = json!(hash);
     }
+    finish_send(tasks, &ids.0, task, identifier)
+}
+
+struct SignedSubmission<'a> {
+    ids: &'a (String, String),
+    context: &'a str,
+    message: &'a Value,
+    tool_name: &'a str,
+    timestamp: &'a str,
+    arguments: &'a Value,
+    identifier: &'a Value,
+}
+
+fn reserve_signed_submission(
+    runtime: &Runtime,
+    tasks: &Mutex<TaskLedger>,
+    submission: &SignedSubmission<'_>,
+) -> Result<Option<String>, Value> {
+    if submission.tool_name != "activity.submit" {
+        return Ok(None);
+    }
+    match runtime.signed_hash(submission.arguments) {
+        Ok(hash) => Ok(Some(hash)),
+        Err(error) => {
+            let rejected = build_task(
+                submission.ids,
+                submission.context,
+                submission.message,
+                submission.tool_name,
+                submission.timestamp,
+                Err(error),
+            );
+            let Ok(mut ledger) = tasks.lock() else {
+                return Err(failure(
+                    submission.identifier.clone(),
+                    -32603,
+                    "the task ledger is unavailable",
+                ));
+            };
+            if let Err(error) = ledger.reserve(&submission.ids.0, rejected.clone()) {
+                return Err(failure(submission.identifier.clone(), -32005, &error));
+            }
+            Err(success(submission.identifier.clone(), rejected))
+        }
+    }
+}
+
+fn finish_send(tasks: &Mutex<TaskLedger>, task_id: &str, task: Value, identifier: Value) -> Value {
     let Ok(mut ledger) = tasks.lock() else {
         return failure(identifier, -32603, "the task ledger is unavailable");
     };
-    let previous = ledger.insert(ids.0.clone(), task.clone());
+    let previous = ledger.insert(task_id.to_owned(), task.clone());
     if let Err(error) = ledger.persist() {
         if let Some(previous) = previous {
-            ledger.insert(ids.0.clone(), previous);
+            ledger.insert(task_id.to_owned(), previous);
         }
         return failure(
             identifier,
             -32603,
-            &format!(
-                "task {} retained for recovery; journal update failed: {error}",
-                ids.0
-            ),
+            &format!("task {task_id} retained for recovery; journal update failed: {error}"),
         );
     }
     success(identifier, task)
@@ -1456,7 +1505,7 @@ mod submission_outcome_tests {
         tools: &[ToolDefinition],
         tasks: &Mutex<TaskLedger>,
         method: &str,
-        params: Value,
+        params: &Value,
     ) -> Value {
         dispatch(
             runtime,
@@ -1465,7 +1514,7 @@ mod submission_outcome_tests {
             &serde_json::to_vec(&json!({
                 "jsonrpc": "2.0", "id": 1, "method": method, "params": params,
             }))
-            .expect("serializable request"),
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "serializable request")),
         )
     }
 
@@ -1476,6 +1525,150 @@ mod submission_outcome_tests {
                 "skill": "activity.submit", "arguments": arguments,
             }}],
         }})
+    }
+
+    struct SubmissionFixture<'a> {
+        runtime: &'a Runtime,
+        tools: &'a [ToolDefinition],
+        tasks: &'a Mutex<TaskLedger>,
+        listener: &'a TcpListener,
+        submit: ToolDefinition,
+        encoded: &'a str,
+        hash: &'a str,
+        arguments: &'a Value,
+    }
+
+    impl SubmissionFixture<'_> {
+        fn assert_case(
+            &self,
+            response: Option<Value>,
+            state: &str,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let node = node_response(self.listener, response.clone())?;
+            let sent = call(
+                self.runtime,
+                self.tools,
+                self.tasks,
+                "message/send",
+                &message(self.arguments),
+            );
+            assert_eq!(
+                node.join().map_err(|_| "node reader panicked")??,
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[self.encoded]})
+            );
+            let task = &sent["result"];
+            assert_eq!(task["status"]["state"], state, "response: {response:?}");
+            if state == "unknown" || state == "submitted" {
+                let result = &task["artifacts"][0]["parts"][0]["data"]["result"];
+                assert_eq!(result["txHash"], self.hash);
+                assert_eq!(result["rung"], state);
+                if state == "unknown" {
+                    assert!(result["detail"]
+                        .as_str()
+                        .is_some_and(|detail| !detail.is_empty()));
+                }
+                let fetched = call(
+                    self.runtime,
+                    self.tools,
+                    self.tasks,
+                    "tasks/get",
+                    &json!({"id":task["id"]}),
+                );
+                assert_eq!(&fetched["result"], task);
+                let canceled = call(
+                    self.runtime,
+                    self.tools,
+                    self.tasks,
+                    "tasks/cancel",
+                    &json!({"id":task["id"]}),
+                );
+                assert_eq!(canceled["error"]["code"], -32004);
+                assert_eq!(
+                    call(
+                        self.runtime,
+                        self.tools,
+                        self.tasks,
+                        "tasks/get",
+                        &json!({"id":task["id"]})
+                    )["result"],
+                    *task
+                );
+            } else {
+                assert!(task.get("artifacts").is_none());
+                assert!(task["status"]["message"]["parts"][0]["text"]
+                    .as_str()
+                    .is_some_and(|detail| detail.contains("nonce too low")));
+                assert_eq!(task["txHash"], self.hash);
+                assert_eq!(
+                    call(
+                        self.runtime,
+                        self.tools,
+                        self.tasks,
+                        "tasks/get",
+                        &json!({"id":task["id"]})
+                    )["result"],
+                    *task
+                );
+            }
+            assert!(
+                matches!(self.listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+
+            let node = node_response(self.listener, response)?;
+            let mcp = self.runtime.invoke(self.submit, self.arguments);
+            assert_eq!(
+                node.join().map_err(|_| "node reader panicked")??,
+                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[self.encoded]})
+            );
+            if state == "submitted" {
+                assert_eq!(mcp?, json!({"txHash":self.hash, "rung":"submitted"}));
+            } else {
+                assert!(mcp.is_err());
+            }
+            assert!(
+                matches!(self.listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+            Ok(())
+        }
+    }
+
+    fn assert_invalid_submissions(
+        fixture: &SubmissionFixture<'_>,
+        call_data: Eip1559Call,
+        raw: &[u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let wrong_chain = Eip1559Call {
+            chain_id: 126,
+            ..call_data
+        }
+        .sign(&[1; 32])?;
+        let mut bad_signature = raw.to_vec();
+        let signature_start = bad_signature.len() - 32;
+        bad_signature[signature_start..].fill(0xff);
+        assert!(decode_signed(&bad_signature).is_err());
+        for invalid in [
+            json!({"raw_transaction":"0x02zz"}),
+            json!({"raw_transaction":"0x02c0"}),
+            json!({"raw_transaction":fixture.encoded.trim_start_matches("0x")}),
+            json!({"raw_transaction":fixture.encoded, "extra":true}),
+            json!({"raw_transaction":format!("0x{}", hex_encode(&bad_signature))}),
+            json!({"raw_transaction":format!("0x{}", hex_encode(&wrong_chain))}),
+        ] {
+            let sent = call(
+                fixture.runtime,
+                fixture.tools,
+                fixture.tasks,
+                "message/send",
+                &message(&invalid),
+            );
+            assert_eq!(sent["result"]["status"]["state"], "rejected");
+            assert!(sent["result"].get("artifacts").is_none());
+            assert!(fixture.runtime.invoke(fixture.submit, &invalid).is_err());
+            assert!(
+                matches!(fixture.listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+        }
+        Ok(())
     }
 
     #[test]
@@ -1503,6 +1696,16 @@ mod submission_outcome_tests {
         listener.set_nonblocking(true)?;
         let runtime = Runtime::loopback(&format!("http://{}", listener.local_addr()?), 125)?;
         let tasks = Mutex::new(TaskLedger::memory());
+        let fixture = SubmissionFixture {
+            runtime: &runtime,
+            tools: &tools,
+            tasks: &tasks,
+            listener: &listener,
+            submit,
+            encoded: &encoded,
+            hash: &hash,
+            arguments: &arguments,
+        };
         for (response, state) in [
             (None, "unknown"),
             (
@@ -1560,116 +1763,9 @@ mod submission_outcome_tests {
                 "submitted",
             ),
         ] {
-            let node = node_response(&listener, response.clone())?;
-            let sent = call(
-                &runtime,
-                &tools,
-                &tasks,
-                "message/send",
-                message(&arguments),
-            );
-            assert_eq!(
-                node.join().map_err(|_| "node reader panicked")??,
-                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
-            );
-            let task = &sent["result"];
-            assert_eq!(task["status"]["state"], state, "response: {response:?}");
-            if state == "unknown" || state == "submitted" {
-                let result = &task["artifacts"][0]["parts"][0]["data"]["result"];
-                assert_eq!(result["txHash"], hash);
-                assert_eq!(result["rung"], state);
-                if state == "unknown" {
-                    assert!(result["detail"]
-                        .as_str()
-                        .is_some_and(|detail| !detail.is_empty()));
-                }
-                let fetched = call(
-                    &runtime,
-                    &tools,
-                    &tasks,
-                    "tasks/get",
-                    json!({"id":task["id"]}),
-                );
-                assert_eq!(&fetched["result"], task);
-                let canceled = call(
-                    &runtime,
-                    &tools,
-                    &tasks,
-                    "tasks/cancel",
-                    json!({"id":task["id"]}),
-                );
-                assert_eq!(canceled["error"]["code"], -32004);
-                assert_eq!(
-                    call(
-                        &runtime,
-                        &tools,
-                        &tasks,
-                        "tasks/get",
-                        json!({"id":task["id"]})
-                    )["result"],
-                    *task
-                );
-            } else {
-                assert!(task.get("artifacts").is_none());
-                assert!(task["status"]["message"]["parts"][0]["text"]
-                    .as_str()
-                    .is_some_and(|detail| detail.contains("nonce too low")));
-                assert_eq!(task["txHash"], hash);
-                assert_eq!(
-                    call(
-                        &runtime,
-                        &tools,
-                        &tasks,
-                        "tasks/get",
-                        json!({"id":task["id"]})
-                    )["result"],
-                    *task
-                );
-            }
-            assert!(
-                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-            );
-
-            let node = node_response(&listener, response)?;
-            let mcp = runtime.invoke(submit, &arguments);
-            assert_eq!(
-                node.join().map_err(|_| "node reader panicked")??,
-                json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
-            );
-            if state == "submitted" {
-                assert_eq!(mcp?, json!({"txHash":hash, "rung":"submitted"}));
-            } else {
-                assert!(mcp.is_err());
-            }
-            assert!(
-                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-            );
+            fixture.assert_case(response, state)?;
         }
-        let wrong_chain = Eip1559Call {
-            chain_id: 126,
-            ..call_data
-        }
-        .sign(&[1; 32])?;
-        let mut bad_signature = raw.clone();
-        let signature_start = bad_signature.len() - 32;
-        bad_signature[signature_start..].fill(0xff);
-        assert!(decode_signed(&bad_signature).is_err());
-        for invalid in [
-            json!({"raw_transaction":"0x02zz"}),
-            json!({"raw_transaction":"0x02c0"}),
-            json!({"raw_transaction":encoded.trim_start_matches("0x")}),
-            json!({"raw_transaction":encoded, "extra":true}),
-            json!({"raw_transaction":format!("0x{}", hex_encode(&bad_signature))}),
-            json!({"raw_transaction":format!("0x{}", hex_encode(&wrong_chain))}),
-        ] {
-            let sent = call(&runtime, &tools, &tasks, "message/send", message(&invalid));
-            assert_eq!(sent["result"]["status"]["state"], "rejected");
-            assert!(sent["result"].get("artifacts").is_none());
-            assert!(runtime.invoke(submit, &invalid).is_err());
-            assert!(
-                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-            );
-        }
+        assert_invalid_submissions(&fixture, call_data, &raw)?;
         Ok(())
     }
 }

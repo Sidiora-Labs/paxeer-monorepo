@@ -43,7 +43,7 @@ semantic roles the components use.
 | border strong (inputs, focused cards) | `rgba(255,255,255,0.16)` | `rgba(16,18,24,0.16)` |
 | text primary | `#F2F4F8` | `#0E1016` |
 | text secondary | `#A0A8B8` | `#4B5262` |
-| text muted (labels) | `#6B7385` | `#8A91A0` |
+| text muted (labels) | `#6B7385` | `#8A90A0` |
 | accent | `#4F7DFF` | `#2B4FDA` |
 | accent soft (tints, active tab wash) | `rgba(79,125,255,0.14)` | `rgba(43,79,218,0.10)` |
 | on accent | `#FFFFFF` | `#FFFFFF` |

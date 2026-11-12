@@ -254,7 +254,7 @@ def build(arguments):
     print("Artifacts: " + str(directory / "artifacts.json"), flush=True)
 
 
-def evidence_directory():
+def private_evidence_directory(prefix):
     raw = os.environ.get("PAXEER_X_EVIDENCE_DIR")
     if not raw:
         raise RuntimeError("PAXEER_X_EVIDENCE_DIR is required")
@@ -263,9 +263,13 @@ def evidence_directory():
     if ROOT == base or ROOT in base.parents or not stat.S_ISDIR(information.st_mode) or \
             information.st_uid != os.geteuid() or information.st_mode & 0o077:
         raise RuntimeError("evidence must be a caller-owned private directory outside the checkout")
-    directory = base / ("market-attestation-" + uuid.uuid4().hex)
+    directory = base / (prefix + "-" + uuid.uuid4().hex)
     directory.mkdir(mode=0o700)
     return directory
+
+
+def evidence_directory():
+    return private_evidence_directory("market-attestation")
 
 
 def execute(command, directory, name, timeout):

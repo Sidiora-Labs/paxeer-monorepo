@@ -202,52 +202,12 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
                         if error.kind() == std::io::ErrorKind::WouldBlock
                             && Instant::now() < deadline =>
                     {
-                        std::thread::sleep(Duration::from_millis(5))
+                        std::thread::sleep(Duration::from_millis(5));
                     }
                     Err(error) => panic!("missing {} request: {error}", step.method),
                 }
             };
-            socket
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap_or_else(|error| panic!("{error}"));
-            let mut reader = std::io::BufReader::new(socket);
-            let mut line = String::new();
-            reader
-                .read_line(&mut line)
-                .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(line, "POST / HTTP/1.1\r\n");
-            let mut length = None;
-            loop {
-                line.clear();
-                assert!(
-                    reader
-                        .read_line(&mut line)
-                        .unwrap_or_else(|error| panic!("{error}"))
-                        > 0
-                );
-                if line == "\r\n" {
-                    break;
-                }
-                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(
-                        value
-                            .trim()
-                            .parse::<usize>()
-                            .unwrap_or_else(|error| panic!("{error}")),
-                    );
-                }
-            }
-            let length = length.unwrap_or_else(|| panic!("missing content length"));
-            assert!(length < 65_536);
-            let mut body = vec![0; length];
-            reader
-                .read_exact(&mut body)
-                .unwrap_or_else(|error| panic!("{error}"));
-            let request: Value =
-                serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(request["jsonrpc"], "2.0");
-            assert_eq!(request["id"], 1);
-            assert_eq!(request["method"], step.method);
+            let (mut reader, request) = read_request(socket, step.method);
             let result = match step.reply {
                 Reply::Result(result) => {
                     assert_eq!(request["params"], step.params);
@@ -304,6 +264,53 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
     (endpoint, worker)
 }
 
+fn read_request(
+    socket: std::net::TcpStream,
+    method: &str,
+) -> (std::io::BufReader<std::net::TcpStream>, Value) {
+    socket
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(|error| panic!("{error}"));
+    let mut reader = std::io::BufReader::new(socket);
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(line, "POST / HTTP/1.1\r\n");
+    let mut length = None;
+    loop {
+        line.clear();
+        assert!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("{error}"))
+                > 0
+        );
+        if line == "\r\n" {
+            break;
+        }
+        if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("{error}")),
+            );
+        }
+    }
+    let length = length.unwrap_or_else(|| panic!("missing content length"));
+    assert!(length < 65_536);
+    let mut body = vec![0; length];
+    reader
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let request: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(request["jsonrpc"], "2.0");
+    assert_eq!(request["id"], 1);
+    assert_eq!(request["method"], method);
+    (reader, request)
+}
+
 fn cli(directory: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_layerx"))
         .arg("--json")
@@ -319,7 +326,7 @@ fn cli(directory: &Path, args: &[&str]) -> Output {
         .unwrap_or_else(|error| panic!("{error}"))
 }
 
-fn success(output: Output) -> Value {
+fn success(output: &Output) -> Value {
     assert!(
         output.status.success(),
         "{}",
@@ -333,111 +340,28 @@ fn success(output: Output) -> Value {
 
 #[test]
 fn chains_list_show_and_create_round_trip() -> Result<(), Box<dyn std::error::Error>> {
-    use std::os::unix::fs::OpenOptionsExt as _;
     let directory = tempfile::tempdir()?;
     let vectors: Value = serde_json::from_str(VECTORS)?;
-    let one = json!(format!("0x{:064x}", 1));
-    let mut steps = Vec::new();
-    for method in [
-        "chainCount",
-        "getChain",
-        "getChain",
-        "chainByName",
-        "getChain",
-        "params",
-    ] {
-        let result = match method {
-            "chainCount" | "chainByName" => one.clone(),
-            "getChain" => vectors["getChain"]["returndata"].clone(),
-            _ => vectors["params"]["returndata"].clone(),
-        };
-        steps.push(Step {
-            method: "eth_call",
-            params: eth_call(&vectors, method),
-            reply: Reply::Result(result),
-        });
-    }
-    for (method, params, result) in [
-        ("eth_chainId", json!([]), json!("0x7d")),
-        (
-            "eth_getTransactionCount",
-            json!([FROM, "pending"]),
-            json!("0x7"),
-        ),
-        ("eth_gasPrice", json!([]), json!("0x64")),
-        ("eth_maxPriorityFeePerGas", json!([]), json!("0x2")),
-        (
-            "eth_estimateGas",
-            json!([{"from":FROM, "to":vectors["address"], "data":calldata(&vectors, "createChain"), "value":"0x579a814e10a740000"}, "pending"]),
-            json!("0x493e0"),
-        ),
-    ] {
-        steps.push(Step {
-            method,
-            params,
-            reply: Reply::Result(result),
-        });
-    }
-    steps.push(Step {
-        method: "eth_sendRawTransaction",
-        params: Value::Null,
-        reply: Reply::Submit,
-    });
-    steps.push(Step {
-        method: "eth_getTransactionReceipt",
-        params: Value::Null,
-        reply: Reply::Receipt,
-    });
-    steps.push(Step {
-        method: "eth_call",
-        params: eth_call(&vectors, "chainByName"),
-        reply: Reply::Result(json!(format!("0x{:064x}", 0))),
-    });
-    steps.push(Step {
-        method: "eth_call",
-        params: eth_call(&vectors, "getChain"),
-        reply: Reply::Result(json!("0x00")),
-    });
-    steps.push(Step {
-        method: "eth_call",
-        params: eth_call(&vectors, "chainCount"),
-        reply: Reply::Result(json!(format!("0x{:064x}", 0))),
-    });
+    let steps = round_trip_steps(&vectors);
     let (endpoint, worker) = server(steps, vectors.clone());
-    std::fs::write(
-        directory.path().join("config.json"),
-        serde_json::to_vec(&json!({
-            "version":1, "current_environment":"emulator", "default_key":null, "keys":{},
-            "environments":{"emulator":{"endpoint":endpoint, "network_id":125}}
-        }))?,
-    )?;
-    let mut key_file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(directory.path().join("wallet.json"))?;
-    serde_json::to_writer(
-        &mut key_file,
-        &json!({"evm_address":FROM, "evm_private_key":format!("{:064x}", 1)}),
-    )?;
-    drop(key_file);
+    configure_round_trip(directory.path(), &endpoint)?;
     let rpc = endpoint.clone();
     let mut expected = vectors["getChain"]["decoded"].clone();
     expected["rpcUrl"] = json!(format!("{endpoint}/chain/1"));
-    let listed = success(cli(directory.path(), &["--rpc", &rpc, "chains", "list"]));
+    let listed = success(&cli(directory.path(), &["--rpc", &rpc, "chains", "list"]));
     assert_eq!(listed["kind"], "chains.list");
     assert_eq!(listed["data"]["chains"], json!([expected]));
-    let shown = success(cli(directory.path(), &["chains", "show", "1"]));
+    let shown = success(&cli(directory.path(), &["chains", "show", "1"]));
     assert_eq!(shown["kind"], "chains.show");
     assert_eq!(shown["data"], expected);
     assert_eq!(
-        success(cli(
+        success(&cli(
             directory.path(),
             &["--rpc", &rpc, "chains", "show", "demo"]
         ))["data"],
         expected
     );
-    let created = success(cli(
+    let created = success(&cli(
         directory.path(),
         &[
             "--rpc",
@@ -471,7 +395,7 @@ fn chains_list_show_and_create_round_trip() -> Result<(), Box<dyn std::error::Er
         String::from_utf8_lossy(&malformed.stderr).contains("invalid chain registry ABI encoding")
     );
     assert_eq!(
-        success(cli(directory.path(), &["chains", "list"]))["data"]["chains"],
+        success(&cli(directory.path(), &["chains", "list"]))["data"]["chains"],
         json!([])
     );
     worker.join().map_err(|_| "RPC server thread failed")?;
@@ -499,8 +423,104 @@ fn chains_list_show_and_create_round_trip() -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-fn registry_call(call: ChainCall) -> Value {
-    json!([{"to":hex(&CHAINS_PRECOMPILE), "data":hex(&encode_call(&call))}, "pending"])
+fn round_trip_steps(vectors: &Value) -> Vec<Step> {
+    let one = json!(format!("0x{:064x}", 1));
+    let mut steps = Vec::new();
+    for method in [
+        "chainCount",
+        "getChain",
+        "getChain",
+        "chainByName",
+        "getChain",
+        "params",
+    ] {
+        let result = match method {
+            "chainCount" | "chainByName" => one.clone(),
+            "getChain" => vectors["getChain"]["returndata"].clone(),
+            _ => vectors["params"]["returndata"].clone(),
+        };
+        steps.push(Step {
+            method: "eth_call",
+            params: eth_call(vectors, method),
+            reply: Reply::Result(result),
+        });
+    }
+    for (method, params, result) in [
+        ("eth_chainId", json!([]), json!("0x7d")),
+        (
+            "eth_getTransactionCount",
+            json!([FROM, "pending"]),
+            json!("0x7"),
+        ),
+        ("eth_gasPrice", json!([]), json!("0x64")),
+        ("eth_maxPriorityFeePerGas", json!([]), json!("0x2")),
+        (
+            "eth_estimateGas",
+            json!([{"from":FROM, "to":vectors["address"], "data":calldata(vectors, "createChain"), "value":"0x579a814e10a740000"}, "pending"]),
+            json!("0x493e0"),
+        ),
+    ] {
+        steps.push(Step {
+            method,
+            params,
+            reply: Reply::Result(result),
+        });
+    }
+    steps.push(Step {
+        method: "eth_sendRawTransaction",
+        params: Value::Null,
+        reply: Reply::Submit,
+    });
+    steps.push(Step {
+        method: "eth_getTransactionReceipt",
+        params: Value::Null,
+        reply: Reply::Receipt,
+    });
+    steps.push(Step {
+        method: "eth_call",
+        params: eth_call(vectors, "chainByName"),
+        reply: Reply::Result(json!(format!("0x{:064x}", 0))),
+    });
+    steps.push(Step {
+        method: "eth_call",
+        params: eth_call(vectors, "getChain"),
+        reply: Reply::Result(json!("0x00")),
+    });
+    steps.push(Step {
+        method: "eth_call",
+        params: eth_call(vectors, "chainCount"),
+        reply: Reply::Result(json!(format!("0x{:064x}", 0))),
+    });
+    steps
+}
+
+fn configure_round_trip(
+    directory: &Path,
+    endpoint: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::os::unix::fs::OpenOptionsExt as _;
+    std::fs::write(
+        directory.join("config.json"),
+        serde_json::to_vec(&json!({
+            "version":1, "current_environment":"emulator", "default_key":null, "keys":{},
+            "environments":{"emulator":{"endpoint":endpoint, "network_id":125}}
+        }))?,
+    )?;
+    let mut key_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(directory.join("wallet.json"))?;
+    serde_json::to_writer(
+        &mut key_file,
+        &json!({"evm_address":FROM, "evm_private_key":format!("{:064x}", 1)}),
+    )?;
+    drop(key_file);
+    Ok(())
+}
+
+fn registry_call(call: &ChainCall) -> Value {
+    json!([{"to":hex(&CHAINS_PRECOMPILE), "data":hex(&encode_call(call))}, "pending"])
 }
 
 fn configure_list(directory: &Path, endpoint: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -519,7 +539,7 @@ fn assert_chain_list(records: &[(u32, u8)]) -> Result<(), Box<dyn std::error::Er
     let vectors: Value = serde_json::from_str(VECTORS)?;
     let mut steps = vec![Step {
         method: "eth_call",
-        params: registry_call(ChainCall::ChainCount),
+        params: registry_call(&ChainCall::ChainCount),
         reply: Reply::Result(json!(format!("0x{:064x}", records.len()))),
     }];
     let last_id = records.last().map_or(0, |(id, _)| *id);
@@ -546,7 +566,7 @@ fn assert_chain_list(records: &[(u32, u8)]) -> Result<(), Box<dyn std::error::Er
         };
         steps.push(Step {
             method: "eth_call",
-            params: registry_call(ChainCall::GetChain(id)),
+            params: registry_call(&ChainCall::GetChain(id)),
             reply,
         });
     }
@@ -572,7 +592,7 @@ fn assert_chain_list(records: &[(u32, u8)]) -> Result<(), Box<dyn std::error::Er
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(
-        success(output),
+        success(&output),
         json!({
             "ok":true, "kind":"chains.list", "message":"Listed chains", "data":{"chains":expected}
         })
@@ -622,12 +642,12 @@ fn chains_list_preserves_other_refusals() -> Result<(), Box<dyn std::error::Erro
             vec![
                 Step {
                     method: "eth_call",
-                    params: registry_call(ChainCall::ChainCount),
+                    params: registry_call(&ChainCall::ChainCount),
                     reply: Reply::Result(json!(format!("0x{:064x}", 1))),
                 },
                 Step {
                     method: "eth_call",
-                    params: registry_call(ChainCall::GetChain(1)),
+                    params: registry_call(&ChainCall::GetChain(1)),
                     reply: Reply::Error(error.clone()),
                 },
             ],

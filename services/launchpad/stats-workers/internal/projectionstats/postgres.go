@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"regexp"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+
 	"errors"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -123,7 +125,7 @@ func (r *Repository) applyAccounted(ctx context.Context, in ApplyInput, accounti
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	result, err := r.applyAccountedTx(ctx, tx, in, accounting, nil, nil)
 	if err != nil {
@@ -202,7 +204,7 @@ func (r *Repository) applyAccountedTx(ctx context.Context, tx pgx.Tx, in ApplyIn
 		return ApplyResult{}, e
 	}
 	buys, sells := 0, 1
-	if t.Side == "buy" {
+	if t.Side == valueBuy {
 		buys, sells = 1, 0
 	}
 	var revision int64
@@ -338,7 +340,7 @@ func (r *Repository) ApplyQualifiedTx(ctx context.Context, tx pgx.Tx, in Qualifi
 }
 
 func (r *Repository) RecordMarketPublicationTx(ctx context.Context, tx pgx.Tx, p accounting.PublicationV1, result ApplyResult) error {
-	if tx == nil || accounting.ValidatePublicationV1(p) != nil || p.Fill == nil || p.Facet != "market" || !result.Accepted || result.Revision < 1 {
+	if tx == nil || accounting.ValidatePublicationV1(p) != nil || p.Fill == nil || p.Facet != valueMarket || !result.Accepted || result.Revision < 1 {
 		return ErrInvalid
 	}
 	position, err := json.Marshal(p.Positions[0])
@@ -444,7 +446,7 @@ func (r *Repository) FreezePoolsTx(ctx context.Context, tx pgx.Tx, pools []strin
 }
 
 func canonicalMarketTradeStreamUpdate(p accounting.PublicationV1, observedAt time.Time) (delivery.StreamUpdate, error) {
-	if accounting.ValidatePublicationV1(p) != nil || p.Facet != "market" || p.Fill == nil || observedAt.IsZero() || observedAt.Year() < 1 || observedAt.Year() > 9999 {
+	if accounting.ValidatePublicationV1(p) != nil || p.Facet != valueMarket || p.Fill == nil || observedAt.IsZero() || observedAt.Year() < 1 || observedAt.Year() > 9999 {
 		return delivery.StreamUpdate{}, ErrInvalid
 	}
 	fill := p.Fill
@@ -454,10 +456,10 @@ func canonicalMarketTradeStreamUpdate(p accounting.PublicationV1, observedAt tim
 	}
 	occurredAt := time.Unix(seconds, 0).UTC().Format("2006-01-02T15:04:05.000Z")
 	feeAsset := fill.Token
-	if fill.Side == "buy" {
+	if fill.Side == valueBuy {
 		feeAsset = fill.Settlement
 	}
-	recipientQuality := "unavailable"
+	recipientQuality := valueUnavailable
 	refs := []string{}
 	if fill.Attribution.Recipient != nil {
 		recipientQuality = fill.Attribution.Quality
@@ -495,7 +497,7 @@ func canonicalMarketTradeStreamUpdate(p accounting.PublicationV1, observedAt tim
 	position := p.Positions[0]
 	watermark, err := json.Marshal(interfaces.Watermark{ChainId: fill.Position.ChainID, Height: interfaces.UInt256(fill.Position.Height),
 		BlockHash: fill.Position.BlockHash, ProjectionRevision: interfaces.PositiveUInt256(position.Sequence),
-		ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"})
+		ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: valueHealthy})
 	if err != nil {
 		return delivery.StreamUpdate{}, err
 	}

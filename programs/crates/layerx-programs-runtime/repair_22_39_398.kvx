@@ -1,0 +1,12 @@
+[host]
+market = "market.rs is a host module beside the checked families; it uses host memory and runtime state through its parent module."
+inventory = "The host inventory includes market.rs and scan_tests.rs."
+
+[scan]
+case = "scan_pages_are_identical_across_both_engine_tiers_and_insertion_orders"
+location = "src/host/scan_tests.rs"
+coverage = "The case compares scan pages, metering, storage state and key order across both engine tiers and insertion orders."
+
+[integration]
+location = "tests/storage_scan.rs"
+coverage = "The paginated scan case compares the second page, metering and canonical evidence across insertion orders."

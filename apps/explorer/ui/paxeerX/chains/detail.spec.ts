@@ -1,7 +1,7 @@
 import { RESOURCES } from 'lib/api/resources';
 import { expect, test } from 'vitest';
 
-import { addChainParams, parseActivityPage, parseSummary } from './detail';
+import { addChainParams, parseActivityPage, parseChainRecord, parseSummary } from './detail';
 import { parseChainsResponse } from './model';
 
 function chain_detail_parses_activity_and_builds_wallet_params() {
@@ -11,6 +11,8 @@ function chain_detail_parses_activity_and_builds_wallet_params() {
     "bond":"100000000000000000000","gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100
   }`);
   const [ record ] = parseChainsResponse({ chains: [ recordJson ] });
+  expect(parseChainRecord(recordJson, 1)).toEqual(record);
+  expect(() => parseChainRecord(recordJson, 2)).toThrow('Record belongs to a different virtual chain');
   const summaryJson = JSON.parse('{"id":1,"tx_count":2,"gas_used":42005,"last_height":42}');
   const summary = parseSummary(summaryJson, record.id);
   expect(summary).toEqual(summaryJson);

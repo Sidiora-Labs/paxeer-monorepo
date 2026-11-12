@@ -22,7 +22,14 @@ pub const EXPIRY: u64 = 1_000;
 
 pub struct Directory(pub PathBuf);
 
+impl Default for Directory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Directory {
+    #[must_use]
     pub fn new() -> Self {
         Self(std::env::temp_dir().join(format!(
             "repair-22-33-1543-{}-{}",
@@ -31,26 +38,34 @@ impl Directory {
         )))
     }
 
+    /// # Panics
+    /// Panics if the integration store cannot be opened at this directory.
+    #[must_use]
     pub fn open(&self) -> Store {
-        Store::open(&self.0).expect("open real tenant store")
+        Store::open(&self.0).unwrap_or_else(|error| panic!("open real tenant store: {error:?}"))
     }
 }
 
 impl Drop for Directory {
     fn drop(&mut self) {
         if self.0.exists() {
-            std::fs::remove_dir_all(&self.0).expect("remove integration store");
+            std::fs::remove_dir_all(&self.0)
+                .unwrap_or_else(|error| panic!("remove integration store: {error}"));
         }
     }
 }
 
+/// # Panics
+/// Panics if the fixed `call-owner` tenant identifier fails validation.
+#[must_use]
 pub fn session() -> SessionRef {
     SessionRef::new(
-        TenantId::new("call-owner").expect("tenant"),
+        TenantId::new("call-owner").unwrap_or_else(|error| panic!("tenant: {error:?}")),
         SessionId([9; 32]),
     )
 }
 
+#[must_use]
 pub fn defaults() -> EvmPreparationDefaults {
     EvmPreparationDefaults {
         max_priority_fee_per_gas: 1,
@@ -59,6 +74,7 @@ pub fn defaults() -> EvmPreparationDefaults {
     }
 }
 
+#[must_use]
 pub fn state() -> EvmPreparationState {
     EvmPreparationState {
         chain_id: 125,
@@ -74,6 +90,7 @@ fn word(value: u128) -> [u8; 32] {
     word
 }
 
+#[must_use]
 pub fn request(identity: u8) -> EvmPrepareRequest {
     EvmPrepareRequest {
         from: OWNER,
@@ -96,20 +113,29 @@ pub fn request(identity: u8) -> EvmPrepareRequest {
     }
 }
 
+/// # Panics
+/// Panics if the production preparer refuses the fixed state, defaults or call.
+#[must_use]
 pub fn prepared(identity: u8) -> EvmPrepared {
     prepare_bound(state(), defaults(), request(identity), 100_000)
-        .expect("production call preparation")
+        .unwrap_or_else(|error| panic!("production call preparation: {error:?}"))
 }
 
+/// # Panics
+/// Panics if the production signer refuses the supplied call or fixed signing key.
+#[must_use]
 pub fn signed(prepared: &EvmPrepared) -> Vec<u8> {
     let mut secret = [0; 32];
     secret[31] = 1;
     prepared
         .call
         .sign(&secret)
-        .expect("real EIP-1559 signature")
+        .unwrap_or_else(|error| panic!("real EIP-1559 signature: {error:?}"))
 }
 
+/// # Panics
+/// Panics if the fixed tenant limit is rejected by the budget limiter.
+#[must_use]
 pub fn limiter() -> BudgetLimiter {
     BudgetLimiter::new(vec![LimitConfig {
         id: LimitId([1; 16]),
@@ -118,5 +144,5 @@ pub fn limiter() -> BudgetLimiter {
         ceiling: 10_000,
         consumed: 0,
     }])
-    .expect("real budget limiter")
+    .unwrap_or_else(|error| panic!("real budget limiter: {error:?}"))
 }

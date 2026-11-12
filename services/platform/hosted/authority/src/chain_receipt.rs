@@ -14,6 +14,8 @@ const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_HEADER_BYTES: usize = 32 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(8);
 
+type ReceiptReply = (Vec<u8>, [u8; 32], u64, Option<(u64, [u8; 32])>);
+
 #[derive(Debug)]
 pub enum ReceiptSource {
     Found(Vec<u8>),
@@ -43,10 +45,13 @@ struct ReceiptKeyEntry {
 }
 
 impl ChainReceipts {
+    #[must_use]
     pub fn pinned_keys(&self) -> &[SequencerAuthorization] {
         &self.keys
     }
 
+    /// # Errors
+    /// Returns an error when the loopback endpoint or receipt keys are invalid.
     pub fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
         let source = url
             .strip_prefix("http://")
@@ -60,7 +65,7 @@ impl ChainReceipts {
             return Err("chain RPC path is invalid".to_owned());
         }
         let bytes = super::protected::read(keys_file, MAX_KEYS_BYTES)
-            .map_err(|()| "receipt key list is unavailable or unprotected")?;
+            .map_err(|crate::AuthorityError| "receipt key list is unavailable or unprotected")?;
         let entries: Vec<ReceiptKeyEntry> =
             serde_json::from_slice(&bytes).map_err(|_| "receipt key list is invalid")?;
         if entries.is_empty() {
@@ -94,6 +99,7 @@ impl ChainReceipts {
         })
     }
 
+    #[must_use]
     pub fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
         match self.read(activity_id) {
             Ok(None) => ReceiptSource::Unknown,
@@ -156,81 +162,18 @@ impl ChainReceipts {
         }
     }
 
+    /// # Errors
+    /// Returns an error when the receipt is missing, uncommitted, or invalid.
     pub fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
         let (bytes, _, _, committed) = self.read(id)?.ok_or("committed receipt missing")?;
         let (height, hash) = committed.ok_or("receipt is not committed")?;
         Ok((bytes, height, hash))
     }
 
-    fn read(
-        &self,
-        activity_id: [u8; 32],
-    ) -> Result<Option<(Vec<u8>, [u8; 32], u64, Option<(u64, [u8; 32])>)>, String> {
-        let deadline = Instant::now()
-            .checked_add(TIMEOUT)
-            .ok_or("chain RPC deadline unavailable")?;
-        let remaining = || {
-            deadline
-                .checked_duration_since(Instant::now())
-                .filter(|duration| !duration.is_zero())
-                .ok_or("chain RPC deadline elapsed".to_owned())
-        };
-        let body = serde_json::json!({"jsonrpc": "2.0", "id": 1,
-            "method": "pax_sequencerReceipt", "params": [format!("0x{}", hex::encode(&activity_id))]}).to_string();
-        let mut stream = TcpStream::connect_timeout(&self.address, remaining()?)
-            .map_err(|error| error.to_string())?;
-        stream
-            .set_write_timeout(Some(remaining()?))
-            .map_err(|error| error.to_string())?;
-        let request = format!(
-            "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            self.path,
-            self.host,
-            body.len(),
-            body
-        );
-        stream
-            .write_all(request.as_bytes())
-            .map_err(|error| error.to_string())?;
-        let mut raw = Vec::new();
-        let mut chunk = [0; 4096];
-        let mut header = None;
-        loop {
-            stream
-                .set_read_timeout(Some(remaining()?))
-                .map_err(|error| error.to_string())?;
-            let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
-            if count == 0 {
-                break;
-            }
-            if raw.len().saturating_add(count) > MAX_RESPONSE_BYTES + MAX_HEADER_BYTES {
-                return Err("chain RPC response exceeds bound".to_owned());
-            }
-            raw.extend_from_slice(&chunk[..count]);
-            if header.is_none() {
-                if let Some(end) = raw.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
-                    if end > MAX_HEADER_BYTES {
-                        return Err("chain RPC headers exceed bound".to_owned());
-                    }
-                    header = Some((end + 4, response_length(&raw[..end])?));
-                } else if raw.len() > MAX_HEADER_BYTES {
-                    return Err("chain RPC headers exceed bound".to_owned());
-                }
-            }
-            if let Some((end, length)) = header {
-                if length.is_some_and(|length| raw.len() >= end + length) {
-                    break;
-                }
-            }
-        }
-        let (end, length) = header.ok_or("chain RPC headers missing")?;
-        if length.is_some_and(|length| raw.len() != end + length)
-            || raw.len() - end > MAX_RESPONSE_BYTES
-        {
-            return Err("chain RPC content length mismatch".to_owned());
-        }
+    fn read(&self, activity_id: [u8; 32]) -> Result<Option<ReceiptReply>, String> {
+        let raw = self.request_receipt(activity_id)?;
         let document: serde_json::Value =
-            serde_json::from_slice(&raw[end..]).map_err(|error| error.to_string())?;
+            serde_json::from_slice(&raw).map_err(|error| error.to_string())?;
         if document["jsonrpc"] != "2.0" || document["id"] != 1 || document.get("error").is_some() {
             return Err("chain RPC response refused or malformed".to_owned());
         }
@@ -303,6 +246,73 @@ impl ChainReceipts {
         };
         Ok(Some((bytes, signing_key, height, committed)))
     }
+
+    fn request_receipt(&self, activity_id: [u8; 32]) -> Result<Vec<u8>, String> {
+        let deadline = Instant::now()
+            .checked_add(TIMEOUT)
+            .ok_or("chain RPC deadline unavailable")?;
+        let remaining = || {
+            deadline
+                .checked_duration_since(Instant::now())
+                .filter(|duration| !duration.is_zero())
+                .ok_or("chain RPC deadline elapsed".to_owned())
+        };
+        let body = serde_json::json!({"jsonrpc": "2.0", "id": 1,
+            "method": "pax_sequencerReceipt", "params": [format!("0x{}", hex::encode(&activity_id))]}).to_string();
+        let mut stream = TcpStream::connect_timeout(&self.address, remaining()?)
+            .map_err(|error| error.to_string())?;
+        stream
+            .set_write_timeout(Some(remaining()?))
+            .map_err(|error| error.to_string())?;
+        let request = format!(
+            "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            self.path,
+            self.host,
+            body.len(),
+            body
+        );
+        stream
+            .write_all(request.as_bytes())
+            .map_err(|error| error.to_string())?;
+        let mut raw = Vec::new();
+        let mut chunk = [0; 4096];
+        let mut header = None;
+        loop {
+            stream
+                .set_read_timeout(Some(remaining()?))
+                .map_err(|error| error.to_string())?;
+            let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
+            if count == 0 {
+                break;
+            }
+            if raw.len().saturating_add(count) > MAX_RESPONSE_BYTES + MAX_HEADER_BYTES {
+                return Err("chain RPC response exceeds bound".to_owned());
+            }
+            raw.extend_from_slice(&chunk[..count]);
+            if header.is_none() {
+                if let Some(end) = raw.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+                    if end > MAX_HEADER_BYTES {
+                        return Err("chain RPC headers exceed bound".to_owned());
+                    }
+                    header = Some((end + 4, response_length(&raw[..end])?));
+                } else if raw.len() > MAX_HEADER_BYTES {
+                    return Err("chain RPC headers exceed bound".to_owned());
+                }
+            }
+            if let Some((end, length)) = header {
+                if length.is_some_and(|length| raw.len() >= end + length) {
+                    break;
+                }
+            }
+        }
+        let (end, length) = header.ok_or("chain RPC headers missing")?;
+        if length.is_some_and(|length| raw.len() != end + length)
+            || raw.len() - end > MAX_RESPONSE_BYTES
+        {
+            return Err("chain RPC content length mismatch".to_owned());
+        }
+        Ok(raw[end..].to_vec())
+    }
 }
 
 fn rpc_hex32(value: &serde_json::Value) -> Option<[u8; 32]> {
@@ -359,9 +369,16 @@ fn base64_key(text: &str) -> Option<[u8; 32]> {
             if value & 3 != 0 {
                 return None;
             }
-            output.extend_from_slice(&[(value >> 10) as u8, (value >> 2) as u8]);
+            output.extend_from_slice(&[
+                (value >> 10).to_le_bytes()[0],
+                (value >> 2).to_le_bytes()[0],
+            ]);
         } else {
-            output.extend_from_slice(&[(value >> 16) as u8, (value >> 8) as u8, value as u8]);
+            output.extend_from_slice(&[
+                (value >> 16).to_le_bytes()[0],
+                (value >> 8).to_le_bytes()[0],
+                value.to_le_bytes()[0],
+            ]);
         }
     }
     output.try_into().ok()

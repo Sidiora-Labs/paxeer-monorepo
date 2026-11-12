@@ -1,3 +1,5 @@
+include!("../src/required.rs");
+
 use std::fs;
 use std::net::SocketAddr;
 use std::os::unix::fs::PermissionsExt as _;
@@ -13,15 +15,15 @@ impl Workspace {
     fn new() -> Self {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("clock")
+            .required("clock")
             .as_nanos();
         let workspace = Self(std::env::temp_dir().join(format!(
             "layerx-ramp-rebalance-{}-{nanos}",
             std::process::id()
         )));
-        fs::create_dir(&workspace.0).expect("create workspace");
+        fs::create_dir(&workspace.0).required("create workspace");
         fs::set_permissions(&workspace.0, fs::Permissions::from_mode(0o700))
-            .expect("private workspace");
+            .required("private workspace");
         for args in [
             vec![
                 "req",
@@ -66,7 +68,7 @@ impl Workspace {
                 .args(args)
                 .current_dir(&workspace.0)
                 .output()
-                .expect("generate client TLS material");
+                .required("generate client TLS material");
             assert!(
                 output.status.success(),
                 "{}",
@@ -77,7 +79,7 @@ impl Workspace {
             workspace.path("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("private TLS identity");
+        .required("private TLS identity");
         workspace.private_file("password", b"ramp-test-password\n");
         workspace.private_file("service-token", b"work-route-service-token\n");
         workspace.private_file("operator-token", b"work-route-operator-token\n");
@@ -90,8 +92,8 @@ impl Workspace {
 
     fn private_file(&self, name: &str, bytes: &[u8]) -> PathBuf {
         let path = self.path(name);
-        fs::write(&path, bytes).expect("write protected file");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("protect file");
+        fs::write(&path, bytes).required("write protected file");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).required("protect file");
         path
     }
 
@@ -162,7 +164,7 @@ impl Workspace {
                 }],
                 "max_fee_per_gas": 1000,
                 "max_priority_fee_per_gas": 2,
-                "gas_limit_cap": 100000,
+                "gas_limit_cap": 100_000,
                 "signer_endpoint": "https://signer.example.test",
                 "signer_token_file": p("service-token"),
                 "actor_did": did
@@ -192,7 +194,7 @@ impl Drop for Workspace {
 }
 
 #[path = "../src/main.rs"]
-mod reference;
+pub mod reference;
 
 use layerx_ramp_toolkit::journal::PaxeerObservation;
 use layerx_types::rung::Rung;
@@ -201,7 +203,7 @@ use layerx_types::rung::Rung;
 fn rebalance_presentation_reports_rung() {
     for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
         let workspace = Workspace::new();
-        let config = workspace.config("127.0.0.1:0".parse().expect("listener address"));
+        let config = workspace.config("127.0.0.1:0".parse().required("listener address"));
         let key = [7; 32];
         let transaction = [9; 32];
         let committed = rung == Rung::Committed;
@@ -210,7 +212,7 @@ fn rebalance_presentation_reports_rung() {
             |journal| {
                 journal
                     .plan_paxeer(key, [1; 32], 100, 1)
-                    .expect("plan custody transfer");
+                    .required("plan custody transfer");
                 journal
                     .observe_paxeer(
                         key,
@@ -223,7 +225,7 @@ fn rebalance_presentation_reports_rung() {
                         },
                         2,
                     )
-                    .expect("record custody observation");
+                    .required("record custody observation");
             },
             &format!("/internal/v1/rebalances/{}", "07".repeat(32)),
         );
@@ -233,7 +235,7 @@ fn rebalance_presentation_reports_rung() {
         assert_eq!(body["transaction_hash"], format!("0x{}", "09".repeat(32)));
         assert!(body
             .as_object()
-            .expect("rebalance object")
+            .required("rebalance object")
             .contains_key("block_height"));
         assert_eq!(body["block_height"], json!(committed.then_some(42)));
         assert_eq!(
@@ -247,7 +249,7 @@ fn rebalance_presentation_reports_rung() {
 #[test]
 fn readiness_reports_sequencer_chain_id() {
     let workspace = Workspace::new();
-    let config = workspace.config("127.0.0.1:0".parse().expect("listener address"));
+    let config = workspace.config("127.0.0.1:0".parse().required("listener address"));
     assert_eq!(config["layerx"]["chain_id"], 125);
     assert!(config["paxeer"].get("rpc_chain_id").is_none());
     let (status, body) =

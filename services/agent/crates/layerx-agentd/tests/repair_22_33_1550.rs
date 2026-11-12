@@ -1,3 +1,11 @@
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::TimestampSeconds;
 use layerx_agentd::approval::native_program::NativeProgramApprovalCarrier as Program;
@@ -55,8 +63,10 @@ impl Fixture {
         ));
         let principal = "native-owner".to_owned();
         let transport_tenant = "approval-recovery".to_owned();
-        let namespace =
-            layerx_identity_binding::subject_namespace(&transport_tenant, &principal).unwrap();
+        let namespace = require_ok(
+            layerx_identity_binding::subject_namespace(&transport_tenant, &principal),
+            "required test value",
+        );
         let peer = HumanPeer {
             uid: 1000,
             principal,
@@ -71,20 +81,22 @@ impl Fixture {
             }),
         };
         let call = if program {
-            ProgramOperations::<SequencerEndpoint>::call_precompile(
-                NativeProgramCall {
-                    program_id: ProgramId::new([0x31; 32]),
-                    guest_abi: 1,
-                    entrypoint: b"layerx_call",
-                    calldata: &[1, 2, 3],
-                    capabilities: &[0, 0],
-                    access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
-                    response_capacity: 64,
-                    resources: Resources([1_000_000, 16_777_216, 100, 200, 4, 1024, 4096]),
-                },
-                1000,
+            require_ok(
+                ProgramOperations::<SequencerEndpoint>::call_precompile(
+                    NativeProgramCall {
+                        program_id: ProgramId::new([0x31; 32]),
+                        guest_abi: 1,
+                        entrypoint: b"layerx_call",
+                        calldata: &[1, 2, 3],
+                        capabilities: &[0, 0],
+                        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+                        response_capacity: 64,
+                        resources: Resources([1_000_000, 16_777_216, 100, 200, 4, 1024, 4096]),
+                    },
+                    1000,
+                ),
+                "required test value",
             )
-            .unwrap()
         } else {
             PrecompileCall {
                 target: PrecompileTarget::Ledger,
@@ -92,66 +104,7 @@ impl Fixture {
                 arguments: vec![AbiArgument::Word(asset())],
             }
         };
-        let prepared = prepare_bound(
-            EvmPreparationState {
-                chain_id: 125,
-                pending_nonce: 7,
-                base_fee_per_gas: 1,
-                head_height: 5,
-            },
-            EvmPreparationDefaults {
-                max_priority_fee_per_gas: 1,
-                max_fee_per_gas: 3,
-                maximum_payload_bytes: 4096,
-            },
-            EvmPrepareRequest {
-                from: SENDER,
-                call,
-                expected_nonce: Some(7),
-                max_priority_fee_per_gas: None,
-                max_fee_per_gas: None,
-                declared_payload_limit: 4096,
-            },
-            50_000,
-        )
-        .unwrap();
-        assert_eq!(prepared.disclosure.fee_limit, FEE);
-        verify_call_binding(&prepared).unwrap();
-        let tenant = TenantId::new(namespace).unwrap();
-        let mut store = Store::open(&root).unwrap();
-        let budgets = BudgetLimiter::new(Vec::new()).unwrap();
-        let limit = daemon_limit_id([0x21; 32]);
-        create_daemon_limit(
-            &mut store,
-            &budgets,
-            DaemonLimitRecord {
-                tenant: tenant.clone(),
-                budget_id: [0x21; 32],
-                limit_id: limit,
-                agent_digest: [0x22; 32],
-                asset: asset(),
-                ceiling: 1_000_000,
-                consumed: 0,
-                expiry_ms: 100_000,
-                revoked: false,
-                mutation_key: [0x23; 32],
-                body_digest: [0x24; 32],
-                revoke_key: [0; 32],
-            },
-            CoreTimestampMs(1000),
-        )
-        .unwrap();
-        (
-            Self {
-                root,
-                peer,
-                prepared,
-                tenant,
-                limit,
-            },
-            store,
-            budgets,
-        )
+        finish_new_1_repair_22_33_1550(root, namespace, peer, call)
     }
     fn id(&self) -> [u8; 32] {
         Sha256::digest(self.prepared.call.encode_unsigned()).into()
@@ -176,24 +129,86 @@ impl Fixture {
     fn restart(&self, store: Store, budgets: BudgetLimiter) -> (Store, BudgetLimiter) {
         drop(store);
         drop(budgets);
-        let reopened = Store::open(&self.root).unwrap();
-        let restored = BudgetLimiter::new(Vec::new()).unwrap();
-        load_daemon_limits(&reopened, &restored).unwrap();
+        let reopened = require_ok(Store::open(&self.root), "required test value");
+        let restored = require_ok(BudgetLimiter::new(Vec::new()), "required test value");
+        require_ok(
+            load_daemon_limits(&reopened, &restored),
+            "required test value",
+        );
         (reopened, restored)
     }
-    fn key(&self, program: bool) -> TenantKey {
-        let prefix: &[u8] = if program {
-            b"native-program-approval-carrier-v1:"
-        } else {
-            b"native-effect-approval-carrier-v1:"
-        };
-        TenantKey::new(
-            self.tenant.clone(),
-            ObjectKind::PreparedActivity,
-            [prefix, &self.id()].concat(),
-        )
-        .unwrap()
-    }
+}
+
+fn finish_new_1_repair_22_33_1550(
+    root: PathBuf,
+    namespace: String,
+    peer: HumanPeer,
+    call: PrecompileCall,
+) -> (Fixture, Store, BudgetLimiter) {
+    let prepared = require_ok(
+        prepare_bound(
+            EvmPreparationState {
+                chain_id: 125,
+                pending_nonce: 7,
+                base_fee_per_gas: 1,
+                head_height: 5,
+            },
+            EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 3,
+                maximum_payload_bytes: 4096,
+            },
+            EvmPrepareRequest {
+                from: SENDER,
+                call,
+                expected_nonce: Some(7),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 4096,
+            },
+            50_000,
+        ),
+        "required test value",
+    );
+    assert_eq!(prepared.disclosure.fee_limit, FEE);
+    require_ok(verify_call_binding(&prepared), "required test value");
+    let tenant = require_ok(TenantId::new(namespace), "required test value");
+    let mut store = require_ok(Store::open(&root), "required test value");
+    let budgets = require_ok(BudgetLimiter::new(Vec::new()), "required test value");
+    let limit = daemon_limit_id([0x21; 32]);
+    require_ok(
+        create_daemon_limit(
+            &mut store,
+            &budgets,
+            DaemonLimitRecord {
+                tenant: tenant.clone(),
+                budget_id: [0x21; 32],
+                limit_id: limit,
+                agent_digest: [0x22; 32],
+                asset: asset(),
+                ceiling: 1_000_000,
+                consumed: 0,
+                expiry_ms: 100_000,
+                revoked: false,
+                mutation_key: [0x23; 32],
+                body_digest: [0x24; 32],
+                revoke_key: [0; 32],
+            },
+            CoreTimestampMs(1000),
+        ),
+        "required test value",
+    );
+    (
+        Fixture {
+            root,
+            peer,
+            prepared,
+            tenant,
+            limit,
+        },
+        store,
+        budgets,
+    )
 }
 fn asset() -> [u8; 32] {
     Sha256::digest(b"uhpx").into()
@@ -211,33 +226,38 @@ fn keys() -> Vec<SequencerAuthorization> {
 fn signed(prepared: &EvmPrepared, key_byte: u8) -> VerifiedSubmission {
     let mut secret = [0; 32];
     secret[31] = key_byte;
-    let bytes = prepared.call.sign(&secret).unwrap();
-    verify_before_submit(
-        &bytes,
-        &SigningPreparation {
-            transaction: prepared.clone(),
-            actor_address: prepared.from,
-        },
-        &prepared.from,
-        &ModuleRegistry::new(&[]).unwrap(),
+    let bytes = require_ok(prepared.call.sign(&secret), "required test value");
+    require_ok(
+        verify_before_submit(
+            &bytes,
+            &SigningPreparation {
+                transaction: prepared.clone(),
+                actor_address: prepared.from,
+            },
+            &prepared.from,
+            &require_ok(ModuleRegistry::new(&[]), "required test value"),
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 fn hold_program(f: &Fixture, store: &mut Store, budgets: &BudgetLimiter) -> Program {
-    let stage = budgets
-        .stage_program_reservation(&f.reservation(), CoreTimestampMs(1000))
-        .unwrap();
-    Program::hold_call(
-        store,
-        &f.peer,
-        [3; 32],
-        1,
-        &f.prepared,
-        stage,
-        1000,
-        &keys(),
+    let stage = require_ok(
+        budgets.stage_program_reservation(&f.reservation(), CoreTimestampMs(1000)),
+        "required test value",
+    );
+    require_ok(
+        Program::hold_call(
+            store,
+            &f.peer,
+            [3; 32],
+            1,
+            &f.prepared,
+            stage,
+            1000,
+            &keys(),
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 
 use layerx_agentd::approval::native_program::{CarrierError, StagedNativeRateAdvance};
@@ -275,23 +295,32 @@ fn api_prepared(f: &Fixture) -> layerx_agent_api::prepare::Prepared {
     use layerx_agent_api::{Amount, TimestampSeconds};
     let sender = hex::encode(f.prepared.from);
     layerx_agent_api::prepare::Prepared {
-        preparation_ref: PreparationRef::new(hex::encode(f.id())).unwrap(),
-        unsigned_canonical_bytes: CanonicalBytes::new(f.prepared.call.encode_unsigned()).unwrap(),
-        signing_preimage: SigningPreimage::new(f.prepared.signing_hash.to_vec()).unwrap(),
+        preparation_ref: require_ok(
+            PreparationRef::new(hex::encode(f.id())),
+            "required test value",
+        ),
+        unsigned_canonical_bytes: require_ok(
+            CanonicalBytes::new(f.prepared.call.encode_unsigned()),
+            "required test value",
+        ),
+        signing_preimage: require_ok(
+            SigningPreimage::new(f.prepared.signing_hash.to_vec()),
+            "required test value",
+        ),
         disclosure: Disclosure {
             canonical_digest: f.id(),
             activity_type: ActivityType(9),
-            actor: AgentDid::new(sender.clone()).unwrap(),
-            authority: AuthorityRef::new(sender).unwrap(),
+            actor: require_ok(AgentDid::new(sender.clone()), "required test value"),
+            authority: require_ok(AuthorityRef::new(sender), "required test value"),
             counterparties: ExplicitSet::deny_all(),
             amounts: ExplicitSet::deny_all(),
-            asset: Asset::new("uhpx").unwrap(),
+            asset: require_ok(Asset::new("uhpx"), "required test value"),
             fee_limit: Amount(FEE),
             expiry: TimestampSeconds(500),
-            idempotency_key: IdempotencyRef::new(hex::encode(
-                f.prepared.disclosure.idempotency_key,
-            ))
-            .unwrap(),
+            idempotency_key: require_ok(
+                IdempotencyRef::new(hex::encode(f.prepared.disclosure.idempotency_key)),
+                "required test value",
+            ),
         },
         expiry: TimestampSeconds(500),
     }
@@ -300,7 +329,10 @@ fn api_prepared(f: &Fixture) -> layerx_agent_api::prepare::Prepared {
 fn approval_context(f: &Fixture) -> ApprovalContext {
     ApprovalContext {
         tenant: f.tenant.clone(),
-        agent: Did::new(hex::encode(SENDER).as_bytes()).unwrap(),
+        agent: require_ok(
+            Did::new(hex::encode(SENDER).as_bytes()),
+            "required test value",
+        ),
         actor_address: SENDER,
         session: SessionId([3; 32]),
         capability: CapabilityId([4; 32]),
@@ -323,8 +355,8 @@ fn grant(
         DecisionRequest {
             tenant: &f.tenant,
             approval_id: f.id(),
-            idempotency_key: &DecisionKey::new("grant-1550").unwrap(),
-            approver: ApproverId::new("human:owner").unwrap(),
+            idempotency_key: &require_ok(DecisionKey::new("grant-1550"), "required test value"),
+            approver: require_ok(ApproverId::new("human:owner"), "required test value"),
             current_sequence: 6,
             current_time: TimestampSeconds(6),
         },
@@ -340,69 +372,160 @@ fn grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_re
     let registry = ApprovalRegistry::with_store(shared.clone());
     let expiry = ApprovalExpiry::from_shared_store(shared.clone());
     let queue = ApprovalSubmissionQueue::default();
-    let reservation = reserve(
-        &budgets,
-        &ReservationRequest {
-            id: f.id(),
-            amount: FEE,
-            expiry_sequence: 50,
-            current_sequence: 5,
-            applicable_limits: vec![f.limit],
-        },
-    )
-    .unwrap();
-    hold_reserved_timed(
-        &registry,
-        approval_context(&f),
-        api_prepared(&f),
-        ApprovalSequence(5),
-        ApprovalSequence(50),
-        &reservation,
-        TimestampSeconds(5),
-    )
-    .unwrap();
-    ApprovalService::new(&registry, &budgets, &expiry)
-        .get(&f.tenant, f.id(), 6, TimestampSeconds(6))
-        .unwrap();
-    let before = std::fs::read(f.root.join("store.bin")).unwrap();
-    std::fs::create_dir(f.root.join("store.bin.tmp")).unwrap();
+    let reservation = require_ok(
+        reserve(
+            &budgets,
+            &ReservationRequest {
+                id: f.id(),
+                amount: FEE,
+                expiry_sequence: 50,
+                current_sequence: 5,
+                applicable_limits: vec![f.limit],
+            },
+        ),
+        "required test value",
+    );
+    require_ok(
+        hold_reserved_timed(
+            &registry,
+            approval_context(&f),
+            api_prepared(&f),
+            ApprovalSequence(5),
+            ApprovalSequence(50),
+            &reservation,
+            TimestampSeconds(5),
+        ),
+        "required test value",
+    );
+    require_ok(
+        ApprovalService::new(&registry, &budgets, &expiry).get(
+            &f.tenant,
+            f.id(),
+            6,
+            TimestampSeconds(6),
+        ),
+        "required test value",
+    );
+    let before = require_ok(
+        std::fs::read(f.root.join("store.bin")),
+        "required test value",
+    );
+    require_ok(
+        std::fs::create_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     assert!(grant(&f, &registry, &budgets, &expiry, &queue).is_err());
     assert!(queue.is_empty());
-    assert_eq!(std::fs::read(f.root.join("store.bin")).unwrap(), before);
     assert_eq!(
-        ApprovalService::new(&registry, &budgets, &expiry)
-            .get(&f.tenant, f.id(), 6, TimestampSeconds(6))
-            .unwrap()
-            .state,
+        require_ok(
+            std::fs::read(f.root.join("store.bin")),
+            "required test value"
+        ),
+        before
+    );
+    assert_eq!(
+        require_ok(
+            ApprovalService::new(&registry, &budgets, &expiry).get(
+                &f.tenant,
+                f.id(),
+                6,
+                TimestampSeconds(6)
+            ),
+            "required test value"
+        )
+        .state,
         ApprovalState::AwaitingApproval
     );
-    assert_eq!(budgets.held_exposure(f.limit).unwrap(), FEE);
-    std::fs::remove_dir(f.root.join("store.bin.tmp")).unwrap();
+    complete_grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_release_2_repair_22_33_1550(CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease2Repair22331550Context { f, budgets, shared, registry, expiry, queue });
+}
+
+struct CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease2Repair22331550Context
+{
+    f: Fixture,
+    budgets: BudgetLimiter,
+    shared: Arc<Mutex<Store>>,
+    registry: ApprovalRegistry,
+    expiry: ApprovalExpiry,
+    queue: ApprovalSubmissionQueue,
+}
+
+fn complete_grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_release_2_repair_22_33_1550(
+    context: CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease2Repair22331550Context,
+) {
+    let CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease2Repair22331550Context { f, budgets, shared, registry, expiry, queue } = context;
+
+    assert_eq!(
+        require_ok(budgets.held_exposure(f.limit), "required test value"),
+        FEE
+    );
+    require_ok(
+        std::fs::remove_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     drop(registry);
     drop(expiry);
     drop(queue);
     drop(shared);
     drop(budgets);
 
-    let shared = Arc::new(Mutex::new(Store::open(&f.root).unwrap()));
-    let budgets = BudgetLimiter::new(Vec::new()).unwrap();
-    load_daemon_limits(&shared.lock().unwrap(), &budgets).unwrap();
+    let shared = Arc::new(Mutex::new(require_ok(
+        Store::open(&f.root),
+        "required test value",
+    )));
+    let budgets = require_ok(BudgetLimiter::new(Vec::new()), "required test value");
+    require_ok(
+        load_daemon_limits(
+            &shared
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            &budgets,
+        ),
+        "required test value",
+    );
     let registry = ApprovalRegistry::with_store(shared.clone());
-    assert_eq!(registry.replay_tenant(&f.tenant, &budgets).unwrap(), 1);
+    assert_eq!(
+        require_ok(
+            registry.replay_tenant(&f.tenant, &budgets),
+            "required test value"
+        ),
+        1
+    );
     let expiry = ApprovalExpiry::from_shared_store(shared.clone());
     let queue = ApprovalSubmissionQueue::default();
-    queue
-        .recover_released(
+    require_ok(
+        queue.recover_released(
             &registry,
             &f.tenant,
             &budgets,
-            &ModuleRegistry::new(&[]).unwrap(),
-        )
-        .unwrap();
+            &require_ok(ModuleRegistry::new(&[]), "required test value"),
+        ),
+        "required test value",
+    );
+    complete_grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_release_1_repair_22_33_1550(CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease1Repair22331550Context { f, shared, budgets, registry, expiry, queue });
+}
+
+struct CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease1Repair22331550Context
+{
+    f: Fixture,
+    shared: Arc<Mutex<Store>>,
+    budgets: BudgetLimiter,
+    registry: ApprovalRegistry,
+    expiry: ApprovalExpiry,
+    queue: ApprovalSubmissionQueue,
+}
+
+fn complete_grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_release_1_repair_22_33_1550(
+    context: CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease1Repair22331550Context,
+) {
+    let CompleteGrantBeforePersistFailedCommitIsInvisibleAndRestartRecoversExactRelease1Repair22331550Context { f, shared, budgets, registry, expiry, queue } = context;
+
     assert!(queue.is_empty());
-    let result = grant(&f, &registry, &budgets, &expiry, &queue).unwrap();
+    let result = require_ok(
+        grant(&f, &registry, &budgets, &expiry, &queue),
+        "required test value",
+    );
     assert_eq!(result.outcome, ApprovalOutcome::Granted);
-    let reference = result.submission_ref.unwrap();
+    let reference = require_some(result.submission_ref, "required test value");
     assert_eq!(queue.prepared(reference), Some(api_prepared(&f)));
     assert_eq!(queue.len(), 1);
     drop(registry);
@@ -411,25 +534,46 @@ fn grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_re
     drop(shared);
     drop(budgets);
 
-    let shared = Arc::new(Mutex::new(Store::open(&f.root).unwrap()));
-    let budgets = BudgetLimiter::new(Vec::new()).unwrap();
-    load_daemon_limits(&shared.lock().unwrap(), &budgets).unwrap();
+    let shared = Arc::new(Mutex::new(require_ok(
+        Store::open(&f.root),
+        "required test value",
+    )));
+    let budgets = require_ok(BudgetLimiter::new(Vec::new()), "required test value");
+    require_ok(
+        load_daemon_limits(
+            &shared
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value")),
+            &budgets,
+        ),
+        "required test value",
+    );
     let registry = ApprovalRegistry::with_store(shared.clone());
-    registry.replay_tenant(&f.tenant, &budgets).unwrap();
+    require_ok(
+        registry.replay_tenant(&f.tenant, &budgets),
+        "required test value",
+    );
     let expiry = ApprovalExpiry::from_shared_store(shared);
     let queue = ApprovalSubmissionQueue::default();
-    queue
-        .recover_released(
+    require_ok(
+        queue.recover_released(
             &registry,
             &f.tenant,
             &budgets,
-            &ModuleRegistry::new(&[]).unwrap(),
-        )
-        .unwrap();
+            &require_ok(ModuleRegistry::new(&[]), "required test value"),
+        ),
+        "required test value",
+    );
     assert_eq!(queue.prepared(reference), Some(api_prepared(&f)));
-    assert_eq!(budgets.held_exposure(f.limit).unwrap(), FEE);
     assert_eq!(
-        grant(&f, &registry, &budgets, &expiry, &queue).unwrap(),
+        require_ok(budgets.held_exposure(f.limit), "required test value"),
+        FEE
+    );
+    assert_eq!(
+        require_ok(
+            grant(&f, &registry, &budgets, &expiry, &queue),
+            "required test value"
+        ),
         result
     );
     assert_eq!(queue.len(), 1);
@@ -440,35 +584,58 @@ fn grant_before_persist_fallback_failure_keeps_claim_retryable() {
     let (f, store, budgets) = Fixture::new(false);
     drop(store);
     let registry = ApprovalRegistry::default();
-    hold_at(
-        &registry,
-        approval_context(&f),
-        api_prepared(&f),
-        ApprovalSequence(5),
-        ApprovalSequence(50),
-        TimestampSeconds(5),
-    )
-    .unwrap();
-    let expiry = ApprovalExpiry::open(&f.root).unwrap();
+    require_ok(
+        hold_at(
+            &registry,
+            approval_context(&f),
+            api_prepared(&f),
+            ApprovalSequence(5),
+            ApprovalSequence(50),
+            TimestampSeconds(5),
+        ),
+        "required test value",
+    );
+    let expiry = require_ok(ApprovalExpiry::open(&f.root), "required test value");
     let queue = ApprovalSubmissionQueue::default();
-    ApprovalService::new(&registry, &budgets, &expiry)
-        .get(&f.tenant, f.id(), 6, TimestampSeconds(6))
-        .unwrap();
-    std::fs::create_dir(f.root.join("store.bin.tmp")).unwrap();
+    require_ok(
+        ApprovalService::new(&registry, &budgets, &expiry).get(
+            &f.tenant,
+            f.id(),
+            6,
+            TimestampSeconds(6),
+        ),
+        "required test value",
+    );
+    require_ok(
+        std::fs::create_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     assert!(grant(&f, &registry, &budgets, &expiry, &queue).is_err());
     assert!(queue.is_empty());
     assert_eq!(
-        ApprovalService::new(&registry, &budgets, &expiry)
-            .get(&f.tenant, f.id(), 6, TimestampSeconds(6))
-            .unwrap()
-            .state,
+        require_ok(
+            ApprovalService::new(&registry, &budgets, &expiry).get(
+                &f.tenant,
+                f.id(),
+                6,
+                TimestampSeconds(6)
+            ),
+            "required test value"
+        )
+        .state,
         ApprovalState::AwaitingApproval
     );
-    std::fs::remove_dir(f.root.join("store.bin.tmp")).unwrap();
-    let result = grant(&f, &registry, &budgets, &expiry, &queue).unwrap();
+    require_ok(
+        std::fs::remove_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
+    let result = require_ok(
+        grant(&f, &registry, &budgets, &expiry, &queue),
+        "required test value",
+    );
     assert_eq!(result.outcome, ApprovalOutcome::Granted);
     assert_eq!(
-        queue.prepared(result.submission_ref.unwrap()),
+        queue.prepared(require_some(result.submission_ref, "required test value")),
         Some(api_prepared(&f))
     );
 }
@@ -477,9 +644,12 @@ fn grant_before_persist_fallback_failure_keeps_claim_retryable() {
 fn program_presentation_legacy_matches_reopened_approved_and_submitted_call() {
     let (f, mut store, budgets) = Fixture::new(true);
     let held = hold_program(&f, &mut store, &budgets);
-    let digest = held.call_held_digest().unwrap();
-    let modules = ModuleRegistry::new(&[]).unwrap();
-    let view = read_owned(&store, &f.peer, f.id(), &modules).unwrap();
+    let digest = require_ok(held.call_held_digest(), "required test value");
+    let modules = require_ok(ModuleRegistry::new(&[]), "required test value");
+    let view = require_ok(
+        read_owned(&store, &f.peer, f.id(), &modules),
+        "required test value",
+    );
     assert_eq!(view.state(), ProgramPresentationState::Awaiting);
     assert_eq!(view.held_digest(), digest);
     assert_eq!(view.actor(), SENDER);
@@ -506,58 +676,103 @@ fn program_presentation_legacy_matches_reopened_approved_and_submitted_call() {
     );
     let immutable = view.immutable_carrier_bytes().to_vec();
     let (mut store, budgets) = f.restart(store, budgets);
-    Program::read_call(&store, &f.peer, f.id())
-        .unwrap()
-        .restore_call_budget(&budgets)
-        .unwrap();
-    Program::decide_call(
-        &mut store,
-        &budgets,
-        &f.peer,
-        f.id(),
-        digest,
-        [4; 32],
-        true,
-        6,
-        1100,
-    )
-    .unwrap();
+    require_ok(
+        Program::read_call(&store, &f.peer, f.id())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+            .restore_call_budget(&budgets),
+        "required test value",
+    );
+    require_ok(
+        Program::decide_call(
+            &mut store,
+            &budgets,
+            &f.peer,
+            f.id(),
+            digest,
+            [4; 32],
+            true,
+            6,
+            1100,
+        ),
+        "required test value",
+    );
     let verified = signed(&f.prepared, 1);
+    complete_program_presentation_legacy_matches_reopened_approved_and_submitted_call_1_repair_22_33_1550(CompleteProgramPresentationLegacyMatchesReopenedApprovedAndSubmittedCall1Repair22331550Context { f, digest, modules, immutable, store, budgets, verified });
+}
+
+struct CompleteProgramPresentationLegacyMatchesReopenedApprovedAndSubmittedCall1Repair22331550Context
+{
+    f: Fixture,
+    digest: [u8; 32],
+    modules: ModuleRegistry,
+    immutable: Vec<u8>,
+    store: Store,
+    budgets: BudgetLimiter,
+    verified: VerifiedSubmission,
+}
+
+fn complete_program_presentation_legacy_matches_reopened_approved_and_submitted_call_1_repair_22_33_1550(
+    context: CompleteProgramPresentationLegacyMatchesReopenedApprovedAndSubmittedCall1Repair22331550Context,
+) {
+    let CompleteProgramPresentationLegacyMatchesReopenedApprovedAndSubmittedCall1Repair22331550Context { f, digest, modules, immutable, mut store, budgets, verified } = context;
+
     let mut outbox = Outbox::default();
-    Program::queue_call(
-        &mut store,
-        &mut outbox,
-        &f.peer,
-        f.id(),
-        &verified,
-        &modules,
-        7,
-        1200,
-    )
-    .unwrap();
-    let view = read_owned(&store, &f.peer, f.id(), &modules).unwrap();
+    require_ok(
+        Program::queue_call(
+            &mut store,
+            &mut outbox,
+            &f.peer,
+            f.id(),
+            &verified,
+            &modules,
+            7,
+            1200,
+        ),
+        "required test value",
+    );
+    let view = require_ok(
+        read_owned(&store, &f.peer, f.id(), &modules),
+        "required test value",
+    );
     assert_eq!(view.state(), ProgramPresentationState::Granted);
     assert_eq!(view.immutable_carrier_bytes(), immutable);
     assert_eq!(view.held_digest(), digest);
-    let actual = outbox.exact_signed_bytes(verified.activity_id()).unwrap();
-    let (call, signature) = layerx_crypto::evm_transaction::decode_signed(actual).unwrap();
+    let actual = require_ok(
+        outbox.exact_signed_bytes(verified.activity_id()),
+        "required test value",
+    );
+    let (call, signature) = require_ok(
+        layerx_crypto::evm_transaction::decode_signed(actual),
+        "required test value",
+    );
     assert_eq!(view.call(), Some(&call));
     assert_eq!(view.canonical_unsigned_bytes(), call.encode_unsigned());
     assert_eq!(
         view.actor(),
-        layerx_crypto::evm_transaction::recover_sender(&call, &signature).unwrap()
+        require_ok(
+            layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+            "required test value"
+        )
     );
     let (mut store, _) = f.restart(store, budgets);
     let mut outbox = Outbox::default();
-    Program::recover_call_submission(&mut store, &mut outbox, &f.peer, f.id()).unwrap();
+    require_ok(
+        Program::recover_call_submission(&mut store, &mut outbox, &f.peer, f.id()),
+        "required test value",
+    );
     assert_eq!(
-        read_owned(&store, &f.peer, f.id(), &modules)
-            .unwrap()
-            .immutable_carrier_bytes(),
+        require_ok(
+            read_owned(&store, &f.peer, f.id(), &modules),
+            "required test value"
+        )
+        .immutable_carrier_bytes(),
         immutable
     );
     assert_eq!(
-        outbox.exact_signed_bytes(verified.activity_id()).unwrap(),
+        require_ok(
+            outbox.exact_signed_bytes(verified.activity_id()),
+            "required test value"
+        ),
         verified.exact_bytes()
     );
 }
@@ -567,22 +782,30 @@ fn program_presentation_legacy_refuses_fee_allocation_from_another_sender() {
     let (f, mut store, budgets) = Fixture::new(true);
     let mut request = f.reservation();
     request.charges[0].source = [9; 32];
-    let stage = budgets
-        .stage_program_reservation(&request, CoreTimestampMs(1000))
-        .unwrap();
-    Program::hold_call(
-        &mut store,
-        &f.peer,
-        [3; 32],
-        1,
-        &f.prepared,
-        stage,
-        1000,
-        &keys(),
-    )
-    .unwrap();
+    let stage = require_ok(
+        budgets.stage_program_reservation(&request, CoreTimestampMs(1000)),
+        "required test value",
+    );
+    require_ok(
+        Program::hold_call(
+            &mut store,
+            &f.peer,
+            [3; 32],
+            1,
+            &f.prepared,
+            stage,
+            1000,
+            &keys(),
+        ),
+        "required test value",
+    );
     assert!(matches!(
-        read_owned(&store, &f.peer, f.id(), &ModuleRegistry::new(&[]).unwrap()),
+        read_owned(
+            &store,
+            &f.peer,
+            f.id(),
+            &require_ok(ModuleRegistry::new(&[]), "required test value")
+        ),
         Err(ProgramPresentationError::Binding)
     ));
 }
@@ -591,27 +814,37 @@ fn program_presentation_legacy_refuses_fee_allocation_from_another_sender() {
 fn program_requirement_legacy_replay_refuses_changed_call_sender_and_decision() {
     let (f, mut store, budgets) = Fixture::new(true);
     let held = hold_program(&f, &mut store, &budgets);
-    let digest = held.call_held_digest().unwrap();
-    Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared).unwrap();
+    let digest = require_ok(held.call_held_digest(), "required test value");
+    require_ok(
+        Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared),
+        "required test value",
+    );
     let (mut store, budgets) = f.restart(store, budgets);
-    Program::read_call(&store, &f.peer, f.id())
-        .unwrap()
-        .restore_call_budget(&budgets)
-        .unwrap();
-    Program::decide_call(
-        &mut store,
-        &budgets,
-        &f.peer,
-        f.id(),
-        digest,
-        [4; 32],
-        true,
-        6,
-        1100,
-    )
-    .unwrap();
+    require_ok(
+        Program::read_call(&store, &f.peer, f.id())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+            .restore_call_budget(&budgets),
+        "required test value",
+    );
+    require_ok(
+        Program::decide_call(
+            &mut store,
+            &budgets,
+            &f.peer,
+            f.id(),
+            digest,
+            [4; 32],
+            true,
+            6,
+            1100,
+        ),
+        "required test value",
+    );
     let (mut store, _) = f.restart(store, budgets);
-    Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared).unwrap();
+    require_ok(
+        Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared),
+        "required test value",
+    );
     for change in 0..3 {
         let mut altered = f.prepared.clone();
         match change {
@@ -619,30 +852,42 @@ fn program_requirement_legacy_replay_refuses_changed_call_sender_and_decision() 
             1 => altered.from = [8; 20],
             _ => altered.call.max_fee_per_gas += 1,
         }
-        altered.disclosure =
-            layerx_crypto::disclosure::call::bind_call(&altered.call, altered.from).unwrap();
-        altered.disclosure_digest = altered.disclosure.signing_digest().unwrap();
+        altered.disclosure = require_ok(
+            layerx_crypto::disclosure::call::bind_call(&altered.call, altered.from),
+            "required test value",
+        );
+        altered.disclosure_digest =
+            require_ok(altered.disclosure.signing_digest(), "required test value");
         altered.signing_hash = altered.call.signing_hash();
-        verify_call_binding(&altered).unwrap();
+        require_ok(verify_call_binding(&altered), "required test value");
         assert_eq!(
             Program::authorize_call_requirement(&store, &f.peer, f.id(), &altered),
             Err(CallApprovalError::Binding)
         );
     }
-    let key = TenantKey::new(
-        f.tenant.clone(),
-        ObjectKind::Configuration,
-        [b"program-required-call-v2:".as_slice(), f.id().as_slice()].concat(),
-    )
-    .unwrap();
-    let original = store.get(&key).unwrap().bytes().to_vec();
-    let mut record: serde_json::Value = serde_json::from_slice(&original).unwrap();
+    let key = require_ok(
+        TenantKey::new(
+            f.tenant.clone(),
+            ObjectKind::Configuration,
+            [b"program-required-call-v2:".as_slice(), f.id().as_slice()].concat(),
+        ),
+        "required test value",
+    );
+    let original = require_some(store.get(&key), "required test value")
+        .bytes()
+        .to_vec();
+    let mut record: serde_json::Value =
+        require_ok(serde_json::from_slice(&original), "required test value");
     record["decision"]["grant"] = serde_json::json!(false);
-    store
-        .put_local(key, serde_json::to_vec(&record).unwrap())
-        .unwrap();
+    require_ok(
+        store.put_local(
+            key,
+            require_ok(serde_json::to_vec(&record), "required test value"),
+        ),
+        "required test value",
+    );
     drop(store);
-    let store = Store::open(&f.root).unwrap();
+    let store = require_ok(Store::open(&f.root), "required test value");
     assert!(matches!(
         Program::read_call(&store, &f.peer, f.id()),
         Err(CallApprovalError::Binding)
@@ -676,7 +921,7 @@ fn committed_checkpoint(
         chain_id: chain.into(),
         height,
         time: CommitTimestamp {
-            seconds: (milliseconds / 1000) as i64,
+            seconds: require_ok(i64::try_from(milliseconds / 1000), "test value fits i64"),
             nanos: (milliseconds % 1000) as u32 * 1_000_000,
         },
         last_block_id: Some(BlockId {
@@ -714,49 +959,76 @@ fn committed_checkpoint(
                 .to_bytes(),
         });
     }
-    read::checkpoint(height, chain, &header, &commit, &validators).unwrap()
+    require_ok(
+        read::checkpoint(height, chain, &header, &commit, &validators),
+        "required test value",
+    )
 }
 
 fn rate_evidence() -> Vec<AuthenticatedTimeWindowUse> {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../../tests/fixtures/custody/daemon-light-credit-receipt");
-    let read = |name: &str| std::fs::read(root.join(name)).unwrap();
+    let read = |name: &str| require_ok(std::fs::read(root.join(name)), "required test value");
     let header_bytes = read("header");
-    let header = layerx_wire::receipt::decode_batch_header(&header_bytes).unwrap();
-    let signature = read("header.signature").try_into().unwrap();
-    let authority = EvidenceAuthority::pinned_to_handshake(
-        header.protocol_version(),
-        header.network_id(),
-        read("sequencer.public").try_into().unwrap(),
-    )
-    .unwrap();
+    let header = require_ok(
+        layerx_wire::receipt::decode_batch_header(&header_bytes),
+        "required test value",
+    );
+    let signature = require_ok(read("header.signature").try_into(), "required test value");
+    let authority = require_ok(
+        EvidenceAuthority::pinned_to_handshake(
+            header.protocol_version(),
+            header.network_id(),
+            require_ok(read("sequencer.public").try_into(), "required test value"),
+        ),
+        "required test value",
+    );
     let checkpoint = committed_checkpoint(
         header.last_sequence(),
         header.timestamp_ms(),
         header.resulting_state_root(),
         &header.network_id().to_string(),
     );
-    let authority = authority
-        .pin_committed_validators(
+    let authority = require_ok(
+        authority.pin_committed_validators(
             checkpoint.header.chain_id.clone(),
             checkpoint.validators.clone(),
-        )
-        .unwrap();
-    let observed = authority.authenticate_committed_time(&checkpoint).unwrap();
-    let kind = ActivityType::new(ModuleId::Bridge, 1).unwrap();
-    let registration = ModuleRegistration::new(ModuleId::Bridge, &[kind]).unwrap();
-    let registry = ModuleRegistry::new(&[registration]).unwrap();
+        ),
+        "required test value",
+    );
+    let observed = require_ok(
+        authority.authenticate_committed_time(&checkpoint),
+        "required test value",
+    );
+    let kind = require_ok(
+        ActivityType::new(ModuleId::Bridge, 1),
+        "required test value",
+    );
+    let registration = require_ok(
+        ModuleRegistration::new(ModuleId::Bridge, &[kind]),
+        "required test value",
+    );
+    let registry = require_ok(ModuleRegistry::new(&[registration]), "required test value");
     let activity = read("activity");
-    layerx_wire::historical::activity::decode_signed(&activity, &registry).unwrap();
+    require_ok(
+        layerx_wire::historical::activity::decode_signed(&activity, &registry),
+        "required test value",
+    );
     let receipt = RawReceiptEvidence::new(
         read("credit.receipt"),
-        layerx_proof::merkle::decode_proof(&read("receipt.proof")).unwrap(),
+        require_ok(
+            layerx_proof::merkle::decode_proof(&read("receipt.proof")),
+            "required test value",
+        ),
         header_bytes.clone(),
         signature,
     );
     let maintenance = RawReceiptEvidence::new(
         read("maintenance.receipt"),
-        layerx_proof::merkle::decode_proof(&read("maintenance.proof")).unwrap(),
+        require_ok(
+            layerx_proof::merkle::decode_proof(&read("maintenance.proof")),
+            "required test value",
+        ),
         header_bytes,
         signature,
     );
@@ -769,14 +1041,15 @@ fn rate_evidence() -> Vec<AuthenticatedTimeWindowUse> {
     [1, 10]
         .into_iter()
         .map(|seconds| {
-            authority
-                .authenticate_cumulative_time_use(
-                    &Did::new(&SENDER).unwrap(),
+            require_ok(
+                authority.authenticate_cumulative_time_use(
+                    &require_ok(Did::new(&SENDER), "required test value"),
                     seconds,
                     &observed,
                     std::slice::from_ref(&batch),
-                )
-                .unwrap()
+                ),
+                "required test value",
+            )
         })
         .collect()
 }
@@ -788,20 +1061,6 @@ fn rate_fixture(
     committed: Option<u64>,
     actor: &[u8],
 ) -> (TenantKey, Vec<u8>) {
-    let mut call = f.prepared.call.clone();
-    call.nonce = index;
-    let canonical = call.encode_unsigned();
-    let id: [u8; 32] = Sha256::digest(&canonical).into();
-    let mut secret = [0; 32];
-    secret[31] = 1;
-    let activity = transaction_hash(&call.sign(&secret).unwrap());
-    let record = serde_json::json!({
-        "version": 1, "tenant": f.tenant.as_str(), "actor": actor, "preparation": id,
-        "canonical_bytes": canonical, "chain": vec![[9u8; 32]], "observed_head_sequence": 0,
-        "admitted_at_ms": admitted, "activity_id": committed.map(|_| activity),
-        "committed": committed.map(|timestamp| (1u64, timestamp)),
-    });
-    // Field order is the persisted codec's order, not serde_json::Value's sorted map order.
     #[derive(serde::Serialize)]
     struct Snapshot {
         version: u8,
@@ -815,6 +1074,21 @@ fn rate_fixture(
         activity_id: Option<[u8; 32]>,
         committed: Option<(u64, u64)>,
     }
+
+    let mut call = f.prepared.call.clone();
+    call.nonce = index;
+    let canonical = call.encode_unsigned();
+    let id: [u8; 32] = Sha256::digest(&canonical).into();
+    let mut secret = [0; 32];
+    secret[31] = 1;
+    let activity = transaction_hash(&require_ok(call.sign(&secret), "required test value"));
+    let record = serde_json::json!({
+        "version": 1, "tenant": f.tenant.as_str(), "actor": actor, "preparation": id,
+        "canonical_bytes": canonical, "chain": vec![[9u8; 32]], "observed_head_sequence": 0,
+        "admitted_at_ms": admitted, "activity_id": committed.map(|_| activity),
+        "committed": committed.map(|timestamp| (1u64, timestamp)),
+    });
+    // Field order is the persisted codec's order, not serde_json::Value's sorted map order.
     let snapshot = Snapshot {
         version: 1,
         tenant: f.tenant.as_str().into(),
@@ -827,18 +1101,23 @@ fn rate_fixture(
         activity_id: committed.map(|_| activity),
         committed: committed.map(|timestamp| (1, timestamp)),
     };
-    let bytes = serde_json::to_vec(&snapshot).unwrap();
+    let bytes = require_ok(serde_json::to_vec(&snapshot), "required test value");
     assert_eq!(
-        serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+        require_ok(
+            serde_json::from_slice::<serde_json::Value>(&bytes),
+            "required test value"
+        ),
         record
     );
     (
-        TenantKey::new(
-            f.tenant.clone(),
-            ObjectKind::PreparedActivity,
-            [b"native-program-rate-v1:".as_slice(), id.as_slice()].concat(),
-        )
-        .unwrap(),
+        require_ok(
+            TenantKey::new(
+                f.tenant.clone(),
+                ObjectKind::PreparedActivity,
+                [b"native-program-rate-v1:".as_slice(), id.as_slice()].concat(),
+            ),
+            "required test value",
+        ),
         bytes,
     )
 }
@@ -863,7 +1142,7 @@ fn rate_lifetime_cap_more_than_4096_completed_uses_preserve_pending_and_replay_o
     let (f, mut store, budgets) = Fixture::new(true);
     let evidence = rate_evidence();
     let now = evidence[0].observed_core_ms();
-    let old = now.checked_sub(11_000).unwrap();
+    let old = require_some(now.checked_sub(11_000), "required test value");
     let records = (0..4093)
         .map(|index| rate_fixture(&f, index, old - 1, Some(old), &SENDER))
         .chain([
@@ -873,13 +1152,22 @@ fn rate_lifetime_cap_more_than_4096_completed_uses_preserve_pending_and_replay_o
         ])
         .collect::<Vec<_>>();
     let preserved = records[4093..].to_vec();
-    store.commit_local_records(records).unwrap();
+    require_ok(store.commit_local_records(records), "required test value");
     assert_eq!(active_rate_count(&store, &f.tenant), 4096);
-    let staged = StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence).unwrap();
+    let staged = require_ok(
+        StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence),
+        "required test value",
+    );
     assert_eq!(staged.remaining(), 3);
     let admission = rate_fixture(&f, 4096, old - 1, Some(old), &SENDER);
-    let before = std::fs::read(f.root.join("store.bin")).unwrap();
-    std::fs::create_dir(f.root.join("store.bin.tmp")).unwrap();
+    let before = require_ok(
+        std::fs::read(f.root.join("store.bin")),
+        "required test value",
+    );
+    require_ok(
+        std::fs::create_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     assert_eq!(
         staged.commit_joined(&mut store, Vec::new(), vec![admission.clone()]),
         Err(CarrierError::Corrupt)
@@ -887,43 +1175,66 @@ fn rate_lifetime_cap_more_than_4096_completed_uses_preserve_pending_and_replay_o
     assert_eq!(active_rate_count(&store, &f.tenant), 4096);
     assert_eq!(archived_rate_count(&store, &f.tenant), 0);
     assert!(store.get(&admission.0).is_none());
-    assert_eq!(std::fs::read(f.root.join("store.bin")).unwrap(), before);
-    std::fs::remove_dir(f.root.join("store.bin.tmp")).unwrap();
+    assert_eq!(
+        require_ok(
+            std::fs::read(f.root.join("store.bin")),
+            "required test value"
+        ),
+        before
+    );
+    require_ok(
+        std::fs::remove_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     let (mut store, _) = f.restart(store, budgets);
     assert_eq!(active_rate_count(&store, &f.tenant), 4096);
     let inserts = (4096..4112)
         .map(|index| rate_fixture(&f, index, old - 1, Some(old), &SENDER))
         .collect();
-    StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence)
-        .unwrap()
-        .commit_joined(&mut store, Vec::new(), inserts)
-        .unwrap();
+    require_ok(
+        StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+            .commit_joined(&mut store, Vec::new(), inserts),
+        "required test value",
+    );
     assert_eq!(active_rate_count(&store, &f.tenant), 19);
     assert_eq!(archived_rate_count(&store, &f.tenant), 4093);
-    let staged = StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence).unwrap();
+    let staged = require_ok(
+        StagedNativeRateAdvance::stage(&store, &f.tenant, &evidence),
+        "required test value",
+    );
     assert_eq!(staged.remaining(), 3);
-    staged
-        .commit_joined(&mut store, Vec::new(), Vec::new())
-        .unwrap();
+    require_ok(
+        staged.commit_joined(&mut store, Vec::new(), Vec::new()),
+        "required test value",
+    );
     drop(store);
-    let store = Store::open(&f.root).unwrap();
+    let store = require_ok(Store::open(&f.root), "required test value");
     assert_eq!(active_rate_count(&store, &f.tenant), 3);
     assert_eq!(archived_rate_count(&store, &f.tenant), 4109);
     for (key, bytes) in preserved {
-        assert_eq!(store.get(&key).unwrap().bytes(), bytes);
+        assert_eq!(
+            require_some(store.get(&key), "required test value").bytes(),
+            bytes
+        );
     }
     let (old_key, old_bytes) = rate_fixture(&f, 0, old - 1, Some(old), &SENDER);
-    let archive = TenantKey::new(
-        f.tenant.clone(),
-        ObjectKind::PreparedActivity,
-        [
-            b"native-program-rate-committed-v1:".as_slice(),
-            &old_key.object_id()[b"native-program-rate-v1:".len()..],
-        ]
-        .concat(),
-    )
-    .unwrap();
-    assert_eq!(store.get(&archive).unwrap().bytes(), old_bytes);
+    let archive = require_ok(
+        TenantKey::new(
+            f.tenant.clone(),
+            ObjectKind::PreparedActivity,
+            [
+                b"native-program-rate-committed-v1:".as_slice(),
+                &old_key.object_id()[b"native-program-rate-v1:".len()..],
+            ]
+            .concat(),
+        ),
+        "required test value",
+    );
+    assert_eq!(
+        require_some(store.get(&archive), "required test value").bytes(),
+        old_bytes
+    );
     assert!(StagedNativeRateAdvance::stage(&store, &f.tenant, &[]).is_err());
 }
 
@@ -931,9 +1242,15 @@ fn rate_lifetime_cap_more_than_4096_completed_uses_preserve_pending_and_replay_o
 fn program_requirement_legacy_failed_decision_keeps_recovered_requirement_awaiting() {
     let (f, mut store, budgets) = Fixture::new(true);
     let held = hold_program(&f, &mut store, &budgets);
-    let digest = held.call_held_digest().unwrap();
-    let before = std::fs::read(f.root.join("store.bin")).unwrap();
-    std::fs::create_dir(f.root.join("store.bin.tmp")).unwrap();
+    let digest = require_ok(held.call_held_digest(), "required test value");
+    let before = require_ok(
+        std::fs::read(f.root.join("store.bin")),
+        "required test value",
+    );
+    require_ok(
+        std::fs::create_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
     assert!(matches!(
         Program::decide_call(
             &mut store,
@@ -948,15 +1265,29 @@ fn program_requirement_legacy_failed_decision_keeps_recovered_requirement_awaiti
         ),
         Err(CallApprovalError::Store)
     ));
-    assert_eq!(std::fs::read(f.root.join("store.bin")).unwrap(), before);
-    std::fs::remove_dir(f.root.join("store.bin.tmp")).unwrap();
-    let (store, _) = f.restart(store, budgets);
-    Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared).unwrap();
     assert_eq!(
-        Program::read_call(&store, &f.peer, f.id())
-            .unwrap()
-            .call_state()
-            .unwrap(),
+        require_ok(
+            std::fs::read(f.root.join("store.bin")),
+            "required test value"
+        ),
+        before
+    );
+    require_ok(
+        std::fs::remove_dir(f.root.join("store.bin.tmp")),
+        "required test value",
+    );
+    let (store, _) = f.restart(store, budgets);
+    require_ok(
+        Program::authorize_call_requirement(&store, &f.peer, f.id(), &f.prepared),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(
+            Program::read_call(&store, &f.peer, f.id())
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+                .call_state(),
+            "required test value"
+        ),
         CallApprovalState::Awaiting
     );
 }

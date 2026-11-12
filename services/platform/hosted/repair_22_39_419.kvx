@@ -1,0 +1,87 @@
+[paxai_worker]
+package = "layerx-paxai-worker"
+scope = "PaxAI participant source and all targets"
+
+[lint.missing_errors_doc]
+files = ["services/platform/hosted/paxai-worker/src/auth.rs", "services/platform/hosted/paxai-worker/src/jobs.rs", "services/platform/hosted/paxai-worker/src/store.rs"]
+behavior = "Fallible public operations document their error conditions."
+
+[lint.must_use_candidate]
+files = ["services/platform/hosted/paxai-worker/src/metrics.rs"]
+behavior = "Rendered metrics carry a use requirement."
+
+[lint.expect_used]
+files = ["services/platform/hosted/paxai-worker/src/metrics.rs", "services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/tests/metrics_endpoint.rs", "services/platform/hosted/paxai-worker/tests/job_admission.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Checked operations retain explicit error handling and test assertions."
+
+[lint.format_push_string]
+files = ["services/platform/hosted/paxai-worker/src/metrics.rs"]
+behavior = "Metric labels and values append directly to the output string."
+
+[lint.needless_pass_by_value]
+files = ["services/platform/hosted/paxai-worker/src/runner.rs", "services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"]
+behavior = "Read-only requests are borrowed by their consumers."
+
+[lint.nonminimal_bool]
+files = ["services/platform/hosted/paxai-worker/src/worker_core.rs"]
+behavior = "Authority freshness uses the direct elapsed-time condition."
+
+[lint.struct_field_names]
+files = ["services/platform/hosted/paxai-worker/src/main.rs"]
+behavior = "The configuration field retains its serialized name."
+
+[lint.unnecessary_wraps]
+files = ["services/platform/hosted/paxai-worker/src/worker_core.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"]
+behavior = "Infallible helpers return their values directly."
+
+[lint.too_many_lines]
+files = ["services/platform/hosted/paxai-worker/src/worker_core.rs", "services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_484.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Service and test phases are expressed as focused helpers."
+
+[lint.items_after_statements]
+files = ["services/platform/hosted/paxai-worker/src/main.rs"]
+behavior = "Submission response types are declared before executable statements."
+
+[lint.manual_let_else]
+files = ["services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"]
+behavior = "Variant extraction uses explicit let-else branches."
+
+[lint.match_wildcard_for_single_variants]
+files = ["services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"]
+behavior = "Native routing assertions name the handled variants."
+
+[lint.default_trait_access]
+files = ["services/platform/hosted/paxai-worker/tests/job_admission.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Test services construct metrics with the concrete type."
+
+[lint.format_collect]
+files = ["services/platform/hosted/paxai-worker/tests/job_admission.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs", "services/platform/hosted/paxai-worker/tests/support/native_workload.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Artifact identifiers encode bytes directly as hexadecimal."
+
+[lint.unchecked_duration_subtraction]
+files = ["services/platform/hosted/paxai-worker/tests/job_admission.rs"]
+behavior = "Readiness deadlines use checked instant arithmetic."
+
+[lint.cast_possible_truncation]
+files = ["services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Envelope lengths use checked integer conversion."
+
+[lint.unwrap_used]
+files = ["services/platform/hosted/paxai-worker/tests/job_admission.rs"]
+behavior = "Readiness setup retains an explicit assertion for a valid instant."
+
+[lint.needless_borrow]
+files = ["services/platform/hosted/paxai-worker/tests/repair_22_31_484.rs", "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Borrowed values pass directly to their consumers."
+
+[lint.dead_code]
+files = ["services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/src/worker_core.rs", "services/platform/hosted/paxai-worker/tests/support/native_workload.rs", "services/platform/hosted/paxai-worker/tests/support/native_workload_extra.rs", "services/platform/hosted/paxai-worker/tests/support/participant.rs"]
+behavior = "Shared production service paths and test fixtures expose only the code each target uses."
+
+[lint.unused_imports]
+files = ["services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/src/worker_core.rs", "services/platform/hosted/paxai-worker/tests/support/native_workload.rs", "services/platform/hosted/paxai-worker/tests/support/native_workload_extra.rs", "services/platform/hosted/paxai-worker/tests/repair_22_31_205.rs"]
+behavior = "Each compiled target imports the symbols it uses."
+
+[lint.unused_variables]
+files = ["services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"]
+behavior = "Market setup binds the identity it consumes."

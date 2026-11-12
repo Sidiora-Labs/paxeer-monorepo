@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+include!("required.rs");
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -237,7 +240,7 @@ impl Drop for ConnectionPermit {
     }
 }
 
-fn main() {
+pub fn main() {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--verify-receipt")) {
         if let Err(error) = verify_receipt_command() {
             eprintln!("ramp receipt verification refused: {error}");
@@ -545,15 +548,7 @@ fn build_state(config: &Config) -> Result<State, String> {
         signer_key_handle: config.paxeer.signer_key_handle.clone(),
     };
     let registry = asset_registry()?;
-    let mut quotes = BTreeMap::new();
-    for quote in &config.quotes {
-        if quotes
-            .insert(quote.quote_id.clone(), quote.clone())
-            .is_some()
-        {
-            return Err("duplicate quote id".to_owned());
-        }
-    }
+    let quotes = quote_catalogue(config)?;
     let source_settlement = config
         .source_settlement
         .as_ref()
@@ -601,6 +596,19 @@ fn build_state(config: &Config) -> Result<State, String> {
         source_settlement,
     };
     Ok(state)
+}
+
+fn quote_catalogue(config: &Config) -> Result<BTreeMap<String, QuoteTerms>, String> {
+    let mut quotes = BTreeMap::new();
+    for quote in &config.quotes {
+        if quotes
+            .insert(quote.quote_id.clone(), quote.clone())
+            .is_some()
+        {
+            return Err("duplicate quote id".to_owned());
+        }
+    }
+    Ok(quotes)
 }
 
 fn asset_registry() -> Result<ModuleRegistry, String> {
@@ -793,30 +801,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         return Ok(ok(json!({ "live": true })));
     }
     if request.method == "GET" && request.path == "/readyz" {
-        let health = state
-            .journal
-            .try_lock()
-            .ok()
-            .map(|journal| journal.health());
-        let ready = health.as_ref().is_some_and(|health| health.ready);
-        let body = json!({
-            "ready": ready,
-            "journal": health,
-            "chain_id": state.layerx.chain_id,
-            "external_custody": true,
-            "external_custody_label": EXTERNAL_CUSTODY_LABEL,
-            "readiness_scope": "local-journal",
-            "build_revision": option_env!("LAYERX_RAMP_BUILD_REVISION"),
-            "build_source_digest": option_env!("LAYERX_RAMP_BUILD_SOURCE_DIGEST"),
-            "provider_contract": layerx_ramp_toolkit::PROVIDER_CONTRACT_VERSION,
-            "compliance_contract": layerx_ramp_toolkit::COMPLIANCE_CONTRACT_VERSION,
-            "paxeer_contract": layerx_ramp_toolkit::PAXEER_CONTRACT_VERSION
-        });
-        return Ok(if ready {
-            ok(body)
-        } else {
-            json_response(503, body)
-        });
+        return Ok(readiness_response(state));
     }
     if request.path == "/internal/v1/journal" && request.method == "GET" {
         require_operator(state, request)?;
@@ -903,6 +888,33 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         return Ok(ok(rebalance_presentation(state, snapshot)));
     }
     Err(error(404, "not_found"))
+}
+
+fn readiness_response(state: &State) -> Response {
+    let health = state
+        .journal
+        .try_lock()
+        .ok()
+        .map(|journal| journal.health());
+    let ready = health.as_ref().is_some_and(|health| health.ready);
+    let body = json!({
+        "ready": ready,
+        "journal": health,
+        "chain_id": state.layerx.chain_id,
+        "external_custody": true,
+        "external_custody_label": EXTERNAL_CUSTODY_LABEL,
+        "readiness_scope": "local-journal",
+        "build_revision": option_env!("LAYERX_RAMP_BUILD_REVISION"),
+        "build_source_digest": option_env!("LAYERX_RAMP_BUILD_SOURCE_DIGEST"),
+        "provider_contract": layerx_ramp_toolkit::PROVIDER_CONTRACT_VERSION,
+        "compliance_contract": layerx_ramp_toolkit::COMPLIANCE_CONTRACT_VERSION,
+        "paxeer_contract": layerx_ramp_toolkit::PAXEER_CONTRACT_VERSION
+    });
+    if ready {
+        ok(body)
+    } else {
+        json_response(503, body)
+    }
 }
 
 fn order_response(snapshot: &OrderSnapshot) -> serde_json::Value {
@@ -1013,33 +1025,7 @@ fn source_settlement(state: &State, request: &Request) -> Result<Response, Respo
         return Err(error(409, "quote_binding_conflict"));
     }
     if let Some(retained) = journal.source_settlement(&body.order_digest) {
-        if retained.evidence_digest() != evidence.digest() {
-            return Err(error(409, "source_claim_conflict"));
-        }
-        let expected_chain = match body.chain {
-            layerx_ramp_toolkit::migration::SourceChainKind::Ethereum => "ethereum",
-            layerx_ramp_toolkit::migration::SourceChainKind::Solana => "solana",
-        };
-        if retained.chain_name() != expected_chain {
-            return Err(error(409, "source_claim_conflict"));
-        }
-        let state = match snapshot.stage {
-            WorkflowStage::SourceSettledV2 => SourceSettlementState::SourceSettled,
-            WorkflowStage::LayerxSubmissionPlanned
-            | WorkflowStage::LayerxSubmittedUnknown
-            | WorkflowStage::LayerxPending
-            | WorkflowStage::LayerxVerified => SourceSettlementState::LayerxPending,
-            WorkflowStage::LayerxRefused => SourceSettlementState::LayerxRefused,
-            WorkflowStage::Done => SourceSettlementState::Done,
-            _ => return Err(error(409, "source_state_conflict")),
-        };
-        return Ok(ok(SourceSettlementResult {
-            version: SOURCE_SETTLEMENT_VERSION.to_owned(),
-            order_digest: body.order_digest,
-            state,
-            source_evidence_digest: evidence.digest(),
-            source_claim_id: Some(retained.source_claim_id()),
-        }));
+        return retained_source_result(&snapshot, retained, &body, evidence.digest());
     }
     if snapshot.stage != WorkflowStage::AwaitingExternalCredit {
         return Err(error(409, "source_settlement_not_admitted"));
@@ -1076,6 +1062,41 @@ fn source_settlement(state: &State, request: &Request) -> Result<Response, Respo
         state: SourceSettlementState::SourceSettled,
         source_evidence_digest: evidence.digest(),
         source_claim_id: Some(source_claim_id),
+    }))
+}
+
+fn retained_source_result(
+    snapshot: &OrderSnapshot,
+    retained: &layerx_ramp_toolkit::migration::SourceSettlementRecordV2,
+    body: &SourceSettlementRequest,
+    evidence_digest: [u8; 32],
+) -> Result<Response, Response> {
+    if retained.evidence_digest() != evidence_digest {
+        return Err(error(409, "source_claim_conflict"));
+    }
+    let expected_chain = match body.chain {
+        layerx_ramp_toolkit::migration::SourceChainKind::Ethereum => "ethereum",
+        layerx_ramp_toolkit::migration::SourceChainKind::Solana => "solana",
+    };
+    if retained.chain_name() != expected_chain {
+        return Err(error(409, "source_claim_conflict"));
+    }
+    let state = match snapshot.stage {
+        WorkflowStage::SourceSettledV2 => SourceSettlementState::SourceSettled,
+        WorkflowStage::LayerxSubmissionPlanned
+        | WorkflowStage::LayerxSubmittedUnknown
+        | WorkflowStage::LayerxPending
+        | WorkflowStage::LayerxVerified => SourceSettlementState::LayerxPending,
+        WorkflowStage::LayerxRefused => SourceSettlementState::LayerxRefused,
+        WorkflowStage::Done => SourceSettlementState::Done,
+        _ => return Err(error(409, "source_state_conflict")),
+    };
+    Ok(ok(SourceSettlementResult {
+        version: SOURCE_SETTLEMENT_VERSION.to_owned(),
+        order_digest: body.order_digest,
+        state,
+        source_evidence_digest: evidence_digest,
+        source_claim_id: Some(retained.source_claim_id()),
     }))
 }
 
@@ -1145,7 +1166,7 @@ fn rebalance_presentation(
     snapshot: &layerx_ramp_toolkit::journal::PaxeerSnapshot,
 ) -> serde_json::Value {
     json!({
-        "settlement_domain": "paxeer",
+        "chain_id": state.layerx.chain_id,
         "external_custody_label": EXTERNAL_CUSTODY_LABEL,
         "operator_account": state.paxeer.operator_account,
         "idempotency_key": snapshot.idempotency_key,
@@ -1155,7 +1176,7 @@ fn rebalance_presentation(
         "transaction_hash": snapshot.transaction_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
         "status": snapshot.stage,
         "block_hash": snapshot.block_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
-        "rung": snapshot.rung.map(|rung| rung.name()),
+        "rung": snapshot.rung.map(Rung::name),
         "block_height": snapshot.block_height
     })
 }
@@ -1605,6 +1626,7 @@ pub const fn platform_reference_ramp() -> &'static str {
 
 #[cfg(test)]
 mod boundary_tests {
+    use super::Required as _;
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
@@ -1652,7 +1674,7 @@ mod boundary_tests {
             },
             1_000,
         )
-        .expect("bound ramp order");
+        .required("bound ramp order");
         let tx_hash = [0x11; 32];
         let receipt_digest = [0x22; 32];
         let mut snapshot = OrderSnapshot {
@@ -1688,7 +1710,7 @@ mod boundary_tests {
         assert_eq!(
             response["evidence"]
                 .as_object()
-                .expect("evidence object")
+                .required("evidence object")
                 .len(),
             3
         );
@@ -1729,15 +1751,15 @@ mod boundary_tests {
 }
 
 #[cfg(test)]
-pub(crate) fn rebalance_route_test_response(
+pub fn rebalance_route_test_response(
     config: serde_json::Value,
     seed: impl FnOnce(&mut Journal),
     path: &str,
 ) -> (u16, serde_json::Value) {
-    let config: Config = serde_json::from_value(config).expect("route test configuration");
-    validate_config(&config).expect("valid route test configuration");
-    let state = build_state(&config).expect("real route state");
-    seed(&mut state.journal.lock().expect("journal lock"));
+    let config: Config = serde_json::from_value(config).required("route test configuration");
+    validate_config(&config).required("valid route test configuration");
+    let state = build_state(&config).required("real route state");
+    seed(&mut state.journal.lock().required("journal lock"));
     let request = Request {
         method: "GET".to_owned(),
         path: path.to_owned(),
@@ -1750,9 +1772,9 @@ pub(crate) fn rebalance_route_test_response(
     let response = route(&state, &request).unwrap_or_else(|response| response);
     (
         response.status,
-        serde_json::from_slice(&response.body).expect("route JSON"),
+        serde_json::from_slice(&response.body).required("route JSON"),
     )
 }
 
 #[cfg(test)]
-pub(crate) mod repair_support;
+pub mod repair_support;

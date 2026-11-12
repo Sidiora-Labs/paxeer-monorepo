@@ -33,6 +33,23 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/common"
 )
 
+const (
+	csrfCookieName        = "__Host-kindle_csrf"
+	publicOptInVisibility = "public_optin"
+	hmacSHA256Algorithm   = "HS256"
+	accessCookieName      = "__Host-kindle_access"
+	refreshCookieName     = "__Host-kindle_refresh"
+	accountDeleteScope    = "account.delete"
+	accountOwnerScope     = "account:owner"
+	accountIDsFilter      = "account_id=ANY($1::uuid[])"
+	eoaEIP191Method       = "eoa_eip191"
+	httpsScheme           = "https"
+	loginOperation        = "login"
+	privateVisibility     = "private"
+	walletField           = "wallet"
+	walletUnlinkEvent     = "wallet_unlink"
+)
+
 const noncePrefix = "gw:nonce:"
 const consumeIssuedMessage = `if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end`
 
@@ -208,7 +225,7 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) me(w http.ResponseWriter, r *http.Request) {
-	sharedhttp.WriteJSON(w, http.StatusOK, map[string]string{"wallet": Actor(r.Context())})
+	sharedhttp.WriteJSON(w, http.StatusOK, map[string]string{walletField: Actor(r.Context())})
 }
 
 // RequireSession is middleware that rejects requests without a valid session.

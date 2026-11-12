@@ -47,13 +47,13 @@ func (m RoleManifest) capabilitySchemas() (map[string]string, error) {
 	schemas := map[string]string{m.Schema: m.OwnerRole}
 	allowed := map[string]map[string][2]string{
 		"stats_runtime":    {"core/stats-workers/holdings": {"stats_transfer_holdings", "stats_transfer_holdings_owner"}},
-		"api_rest_runtime": {"core/api/cache": {"api_limits", "api_limits_owner"}, "core/discovery": {"narrative_discovery", "narrative_discovery_owner"}, "core/notifications": {"discovery_notifications", "discovery_notifications_owner"}},
-		"api_runtime":      {"core/api/cache": {"api_limits", "api_limits_owner"}, "core/discovery": {"narrative_discovery", "narrative_discovery_owner"}, "core/notifications": {"discovery_notifications", "discovery_notifications_owner"}},
+		"api_rest_runtime": {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
+		"api_runtime":      {valueCoreApiCache: {valueApiLimits, "api_limits_owner"}, valueCoreDiscovery: {valueNarrativeDiscovery, "narrative_discovery_owner"}, valueCoreNotifications: {valueDiscoveryNotifications, "discovery_notifications_owner"}},
 		"identity_runtime": {"media/gateway/audit-source": {"gateway_audit_source", "gateway_audit_source_owner"}, "media/gateway/audit-sink": {"gateway_audit_sink", "gateway_audit_sink_owner"}, "media/gateway/storage": {"gateway", "gateway_owner"}, "security/policy": {"security", "security_owner"}},
 	}
 	for _, c := range m.SchemaCapabilities {
 		expected, ok := allowed[m.RuntimeRole][c.Service]
-		if !ok || expected[0] != c.Schema || expected[1] != c.OwnerRole || schemas[c.Schema] != "" || ((m.RuntimeRole == "api_runtime" || m.RuntimeRole == "api_rest_runtime") && m.Service != "core/api") || (m.RuntimeRole == "identity_runtime" && m.Service != "media/gateway") || (m.RuntimeRole == "stats_runtime" && m.Service != "core/stats-workers") {
+		if !ok || expected[0] != c.Schema || expected[1] != c.OwnerRole || schemas[c.Schema] != "" || ((m.RuntimeRole == "api_runtime" || m.RuntimeRole == "api_rest_runtime") && m.Service != "core/api") || (m.RuntimeRole == "identity_runtime" && m.Service != "media/gateway") || (m.RuntimeRole == "stats_runtime" && m.Service != valueCoreStatsWorkers) {
 			return nil, fmt.Errorf("unreviewed runtime schema capability")
 		}
 		if _, err := HistoryTable(c.Service, c.Schema); err != nil {
@@ -70,12 +70,12 @@ func (m RoleManifest) Validate() error {
 			return fmt.Errorf("invalid role/schema identifier")
 		}
 	}
-	if m.Service == "" || m.Schema == "public" || m.Schema == "migration_control" || strings.HasPrefix(m.Schema, "pg_") || m.OwnerRole == m.RuntimeRole || m.Superuser || m.CreateDB || m.CreateRole || m.BypassRLS || m.RuntimeOwnsObjects {
+	if m.Service == "" || m.Schema == "public" || m.Schema == valueMigrationControl || strings.HasPrefix(m.Schema, "pg_") || m.OwnerRole == m.RuntimeRole || m.Superuser || m.CreateDB || m.CreateRole || m.BypassRLS || m.RuntimeOwnsObjects {
 		return fmt.Errorf("unsafe runtime role manifest")
 	}
 	if len(m.OwnerReadGrants) > 0 {
 		for _, g := range m.OwnerReadGrants {
-			if g.Schema == m.Schema || g.ObjectKind != "view" || !g.View || !versionedView.MatchString(g.Object) || len(g.Columns) == 0 || len(g.Privileges) != 1 || g.Privileges[0] != "SELECT" {
+			if g.Schema == m.Schema || g.ObjectKind != valueView || !g.View || !versionedView.MatchString(g.Object) || len(g.Columns) == 0 || len(g.Privileges) != 1 || g.Privileges[0] != valueSELECT {
 				return fmt.Errorf("owner interfaces require foreign column-scoped versioned read views")
 			}
 		}
@@ -97,12 +97,12 @@ func (m RoleManifest) Validate() error {
 		}
 		kind := g.ObjectKind
 		if kind == "" {
-			kind = "table"
+			kind = valueTable
 		}
-		if g.Schema == "migration_control" && (kind != "function" || g.Object != "readiness" || len(g.ArgumentTypes) != 1 || g.ArgumentTypes[0] != "text" || len(g.Privileges) != 1 || g.Privileges[0] != "EXECUTE") {
+		if g.Schema == valueMigrationControl && (kind != valueFunction || g.Object != "readiness" || len(g.ArgumentTypes) != 1 || g.ArgumentTypes[0] != valueText || len(g.Privileges) != 1 || g.Privileges[0] != valueEXECUTE) {
 			return fmt.Errorf("runtime cannot access migration history")
 		}
-		if kind != "table" && kind != "view" && kind != "sequence" && kind != "function" {
+		if kind != valueTable && kind != valueView && kind != valueSequence && kind != valueFunction {
 			return fmt.Errorf("invalid grant object kind")
 		}
 		key := g.Schema + "." + g.Object + ":" + kind + ":" + strings.Join(g.Privileges, ",") + ":" + strings.Join(g.Columns, ",") + ":" + strings.Join(g.ArgumentTypes, ",")
@@ -112,7 +112,7 @@ func (m RoleManifest) Validate() error {
 		seen[key] = true
 		_, local := schemas[g.Schema]
 		foreign := !local
-		if foreign && kind != "function" && (!(g.View || kind == "view") || !versionedView.MatchString(g.Object) || len(g.Columns) == 0) {
+		if foreign && kind != valueFunction && (!g.View && kind != valueView || !versionedView.MatchString(g.Object) || len(g.Columns) == 0) {
 			return fmt.Errorf("foreign reads require a versioned view and explicit columns")
 		}
 		ps := map[string]bool{}
@@ -122,27 +122,27 @@ func (m RoleManifest) Validate() error {
 			}
 			ps[p] = true
 			switch kind {
-			case "function":
-				if p != "EXECUTE" {
+			case valueFunction:
+				if p != valueEXECUTE {
 					return fmt.Errorf("function grants require EXECUTE")
 				}
-			case "sequence":
-				if foreign || p != "USAGE" {
+			case valueSequence:
+				if foreign || p != valueUSAGE {
 					return fmt.Errorf("sequence grants require own USAGE")
 				}
 			default:
-				if p != "SELECT" && (foreign || (p != "INSERT" && p != "UPDATE" && p != "DELETE")) {
+				if p != valueSELECT && (foreign || (p != "INSERT" && p != valueUPDATE && p != "DELETE")) {
 					return fmt.Errorf("forbidden runtime privilege")
 				}
 			}
 		}
-		if kind == "function" {
+		if kind == valueFunction {
 			if len(g.Columns) > 0 {
 				return fmt.Errorf("function cannot have column grants")
 			}
 			for _, t := range g.ArgumentTypes {
 				switch t {
-				case "bigint", "text", "uuid", "bytea", "integer", "boolean", "jsonb":
+				case "bigint", valueText, "uuid", "bytea", "integer", "boolean", "jsonb":
 				default:
 					return fmt.Errorf("unreviewed function signature")
 				}
@@ -157,10 +157,10 @@ func (m RoleManifest) Validate() error {
 			}
 			cs[c] = true
 		}
-		if len(g.Columns) > 0 && (len(g.Privileges) != 1 || (g.Privileges[0] != "SELECT" && g.Privileges[0] != "UPDATE")) {
+		if len(g.Columns) > 0 && (len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
 			return fmt.Errorf("column grants require SELECT or UPDATE")
 		}
-		if foreign && len(g.Columns) > 0 && g.Privileges[0] != "SELECT" {
+		if foreign && len(g.Columns) > 0 && g.Privileges[0] != valueSELECT {
 			return fmt.Errorf("foreign writes forbidden")
 		}
 	}
@@ -192,11 +192,11 @@ func renderGrants(grants []Grant, recipient string) []string {
 			privileges += " (" + strings.Join(cols, ", ") + ")"
 		}
 		kind := g.ObjectKind
-		if kind == "" || kind == "view" {
-			kind = "table"
+		if kind == "" || kind == valueView {
+			kind = valueTable
 		}
 		object := quote(g.Schema) + "." + quote(g.Object)
-		if kind == "function" {
+		if kind == valueFunction {
 			object += "(" + strings.Join(g.ArgumentTypes, ", ") + ")"
 		}
 		out = append(out, "GRANT "+privileges+" ON "+strings.ToUpper(kind)+" "+object+" TO "+quote(recipient))

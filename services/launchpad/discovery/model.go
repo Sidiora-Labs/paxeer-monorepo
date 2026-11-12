@@ -50,7 +50,7 @@ func (s SourceRef) Validate() error {
 		return ErrInvalid
 	}
 	switch s.Kind {
-	case "pool", "milestone", "callout", "live_session":
+	case "pool", "milestone", kindCallout, "live_session":
 	default:
 		return ErrInvalid
 	}
@@ -134,7 +134,7 @@ type Membership struct {
 }
 
 func (m Membership) CanPublish() bool {
-	return m.Status == "active" && (m.Role == "owner" || m.Role == "moderator" || m.Role == "member")
+	return m.Status == statusActive && (m.Role == roleOwner || m.Role == roleModerator || m.Role == roleMember)
 }
 
 type Invitation struct {
@@ -158,20 +158,20 @@ func Accept(i Invitation, m Membership, token string, expected uint64, now time.
 		return i, m, ErrForbidden
 	}
 	if i.Consumed {
-		if m.Status == "active" {
+		if m.Status == statusActive {
 			return i, m, nil
 		}
 		return i, m, ErrForbidden
 	}
-	if !now.Before(i.ExpiresAt) || m.Status == "banned" {
+	if !now.Before(i.ExpiresAt) || m.Status == statusBanned {
 		return i, m, ErrForbidden
 	}
 	if m.Revision == math.MaxUint64 {
 		return i, m, ErrRevisionExhausted
 	}
 	i.Consumed = true
-	m.Status = "active"
-	m.Role = "member"
+	m.Status = statusActive
+	m.Role = roleMember
 	m.JoinedAt = now
 	m.Revision++
 	return i, m, nil
@@ -229,7 +229,7 @@ type AlertRule struct {
 
 func (r AlertRule) Validate() error {
 	if r.Price != nil {
-		if r.Metric != "price" || validatePrice(*r.Price, r.Threshold) != nil {
+		if r.Metric != metricPrice || validatePrice(*r.Price, r.Threshold) != nil {
 			return ErrInvalid
 		}
 	}
@@ -280,14 +280,14 @@ func Evaluate(r AlertRule, s AlertCheckpoint, m Metric, now time.Time) (AlertChe
 	}
 	if r.Price != nil {
 		if m.Price == nil || !strings.EqualFold(m.PoolAddress, r.PoolAddress) || validatePrice(*m.Price, m.Value) != nil || !samePriceIdentity(*r.Price, *m.Price) {
-			return s, false, "price_context_mismatch", nil
+			return s, false, reasonPriceContextMismatch, nil
 		}
 		observed, err := time.Parse(time.RFC3339Nano, m.Price.Source.ObservedAt)
 		if err != nil || !observed.Equal(m.ObservedAt) {
-			return s, false, "price_context_mismatch", nil
+			return s, false, reasonPriceContextMismatch, nil
 		}
 	} else if m.Price != nil {
-		return s, false, "price_context_mismatch", nil
+		return s, false, reasonPriceContextMismatch, nil
 	}
 	v, e := exact(m.Value)
 	if e != nil {
@@ -302,7 +302,7 @@ func Evaluate(r AlertRule, s AlertCheckpoint, m Metric, now time.Time) (AlertChe
 	if m.Revision <= s.MetricRevision {
 		return s, false, "replay", nil
 	}
-	if now.Sub(m.ObservedAt) > 10*time.Second || m.Quality != "complete" {
+	if now.Sub(m.ObservedAt) > 10*time.Second || m.Quality != qualityComplete {
 		return s, false, "stale_or_unqualified", nil
 	}
 	t, _ := exact(r.Threshold)
@@ -386,10 +386,10 @@ func (s Squad) Validate() error {
 	if s.ID == "" || s.OwnerAccountID == "" || s.Revision == 0 || !utf8.ValidString(s.Name) || utf8.RuneCountInString(s.Name) < 1 || utf8.RuneCountInString(s.Name) > 80 {
 		return ErrInvalid
 	}
-	if s.Policy != "invite" && s.Policy != "request" && s.Policy != "open" {
+	if s.Policy != "invite" && s.Policy != actionRequest && s.Policy != policyOpen {
 		return ErrInvalid
 	}
-	if (s.Visibility != "public" && s.Visibility != "private") || utf8.RuneCountInString(s.Description) > 500 || !utf8.ValidString(s.Description) {
+	if (s.Visibility != "public" && s.Visibility != visibilityPrivate) || utf8.RuneCountInString(s.Description) > 500 || !utf8.ValidString(s.Description) {
 		return ErrInvalid
 	}
 	return nil
@@ -445,7 +445,7 @@ func (c Callout) ValidatePublication(verifiedAccount, canonicalPool string) erro
 	if verifiedAccount == "" || verifiedAccount != c.AuthorAccountID || canonicalPool != c.PoolAddress || !address.MatchString(c.PoolAddress) {
 		return ErrForbidden
 	}
-	if c.ID == "" || c.CreatedAt.IsZero() || c.Revision == 0 || c.Deleted || c.ModerationStatus != "approved" {
+	if c.ID == "" || c.CreatedAt.IsZero() || c.Revision == 0 || c.Deleted || c.ModerationStatus != statusApproved {
 		return ErrInvalid
 	}
 	if c.Direction != "bullish" && c.Direction != "bearish" && c.Direction != "neutral" {

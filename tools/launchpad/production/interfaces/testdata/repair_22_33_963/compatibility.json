@@ -373,7 +373,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/candles-sdk/src/index.ts",
-          "sha256": "b47eddbb9957b5f255616c8776bd7e0fccc02942a2be5136ae244bcd1e763509"
+          "sha256": "366111d0b86576e114a8d96dcfbefdc2517674ef5da1b51fc890e9249892fb1f"
         }
       ],
       "status": "adapter_required",
@@ -645,6 +645,12 @@
           "source_field": "HttpClientConfig.headers"
         },
         {
+          "disposition": "legacy_only",
+          "rule": "Client-local request deadline introduced by 358d414e09d4be1d8e49abd85f56941eeb79627f; default 10000 ms, integer range 1..120000 ms. Used only by the SDK AbortController timer, never serialized as a path, query, header or body field. No wire schema counterpart; do not map to a server timeout or claim runtime adapter qualification.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.timeoutMs"
+        },
+        {
           "disposition": "requires_enrichment",
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
@@ -718,6 +724,7 @@
             "HttpClientConfig.baseUrl",
             "HttpClientConfig.fetch",
             "HttpClientConfig.headers",
+            "HttpClientConfig.timeoutMs",
             "RecentTrades.pool",
             "RecentTrades.trades",
             "Trade.amountIn",
@@ -747,7 +754,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
-          "sha256": "76b02a522f46e769ee7c47f19f838b9b7df96656e6d81f851c8ed1e135dff993"
+          "sha256": "dc1f74c4303bb9bfddb628201fdae07de9deef15bb3ede23cd591a787fe4abfa"
         }
       ],
       "status": "adapter_required",
@@ -768,6 +775,12 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
           "source_field": "HttpClientConfig.headers"
+        },
+        {
+          "disposition": "legacy_only",
+          "rule": "Client-local request deadline introduced by 44e351420d84b4d77aaee2e80dd54515068950bc; default 10000 ms, integer range 1..60000 ms. Used only by the SDK AbortController timer, never serialized as a path, query, header or body field. No wire schema counterpart; do not map to a server timeout or claim runtime adapter qualification.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.timeoutMs"
         },
         {
           "disposition": "requires_enrichment",
@@ -1118,6 +1131,7 @@
           "fields": [
             "HttpClientConfig.baseUrl",
             "HttpClientConfig.headers",
+            "HttpClientConfig.timeoutMs",
             "RankingErrorResponse.capability",
             "RankingErrorResponse.code",
             "RankingErrorResponse.dependency",
@@ -1193,7 +1207,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
-          "sha256": "cc2cdef27dfceafc0af7c5e1dd54bafaf33ba94d4dd5ce11376ccad4c28da390"
+          "sha256": "fb8dc4f3339a3a21d5f6a3940a23da0aba8b2f0b443ae0a69c8b9ee006a936ba"
         }
       ],
       "status": "adapter_required",
@@ -1208,6 +1222,12 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
           "source_field": "ClientConfig.baseUrl"
+        },
+        {
+          "disposition": "legacy_only",
+          "rule": "Client-local request deadline introduced by 072ba1a9182daaa912daae9c954846793a421d7e; default 10000 ms, integer range 1..120000 ms. Used only by the SDK AbortController timer, never serialized as a path, query, header or body field. No wire schema counterpart; do not map to a server timeout or claim runtime adapter qualification.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "ClientConfig.timeoutMs"
         },
         {
           "disposition": "requires_enrichment",
@@ -1455,6 +1475,7 @@
         {
           "fields": [
             "ClientConfig.baseUrl",
+            "ClientConfig.timeoutMs",
             "PublicMetadata.banner",
             "PublicMetadata.created_at",
             "PublicMetadata.creator",
@@ -1513,7 +1534,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
-          "sha256": "5dce812607200de09028b9380f1fbc71e4fae05e4c8aa1f23438d963e746b2c8"
+          "sha256": "888f6a56395d2c41fc363f4a2618b8a0d5b841444f0fc37e04776c6ef9467b25"
         }
       ],
       "status": "adapter_required",
@@ -1564,6 +1585,12 @@
           "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
           "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
           "source_field": "HttpClientConfig.baseUrl"
+        },
+        {
+          "disposition": "legacy_only",
+          "rule": "Client-local request deadline introduced by f3b5494b27df82a92fce9c4b74c9f03f43ca1e9c; default 10000 ms, integer range 1..120000 ms. Used only by the SDK AbortController timer, never serialized as a path, query, header or body field. No wire schema counterpart; do not map to a server timeout or claim runtime adapter qualification.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.timeoutMs"
         },
         {
           "disposition": "requires_enrichment",
@@ -1757,6 +1784,7 @@
             "ErrorResponse.message",
             "ErrorResponse.statusCode",
             "HttpClientConfig.baseUrl",
+            "HttpClientConfig.timeoutMs",
             "Images.avatar",
             "Images.banner",
             "ProfileData.bio",
@@ -1805,7 +1833,7 @@
       "sources": [
         {
           "path": "sdk/launchpad/packages/users-sdk/src/index.ts",
-          "sha256": "f038e094588b2467afeaea11d0ae7be09e344953e7de4d8fed27a02853a9b62e"
+          "sha256": "45ae4863d4d9307c03a508599401729b98ae1112b36a2796b99fd2967aa922ff"
         }
       ],
       "status": "adapter_required",

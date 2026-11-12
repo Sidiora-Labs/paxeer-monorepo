@@ -153,6 +153,7 @@ def receive(
 def child_environment(result, descriptors, operation):
     if operation != "core":
         raise StoreError("invalid_operation")
+    # Fail closed on inherited obsolete capabilities before adopting current files.
     if any(key in RETIRED_FIELDS or key.startswith(("LAYERX_AUTHORITY_", "LAYERX_GUARANTOR_"))
            for key in os.environ):
         raise StoreError("retired_environment")

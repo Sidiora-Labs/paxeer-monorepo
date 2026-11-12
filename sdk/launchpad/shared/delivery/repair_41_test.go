@@ -68,6 +68,7 @@ func (p repair41Projection) CanonicalDigestTx(ctx context.Context, tx pgx.Tx, ma
 
 func repair41Open(t *testing.T, schema string) (context.Context, *pgxpool.Pool, *Archive, *ReplayEngine) {
 	t.Helper()
+	requireArchiveFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
 	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))

@@ -36,7 +36,7 @@ fn the_shared_sequencer_receipt_vector_decodes_in_the_gas_station() -> TestResul
         let answer = &case["receiptJson"];
         let hash: Word = fixed(&answer["txHash"])?;
         let receipt = decode_full_sequencer_receipt(answer, &hash)
-            .unwrap_or_else(|error| panic!("{id}: receipt did not decode: {error:?}"));
+            .or_panic(&format!("{id}: receipt did not decode"));
         for (field, actual) in [
             ("seq", receipt.seq),
             ("height", receipt.height),
@@ -139,6 +139,11 @@ fn a_committed_answer_decodes_logs_receipt_bytes_and_block() -> TestResult {
     assert!(reverted.logs.is_empty());
     assert_eq!(reverted.vm_error.as_deref(), Some("execution reverted"));
 
+    assert_malformed_committed_answers(answer, &hash);
+    Ok(())
+}
+
+fn assert_malformed_committed_answers(answer: &Value, hash: &Word) {
     for (field, bad) in [
         ("txHash", json!(hex(&[0xff; 32]))),
         ("rung", json!("finalized")),
@@ -156,7 +161,7 @@ fn a_committed_answer_decodes_logs_receipt_bytes_and_block() -> TestResult {
         let mut bad_answer = answer.clone();
         bad_answer[field] = bad;
         assert_eq!(
-            decode_full_sequencer_receipt(&bad_answer, &hash),
+            decode_full_sequencer_receipt(&bad_answer, hash),
             Err(RpcFault::Malformed),
             "{field}"
         );
@@ -165,7 +170,7 @@ fn a_committed_answer_decodes_logs_receipt_bytes_and_block() -> TestResult {
         let mut bad_answer = answer.clone();
         bad_answer["logs"][0][field] = Value::Null;
         assert_eq!(
-            decode_full_sequencer_receipt(&bad_answer, &hash),
+            decode_full_sequencer_receipt(&bad_answer, hash),
             Err(RpcFault::Malformed),
             "{field}"
         );
@@ -173,10 +178,9 @@ fn a_committed_answer_decodes_logs_receipt_bytes_and_block() -> TestResult {
     let mut bad_topic = answer.clone();
     bad_topic["logs"][0]["topics"][0] = json!("0x01");
     assert_eq!(
-        decode_full_sequencer_receipt(&bad_topic, &hash),
+        decode_full_sequencer_receipt(&bad_topic, hash),
         Err(RpcFault::Malformed)
     );
-    Ok(())
 }
 
 #[test]
@@ -332,55 +336,8 @@ fn full_receipt_reads_pax_sequencer_receipt_by_hash() -> TestResult {
         json!({"jsonrpc":"2.0", "id":1, "result":fixture["receipted"]}),
         json!({"jsonrpc":"2.0", "id":1, "error":{"code":-32000}}),
     ];
-    let server = std::thread::spawn(move || -> Result<(), String> {
-        for response in responses {
-            let (stream, _) = listener.accept().map_err(|error| error.to_string())?;
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .map_err(|error| error.to_string())?;
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .map_err(|error| error.to_string())?;
-            let mut stream = acceptor.accept(stream).map_err(|error| error.to_string())?;
-            let mut request = Vec::new();
-            let mut byte = [0; 1];
-            while !request.ends_with(b"\r\n\r\n") {
-                stream
-                    .read_exact(&mut byte)
-                    .map_err(|error| error.to_string())?;
-                request.push(byte[0]);
-                if request.len() > 16_384 {
-                    return Err("request headers too large".into());
-                }
-            }
-            let headers = std::str::from_utf8(&request).map_err(|error| error.to_string())?;
-            assert!(headers.starts_with("POST / HTTP/1.1\r\n"));
-            let length = headers
-                .lines()
-                .find_map(|line| line.strip_prefix("Content-Length: "))
-                .ok_or("missing content length")?
-                .parse::<usize>()
-                .map_err(|error| error.to_string())?;
-            if length > 16_384 {
-                return Err("request body too large".into());
-            }
-            let mut body = vec![0; length];
-            stream
-                .read_exact(&mut body)
-                .map_err(|error| error.to_string())?;
-            let request: Value =
-                serde_json::from_slice(&body).map_err(|error| error.to_string())?;
-            assert_eq!(
-                request,
-                json!({"jsonrpc":"2.0", "id":1, "method":"pax_sequencerReceipt", "params":[hex(&hash)]})
-            );
-            let body = response.to_string();
-            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).map_err(|error| error.to_string())?;
-            stream.flush().map_err(|error| error.to_string())?;
-            stream.shutdown().map_err(|error| error.to_string())?;
-        }
-        Ok(())
-    });
+    let server =
+        std::thread::spawn(move || serve_receipt_rpc(&listener, &acceptor, responses, hash));
     let config = StationConfig {
         chain_id: 1325,
         endpoints: vec![endpoint],
@@ -429,4 +386,80 @@ fn full_receipt_reads_pax_sequencer_receipt_by_hash() -> TestResult {
     assert_eq!(std::env::var_os("SSL_CERT_FILE"), previous);
     assert!(!path.exists());
     Ok(())
+}
+
+fn serve_receipt_rpc(
+    listener: &TcpListener,
+    acceptor: &native_tls::TlsAcceptor,
+    responses: [Value; 5],
+    hash: Word,
+) -> Result<(), String> {
+    for response in responses {
+        let (stream, _) = listener.accept().map_err(|error| error.to_string())?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .map_err(|error| error.to_string())?;
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .map_err(|error| error.to_string())?;
+        let mut stream = acceptor.accept(stream).map_err(|error| error.to_string())?;
+        let mut request = Vec::new();
+        let mut byte = [0; 1];
+        while !request.ends_with(b"\r\n\r\n") {
+            stream
+                .read_exact(&mut byte)
+                .map_err(|error| error.to_string())?;
+            request.push(byte[0]);
+            if request.len() > 16_384 {
+                return Err("request headers too large".into());
+            }
+        }
+        let headers = std::str::from_utf8(&request).map_err(|error| error.to_string())?;
+        assert!(headers.starts_with("POST / HTTP/1.1\r\n"));
+        let length = headers
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .ok_or("missing content length")?
+            .parse::<usize>()
+            .map_err(|error| error.to_string())?;
+        if length > 16_384 {
+            return Err("request body too large".into());
+        }
+        let mut body = vec![0; length];
+        stream
+            .read_exact(&mut body)
+            .map_err(|error| error.to_string())?;
+        let request: Value = serde_json::from_slice(&body).map_err(|error| error.to_string())?;
+        assert_eq!(
+            request,
+            json!({"jsonrpc":"2.0", "id":1, "method":"pax_sequencerReceipt", "params":[hex(&hash)]})
+        );
+        let body = response.to_string();
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).map_err(|error| error.to_string())?;
+        stream.flush().map_err(|error| error.to_string())?;
+        stream.shutdown().map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

@@ -66,7 +66,7 @@ func newHarness(t *testing.T) *harness {
 	clamHost, clamPort := internaltest.NewClamd(t)
 	gateway := internaltest.NewGateway(t, dsn, redisURL, objects, webOrigin)
 
-	if _, err := pool.Exec(context.Background(), metadata.LegacyPublicationDDL); err != nil {
+	if _, err := pool.Exec(context.Background(), "SELECT operation,token,state,staged,retired,created_at FROM metadata.legacy_publications LIMIT 0"); err != nil {
 		t.Fatal(err)
 	}
 

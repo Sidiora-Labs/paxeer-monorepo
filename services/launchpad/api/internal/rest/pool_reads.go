@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -28,18 +29,18 @@ type poolDocument struct {
 }
 
 func chainPosition(p accounting.SourcePosition) map[string]any {
-	return map[string]any{"chainId": "125", "height": p.Height, "transactionIndex": p.TransactionIndex, "logIndex": p.LogIndex, "transactionHash": p.TransactionHash, "blockHash": p.BlockHash}
+	return map[string]any{literalChainId: "125", "height": p.Height, "transactionIndex": p.TransactionIndex, "logIndex": p.LogIndex, "transactionHash": p.TransactionHash, "blockHash": p.BlockHash}
 }
 
 func tokenDocument(row store.PoolRegistryRow) map[string]any {
-	token := map[string]any{"address": row.Token, "name": "", "symbol": "", "decimals": nil, "decimalsQuality": "unavailable", "totalSupplyRaw": nil, "supplyQuality": "unavailable", "sourcePosition": nil, "metadataRevision": "0", "logoAssetId": nil}
+	token := map[string]any{literalAddress: row.Token, "name": "", "symbol": "", literalDecimals: nil, "decimalsQuality": literalUnavailable, "totalSupplyRaw": nil, "supplyQuality": literalUnavailable, "sourcePosition": nil, "metadataRevision": "0", "logoAssetId": nil}
 	if m := row.Metadata; m != nil {
 		token["name"] = m.Name
 		token["symbol"] = m.Symbol
-		token["decimals"] = int(m.Decimals)
-		token["decimalsQuality"] = "verified"
+		token[literalDecimals] = int(m.Decimals)
+		token["decimalsQuality"] = literalVerified
 		token["totalSupplyRaw"] = m.TotalSupply
-		token["supplyQuality"] = "verified"
+		token["supplyQuality"] = literalVerified
 		token["sourcePosition"] = chainPosition(m.Position)
 	}
 	return token
@@ -68,6 +69,18 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 		return nil, err
 	}
 	for _, pool := range known {
+		if _, hasState := reserves[pool]; !hasState {
+			return nil, errPoolStateUnavailable
+		}
+		if _, hasFee := fees[pool]; !hasFee {
+			return nil, errPoolStateUnavailable
+		}
+	}
+	homeChains, err := o.Store.PoolHomeChains(ctx, known)
+	if err != nil {
+		return nil, err
+	}
+	for _, pool := range known {
 		row := registry[pool]
 		state, hasState := reserves[pool]
 		fee, hasFee := fees[pool]
@@ -84,14 +97,15 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 			return nil, store.ErrDataIntegrity
 		}
 		out[pool] = poolDocument{Pool: map[string]any{
-			"chainId":                        "125",
-			"poolAddress":                    row.Pool,
-			"tokenAddress":                   row.Token,
-			"creator":                        row.Creator,
+			literalChainId:                   "125",
+			"homeChain":                      homeChains[pool],
+			literalPoolAddress:               row.Pool,
+			literalTokenAddress:              row.Token,
+			literalCreator:                   row.Creator,
 			"createdPosition":                chainPosition(row.Position),
-			"createdAt":                      time.Unix(row.BlockTimestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z"),
+			literalCreatedAt:                 time.Unix(row.BlockTimestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z"),
 			"virtualUsdlReserveRaw":          string(state.VirtualUsdl),
-			"realUsdlBalanceRaw":             string(state.RealUsdl),
+			literalRealUsdlBalanceRaw:        string(state.RealUsdl),
 			"effectivePricingUsdlReserveRaw": effective.String(),
 			"tokenReserveRaw":                string(state.Token),
 			"quoteAssetAddress":              strings.ToLower(profile.USDLAddress),
@@ -105,7 +119,7 @@ func resolvePools(ctx context.Context, o ProductionReadOptions, pools []string) 
 func writePoolReadError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, errPoolStateUnavailable), errors.Is(err, store.ErrAccountingNotReady):
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 	default:
 		WriteReadError(w, r, err)
 	}
@@ -118,11 +132,11 @@ func poolDetail(o ProductionReadOptions) http.HandlerFunc {
 			return
 		}
 		if len(r.URL.Query()) != 0 {
-			WriteV2APIError(w, r, 400, "QUERY_INVALID")
+			WriteV2APIError(w, r, 400, literalQUERYINVALID)
 			return
 		}
 		if o.Store == nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		docs, err := resolvePools(r.Context(), o, []string{pool})
@@ -132,7 +146,7 @@ func poolDetail(o ProductionReadOptions) http.HandlerFunc {
 		}
 		doc, found := docs[pool]
 		if !found {
-			WriteV2APIError(w, r, 404, "NOT_FOUND")
+			WriteV2APIError(w, r, 404, literalNOTFOUND)
 			return
 		}
 		values, err := o.Model.PublicProjections(r.Context(), []string{"market.stats." + pool})
@@ -141,10 +155,10 @@ func poolDetail(o ProductionReadOptions) http.HandlerFunc {
 			return
 		}
 		if len(values) != 1 {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
-		writeProjectionEnvelope(w, r, "PoolDetailResponse", map[string]any{"pool": doc.Pool, "token": doc.Token, "stats": values[0].Payload}, &values[0])
+		writeProjectionEnvelope(w, r, "PoolDetailResponse", map[string]any{literalPool: doc.Pool, literalToken: doc.Token, literalStats: values[0].Payload}, &values[0])
 	}
 }
 
@@ -188,29 +202,29 @@ type poolListQuery struct {
 func poolListRequest(w http.ResponseWriter, r *http.Request) (poolListQuery, bool) {
 	q := r.URL.Query()
 	for key, values := range q {
-		if (key != "sort" && key != "cursor" && key != "limit") || len(values) != 1 {
+		if (key != literalSort && key != literalCursor && key != literalLimit) || len(values) != 1 {
 			WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 			return poolListQuery{}, false
 		}
 	}
-	limit, err := boundedInteger(q.Get("limit"), 50, 1, 100)
+	limit, err := boundedInteger(q.Get(literalLimit), 50, 1, 100)
 	if err != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return poolListQuery{}, false
 	}
-	out := poolListQuery{sort: q.Get("sort"), limit: limit}
-	shape := map[string]any{"sort": out.sort, "limit": limit}
-	if token, present := q["cursor"]; present {
+	out := poolListQuery{sort: q.Get(literalSort), limit: limit}
+	shape := map[string]any{literalSort: out.sort, literalLimit: limit}
+	if token, present := q[literalCursor]; present {
 		if token[0] == "" {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return poolListQuery{}, false
 		}
-		shape["cursor"] = token[0]
+		shape[literalCursor] = token[0]
 		out.cursor, out.hasCursor = token[0], true
 	}
 	raw, _ := json.Marshal(shape)
 	if interfaces.ValidateJSON("PoolListRequest", raw) != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return poolListQuery{}, false
 	}
 	return out, true
@@ -223,7 +237,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 			return
 		}
 		if o.Store == nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		values, err := o.Model.PublicProjections(r.Context(), []string{"market.rankings." + request.sort})
@@ -232,7 +246,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 			return
 		}
 		if len(values) != 1 {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		var snapshot struct {
@@ -243,7 +257,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 			} `json:"items"`
 		}
 		if json.Unmarshal(values[0].Payload, &snapshot) != nil || snapshot.SnapshotID == "" {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		ranked := make([]string, 0, len(snapshot.Items))
@@ -256,7 +270,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 		for _, item := range snapshot.Items {
 			pool, addressErr := store.Address(item.Pool)
 			if addressErr != nil {
-				WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+				WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 				return
 			}
 			ranked = append(ranked, pool)
@@ -265,7 +279,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 		if request.hasCursor {
 			cursor, cursorErr := decodePoolListCursor(request.cursor)
 			if cursorErr != nil {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 			if cursor.SnapshotID != snapshot.SnapshotID {
@@ -273,7 +287,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 				return
 			}
 			if cursor.Offset > len(ranked) {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 			offset = cursor.Offset
@@ -293,7 +307,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 			for _, pool := range page {
 				doc, found := docs[pool]
 				if !found {
-					WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+					WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 					return
 				}
 				items = append(items, doc.Pool)
@@ -303,7 +317,7 @@ func poolList(o ProductionReadOptions) http.HandlerFunc {
 		if end < len(ranked) {
 			next = encodePoolListCursor(poolListCursor{SnapshotID: snapshot.SnapshotID, Offset: end})
 		}
-		writePagedProjectionEnvelope(w, r, "PoolListResponse", map[string]any{"items": items}, &values[0], next)
+		writePagedProjectionEnvelope(w, r, "PoolListResponse", map[string]any{literalItems: items}, &values[0], next)
 	}
 }
 
@@ -317,13 +331,13 @@ func newHoldersUpstream(origin string) (*holdersUpstream, error) {
 		return &holdersUpstream{}, nil
 	}
 	target, err := url.Parse(origin)
-	if err != nil || target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || target.Path != "" && target.Path != "/" || (target.Scheme != "https" && target.Scheme != "http") {
+	if err != nil || target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || target.Path != "" && target.Path != "/" || (target.Scheme != literalHttps && target.Scheme != literalHttp) {
 		return nil, errors.New("stats_service_origin_invalid")
 	}
 	return &holdersUpstream{target: target, client: &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{ResponseHeaderTimeout: 2 * time.Second, MaxIdleConnsPerHost: 8}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
-var holdersUpstreamCodes = map[string]int{"CURSOR_INVALID": 400, "NOT_FOUND": 404, "RESNAPSHOT_REQUIRED": 409, "FIELD_INVALID": 422, "FIELD_UNKNOWN": 422, "DEPENDENCY_UNAVAILABLE": 503, "INTEGRITY_QUARANTINED": 503}
+var holdersUpstreamCodes = map[string]int{literalCURSORINVALID: 400, literalNOTFOUND: 404, "RESNAPSHOT_REQUIRED": 409, literalFIELDINVALID: 422, "FIELD_UNKNOWN": 422, literalDEPENDENCYUNAVAILABLE: 503, literalINTEGRITYQUARANTINED: 503}
 
 // holdersQuery is a validated GET /v2/pools/{poolAddress}/holders request.
 type holdersQuery struct {
@@ -342,29 +356,29 @@ func holdersRequest(w http.ResponseWriter, r *http.Request) (holdersQuery, bool)
 	}
 	q := r.URL.Query()
 	for key, values := range q {
-		if (key != "cursor" && key != "limit") || len(values) != 1 {
+		if (key != literalCursor && key != literalLimit) || len(values) != 1 {
 			WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 			return holdersQuery{}, false
 		}
 	}
-	limit, err := boundedInteger(q.Get("limit"), 50, 1, 100)
+	limit, err := boundedInteger(q.Get(literalLimit), 50, 1, 100)
 	if err != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return holdersQuery{}, false
 	}
 	out := holdersQuery{pool: pool, limit: limit}
-	shape := map[string]any{"poolAddress": pool, "limit": limit}
-	if token, present := q["cursor"]; present {
+	shape := map[string]any{literalPoolAddress: pool, literalLimit: limit}
+	if token, present := q[literalCursor]; present {
 		if token[0] == "" {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return holdersQuery{}, false
 		}
-		shape["cursor"] = token[0]
+		shape[literalCursor] = token[0]
 		out.cursor, out.hasCursor = token[0], true
 	}
 	raw, _ := json.Marshal(shape)
 	if interfaces.ValidateJSON("HoldersRequest", raw) != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return holdersQuery{}, false
 	}
 	return out, true
@@ -377,32 +391,36 @@ func holdersProxy(u *holdersUpstream) http.HandlerFunc {
 			return
 		}
 		pool := query.pool
-		upstreamQuery := url.Values{"limit": {strconv.Itoa(query.limit)}}
+		upstreamQuery := url.Values{literalLimit: {strconv.Itoa(query.limit)}}
 		if query.hasCursor {
-			upstreamQuery.Set("cursor", query.cursor)
+			upstreamQuery.Set(literalCursor, query.cursor)
 		}
 		if u == nil || u.target == nil || u.client == nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		endpoint := u.target.JoinPath("v1", "pools", pool, "holders")
 		endpoint.RawQuery = upstreamQuery.Encode()
 		request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint.String(), nil)
 		if err != nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		request.Header.Set("Accept", "application/json")
 		request.Header.Set("X-Request-ID", responseRequestID(w))
 		response, err := u.client.Do(request)
 		if err != nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
-		defer response.Body.Close()
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				slog.Warn("close upstream response", "error", err)
+			}
+		}()
 		body, err := io.ReadAll(io.LimitReader(response.Body, int64(store.PublicJSONMaxBytes)+1))
 		if err != nil || len(body) > store.PublicJSONMaxBytes {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		if response.StatusCode != http.StatusOK {
@@ -410,12 +428,12 @@ func holdersProxy(u *holdersUpstream) http.HandlerFunc {
 				Code string `json:"code"`
 			}
 			if json.Unmarshal(body, &failure) != nil {
-				WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+				WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 				return
 			}
 			status, known := holdersUpstreamCodes[failure.Code]
 			if !known || status != response.StatusCode {
-				WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+				WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 				return
 			}
 			WriteV2APIError(w, r, status, failure.Code)
@@ -423,14 +441,14 @@ func holdersProxy(u *holdersUpstream) http.HandlerFunc {
 		}
 		var envelope map[string]json.RawMessage
 		if json.Unmarshal(body, &envelope) != nil {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		id, _ := json.Marshal(responseRequestID(w))
-		envelope["requestId"] = id
+		envelope[literalRequestId] = id
 		out, err := json.Marshal(envelope)
 		if err != nil || len(out) > store.PublicJSONMaxBytes || interfaces.ValidateJSON("HoldersResponse", out) != nil {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -447,22 +465,22 @@ func platformMetricsV2(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		for key, values := range q {
-			if key != "window" || len(values) != 1 {
+			if key != literalWindow || len(values) != 1 {
 				WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 				return
 			}
 		}
-		raw, _ := json.Marshal(map[string]any{"window": q.Get("window")})
+		raw, _ := json.Marshal(map[string]any{literalWindow: q.Get(literalWindow)})
 		if interfaces.ValidateJSON("PlatformRequest", raw) != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
-		if q.Get("window") != "24h" {
+		if q.Get(literalWindow) != "24h" {
 			WriteV2APIError(w, r, 501, "FEATURE_UNAVAILABLE")
 			return
 		}
 		if st == nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		cached, found, err := st.CachedJSON(r.Context(), "platform:metrics")
@@ -471,7 +489,7 @@ func platformMetricsV2(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if !found {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		var metrics struct {
@@ -486,13 +504,13 @@ func platformMetricsV2(st *store.Store) http.HandlerFunc {
 			NewTokens24h         *int64  `json:"newTokens24h"`
 		}
 		if json.Unmarshal(cached, &metrics) != nil || metrics.UpdatedAt <= 0 || metrics.UniqueTraders24h < 0 || metrics.TotalTokensLaunched < 0 {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		data := map[string]any{"volumeUsdlRaw": metrics.TotalVolume24h, "pools": strconv.FormatInt(metrics.TotalTokensLaunched, 10), "activeWallets": strconv.FormatInt(metrics.UniqueTraders24h, 10)}
 		if metrics.TotalMarketCap != nil {
 			if _, err := store.ParseUInt256(*metrics.TotalMarketCap); err != nil {
-				WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+				WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 				return
 			}
 			data["totalMarketCapUsdlRaw"] = *metrics.TotalMarketCap
@@ -502,14 +520,14 @@ func platformMetricsV2(st *store.Store) http.HandlerFunc {
 				continue
 			}
 			if *count < 0 {
-				WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+				WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 				return
 			}
 			data[name] = strconv.FormatInt(*count, 10)
 		}
-		body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "revision": nil, "watermark": nil, "quality": "partial", "nextCursor": nil, "generatedAt": time.Unix(metrics.UpdatedAt, 0).UTC().Format("2006-01-02T15:04:05.000Z")})
+		body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalRevision: nil, literalWatermark: nil, literalQuality: literalPartial, literalNextCursor: nil, literalGeneratedAt: time.Unix(metrics.UpdatedAt, 0).UTC().Format("2006-01-02T15:04:05.000Z")})
 		if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON("PlatformResponse", body) != nil {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

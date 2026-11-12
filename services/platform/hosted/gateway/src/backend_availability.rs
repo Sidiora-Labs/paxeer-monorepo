@@ -2,19 +2,16 @@
 pub(crate) enum KernelBackend {
     Component,
     PublicCore,
+    /// Optional hosted compatibility backend; native receipt keys are governed on chain.
     Authority,
     Identity,
+    #[cfg(test)]
     Registry,
 }
 
 impl KernelBackend {
-    pub(crate) const ALL: [Self; 5] = [
-        Self::Component,
-        Self::PublicCore,
-        Self::Authority,
-        Self::Identity,
-        Self::Registry,
-    ];
+    #[cfg(test)]
+    pub(crate) const ALL: [Self; 5] = [Self::Component, Self::PublicCore, Self::Authority, Self::Identity, Self::Registry];
 
     pub(crate) const fn name(self) -> &'static str {
         match self {
@@ -22,8 +19,21 @@ impl KernelBackend {
             Self::PublicCore => "public_core",
             Self::Authority => "independent_receipt_authority",
             Self::Identity => "identity",
+            #[cfg(test)]
             Self::Registry => "program_registry",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BackendAvailability, KernelBackend};
+
+    #[test]
+    fn backend_names_are_unique_and_unconfigured_state_is_explicit() {
+        let names = KernelBackend::ALL.map(KernelBackend::name);
+        assert_eq!(names.len(), names.into_iter().collect::<std::collections::BTreeSet<_>>().len());
+        assert_eq!(BackendAvailability::not_configured("registry").document(), serde_json::json!({"state":"unavailable","reason":"not_configured"}));
     }
 }
 

@@ -1,0 +1,56 @@
+[repair.22.39.323]
+acceptance = "22998.1"
+starting_revision = "5df42280640955ac1f70ea7e257ffaed6bb3f0b2"
+inventory_revision = "7de3a9051436"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gates prohibit a separate starting-revision verification; the inventory errors below are historical, not a claimed baseline run."
+build_command = "go build ./precompiles/layerxauth/... && go test -count=1 -run '^$' ./precompiles/layerxauth/..."
+verify_command = "test -s precompiles/layerxauth/repair_22_39_323.kvx && go test -count=1 -timeout 30m ./precompiles/layerxauth/..."
+verified_revision = "The revision in the final verify row of the runner's private /out/run/gates.jsonl is the authoritative candidate revision for this record."
+evidence = "hf-build and hf-done record exact revision, command, exit and private log location in /out/run/gates.jsonl; the final response copies the bounded gate's evidence verbatim."
+
+[case.receipt]
+test = "TestAuthEVMTransactionReceipt"
+inventory_first_error = "client_test.go:190 through :95: EVM response revert-text equality."
+producer_commit = "9b8c6465b5c1d251ebe8960fc376b44f5930195b"
+cause = "The response now carries the same formatted VmError as the receipt, including the registered precompile error suffix; the consumer retained the former bare execution-reverted response."
+repair = "Assert exact execution reverted|LXP_AUTH_SCOPE in both response and receipt, retaining the exact bare LXP_AUTH_SCOPE Solidity Error(string), failed status, empty logs and unchanged stored grant assertions."
+
+[case.gas]
+test = "TestAuthGasConformance"
+inventory_first_error = "gas_conformance_test.go:102 and :166: transaction status 45 instead of success."
+producer_commit = "ca53491da0a001a9824ef8fbd5cda62cada3b0a3"
+cause = "GrantCapability must publish an executable SDK authz mirror; the programs-module scope has no supported SDK message and SaveGrant returns LXP_AUTH_SCOPE."
+repair = "Build the capability with asset module 1, ordinals 4 through 5, and check SEND activity 0x00010005; retain successful signed delivery and the exact intrinsic-plus-method-row gas equality for every ABI method."
+
+[case.capability]
+test = "TestPrecompileGrantCapability"
+inventory_first_error = "grants_test.go:346 through :130: grantCapability reverts with LXP_AUTH_SCOPE."
+producer_commit = "ca53491da0a001a9824ef8fbd5cda62cada3b0a3"
+native_rule = "src/modules/governance/lxp_governance.c issue_grant validates the canonical key, registered identity revocation epoch and declared envelope; modules/layerxauth/keeper/capability.go additionally requires asset module 1 and SEND ordinal 5 for bank MsgSend and MsgMultiSend mirrors."
+cause = "The fixture used module mask 1<<9, which the native envelope permits but the executable SDK mirror refuses; its bound delegate key and registration epoch 41 are already valid."
+repair = "Use mask 1<<1 for capability fixtures while retaining session mask 1<<9 and every spending/time bound; assert all decoded scope fields, successful SEND scope checking and refusal of programs scope."
+regression = "The original programs-only scope is still executed and must revert with LXP_AUTH_SCOPE, preserve its typed cause and produce no logs or persisted host changes."
+
+[case.proof]
+test = "TestProofLayerxauth0x101c"
+inventory_first_error = "proof_layerxauth_0x101c_test.go:226 through :123: EVM response revert-text equality."
+producer_commit = "9b8c6465b5c1d251ebe8960fc376b44f5930195b"
+cause = "The proof expected the former bare response VmError after unbound and replayed signed calls."
+repair = "Pass each expected registered reason into delivery and assert the full exact response and receipt error, separately retaining exact ABI revert decoding, empty refused logs and the real Rust indexer ingestion/reopen proof."
+
+[case.lifecycle]
+test = "TestRepair_146_LifecycleReceipts"
+inventory_first_error = "repair_146_test.go:203 through :108: LXP_SEQUENCE_REUSED response mismatch."
+producer_commit = "9b8c6465b5c1d251ebe8960fc376b44f5930195b"
+sequence_producer_commit = "41642833f92d2e1db4289d7d1589ec246321a8a7"
+native_rule = "src/state/lxp_identity.c lxp_identity_consume_sequence requires equality with persisted next_sequence: a lower account sequence is LXP_SEQUENCE_REUSED and a higher one is LXP_SEQUENCE_GAP; governance execute independently refuses registering an existing identity."
+cause = "The expected duplicate-registration refusal is LXP_SEQUENCE_REUSED, now included in response VmError; current Keeper.execute already reads persisted identity and global sequences and commits only successful branches."
+repair = "Assert account sequence 0 for registration, 1 for recovery and 2 before each refused case, plus the next global sequence on each producer receipt; compare both error texts exactly and retain every exact event, identity row, typed ABI reason and refusal-state assertion."
+
+[gotcha.revert_text]
+cause = "The ABI revert reason is the bare registered LXP name after RevertError, while both transaction VmError fields carry execution reverted followed by a pipe and that name."
+do = "Assert each transport's exact producer text independently; do not truncate the response or change the native registered error."
+
+[gotcha.scope]
+cause = "A native-valid grant scope need not have a supported executable SDK authz mirror."
+do = "Use the producer's asset SEND scope for successful capability writes and retain an explicit refusal assertion for programs-only writes."

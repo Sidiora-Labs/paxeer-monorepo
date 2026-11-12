@@ -1928,7 +1928,6 @@ impl AgentRuntime {
         writer.text(authority.as_str())?;
         let mut reader = self.exchange(&writer.finish())?;
         let pending_nonce = reader.u64()?;
-        decode_rung(reader.u8()?)?;
         reader.finish()?;
         Ok(pending_nonce)
     }
@@ -4693,18 +4692,92 @@ impl Reader {
 }
 
 #[cfg(test)]
+#[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod clock_server;
+
+#[cfg(test)]
+pub(crate) mod clock_test_support {
+    use std::fs::{self, DirBuilder};
+    use std::os::unix::fs::DirBuilderExt as _;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use std::thread::{self, JoinHandle};
+    use std::time::Duration;
+
+    use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
+
+    pub(crate) struct RunningClock {
+        directory: PathBuf,
+        binding: ClockBinding,
+        shutdown: Arc<AtomicBool>,
+        worker: Option<JoinHandle<std::io::Result<()>>>,
+    }
+
+    impl RunningClock {
+        pub(crate) fn start() -> std::io::Result<Self> {
+            let mut nonce = [0; 16];
+            getrandom::fill(&mut nonce)
+                .map_err(|_| std::io::Error::other("clock test directory entropy unavailable"))?;
+            let directory =
+                std::env::temp_dir().join(format!("lxh-{:032x}", u128::from_be_bytes(nonce)));
+            DirBuilder::new().mode(0o700).create(&directory)?;
+            let mut server = super::clock_server::Server::bind(&directory)?;
+            let binding = ClockBinding::for_current_process(server.socket().to_path_buf());
+            let shutdown = Arc::new(AtomicBool::new(false));
+            let stop = Arc::clone(&shutdown);
+            let worker = thread::Builder::new()
+                .name("human-test-runtime-clock".into())
+                .spawn(move || {
+                    while !stop.load(Ordering::Acquire) {
+                        server.poll()?;
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Ok(())
+                })?;
+            Ok(Self {
+                directory,
+                binding,
+                shutdown,
+                worker: Some(worker),
+            })
+        }
+
+        pub(crate) fn directory(&self) -> &Path {
+            &self.directory
+        }
+
+        pub(crate) fn clock(&self) -> Arc<RuntimeClock> {
+            RuntimeClock::connect(self.binding.clone())
+                .unwrap_or_else(|error| panic!("test clock authority: {error:?}"))
+        }
+    }
+
+    impl Drop for RunningClock {
+        fn drop(&mut self) {
+            self.shutdown.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                assert!(worker.join().is_ok_and(|result| result.is_ok()));
+            }
+            fs::remove_dir_all(&self.directory)
+                .unwrap_or_else(|error| panic!("remove clock test directory: {error}"));
+        }
+    }
+}
+
+#[cfg(test)]
 mod subject_tests {
     use super::*;
 
-    fn runtime() -> AgentRuntime {
+    fn runtime(authority: &super::clock_test_support::RunningClock) -> AgentRuntime {
         let kind =
             ActivityType::new(ModuleId::Governance, 1).unwrap_or_else(|_| panic!("Governance1"));
         let registry =
             ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Governance, &[kind])
                 .unwrap_or_else(|_| panic!("module"))])
             .unwrap_or_else(|_| panic!("registry"));
-        AgentRuntime::new(
-            "/tmp/lxp-subject-wire.sock",
+        AgentRuntime::new_with_clock(
+            authority.directory().join("agent.sock"),
             crate::frame::Limits {
                 maximum_frame_bytes: MAX_BYTES,
                 maximum_connections: 2,
@@ -4713,13 +4786,16 @@ mod subject_tests {
                 deadline: std::time::Duration::from_secs(1),
             },
             registry,
+            authority.clock(),
         )
         .unwrap_or_else(|_| panic!("typed runtime"))
     }
 
     #[test]
     fn cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame() {
-        let prototype = runtime();
+        let authority = super::clock_test_support::RunningClock::start()
+            .unwrap_or_else(|error| panic!("subject clock authority: {error}"));
+        let prototype = runtime(&authority);
         let principal =
             crate::store::PrincipalId::new("act_person").unwrap_or_else(|_| panic!("principal"));
         let owner =
@@ -5413,12 +5489,7 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        let signature: &[u8; 65] = grant
-            .signature
-            .as_slice()
-            .try_into()
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        writer.fixed(signature);
+        writer.fixed(&grant.signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         if reader.u16()? != 1 {
             return Err(AgentBoundaryError::CorruptResponse);

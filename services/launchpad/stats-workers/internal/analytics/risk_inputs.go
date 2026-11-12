@@ -57,7 +57,7 @@ func (p CanonicalRiskInputs) LoadRiskInputsAt(ctx context.Context, tx pgx.Tx, po
 	if err := p.Validate(); err != nil {
 		return inputs, err
 	}
-	if tx == nil || !address.MatchString(pool) || wm.Validate() != nil || wm.Integrity != "healthy" || now <= 0 {
+	if tx == nil || !address.MatchString(pool) || wm.Validate() != nil || wm.Integrity != valueHealthy || now <= 0 {
 		return inputs, ErrInvalidInput
 	}
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", p.Authority.Schema+":analytics:"+pool); err != nil {
@@ -278,7 +278,7 @@ func (p *Projector) RefreshTokenInputs(ctx context.Context, token string) error 
 		if e == nil {
 			e = tx.Commit(ctx)
 		} else {
-			_ = tx.Rollback(context.WithoutCancel(ctx))
+			rollbackTransaction(context.WithoutCancel(ctx), tx)
 		}
 		if e != nil {
 			return e

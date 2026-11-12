@@ -147,7 +147,7 @@ func (p *Projector) ApplyFillTx(ctx context.Context, tx pgx.Tx, fill accounting.
 	if err != nil {
 		return err
 	}
-	wm := Watermark{ChainID: "125", Height: fill.Position.Height, BlockHash: fill.Position.BlockHash, ProjectionRevision: revision, ObservedAt: observedAt.Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	wm := Watermark{ChainID: "125", Height: fill.Position.Height, BlockHash: fill.Position.BlockHash, ProjectionRevision: revision, ObservedAt: observedAt.Format("2006-01-02T15:04:05.000Z"), Integrity: valueHealthy}
 	return p.recompute(ctx, tx, fill.PoolAddress, wm)
 }
 func (p *Projector) RecomputeExpiryTx(ctx context.Context, tx pgx.Tx, pool string) error {
@@ -159,7 +159,7 @@ func (p *Projector) RecomputeExpiryTx(ctx context.Context, tx pgx.Tx, pool strin
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", a.Schema+":analytics:"+pool); err != nil {
 		return err
 	}
-	wm := Watermark{ChainID: "125", Integrity: "healthy"}
+	wm := Watermark{ChainID: "125", Integrity: valueHealthy}
 	if err := tx.QueryRow(ctx, "UPDATE "+progress+" SET revision=revision+1 WHERE pool=$1 RETURNING height::text,block_hash,revision::text,observed_at", pool).Scan(&wm.Height, &wm.BlockHash, &wm.ProjectionRevision, &wm.ObservedAt); err != nil {
 		return err
 	}
@@ -276,7 +276,7 @@ func (p *Projector) RunExpiry(ctx context.Context, interval time.Duration, batch
 				if err == nil {
 					err = tx.Commit(ctx)
 				} else {
-					tx.Rollback(ctx)
+					rollbackTransaction(ctx, tx)
 				}
 				if err != nil {
 					return err
@@ -311,7 +311,7 @@ func (p PostgresRiskInputs) LoadRiskInputs(ctx context.Context, tx pgx.Tx, pool 
 	return inputs, nil
 }
 func (a ReactionAuthority) PersistRiskInputsTx(ctx context.Context, tx pgx.Tx, pool string, wm Watermark, inputs RiskInputs) error {
-	if tx == nil || !address.MatchString(pool) || wm.Validate() != nil || wm.Integrity != "healthy" || len(inputs.Top10Concentration) > 128 || len(inputs.CreatorHoldingsPct) > 128 || len(inputs.SupplyRaw) > 128 || inputs.CreatedAt < 0 || inputs.UniqueTraders24h < -1 || inputs.HolderCount < -1 {
+	if tx == nil || !address.MatchString(pool) || wm.Validate() != nil || wm.Integrity != valueHealthy || len(inputs.Top10Concentration) > 128 || len(inputs.CreatorHoldingsPct) > 128 || len(inputs.SupplyRaw) > 128 || inputs.CreatedAt < 0 || inputs.UniqueTraders24h < -1 || inputs.HolderCount < -1 {
 		return errors.New("invalid canonical risk input")
 	}
 	if inputs.ProjectionRevision != "" {

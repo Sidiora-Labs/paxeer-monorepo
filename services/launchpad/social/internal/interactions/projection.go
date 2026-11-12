@@ -32,19 +32,19 @@ func DecodePublicEvent(raw []byte) (PublicEvent, error) {
 	if _, e := eventType(v.Action); e != nil {
 		return v, e
 	}
-	r := Request{Actor: v.Actor, ID: v.Target, Action: v.Action, Kind: "like"}
+	r := Request{Actor: v.Actor, ID: v.Target, Action: v.Action, Kind: likeAction}
 	if mutationAggregate(r) != v.AggregateID {
 		return v, ErrInvalid
 	}
-	if v.Action == "callout_reference" && v.SourceRevision < 1 {
+	if v.Action == calloutReferenceAction && v.SourceRevision < 1 {
 		return v, ErrInvalid
 	}
-	if v.Action == "follow" {
+	if v.Action == followAction {
 		if target, e := Wallet(v.Target); e != nil || target != v.Target {
 			return v, ErrInvalid
 		}
 	}
-	if v.Action == "comment" || v.Action == "comment_hide" {
+	if v.Action == commentAction || v.Action == commentHideAction {
 		if pool, e := Wallet(v.Pool); e != nil || pool != v.Pool {
 			return v, ErrInvalid
 		}
@@ -55,21 +55,21 @@ func DecodePublicEvent(raw []byte) (PublicEvent, error) {
 			return v, ErrInvalid
 		}
 	}
-	if v.Action != "comment" && v.Action != "comment_hide" && (v.Body != "" || v.Parent != "") {
+	if v.Action != commentAction && v.Action != commentHideAction && (v.Body != "" || v.Parent != "") {
 		return v, ErrInvalid
 	}
-	if v.Action != "callout_reference" && v.SourceRevision != 0 {
+	if v.Action != calloutReferenceAction && v.SourceRevision != 0 {
 		return v, ErrInvalid
 	}
-	if (v.Action == "follow" || v.Action == "callout_reference") && v.Pool != "" {
+	if (v.Action == followAction || v.Action == calloutReferenceAction) && v.Pool != "" {
 		return v, ErrInvalid
 	}
-	if v.Action == "reaction" {
+	if v.Action == reactionAction {
 		if pool, e := Wallet(v.Pool); e != nil || pool != v.Pool {
 			return v, ErrInvalid
 		}
 	}
-	if v.Action == "comment_hide" && !v.Removed {
+	if v.Action == commentHideAction && !v.Removed {
 		return v, ErrInvalid
 	}
 	return v, nil
@@ -87,7 +87,7 @@ func ProjectPublicEvent(ctx context.Context, tx pgx.Tx, generation string, envel
 		return ErrInvalid
 	}
 	targetWallet := ""
-	if v.Action == "follow" {
+	if v.Action == followAction {
 		targetWallet = v.Target
 	}
 	if e = policyLocks(ctx, tx, v.Actor, targetWallet); e != nil {

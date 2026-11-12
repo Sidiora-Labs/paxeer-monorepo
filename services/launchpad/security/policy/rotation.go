@@ -2,9 +2,10 @@ package policy
 
 import (
 	"context"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 )
 
 type RotatingKeys struct {

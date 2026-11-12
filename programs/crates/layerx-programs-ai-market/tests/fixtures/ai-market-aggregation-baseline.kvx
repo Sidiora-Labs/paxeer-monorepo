@@ -1,0 +1,15 @@
+[guest]
+source = "programs/crates/layerx-programs-ai-market"
+profile = "release"
+opt_level = "z"
+crate_type = "cdylib"
+lto = true
+llvm_passes = "enable-merge-functions ir-outliner inline-threshold=40"
+optimizer_version = "133"
+postprocess = "wasm-opt -Oz --flatten --rereloop -Oz --converge --merge-similar-functions -Oz --converge --strip-debug --strip-producers"
+chain_id = 125
+chain_domain = "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6"
+source_sha256 = "1f4eedd7251bb0cc8305211299da081ccce46a62e9ba35c15ac6d942626cb7a9"
+purpose = "aggregation-pass-measurement"
+wasm_bytes = 130679
+sha256 = "eb1474461fb5d4948964077f3aeccad25cb20affa678afe013a87868f5c193e6"

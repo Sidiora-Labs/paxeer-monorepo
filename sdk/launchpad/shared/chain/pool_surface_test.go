@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
@@ -71,14 +71,14 @@ func keeperSurfaceRuntime(t *testing.T) []byte {
 }
 
 func TestPoolSurfaceIdentity(t *testing.T) {
-	surfaceRuntime := keeperSurfaceRuntime(t)
-	if got := crypto.Keccak256Hash(surfaceRuntime); got != surfaceRuntimeHash {
-		t.Fatalf("surface runtime hash %s, constant %s", got.Hex(), surfaceRuntimeHash.Hex())
+	manifest := deployment.Current()
+	hashes := surfaceRuntimeHash(manifest)
+	stagedRuntime := keeperSurfaceRuntime(t)
+	if got := crypto.Keccak256Hash(stagedRuntime); got.Hex() != deployment.StagedSurfaceRuntimeHash {
+		t.Fatalf("staged surface runtime hash %s, constant %s", got.Hex(), deployment.StagedSurfaceRuntimeHash)
 	}
-	for name, role := range deployment.Current().Roles {
-		if role.Kind == "surface" && common.HexToHash(role.RuntimeHash) != crypto.Keccak256Hash(surfaceRuntime) {
-			t.Fatalf("canonical %s surface pin differs from keeper: %s", name, role.RuntimeHash)
-		}
+	if _, ok := hashes[crypto.Keccak256Hash(stagedRuntime)]; !ok || len(hashes) != 2 {
+		t.Fatalf("keeper surface runtime %s absent from active and staged set: %v", crypto.Keccak256Hash(stagedRuntime), hashes)
 	}
 	artifactBytes, err := os.ReadFile("../config/deployment/testdata/evm-artifacts.json")
 	if err != nil {
@@ -91,6 +91,15 @@ func TestPoolSurfaceIdentity(t *testing.T) {
 	}
 	if err := json.Unmarshal(artifactBytes, &artifacts); err != nil {
 		t.Fatal(err)
+	}
+	surfaceRuntime, err := hexutil.Decode(artifacts.Contracts["SurfaceRuntime"].Runtime)
+	if err != nil || len(surfaceRuntime) == 0 {
+		t.Fatalf("committed surface runtime missing: %v", err)
+	}
+	for name, role := range manifest.Roles {
+		if role.Kind == "surface" && (common.HexToHash(role.RuntimeHash) != crypto.Keccak256Hash(surfaceRuntime) || common.HexToHash(role.StagedRuntimeHash) != crypto.Keccak256Hash(stagedRuntime) || role.StagedUpgrade != "v7.0") {
+			t.Fatalf("canonical %s active or staged surface pin differs: %+v", name, role)
+		}
 	}
 	proxyCode, err := hexutil.Decode(artifacts.Contracts["BeaconProxy"].Runtime)
 	if err != nil || len(proxyCode) == 0 {
@@ -107,9 +116,14 @@ func TestPoolSurfaceIdentity(t *testing.T) {
 		want         string
 		wrongBeacon  bool
 		storageReads int
+		activeOnly   bool
 	}{
 		{name: "registered surface", registered: true, code: surfaceRuntime},
+		{name: "registered staged surface", registered: true, code: stagedRuntime},
+		{name: "active-only manifest admits live surface", registered: true, code: surfaceRuntime, activeOnly: true},
+		{name: "active-only manifest refuses staged surface", registered: true, code: stagedRuntime, activeOnly: true, want: "pool proxy runtime identity mismatch"},
 		{name: "unregistered surface", code: surfaceRuntime, want: "pool not registered at selected block"},
+		{name: "unregistered staged surface", code: stagedRuntime, want: "pool not registered at selected block"},
 		{name: "registered other code", registered: true, code: []byte{0x60, 0x00, 0x60, 0x00, 0xf3}, want: "pool proxy runtime identity mismatch"},
 		{name: "registered empty code", registered: true, want: "pool proxy runtime identity mismatch"},
 		{name: "registered beacon proxy", registered: true, code: proxyCode, storageReads: 1},
@@ -207,7 +221,20 @@ func TestPoolSurfaceIdentity(t *testing.T) {
 			pin := BlockPin{Number: header.Number.Uint64(), Hash: consensusHash(header), DeploymentVersion: "v-test"}
 			c := &Client{primary: e, quarantine: map[*ethclient.Client]bool{}, attestations: map[*ethclient.Client]EndpointAttestation{}, issuedPins: map[BlockPin]struct{}{pin: {}}, publicReads: readpolicy.NewCoalescer(), readPermit: make(chan struct{}, 4)}
 			c.verified = &VerifiedConfig{Profile: profile.Profile{DeploymentVersion: "v-test"}, AnchorHeight: pin.Number, AnchorHash: pin.Hash}
-			a := &ReadAdapter{client: c, manifest: deployment.Manifest{Roles: map[string]deployment.Role{"PoolRegistry": {Address: registry.Hex()}, "PoolBeacon": {Address: beacon.Hex()}}}, poolProxyRuntimeHash: crypto.Keccak256Hash(proxyCode)}
+			selected := deployment.Current()
+			if tc.activeOnly {
+				for name, role := range selected.Roles {
+					role.StagedRuntimeHash, role.StagedUpgrade = "", ""
+					selected.Roles[name] = role
+				}
+			}
+			r := selected.Roles["PoolRegistry"]
+			r.Address = registry.Hex()
+			selected.Roles["PoolRegistry"] = r
+			r = selected.Roles["PoolBeacon"]
+			r.Address = beacon.Hex()
+			selected.Roles["PoolBeacon"] = r
+			a := &ReadAdapter{client: c, manifest: selected, poolProxyRuntimeHash: crypto.Keccak256Hash(proxyCode)}
 			err = a.identifyPool(context.Background(), pin, pool)
 			if tc.want == "" {
 				if err != nil {

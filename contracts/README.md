@@ -18,7 +18,7 @@ The two Foundry configurations at the repository root cover different source tre
 
 ## Kernel contracts
 
-The pre-merge kernel custody and settlement contracts are retired: `LayerXCustody.sol`, `CheckpointRegistry.sol`, `GuarantorBond.sol`, `WithdrawalClaims.sol` and `EmergencyExit.sol` are not deployment requirements for the merged network. Their former execution/settlement split and guarantor finality are retired.
+The merged network uses the native bank and committed block state instead of the former kernel escrow, checkpoint registry and guarantor contracts. No separate kernel custody or settlement contract deployment is required.
 
 Current funding uses native bank balances and derived sub-accounts; see the [bank interface](../precompiles/bank/Bank.sol) and [account mapping](../modules/lxphost/accountmap.go). Block commitment supplies network finality. For bridged assets, outbound movement uses `bridgeOut` in the [bridge precompile interface](../precompiles/layerxbridge/LayerXBridge.sol), subject to registered chains, attestors, caps and pause state. The [external bridge custody boundary](bridge/README.md) remains distinct from the retired kernel custody-credit system. This does not claim that any external bridge is deployed or ready.
 

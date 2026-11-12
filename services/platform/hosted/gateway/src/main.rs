@@ -1,8 +1,13 @@
 mod backend_availability;
-use backend_availability::{BackendAvailability, KernelBackend};
-mod authority_readiness;
+mod encoding {
+    /// Encodes bytes as lowercase hexadecimal text.
+    #[must_use]
+    pub fn hex_encode(bytes: &[u8]) -> String {
+        layerx_platform_gateway::encoding::hex_encode(bytes)
+    }
+}
 
-use authority_readiness::probe_authority_readiness;
+use backend_availability::{BackendAvailability, KernelBackend};
 mod capabilities;
 mod chain_reads;
 mod explorer_proxy;
@@ -19,18 +24,11 @@ mod ui_proxy;
 mod ws;
 mod ws_wire;
 
-use layerx_platform_gateway::http::{
-    self, Client, Endpoint, IncomingRequest, OutgoingResponse, UpstreamResponse,
-};
+use layerx_platform_gateway::http::{self, Client, Endpoint, IncomingRequest, OutgoingResponse, UpstreamResponse};
 #[cfg(test)]
 use layerx_platform_gateway::store::OperationRecord;
-use layerx_platform_gateway::store::{
-    KeyIssuance, KeyRecord, KeyRotation, RedisEndpoint, RedisStore,
-};
-use layerx_platform_gateway::{
-    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt, AccessError,
-    AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
-};
+use layerx_platform_gateway::store::{KeyIssuance, KeyRecord, KeyRotation, RedisEndpoint, RedisStore};
+use layerx_platform_gateway::{authenticate_gateway_key, pay_timing, production_route, verify_live_receipt, AccessError, AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota};
 #[cfg(test)]
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -64,7 +62,6 @@ enum Listener {
 }
 
 struct Config {
-    wallet_caps: Option<WalletCaps>,
     routes: routes::Registry,
     listen: SocketAddr,
     listener: Listener,
@@ -88,7 +85,6 @@ struct Config {
     wire_version: String,
     protocol_version: u16,
     protocol_network_id: u32,
-    idempotency_seconds: u64,
 }
 
 struct Kernel {
@@ -97,10 +93,10 @@ struct Kernel {
     public_core: Option<Endpoint>,
     authority: Endpoint,
     authority_token: Zeroizing<String>,
-    registry: Endpoint,
-    registry_token: Zeroizing<String>,
     #[cfg(test)]
-    modules: ModuleRegistry,
+    registry: Endpoint,
+    #[cfg(test)]
+    registry_token: Zeroizing<String>,
 }
 
 struct IdentityTarget {
@@ -131,17 +127,11 @@ impl KernelUnavailable {
     const RETRY_AFTER_SECONDS: u64 = 30;
 
     const fn not_configured(backend: KernelBackend) -> Self {
-        Self {
-            backend,
-            reason: "not_configured",
-        }
+        Self { backend, reason: "not_configured" }
     }
 
     const fn unreachable(backend: KernelBackend) -> Self {
-        Self {
-            backend,
-            reason: "unreachable",
-        }
+        Self { backend, reason: "unreachable" }
     }
 
     fn data(self) -> serde_json::Value {
@@ -157,22 +147,6 @@ impl KernelUnavailable {
         refusal["error"]["data"] = self.data();
         refusal
     }
-
-    fn from_body(body: &serde_json::Value) -> Option<Self> {
-        let error = body.get("error")?;
-        if error.get("code")?.as_str()? != "kernel_unavailable" {
-            return None;
-        }
-        let name = error.get("backend")?.as_str()?;
-        let backend = KernelBackend::ALL
-            .into_iter()
-            .find(|backend| backend.name() == name)?;
-        match error.get("reason")?.as_str()? {
-            "not_configured" => Some(Self::not_configured(backend)),
-            "unreachable" => Some(Self::unreachable(backend)),
-            _ => None,
-        }
-    }
 }
 
 impl From<KernelUnavailable> for OutgoingResponse {
@@ -181,9 +155,7 @@ impl From<KernelUnavailable> for OutgoingResponse {
             content_type: "application/json".to_owned(),
             headers: Vec::new(),
             status: 503,
-            body: serde_json::json!({ "ok": false, "error": unavailable.data() })
-                .to_string()
-                .into_bytes(),
+            body: serde_json::json!({ "ok": false, "error": unavailable.data() }).to_string().into_bytes(),
             retry_after: Some(KernelUnavailable::RETRY_AFTER_SECONDS),
         }
     }
@@ -192,53 +164,30 @@ impl From<KernelUnavailable> for OutgoingResponse {
 impl Config {
     fn backend(&self, backend: KernelBackend) -> Result<(&Endpoint, &str), KernelUnavailable> {
         if backend == KernelBackend::Identity {
-            let target = self
-                .identity
-                .as_ref()
-                .ok_or(KernelUnavailable::not_configured(backend))?;
+            let target = self.identity.as_ref().ok_or(KernelUnavailable::not_configured(backend))?;
             return Ok((&target.endpoint, target.token.as_str()));
         }
-        let kernel = self
-            .kernel
-            .as_ref()
-            .ok_or(KernelUnavailable::not_configured(backend))?;
+        let kernel = self.kernel.as_ref().ok_or(KernelUnavailable::not_configured(backend))?;
         Ok(match backend {
             KernelBackend::Component => (&kernel.component, kernel.component_token.as_str()),
-            KernelBackend::PublicCore => (
-                kernel
-                    .public_core
-                    .as_ref()
-                    .ok_or(KernelUnavailable::not_configured(backend))?,
-                kernel.component_token.as_str(),
-            ),
+            KernelBackend::PublicCore => (kernel.public_core.as_ref().ok_or(KernelUnavailable::not_configured(backend))?, kernel.component_token.as_str()),
             KernelBackend::Authority => (&kernel.authority, kernel.authority_token.as_str()),
             KernelBackend::Identity => unreachable!("identity is resolved independently"),
+            #[cfg(test)]
             KernelBackend::Registry => (&kernel.registry, kernel.registry_token.as_str()),
         })
     }
 
     fn target(&self, backend: KernelBackend) -> Result<(&Endpoint, &str), String> {
-        self.backend(backend)
-            .map_err(|unavailable| format!("{} {}", backend.name(), unavailable.reason))
-    }
-
-    fn kernel_side(&self, backend: KernelBackend) -> Result<&Kernel, KernelUnavailable> {
-        self.kernel
-            .as_ref()
-            .ok_or(KernelUnavailable::not_configured(backend))
+        self.backend(backend).map_err(|unavailable| format!("{} {}", backend.name(), unavailable.reason))
     }
 
     fn receipt_keys(&self) -> Result<&ReceiptKeyList, KernelUnavailable> {
-        self.receipt_keys
-            .as_ref()
-            .ok_or(KernelUnavailable::not_configured(KernelBackend::Authority))
+        self.receipt_keys.as_ref().ok_or(KernelUnavailable::not_configured(KernelBackend::Authority))
     }
 
     fn key_provisioning_key(&self) -> Result<&Zeroizing<[u8; 32]>, KernelUnavailable> {
-        self.identity
-            .as_ref()
-            .and_then(|target| target.key_provisioning_key.as_ref())
-            .ok_or(KernelUnavailable::not_configured(KernelBackend::Identity))
+        self.identity.as_ref().and_then(|target| target.key_provisioning_key.as_ref()).ok_or(KernelUnavailable::not_configured(KernelBackend::Identity))
     }
 }
 
@@ -270,12 +219,6 @@ struct PublicKeyRecord {
 }
 
 #[derive(Deserialize)]
-struct LifecycleActivity {
-    activity_id: String,
-    receipt: String,
-}
-
-#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ComponentReceipt {
     activity_id: String,
@@ -295,10 +238,7 @@ struct AuthorityResponse {
     network_id: String,
     protocol_network_id: u32,
     wire_version: String,
-    #[serde(
-        default,
-        deserialize_with = "layerx_platform_gateway::authority_evidence::present_maintained"
-    )]
+    #[serde(default, deserialize_with = "layerx_platform_gateway::authority_evidence::present_maintained")]
     batch_evidence: Option<layerx_platform_gateway::authority_evidence::MaintainedBatchDocument>,
 }
 
@@ -309,6 +249,7 @@ struct PreparedAuthority {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct ReadinessResponse {
     ready: bool,
     network_id: String,
@@ -317,18 +258,6 @@ struct ReadinessResponse {
     synchronous_receipts: bool,
     #[serde(default)]
     state_snapshot: bool,
-}
-
-fn authority_ready(config: &Config, endpoint: &Endpoint, token: &str) -> bool {
-    probe_authority_readiness(
-        &config.client,
-        endpoint,
-        token,
-        &config.network_id,
-        config.protocol_network_id,
-        &config.wire_version,
-    )
-    .is_ok()
 }
 
 #[derive(Deserialize)]
@@ -357,6 +286,7 @@ struct ModuleDeclaration {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct ProgramSelectorBody {
     program_id: String,
     requested_verification_level: String,
@@ -364,6 +294,7 @@ struct ProgramSelectorBody {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct ProgramReceiptSelectorBody {
     idempotency_key: String,
     expected_activity_id: String,
@@ -372,32 +303,24 @@ struct ProgramReceiptSelectorBody {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct ProgramActivitySelectorBody {
     activity_id: String,
     requested_verification_level: String,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg(test)]
 enum ProgramLifecycle {
     Active,
     Deprecated,
     Tombstoned,
 }
 
-impl ProgramLifecycle {
-    const fn name(self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Deprecated => "deprecated",
-            Self::Tombstoned => "tombstoned",
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
+#[cfg(test)]
 struct ProgramHead {
     program_id: [u8; 32],
-    lifecycle: ProgramLifecycle,
     version: u32,
     code_hash: [u8; 32],
     abi_version: u16,
@@ -410,13 +333,15 @@ struct ProgramHead {
 }
 
 #[derive(Clone, Copy)]
+#[cfg(test)]
 struct ProgramDiscoveryProof {
     public_key: [u8; 32],
-    signature: [u8; 64],
 }
 
+#[cfg(test)]
 const PROGRAM_DISCOVERY_PROOF_DOMAIN: &[u8] = b"LayerX/program-discovery-proof/v1\0";
 
+#[cfg(test)]
 struct ProgramDiscoveryHead {
     program_id: [u8; 32],
     version: u32,
@@ -428,6 +353,7 @@ struct ProgramDiscoveryHead {
     state_root: [u8; 32],
 }
 
+#[cfg(test)]
 fn program_discovery_proof_digest(head: &ProgramDiscoveryHead) -> [u8; 32] {
     let mut proof = Vec::with_capacity(PROGRAM_DISCOVERY_PROOF_DOMAIN.len() + 135);
     proof.extend_from_slice(PROGRAM_DISCOVERY_PROOF_DOMAIN);
@@ -443,6 +369,7 @@ fn program_discovery_proof_digest(head: &ProgramDiscoveryHead) -> [u8; 32] {
     Sha256::digest(&proof).into()
 }
 
+#[cfg(test)]
 fn program_discovery_head(head: &ProgramHead) -> Option<ProgramDiscoveryHead> {
     Some(ProgramDiscoveryHead {
         program_id: head.program_id,
@@ -456,21 +383,18 @@ fn program_discovery_head(head: &ProgramHead) -> Option<ProgramDiscoveryHead> {
     })
 }
 
+#[cfg(test)]
 fn document_u64(value: &serde_json::Value, field: &str) -> Option<u64> {
     value.get(field).and_then(canonical_u64)
 }
 
+#[cfg(test)]
 fn document_hex32(value: &serde_json::Value, field: &str) -> Option<[u8; 32]> {
-    value
-        .get(field)
-        .and_then(serde_json::Value::as_str)
-        .and_then(|text| parse_hex32(text).ok())
+    value.get(field).and_then(serde_json::Value::as_str).and_then(|text| parse_hex32(text).ok())
 }
 
-fn program_discovery_proof_verified(
-    value: &serde_json::Value,
-    receipt_keys: &ReceiptKeyList,
-) -> bool {
+#[cfg(test)]
+fn program_discovery_proof_verified(value: &serde_json::Value, receipt_keys: &ReceiptKeyList) -> bool {
     let Some(head) = (|| {
         Some(ProgramDiscoveryHead {
             program_id: document_hex32(value, "program_id")?,
@@ -501,27 +425,22 @@ fn program_discovery_proof_verified(
         return false;
     }
     let digest = program_discovery_proof_digest(&head);
-    digest == receipt_digest
-        && layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest).is_ok()
+    digest == receipt_digest && layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest).is_ok()
 }
 
 fn now() -> Result<u64, String> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .map_err(|_| "system clock precedes Unix epoch".to_owned())
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_secs()).map_err(|_| "system clock precedes Unix epoch".to_owned())
 }
 
+#[cfg(test)]
 fn now_millis() -> Result<u64, String> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| "system clock precedes Unix epoch".to_owned())
-        .and_then(|duration| {
-            u64::try_from(duration.as_millis())
-                .map_err(|_| "system clock exceeds the supported millisecond range".to_owned())
-        })
+        .and_then(|duration| u64::try_from(duration.as_millis()).map_err(|_| "system clock exceeds the supported millisecond range".to_owned()))
 }
 
+#[cfg(test)]
 fn program_head_is_current(observed_at: u64, valid_through: u64, current_time_ms: u64) -> bool {
     observed_at <= valid_through && current_time_ms <= valid_through
 }
@@ -546,8 +465,7 @@ fn parse_hex32(value: &str) -> Result<[u8; 32], String> {
     let mut bytes = [0_u8; 32];
     for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
         let text = std::str::from_utf8(pair).map_err(|_| "hexadecimal value is invalid")?;
-        bytes[index] =
-            u8::from_str_radix(text, 16).map_err(|_| "hexadecimal value is invalid".to_owned())?;
+        bytes[index] = u8::from_str_radix(text, 16).map_err(|_| "hexadecimal value is invalid".to_owned())?;
     }
     Ok(bytes)
 }
@@ -560,85 +478,21 @@ fn decode_hex(value: &str, maximum: usize) -> Result<Vec<u8>, String> {
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            let text = std::str::from_utf8(pair)
-                .map_err(|_| "hexadecimal payload is invalid".to_owned())?;
+            let text = std::str::from_utf8(pair).map_err(|_| "hexadecimal payload is invalid".to_owned())?;
             u8::from_str_radix(text, 16).map_err(|_| "hexadecimal payload is invalid".to_owned())
         })
         .collect()
 }
 
 fn media_type_is(request: &IncomingRequest, expected: &str) -> bool {
-    request
-        .headers
-        .get("content-type")
-        .and_then(|value| value.split(';').next())
-        .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
-}
-
-fn program_head(
-    config: &Config,
-    expected_program: [u8; 32],
-) -> Result<ProgramHead, OutgoingResponse> {
-    program_registry_upstream(config, expected_program).map(|(head, _)| head)
-}
-
-/// Reads the upstream registry document and verifies it into a `ProgramHead`,
-/// returning the verified document beside the head so the registry read can
-/// forward upstream-only blocks of it without re-deriving them.
-fn program_registry_upstream(
-    config: &Config,
-    expected_program: [u8; 32],
-) -> Result<(ProgramHead, serde_json::Value), OutgoingResponse> {
-    let program = hex(&expected_program);
-    let upstream = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: &format!("/v1/programs/registry/{program}"),
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-        .map_err(|_| response(503, "program_registry_unavailable", Some(5)))?;
-    if upstream.status == 404 {
-        return Err(response(404, "unknown_program", None));
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        if std::env::var_os("LAYERX_PAY_TIMING").is_some() {
-            let detail: serde_json::Value =
-                serde_json::from_slice(&upstream.body).unwrap_or(serde_json::Value::Null);
-            eprintln!(
-                "program_registry_head_refusal status={} error={}",
-                upstream.status, detail["error"]
-            );
-        }
-        return Err(response(503, "program_registry_invalid", Some(5)));
-    }
-    let document: serde_json::Value = serde_json::from_slice(&upstream.body)
-        .map_err(|_| response(503, "program_registry_invalid", Some(5)))?;
-    let head = parse_program_head(
-        &document,
-        expected_program,
-        &program,
-        config.receipt_keys()?,
-    )?;
-    Ok((head, document))
+    request.headers.get("content-type").and_then(|value| value.split(';').next()).is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
 }
 
 /// Returns the upstream registry document's `value_accounts` block exactly as
 /// the registry served it, or `None` when the upstream document omits it.
+#[cfg(test)]
 fn upstream_value_accounts(document: &serde_json::Value) -> Option<serde_json::Value> {
-    document
-        .get("result")
-        .unwrap_or(document)
-        .get("value_accounts")
-        .cloned()
+    document.get("result").unwrap_or(document).get("value_accounts").cloned()
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -661,59 +515,29 @@ fn digest(parts: &[&[u8]]) -> String {
 }
 
 fn valid_identifier(value: &str, maximum: usize) -> bool {
-    !value.is_empty()
-        && value.len() <= maximum
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    !value.is_empty() && value.len() <= maximum && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] =
-    ["LAYERX_GATEWAY_TLS_CERT_DER", "LAYERX_GATEWAY_TLS_KEY_DER"];
+const LISTENER_CERTIFICATE_VARIABLES: [&str; 2] = ["LAYERX_GATEWAY_TLS_CERT_DER", "LAYERX_GATEWAY_TLS_KEY_DER"];
 
 fn listener_config() -> Result<Listener, String> {
     static TLS_PROVIDER: OnceLock<Result<(), String>> = OnceLock::new();
-    TLS_PROVIDER
-        .get_or_init(|| {
-            rustls::crypto::ring::default_provider()
-                .install_default()
-                .map_err(|_| "failed to install TLS crypto provider".to_owned())
-        })
-        .clone()?;
+    TLS_PROVIDER.get_or_init(|| rustls::crypto::ring::default_provider().install_default().map_err(|_| "failed to install TLS crypto provider".to_owned())).clone()?;
     match env::var("LAYERX_GATEWAY_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "plain" => LISTENER_CERTIFICATE_VARIABLES
             .iter()
             .find(|variable| env::var_os(variable).is_some())
-            .map_or(Ok(Listener::Plain), |variable| {
-                Err(format!(
-                    "{variable} is set with LAYERX_GATEWAY_LISTENER plain"
-                ))
-            }),
+            .map_or(Ok(Listener::Plain), |variable| Err(format!("{variable} is set with LAYERX_GATEWAY_LISTENER plain"))),
         _ => Err("LAYERX_GATEWAY_LISTENER must be tls or plain".to_owned()),
     }
 }
 
 fn tls_config() -> Result<Arc<ServerConfig>, String> {
-    let cert = CertificateDer::from(
-        fs::read(
-            env::var("LAYERX_GATEWAY_TLS_CERT_DER")
-                .map_err(|_| "gateway TLS certificate is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-    );
-    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
-        fs::read(
-            env::var("LAYERX_GATEWAY_TLS_KEY_DER").map_err(|_| "gateway TLS key is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-    ));
-    ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert], key)
-        .map(Arc::new)
-        .map_err(|error| error.to_string())
+    let cert = CertificateDer::from(fs::read(env::var("LAYERX_GATEWAY_TLS_CERT_DER").map_err(|_| "gateway TLS certificate is required")?).map_err(|error| error.to_string())?);
+    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(env::var("LAYERX_GATEWAY_TLS_KEY_DER").map_err(|_| "gateway TLS key is required")?).map_err(|error| error.to_string())?));
+    ServerConfig::builder().with_no_client_auth().with_single_cert(vec![cert], key).map(Arc::new).map_err(|error| error.to_string())
 }
 
 struct ProtocolConfig {
@@ -724,16 +548,12 @@ struct ProtocolConfig {
 }
 
 fn configured_protocol() -> Result<ProtocolConfig, String> {
-    let network_id = env::var("LAYERX_GATEWAY_NETWORK_ID")
-        .map_err(|_| "gateway network identifier is required")?;
-    let wire_version = env::var("LAYERX_GATEWAY_LXP_WIRE_VERSION")
-        .map_err(|_| "gateway LXP wire version is required")?;
+    let network_id = env::var("LAYERX_GATEWAY_NETWORK_ID").map_err(|_| "gateway network identifier is required")?;
+    let wire_version = env::var("LAYERX_GATEWAY_LXP_WIRE_VERSION").map_err(|_| "gateway LXP wire version is required")?;
     if !valid_identifier(&network_id, 64) || !valid_identifier(&wire_version, 32) {
         return Err("gateway network or wire version is invalid".to_owned());
     }
-    let protocol_version = wire_version
-        .parse::<u16>()
-        .map_err(|_| "gateway LXP wire version must be numeric".to_owned())?;
+    let protocol_version = wire_version.parse::<u16>().map_err(|_| "gateway LXP wire version must be numeric".to_owned())?;
     if protocol_version != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION {
         return Err("gateway LXP wire version is not the current beta protocol".to_owned());
     }
@@ -751,37 +571,31 @@ fn configured_protocol() -> Result<ProtocolConfig, String> {
 
 fn configured_kernel() -> Result<Option<Kernel>, String> {
     if env::var_os("LAYERX_GATEWAY_COMPONENT_URL").is_none() {
-        if let Some(variable) = KERNEL_VARIABLES
-            .iter()
-            .find(|variable| env::var_os(variable).is_some())
-        {
-            return Err(format!(
-                "{variable} is set without LAYERX_GATEWAY_COMPONENT_URL"
-            ));
+        if let Some(variable) = KERNEL_VARIABLES.iter().find(|variable| env::var_os(variable).is_some()) {
+            return Err(format!("{variable} is set without LAYERX_GATEWAY_COMPONENT_URL"));
         }
         return Ok(None);
     }
-    #[cfg(not(test))]
     configured_modules()?;
+    let component = Endpoint::parse(&env::var("LAYERX_GATEWAY_COMPONENT_URL").map_err(|_| "gateway component URL is required")?)?;
+    let component_token = read_secret("LAYERX_GATEWAY_COMPONENT_TOKEN_FILE")?;
+    let public_core = public_reads::configured_endpoint()?;
+    let authority = Endpoint::parse(&env::var("LAYERX_GATEWAY_AUTHORITY_URL").map_err(|_| "gateway authority URL is required")?)?;
+    let authority_token = read_secret("LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE")?;
+    let registry = Endpoint::parse(&env::var("LAYERX_GATEWAY_PROGRAM_REGISTRY_URL").map_err(|_| "gateway program registry URL is required")?)?;
+    let registry_token = read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?;
+    #[cfg(not(test))]
+    let _ = (&registry, &registry_token);
     let kernel = Kernel {
-        component: Endpoint::parse(
-            &env::var("LAYERX_GATEWAY_COMPONENT_URL")
-                .map_err(|_| "gateway component URL is required")?,
-        )?,
-        component_token: read_secret("LAYERX_GATEWAY_COMPONENT_TOKEN_FILE")?,
-        public_core: public_reads::configured_endpoint()?,
-        authority: Endpoint::parse(
-            &env::var("LAYERX_GATEWAY_AUTHORITY_URL")
-                .map_err(|_| "gateway authority URL is required")?,
-        )?,
-        authority_token: read_secret("LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE")?,
-        registry: Endpoint::parse(
-            &env::var("LAYERX_GATEWAY_PROGRAM_REGISTRY_URL")
-                .map_err(|_| "gateway program registry URL is required")?,
-        )?,
-        registry_token: read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?,
+        component,
+        component_token,
+        public_core,
+        authority,
+        authority_token,
         #[cfg(test)]
-        modules: configured_modules()?,
+        registry,
+        #[cfg(test)]
+        registry_token,
     };
     Ok(Some(kernel))
 }
@@ -791,25 +605,15 @@ fn configured_identity() -> Result<Option<IdentityTarget>, String> {
     const TOKEN: &str = "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE";
     const KEY: &str = "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE";
     let Some(url) = env::var_os(URL) else {
-        for variable in [
-            TOKEN,
-            KEY,
-            "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE",
-        ] {
+        for variable in [TOKEN, KEY, "LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE"] {
             if env::var_os(variable).is_some() {
                 return Err(format!("{variable} requires {URL}"));
             }
         }
         return Ok(None);
     };
-    let url = url
-        .into_string()
-        .map_err(|_| "gateway identity URL is invalid")?;
-    let key_provisioning_key = if env::var_os(KEY).is_some() {
-        Some(Zeroizing::new(parse_hex32(read_secret(KEY)?.as_str())?))
-    } else {
-        None
-    };
+    let url = url.into_string().map_err(|_| "gateway identity URL is invalid")?;
+    let key_provisioning_key = if env::var_os(KEY).is_some() { Some(Zeroizing::new(parse_hex32(read_secret(KEY)?.as_str())?)) } else { None };
     Ok(Some(IdentityTarget {
         endpoint: Endpoint::parse(&url)?,
         token: read_secret(TOKEN)?,
@@ -818,37 +622,22 @@ fn configured_identity() -> Result<Option<IdentityTarget>, String> {
 }
 
 fn configured_service_identity() -> Result<Option<Identity>, String> {
-    let legacy = (
-        "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
-        "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    );
-    let service = (
-        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12",
-        "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE",
-    );
+    let legacy = ("LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12", "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE");
+    let service = ("LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12", "LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE");
     let legacy_set = env::var_os(legacy.0).is_some() || env::var_os(legacy.1).is_some();
     let service_set = env::var_os(service.0).is_some() || env::var_os(service.1).is_some();
     if legacy_set && service_set {
-        return Err(
-            "service client identity conflicts with the configured kernel client identity".into(),
-        );
+        return Err("service client identity conflicts with the configured kernel client identity".into());
     }
     let (identity, password) = if legacy_set { legacy } else { service };
     if !legacy_set && !service_set {
         return Ok(None);
     }
     if env::var_os(identity).is_none() || env::var_os(password).is_none() {
-        return Err(format!(
-            "{identity} and {password} must be configured together"
-        ));
+        return Err(format!("{identity} and {password} must be configured together"));
     }
-    let encoded = Zeroizing::new(
-        fs::read(env::var(identity).map_err(|_| "invalid client identity path")?)
-            .map_err(|error| error.to_string())?,
-    );
-    Identity::from_pkcs12(encoded.as_slice(), read_secret(password)?.as_str())
-        .map(Some)
-        .map_err(|error| error.to_string())
+    let encoded = Zeroizing::new(fs::read(env::var(identity).map_err(|_| "invalid client identity path")?).map_err(|error| error.to_string())?);
+    Identity::from_pkcs12(encoded.as_slice(), read_secret(password)?.as_str()).map(Some).map_err(|error| error.to_string())
 }
 
 fn config(event_producer: bool) -> Result<Config, String> {
@@ -856,26 +645,12 @@ fn config(event_producer: bool) -> Result<Config, String> {
         Some(path) => {
             let receipt_key_file = fs::File::open(path).map_err(|error| error.to_string())?;
             let mut receipt_key_document = String::new();
-            std::io::Read::read_to_string(
-                &mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1),
-                &mut receipt_key_document,
-            )
-            .map_err(|error| error.to_string())?;
-            Some(
-                ReceiptKeyList::from_config(&receipt_key_document)
-                    .map_err(|field| format!("invalid gateway {field}"))?,
-            )
+            std::io::Read::read_to_string(&mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1), &mut receipt_key_document).map_err(|error| error.to_string())?;
+            Some(ReceiptKeyList::from_config(&receipt_key_document).map_err(|field| format!("invalid gateway {field}"))?)
         }
         None => None,
     };
-    let ca = Certificate::from_der(
-        &fs::read(
-            env::var("LAYERX_GATEWAY_OUTBOUND_CA_DER")
-                .map_err(|_| "gateway outbound CA is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    let ca = Certificate::from_der(&fs::read(env::var("LAYERX_GATEWAY_OUTBOUND_CA_DER").map_err(|_| "gateway outbound CA is required")?).map_err(|error| error.to_string())?).map_err(|error| error.to_string())?;
     let kernel = configured_kernel()?;
     let identity = configured_identity()?;
     let service_identity = configured_service_identity()?;
@@ -886,16 +661,13 @@ fn config(event_producer: bool) -> Result<Config, String> {
         Some(identity) => (Client::new(ca.clone(), identity), true),
         None => (Client::without_identity(ca.clone()), false),
     };
-    let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS")
-        .unwrap_or_else(|_| "604800".to_owned())
-        .parse::<u64>()
-        .map_err(|_| "gateway idempotency retention is invalid".to_owned())?;
+    let idempotency_seconds = env::var("LAYERX_GATEWAY_IDEMPOTENCY_SECONDS").unwrap_or_else(|_| "604800".to_owned()).parse::<u64>().map_err(|_| "gateway idempotency retention is invalid".to_owned())?;
     if !(3600..=MAX_IDEMPOTENCY_SECONDS).contains(&idempotency_seconds) {
         return Err("gateway idempotency retention is outside its bound".to_owned());
     }
     let protocol = configured_protocol()?;
+    configured_wallet_caps()?;
     Ok(Config {
-        wallet_caps: configured_wallet_caps()?,
         routes: routes::Registry::configured(&protocol.network_id, &protocol.wire_version)?,
         listen: env::var("LAYERX_GATEWAY_LISTEN")
             .or_else(|_| env::var("PORT").map(|port| format!("[::]:{port}")))
@@ -912,16 +684,13 @@ fn config(event_producer: bool) -> Result<Config, String> {
         state_clock: now,
         paxeer: paxeer::configured_endpoint()?,
         capabilities: capabilities::configured()?,
-        read_windows: Default::default(),
+        read_windows: std::sync::Mutex::default(),
         indexer: history::configured_endpoint()?,
         registration_token: rpc_register::configured_token()?,
         trusted_proxies: rpc_register::configured_trusted_proxies()?,
         faucet: rpc_faucet::configured()?,
         store: Arc::new(RedisStore::new(
-            RedisEndpoint::parse(
-                &env::var("LAYERX_GATEWAY_REDIS_URL")
-                    .map_err(|_| "gateway Redis URL is required")?,
-            )?,
+            RedisEndpoint::parse(&env::var("LAYERX_GATEWAY_REDIS_URL").map_err(|_| "gateway Redis URL is required")?)?,
             ca,
             read_secret("LAYERX_GATEWAY_REDIS_USERNAME_FILE")?,
             read_secret("LAYERX_GATEWAY_REDIS_PASSWORD_FILE")?,
@@ -931,7 +700,6 @@ fn config(event_producer: bool) -> Result<Config, String> {
         wire_version: protocol.wire_version,
         protocol_version: protocol.protocol_version,
         protocol_network_id: protocol.protocol_network_id,
-        idempotency_seconds,
     })
 }
 
@@ -953,9 +721,7 @@ fn response(status: u16, code: &str, retry_after: Option<u64>) -> OutgoingRespon
         content_type: "application/json".to_owned(),
         headers: Vec::new(),
         status,
-        body: serde_json::json!({ "ok": false, "error": error })
-            .to_string()
-            .into_bytes(),
+        body: serde_json::json!({ "ok": false, "error": error }).to_string().into_bytes(),
         retry_after,
     }
 }
@@ -970,26 +736,15 @@ fn json_response(status: u16, value: &serde_json::Value) -> OutgoingResponse {
     }
 }
 
+#[cfg(test)]
 fn agent_error_class(status: u16, code: &str) -> &'static str {
     if code.contains("idempotency") {
         "IdempotencyConflict"
     } else if code.contains("quota") {
         "RateLimit"
-    } else if code.contains("authorization")
-        || code.contains("scope")
-        || code.contains("api_key")
-        || code.contains("identity")
-        || code.contains("not_active")
-        || code.contains("refused")
-    {
+    } else if code.contains("authorization") || code.contains("scope") || code.contains("api_key") || code.contains("identity") || code.contains("not_active") || code.contains("refused") {
         "PolicyRefusal"
-    } else if code.contains("verification")
-        || code.contains("unverified")
-        || code.contains("component_invalid")
-        || code.contains("invalid_output")
-        || code.contains("selector_mismatch")
-        || code.contains("binding_invalid")
-    {
+    } else if code.contains("verification") || code.contains("unverified") || code.contains("component_invalid") || code.contains("invalid_output") || code.contains("selector_mismatch") || code.contains("binding_invalid") {
         "VerificationFailure"
     } else if status == 404 || code.contains("absent") || code.contains("unknown_program") {
         "UnavailableCapability"
@@ -1004,10 +759,8 @@ fn agent_error_class(status: u16, code: &str) -> &'static str {
     }
 }
 
-fn program_verification_status(
-    value: &serde_json::Value,
-    receipt_keys: &ReceiptKeyList,
-) -> serde_json::Value {
+#[cfg(test)]
+fn program_verification_status(value: &serde_json::Value, receipt_keys: &ReceiptKeyList) -> serde_json::Value {
     match value.get("state").and_then(serde_json::Value::as_str) {
         Some("unknown" | "pending") => serde_json::json!({
             "state": "Unverified",
@@ -1015,27 +768,13 @@ fn program_verification_status(
             "achieved": "Unverified",
             "reason": "receipt_pending",
         }),
-        _ if value
-            .get("verification")
-            .and_then(serde_json::Value::as_str)
-            == Some("registry-receipt-and-current-head-verified")
-            && program_discovery_proof_verified(value, receipt_keys) =>
-        {
+        _ if value.get("verification").and_then(serde_json::Value::as_str) == Some("registry-receipt-and-current-head-verified") && program_discovery_proof_verified(value, receipt_keys) => {
             serde_json::json!({
                 "state": "Achieved",
                 "level": "SequencerSigned",
             })
         }
-        _ if matches!(
-            value
-                .get("verification")
-                .and_then(serde_json::Value::as_str),
-            Some(
-                "registry-receipt-and-current-head-verified"
-                    | "deployment-interface-and-current-head-verified"
-            )
-        ) =>
-        {
+        _ if matches!(value.get("verification").and_then(serde_json::Value::as_str), Some("registry-receipt-and-current-head-verified" | "deployment-interface-and-current-head-verified")) => {
             serde_json::json!({
                 "state": "Unverified",
                 "requested": "SequencerSigned",
@@ -1050,6 +789,7 @@ fn program_verification_status(
     }
 }
 
+#[cfg(test)]
 fn agent_reason(code: &str) -> String {
     let mut reason = String::with_capacity(code.len().min(128));
     for byte in code.bytes().take(128) {
@@ -1066,43 +806,24 @@ fn agent_reason(code: &str) -> String {
     }
 }
 
+#[cfg(test)]
 fn normalize_program_u64s(value: &mut serde_json::Value) -> bool {
     match value {
         serde_json::Value::Object(object) => {
             for (key, item) in object {
                 if key == "output_values" {
-                    let output_values = item.as_u64().or_else(|| {
-                        item.as_str().and_then(|text| {
-                            text.parse::<u64>()
-                                .ok()
-                                .filter(|number| text == number.to_string())
-                        })
-                    });
-                    let Some(output_values) =
-                        output_values.and_then(|number| u32::try_from(number).ok())
-                    else {
+                    let output_values = item.as_u64().or_else(|| item.as_str().and_then(|text| text.parse::<u64>().ok().filter(|number| text == number.to_string())));
+                    let Some(output_values) = output_values.and_then(|number| u32::try_from(number).ok()) else {
                         return false;
                     };
                     *item = serde_json::json!(output_values);
                 } else if matches!(
                     key.as_str(),
-                    "global_sequence"
-                        | "observed_sequence"
-                        | "observed_at"
-                        | "valid_through"
-                        | "cpu_fuel"
-                        | "memory_bytes"
-                        | "storage_read_bytes"
-                        | "storage_write_bytes"
-                        | "output_bytes"
+                    "global_sequence" | "observed_sequence" | "observed_at" | "valid_through" | "cpu_fuel" | "memory_bytes" | "storage_read_bytes" | "storage_write_bytes" | "output_bytes"
                 ) {
                     if let Some(number) = item.as_u64() {
                         *item = serde_json::Value::String(number.to_string());
-                    } else if item
-                        .as_str()
-                        .and_then(|text| text.parse::<u64>().ok().map(|number| (text, number)))
-                        .is_none_or(|(text, number)| text != number.to_string())
-                    {
+                    } else if item.as_str().and_then(|text| text.parse::<u64>().ok().map(|number| (text, number))).is_none_or(|(text, number)| text != number.to_string()) {
                         return false;
                     }
                 } else if !normalize_program_u64s(item) {
@@ -1122,91 +843,62 @@ fn normalize_program_u64s(value: &mut serde_json::Value) -> bool {
     true
 }
 
-fn agent_response(
-    request_id: &str,
-    response: OutgoingResponse,
-    receipt_keys: &ReceiptKeyList,
-) -> OutgoingResponse {
+#[cfg(test)]
+fn agent_response(request_id: &str, response: OutgoingResponse, receipt_keys: &ReceiptKeyList) -> OutgoingResponse {
     if !(200..300).contains(&response.status) {
         return agent_refusal(request_id, response);
     }
-    let OutgoingResponse {
-        status,
-        body,
-        retry_after,
-        ..
-    } = response;
+    let OutgoingResponse { status, body, retry_after, .. } = response;
     let document = serde_json::from_slice::<serde_json::Value>(&body).ok();
-    let body = document
-        .as_ref()
-        .and_then(|value| value.get("value").or_else(|| value.get("result")))
-        .cloned()
-        .map_or_else(
-            || {
+    let body = document.as_ref().and_then(|value| value.get("value").or_else(|| value.get("result"))).cloned().map_or_else(
+        || {
+            serde_json::json!({
+                "class": "InternalFault",
+                "protocol_result_code": null,
+                "retriability": "Retriable",
+                "request_id": request_id,
+                "reason": "invalid_program_success",
+            })
+        },
+        |mut value| {
+            if normalize_program_u64s(&mut value) {
+                let verification_status = program_verification_status(&value, receipt_keys);
+                serde_json::json!({
+                    "request_id": request_id,
+                    "value": value,
+                    "verification_status": verification_status,
+                })
+            } else {
                 serde_json::json!({
                     "class": "InternalFault",
                     "protocol_result_code": null,
                     "retriability": "Retriable",
                     "request_id": request_id,
-                    "reason": "invalid_program_success",
+                    "reason": "invalid_program_u64",
                 })
-            },
-            |mut value| {
-                if normalize_program_u64s(&mut value) {
-                    let verification_status = program_verification_status(&value, receipt_keys);
-                    serde_json::json!({
-                        "request_id": request_id,
-                        "value": value,
-                        "verification_status": verification_status,
-                    })
-                } else {
-                    serde_json::json!({
-                        "class": "InternalFault",
-                        "protocol_result_code": null,
-                        "retriability": "Retriable",
-                        "request_id": request_id,
-                        "reason": "invalid_program_u64",
-                    })
-                }
-            },
-        );
+            }
+        },
+    );
     OutgoingResponse {
         content_type: "application/json".to_owned(),
         headers: Vec::new(),
-        status: if body.get("class").is_some() {
-            500
-        } else {
-            status
-        },
+        status: if body.get("class").is_some() { 500 } else { status },
         body: body.to_string().into_bytes(),
         retry_after,
     }
 }
 
+#[cfg(test)]
 fn agent_refusal(request_id: &str, response: OutgoingResponse) -> OutgoingResponse {
-    let OutgoingResponse {
-        status,
-        body,
-        retry_after,
-        ..
-    } = response;
+    let OutgoingResponse { status, body, retry_after, .. } = response;
     let document = serde_json::from_slice::<serde_json::Value>(&body).ok();
     let body = {
         let error = document.as_ref().and_then(|value| value.get("error"));
-        let code = error
-            .and_then(|value| value.get("code"))
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("program_request_failed");
+        let code = error.and_then(|value| value.get("code")).and_then(serde_json::Value::as_str).filter(|value| !value.is_empty()).unwrap_or("program_request_failed");
         let reason = agent_reason(code);
         let protocol_result_code = error
             .and_then(|value| value.get("protocol_result_code"))
-            .filter(|value| {
-                value
-                    .as_i64()
-                    .and_then(|number| i32::try_from(number).ok())
-                    .is_some()
-            })
+            .filter(|value| value.as_i64().and_then(|number| i32::try_from(number).ok()).is_some())
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         serde_json::json!({
@@ -1226,78 +918,52 @@ fn agent_refusal(request_id: &str, response: OutgoingResponse) -> OutgoingRespon
     }
 }
 
+#[cfg(test)]
 fn canonical_hex32_text(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
+#[cfg(test)]
 fn canonical_u64(value: &serde_json::Value) -> Option<u64> {
     value.as_u64().or_else(|| {
         value
             .as_str()
-            .filter(|text| {
-                !text.is_empty()
-                    && text.bytes().all(|byte| byte.is_ascii_digit())
-                    && (*text == "0" || !text.starts_with('0'))
-            })
+            .filter(|text| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()) && (*text == "0" || !text.starts_with('0')))
             .and_then(|text| text.parse::<u64>().ok())
     })
 }
 
+#[cfg(test)]
 fn program_selector(request: &IncomingRequest, expected_program: &str) -> Result<(), ()> {
-    if !media_type_is(request, "application/json")
-        || request.body.is_empty()
-        || request.body.len() > 1024
-    {
+    if !media_type_is(request, "application/json") || request.body.is_empty() || request.body.len() > 1024 {
         return Err(());
     }
     let selector: ProgramSelectorBody = serde_json::from_slice(&request.body).map_err(|_| ())?;
-    if selector.program_id != expected_program
-        || !canonical_hex32_text(&selector.program_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
+    if selector.program_id != expected_program || !canonical_hex32_text(&selector.program_id) || selector.requested_verification_level != "sequencer-signed" {
         return Err(());
     }
     Ok(())
 }
 
-fn program_receipt_selector(
-    request: &IncomingRequest,
-    expected_idempotency: &str,
-) -> Result<String, ()> {
-    if !media_type_is(request, "application/json")
-        || request.body.is_empty()
-        || request.body.len() > 1024
-    {
+#[cfg(test)]
+fn program_receipt_selector(request: &IncomingRequest, expected_idempotency: &str) -> Result<String, ()> {
+    if !media_type_is(request, "application/json") || request.body.is_empty() || request.body.len() > 1024 {
         return Err(());
     }
-    let selector: ProgramReceiptSelectorBody =
-        serde_json::from_slice(&request.body).map_err(|_| ())?;
-    if selector.idempotency_key != expected_idempotency
-        || !canonical_hex32_text(&selector.idempotency_key)
-        || !canonical_hex32_text(&selector.expected_activity_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
+    let selector: ProgramReceiptSelectorBody = serde_json::from_slice(&request.body).map_err(|_| ())?;
+    if selector.idempotency_key != expected_idempotency || !canonical_hex32_text(&selector.idempotency_key) || !canonical_hex32_text(&selector.expected_activity_id) || selector.requested_verification_level != "sequencer-signed" {
         return Err(());
     }
     Ok(selector.expected_activity_id)
 }
 
+#[cfg(test)]
 fn program_activity_selector(request: &IncomingRequest, expected_activity: &str) -> Result<(), ()> {
-    if !media_type_is(request, "application/json")
-        || request.body.is_empty()
-        || request.body.len() > 1024
-    {
+    if !media_type_is(request, "application/json") || request.body.is_empty() || request.body.len() > 1024 {
         return Err(());
     }
-    let selector: ProgramActivitySelectorBody =
-        serde_json::from_slice(&request.body).map_err(|_| ())?;
-    if selector.activity_id != expected_activity
-        || !canonical_hex32_text(&selector.activity_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
+    let selector: ProgramActivitySelectorBody = serde_json::from_slice(&request.body).map_err(|_| ())?;
+    if selector.activity_id != expected_activity || !canonical_hex32_text(&selector.activity_id) || selector.requested_verification_level != "sequencer-signed" {
         return Err(());
     }
     Ok(())
@@ -1305,36 +971,16 @@ fn program_activity_selector(request: &IncomingRequest, expected_activity: &str)
 
 fn trace(request: &IncomingRequest) -> String {
     let supplied = request.headers.get("x-trace-id").map_or("", String::as_str);
-    if supplied.strip_prefix("trc_").is_some_and(|digits| {
-        digits.len() == 32
-            && digits
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    }) {
+    if supplied.strip_prefix("trc_").is_some_and(|digits| digits.len() == 32 && digits.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))) {
         supplied.to_owned()
     } else if valid_identifier(supplied, 64) {
         format!("gw-{supplied}")
     } else {
-        format!(
-            "gw-{}",
-            &digest(&[
-                request.method.as_bytes(),
-                request.path.as_bytes(),
-                &now().unwrap_or(0).to_be_bytes()
-            ])[..24]
-        )
+        format!("gw-{}", &digest(&[request.method.as_bytes(), request.path.as_bytes(), &now().unwrap_or(0).to_be_bytes()])[..24])
     }
 }
 
-fn upstream_json(
-    config: &Config,
-    endpoint: &Endpoint,
-    token: &str,
-    method: &str,
-    path: &str,
-    idempotency: Option<&str>,
-    body: &[u8],
-) -> Result<UpstreamResponse, OutgoingResponse> {
+fn upstream_json(config: &Config, endpoint: &Endpoint, token: &str, method: &str, path: &str, idempotency: Option<&str>, body: &[u8]) -> Result<UpstreamResponse, OutgoingResponse> {
     config
         .client
         .request(
@@ -1351,44 +997,22 @@ fn upstream_json(
         .map_err(|_| response(503, "component_unavailable", Some(5)))
 }
 
-fn session(
-    config: &Config,
-    request: &IncomingRequest,
-) -> Result<(PrincipalId, SessionResponse), OutgoingResponse> {
+fn session(config: &Config, request: &IncomingRequest) -> Result<(PrincipalId, SessionResponse), OutgoingResponse> {
     let token = request
         .headers
         .get("authorization")
         .and_then(|value| value.strip_prefix("Bearer "))
         .filter(|value| !value.is_empty() && value.len() <= 4096)
         .ok_or_else(|| response(401, "session_required", None))?;
-    let body = Zeroizing::new(
-        serde_json::to_vec(&serde_json::json!({ "token": token }))
-            .map_err(|_| response(503, "identity_unavailable", Some(5)))?,
-    );
+    let body = Zeroizing::new(serde_json::to_vec(&serde_json::json!({ "token": token })).map_err(|_| response(503, "identity_unavailable", Some(5)))?);
     let (identity, identity_token) = config.backend(KernelBackend::Identity)?;
-    let upstream = upstream_json(
-        config,
-        identity,
-        identity_token,
-        "POST",
-        "/v1/sessions/introspect",
-        None,
-        &body,
-    )?;
+    let upstream = upstream_json(config, identity, identity_token, "POST", "/v1/sessions/introspect", None, &body)?;
     if upstream.status != 200 || upstream.content_type != "application/json" {
         return Err(response(401, "session_required", None));
     }
-    let session: SessionResponse = serde_json::from_slice(&upstream.body)
-        .map_err(|_| response(503, "identity_unavailable", Some(5)))?;
-    let principal = PrincipalId::new(session.sub.clone())
-        .map_err(|_| response(401, "session_required", None))?;
-    if !session.active
-        || session.allowed_signer_public_keys.len() > 128
-        || session
-            .allowed_signer_public_keys
-            .iter()
-            .any(|key| parse_hex32(key).is_err())
-    {
+    let session: SessionResponse = serde_json::from_slice(&upstream.body).map_err(|_| response(503, "identity_unavailable", Some(5)))?;
+    let principal = PrincipalId::new(session.sub.clone()).map_err(|_| response(401, "session_required", None))?;
+    if !session.active || session.allowed_signer_public_keys.len() > 128 || session.allowed_signer_public_keys.iter().any(|key| parse_hex32(key).is_err()) {
         return Err(response(401, "session_required", None));
     }
     Ok((principal, session))
@@ -1398,23 +1022,12 @@ fn principal_digest(principal: &PrincipalId) -> String {
     hex(&principal.audit_digest())
 }
 
-fn key_record(
-    issued: &IssuedKey,
-    principal: &PrincipalId,
-    signer: &str,
-    scopes: &str,
-    quota: Quota,
-    epoch: u64,
-) -> KeyRecord {
+fn key_record(issued: &IssuedKey, principal: &PrincipalId, signer: &str, scopes: &str, quota: Quota, epoch: u64) -> KeyRecord {
     let salt = digest(&[b"gateway-key-salt-v1", issued.id().as_bytes()]);
     KeyRecord {
         key_id: issued.id().to_owned(),
         principal_digest: principal_digest(principal),
-        secret_digest: digest(&[
-            b"gateway-key-v1",
-            salt.as_bytes(),
-            issued.secret().as_bytes(),
-        ]),
+        secret_digest: digest(&[b"gateway-key-v1", salt.as_bytes(), issued.secret().as_bytes()]),
         salt,
         signer_public_key: signer.to_ascii_lowercase(),
         scopes: scopes.to_owned(),
@@ -1431,16 +1044,7 @@ fn canonical_scopes(scopes: &[String]) -> Result<String, ()> {
     }
     let mut previous = None;
     for scope in scopes {
-        if !matches!(
-            scope.as_str(),
-            "activity:write"
-                | "program:call"
-                | "program:read"
-                | "program:simulate"
-                | "receipt:read"
-                | "state:read"
-        ) || previous.is_some_and(|value: &str| value >= scope.as_str())
-        {
+        if !matches!(scope.as_str(), "activity:write" | "program:call" | "program:read" | "program:simulate" | "receipt:read" | "state:read") || previous.is_some_and(|value: &str| value >= scope.as_str()) {
             return Err(());
         }
         previous = Some(scope.as_str());
@@ -1461,13 +1065,7 @@ fn permits(record: &KeyRecord, route: &ProductionRoute<'_>) -> bool {
 }
 
 fn audit_event(principal_digest: &str, action: &str, subject: &str, outcome: &str) -> String {
-    let event = digest(&[
-        b"gateway-audit-v1",
-        action.as_bytes(),
-        subject.as_bytes(),
-        outcome.as_bytes(),
-        &now().unwrap_or(0).to_be_bytes(),
-    ]);
+    let event = digest(&[b"gateway-audit-v1", action.as_bytes(), subject.as_bytes(), outcome.as_bytes(), &now().unwrap_or(0).to_be_bytes()]);
     format!("{principal_digest}:{event}")
 }
 
@@ -1486,9 +1084,7 @@ fn manage_keys(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     let Some(suffix) = request.path.strip_prefix("/v1/keys/") else {
         return response(404, "not_found", None);
     };
-    let (key_id, rotate) = suffix
-        .strip_suffix("/rotate")
-        .map_or((suffix, false), |id| (id, true));
+    let (key_id, rotate) = suffix.strip_suffix("/rotate").map_or((suffix, false), |id| (id, true));
     if !valid_identifier(key_id, 64) {
         return response(404, "not_found", None);
     }
@@ -1497,138 +1093,70 @@ fn manage_keys(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         Ok(None) => return response(404, "not_found", None),
         Err(_) => return response(503, "persistence_unavailable", Some(5)),
     };
-    if old
-        .principal_digest
-        .as_bytes()
-        .ct_eq(principal_hash.as_bytes())
-        .unwrap_u8()
-        != 1
-    {
+    if old.principal_digest.as_bytes().ct_eq(principal_hash.as_bytes()).unwrap_u8() != 1 {
         return response(404, "not_found", None);
     }
     if request.method == "DELETE" && !rotate {
-        return match config.store.revoke_key(
-            key_id,
-            &principal_hash,
-            &audit_event(&principal_hash, "key_revoke", key_id, "revoked"),
-        ) {
-            Ok(true) => json_response(
-                200,
-                &serde_json::json!({ "ok": true, "id": key_id, "state": "revoked" }),
-            ),
+        return match config.store.revoke_key(key_id, &principal_hash, &audit_event(&principal_hash, "key_revoke", key_id, "revoked")) {
+            Ok(true) => json_response(200, &serde_json::json!({ "ok": true, "id": key_id, "state": "revoked" })),
             Ok(false) => response(404, "not_found", None),
             Err(_) => response(503, "persistence_unavailable", Some(5)),
         };
     }
     if request.method == "POST" && rotate {
-        return rotate_key(
-            config,
-            request,
-            &principal,
-            &session,
-            &principal_hash,
-            &old,
-            key_id,
-        );
+        return rotate_key(config, request, &principal, &session, &principal_hash, &old, key_id);
     }
     response(404, "not_found", None)
 }
 
-fn authenticate_key(
-    config: &Config,
-    request: &IncomingRequest,
-) -> Result<KeyRecord, OutgoingResponse> {
-    let authorization = request
-        .headers
-        .get("authorization")
-        .ok_or_else(|| response(401, "api_key_required", None))?;
+fn authenticate_key(config: &Config, request: &IncomingRequest) -> Result<KeyRecord, OutgoingResponse> {
+    let authorization = request.headers.get("authorization").ok_or_else(|| response(401, "api_key_required", None))?;
     authenticate_gateway_key(&config.store, authorization).map_err(|error| match error {
         AccessError::Unauthenticated => response(401, "api_key_required", None),
         AccessError::PersistenceUnavailable => response(503, "persistence_unavailable", Some(5)),
     })
 }
 
-fn authority_request(
-    config: &Config,
-    activity_id: &str,
-    wait_publication: bool,
-) -> Result<UpstreamResponse, OutgoingResponse> {
+fn authority_request(config: &Config, activity_id: &str, wait_publication: bool) -> Result<UpstreamResponse, OutgoingResponse> {
     let (authority, token) = config.backend(KernelBackend::Authority)?;
-    upstream_json(
-        config,
-        authority,
-        token,
-        "GET",
-        &format!(
-            "/v1/authorized-batches/{}/{activity_id}",
-            if wait_publication {
-                "wait-by-activity"
-            } else {
-                "by-activity"
-            }
-        ),
-        None,
-        &[],
-    )
+    upstream_json(config, authority, token, "GET", &format!("/v1/authorized-batches/{}/{activity_id}", if wait_publication { "wait-by-activity" } else { "by-activity" }), None, &[])
 }
 
-fn authority_response(
-    config: &Config,
-    activity_id: &str,
-    upstream: &UpstreamResponse,
-) -> Result<PreparedAuthority, OutgoingResponse> {
+fn authority_response(config: &Config, activity_id: &str, upstream: &UpstreamResponse) -> Result<PreparedAuthority, OutgoingResponse> {
     let total_started = Instant::now();
     if upstream.status != 200 || upstream.content_type != "application/json" {
         return Err(response(503, "authority_unavailable", Some(5)));
     }
-    let facts: AuthorityResponse = serde_json::from_slice(&upstream.body)
-        .map_err(|_| response(503, "authority_invalid", Some(5)))?;
-    if !facts.activity_id.eq_ignore_ascii_case(activity_id)
-        || facts.network_id != config.network_id
-        || facts.protocol_network_id != config.protocol_network_id
-        || facts.wire_version != config.wire_version
-    {
+    let facts: AuthorityResponse = serde_json::from_slice(&upstream.body).map_err(|_| response(503, "authority_invalid", Some(5)))?;
+    if !facts.activity_id.eq_ignore_ascii_case(activity_id) || facts.network_id != config.network_id || facts.protocol_network_id != config.protocol_network_id || facts.wire_version != config.wire_version {
         return Err(response(503, "authority_mismatch", Some(5)));
     }
-    let receipt = decode_hex(&facts.receipt, 512 * 1024)
-        .map_err(|_| response(503, "authority_invalid", Some(5)))?;
+    let receipt = decode_hex(&facts.receipt, 512 * 1024).map_err(|_| response(503, "authority_invalid", Some(5)))?;
     let authority = AuthorityFacts::new(
         parse_hex32(&facts.batch_id).map_err(|_| response(503, "authority_invalid", Some(5)))?,
         parse_hex32(&facts.asset).map_err(|_| response(503, "authority_invalid", Some(5)))?,
-        parse_hex32(&facts.previous_state_root)
-            .map_err(|_| response(503, "authority_invalid", Some(5)))?,
-        parse_hex32(&facts.resulting_state_root)
-            .map_err(|_| response(503, "authority_invalid", Some(5)))?,
-        parse_hex32(&facts.sequencer_public_key)
-            .map_err(|_| response(503, "authority_invalid", Some(5)))?,
+        parse_hex32(&facts.previous_state_root).map_err(|_| response(503, "authority_invalid", Some(5)))?,
+        parse_hex32(&facts.resulting_state_root).map_err(|_| response(503, "authority_invalid", Some(5)))?,
+        parse_hex32(&facts.sequencer_public_key).map_err(|_| response(503, "authority_invalid", Some(5)))?,
     );
     let evidence_started = Instant::now();
     let result = match facts.batch_evidence {
         None => Ok(authority),
-        Some(maintained) => maintained
-            .authorize_with_keys(&receipt, authority, config.receipt_keys()?)
-            .map_err(|error| unauthorized_or(error, response(503, "authority_invalid", Some(5)))),
+        Some(maintained) => maintained.authorize_with_keys(&receipt, authority, config.receipt_keys()?).map_err(|error| unauthorized_or(error, response(503, "authority_invalid", Some(5)))),
     };
     pay_timing("gateway.authority.evidence", evidence_started);
     pay_timing("gateway.authority.total", total_started);
     result.map(|facts| PreparedAuthority { facts, receipt })
 }
 
-fn match_authority_receipt(
-    prepared: &PreparedAuthority,
-    receipt: &[u8],
-) -> Result<AuthorityFacts, OutgoingResponse> {
+fn match_authority_receipt(prepared: &PreparedAuthority, receipt: &[u8]) -> Result<AuthorityFacts, OutgoingResponse> {
     if prepared.receipt.len() != receipt.len() || prepared.receipt.ct_eq(receipt).unwrap_u8() != 1 {
         return Err(response(503, "authority_mismatch", Some(5)));
     }
     Ok(prepared.facts)
 }
 
-fn authority(
-    config: &Config,
-    activity_id: &str,
-    receipt: &[u8],
-) -> Result<AuthorityFacts, OutgoingResponse> {
+fn authority(config: &Config, activity_id: &str, receipt: &[u8]) -> Result<AuthorityFacts, OutgoingResponse> {
     let request_started = Instant::now();
     let upstream = authority_request(config, activity_id, false)?;
     pay_timing("gateway.authority.request", request_started);
@@ -1636,18 +1164,11 @@ fn authority(
     match_authority_receipt(&prepared, receipt)
 }
 
-fn verified_result(
-    config: &Config,
-    activity_id: &str,
-    receipt_hex: &str,
-    prefetched_authority: Option<Result<PreparedAuthority, OutgoingResponse>>,
-) -> Result<(Vec<u8>, Vec<u8>, i32), OutgoingResponse> {
+fn verified_result(config: &Config, activity_id: &str, receipt_hex: &str, prefetched_authority: Option<Result<PreparedAuthority, OutgoingResponse>>) -> Result<(Vec<u8>, Vec<u8>, i32), OutgoingResponse> {
     let total_started = Instant::now();
     let decode_started = Instant::now();
-    let expected =
-        parse_hex32(activity_id).map_err(|_| response(503, "component_invalid", Some(5)))?;
-    let receipt = decode_hex(receipt_hex, 256 * 1024)
-        .map_err(|_| response(503, "component_invalid", Some(5)))?;
+    let expected = parse_hex32(activity_id).map_err(|_| response(503, "component_invalid", Some(5)))?;
+    let receipt = decode_hex(receipt_hex, 256 * 1024).map_err(|_| response(503, "component_invalid", Some(5)))?;
     pay_timing("gateway.receipt.decode", decode_started);
     let authority_started = Instant::now();
     let facts = match prefetched_authority {
@@ -1656,26 +1177,15 @@ fn verified_result(
     }?;
     pay_timing("gateway.receipt.authority", authority_started);
     let verify_started = Instant::now();
-    let verified = verify_live_receipt(&receipt, facts, config.receipt_keys()?, Some(expected))
-        .map_err(|error| {
-            unauthorized_or(error, response(503, "receipt_verification_failed", Some(5)))
-        })?;
+    let verified = verify_live_receipt(&receipt, facts, config.receipt_keys()?, Some(expected)).map_err(|error| unauthorized_or(error, response(503, "receipt_verification_failed", Some(5))))?;
     pay_timing("gateway.receipt.verify", verify_started);
-    let result = Ok((
-        verified.response().to_vec(),
-        verified.receipt().to_vec(),
-        verified.result_code(),
-    ));
+    let result = Ok((verified.response().to_vec(), verified.receipt().to_vec(), verified.result_code()));
     pay_timing("gateway.receipt.total", total_started);
     result
 }
 
 #[cfg(test)]
-fn verify_withdrawal_receipt(
-    receipt: &[u8],
-    authorized: &AuthorizedBatch,
-    activity_id: &[u8; 32],
-) -> Result<(), ()> {
+fn verify_withdrawal_receipt(receipt: &[u8], authorized: &AuthorizedBatch, activity_id: &[u8; 32]) -> Result<(), ()> {
     let verified = layerx_proof::receipt::verify_outcome(receipt, authorized).map_err(|_| ())?;
     let protocol = verified.receipt().protocol().ok_or(())?;
     if protocol.activity_id() != *activity_id {
@@ -1686,9 +1196,7 @@ fn verify_withdrawal_receipt(
 
 #[cfg(test)]
 fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> OutgoingResponse {
-    if !operation.continuation.is_empty()
-        && decode_hex(&operation.continuation, 1024 * 1024).is_err()
-    {
+    if !operation.continuation.is_empty() && decode_hex(&operation.continuation, 1024 * 1024).is_err() {
         return response(503, "persistence_unavailable", Some(5));
     }
     let mut result = serde_json::json!({
@@ -1698,10 +1206,7 @@ fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> Outg
     });
     if !operation.continuation.is_empty() {
         if let Some(object) = result.as_object_mut() {
-            object.insert(
-                "retained_signed_activity".to_owned(),
-                serde_json::Value::String(operation.continuation.clone()),
-            );
+            object.insert("retained_signed_activity".to_owned(), serde_json::Value::String(operation.continuation.clone()));
         }
     }
     json_response(
@@ -1714,94 +1219,41 @@ fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> Outg
     )
 }
 
-fn read_route(
-    config: &Config,
-    record: &KeyRecord,
-    route: &ProductionRoute<'_>,
-    trace_id: &str,
-) -> OutgoingResponse {
-    match config.store.consume_read(
-        record,
-        now().unwrap_or(0),
-        &audit_event(
-            &record.principal_digest,
-            "read",
-            &record.key_id,
-            "attempted",
-        ),
-    ) {
+fn read_route(config: &Config, record: &KeyRecord, route: &ProductionRoute<'_>, trace_id: &str) -> OutgoingResponse {
+    match config.store.consume_read(record, now().unwrap_or(0), &audit_event(&record.principal_digest, "read", &record.key_id, "attempted")) {
         Ok(None) => {}
         Ok(Some(retry)) => return response(429, "quota_exceeded", Some(retry)),
         Err(_) => return response(503, "persistence_unavailable", Some(5)),
     }
     match route {
         ProductionRoute::State => state::read(config, trace_id),
-        ProductionRoute::Receipt(activity_id) => {
-            read_receipt(config, record, activity_id, trace_id)
-        }
+        ProductionRoute::Receipt(activity_id) => read_receipt(config, record, activity_id, trace_id),
         ProductionRoute::Settle => response(404, "not_found", None),
     }
 }
 
-fn dependency_ready(
-    config: &Config,
-    endpoint: &Endpoint,
-    token: &str,
-    require_routes: bool,
-) -> bool {
-    let Ok(upstream) = config.client.request(
-        endpoint,
-        token,
-        &http::OutboundRequest {
-            method: "GET",
-            path: "/readyz",
-            idempotency: None,
-            content_type: "application/json",
-            body: &[],
-        },
-    ) else {
-        return false;
-    };
-    let Ok(readiness) = serde_json::from_slice::<ReadinessResponse>(&upstream.body) else {
-        return false;
-    };
-    upstream.status == 200
-        && upstream.content_type == "application/json"
-        && readiness.ready
-        && readiness.network_id == config.network_id
-        && readiness.wire_version == config.wire_version
-        && (!require_routes || (readiness.synchronous_receipts && readiness.state_snapshot))
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct IdentityReadinessResponse {
     status: String,
     service: String,
 }
 
+#[cfg(test)]
 fn public_core_readiness(upstream: &UpstreamResponse, network: u32, wire: &str) -> bool {
-    if upstream.status != 200
-        || upstream.content_type != "application/json"
-        || upstream.body.len() > 4096
-    {
+    if upstream.status != 200 || upstream.content_type != "application/json" || upstream.body.len() > 4096 {
         return false;
     }
     let Ok(readiness) = serde_json::from_slice::<ReadinessResponse>(&upstream.body) else {
         return false;
     };
-    readiness.ready
-        && readiness.network_id == network.to_string()
-        && readiness.wire_version == wire
-        && readiness.synchronous_receipts
-        && readiness.state_snapshot
+    readiness.ready && readiness.network_id == network.to_string() && readiness.wire_version == wire && readiness.synchronous_receipts && readiness.state_snapshot
 }
 
+#[cfg(test)]
 fn identity_readiness(upstream: &UpstreamResponse) -> bool {
-    if upstream.status != 200
-        || upstream.content_type != "application/json"
-        || upstream.body.len() > 4096
-    {
+    if upstream.status != 200 || upstream.content_type != "application/json" || upstream.body.len() > 4096 {
         return false;
     }
     let Ok(readiness) = serde_json::from_slice::<IdentityReadinessResponse>(&upstream.body) else {
@@ -1810,69 +1262,16 @@ fn identity_readiness(upstream: &UpstreamResponse) -> bool {
     readiness.status == "ready" && readiness.service == "identity"
 }
 
-fn authenticated_readiness(
-    config: &Config,
-    endpoint: &Endpoint,
-    token: &str,
-) -> Option<UpstreamResponse> {
-    config
-        .client
-        .request(
-            endpoint,
-            token,
-            &http::OutboundRequest {
-                method: "GET",
-                path: "/internal/readyz",
-                idempotency: None,
-                content_type: "application/json",
-                body: &[],
-            },
-        )
-        .ok()
-}
-
-fn program_registry_ready(config: &Config) -> bool {
-    let Ok(upstream) = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: "/healthz",
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
-        return false;
-    };
-    let Ok(status) = serde_json::from_slice::<serde_json::Value>(&upstream.body) else {
-        return false;
-    };
-    upstream.status == 200
-        && upstream.content_type == "application/json"
-        && status["status"].as_str() == Some("ready")
-        && status["service"].as_str() == Some("program-registry")
-}
-
 fn principal_route(config: &Config, request: &IncomingRequest, trace_id: &str) -> OutgoingResponse {
     request
         .headers
         .get("authorization")
         .ok_or(AccessError::Unauthenticated)
-        .and_then(|authorization| {
-            layerx_platform_gateway::gateway_principal(&config.store, authorization)
-        })
+        .and_then(|authorization| layerx_platform_gateway::gateway_principal(&config.store, authorization))
         .map_or_else(
             |error| match error {
                 AccessError::Unauthenticated => response(401, "api_key_required", None),
-                AccessError::PersistenceUnavailable => {
-                    response(503, "persistence_unavailable", Some(5))
-                }
+                AccessError::PersistenceUnavailable => response(503, "persistence_unavailable", Some(5)),
             },
             |mut value| {
                 value["trace"] = serde_json::Value::String(trace_id.to_owned());
@@ -1881,77 +1280,37 @@ fn principal_route(config: &Config, request: &IncomingRequest, trace_id: &str) -
         )
 }
 
-fn route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
-    route_with_peer(config, request, None)
+fn route_ai(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
+    let Some(views) = &config.capabilities.ai_views else {
+        return response(503, "ai_views_unavailable", None);
+    };
+    let Ok(now_ms) = (config.state_clock)().and_then(|seconds| seconds.checked_mul(1000).ok_or_else(|| "AI clock overflow".to_owned())) else {
+        return response(503, "readiness_clock_unavailable", None);
+    };
+    // A local projection cannot assert its own freshness. Only a verified live
+    // consensus observation can supply the independent authority height.
+    let height = config.committed_state.as_ref().and_then(|authority| {
+        let id = serde_json::json!("gateway-ai-freshness");
+        let status = chain_reads::consensus(config, "status", &id, &serde_json::json!({}))?;
+        let height = status.pointer("/sync_info/latest_block_height")?.as_str()?;
+        let commit = chain_reads::consensus(config, "commit", &id, &serde_json::json!({"height": height}))?;
+        authority.verify(&status, &commit, (config.state_clock)().ok()?).ok().map(|state| state.height)
+    });
+    layerx_platform_gateway::ai_views::respond(views, &config.store, &request.method, &request.path, request.headers.get("authorization").map(String::as_str), height, now_ms).unwrap_or_else(|| response(404, "not_found", None))
 }
 
-fn route_with_peer(
-    config: &Config,
-    request: &IncomingRequest,
-    peer: Option<SocketAddr>,
-) -> OutgoingResponse {
-    let path = request
-        .path
-        .split_once('?')
-        .map_or(request.path.as_str(), |(path, _)| path);
-    if path == "/rpc"
-        || path.starts_with("/rpc/")
-        || path == "/v1/activities"
-        || path.starts_with("/v1/activities/")
-        || path == "/v1/programs"
-        || path.starts_with("/v1/programs/")
-    {
+fn route_with_peer(config: &Config, request: &IncomingRequest, peer: Option<SocketAddr>) -> OutgoingResponse {
+    let path = request.path.split_once('?').map_or(request.path.as_str(), |(path, _)| path);
+    if path == "/rpc" || path.starts_with("/rpc/") || path == "/v1/activities" || path.starts_with("/v1/activities/") || path == "/v1/programs" || path.starts_with("/v1/programs/") {
         return response(404, "not_found", None);
     }
-    public_reads::bind_client(
-        &config.trusted_proxies,
-        peer,
-        request.headers.get("x-forwarded-for").map(String::as_str),
-    );
+    public_reads::bind_client(&config.trusted_proxies, peer, request.headers.get("x-forwarded-for").map(String::as_str));
     let trace_id = trace(request);
-    if request.headers.contains_key("x-layerx-principal")
-        || request.headers.contains_key("x-layerx-api-key")
-    {
+    if request.headers.contains_key("x-layerx-principal") || request.headers.contains_key("x-layerx-api-key") {
         return response(400, "untrusted_identity_header", None);
     }
     if path.starts_with("/v1/ai/markets/") {
-        let Some(views) = &config.capabilities.ai_views else {
-            return response(503, "ai_views_unavailable", None);
-        };
-        let Ok(now_ms) = (config.state_clock)().and_then(|seconds| {
-            seconds
-                .checked_mul(1000)
-                .ok_or_else(|| "AI clock overflow".to_owned())
-        }) else {
-            return response(503, "readiness_clock_unavailable", None);
-        };
-        // A local projection cannot assert its own freshness. Only a verified live
-        // consensus observation can supply the independent authority height.
-        let height = config.committed_state.as_ref().and_then(|authority| {
-            let id = serde_json::json!("gateway-ai-freshness");
-            let status = chain_reads::consensus(config, "status", &id, serde_json::json!({}))?;
-            let height = status.pointer("/sync_info/latest_block_height")?.as_str()?;
-            let commit = chain_reads::consensus(
-                config,
-                "commit",
-                &id,
-                serde_json::json!({"height": height}),
-            )?;
-            authority
-                .verify(&status, &commit, (config.state_clock)().ok()?)
-                .ok()
-                .map(|state| state.height)
-        });
-        return layerx_platform_gateway::ai_views::respond(
-            views,
-            &config.store,
-            &request.method,
-            &request.path,
-            request.headers.get("authorization").map(String::as_str),
-            height,
-            now_ms,
-        )
-        .unwrap_or_else(|| response(404, "not_found", None));
+        return route_ai(config, request);
     }
     if let Some(result) = routes::route(config, request, peer) {
         return result;
@@ -1980,10 +1339,7 @@ fn route_with_peer(
     }
     if request.method == "GET" && request.path == "/metrics" {
         let (failures, overflow) = config.store.producer_health.metrics();
-        return json_response(
-            200,
-            &serde_json::json!({"event_producer_failures": failures, "event_producer_overflow": overflow}),
-        );
+        return json_response(200, &serde_json::json!({"event_producer_failures": failures, "event_producer_overflow": overflow}));
     }
     if request.method == "GET" && request.path == "/v1/status" {
         return gateway_status(config);
@@ -2024,14 +1380,11 @@ fn serve(config: &Arc<Config>, tcp: TcpStream) -> Result<(), String> {
     let peer = tcp.peer_addr().map_err(|error| error.to_string())?;
     rpc_register::bind_peer(peer);
     tcp.set_nodelay(true).map_err(|error| error.to_string())?;
-    tcp.set_read_timeout(Some(Duration::from_secs(10)))
-        .map_err(|error| error.to_string())?;
-    tcp.set_write_timeout(Some(Duration::from_secs(10)))
-        .map_err(|error| error.to_string())?;
+    tcp.set_read_timeout(Some(Duration::from_secs(10))).map_err(|error| error.to_string())?;
+    tcp.set_write_timeout(Some(Duration::from_secs(10))).map_err(|error| error.to_string())?;
     match &config.listener {
         Listener::Tls(tls) => {
-            let connection =
-                ServerConnection::new(Arc::clone(tls)).map_err(|error| error.to_string())?;
+            let connection = ServerConnection::new(Arc::clone(tls)).map_err(|error| error.to_string())?;
             exchange(config, &mut StreamOwned::new(connection, tcp), peer)
         }
         Listener::Plain => {
@@ -2041,30 +1394,16 @@ fn serve(config: &Arc<Config>, tcp: TcpStream) -> Result<(), String> {
     }
 }
 
-fn exchange<S: ws::Connection>(
-    config: &Arc<Config>,
-    stream: &mut S,
-    peer: SocketAddr,
-) -> Result<(), String> {
+fn exchange<S: ws::Connection>(config: &Arc<Config>, stream: &mut S, peer: SocketAddr) -> Result<(), String> {
     for request_number in 0..MAX_REQUESTS_PER_CONNECTION {
         let request = match http::read_request(stream, MAX_REQUEST) {
             Ok(request) => request,
             Err(_) if request_number == 0 => {
-                return http::write_response_connection(
-                    stream,
-                    &response(400, "invalid_http_request", None),
-                    false,
-                );
+                return http::write_response_connection(stream, &response(400, "invalid_http_request", None), false);
             }
             Err(_) => return Ok(()),
         };
-        if request.method == "GET"
-            && request.path == "/"
-            && request
-                .headers
-                .get("upgrade")
-                .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
-        {
+        if request.method == "GET" && request.path == "/" && request.headers.get("upgrade").is_some_and(|value| value.eq_ignore_ascii_case("websocket")) {
             return ws::serve(config, &request, stream);
         }
         if let Some(result) = explorer_proxy::websocket(&request, stream) {
@@ -2076,18 +1415,8 @@ fn exchange<S: ws::Connection>(
         if let Some(result) = routes::stream(config, &request, stream) {
             return result;
         }
-        let keep_alive = request_number + 1 < MAX_REQUESTS_PER_CONNECTION
-            && request
-                .headers
-                .get("connection")
-                .is_none_or(|value| !value.eq_ignore_ascii_case("close"));
-        http::write_response_connection_with_browser_profile(
-            stream,
-            &route_with_peer(config, &request, Some(peer)),
-            keep_alive,
-            config.routes.origin(&request),
-            &request.path,
-        )?;
+        let keep_alive = request_number + 1 < MAX_REQUESTS_PER_CONNECTION && request.headers.get("connection").is_none_or(|value| !value.eq_ignore_ascii_case("close"));
+        http::write_response_connection_with_browser_profile(stream, &route_with_peer(config, &request, Some(peer)), keep_alive, config.routes.origin(&request), &request.path)?;
         if !keep_alive {
             return Ok(());
         }
@@ -2097,15 +1426,11 @@ fn exchange<S: ws::Connection>(
 
 fn run() -> Result<(), String> {
     ui_proxy::configure()?;
-    let producer =
-        layerx_platform_internal::producer::Client::from_environment_if_configured(&["payment"])?;
+    let producer = layerx_platform_internal::producer::Client::from_environment_if_configured(&["payment"])?;
     let config = Arc::new(config(producer.is_some())?);
     if let Some(producer) = producer {
         config.store.producer_health.require_admission();
-        producer.spawn(
-            Arc::downgrade(&config.store),
-            Arc::clone(&config.store.producer_health),
-        )?;
+        producer.spawn(Arc::downgrade(&config.store), Arc::clone(&config.store.producer_health))?;
     }
     config.routes.start_passthrough(config.listen)?;
     let listener = TcpListener::bind(config.listen).map_err(|error| error.to_string())?;
@@ -2132,13 +1457,7 @@ fn main() {
     }
 }
 
-fn issue_key(
-    config: &Config,
-    request: &IncomingRequest,
-    principal: &PrincipalId,
-    session: &SessionResponse,
-    principal_hash: &str,
-) -> OutgoingResponse {
+fn issue_key(config: &Config, request: &IncomingRequest, principal: &PrincipalId, session: &SessionResponse, principal_hash: &str) -> OutgoingResponse {
     let issuance_idempotency = match request.headers.get("idempotency-key") {
         Some(value) if valid_identifier(value, 128) => value,
         _ => return response(400, "idempotency_key_required", None),
@@ -2147,11 +1466,7 @@ fn issue_key(
         Ok(value) => value,
         Err(_) => return response(400, "invalid_key_request", None),
     };
-    if !session
-        .allowed_signer_public_keys
-        .iter()
-        .any(|key| key.eq_ignore_ascii_case(&issue.signer_public_key))
-    {
+    if !session.allowed_signer_public_keys.iter().any(|key| key.eq_ignore_ascii_case(&issue.signer_public_key)) {
         return response(403, "signer_not_owned", None);
     }
     let Ok(quota) = Quota::new(issue.quota_requests, issue.quota_window_seconds) else {
@@ -2160,41 +1475,21 @@ fn issue_key(
     let Ok(scopes) = canonical_scopes(&issue.scopes) else {
         return response(400, "invalid_scopes", None);
     };
-    let context = digest(&[
-        b"gateway-key-issuance-v1",
-        principal_hash.as_bytes(),
-        issuance_idempotency.as_bytes(),
-    ]);
+    let context = digest(&[b"gateway-key-issuance-v1", principal_hash.as_bytes(), issuance_idempotency.as_bytes()]);
     let key_provisioning_key = match config.key_provisioning_key() {
         Ok(key) => key,
         Err(unavailable) => return unavailable.into(),
     };
     let issued = IssuedKey::derive(key_provisioning_key, context.as_bytes());
-    let record = key_record(
-        &issued,
-        principal,
-        &issue.signer_public_key,
-        &scopes,
-        quota,
-        1,
-    );
-    let outcome = config.store.issue_key_outcome(
-        &record,
-        &audit_event(principal_hash, "key_issue", &record.key_id, "issued"),
-    );
+    let record = key_record(&issued, principal, &issue.signer_public_key, &scopes, quota, 1);
+    let outcome = config.store.issue_key_outcome(&record, &audit_event(principal_hash, "key_issue", &record.key_id, "issued"));
     let written = matches!(outcome, Ok(KeyIssuance::Issued));
-    let existing = if written {
-        Ok(None)
-    } else {
-        config.store.key(&record.key_id)
-    };
+    let existing = if written { Ok(None) } else { config.store.key(&record.key_id) };
     let replayed = matches!(&existing, Ok(Some(value)) if value == &record);
     if !written && !replayed {
         return match existing {
             Ok(Some(_)) => response(409, "idempotency_conflict", None),
-            Ok(None) if matches!(outcome, Ok(KeyIssuance::Limit)) => {
-                response(409, "key_limit_reached", None)
-            }
+            Ok(None) if matches!(outcome, Ok(KeyIssuance::Limit)) => response(409, "key_limit_reached", None),
             _ => response(503, "persistence_unavailable", Some(5)),
         };
     }
@@ -2224,19 +1519,10 @@ fn list_keys(config: &Config, principal_hash: &str) -> OutgoingResponse {
         let Some(record) = config.store.key(&id).ok().flatten() else {
             return response(503, "persistence_unavailable", Some(5));
         };
-        if record
-            .principal_digest
-            .as_bytes()
-            .ct_eq(principal_hash.as_bytes())
-            .unwrap_u8()
-            != 1
-        {
+        if record.principal_digest.as_bytes().ct_eq(principal_hash.as_bytes()).unwrap_u8() != 1 {
             return response(503, "persistence_unavailable", Some(5));
         }
-        let public_scopes = record_scopes(&record)
-            .into_iter()
-            .map(str::to_owned)
-            .collect();
+        let public_scopes = record_scopes(&record).into_iter().map(str::to_owned).collect();
         records.push(PublicKeyRecord {
             id: record.key_id,
             signer_public_key: record.signer_public_key,
@@ -2247,17 +1533,6 @@ fn list_keys(config: &Config, principal_hash: &str) -> OutgoingResponse {
         });
     }
     json_response(200, &serde_json::json!({ "ok": true, "keys": records }))
-}
-
-fn kernel_availability(
-    config: &Config,
-    backend: KernelBackend,
-    probe: impl FnOnce(&Endpoint, &str) -> bool,
-) -> BackendAvailability {
-    config.backend(backend).map_or_else(
-        |_| BackendAvailability::not_configured(backend.name()),
-        |(endpoint, token)| BackendAvailability::probed(backend.name(), probe(endpoint, token)),
-    )
 }
 
 fn readiness(config: &Config) -> Vec<BackendAvailability> {
@@ -2276,9 +1551,7 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
             BackendAvailability::not_configured("indexer")
         },
     ];
-    backends.retain(|backend| {
-        backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus" | "indexer")
-    });
+    backends.retain(|backend| backend.configured || matches!(backend.backend, "paxeer_chain" | "consensus" | "indexer"));
     backends
 }
 
@@ -2292,12 +1565,8 @@ fn paxeer_chain_readiness(config: &Config) -> BackendAvailability {
         "method": "eth_chainId",
         "params": []
     });
-    let ready = paxeer::node_unmetered(config, &request).is_ok_and(|document| {
-        document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
-            && document.get("id") == request.get("id")
-            && document.get("result").and_then(serde_json::Value::as_str) == Some("0x7d")
-            && document.get("error").is_none()
-    });
+    let ready = paxeer::node_unmetered(config, &request)
+        .is_ok_and(|document| document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0") && document.get("id") == request.get("id") && document.get("result").and_then(serde_json::Value::as_str) == Some("0x7d") && document.get("error").is_none());
     BackendAvailability::probed("paxeer_chain", ready)
 }
 
@@ -2307,11 +1576,7 @@ fn consensus_readiness(config: &Config) -> BackendAvailability {
     };
     let ready = (|| {
         let mut endpoint = Endpoint::parse(url.to_str()?).ok()?;
-        let path = if endpoint.base_path.is_empty() {
-            "/".to_owned()
-        } else {
-            std::mem::take(&mut endpoint.base_path)
-        };
+        let path = if endpoint.base_path.is_empty() { "/".to_owned() } else { std::mem::take(&mut endpoint.base_path) };
         let request = serde_json::json!({
             "jsonrpc": "2.0",
             "id": "gateway-readiness-consensus",
@@ -2336,23 +1601,13 @@ fn consensus_readiness(config: &Config) -> BackendAvailability {
             return None;
         }
         let document: serde_json::Value = serde_json::from_slice(&response.body).ok()?;
-        Some(
-            document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
-                && document.get("id") == request.get("id")
-                && document.get("error").is_none()
-                && document
-                    .pointer("/result/sync_info/catching_up")
-                    .and_then(serde_json::Value::as_bool)
-                    == Some(false),
-        )
+        Some(document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0") && document.get("id") == request.get("id") && document.get("error").is_none() && document.pointer("/result/sync_info/catching_up").and_then(serde_json::Value::as_bool) == Some(false))
     })() == Some(true);
     BackendAvailability::probed("consensus", ready)
 }
 
 fn backend_ready(backends: &[BackendAvailability], name: &str) -> bool {
-    backends
-        .iter()
-        .any(|backend| backend.backend == name && backend.ready)
+    backends.iter().any(|backend| backend.backend == name && backend.ready)
 }
 
 fn gateway_readiness(config: &Config) -> OutgoingResponse {
@@ -2360,32 +1615,16 @@ fn gateway_readiness(config: &Config) -> OutgoingResponse {
 }
 
 fn gateway_readiness_scope(config: &Config, include_product_routes: bool) -> OutgoingResponse {
-    let Some(observed_at_ms) = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()
-        .and_then(|value| u64::try_from(value.as_millis()).ok())
-    else {
+    let Some(observed_at_ms) = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|value| u64::try_from(value.as_millis()).ok()) else {
         return response(503, "readiness_clock_unavailable", None);
     };
     let Some(valid_until_ms) = observed_at_ms.checked_add(30_000) else {
         return response(503, "readiness_clock_unavailable", None);
     };
     let backends = readiness(config);
-    let chain = backends
-        .iter()
-        .find(|backend| backend.backend == "paxeer_chain")
-        .copied()
-        .unwrap_or_else(|| BackendAvailability::not_configured("paxeer_chain"));
-    let serving = chain.configured
-        && chain.ready
-        && backends
-            .iter()
-            .all(|backend| !backend.configured || backend.ready);
-    let product_routes = if include_product_routes {
-        config.routes.readiness(config)
-    } else {
-        serde_json::Value::Null
-    };
+    let chain = backends.iter().find(|backend| backend.backend == "paxeer_chain").copied().unwrap_or_else(|| BackendAvailability::not_configured("paxeer_chain"));
+    let serving = chain.configured && chain.ready && backends.iter().all(|backend| !backend.configured || backend.ready);
+    let product_routes = if include_product_routes { config.routes.readiness(config) } else { serde_json::Value::Null };
     let complete = serving && (!include_product_routes || product_routes["complete"] == true);
     let component_name = |name: &str| {
         if backend_ready(&backends, name) {
@@ -2472,22 +1711,41 @@ fn gateway_status(config: &Config) -> OutgoingResponse {
     )
 }
 
-fn parse_program_head(
-    document: &serde_json::Value,
-    expected_program: [u8; 32],
-    program: &str,
-    receipt_keys: &ReceiptKeyList,
-) -> Result<ProgramHead, OutgoingResponse> {
-    let value = document.get("result").unwrap_or(document);
-    if value.get("program_id").and_then(serde_json::Value::as_str) != Some(program)
-        || value
-            .pointer("/receipt/verification")
-            .and_then(serde_json::Value::as_str)
-            != Some("receipt-verified")
-    {
+#[cfg(test)]
+fn program_discovery_proof(value: &serde_json::Value, head: &ProgramHead, receipt_keys: &ReceiptKeyList, abi_version: u16) -> Result<Option<ProgramDiscoveryProof>, OutgoingResponse> {
+    let discovery_proof = match (value.get("discovery_public_key"), value.get("discovery_signature")) {
+        (None, None) => None,
+        (Some(public_key), Some(signature)) => {
+            let public_key = public_key
+                .as_str()
+                .and_then(|text| parse_hex32(text).ok())
+                .filter(|key| receipt_keys.authorization_for_key(*key).is_ok())
+                .ok_or_else(|| response(503, "program_registry_unverified", Some(5)))?;
+            let signature = signature
+                .as_str()
+                .filter(|text| text.len() == 128)
+                .and_then(|text| decode_hex(text, 64).ok())
+                .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
+                .ok_or_else(|| response(503, "program_registry_unverified", Some(5)))?;
+            let digest = program_discovery_head(head).map(|discovery| program_discovery_proof_digest(&discovery)).ok_or_else(|| response(503, "program_state_unverified", Some(5)))?;
+            layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest).map_err(|_| response(503, "program_registry_unverified", Some(5)))?;
+            Some(ProgramDiscoveryProof { public_key })
+        }
+        _ => return Err(response(503, "program_registry_unverified", Some(5))),
+    };
+    if abi_version > layerx_programs_runtime::ABI_V2_VERSION && discovery_proof.is_none() {
         return Err(response(503, "program_registry_unverified", Some(5)));
     }
-    let lifecycle = match value.get("lifecycle").and_then(serde_json::Value::as_str) {
+    Ok(discovery_proof)
+}
+
+#[cfg(test)]
+fn parse_program_head(document: &serde_json::Value, expected_program: [u8; 32], program: &str, receipt_keys: &ReceiptKeyList) -> Result<ProgramHead, OutgoingResponse> {
+    let value = document.get("result").unwrap_or(document);
+    if value.get("program_id").and_then(serde_json::Value::as_str) != Some(program) || value.pointer("/receipt/verification").and_then(serde_json::Value::as_str) != Some("receipt-verified") {
+        return Err(response(503, "program_registry_unverified", Some(5)));
+    }
+    let _lifecycle = match value.get("lifecycle").and_then(serde_json::Value::as_str) {
         Some("active") => ProgramLifecycle::Active,
         Some("deprecated") => ProgramLifecycle::Deprecated,
         Some("tombstoned") => ProgramLifecycle::Tombstoned,
@@ -2502,12 +1760,7 @@ fn parse_program_head(
     let version = value
         .get("versions")
         .and_then(serde_json::Value::as_array)
-        .and_then(|versions| {
-            versions.iter().find(|version| {
-                version.get("version").and_then(serde_json::Value::as_u64)
-                    == Some(u64::from(latest))
-            })
-        })
+        .and_then(|versions| versions.iter().find(|version| version.get("version").and_then(serde_json::Value::as_u64) == Some(u64::from(latest))))
         .ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
     let abi_version = version
         .get("abi_version")
@@ -2515,49 +1768,20 @@ fn parse_program_head(
         .and_then(|abi| u16::try_from(abi).ok())
         .filter(|abi| layerx_programs_runtime::admit_abi_version(*abi).is_ok())
         .ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
-    let code_hash = version
-        .get("code_hash")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok())
-        .ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
-    let deployment_receipt = version
-        .get("deployment_receipt_digest")
-        .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
-    let receipt_digest = parse_hex32(deployment_receipt)
-        .map_err(|_| response(503, "program_registry_invalid", Some(5)))?;
+    let code_hash = version.get("code_hash").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok()).ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
+    let deployment_receipt = version.get("deployment_receipt_digest").and_then(serde_json::Value::as_str).ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
+    let receipt_digest = parse_hex32(deployment_receipt).map_err(|_| response(503, "program_registry_invalid", Some(5)))?;
     let balance_receipt = value.pointer("/value_accounts/receipt");
-    let state_root = value
-        .get("state_root")
-        .or_else(|| balance_receipt.and_then(|receipt| receipt.get("state_root")))
-        .and_then(serde_json::Value::as_str)
-        .and_then(|root| parse_hex32(root).ok());
-    let observed_sequence = value
-        .get("observed_sequence")
-        .or_else(|| balance_receipt.and_then(|receipt| receipt.get("observed_sequence")))
-        .and_then(canonical_u64);
-    let observed_at = value
-        .get("observed_at")
-        .or_else(|| balance_receipt.and_then(|receipt| receipt.get("observed_at")))
-        .and_then(canonical_u64);
-    let valid_through = value
-        .get("valid_through")
-        .and_then(canonical_u64)
-        .ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
-    let current_time_ms =
-        now_millis().map_err(|_| response(503, "program_state_unverified", Some(5)))?;
-    if state_root.is_none()
-        || observed_sequence.is_none()
-        || observed_at.is_none()
-        || observed_at.is_some_and(|observed| {
-            !program_head_is_current(observed, valid_through, current_time_ms)
-        })
-    {
+    let state_root = value.get("state_root").or_else(|| balance_receipt.and_then(|receipt| receipt.get("state_root"))).and_then(serde_json::Value::as_str).and_then(|root| parse_hex32(root).ok());
+    let observed_sequence = value.get("observed_sequence").or_else(|| balance_receipt.and_then(|receipt| receipt.get("observed_sequence"))).and_then(canonical_u64);
+    let observed_at = value.get("observed_at").or_else(|| balance_receipt.and_then(|receipt| receipt.get("observed_at"))).and_then(canonical_u64);
+    let valid_through = value.get("valid_through").and_then(canonical_u64).ok_or_else(|| response(503, "program_registry_invalid", Some(5)))?;
+    let current_time_ms = now_millis().map_err(|_| response(503, "program_state_unverified", Some(5)))?;
+    if state_root.is_none() || observed_sequence.is_none() || observed_at.is_none() || observed_at.is_some_and(|observed| !program_head_is_current(observed, valid_through, current_time_ms)) {
         return Err(response(503, "program_state_unverified", Some(5)));
     }
     let head = ProgramHead {
         program_id: expected_program,
-        lifecycle,
         version: latest,
         code_hash,
         abi_version,
@@ -2568,53 +1792,12 @@ fn parse_program_head(
         valid_through,
         discovery_proof: None,
     };
-    let discovery_proof = match (
-        value.get("discovery_public_key"),
-        value.get("discovery_signature"),
-    ) {
-        (None, None) => None,
-        (Some(public_key), Some(signature)) => {
-            let public_key = public_key
-                .as_str()
-                .and_then(|text| parse_hex32(text).ok())
-                .filter(|key| receipt_keys.authorization_for_key(*key).is_ok())
-                .ok_or_else(|| response(503, "program_registry_unverified", Some(5)))?;
-            let signature = signature
-                .as_str()
-                .filter(|text| text.len() == 128)
-                .and_then(|text| decode_hex(text, 64).ok())
-                .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
-                .ok_or_else(|| response(503, "program_registry_unverified", Some(5)))?;
-            let digest = program_discovery_head(&head)
-                .map(|discovery| program_discovery_proof_digest(&discovery))
-                .ok_or_else(|| response(503, "program_state_unverified", Some(5)))?;
-            layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest)
-                .map_err(|_| response(503, "program_registry_unverified", Some(5)))?;
-            Some(ProgramDiscoveryProof {
-                public_key,
-                signature,
-            })
-        }
-        _ => return Err(response(503, "program_registry_unverified", Some(5))),
-    };
-    if abi_version > layerx_programs_runtime::ABI_V2_VERSION && discovery_proof.is_none() {
-        return Err(response(503, "program_registry_unverified", Some(5)));
-    }
-    Ok(ProgramHead {
-        discovery_proof,
-        ..head
-    })
+    let discovery_proof = program_discovery_proof(value, &head, receipt_keys, abi_version)?;
+    Ok(ProgramHead { discovery_proof, ..head })
 }
 
 fn configured_modules() -> Result<ModuleRegistry, String> {
-    let module_file: ModuleFile = serde_json::from_slice(
-        &fs::read(
-            env::var("LAYERX_GATEWAY_MODULE_REGISTRY_FILE")
-                .map_err(|_| "gateway module registry is required")?,
-        )
-        .map_err(|error| error.to_string())?,
-    )
-    .map_err(|_| "gateway module registry is invalid".to_owned())?;
+    let module_file: ModuleFile = serde_json::from_slice(&fs::read(env::var("LAYERX_GATEWAY_MODULE_REGISTRY_FILE").map_err(|_| "gateway module registry is required")?).map_err(|error| error.to_string())?).map_err(|_| "gateway module registry is invalid".to_owned())?;
     modules_from_file(module_file)
 }
 
@@ -2625,10 +1808,7 @@ fn modules_from_file(module_file: ModuleFile) -> Result<ModuleRegistry, String> 
         || module_file.assets.len() > 256
         || module_file.assets.iter().any(|a| {
             a.asset.len() != 64
-                || !a
-                    .asset
-                    .bytes()
-                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+                || !a.asset.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
                 || a.asset.bytes().all(|b| b == b'0')
                 || !assets.insert(&a.asset)
                 || a.currency.is_empty()
@@ -2647,73 +1827,52 @@ fn modules_from_file(module_file: ModuleFile) -> Result<ModuleRegistry, String> 
     }
     let mut registrations = Vec::with_capacity(module_file.modules.len());
     for declaration in module_file.modules {
-        let module = ModuleId::from_u16(declaration.module)
-            .map_err(|_| "gateway module registry names an unknown module".to_owned())?;
+        let module = ModuleId::from_u16(declaration.module).map_err(|_| "gateway module registry names an unknown module".to_owned())?;
         let mut activity_types = declaration
             .ordinals
             .into_iter()
             .map(|ordinal| ActivityType::new(module, ordinal))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "gateway module registry contains an invalid ordinal".to_owned())?;
-        ModuleRegistration::new(module, &activity_types)
-            .map_err(|_| "gateway module registry declaration is invalid".to_owned())?;
+        ModuleRegistration::new(module, &activity_types).map_err(|_| "gateway module registry declaration is invalid".to_owned())?;
         if module == ModuleId::Programs {
             for ordinal in [1, 2, 7] {
-                let operation = ActivityType::new(module, ordinal)
-                    .map_err(|_| "invalid Programs ordinal".to_owned())?;
+                let operation = ActivityType::new(module, ordinal).map_err(|_| "invalid Programs ordinal".to_owned())?;
                 if !activity_types.contains(&operation) {
                     activity_types.push(operation);
                 }
             }
             activity_types.sort_unstable();
         }
-        let registration = ModuleRegistration::new(module, &activity_types)
-            .map_err(|_| "gateway module registry declaration is invalid".to_owned())?;
+        let registration = ModuleRegistration::new(module, &activity_types).map_err(|_| "gateway module registry declaration is invalid".to_owned())?;
         registrations.push(registration);
     }
-    let modules = ModuleRegistry::new(&registrations)
-        .map_err(|_| "gateway module registry contains duplicates".to_owned())?;
+    let modules = ModuleRegistry::new(&registrations).map_err(|_| "gateway module registry contains duplicates".to_owned())?;
     Ok(modules)
 }
 
-fn read_receipt(
-    config: &Config,
-    record: &KeyRecord,
-    activity_id: &str,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let owner = match config
-        .store
-        .activity_owner(&activity_id.to_ascii_lowercase())
-    {
+fn read_receipt(config: &Config, record: &KeyRecord, activity_id: &str, trace_id: &str) -> OutgoingResponse {
+    let owner = match config.store.activity_owner(&activity_id.to_ascii_lowercase()) {
         Ok(Some(value)) => value,
         Ok(None) => return response(404, "receipt_not_found", None),
         Err(_) => return response(503, "persistence_unavailable", Some(5)),
     };
-    if owner
-        .as_bytes()
-        .ct_eq(record.principal_digest.as_bytes())
-        .unwrap_u8()
-        != 1
-    {
+    if owner.as_bytes().ct_eq(record.principal_digest.as_bytes()).unwrap_u8() != 1 {
         return response(404, "receipt_not_found", None);
     }
-    let Ok(upstream) = config
-        .target(KernelBackend::Component)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: &format!("/v1/receipts/{activity_id}"),
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
+    let Ok(upstream) = config.target(KernelBackend::Component).and_then(|(endpoint, token)| {
+        config.client.request(
+            endpoint,
+            token,
+            &http::OutboundRequest {
+                method: "GET",
+                path: &format!("/v1/receipts/{activity_id}"),
+                idempotency: None,
+                content_type: "application/json",
+                body: &[],
+            },
+        )
+    }) else {
         return response(503, "component_unavailable", Some(5));
     };
     if upstream.status == 404 {
@@ -2726,18 +1885,15 @@ fn read_receipt(
     if !component.activity_id.eq_ignore_ascii_case(activity_id) {
         return response(503, "component_invalid", Some(5));
     }
-    let prepared = match authority_request(config, activity_id, false)
-        .and_then(|upstream| authority_response(config, activity_id, &upstream))
-    {
+    let prepared = match authority_request(config, activity_id, false).and_then(|upstream| authority_response(config, activity_id, &upstream)) {
         Ok(value) => value,
         Err(error) => return error,
     };
     let facts = prepared.facts;
-    let (_, receipt, _) =
-        match verified_result(config, activity_id, &component.receipt, Some(Ok(prepared))) {
-            Ok(value) => value,
-            Err(error) => return error,
-        };
+    let (_, receipt, _) = match verified_result(config, activity_id, &component.receipt, Some(Ok(prepared))) {
+        Ok(value) => value,
+        Err(error) => return error,
+    };
     json_response(
         200,
         &serde_json::json!({
@@ -2763,22 +1919,11 @@ fn receipt_document(activity_id: &str, receipt: &[u8], facts: AuthorityFacts) ->
     })
 }
 
-fn settlement_response(
-    status: u16,
-    result: &serde_json::Value,
-    trace_id: &str,
-) -> OutgoingResponse {
-    json_response(
-        status,
-        &serde_json::json!({ "ok": true, "result": result, "trace": trace_id }),
-    )
+fn settlement_response(status: u16, result: &serde_json::Value, trace_id: &str) -> OutgoingResponse {
+    json_response(status, &serde_json::json!({ "ok": true, "result": result, "trace": trace_id }))
 }
 
-fn settlement_rpc(
-    config: &Config,
-    activity_id: &str,
-    method: &str,
-) -> Result<serde_json::Value, OutgoingResponse> {
+fn settlement_rpc(config: &Config, activity_id: &str, method: &str) -> Result<serde_json::Value, OutgoingResponse> {
     let document = paxeer::node(
         config,
         &serde_json::json!({
@@ -2787,31 +1932,14 @@ fn settlement_rpc(
         }),
     )
     .map_err(|_| response(503, "settlement_inclusion_unavailable", Some(5)))?;
-    document
-        .get("result")
-        .cloned()
-        .ok_or_else(|| response(503, "settlement_inclusion_unavailable", Some(5)))
+    document.get("result").cloned().ok_or_else(|| response(503, "settlement_inclusion_unavailable", Some(5)))
 }
 
-fn settle(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    trace_id: &str,
-) -> OutgoingResponse {
+fn settle(config: &Config, request: &IncomingRequest, record: &KeyRecord, trace_id: &str) -> OutgoingResponse {
     if !media_type_is(request, "application/json") {
         return response(415, "settlement_content_type_required", None);
     }
-    match config.store.consume_read(
-        record,
-        now().unwrap_or(0),
-        &audit_event(
-            &record.principal_digest,
-            "settle",
-            &record.key_id,
-            "attempted",
-        ),
-    ) {
+    match config.store.consume_read(record, now().unwrap_or(0), &audit_event(&record.principal_digest, "settle", &record.key_id, "attempted")) {
         Ok(None) => {}
         Ok(Some(retry)) => return response(429, "quota_exceeded", Some(retry)),
         Err(_) => return response(503, "persistence_unavailable", Some(5)),
@@ -2848,329 +1976,35 @@ fn settle(
         Err(reason) => return settlement_response(200, &settlement::refused(reason), trace_id),
     }
     if verified.result_code() != 0 {
-        return settlement_response(
-            200,
-            &settlement::refused("settlement_result_refused"),
-            trace_id,
-        );
+        return settlement_response(200, &settlement::refused("settlement_result_refused"), trace_id);
     }
-    settlement_response(
-        200,
-        &settlement::settled(&claim, verified.receipt(), &batch),
-        trace_id,
-    )
+    settlement_response(200, &settlement::settled(&claim, verified.receipt(), &batch), trace_id)
 }
 
-fn read_program_registry(config: &Config, program: &str, trace_id: &str) -> OutgoingResponse {
-    let Ok(expected) = parse_hex32(program) else {
-        return response(400, "invalid_program_id", None);
-    };
-    let (head, document) = match program_registry_upstream(config, expected) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    let (Some(state_root), Some(observed_sequence), Some(observed_at), Some(discovery)) = (
-        head.state_root,
-        head.observed_sequence,
-        head.observed_at,
-        program_discovery_head(&head),
-    ) else {
-        return response(503, "program_state_unverified", Some(5));
-    };
-    let mut result = serde_json::json!({
-        "program_id": hex(&head.program_id),
-        "lifecycle": head.lifecycle.name(),
-        "version": head.version,
-        "code_hash": hex(&head.code_hash),
-        "abi_version": head.abi_version,
-        "receipt_digest": hex(&program_discovery_proof_digest(&discovery)),
-        "deployment_receipt_digest": hex(&head.receipt_digest),
-        "state_root": hex(&state_root),
-        "observed_sequence": observed_sequence.to_string(),
-        "observed_at": observed_at.to_string(),
-        "valid_through": head.valid_through.to_string(),
-        "verification": "registry-receipt-and-current-head-verified",
-    });
-    if let (Some(proof), Some(object)) = (head.discovery_proof, result.as_object_mut()) {
-        object.insert(
-            "discovery_public_key".to_owned(),
-            serde_json::Value::String(hex(&proof.public_key)),
-        );
-        object.insert(
-            "discovery_signature".to_owned(),
-            serde_json::Value::String(hex(&proof.signature)),
-        );
-    }
-    if let (Some(value_accounts), Some(object)) =
-        (upstream_value_accounts(&document), result.as_object_mut())
-    {
-        object.insert("value_accounts".to_owned(), value_accounts);
-    }
-    json_response(
-        200,
-        &serde_json::json!({
-            "ok": true,
-            "result": result,
-            "trace": trace_id,
-        }),
-    )
-}
-
-fn read_program_catalog(config: &Config, trace_id: &str) -> OutgoingResponse {
-    let Ok(upstream) = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: "/v1/programs/registry",
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
-        return response(503, "program_registry_unavailable", Some(5));
-    };
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(503, "program_registry_invalid", Some(5));
-    }
-    let Ok(document): Result<serde_json::Value, _> = serde_json::from_slice(&upstream.body) else {
-        return response(503, "program_registry_invalid", Some(5));
-    };
-    let Some(program_ids) = document["program_ids"].as_array() else {
-        return response(503, "program_registry_invalid", Some(5));
-    };
-    if program_ids
-        .iter()
-        .any(|value| value.as_str().is_none_or(|id| parse_hex32(id).is_err()))
-    {
-        return response(503, "program_registry_invalid", Some(5));
-    }
-    let (Some(state_root), Some(observed_sequence), Some(observed_at), Some(valid_through)) = (
-        document["state_root"]
-            .as_str()
-            .and_then(|value| parse_hex32(value).ok()),
-        canonical_u64(&document["observed_sequence"]),
-        canonical_u64(&document["observed_at"]),
-        canonical_u64(&document["valid_through"]),
-    ) else {
-        return response(503, "program_registry_unverified", Some(5));
-    };
-    json_response(
-        200,
-        &serde_json::json!({
-            "ok": true,
-            "result": {
-                "program_ids": program_ids,
-                "state_root": hex(&state_root),
-                "observed_sequence": observed_sequence.to_string(),
-                "observed_at": observed_at.to_string(),
-                "valid_through": valid_through.to_string(),
-                "verification": "registry-receipt-and-current-head-verified",
-            },
-            "trace": trace_id,
-        }),
-    )
-}
-
+#[cfg(test)]
 fn program_source_publication(body: &[u8]) -> Result<(String, String), OutgoingResponse> {
-    let document: serde_json::Value = serde_json::from_slice(body)
-        .map_err(|_| response(400, "invalid_source_publication", None))?;
+    let document: serde_json::Value = serde_json::from_slice(body).map_err(|_| response(400, "invalid_source_publication", None))?;
     let source_uri = document["source_uri"]
         .as_str()
-        .filter(|value| {
-            !value.is_empty() && value.len() <= 1024 && value.bytes().all(|b| b.is_ascii_graphic())
-        })
+        .filter(|value| !value.is_empty() && value.len() <= 1024 && value.bytes().all(|b| b.is_ascii_graphic()))
         .ok_or_else(|| response(400, "invalid_source_publication", None))?;
-    let source_digest = document["source_digest"]
-        .as_str()
-        .filter(|value| parse_hex32(value).is_ok())
-        .ok_or_else(|| response(400, "invalid_source_publication", None))?;
+    let source_digest = document["source_digest"].as_str().filter(|value| parse_hex32(value).is_ok()).ok_or_else(|| response(400, "invalid_source_publication", None))?;
     Ok((source_uri.to_owned(), source_digest.to_ascii_lowercase()))
 }
 
-fn publish_program_source(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    program: &str,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let Some(publication_key) = request
-        .headers
-        .get("authorization")
-        .and_then(|value| value.strip_prefix("LayerX-Key "))
-        .filter(|value| {
-            !value.is_empty() && value.len() <= 4096 && value.bytes().all(|b| b.is_ascii_graphic())
-        })
-    else {
-        return response(401, "api_key_required", None);
-    };
-    let Some(idempotency) = request
-        .headers
-        .get("idempotency-key")
-        .filter(|key| key.len() >= 16 && valid_identifier(key, 128))
-    else {
-        return response(400, "idempotency_key_required", None);
-    };
-    let (source_uri, source_digest) = match program_source_publication(&request.body) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    match config.store.consume_read(
-        record,
-        now().unwrap_or(0),
-        &audit_event(
-            &record.principal_digest,
-            "program_source_publish",
-            &record.key_id,
-            "attempted",
-        ),
-    ) {
-        Ok(None) => {}
-        Ok(Some(retry)) => return response(429, "quota_exceeded", Some(retry)),
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    }
-    let body = serde_json::json!({
-        "source_uri": source_uri,
-        "source_digest": source_digest,
-    })
-    .to_string()
-    .into_bytes();
-    let Ok(upstream) = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request_with_publication_key(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "POST",
-                    path: &format!("/v1/programs/registry/{program}/source"),
-                    idempotency: Some(idempotency),
-                    content_type: "application/json",
-                    body: &body,
-                },
-                None,
-                publication_key,
-            )
-        })
-    else {
-        return response(503, "program_registry_unavailable", Some(5));
-    };
-    if upstream.content_type != "application/json" {
-        return response(503, "program_registry_invalid", Some(5));
-    }
-    match upstream.status {
-        200 => {
-            let Ok(document): Result<serde_json::Value, _> = serde_json::from_slice(&upstream.body)
-            else {
-                return response(503, "program_registry_invalid", Some(5));
-            };
-            if document["program_id"]
-                .as_str()
-                .is_none_or(|value| !value.eq_ignore_ascii_case(program))
-                || document["source_digest"]
-                    .as_str()
-                    .is_none_or(|value| !value.eq_ignore_ascii_case(&source_digest))
-            {
-                return response(503, "program_registry_unverified", Some(5));
-            }
-            json_response(
-                200,
-                &serde_json::json!({ "ok": true, "result": document, "trace": trace_id }),
-            )
-        }
-        400 => response(400, "invalid_source_publication", None),
-        403 => response(403, "publication_authorization_refused", None),
-        404 => response(404, "program_source_absent", None),
-        409 => response(409, "idempotency_conflict", None),
-        422 => response(422, "program_source_unverified", None),
-        503 => response(503, "program_registry_unavailable", Some(5)),
-        _ => response(503, "program_registry_invalid", Some(5)),
-    }
-}
-
-fn read_program_interface(config: &Config, program: &str, trace_id: &str) -> OutgoingResponse {
-    let Ok(expected) = parse_hex32(program) else {
-        return response(400, "invalid_program_id", None);
-    };
-    let head = match program_head(config, expected) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    let Ok(upstream) = config
-        .target(KernelBackend::Registry)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: &format!("/v1/programs/registry/{program}/interface"),
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
-        return response(503, "program_registry_unavailable", Some(5));
-    };
-    if upstream.status == 404 {
-        return response(404, "program_interface_absent", None);
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(503, "program_registry_invalid", Some(5));
-    }
-    let document: serde_json::Value = match serde_json::from_slice(&upstream.body) {
-        Ok(value) => value,
-        Err(_) => return response(503, "program_registry_invalid", Some(5)),
-    };
-    render_program_interface(&document, &head, trace_id)
-}
-
-fn render_program_interface(
-    document: &serde_json::Value,
-    head: &ProgramHead,
-    trace_id: &str,
-) -> OutgoingResponse {
+#[cfg(test)]
+fn render_program_interface(document: &serde_json::Value, head: &ProgramHead, trace_id: &str) -> OutgoingResponse {
     let value = document.get("result").unwrap_or(document);
-    let interface = value
-        .get("interface")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| decode_hex(value, 952).ok())
-        .filter(|value| !value.is_empty());
-    let interface_digest = value
-        .get("interface_digest")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let state_root = value
-        .get("state_root")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
+    let interface = value.get("interface").and_then(serde_json::Value::as_str).and_then(|value| decode_hex(value, 952).ok()).filter(|value| !value.is_empty());
+    let interface_digest = value.get("interface_digest").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok());
+    let state_root = value.get("state_root").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok());
     let observed_sequence = value.get("observed_sequence").and_then(canonical_u64);
     let observed_at = value.get("observed_at").and_then(canonical_u64);
     let valid_through = value.get("valid_through").and_then(canonical_u64);
-    let version = value
-        .get("version")
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|value| u32::try_from(value).ok());
-    let abi_version = value
-        .get("abi_version")
-        .and_then(serde_json::Value::as_u64)
-        .and_then(|value| u16::try_from(value).ok());
-    let code_hash = value
-        .get("code_hash")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let receipt_digest = value
-        .get("deployment_receipt_digest")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
+    let version = value.get("version").and_then(serde_json::Value::as_u64).and_then(|value| u32::try_from(value).ok());
+    let abi_version = value.get("abi_version").and_then(serde_json::Value::as_u64).and_then(|value| u16::try_from(value).ok());
+    let code_hash = value.get("code_hash").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok());
+    let receipt_digest = value.get("deployment_receipt_digest").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok());
     let source = value.get("source").cloned();
     let (Some(interface), Some(interface_digest)) = (interface, interface_digest) else {
         return response(503, "program_registry_unverified", Some(5));
@@ -3179,11 +2013,7 @@ fn render_program_interface(
         return response(503, "program_registry_unverified", Some(5));
     };
     let expected_interface_digest = <[u8; 32]>::from(Sha256::digest(&interface));
-    if value
-        .get("program_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok())
-        != Some(head.program_id)
+    if value.get("program_id").and_then(serde_json::Value::as_str).and_then(|value| parse_hex32(value).ok()) != Some(head.program_id)
         || version != Some(head.version)
         || abi_version != Some(head.abi_version)
         || code_hash != Some(head.code_hash)
@@ -3195,10 +2025,7 @@ fn render_program_interface(
         || interface_digest != expected_interface_digest
         || decoded_interface.code_hash() != head.code_hash
         || decoded_interface.abi_version() != head.abi_version
-        || value
-            .get("verification")
-            .and_then(serde_json::Value::as_str)
-            != Some("deployment-interface-and-current-head-verified")
+        || value.get("verification").and_then(serde_json::Value::as_str) != Some("deployment-interface-and-current-head-verified")
         || source.as_ref().is_none_or(|value| !value.is_object())
     {
         return response(503, "program_registry_unverified", Some(5));
@@ -3227,32 +2054,15 @@ fn render_program_interface(
     )
 }
 
-fn rotate_key(
-    config: &Config,
-    request: &IncomingRequest,
-    principal: &PrincipalId,
-    session: &SessionResponse,
-    principal_hash: &str,
-    old: &KeyRecord,
-    key_id: &str,
-) -> OutgoingResponse {
-    if !session
-        .allowed_signer_public_keys
-        .iter()
-        .any(|key| key.eq_ignore_ascii_case(&old.signer_public_key))
-    {
+fn rotate_key(config: &Config, request: &IncomingRequest, principal: &PrincipalId, session: &SessionResponse, principal_hash: &str, old: &KeyRecord, key_id: &str) -> OutgoingResponse {
+    if !session.allowed_signer_public_keys.iter().any(|key| key.eq_ignore_ascii_case(&old.signer_public_key)) {
         return response(403, "signer_not_owned", None);
     }
     let rotation_idempotency = match request.headers.get("idempotency-key") {
         Some(value) if valid_identifier(value, 128) => value,
         _ => return response(400, "idempotency_key_required", None),
     };
-    let context = digest(&[
-        b"gateway-key-rotation-v1",
-        principal_hash.as_bytes(),
-        key_id.as_bytes(),
-        rotation_idempotency.as_bytes(),
-    ]);
+    let context = digest(&[b"gateway-key-rotation-v1", principal_hash.as_bytes(), key_id.as_bytes(), rotation_idempotency.as_bytes()]);
     let key_provisioning_key = match config.key_provisioning_key() {
         Ok(key) => key,
         Err(unavailable) => return unavailable.into(),
@@ -3261,19 +2071,8 @@ fn rotate_key(
     let Ok(quota) = Quota::new(old.quota_requests, old.quota_window_seconds) else {
         return response(503, "persistence_unavailable", Some(5));
     };
-    let replacement = key_record(
-        &issued,
-        principal,
-        &old.signer_public_key,
-        &old.scopes,
-        quota,
-        1,
-    );
-    let outcome = config.store.rotate_key_outcome(
-        old,
-        &replacement,
-        &audit_event(principal_hash, "key_rotate", key_id, "rotated"),
-    );
+    let replacement = key_record(&issued, principal, &old.signer_public_key, &old.scopes, quota, 1);
+    let outcome = config.store.rotate_key_outcome(old, &replacement, &audit_event(principal_hash, "key_rotate", key_id, "rotated"));
     let written = matches!(outcome, Ok(KeyRotation::Rotated));
     let replayed = if written {
         false
@@ -3310,10 +2109,8 @@ fn rotate_key(
 #[cfg(test)]
 mod programs_wire_tests {
     use super::{
-        agent_error_class, agent_response, hex, json_response, now_millis, parse_program_head,
-        pending_program_response, program_activity_selector, program_discovery_proof_digest,
-        program_head_is_current, program_receipt_selector, program_selector,
-        program_source_publication, response, upstream_value_accounts, ProgramDiscoveryHead,
+        agent_error_class, agent_response, hex, json_response, now_millis, parse_program_head, pending_program_response, program_activity_selector, program_discovery_proof_digest, program_head_is_current, program_receipt_selector, program_selector, program_source_publication, response,
+        upstream_value_accounts, ProgramDiscoveryHead,
     };
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_platform_gateway::http::IncomingRequest;
@@ -3324,9 +2121,7 @@ mod programs_wire_tests {
     const TEST_SEQUENCER_SEED: [u8; 32] = [0x42; 32];
 
     fn test_sequencer_public_key() -> [u8; 32] {
-        SigningKey::from_bytes(&TEST_SEQUENCER_SEED)
-            .verifying_key()
-            .to_bytes()
+        SigningKey::from_bytes(&TEST_SEQUENCER_SEED).verifying_key().to_bytes()
     }
 
     fn test_receipt_keys(public_key: [u8; 32]) -> layerx_platform_gateway::ReceiptKeyList {
@@ -3336,8 +2131,7 @@ mod programs_wire_tests {
             "first_height": 0,
             "last_height": u64::MAX,
         }]);
-        layerx_platform_gateway::ReceiptKeyList::from_config(&document.to_string())
-            .unwrap_or_else(|error| panic!("{error}"))
+        layerx_platform_gateway::ReceiptKeyList::from_config(&document.to_string()).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn discovery_head(observed_at: u64, valid_through: u64) -> ProgramDiscoveryHead {
@@ -3381,10 +2175,8 @@ mod programs_wire_tests {
     fn interface_bytes_must_decode_and_bind_the_exact_code_and_abi() {
         use layerx_programs::{InterfaceEntryPoint, ProgramInterface, ValueSchema, ValueType};
         let module = [
-            0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127, 3,
-            3, 2, 0, 1, 5, 3, 1, 0, 1, 7, 34, 3, 4, b'c', b'a', b'l', b'l', 0, 0, 14, b'l', b'a',
-            b'y', b'e', b'r', b'x', b'_', b'r', b'e', b's', b'e', b'r', b'v', b'e', 0, 1, 6, b'm',
-            b'e', b'm', b'o', b'r', b'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
+            0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127, 3, 3, 2, 0, 1, 5, 3, 1, 0, 1, 7, 34, 3, 4, b'c', b'a', b'l', b'l', 0, 0, 14, b'l', b'a', b'y', b'e', b'r', b'x', b'_', b'r', b'e', b's', b'e', b'r', b'v', b'e', 0, 1, 6, b'm', b'e', b'm', b'o', b'r',
+            b'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
         ];
         let entry = InterfaceEntryPoint {
             name: "call".to_owned(),
@@ -3395,8 +2187,7 @@ mod programs_wire_tests {
             event_topics: Vec::new(),
             failures: Vec::new(),
         };
-        let interface = ProgramInterface::bind(&module, 1, vec![entry.clone()])
-            .unwrap_or_else(|error| panic!("validated interface refused: {error:?}"));
+        let interface = ProgramInterface::bind(&module, 1, vec![entry.clone()]).unwrap_or_else(|error| panic!("validated interface refused: {error:?}"));
         let observed_at = now_millis().unwrap_or_else(|error| panic!("{error}")) - 1_000;
         let mut discovery = discovery_head(observed_at, observed_at + 300_000);
         discovery.abi_version = 1;
@@ -3405,48 +2196,24 @@ mod programs_wire_tests {
         let mut document = signed_registry_document(observed_at, observed_at + 300_000);
         document["versions"][0]["abi_version"] = serde_json::json!(1);
         document["versions"][0]["code_hash"] = serde_json::json!(hex(&discovery.code_hash));
-        document["discovery_signature"] = serde_json::json!(hex(&key
-            .sign(&program_discovery_proof_digest(&discovery))
-            .to_bytes()));
-        let head = parse_program_head(
-            &document,
-            discovery.program_id,
-            &hex(&discovery.program_id),
-            &test_receipt_keys(test_sequencer_public_key()),
-        )
-        .unwrap_or_else(|_| panic!("signed head refused"));
+        document["discovery_signature"] = serde_json::json!(hex(&key.sign(&program_discovery_proof_digest(&discovery)).to_bytes()));
+        let head = parse_program_head(&document, discovery.program_id, &hex(&discovery.program_id), &test_receipt_keys(test_sequencer_public_key())).unwrap_or_else(|_| panic!("signed head refused"));
         let value = serde_json::json!({"program_id":hex(&head.program_id),"version":head.version,
             "code_hash":hex(&head.code_hash),"abi_version":head.abi_version,
             "interface":hex(interface.canonical_encoding()),"interface_digest":hex(interface.digest().as_bytes()),
             "deployment_receipt_digest":hex(&head.receipt_digest),"state_root":head.state_root.map(|root|hex(&root)),
             "observed_sequence":head.observed_sequence,"observed_at":head.observed_at,"valid_through":head.valid_through,
             "source":{"status":"unpublished"},"verification":"deployment-interface-and-current-head-verified"});
-        assert_eq!(
-            super::render_program_interface(&value, &head, "interface-contract").status,
-            200
-        );
+        assert_eq!(super::render_program_interface(&value, &head, "interface-contract").status, 200);
         let mut wrong_code = interface.canonical_encoding().to_vec();
-        let code_offset = wrong_code
-            .iter()
-            .position(|byte| *byte == 0)
-            .expect("interface domain")
-            + 1;
+        let code_offset = wrong_code.iter().position(|byte| *byte == 0).unwrap_or_else(|| panic!("{}", "interface domain")) + 1;
         wrong_code[code_offset] ^= 1;
-        let wrong_abi = ProgramInterface::bind(&module, 2, vec![entry])
-            .unwrap_or_else(|error| panic!("validated ABI2 interface refused: {error:?}"));
-        for encoded in [
-            &[0][..],
-            wrong_code.as_slice(),
-            wrong_abi.canonical_encoding(),
-        ] {
+        let wrong_abi = ProgramInterface::bind(&module, 2, vec![entry]).unwrap_or_else(|error| panic!("validated ABI2 interface refused: {error:?}"));
+        for encoded in [&[0][..], wrong_code.as_slice(), wrong_abi.canonical_encoding()] {
             let mut altered = value.clone();
             altered["interface"] = serde_json::json!(hex(encoded));
-            altered["interface_digest"] =
-                serde_json::json!(hex(&<[u8; 32]>::from(Sha256::digest(encoded))));
-            assert_eq!(
-                super::render_program_interface(&altered, &head, "interface-contract").status,
-                503
-            );
+            altered["interface_digest"] = serde_json::json!(hex(&<[u8; 32]>::from(Sha256::digest(encoded))));
+            assert_eq!(super::render_program_interface(&altered, &head, "interface-contract").status, 503);
         }
     }
 
@@ -3459,65 +2226,26 @@ mod programs_wire_tests {
             head.abi_version = abi_version;
             let mut document = signed_registry_document(observed_at, observed_at + 300_000);
             document["versions"][0]["abi_version"] = serde_json::json!(abi_version);
-            document["discovery_signature"] = serde_json::json!(hex(&key
-                .sign(&program_discovery_proof_digest(&head))
-                .to_bytes(),));
+            document["discovery_signature"] = serde_json::json!(hex(&key.sign(&program_discovery_proof_digest(&head)).to_bytes(),));
             let program = hex(&head.program_id);
-            let admitted = parse_program_head(
-                &document,
-                head.program_id,
-                &program,
-                &test_receipt_keys(test_sequencer_public_key()),
-            )
-            .unwrap_or_else(|_| panic!("signed ABI {abi_version} refused"));
+            let admitted = parse_program_head(&document, head.program_id, &program, &test_receipt_keys(test_sequencer_public_key())).unwrap_or_else(|_| panic!("signed ABI {abi_version} refused"));
             assert_eq!(admitted.abi_version, abi_version);
             for changed in [0, 5, u16::MAX] {
                 let mut altered = document.clone();
                 altered["versions"][0]["abi_version"] = serde_json::json!(changed);
-                assert!(parse_program_head(
-                    &altered,
-                    head.program_id,
-                    &program,
-                    &test_receipt_keys(test_sequencer_public_key())
-                )
-                .is_err());
+                assert!(parse_program_head(&altered, head.program_id, &program, &test_receipt_keys(test_sequencer_public_key())).is_err());
             }
             let mut substituted = document.clone();
             substituted["versions"][0]["code_hash"] = serde_json::json!(hex(&[0x99; 32]));
-            assert!(parse_program_head(
-                &substituted,
-                head.program_id,
-                &program,
-                &test_receipt_keys(test_sequencer_public_key())
-            )
-            .is_err());
+            assert!(parse_program_head(&substituted, head.program_id, &program, &test_receipt_keys(test_sequencer_public_key())).is_err());
             if abi_version >= 3 {
                 let mut unsigned = document.clone();
-                unsigned
-                    .as_object_mut()
-                    .expect("registry object")
-                    .remove("discovery_signature");
-                unsigned
-                    .as_object_mut()
-                    .expect("registry object")
-                    .remove("discovery_public_key");
-                assert!(parse_program_head(
-                    &unsigned,
-                    head.program_id,
-                    &program,
-                    &test_receipt_keys(test_sequencer_public_key())
-                )
-                .is_err());
+                unsigned.as_object_mut().unwrap_or_else(|| panic!("{}", "registry object")).remove("discovery_signature");
+                unsigned.as_object_mut().unwrap_or_else(|| panic!("{}", "registry object")).remove("discovery_public_key");
+                assert!(parse_program_head(&unsigned, head.program_id, &program, &test_receipt_keys(test_sequencer_public_key())).is_err());
                 let mut wrong_abi = document.clone();
-                wrong_abi["versions"][0]["abi_version"] =
-                    serde_json::json!(if abi_version == 3 { 4 } else { 3 });
-                assert!(parse_program_head(
-                    &wrong_abi,
-                    head.program_id,
-                    &program,
-                    &test_receipt_keys(test_sequencer_public_key())
-                )
-                .is_err());
+                wrong_abi["versions"][0]["abi_version"] = serde_json::json!(if abi_version == 3 { 4 } else { 3 });
+                assert!(parse_program_head(&wrong_abi, head.program_id, &program, &test_receipt_keys(test_sequencer_public_key())).is_err());
             }
         }
     }
@@ -3526,10 +2254,7 @@ mod programs_wire_tests {
     fn registry_read_forwards_the_upstream_value_accounts_block_byte_for_byte() {
         let observed_at = now_millis().unwrap_or_else(|error| panic!("{error}")) - 1_000;
         let mut document = signed_registry_document(observed_at, observed_at + 300_000);
-        assert!(
-            upstream_value_accounts(&document).is_none(),
-            "a registry document without balances must not grow one"
-        );
+        assert!(upstream_value_accounts(&document).is_none(), "a registry document without balances must not grow one");
         let block = serde_json::json!({
             "status": "current",
             "lifecycle": "active",
@@ -3551,15 +2276,10 @@ mod programs_wire_tests {
             object.insert("value_accounts".to_owned(), block.clone());
         }
         let body = document.to_string();
-        let upstream = serde_json::from_str::<serde_json::Value>(&body)
-            .unwrap_or_else(|error| panic!("{error}"));
-        let forwarded = upstream_value_accounts(&upstream)
-            .unwrap_or_else(|| panic!("the upstream balance block was dropped"));
+        let upstream = serde_json::from_str::<serde_json::Value>(&body).unwrap_or_else(|error| panic!("{error}"));
+        let forwarded = upstream_value_accounts(&upstream).unwrap_or_else(|| panic!("the upstream balance block was dropped"));
         assert_eq!(forwarded, block);
-        assert!(
-            body.contains(&forwarded.to_string()),
-            "the forwarded block is not the upstream bytes: {forwarded}"
-        );
+        assert!(body.contains(&forwarded.to_string()), "the forwarded block is not the upstream bytes: {forwarded}");
         let wrapped = serde_json::json!({"result": upstream});
         assert_eq!(upstream_value_accounts(&wrapped), Some(block));
     }
@@ -3588,13 +2308,7 @@ mod programs_wire_tests {
         let valid_through = observed_at + 300_000;
         let program = hex(&[0x11; 32]);
         let document = signed_registry_document(observed_at, valid_through);
-        let head = parse_program_head(
-            &document,
-            [0x11; 32],
-            &program,
-            &test_receipt_keys(test_sequencer_public_key()),
-        )
-        .unwrap_or_else(|_| panic!("signed registry head refused"));
+        let head = parse_program_head(&document, [0x11; 32], &program, &test_receipt_keys(test_sequencer_public_key())).unwrap_or_else(|_| panic!("signed registry head refused"));
         let Some(proof) = head.discovery_proof else {
             panic!("verified proof was dropped");
         };
@@ -3606,25 +2320,11 @@ mod programs_wire_tests {
             object.remove("discovery_public_key");
             object.remove("discovery_signature");
         }
-        let head = parse_program_head(
-            &unsigned,
-            [0x11; 32],
-            &program,
-            &test_receipt_keys(test_sequencer_public_key()),
-        )
-        .unwrap_or_else(|_| panic!("unsigned registry head refused"));
+        let head = parse_program_head(&unsigned, [0x11; 32], &program, &test_receipt_keys(test_sequencer_public_key())).unwrap_or_else(|_| panic!("unsigned registry head refused"));
         assert!(head.discovery_proof.is_none());
 
-        let other_key = SigningKey::from_bytes(&[0x43; 32])
-            .verifying_key()
-            .to_bytes();
-        assert!(parse_program_head(
-            &document,
-            [0x11; 32],
-            &program,
-            &test_receipt_keys(other_key)
-        )
-        .is_err());
+        let other_key = SigningKey::from_bytes(&[0x43; 32]).verifying_key().to_bytes();
+        assert!(parse_program_head(&document, [0x11; 32], &program, &test_receipt_keys(other_key)).is_err());
 
         for (pointer, tampered) in [
             ("/versions/0/code_hash", serde_json::json!(hex(&[0x23; 32]))),
@@ -3637,27 +2337,11 @@ mod programs_wire_tests {
             if let Some(slot) = altered.pointer_mut(pointer) {
                 *slot = tampered;
             }
-            assert!(
-                parse_program_head(
-                    &altered,
-                    [0x11; 32],
-                    &program,
-                    &test_receipt_keys(test_sequencer_public_key())
-                )
-                .is_err(),
-                "{pointer}"
-            );
+            assert!(parse_program_head(&altered, [0x11; 32], &program, &test_receipt_keys(test_sequencer_public_key())).is_err(), "{pointer}");
         }
         let mut half = document.clone();
-        half.as_object_mut()
-            .map(|object| object.remove("discovery_signature"));
-        assert!(parse_program_head(
-            &half,
-            [0x11; 32],
-            &program,
-            &test_receipt_keys(test_sequencer_public_key())
-        )
-        .is_err());
+        half.as_object_mut().map(|object| object.remove("discovery_signature"));
+        assert!(parse_program_head(&half, [0x11; 32], &program, &test_receipt_keys(test_sequencer_public_key())).is_err());
     }
 
     #[test]
@@ -3683,29 +2367,17 @@ mod programs_wire_tests {
             "verification": "registry-receipt-and-current-head-verified",
         });
         let wrapped = |value: &serde_json::Value, key: &[u8; 32]| -> serde_json::Value {
-            let output = agent_response(
-                "gw-contract-test",
-                json_response(200, &serde_json::json!({"ok": true, "result": value})),
-                &test_receipt_keys(*key),
-            );
-            serde_json::from_slice::<serde_json::Value>(&output.body)
-                .unwrap_or_else(|error| panic!("test value must be valid: {error}"))
-                ["verification_status"]
-                .clone()
+            let output = agent_response("gw-contract-test", json_response(200, &serde_json::json!({"ok": true, "result": value})), &test_receipt_keys(*key));
+            serde_json::from_slice::<serde_json::Value>(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"))["verification_status"].clone()
         };
-        assert_eq!(
-            wrapped(&document, &test_sequencer_public_key()),
-            serde_json::json!({"state":"Achieved","level":"SequencerSigned"})
-        );
+        assert_eq!(wrapped(&document, &test_sequencer_public_key()), serde_json::json!({"state":"Achieved","level":"SequencerSigned"}));
         let unverified = serde_json::json!({
             "state":"Unverified",
             "requested":"SequencerSigned",
             "achieved":"Unverified",
             "reason":"server_side_receipt_verification_only",
         });
-        let other_key = SigningKey::from_bytes(&[0x43; 32])
-            .verifying_key()
-            .to_bytes();
+        let other_key = SigningKey::from_bytes(&[0x43; 32]).verifying_key().to_bytes();
         assert_eq!(wrapped(&document, &other_key), unverified);
         for (field, tampered) in [
             ("version", serde_json::json!(4)),
@@ -3715,11 +2387,7 @@ mod programs_wire_tests {
         ] {
             let mut altered = document.clone();
             altered[field] = tampered;
-            assert_eq!(
-                wrapped(&altered, &test_sequencer_public_key()),
-                unverified,
-                "{field}"
-            );
+            assert_eq!(wrapped(&altered, &test_sequencer_public_key()), unverified, "{field}");
         }
     }
 
@@ -3738,11 +2406,7 @@ mod programs_wire_tests {
             let output = agent_response(
                 "gw-contract-test",
                 json_response(
-                    if matches!(state, "unknown" | "pending") {
-                        202
-                    } else {
-                        200
-                    },
+                    if matches!(state, "unknown" | "pending") { 202 } else { 200 },
                     &serde_json::json!({
                         "ok":true,
                         "result":{
@@ -3754,8 +2418,7 @@ mod programs_wire_tests {
                 ),
                 &test_receipt_keys(test_sequencer_public_key()),
             );
-            let document: serde_json::Value = serde_json::from_slice(&output.body)
-                .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+            let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
             let verification_status = if matches!(state, "unknown" | "pending") {
                 serde_json::json!({
                     "state":"Unverified",
@@ -3783,33 +2446,13 @@ mod programs_wire_tests {
 
     #[test]
     fn program_heads_expire_against_unix_milliseconds() {
-        assert!(program_head_is_current(
-            1_700_000_000_000,
-            1_700_000_300_000,
-            1_700_000_300_000
-        ));
-        assert!(!program_head_is_current(
-            1_700_000_000_000,
-            1_700_000_300_000,
-            1_700_000_300_001
-        ));
-        assert!(!program_head_is_current(
-            1_700_000_300_001,
-            1_700_000_300_000,
-            1_700_000_000_000
-        ));
+        assert!(program_head_is_current(1_700_000_000_000, 1_700_000_300_000, 1_700_000_300_000));
+        assert!(!program_head_is_current(1_700_000_000_000, 1_700_000_300_000, 1_700_000_300_001));
+        assert!(!program_head_is_current(1_700_000_300_001, 1_700_000_300_000, 1_700_000_000_000));
 
-        let before = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"))
-            .as_millis();
-        let observed = u128::from(
-            now_millis().unwrap_or_else(|error| panic!("test value must be valid: {error}")),
-        );
-        let after = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"))
-            .as_millis();
+        let before = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_else(|error| panic!("test value must be valid: {error}")).as_millis();
+        let observed = u128::from(now_millis().unwrap_or_else(|error| panic!("test value must be valid: {error}")));
+        let after = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_else(|error| panic!("test value must be valid: {error}")).as_millis();
         assert!((before..=after).contains(&observed));
     }
 
@@ -3829,8 +2472,7 @@ mod programs_wire_tests {
             ),
             &test_receipt_keys(test_sequencer_public_key()),
         );
-        let document: serde_json::Value = serde_json::from_slice(&output.body)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+        let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
         assert_eq!(
             document["verification_status"],
             serde_json::json!({
@@ -3845,24 +2487,14 @@ mod programs_wire_tests {
     #[test]
     fn six_program_operations_have_explicit_verification_outcomes() {
         let cases = [
-            (
-                "call_executed",
-                200,
-                serde_json::json!({"state":"executed"}),
-                serde_json::json!({"state":"Achieved","level":"SequencerSigned"}),
-            ),
+            ("call_executed", 200, serde_json::json!({"state":"executed"}), serde_json::json!({"state":"Achieved","level":"SequencerSigned"})),
             (
                 "call_unknown",
                 202,
                 serde_json::json!({"state":"unknown"}),
                 serde_json::json!({"state":"Unverified","requested":"SequencerSigned","achieved":"Unverified","reason":"receipt_pending"}),
             ),
-            (
-                "simulate",
-                200,
-                serde_json::json!({"committed":false}),
-                serde_json::json!({"state":"Achieved","level":"SequencerSigned"}),
-            ),
+            ("simulate", 200, serde_json::json!({"committed":false}), serde_json::json!({"state":"Achieved","level":"SequencerSigned"})),
             (
                 "discover",
                 200,
@@ -3875,21 +2507,11 @@ mod programs_wire_tests {
                 serde_json::json!({"verification":"deployment-interface-and-current-head-verified"}),
                 serde_json::json!({"state":"Unverified","requested":"SequencerSigned","achieved":"Unverified","reason":"server_side_receipt_verification_only"}),
             ),
-            (
-                "receipt_or_activity",
-                200,
-                serde_json::json!({"state":"executed"}),
-                serde_json::json!({"state":"Achieved","level":"SequencerSigned"}),
-            ),
+            ("receipt_or_activity", 200, serde_json::json!({"state":"executed"}), serde_json::json!({"state":"Achieved","level":"SequencerSigned"})),
         ];
         for (operation, status, value, expected) in cases {
-            let output = agent_response(
-                operation,
-                json_response(status, &serde_json::json!({"ok":true,"result":value})),
-                &test_receipt_keys(test_sequencer_public_key()),
-            );
-            let document: serde_json::Value = serde_json::from_slice(&output.body)
-                .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+            let output = agent_response(operation, json_response(status, &serde_json::json!({"ok":true,"result":value})), &test_receipt_keys(test_sequencer_public_key()));
+            let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
             assert_eq!(document["verification_status"], expected, "{operation}");
         }
 
@@ -3904,30 +2526,12 @@ mod programs_wire_tests {
             ("GET", format!("/v1/programs/receipts/by-idempotency/{id}")),
             ("GET", format!("/v1/programs/activities/{id}")),
         ] {
-            assert_eq!(
-                super::production_route(method, &path),
-                Err(super::GatewayError::InvalidRoute)
-            );
+            assert_eq!(super::production_route(method, &path), Err(super::GatewayError::InvalidRoute));
         }
-        assert_eq!(
-            super::production_route("GET", &format!("/v1/programs/registry/{id}/source")),
-            Err(super::GatewayError::InvalidRoute)
-        );
-        assert_eq!(
-            super::production_route("POST", "/v1/programs/registry"),
-            Err(super::GatewayError::InvalidRoute)
-        );
-        assert_eq!(
-            super::production_route("POST", &format!("/v1/programs/registry/{id}")),
-            Err(super::GatewayError::InvalidRoute)
-        );
-        assert_eq!(
-            super::production_route(
-                "GET",
-                &format!("/v1/programs/activities/{}", "A".repeat(64))
-            ),
-            Err(super::GatewayError::InvalidRoute)
-        );
+        assert_eq!(super::production_route("GET", &format!("/v1/programs/registry/{id}/source")), Err(super::GatewayError::InvalidRoute));
+        assert_eq!(super::production_route("POST", "/v1/programs/registry"), Err(super::GatewayError::InvalidRoute));
+        assert_eq!(super::production_route("POST", &format!("/v1/programs/registry/{id}")), Err(super::GatewayError::InvalidRoute));
+        assert_eq!(super::production_route("GET", &format!("/v1/programs/activities/{}", "A".repeat(64))), Err(super::GatewayError::InvalidRoute));
     }
 
     #[test]
@@ -3952,23 +2556,15 @@ mod programs_wire_tests {
             serde_json::json!({"source_uri": "https://a b", "source_digest": digest}),
             serde_json::json!({"source_uri": "x".repeat(1025), "source_digest": digest}),
         ] {
-            assert!(
-                program_source_publication(body.to_string().as_bytes()).is_err(),
-                "{body}"
-            );
+            assert!(program_source_publication(body.to_string().as_bytes()).is_err(), "{body}");
         }
         assert!(program_source_publication(b"not-json").is_err());
     }
 
     #[test]
     fn agent_program_error_envelope_is_exact() {
-        let output = agent_response(
-            "gw-contract-test",
-            response(409, "idempotency_conflict", None),
-            &test_receipt_keys(test_sequencer_public_key()),
-        );
-        let document: serde_json::Value = serde_json::from_slice(&output.body)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+        let output = agent_response("gw-contract-test", response(409, "idempotency_conflict", None), &test_receipt_keys(test_sequencer_public_key()));
+        let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
         assert_eq!(
             document,
             serde_json::json!({
@@ -3987,11 +2583,7 @@ mod programs_wire_tests {
             (409, "idempotency_conflict", "IdempotencyConflict"),
             (429, "quota_exceeded", "RateLimit"),
             (403, "activity_authorization_refused", "PolicyRefusal"),
-            (
-                503,
-                "program_receipt_verification_failed",
-                "VerificationFailure",
-            ),
+            (503, "program_receipt_verification_failed", "VerificationFailure"),
             (404, "program_interface_absent", "UnavailableCapability"),
             (400, "LXP_ERR_BUDGET_EXCEEDED", "CoreRejection"),
             (400, "invalid_argument", "ProtocolIncompatibility"),
@@ -4007,14 +2599,12 @@ mod programs_wire_tests {
         let output = response(429, "quota_exceeded", Some(17));
         assert_eq!(output.status, 429);
         assert_eq!(output.retry_after, Some(17));
-        let body: serde_json::Value =
-            serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("{error}"));
+        let body: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(body["error"]["code"], "quota_exceeded");
         assert_eq!(body["error"]["retry"], "after");
         assert_eq!(body["error"]["retry_after_seconds"], 17);
         let terminal = response(403, "insufficient_scope", None);
-        let body: serde_json::Value =
-            serde_json::from_slice(&terminal.body).unwrap_or_else(|error| panic!("{error}"));
+        let body: serde_json::Value = serde_json::from_slice(&terminal.body).unwrap_or_else(|error| panic!("{error}"));
         assert!(body["error"].get("retry_after_seconds").is_none());
         assert!(body["error"].get("retry").is_none());
     }
@@ -4033,17 +2623,12 @@ mod programs_wire_tests {
             continuation: "00ff".to_owned(),
         };
         let output = pending_program_response(&operation, "gw-contract-test");
-        let document: serde_json::Value = serde_json::from_slice(&output.body)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+        let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
         assert_eq!(document["result"]["retained_signed_activity"], "00ff");
 
-        let legacy = OperationRecord {
-            continuation: String::new(),
-            ..operation
-        };
+        let legacy = OperationRecord { continuation: String::new(), ..operation };
         let output = pending_program_response(&legacy, "gw-contract-test");
-        let document: serde_json::Value = serde_json::from_slice(&output.body)
-            .unwrap_or_else(|error| panic!("test value must be valid: {error}"));
+        let document: serde_json::Value = serde_json::from_slice(&output.body).unwrap_or_else(|error| panic!("test value must be valid: {error}"));
         assert!(document["result"].get("retained_signed_activity").is_none());
     }
 
@@ -4069,10 +2654,7 @@ mod programs_wire_tests {
                 "requested_verification_level":"sequencer-signed",
             }),
         );
-        assert_eq!(
-            program_receipt_selector(&receipt, &idempotency).as_deref(),
-            Ok(activity.as_str())
-        );
+        assert_eq!(program_receipt_selector(&receipt, &idempotency).as_deref(), Ok(activity.as_str()));
         assert!(program_receipt_selector(&receipt, &"d".repeat(64)).is_err());
 
         let lookup = selector_request(
@@ -4093,75 +2675,33 @@ mod withdrawal_completion_tests {
 
     #[test]
     fn withdrawal_completion_binds_the_receipt_to_its_operation() {
-        let receipt =
-            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
-        let header_bytes =
-            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
-        let key = *include_bytes!(
-            "../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public"
-        );
-        let header = layerx_wire::receipt::decode_batch_header(header_bytes)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        let decoded = layerx_proof::receipt::verify_sequencer_signature(receipt, key)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        let protocol = decoded
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt required"));
+        let receipt = include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
+        let header_bytes = include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
+        let key = *include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public");
+        let header = layerx_wire::receipt::decode_batch_header(header_bytes).unwrap_or_else(|error| panic!("{error:?}"));
+        let decoded = layerx_proof::receipt::verify_sequencer_signature(receipt, key).unwrap_or_else(|error| panic!("{error:?}"));
+        let protocol = decoded.protocol().unwrap_or_else(|| panic!("protocol receipt required"));
         assert_eq!((protocol.module_id(), protocol.operation()), (1, 9));
-        let batch = AuthorizedBatch::new(
-            protocol.batch_id(),
-            protocol.asset(),
-            header.previous_state_root(),
-            header.resulting_state_root(),
-            key,
-        );
-        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
-            header.sequencer_id(),
-            key,
-            header.batch_number(),
-            header.batch_number(),
-        );
+        let batch = AuthorizedBatch::new(protocol.batch_id(), protocol.asset(), header.previous_state_root(), header.resulting_state_root(), key);
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(header.sequencer_id(), key, header.batch_number(), header.batch_number());
         let proof = |bytes: &[u8]| {
-            let path = layerx_wire::receipt::decode_merkle_proof(bytes)
-                .unwrap_or_else(|error| panic!("{error:?}"));
-            layerx_proof::merkle::Proof::new(
-                path.leaf_index(),
-                path.leaf_count(),
-                path.siblings().to_vec(),
-            )
-            .unwrap_or_else(|error| panic!("{error:?}"))
+            let path = layerx_wire::receipt::decode_merkle_proof(bytes).unwrap_or_else(|error| panic!("{error:?}"));
+            layerx_proof::merkle::Proof::new(path.leaf_index(), path.leaf_count(), path.siblings().to_vec()).unwrap_or_else(|error| panic!("{error:?}"))
         };
-        let receipt_proof = proof(include_bytes!(
-            "../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
-        ));
-        let maintenance_proof = proof(include_bytes!(
-            "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.proof"
-        ));
+        let receipt_proof = proof(include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"));
+        let maintenance_proof = proof(include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.proof"));
         let evidence = layerx_proof::receipt::MaintainedOutcomeEvidence {
             header: header_bytes,
-            header_signature: include_bytes!(
-                "../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
-            ),
+            header_signature: include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"),
             activity_proof: &receipt_proof,
-            maintenance: include_bytes!(
-                "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.receipt"
-            ),
+            maintenance: include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.receipt"),
             maintenance_proof: &maintenance_proof,
             authorization: &authorization,
         };
-        let authorized = layerx_proof::receipt::authorized_maintained_activity_batch_chain(
-            receipt,
-            &batch,
-            &evidence,
-            &[receipt.to_vec()],
-        )
-        .unwrap_or_else(|error| panic!("{error:?}"));
+        let authorized = layerx_proof::receipt::authorized_maintained_activity_batch_chain(receipt, &batch, &evidence, &[receipt.to_vec()]).unwrap_or_else(|error| panic!("{error:?}"));
 
         let activity_id = protocol.activity_id();
-        assert_eq!(
-            verify_withdrawal_receipt(receipt, &authorized, &activity_id),
-            Ok(())
-        );
+        assert_eq!(verify_withdrawal_receipt(receipt, &authorized, &activity_id), Ok(()));
         let mut different_activity_id = activity_id;
         different_activity_id[0] ^= 1;
         assert!(verify_withdrawal_receipt(receipt, &authorized, &different_activity_id).is_err());
@@ -4173,30 +2713,16 @@ mod authority_shape_tests {
     use super::*;
     #[test]
     fn real_authority_shape_selects_attachment_without_null_or_unknown_fallback() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/maintained-authority.json");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/maintained-authority.json");
         let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
-        let capture: serde_json::Value =
-            serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
+        let capture: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
         let mut document = capture["authority"].clone();
         document["receipt"] = capture["receipt_hex"].clone();
-        let header = decode_hex(
-            capture["authority"]["batch_evidence"]["header_hex"]
-                .as_str()
-                .unwrap_or_else(|| panic!("header")),
-            1_048_576,
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
-        document["protocol_network_id"] =
-            serde_json::json!(layerx_wire::receipt::decode_batch_header(&header)
-                .unwrap_or_else(|error| panic!("{error:?}"))
-                .network_id());
+        let header = decode_hex(capture["authority"]["batch_evidence"]["header_hex"].as_str().unwrap_or_else(|| panic!("header")), 1_048_576).unwrap_or_else(|error| panic!("{error}"));
+        document["protocol_network_id"] = serde_json::json!(layerx_wire::receipt::decode_batch_header(&header).unwrap_or_else(|error| panic!("{error:?}")).network_id());
         assert!(serde_json::from_value::<AuthorityResponse>(document.clone()).is_ok());
         let mut historical = document.clone();
-        historical
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
-            .remove("batch_evidence");
+        historical.as_object_mut().unwrap_or_else(|| panic!("object")).remove("batch_evidence");
         assert!(serde_json::from_value::<AuthorityResponse>(historical).is_ok());
         let mut null = document.clone();
         null["batch_evidence"] = serde_json::Value::Null;
@@ -4213,37 +2739,17 @@ mod receipt_read_tests {
 
     #[test]
     fn receipt_reads_publish_the_authority_that_verifies_the_receipt() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../authority/tests/fixtures/real-program-deploy-receipt.json");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../authority/tests/fixtures/real-program-deploy-receipt.json");
         let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
-        let fixture: serde_json::Value =
-            serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
-        let text = |name: &str| {
-            fixture[name]
-                .as_str()
-                .unwrap_or_else(|| panic!("fixture field {name}"))
-                .to_owned()
-        };
-        let receipt =
-            decode_hex(&text("receipt_hex"), 262_144).unwrap_or_else(|error| panic!("{error}"));
-        let header_bytes =
-            decode_hex(&text("header_hex"), 262_144).unwrap_or_else(|error| panic!("{error}"));
-        let header = layerx_wire::receipt::decode_batch_header(&header_bytes)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        let decoded =
-            layerx_wire::receipt::decode(&receipt).unwrap_or_else(|error| panic!("{error:?}"));
-        let protocol = decoded
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt"));
-        let sequencer_public_key = parse_hex32(&text("sequencer_public_key_hex"))
-            .unwrap_or_else(|error| panic!("{error}"));
-        let facts = AuthorityFacts::new(
-            protocol.batch_id(),
-            protocol.asset(),
-            header.previous_state_root(),
-            header.resulting_state_root(),
-            sequencer_public_key,
-        );
+        let fixture: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
+        let text = |name: &str| fixture[name].as_str().unwrap_or_else(|| panic!("fixture field {name}")).to_owned();
+        let receipt = decode_hex(&text("receipt_hex"), 262_144).unwrap_or_else(|error| panic!("{error}"));
+        let header_bytes = decode_hex(&text("header_hex"), 262_144).unwrap_or_else(|error| panic!("{error}"));
+        let header = layerx_wire::receipt::decode_batch_header(&header_bytes).unwrap_or_else(|error| panic!("{error:?}"));
+        let decoded = layerx_wire::receipt::decode(&receipt).unwrap_or_else(|error| panic!("{error:?}"));
+        let protocol = decoded.protocol().unwrap_or_else(|| panic!("protocol receipt"));
+        let sequencer_public_key = parse_hex32(&text("sequencer_public_key_hex")).unwrap_or_else(|error| panic!("{error}"));
+        let facts = AuthorityFacts::new(protocol.batch_id(), protocol.asset(), header.previous_state_root(), header.resulting_state_root(), sequencer_public_key);
         let activity_id = hex(&protocol.activity_id());
         let document = receipt_document(&activity_id.to_ascii_uppercase(), &receipt, facts);
         assert_eq!(document["activity_id"], serde_json::json!(activity_id));
@@ -4258,49 +2764,17 @@ mod receipt_read_tests {
         ] {
             assert_eq!(authority[name], serde_json::json!(expected), "{name}");
         }
-        let published = |name: &str| {
-            parse_hex32(
-                authority[name]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("authority field {name}")),
-            )
-            .unwrap_or_else(|error| panic!("{name}: {error}"))
-        };
-        let batch = layerx_proof::receipt::AuthorizedBatch::new(
-            published("batch_id"),
-            published("asset"),
-            published("previous_state_root"),
-            published("resulting_state_root"),
-            published("sequencer_public_key"),
-        );
-        layerx_proof::receipt::verify_program_state(&receipt, &batch)
-            .unwrap_or_else(|failure| panic!("{failure:?}"));
-        for name in [
-            "batch_id",
-            "previous_state_root",
-            "resulting_state_root",
-            "sequencer_public_key",
-        ] {
+        let published = |name: &str| parse_hex32(authority[name].as_str().unwrap_or_else(|| panic!("authority field {name}"))).unwrap_or_else(|error| panic!("{name}: {error}"));
+        let batch = layerx_proof::receipt::AuthorizedBatch::new(published("batch_id"), published("asset"), published("previous_state_root"), published("resulting_state_root"), published("sequencer_public_key"));
+        layerx_proof::receipt::verify_program_state(&receipt, &batch).unwrap_or_else(|failure| panic!("{failure:?}"));
+        for name in ["batch_id", "previous_state_root", "resulting_state_root", "sequencer_public_key"] {
             let mut changed = authority.clone();
             changed[name] = serde_json::json!("aa".repeat(32));
-            let altered = |field: &str| {
-                parse_hex32(
-                    changed[field]
-                        .as_str()
-                        .unwrap_or_else(|| panic!("authority field {field}")),
-                )
-                .unwrap_or_else(|error| panic!("{field}: {error}"))
-            };
+            let altered = |field: &str| parse_hex32(changed[field].as_str().unwrap_or_else(|| panic!("authority field {field}"))).unwrap_or_else(|error| panic!("{field}: {error}"));
             assert!(
                 layerx_proof::receipt::verify_program_state(
                     &receipt,
-                    &layerx_proof::receipt::AuthorizedBatch::new(
-                        altered("batch_id"),
-                        altered("asset"),
-                        altered("previous_state_root"),
-                        altered("resulting_state_root"),
-                        altered("sequencer_public_key"),
-                    )
+                    &layerx_proof::receipt::AuthorizedBatch::new(altered("batch_id"), altered("asset"), altered("previous_state_root"), altered("resulting_state_root"), altered("sequencer_public_key"),)
                 )
                 .is_err(),
                 "{name}"
@@ -4315,40 +2789,19 @@ mod module_schema_tests {
 
     #[test]
     fn native_generated_registry_admits_exactly_the_closed_protocol_module_set() {
-        let mut document: serde_json::Value = serde_json::from_slice(include_bytes!(
-            "../../../../../tests/fixtures/public-testnet-modules/registry.json"
-        ))
-        .unwrap_or_else(|error| panic!("native generated module registry: {error}"));
+        let mut document: serde_json::Value = serde_json::from_slice(include_bytes!("../../../../../tests/fixtures/public-testnet-modules/registry.json")).unwrap_or_else(|error| panic!("native generated module registry: {error}"));
         for module in [ModuleId::Spot, ModuleId::Web] {
-            let activity = ActivityType::new(module, 1).expect("declared protocol activity");
-            document["modules"]
-                .as_array_mut()
-                .expect("module declarations")
-                .push(
-                    serde_json::json!({"module": module as u16, "ordinals": [activity.ordinal()]}),
-                );
+            let activity = ActivityType::new(module, 1).unwrap_or_else(|error| panic!("{}: {error:?}", "declared protocol activity"));
+            document["modules"].as_array_mut().unwrap_or_else(|| panic!("{}", "module declarations")).push(serde_json::json!({"module": module as u16, "ordinals": [activity.ordinal()]}));
         }
-        let parse = |value: serde_json::Value| -> Result<ModuleRegistry, String> {
-            modules_from_file(serde_json::from_value(value).map_err(|error| error.to_string())?)
-        };
-        let registry = parse(document.clone())
-            .unwrap_or_else(|error| panic!("complete protocol registry: {error}"));
-        assert_eq!(
-            registry
-                .registrations()
-                .iter()
-                .map(ModuleRegistration::module)
-                .collect::<Vec<_>>(),
-            ModuleId::ALL
-        );
+        let parse = |value: serde_json::Value| -> Result<ModuleRegistry, String> { modules_from_file(serde_json::from_value(value).map_err(|error| error.to_string())?) };
+        let registry = parse(document.clone()).unwrap_or_else(|error| panic!("complete protocol registry: {error}"));
+        assert_eq!(registry.registrations().iter().map(ModuleRegistration::module).collect::<Vec<_>>(), ModuleId::ALL);
         for module in ModuleId::ALL {
             assert_eq!(ModuleId::from_u16(module as u16), Ok(module));
         }
         let mut oversized = document.clone();
-        oversized["modules"]
-            .as_array_mut()
-            .unwrap_or_else(|| panic!("module declarations"))
-            .push(document["modules"][0].clone());
+        oversized["modules"].as_array_mut().unwrap_or_else(|| panic!("module declarations")).push(document["modules"][0].clone());
         assert!(parse(oversized).is_err());
         let mut duplicate = document.clone();
         duplicate["modules"][8] = document["modules"][0].clone();
@@ -4367,26 +2820,16 @@ mod module_schema_tests {
     #[test]
     fn registry_requires_versioned_asset_metadata() {
         let valid = serde_json::json!({"schema_version":2,"assets":[{"asset":"02".repeat(32),"currency":"USD","decimals":6,"symbol":"$"}],"modules":[{"module":9,"ordinals":[1,2,7]}]});
-        let parse = |value: serde_json::Value| -> Result<ModuleRegistry, String> {
-            modules_from_file(serde_json::from_value(value).map_err(|e| e.to_string())?)
-        };
+        let parse = |value: serde_json::Value| -> Result<ModuleRegistry, String> { modules_from_file(serde_json::from_value(value).map_err(|e| e.to_string())?) };
         assert!(parse(valid.clone()).is_ok());
         assert!(parse(serde_json::json!({"modules":[{"module":9,"ordinals":[1,2,7]}]})).is_err());
-        for (field, value) in [
-            ("asset", serde_json::json!("00".repeat(32))),
-            ("currency", serde_json::json!("")),
-            ("symbol", serde_json::json!("\n")),
-            ("decimals", serde_json::json!(39)),
-        ] {
+        for (field, value) in [("asset", serde_json::json!("00".repeat(32))), ("currency", serde_json::json!("")), ("symbol", serde_json::json!("\n")), ("decimals", serde_json::json!(39))] {
             let mut document = valid.clone();
             document["assets"][0][field] = value;
             assert!(parse(document).is_err());
         }
         let mut duplicate = valid.clone();
-        duplicate["assets"]
-            .as_array_mut()
-            .unwrap_or_else(|| panic!("assets"))
-            .push(valid["assets"][0].clone());
+        duplicate["assets"].as_array_mut().unwrap_or_else(|| panic!("assets")).push(valid["assets"][0].clone());
         assert!(parse(duplicate).is_err());
         let mut old_version = valid;
         old_version["schema_version"] = serde_json::json!(1);
@@ -4415,12 +2858,7 @@ mod settlement_contract_tests {
         ])
     }
 
-    fn signed_effect(
-        encoder: &mut Encoder,
-        ordinal: u16,
-        kind: u8,
-        body: &[u8],
-    ) -> Result<(), layerx_wire::WireError> {
+    fn signed_effect(encoder: &mut Encoder, ordinal: u16, kind: u8, body: &[u8]) -> Result<(), layerx_wire::WireError> {
         encoder.u16(12)?;
         encoder.u16(ordinal)?;
         encoder.u16(0)?;
@@ -4431,11 +2869,7 @@ mod settlement_contract_tests {
         Ok(())
     }
 
-    fn signed_receipt(
-        height: u64,
-        key_id: [u8; 32],
-        seed: [u8; 32],
-    ) -> Result<Vec<u8>, layerx_wire::WireError> {
+    fn signed_receipt(height: u64, key_id: [u8; 32], seed: [u8; 32]) -> Result<Vec<u8>, layerx_wire::WireError> {
         let mut summary = Encoder::new(191);
         summary.u64(5)?;
         summary.u64(12)?;
@@ -4509,8 +2943,7 @@ mod settlement_contract_tests {
     }
 
     fn inclusion(receipt: &[u8], rung: &str) -> Result<serde_json::Value, Box<dyn Error>> {
-        let decoded =
-            layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
+        let decoded = layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
         let protocol = decoded.protocol().ok_or("protocol receipt")?;
         let height = u64::from_be_bytes(protocol.batch_id()[24..].try_into()?);
         let mut view = serde_json::json!({
@@ -4545,38 +2978,21 @@ mod settlement_contract_tests {
     }
 
     #[test]
-    fn receipt_keys_list_loads_and_accepts_primary_and_standby_inclusive_ranges(
-    ) -> Result<(), Box<dyn Error>> {
+    fn receipt_keys_list_loads_and_accepts_primary_and_standby_inclusive_ranges() -> Result<(), Box<dyn Error>> {
         let keys = ReceiptKeyList::from_config(&receipt_keys_document().to_string())?;
         assert_eq!(keys.single(), None);
-        for (height, key_id, seed) in [
-            (800, [1; 32], [0x41; 32]),
-            (850, [2; 32], [0x42; 32]),
-            (900, [2; 32], [0x42; 32]),
-            (1000, [2; 32], [0x42; 32]),
-        ] {
-            let receipt =
-                signed_receipt(height, key_id, seed).map_err(|error| format!("{error:?}"))?;
+        for (height, key_id, seed) in [(800, [1; 32], [0x41; 32]), (850, [2; 32], [0x42; 32]), (900, [2; 32], [0x42; 32]), (1000, [2; 32], [0x42; 32])] {
+            let receipt = signed_receipt(height, key_id, seed).map_err(|error| format!("{error:?}"))?;
             let body = settlement_request(&receipt);
-            let claim =
-                settlement::claim(body.to_string().as_bytes()).map_err(|err| err.reason())?;
+            let claim = settlement::claim(body.to_string().as_bytes()).map_err(settlement::Refusal::reason)?;
             let (verified, batch) = settlement::authorize(&claim, &keys)?;
             assert_eq!(verified.activity_id(), [0x55; 32]);
             assert_eq!(verified.receipt(), receipt);
             assert_eq!(verified.result_code(), 0);
-            assert_eq!(
-                batch.sequencer_public_key(),
-                SigningKey::from_bytes(&seed).verifying_key().to_bytes()
-            );
+            assert_eq!(batch.sequencer_public_key(), SigningKey::from_bytes(&seed).verifying_key().to_bytes());
             let committed = inclusion(&receipt, "committed")?;
-            assert_eq!(
-                settlement::sequencer_committed(&receipt, &committed),
-                Ok(true)
-            );
-            assert_eq!(
-                settlement::transaction_committed(&committed, &transaction(&committed)),
-                Ok(true)
-            );
+            assert_eq!(settlement::sequencer_committed(&receipt, &committed), Ok(true));
+            assert_eq!(settlement::transaction_committed(&committed, &transaction(&committed)), Ok(true));
             let settled = settlement::settled(&claim, verified.receipt(), &batch);
             assert_eq!(
                 settled,
@@ -4591,47 +3007,22 @@ mod settlement_contract_tests {
     }
 
     #[test]
-    fn settlement_refuses_out_of_range_unknown_key_and_failed_signature(
-    ) -> Result<(), Box<dyn Error>> {
+    fn settlement_refuses_out_of_range_unknown_key_and_failed_signature() -> Result<(), Box<dyn Error>> {
         let keys = ReceiptKeyList::from_config(&receipt_keys_document().to_string())?;
-        for (height, id, seed) in [
-            (849, [2; 32], [0x42; 32]),
-            (1001, [2; 32], [0x42; 32]),
-            (900, [3; 32], [0x42; 32]),
-            (900, [1; 32], [0x42; 32]),
-        ] {
+        for (height, id, seed) in [(849, [2; 32], [0x42; 32]), (1001, [2; 32], [0x42; 32]), (900, [3; 32], [0x42; 32]), (900, [1; 32], [0x42; 32])] {
             let receipt = signed_receipt(height, id, seed).map_err(|error| format!("{error:?}"))?;
-            assert_eq!(
-                keys.verify_receipt(&receipt),
-                Err(if id == [1; 32] {
-                    GatewayError::Receipt(layerx_proof::receipt::ReceiptCheck::SequencerSignature)
-                } else {
-                    GatewayError::UntrustedSequencer
-                })
-            );
+            assert_eq!(keys.verify_receipt(&receipt), Err(if id == [1; 32] { GatewayError::Receipt(layerx_proof::receipt::ReceiptCheck::SequencerSignature) } else { GatewayError::UntrustedSequencer }));
             let body = settlement_request(&receipt);
-            let claim =
-                settlement::claim(body.to_string().as_bytes()).map_err(|err| err.reason())?;
-            assert_eq!(
-                settlement::authorize(&claim, &keys),
-                Err("receipt_verification_failed")
-            );
+            let claim = settlement::claim(body.to_string().as_bytes()).map_err(settlement::Refusal::reason)?;
+            assert_eq!(settlement::authorize(&claim, &keys), Err("receipt_verification_failed"));
         }
-        let mut receipt =
-            signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
+        let mut receipt = signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
         let last = receipt.last_mut().ok_or("signature")?;
         *last ^= 1;
         let body = settlement_request(&receipt);
-        let claim = settlement::claim(body.to_string().as_bytes()).map_err(|err| err.reason())?;
-        assert_eq!(
-            settlement::authorize(&claim, &keys),
-            Err("receipt_verification_failed")
-        );
-        let refused = settlement_response(
-            200,
-            &settlement::refused("receipt_verification_failed"),
-            "settlement",
-        );
+        let claim = settlement::claim(body.to_string().as_bytes()).map_err(settlement::Refusal::reason)?;
+        assert_eq!(settlement::authorize(&claim, &keys), Err("receipt_verification_failed"));
+        let refused = settlement_response(200, &settlement::refused("receipt_verification_failed"), "settlement");
         assert_eq!(refused.status, 200);
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&refused.body)?,
@@ -4641,49 +3032,28 @@ mod settlement_contract_tests {
     }
 
     #[test]
-    fn settlement_pending_before_commit_and_before_committed_transaction(
-    ) -> Result<(), Box<dyn Error>> {
-        let receipt =
-            signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
+    fn settlement_pending_before_commit_and_before_committed_transaction() -> Result<(), Box<dyn Error>> {
+        let receipt = signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
         let keys = ReceiptKeyList::from_config(&receipt_keys_document().to_string())?;
         let body = settlement_request(&receipt);
-        let claim = settlement::claim(body.to_string().as_bytes()).map_err(|err| err.reason())?;
+        let claim = settlement::claim(body.to_string().as_bytes()).map_err(settlement::Refusal::reason)?;
         let (verified, _) = settlement::authorize(&claim, &keys)?;
-        assert_eq!(
-            settlement::sequencer_committed(verified.receipt(), &serde_json::Value::Null),
-            Ok(false)
-        );
+        assert_eq!(settlement::sequencer_committed(verified.receipt(), &serde_json::Value::Null), Ok(false));
         let submitted = serde_json::json!({"rung":"submitted", "txHash": format!("0x{}", hex(&[0x55; 32])), "nonce":"0x4"});
-        assert_eq!(
-            settlement::sequencer_committed(verified.receipt(), &submitted),
-            Ok(false)
-        );
-        assert_eq!(
-            settlement::sequencer_committed(verified.receipt(), &inclusion(&receipt, "receipted")?),
-            Ok(false)
-        );
+        assert_eq!(settlement::sequencer_committed(verified.receipt(), &submitted), Ok(false));
+        assert_eq!(settlement::sequencer_committed(verified.receipt(), &inclusion(&receipt, "receipted")?), Ok(false));
         let committed = inclusion(&receipt, "committed")?;
-        assert_eq!(
-            settlement::sequencer_committed(verified.receipt(), &committed),
-            Ok(true)
-        );
-        assert_eq!(
-            settlement::transaction_committed(&committed, &serde_json::Value::Null),
-            Ok(false)
-        );
+        assert_eq!(settlement::sequencer_committed(verified.receipt(), &committed), Ok(true));
+        assert_eq!(settlement::transaction_committed(&committed, &serde_json::Value::Null), Ok(false));
         let pending = settlement_response(202, &settlement::pending(), "settlement");
         assert_eq!(pending.status, 202);
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&pending.body)?,
-            serde_json::json!({"ok": true, "result": {"state": "pending"}, "trace": "settlement"})
-        );
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&pending.body)?, serde_json::json!({"ok": true, "result": {"state": "pending"}, "trace": "settlement"}));
         Ok(())
     }
 
     #[test]
     fn settlement_refuses_tampered_commit_and_execution_fields() -> Result<(), Box<dyn Error>> {
-        let receipt =
-            signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
+        let receipt = signed_receipt(900, [2; 32], [0x42; 32]).map_err(|error| format!("{error:?}"))?;
         let committed = inclusion(&receipt, "committed")?;
         for (field, value) in [
             ("keyId", serde_json::json!(format!("0x{}", "01".repeat(32)))),
@@ -4695,112 +3065,63 @@ mod settlement_contract_tests {
             ("vmError", serde_json::json!("revert")),
             ("blockNumber", serde_json::json!("0x383")),
             ("blockNumber", serde_json::json!("0x10000000000000000")),
-            (
-                "blockHash",
-                serde_json::json!(format!("0x{}", "00".repeat(32))),
-            ),
+            ("blockHash", serde_json::json!(format!("0x{}", "00".repeat(32)))),
             ("rung", serde_json::json!("final")),
         ] {
             let mut tampered = committed.clone();
             tampered[field] = value;
-            assert_eq!(
-                settlement::sequencer_committed(&receipt, &tampered),
-                Err("settlement_inclusion_mismatch"),
-                "{field}"
-            );
+            assert_eq!(settlement::sequencer_committed(&receipt, &tampered), Err("settlement_inclusion_mismatch"), "{field}");
         }
         let mut wrong_receipt = committed.clone();
         wrong_receipt["receipt"] = serde_json::json!("0x00");
-        assert_eq!(
-            settlement::sequencer_committed(&receipt, &wrong_receipt),
-            Err("settlement_receipt_mismatch")
-        );
+        assert_eq!(settlement::sequencer_committed(&receipt, &wrong_receipt), Err("settlement_receipt_mismatch"));
         let standard = transaction(&committed);
-        for field in [
-            "transactionHash",
-            "blockHash",
-            "blockNumber",
-            "status",
-            "gasUsed",
-            "cumulativeGasUsed",
-            "effectiveGasPrice",
-        ] {
+        for field in ["transactionHash", "blockHash", "blockNumber", "status", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice"] {
             let mut tampered = standard.clone();
             tampered[field] = serde_json::Value::Null;
-            assert_eq!(
-                settlement::transaction_committed(&committed, &tampered),
-                Err("settlement_inclusion_mismatch"),
-                "{field}"
-            );
+            assert_eq!(settlement::transaction_committed(&committed, &tampered), Err("settlement_inclusion_mismatch"), "{field}");
         }
         let mut wrong_log = standard.clone();
         wrong_log["logs"][0]["data"] = serde_json::json!("0x00");
-        assert_eq!(
-            settlement::transaction_committed(&committed, &wrong_log),
-            Err("settlement_inclusion_mismatch")
-        );
+        assert_eq!(settlement::transaction_committed(&committed, &wrong_log), Err("settlement_inclusion_mismatch"));
         Ok(())
     }
 
     #[test]
-    fn receipt_keys_refuse_empty_duplicated_malformed_and_reversed_entries(
-    ) -> Result<(), Box<dyn Error>> {
+    fn receipt_keys_refuse_empty_duplicated_malformed_and_reversed_entries() -> Result<(), Box<dyn Error>> {
         assert_eq!(ReceiptKeyList::from_config("[]"), Err("receipt key list"));
         let entries = receipt_keys_document();
         let duplicate = serde_json::json!([entries[0], entries[0]]);
-        assert_eq!(
-            ReceiptKeyList::from_config(&duplicate.to_string()),
-            Err("duplicate receipt key ID")
-        );
+        assert_eq!(ReceiptKeyList::from_config(&duplicate.to_string()), Err("duplicate receipt key ID"));
         for (field, value, reason) in [
             ("keyId", serde_json::json!(""), "sequencer ID"),
-            (
-                "publicKey",
-                serde_json::json!(layerx_platform_internal::base64::encode(&[0; 32])),
-                "sequencer public key",
-            ),
-            (
-                "firstHeight",
-                serde_json::json!(1001),
-                "authorized batch range",
-            ),
+            ("publicKey", serde_json::json!(layerx_platform_internal::base64::encode(&[0; 32])), "sequencer public key"),
+            ("firstHeight", serde_json::json!(1001), "authorized batch range"),
         ] {
             let mut malformed = entries.clone();
             malformed[0][field] = value;
-            assert_eq!(
-                ReceiptKeyList::from_config(&malformed.to_string()),
-                Err(reason)
-            );
+            assert_eq!(ReceiptKeyList::from_config(&malformed.to_string()), Err(reason));
         }
         let snake = serde_json::json!([{ "key_id": entries[0]["keyId"], "public_key": entries[0]["publicKey"],
             "first_height": 800, "last_height": 1000 }]);
         let loaded = ReceiptKeyList::from_config(&snake.to_string())?;
-        assert_eq!(
-            loaded
-                .single()
-                .map(layerx_platform_gateway::SequencerAuthorization::sequencer_id),
-            Some([1; 32])
-        );
+        assert_eq!(loaded.single().map(layerx_platform_gateway::SequencerAuthorization::sequencer_id), Some([1; 32]));
         Ok(())
     }
 
     fn fixture() -> serde_json::Value {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/maintained-authority.json");
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/maintained-authority.json");
         let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
         serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn fixture_receipt(capture: &serde_json::Value) -> Vec<u8> {
-        let encoded = capture["receipt_hex"]
-            .as_str()
-            .unwrap_or_else(|| panic!("fixture receipt_hex"));
+        let encoded = capture["receipt_hex"].as_str().unwrap_or_else(|| panic!("fixture receipt_hex"));
         decode_hex(encoded, 512 * 1024).unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn settlement_request(receipt: &[u8]) -> serde_json::Value {
-        let digest =
-            layerx_proof::merkle::leaf_hash(receipt).unwrap_or_else(|error| panic!("{error:?}"));
+        let digest = layerx_proof::merkle::leaf_hash(receipt).unwrap_or_else(|error| panic!("{error:?}"));
         let mut binding = Sha256::new();
         binding.update(b"LayerX/middleware/x402/idempotency\0");
         binding.update(PRINCIPAL.as_bytes());
@@ -4840,89 +3161,40 @@ mod settlement_contract_tests {
 
     #[test]
     fn settle_is_an_exact_post_route_scoped_to_receipt_reads() {
-        assert_eq!(
-            production_route("POST", "/v1/settle"),
-            Ok(ProductionRoute::Settle)
-        );
-        for (method, path) in [
-            ("GET", "/v1/settle"),
-            ("PUT", "/v1/settle"),
-            ("POST", "/v1/settle/"),
-            ("POST", "/v1/settle/extra"),
-            ("POST", "/settle"),
-        ] {
+        assert_eq!(production_route("POST", "/v1/settle"), Ok(ProductionRoute::Settle));
+        for (method, path) in [("GET", "/v1/settle"), ("PUT", "/v1/settle"), ("POST", "/v1/settle/"), ("POST", "/v1/settle/extra"), ("POST", "/settle")] {
             assert!(production_route(method, path).is_err());
         }
-        assert!(permits(
-            &key_record("receipt:read"),
-            &ProductionRoute::Settle
-        ));
-        assert!(permits(
-            &key_record("activity:write,receipt:read"),
-            &ProductionRoute::Settle
-        ));
+        assert!(permits(&key_record("receipt:read"), &ProductionRoute::Settle));
+        assert!(permits(&key_record("activity:write,receipt:read"), &ProductionRoute::Settle));
         for scopes in ["activity:write", "program:read", "state:read"] {
             assert!(!permits(&key_record(scopes), &ProductionRoute::Settle));
         }
-        assert_eq!(
-            production_route("POST", "/v1/settle"),
-            Ok(ProductionRoute::Settle)
-        );
+        assert_eq!(production_route("POST", "/v1/settle"), Ok(ProductionRoute::Settle));
     }
 
     #[test]
     fn settle_binds_a_real_receipt_and_refuses_every_tampered_field() {
         let capture = fixture();
         let receipt = fixture_receipt(&capture);
-        let expected_activity = capture["authority"]["activity_id"]
-            .as_str()
-            .unwrap_or_else(|| panic!("fixture activity_id"));
+        let expected_activity = capture["authority"]["activity_id"].as_str().unwrap_or_else(|| panic!("fixture activity_id"));
         let body = settlement_request(&receipt);
-        let claim = settlement::claim(body.to_string().as_bytes())
-            .unwrap_or_else(|refusal| panic!("{refusal:?}"));
+        let claim = settlement::claim(body.to_string().as_bytes()).unwrap_or_else(|refusal| panic!("{refusal:?}"));
         assert_eq!(hex(&claim.activity_id()), expected_activity);
         assert_eq!(claim.receipt(), receipt.as_slice());
 
         let authorized = AuthorityFacts::new(
-            parse_hex32(
-                capture["authority"]["batch_id"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("fixture batch_id")),
-            )
-            .unwrap_or_else(|error| panic!("{error}")),
-            parse_hex32(
-                capture["authority"]["asset"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("fixture asset")),
-            )
-            .unwrap_or_else(|error| panic!("{error}")),
-            parse_hex32(
-                capture["authority"]["previous_state_root"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("fixture previous_state_root")),
-            )
-            .unwrap_or_else(|error| panic!("{error}")),
-            parse_hex32(
-                capture["authority"]["resulting_state_root"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("fixture resulting_state_root")),
-            )
-            .unwrap_or_else(|error| panic!("{error}")),
-            parse_hex32(
-                capture["authority"]["sequencer_public_key"]
-                    .as_str()
-                    .unwrap_or_else(|| panic!("fixture sequencer_public_key")),
-            )
-            .unwrap_or_else(|error| panic!("{error}")),
+            parse_hex32(capture["authority"]["batch_id"].as_str().unwrap_or_else(|| panic!("fixture batch_id"))).unwrap_or_else(|error| panic!("{error}")),
+            parse_hex32(capture["authority"]["asset"].as_str().unwrap_or_else(|| panic!("fixture asset"))).unwrap_or_else(|error| panic!("{error}")),
+            parse_hex32(capture["authority"]["previous_state_root"].as_str().unwrap_or_else(|| panic!("fixture previous_state_root"))).unwrap_or_else(|error| panic!("{error}")),
+            parse_hex32(capture["authority"]["resulting_state_root"].as_str().unwrap_or_else(|| panic!("fixture resulting_state_root"))).unwrap_or_else(|error| panic!("{error}")),
+            parse_hex32(capture["authority"]["sequencer_public_key"].as_str().unwrap_or_else(|| panic!("fixture sequencer_public_key"))).unwrap_or_else(|error| panic!("{error}")),
         );
         let settled = settlement::settled(&claim, &receipt, &authorized.authorized());
         assert_eq!(settled["state"], serde_json::json!("settled"));
         assert_eq!(settled["activity_id"], serde_json::json!(expected_activity));
         assert_eq!(settled["idempotency_key"], body["idempotencyKey"],);
-        assert_eq!(
-            settled["receipt_base64"],
-            serde_json::json!(layerx_platform_internal::base64::encode(&receipt))
-        );
+        assert_eq!(settled["receipt_base64"], serde_json::json!(layerx_platform_internal::base64::encode(&receipt)));
         assert_eq!(
             settled["authorized_batch"],
             serde_json::json!({
@@ -4933,84 +3205,42 @@ mod settlement_contract_tests {
                 "sequencer_public_key": capture["authority"]["sequencer_public_key"],
             })
         );
-        assert_eq!(
-            settlement::pending(),
-            serde_json::json!({ "state": "pending" })
-        );
-        assert_eq!(
-            settlement::refused("activity_not_settled"),
-            serde_json::json!({ "state": "refused", "reason": "activity_not_settled" })
-        );
+        assert_eq!(settlement::pending(), serde_json::json!({ "state": "pending" }));
+        assert_eq!(settlement::refused("activity_not_settled"), serde_json::json!({ "state": "refused", "reason": "activity_not_settled" }));
 
         let mut digest_tamper = body.clone();
         digest_tamper["payload"]["payload"]["receiptDigest"] = serde_json::json!("00".repeat(32));
-        assert_eq!(
-            settlement::claim(digest_tamper.to_string().as_bytes()),
-            Err(settlement::Refusal::ReceiptDigest)
-        );
+        assert_eq!(settlement::claim(digest_tamper.to_string().as_bytes()), Err(settlement::Refusal::ReceiptDigest));
 
         let mut binding_tamper = body.clone();
         binding_tamper["idempotencyKey"] = serde_json::json!("11".repeat(32));
-        assert_eq!(
-            settlement::claim(binding_tamper.to_string().as_bytes()),
-            Err(settlement::Refusal::IdempotencyBinding)
-        );
+        assert_eq!(settlement::claim(binding_tamper.to_string().as_bytes()), Err(settlement::Refusal::IdempotencyBinding));
 
         let mut principal_tamper = body.clone();
         principal_tamper["principal"] = serde_json::json!("did:layerx:other-merchant");
-        assert_eq!(
-            settlement::claim(principal_tamper.to_string().as_bytes()),
-            Err(settlement::Refusal::IdempotencyBinding)
-        );
+        assert_eq!(settlement::claim(principal_tamper.to_string().as_bytes()), Err(settlement::Refusal::IdempotencyBinding));
 
         let mut level_tamper = body.clone();
-        level_tamper["payload"]["payload"]["verificationLevel"] =
-            serde_json::json!("rpc-confirmed");
-        assert_eq!(
-            settlement::claim(level_tamper.to_string().as_bytes()),
-            Err(settlement::Refusal::VerificationLevel)
-        );
+        level_tamper["payload"]["payload"]["verificationLevel"] = serde_json::json!("rpc-confirmed");
+        assert_eq!(settlement::claim(level_tamper.to_string().as_bytes()), Err(settlement::Refusal::VerificationLevel));
 
         let mut version_tamper = body.clone();
         version_tamper["payload"]["x402Version"] = serde_json::json!(1);
-        assert_eq!(
-            settlement::claim(version_tamper.to_string().as_bytes()),
-            Err(settlement::Refusal::Request)
-        );
+        assert_eq!(settlement::claim(version_tamper.to_string().as_bytes()), Err(settlement::Refusal::Request));
 
         let mut unknown_field = body.clone();
         unknown_field["trusted"] = serde_json::json!(true);
-        assert_eq!(
-            settlement::claim(unknown_field.to_string().as_bytes()),
-            Err(settlement::Refusal::Request)
-        );
+        assert_eq!(settlement::claim(unknown_field.to_string().as_bytes()), Err(settlement::Refusal::Request));
 
         let mut short_receipt = body.clone();
         let truncated = &receipt[..receipt.len() - 8];
-        short_receipt["payload"]["payload"]["receipt"] =
-            serde_json::json!(layerx_platform_internal::base64::encode(truncated));
-        short_receipt["payload"]["payload"]["receiptDigest"] =
-            serde_json::json!(hex(&layerx_proof::merkle::leaf_hash(truncated)
-                .unwrap_or_else(|error| panic!("{error:?}"))));
-        assert_eq!(
-            settlement::claim(short_receipt.to_string().as_bytes()),
-            Err(settlement::Refusal::Receipt)
-        );
+        short_receipt["payload"]["payload"]["receipt"] = serde_json::json!(layerx_platform_internal::base64::encode(truncated));
+        short_receipt["payload"]["payload"]["receiptDigest"] = serde_json::json!(hex(&layerx_proof::merkle::leaf_hash(truncated).unwrap_or_else(|error| panic!("{error:?}"))));
+        assert_eq!(settlement::claim(short_receipt.to_string().as_bytes()), Err(settlement::Refusal::Receipt));
     }
 }
 
-struct WalletCaps {
-    bridge: Endpoint,
-    issuer_socket: std::path::PathBuf,
-    peer_uid: u32,
-    peer_gid: u32,
-    tenant: String,
-    chain_id: u64,
-    bindings: layerx_identity_binding::Client,
-    clock: Arc<layerx_client::runtime_clock::RuntimeClock>,
-}
-
-fn configured_wallet_caps() -> Result<Option<WalletCaps>, String> {
+fn configured_wallet_caps() -> Result<(), String> {
     const NAMES: [&str; 7] = [
         "LAYERX_GATEWAY_WALLET_IDENTITY_URL",
         "LAYERX_GATEWAY_WALLET_ISSUER_SOCKET",
@@ -5021,36 +3251,22 @@ fn configured_wallet_caps() -> Result<Option<WalletCaps>, String> {
         "LAYERX_GATEWAY_WALLET_CHAIN_ID",
     ];
     if NAMES.iter().all(|name| env::var_os(name).is_none()) {
-        return Ok(None);
+        return Ok(());
     }
-    let values = NAMES
-        .iter()
-        .map(|name| env::var(name).map_err(|_| "incomplete wallet caps configuration".to_owned()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let peer_uid = values[3]
-        .parse()
-        .map_err(|_| "invalid wallet identity uid")?;
-    let peer_gid = values[4]
-        .parse()
-        .map_err(|_| "invalid wallet identity gid")?;
-    let chain_id = values[6]
-        .parse::<u64>()
-        .map_err(|_| "invalid wallet chain id")?;
-    if chain_id == 0
-        || values[5].is_empty()
-        || values[5].len() > 255
-        || values[5].chars().any(char::is_control)
-    {
+    let values = NAMES.iter().map(|name| env::var(name).map_err(|_| "incomplete wallet caps configuration".to_owned())).collect::<Result<Vec<_>, _>>()?;
+    let peer_uid = values[3].parse::<u32>().map_err(|_| "invalid wallet identity uid")?;
+    let identity_group_id = values[4].parse::<u32>().map_err(|_| "invalid wallet identity gid")?;
+    let chain_id = values[6].parse::<u64>().map_err(|_| "invalid wallet chain id")?;
+    if chain_id == 0 || values[5].is_empty() || values[5].len() > 255 || values[5].chars().any(char::is_control) {
         return Err("invalid wallet caps binding".to_owned());
     }
-    let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
-        .map_err(|_| "wallet identity clock unavailable")?;
-    let bindings = layerx_identity_binding::Client::new(
+    let clock = layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(|_| "wallet identity clock unavailable")?;
+    layerx_identity_binding::Client::new(
         layerx_identity_binding::Config {
             socket: values[2].clone().into(),
             tenant: values[5].clone(),
             peer_uid,
-            peer_gid,
+            peer_gid: identity_group_id,
             deadline: Duration::from_secs(3),
         },
         clock.clone(),
@@ -5060,287 +3276,8 @@ fn configured_wallet_caps() -> Result<Option<WalletCaps>, String> {
     if !issuer_socket.is_absolute() {
         return Err("wallet issuer requires a same-host protected absolute socket".to_owned());
     }
-    Ok(Some(WalletCaps {
-        bridge: Endpoint::parse(&values[0])?,
-        issuer_socket,
-        peer_uid,
-        peer_gid,
-        tenant: values[5].clone(),
-        chain_id,
-        bindings,
-        clock,
-    }))
-}
-
-fn wallet_assertion(
-    caps: &WalletCaps,
-    assertion: &str,
-    binding: &str,
-) -> Result<(String, String), u16> {
-    use std::io::{Read, Write};
-    use std::os::unix::fs::{FileTypeExt, MetadataExt};
-    use std::os::unix::net::UnixStream;
-    let path = &caps.issuer_socket;
-    let parent = path.parent().ok_or(502_u16)?;
-    let directory = fs::symlink_metadata(parent).map_err(|_| 503_u16)?;
-    let before = fs::symlink_metadata(path).map_err(|_| 503_u16)?;
-    if fs::canonicalize(path).map_err(|_| 503_u16)? != *path
-        || !directory.is_dir()
-        || directory.uid() != caps.peer_uid
-        || directory.mode() & 0o022 != 0
-        || !before.file_type().is_socket()
-        || before.uid() != caps.peer_uid
-        || before.gid() != caps.peer_gid
-        || before.mode() & 0o007 != 0
-        || assertion.len() > 16384
-        || binding.len() > 16384
-    {
-        return Err(403);
-    }
-    let started = Instant::now();
-    let descriptor = rustix::net::socket_with(
-        rustix::net::AddressFamily::UNIX,
-        rustix::net::SocketType::STREAM,
-        rustix::net::SocketFlags::CLOEXEC | rustix::net::SocketFlags::NONBLOCK,
-        None,
-    )
-    .map_err(|_| 503_u16)?;
-    rustix::net::connect(
-        &descriptor,
-        &rustix::net::SocketAddrUnix::new(path).map_err(|_| 503_u16)?,
-    )
-    .map_err(|_| 503_u16)?;
-    let mut stream = UnixStream::from(descriptor);
-    let peer = rustix::net::sockopt::socket_peercred(&stream).map_err(|_| 503_u16)?;
-    let after = fs::symlink_metadata(path).map_err(|_| 503_u16)?;
-    if peer.uid.as_raw() != caps.peer_uid
-        || peer.gid.as_raw() != caps.peer_gid
-        || before.dev() != after.dev()
-        || before.ino() != after.ino()
-    {
-        return Err(403);
-    }
-    stream.set_nonblocking(false).map_err(|_| 503_u16)?;
-    let mut body = Zeroizing::new(b"LXIP\x01\x04".to_vec());
-    body.extend_from_slice(&2_u32.to_be_bytes());
-    for field in [assertion, binding] {
-        body.extend_from_slice(&(field.len() as u32).to_be_bytes());
-        body.extend_from_slice(field.as_bytes());
-    }
-    let mut frame = Zeroizing::new((body.len() as u32).to_be_bytes().to_vec());
-    frame.extend_from_slice(&body);
-    let mut pending = frame.as_slice();
-    while !pending.is_empty() {
-        let left = Duration::from_secs(3)
-            .checked_sub(started.elapsed())
-            .filter(|v| !v.is_zero())
-            .ok_or(502_u16)?;
-        stream.set_write_timeout(Some(left)).map_err(|_| 503_u16)?;
-        let sent = stream.write(pending).map_err(|_| 503_u16)?;
-        if sent == 0 {
-            return Err(403);
-        }
-        pending = &pending[sent..];
-    }
-    let mut read = |out: &mut [u8]| -> Result<(), u16> {
-        let mut offset = 0;
-        while offset < out.len() {
-            let left = Duration::from_secs(3)
-                .checked_sub(started.elapsed())
-                .filter(|v| !v.is_zero())
-                .ok_or(502_u16)?;
-            stream.set_read_timeout(Some(left)).map_err(|_| 503_u16)?;
-            let count = stream.read(&mut out[offset..]).map_err(|_| 503_u16)?;
-            if count == 0 {
-                return Err(403);
-            }
-            offset += count;
-        }
-        Ok(())
-    };
-    let mut length = [0; 4];
-    read(&mut length)?;
-    let length = u32::from_be_bytes(length) as usize;
-    if !(10..=2048).contains(&length) {
-        return Err(403);
-    }
-    let mut response = Zeroizing::new(vec![0; length]);
-    read(&mut response)?;
-    if &response[..5] != b"LXIP\x01" {
-        return Err(502);
-    }
-    if response[5] == 4 {
-        return Err(503);
-    }
-    if response[5] != 0 {
-        return Err(403);
-    }
-    if response[6..10] != 2_u32.to_be_bytes() {
-        return Err(403);
-    }
-    let mut remaining = &response[10..];
-    let mut fields = Vec::new();
-    for _ in 0..2 {
-        let size = u32::from_be_bytes(
-            remaining
-                .get(..4)
-                .ok_or(502_u16)?
-                .try_into()
-                .map_err(|_| 503_u16)?,
-        ) as usize;
-        if size == 0 || size > 255 {
-            return Err(403);
-        }
-        fields.push(
-            std::str::from_utf8(remaining.get(4..4 + size).ok_or(502_u16)?)
-                .map_err(|_| 503_u16)?
-                .to_owned(),
-        );
-        remaining = remaining.get(4 + size..).ok_or(502_u16)?;
-    }
-    if !remaining.is_empty() || PrincipalId::new(&fields[0]).is_err() {
-        return Err(403);
-    }
-    Ok((fields.remove(0), fields.remove(0)))
-}
-
-fn wallet_caps(
-    config: &Config,
-    request: &IncomingRequest,
-    params: Option<&serde_json::Value>,
-) -> OutgoingResponse {
-    use layerx_types::clock::Clock;
-    let Some(caps) = &config.wallet_caps else {
-        return response(503, "caps_not_configured", Some(5));
-    };
-    let Some(token) = request
-        .headers
-        .get("authorization")
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .filter(|v| !v.is_empty() && v.len() <= 16384 && !v.chars().any(char::is_control))
-    else {
-        return response(401, "caps_session_required", None);
-    };
-    let Some(args) = params
-        .and_then(serde_json::Value::as_array)
-        .filter(|v| v.len() == 1)
-    else {
-        return response(400, "invalid_caps_request", None);
-    };
-    let Some(wanted) = args[0].as_object().filter(|v| v.len() == 2) else {
-        return response(400, "invalid_caps_request", None);
-    };
-    let Some(address) = wanted.get("address").and_then(serde_json::Value::as_str) else {
-        return response(400, "invalid_caps_request", None);
-    };
-    if wanted.get("chain_id").and_then(serde_json::Value::as_u64) != Some(caps.chain_id) {
-        return response(403, "caps_network_refused", None);
-    }
-    let Ok(upstream) = config.client.request(
-        &caps.bridge,
-        token,
-        &http::OutboundRequest {
-            method: "GET",
-            path: "/v1/wallet/me",
-            idempotency: None,
-            content_type: "application/json",
-            body: &[],
-        },
-    ) else {
-        return response(503, "caps_identity_unavailable", Some(5));
-    };
-    if matches!(upstream.status, 401 | 403) {
-        return response(403, "caps_session_refused", None);
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(503, "caps_identity_unavailable", Some(5));
-    }
-    let Ok(bridge) = serde_json::from_slice::<serde_json::Value>(&upstream.body) else {
-        return response(502, "caps_identity_evidence", None);
-    };
-    let Some(context) = bridge
-        .get("capsContext")
-        .and_then(serde_json::Value::as_object)
-    else {
-        return response(503, "caps_binding_unavailable", Some(5));
-    };
-    let text = |key: &str| context.get(key).and_then(serde_json::Value::as_str);
-    let Some(binding) = bridge
-        .get("identityBinding")
-        .and_then(serde_json::Value::as_str)
-    else {
-        return response(503, "caps_binding_unavailable", Some(5));
-    };
-    let mut hash = Sha256::new();
-    hash.update(b"LXP/wallet-caps/session/v1\0");
-    hash.update(token.as_bytes());
-    let session_id = hex(&hash.finalize());
-    let expires = text("expires_at").and_then(|v| v.parse::<u64>().ok());
-    let Ok(observed) = caps.clock.sample(Duration::from_secs(1)) else {
-        return response(503, "caps_clock_unavailable", Some(5));
-    };
-    if text("tenant") != Some(caps.tenant.as_str())
-        || text("session_id") != Some(session_id.as_str())
-        || text("address") != Some(address)
-        || context.get("chain_id").and_then(serde_json::Value::as_u64) != Some(caps.chain_id)
-        || expires.is_none_or(|v| v <= observed.unix_seconds())
-    {
-        return response(403, "caps_binding_refused", None);
-    }
-    let (principal, did) = match wallet_assertion(caps, token, binding) {
-        Ok(value) => value,
-        Err(503) => return response(503, "caps_issuer_unavailable", Some(5)),
-        Err(_) => return response(403, "caps_assertion_refused", None),
-    };
-    let Ok(recorded) = caps.bindings.lookup(&principal) else {
-        return response(403, "caps_principal_refused", None);
-    };
-    if recorded.did().as_bytes() != did.as_bytes() || text("did") != Some(did.as_str()) {
-        return response(403, "caps_principal_refused", None);
-    }
-    let Some(account) = text("account_id").filter(|v| parse_hex32(v).is_ok()) else {
-        return response(403, "caps_account_refused", None);
-    };
-    let body = serde_json::json!({"did": did, "account_id": account, "network_id": config.protocol_network_id}).to_string();
-    let mut result =
-        public_reads::request(config, "POST", "/internal/v1/wallet-caps", body.as_bytes());
-    if result.status != 200 {
-        return result;
-    }
-    let Ok(mut value) = serde_json::from_slice::<serde_json::Value>(&result.body) else {
-        return response(502, "caps_evidence_refused", None);
-    };
-    let Some(snapshot) = value
-        .get_mut("result")
-        .and_then(serde_json::Value::as_object_mut)
-    else {
-        return response(502, "caps_evidence_refused", None);
-    };
-    if snapshot.get("did").and_then(serde_json::Value::as_str) != Some(did.as_str())
-        || snapshot
-            .get("account_id")
-            .and_then(serde_json::Value::as_str)
-            != Some(account)
-        || snapshot
-            .get("network_id")
-            .and_then(serde_json::Value::as_u64)
-            != Some(u64::from(config.protocol_network_id))
-    {
-        return response(502, "caps_evidence_refused", None);
-    }
-    let Ok(completed) = caps.clock.sample(Duration::from_secs(1)) else {
-        return response(503, "caps_clock_unavailable", Some(5));
-    };
-    if expires.is_none_or(|v| v <= completed.unix_seconds()) {
-        return response(403, "caps_session_expired", None);
-    }
-    snapshot.insert("context".to_owned(), serde_json::json!({"principal": principal, "session_id": session_id,
-        "address": address, "chain_id": caps.chain_id, "expires_at": expires.map(|v| v.to_string())}));
-    result.body = value.to_string().into_bytes();
-    result
-        .headers
-        .push(("Cache-Control".to_owned(), "no-store".to_owned()));
-    result
+    Endpoint::parse(&values[0])?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -5350,40 +3287,30 @@ mod complete_readiness_contract_tests {
     #[test]
     #[ignore = "requires PAXEER_X_GATEWAY_READINESS_CASE"]
     fn real_gateway_readiness_capabilities_contract() {
-        let input = env::var("PAXEER_X_GATEWAY_READINESS_CASE")
-            .expect("real gateway readiness case required");
-        let case: serde_json::Value =
-            serde_json::from_slice(&fs::read(input).expect("case file")).expect("case JSON");
-        let event_producer = case["event_producer"].as_bool().expect("producer mode");
-        let config = config(event_producer).expect("actual gateway configuration");
+        let input = env::var("PAXEER_X_GATEWAY_READINESS_CASE").unwrap_or_else(|error| panic!("{}: {error:?}", "real gateway readiness case required"));
+        let case: serde_json::Value = serde_json::from_slice(&fs::read(input).unwrap_or_else(|error| panic!("{}: {error:?}", "case file"))).unwrap_or_else(|error| panic!("{}: {error:?}", "case JSON"));
+        let event_producer = case["event_producer"].as_bool().unwrap_or_else(|| panic!("{}", "producer mode"));
+        let config = config(event_producer).unwrap_or_else(|error| panic!("{}: {error:?}", "actual gateway configuration"));
         for (scope, include_product_routes) in [("core", false), ("product", true)] {
             let response = gateway_readiness_scope(&config, include_product_routes);
             assert_eq!(response.content_type, "application/json");
-            let document: serde_json::Value =
-                serde_json::from_slice(&response.body).expect("actual gateway readiness JSON");
+            let document: serde_json::Value = serde_json::from_slice(&response.body).unwrap_or_else(|error| panic!("{}: {error:?}", "actual gateway readiness JSON"));
             assert_eq!(document["readiness_version"], 1);
             assert_eq!(document["scope"], scope);
             assert_eq!(document["protocol_version"], config.protocol_version);
             assert_eq!(document["protocol_network_id"], config.protocol_network_id);
             assert_eq!(document["lxp_wire_version"], config.wire_version);
             assert_eq!(document["network_id"], config.network_id);
-            let backends = document["backends"].as_object().expect("backend object");
+            let backends = document["backends"].as_object().unwrap_or_else(|| panic!("{}", "backend object"));
             assert_eq!(backends.len(), if event_producer { 5 } else { 4 });
             for name in ["durable_store", "paxeer_chain", "consensus", "indexer"] {
                 assert!(backends.contains_key(name), "required dependency {name}");
             }
             assert!(!backends.contains_key("core_agent_boundary"));
-            assert!(!document["components"]
-                .as_object()
-                .unwrap()
-                .contains_key("principal_state_boundary"));
-            let capabilities = document["capabilities"]
-                .as_object()
-                .expect("capabilities object");
+            assert!(!document["components"].as_object().unwrap_or_else(|| panic!("value required")).contains_key("principal_state_boundary"));
+            let capabilities = document["capabilities"].as_object().unwrap_or_else(|| panic!("{}", "capabilities object"));
             assert_eq!(capabilities.len(), 2);
-            let chain = capabilities["chain_serving"]
-                .as_object()
-                .expect("chain capability");
+            let chain = capabilities["chain_serving"].as_object().unwrap_or_else(|| panic!("{}", "chain capability"));
             assert_eq!(chain.len(), 3);
             assert_eq!(chain["chain_id"], 125_u64);
             assert_eq!(chain["state"], backends["paxeer_chain"]["state"]);
@@ -5396,27 +3323,20 @@ mod complete_readiness_contract_tests {
                 })
             );
             assert_eq!(document["status"], case[scope]["status"]);
-            assert_eq!(
-                u64::from(response.status),
-                case[scope]["http_status"].as_u64().expect("HTTP status")
-            );
+            assert_eq!(u64::from(response.status), case[scope]["http_status"].as_u64().unwrap_or_else(|| panic!("{}", "HTTP status")));
             if include_product_routes {
                 assert!(document["product_routes"].is_object());
             } else {
                 assert!(document["product_routes"].is_null());
             }
             {
-                let all_backends_ready =
-                    backends.values().all(|backend| backend["state"] == "ready");
-                let expected_ready = all_backends_ready
-                    && (!include_product_routes || document["product_routes"]["complete"] == true);
+                let all_backends_ready = backends.values().all(|backend| backend["state"] == "ready");
+                let expected_ready = all_backends_ready && (!include_product_routes || document["product_routes"]["complete"] == true);
                 assert_eq!(response.status == 200, expected_ready);
                 assert_eq!(document["status"] == "ready", expected_ready);
             }
-            let observed_at = document["observed_at_ms"]
-                .as_u64()
-                .expect("observation time");
-            let valid_until = document["valid_until_ms"].as_u64().expect("expiry time");
+            let observed_at = document["observed_at_ms"].as_u64().unwrap_or_else(|| panic!("{}", "observation time"));
+            let valid_until = document["valid_until_ms"].as_u64().unwrap_or_else(|| panic!("{}", "expiry time"));
             assert_eq!(valid_until.checked_sub(observed_at), Some(30_000));
         }
         println!("PAXEER_X_GATEWAY_READINESS_CONTRACT_CASES=2");
@@ -5425,31 +3345,19 @@ mod complete_readiness_contract_tests {
     #[test]
     #[ignore = "requires PAXEER_X_ROUTER_READINESS_CASE"]
     fn real_core_and_identity_readiness_contract() {
-        let input = env::var("PAXEER_X_ROUTER_READINESS_CASE").expect("real service case required");
-        let case: serde_json::Value =
-            serde_json::from_slice(&fs::read(input).expect("case file")).expect("case JSON");
-        let text = |name: &str| case[name].as_str().expect(name);
-        let ca =
-            Certificate::from_der(&fs::read(text("ca_der")).expect("CA file")).expect("CA DER");
-        let password = Zeroizing::new(
-            fs::read_to_string(text("client_password_file")).expect("client password"),
-        );
-        let identity = Identity::from_pkcs12(
-            &fs::read(text("client_pkcs12")).expect("client identity"),
-            password.trim(),
-        )
-        .expect("client identity parse");
+        let input = env::var("PAXEER_X_ROUTER_READINESS_CASE").unwrap_or_else(|error| panic!("{}: {error:?}", "real service case required"));
+        let case: serde_json::Value = serde_json::from_slice(&fs::read(input).unwrap_or_else(|error| panic!("{}: {error:?}", "case file"))).unwrap_or_else(|error| panic!("{}: {error:?}", "case JSON"));
+        let text = |name: &str| case[name].as_str().unwrap_or_else(|| panic!("{}", name));
+        let ca = Certificate::from_der(&fs::read(text("ca_der")).unwrap_or_else(|error| panic!("{}: {error:?}", "CA file"))).unwrap_or_else(|error| panic!("{}: {error:?}", "CA DER"));
+        let password = Zeroizing::new(fs::read_to_string(text("client_password_file")).unwrap_or_else(|error| panic!("{}: {error:?}", "client password")));
+        let identity = Identity::from_pkcs12(&fs::read(text("client_pkcs12")).unwrap_or_else(|error| panic!("{}: {error:?}", "client identity")), password.trim()).unwrap_or_else(|error| panic!("{}: {error:?}", "client identity parse"));
         let client = Client::new(ca, identity);
-        let network = u32::try_from(case["protocol_network_id"].as_u64().expect("network"))
-            .expect("network bound");
+        let network = u32::try_from(case["protocol_network_id"].as_u64().unwrap_or_else(|| panic!("{}", "network"))).unwrap_or_else(|error| panic!("{}: {error:?}", "network bound"));
         let wire = text("wire_version");
         let mut count = 0;
         for backend in ["core", "identity"] {
-            let endpoint =
-                Endpoint::parse(text(&format!("{backend}_endpoint"))).expect("TLS endpoint");
-            let token = Zeroizing::new(
-                fs::read_to_string(text(&format!("{backend}_token_file"))).expect("service token"),
-            );
+            let endpoint = Endpoint::parse(text(&format!("{backend}_endpoint"))).unwrap_or_else(|error| panic!("{}: {error:?}", "TLS endpoint"));
+            let token = Zeroizing::new(fs::read_to_string(text(&format!("{backend}_token_file"))).unwrap_or_else(|error| panic!("{}: {error:?}", "service token")));
             let request = http::OutboundRequest {
                 method: "GET",
                 path: "/internal/readyz",
@@ -5457,9 +3365,7 @@ mod complete_readiness_contract_tests {
                 content_type: "application/json",
                 body: &[],
             };
-            let mut response = client
-                .request(&endpoint, token.trim(), &request)
-                .expect("real readiness request");
+            let mut response = client.request(&endpoint, token.trim(), &request).unwrap_or_else(|error| panic!("{}: {error:?}", "real readiness request"));
             let accepts = |response: &UpstreamResponse| {
                 if backend == "core" {
                     public_core_readiness(response, network, wire)
@@ -5470,8 +3376,7 @@ mod complete_readiness_contract_tests {
             assert!(accepts(&response), "actual service must be ready");
             count += 1;
             let original = response.body.clone();
-            let document: serde_json::Value =
-                serde_json::from_slice(&original).expect("actual readiness JSON");
+            let document: serde_json::Value = serde_json::from_slice(&original).unwrap_or_else(|error| panic!("{}: {error:?}", "actual readiness JSON"));
             for status in [201, 401, 403, 503] {
                 response.status = status;
                 assert!(!accepts(&response));
@@ -5485,16 +3390,16 @@ mod complete_readiness_contract_tests {
             response.body = vec![b' '; 4097];
             assert!(!accepts(&response));
             count += 1;
-            for field in document.as_object().expect("object").keys() {
+            for field in document.as_object().unwrap_or_else(|| panic!("{}", "object")).keys() {
                 let mut missing = document.clone();
-                missing.as_object_mut().expect("object").remove(field);
-                response.body = serde_json::to_vec(&missing).expect("mutation");
+                missing.as_object_mut().unwrap_or_else(|| panic!("{}", "object")).remove(field);
+                response.body = serde_json::to_vec(&missing).unwrap_or_else(|error| panic!("{}: {error:?}", "mutation"));
                 assert!(!accepts(&response), "missing {field}");
                 count += 1;
             }
             let mut extra = document.clone();
             extra["unexpected"] = serde_json::json!(true);
-            response.body = serde_json::to_vec(&extra).expect("mutation");
+            response.body = serde_json::to_vec(&extra).unwrap_or_else(|error| panic!("{}: {error:?}", "mutation"));
             assert!(!accepts(&response));
             count += 1;
             let mutations = if backend == "core" {
@@ -5510,64 +3415,40 @@ mod complete_readiness_contract_tests {
                     ("state_snapshot", serde_json::json!(false)),
                 ]
             } else {
-                vec![
-                    ("status", serde_json::json!("unavailable")),
-                    ("service", serde_json::json!("core")),
-                ]
+                vec![("status", serde_json::json!("unavailable")), ("service", serde_json::json!("core"))]
             };
             for (field, value) in mutations {
                 let mut invalid = document.clone();
                 invalid[field] = value;
-                response.body = serde_json::to_vec(&invalid).expect("mutation");
+                response.body = serde_json::to_vec(&invalid).unwrap_or_else(|error| panic!("{}: {error:?}", "mutation"));
                 assert!(!accepts(&response), "changed {field}");
                 count += 1;
             }
             response.body = original;
             assert!(accepts(&response));
-            let refused = client
-                .request_unauthenticated(&endpoint, &request)
-                .expect("unauthenticated refusal");
+            let refused = client.request_unauthenticated(&endpoint, &request).unwrap_or_else(|error| panic!("{}: {error:?}", "unauthenticated refusal"));
             assert_eq!(refused.status, 401);
             assert!(!accepts(&refused));
-            let body_request = http::OutboundRequest {
-                body: b"{}",
-                ..request
-            };
-            let refused = client
-                .request(&endpoint, token.trim(), &body_request)
-                .expect("body refusal");
+            let body_request = http::OutboundRequest { body: b"{}", ..request };
+            let refused = client.request(&endpoint, token.trim(), &body_request).unwrap_or_else(|error| panic!("{}: {error:?}", "body refusal"));
             assert_eq!(refused.status, 400);
             assert!(!accepts(&refused));
             count += 3;
             if backend == "identity" {
-                let wrong_role = Zeroizing::new(
-                    fs::read_to_string(text("identity_wrong_role_token_file"))
-                        .expect("provisioning credential"),
-                );
-                let request = http::OutboundRequest {
-                    body: &[],
-                    ..body_request
-                };
-                let refused = client
-                    .request(&endpoint, wrong_role.trim(), &request)
-                    .expect("service role refusal");
+                let wrong_role = Zeroizing::new(fs::read_to_string(text("identity_wrong_role_token_file")).unwrap_or_else(|error| panic!("{}: {error:?}", "provisioning credential")));
+                let request = http::OutboundRequest { body: &[], ..body_request };
+                let refused = client.request(&endpoint, wrong_role.trim(), &request).unwrap_or_else(|error| panic!("{}: {error:?}", "service role refusal"));
                 assert_eq!(refused.status, 403);
                 assert!(!accepts(&refused));
                 count += 1;
             }
         }
+        finish_readiness_contract(count);
+    }
+
+    fn finish_readiness_contract(count: usize) {
         let roster = KernelBackend::ALL.map(KernelBackend::name);
-        assert_eq!(
-            roster,
-            [
-                "core_agent_boundary",
-                "public_core",
-                "independent_receipt_authority",
-                "identity",
-                "program_registry"
-            ]
-        );
-        count += 1;
-        println!("PAXEER_X_ROUTER_CONTRACT_CASES={count}");
+        assert_eq!(roster, ["core_agent_boundary", "public_core", "independent_receipt_authority", "identity", "program_registry"]);
+        println!("PAXEER_X_ROUTER_CONTRACT_CASES={}", count + 1);
     }
 }

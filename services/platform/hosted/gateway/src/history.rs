@@ -1,10 +1,11 @@
-//! Account history on the single network endpoint: `px_getHistory` and
+//! Native indexed account history: `px_getHistory` and
 //! `px_getUnifiedHistory`, answered from the `layerx-indexer` read API.
 //!
 //! Every answer is the indexer's own rows, oldest first in
 //! `(blockHeight, txIndex, logIndex)` position order, each joined with its
 //! asset's indexer record plus the symbol and decimals the `LayerX` asset
-//! registry declares for it. Cursors are the indexer's 32-lowercase-hex
+//! registry declares for it, without a retired custody or anchor join.
+//! Cursors are the indexer's 32-lowercase-hex
 //! position cursors, passed through unchanged; because every side pages
 //! strictly after the same position, a unified page is the exact merge of
 //! every side's page at the same cursor.
@@ -29,11 +30,7 @@ pub(super) enum Indexer {
     /// A TLS endpoint verified with the gateway's component trust roots.
     Tls(Endpoint),
     /// A co-located indexer on a loopback address, spoken to in plain HTTP.
-    Loopback {
-        address: SocketAddr,
-        authority: String,
-        base_path: String,
-    },
+    Loopback { address: SocketAddr, authority: String, base_path: String },
 }
 
 impl Indexer {
@@ -45,29 +42,20 @@ impl Indexer {
         if path.contains(['?', '#', '\\']) {
             return Err("indexer endpoint is not canonical".to_owned());
         }
-        let address = authority
-            .parse::<SocketAddr>()
-            .map_err(|_| "plain HTTP indexer endpoints must name an IP address and port")?;
+        let address = authority.parse::<SocketAddr>().map_err(|_| "plain HTTP indexer endpoints must name an IP address and port")?;
         if !address.ip().is_loopback() {
             return Err("plain HTTP indexer endpoints must be loopback".to_owned());
         }
         Ok(Self::Loopback {
             address,
             authority: authority.to_owned(),
-            base_path: if path.is_empty() {
-                String::new()
-            } else {
-                format!("/{}", path.trim_end_matches('/'))
-            },
+            base_path: if path.is_empty() { String::new() } else { format!("/{}", path.trim_end_matches('/')) },
         })
     }
 }
 
 pub(super) fn configured_endpoint() -> Result<Option<Indexer>, String> {
-    std::env::var("LAYERX_GATEWAY_INDEXER_URL")
-        .ok()
-        .map(|url| Indexer::parse(&url))
-        .transpose()
+    std::env::var("LAYERX_GATEWAY_INDEXER_URL").ok().map(|url| Indexer::parse(&url)).transpose()
 }
 
 /// One way of reaching the indexer: the configured endpoint and, for a TLS
@@ -84,11 +72,7 @@ impl Source<'_> {
                 Some(client) => client.get_with_query(endpoint, path, query),
                 None => Err("no component client".to_owned()),
             },
-            Indexer::Loopback {
-                address,
-                authority,
-                base_path,
-            } => http::loopback_get(*address, authority, &format!("{base_path}{path}"), query),
+            Indexer::Loopback { address, authority, base_path } => http::loopback_get(*address, authority, &format!("{base_path}{path}"), query),
         };
         let upstream = upstream.map_err(|_| "indexer_unreachable")?;
         if path == "/v1/assets" && upstream.status == 429 {
@@ -97,8 +81,7 @@ impl Source<'_> {
         if upstream.content_type != "application/json" {
             return Err("invalid_indexer_response");
         }
-        let body =
-            serde_json::from_slice(&upstream.body).map_err(|_| "invalid_indexer_response")?;
+        let body = serde_json::from_slice(&upstream.body).map_err(|_| "invalid_indexer_response")?;
         Ok((upstream.status, body))
     }
 }
@@ -163,41 +146,20 @@ pub(super) fn params(params: Option<&Value>) -> Result<(String, Query), i32> {
     };
     let limit = match args.get(2) {
         None | Some(Value::Null) => DEFAULT_LIMIT,
-        Some(Value::Number(limit)) => limit
-            .as_u64()
-            .filter(|limit| (1..=MAXIMUM_LIMIT).contains(limit))
-            .ok_or(-32602)?,
+        Some(Value::Number(limit)) => limit.as_u64().filter(|limit| (1..=MAXIMUM_LIMIT).contains(limit)).ok_or(-32602)?,
         Some(_) => return Err(-32602),
     };
     let kind = match args.get(3) {
         None | Some(Value::Null) => None,
-        Some(Value::String(kind))
-            if (1..=MAXIMUM_KIND).contains(&kind.len())
-                && kind.bytes().all(|byte| {
-                    byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'
-                }) =>
-        {
-            Some(kind.clone())
-        }
+        Some(Value::String(kind)) if (1..=MAXIMUM_KIND).contains(&kind.len()) && kind.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_') => Some(kind.clone()),
         Some(_) => return Err(-32602),
     };
-    Ok((
-        account.clone(),
-        Query {
-            cursor,
-            limit,
-            kind,
-        },
-    ))
+    Ok((account.clone(), Query { cursor, limit, kind }))
 }
 
 /// A Paxeer account as the indexer keys it: a lowercase `0x` address.
 pub(super) fn paxeer_key(account: &str) -> Option<String> {
-    account
-        .starts_with("0x")
-        .then(|| evm::parse_address(account))
-        .flatten()
-        .map(|address| evm::address_hex(&address))
+    account.starts_with("0x").then(|| evm::parse_address(account)).flatten().map(|address| evm::address_hex(&address))
 }
 
 /// The indexer's order of one history row: its position, its ordinal,
@@ -221,12 +183,7 @@ fn indexed_height(body: &Value) -> Result<Option<u64>, Failure> {
 }
 
 fn page(source: &Source<'_>, account: &str, query: &Query) -> Result<Page, Failure> {
-    let (status, body) = source
-        .get(
-            &format!("/v1/history/{}", encode(account)),
-            &query.encoded(),
-        )
-        .map_err(Failure::Unavailable)?;
+    let (status, body) = source.get(&format!("/v1/history/{}", encode(account)), &query.encoded()).map_err(Failure::Unavailable)?;
     match status {
         200 => {}
         400 => return Err(Failure::Refused(body)),
@@ -241,22 +198,13 @@ fn page(source: &Source<'_>, account: &str, query: &Query) -> Result<Page, Failu
         Some(Value::String(cursor)) if Position::parse(cursor).is_some() => Some(cursor.clone()),
         _ => return Err(invalid()),
     };
-    let rows = body
-        .get("items")
-        .and_then(Value::as_array)
-        .ok_or_else(invalid)?;
+    let rows = body.get("items").and_then(Value::as_array).ok_or_else(invalid)?;
     let limit = usize::try_from(query.limit).map_err(|_| invalid())?;
     let mut items: Vec<(RowKey, Value)> = Vec::with_capacity(rows.len());
     for row in rows {
-        let (explorer, id) = text(row, "id")
-            .filter(|_| row.get("asset").is_some_and(Value::is_string))
-            .and_then(row_id)
-            .ok_or_else(invalid)?;
+        let (explorer, id) = text(row, "id").filter(|_| row.get("asset").is_some_and(Value::is_string)).and_then(row_id).ok_or_else(invalid)?;
         let position = row_position(row).ok_or_else(invalid)?;
-        let ordinal = text(row, "ordinal")
-            .and_then(decimal)
-            .filter(|ordinal| (*ordinal).max(1) - 1 == u64::from(position.log_index))
-            .ok_or_else(invalid)?;
+        let ordinal = text(row, "ordinal").and_then(decimal).filter(|ordinal| (*ordinal).max(1) - 1 == u64::from(position.log_index)).ok_or_else(invalid)?;
         if items.last().is_some_and(|((last, ..), _)| *last > position) {
             return Err(invalid());
         }
@@ -274,18 +222,12 @@ fn page(source: &Source<'_>, account: &str, query: &Query) -> Result<Page, Failu
     // last position together, so only rows sharing the position of row
     // `limit` may follow it.
     let limit = limit.max(1);
-    if let (Some(((boundary, ..), _)), Some(overflow)) = (items.get(limit - 1), items.get(limit..))
-    {
-        if overflow
-            .iter()
-            .any(|((position, ..), _)| position != boundary)
-        {
+    if let (Some(((boundary, ..), _)), Some(overflow)) = (items.get(limit - 1), items.get(limit..)) {
+        if overflow.iter().any(|((position, ..), _)| position != boundary) {
             return Err(invalid());
         }
     }
-    body.get("freshness")
-        .filter(|value| readiness_status(value).is_some())
-        .ok_or_else(invalid)?;
+    body.get("freshness").filter(|value| readiness_status(value).is_some()).ok_or_else(invalid)?;
     Ok(Page {
         items,
         next_cursor,
@@ -317,9 +259,7 @@ fn row_id(id: &str) -> Option<(bool, u64)> {
 
 /// A non-empty string of ASCII digits as a `u64`.
 fn decimal(text: &str) -> Option<u64> {
-    (!text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()))
-        .then(|| text.parse().ok())
-        .flatten()
+    (!text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit())).then(|| text.parse().ok()).flatten()
 }
 
 fn text<'a>(document: &'a Value, field: &str) -> Option<&'a str> {
@@ -335,29 +275,11 @@ fn asset_metadata(asset: &str, record: &Value, registry: &[Value]) -> Value {
     }
     let kind = text(record, "kind").unwrap_or_default();
     let denom = text(record, "denom");
-    let registered = registry.iter().find(|entry| {
-        if kind == "layerx" {
-            text(entry, "asset_id") == Some(asset)
-        } else {
-            denom.is_some() && text(entry, "denom") == denom
-        }
-    });
+    let registered = registry.iter().find(|entry| if kind == "layerx" { text(entry, "asset_id") == Some(asset) } else { denom.is_some() && text(entry, "denom") == denom });
     let metadata = record.get("metadata").cloned().unwrap_or(Value::Null);
-    let symbol = text(&metadata, "symbol")
-        .or_else(|| registered.and_then(|entry| text(entry, "symbol")))
-        .map(str::to_owned);
-    let decimals = metadata
-        .get("decimals")
-        .and_then(Value::as_u64)
-        .or_else(|| registered.and_then(|entry| entry.get("decimals").and_then(Value::as_u64)))
-        .or_else(|| (kind == "native").then_some(18));
-    let native_id = if kind == "layerx" {
-        Some(asset.to_owned())
-    } else {
-        registered
-            .and_then(|entry| text(entry, "asset_id"))
-            .map(str::to_owned)
-    };
+    let symbol = text(&metadata, "symbol").or_else(|| registered.and_then(|entry| text(entry, "symbol"))).map(str::to_owned);
+    let decimals = metadata.get("decimals").and_then(Value::as_u64).or_else(|| registered.and_then(|entry| entry.get("decimals").and_then(Value::as_u64))).or_else(|| (kind == "native").then_some(18));
+    let native_id = if kind == "layerx" { Some(asset.to_owned()) } else { registered.and_then(|entry| text(entry, "asset_id")).map(str::to_owned) };
     json!({
         "asset": asset,
         "chain": record.get("chain").cloned().unwrap_or(Value::Null),
@@ -380,11 +302,9 @@ fn registry_matches(asset: &str, record: &Value, entry: &Value) -> bool {
     }
 }
 
-fn join_assets(
-    source: &Source<'_>,
-    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
-    items: &mut [Value],
-) -> Result<(), Failure> {
+type RegistryQuery<'a> = dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure> + 'a;
+
+fn join_assets(source: &Source<'_>, registry: &RegistryQuery<'_>, items: &mut [Value]) -> Result<(), Failure> {
     if items.is_empty() {
         return Ok(());
     }
@@ -396,15 +316,9 @@ fn join_assets(
         if records.contains_key(asset) {
             continue;
         }
-        let (status, body) = source
-            .get(&format!("/v1/assets/{}", encode(asset)), "")
-            .map_err(Failure::Unavailable)?;
+        let (status, body) = source.get(&format!("/v1/assets/{}", encode(asset)), "").map_err(Failure::Unavailable)?;
         let record = match status {
-            200 => body
-                .get("asset")
-                .filter(|record| text(record, "asset") == Some(asset))
-                .cloned()
-                .ok_or(Failure::Unavailable("invalid_indexer_response"))?,
+            200 => body.get("asset").filter(|record| text(record, "asset") == Some(asset)).cloned().ok_or(Failure::Unavailable("invalid_indexer_response"))?,
             404 => Value::Null,
             _ => return Err(Failure::Unavailable("indexer_unavailable")),
         };
@@ -412,24 +326,13 @@ fn join_assets(
     }
     let needed: BTreeMap<_, _> = records
         .iter()
-        .filter(|(_, record)| {
-            record.is_object()
-                && text(record, "kind") != Some("native")
-                && (text(&record["metadata"], "symbol").is_none()
-                    || record["metadata"]["decimals"].as_u64().is_none())
-        })
+        .filter(|(_, record)| record.is_object() && text(record, "kind") != Some("native") && (text(&record["metadata"], "symbol").is_none() || record["metadata"]["decimals"].as_u64().is_none()))
         .map(|(asset, record)| (asset.clone(), record.clone()))
         .collect();
-    let registry = if needed.is_empty() {
-        Vec::new()
-    } else {
-        registry(&needed)?
-    };
+    let registry = if needed.is_empty() { Vec::new() } else { registry(&needed)? };
     for item in items.iter_mut() {
         let asset = text(item, "asset").unwrap_or_default().to_owned();
-        let joined = records.get(&asset).map_or(Value::Null, |record| {
-            asset_metadata(&asset, record, &registry)
-        });
+        let joined = records.get(&asset).map_or(Value::Null, |record| asset_metadata(&asset, record, &registry));
         if let Some(row) = item.as_object_mut() {
             row.insert("asset_metadata".to_owned(), joined);
         }
@@ -445,13 +348,7 @@ fn join_assets(
 /// `side`. Rows sharing the last position of a merged page stay together,
 /// as on the indexer, so resuming strictly after that position neither
 /// repeats nor skips a row.
-pub(super) fn history(
-    source: &Source<'_>,
-    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
-    accounts: &[(&'static str, String)],
-    query: &Query,
-    tagged: bool,
-) -> Result<Value, Failure> {
+pub(super) fn history(source: &Source<'_>, registry: &RegistryQuery<'_>, accounts: &[(&'static str, String)], query: &Query, tagged: bool) -> Result<Value, Failure> {
     let tag = |side: &str, item: &mut Value| {
         if let Some(row) = item.as_object_mut().filter(|_| tagged) {
             row.insert("side".to_owned(), json!(side));
@@ -465,8 +362,7 @@ pub(super) fn history(
             Some(seen) => seen.zip(height).map(|(seen, height)| seen.min(height)),
         });
     };
-    let (mut items, next_cursor): (Vec<Value>, Option<String>) = if let [(side, account)] = accounts
-    {
+    let (mut items, next_cursor): (Vec<Value>, Option<String>) = if let [(side, account)] = accounts {
         let page = page(source, account, query)?;
         lowest(page.indexed_height);
         (
@@ -491,10 +387,7 @@ pub(super) fn history(
                 merged.entry(key).or_insert(item);
             }
         }
-        let boundary = merged
-            .keys()
-            .nth(limit.saturating_sub(1))
-            .map(|(position, ..)| *position);
+        let boundary = merged.keys().nth(limit.saturating_sub(1)).map(|(position, ..)| *position);
         let mut rows: Vec<(Position, Value)> = Vec::with_capacity(merged.len());
         for ((position, ..), item) in merged {
             if boundary.is_some_and(|boundary| position > boundary) {
@@ -503,15 +396,8 @@ pub(super) fn history(
             }
             rows.push((position, item));
         }
-        let next_cursor = if more {
-            rows.last().map(|(position, _)| position.encode())
-        } else {
-            None
-        };
-        (
-            rows.into_iter().map(|(_, item)| item).collect(),
-            next_cursor,
-        )
+        let next_cursor = if more { rows.last().map(|(position, _)| position.encode()) } else { None };
+        (rows.into_iter().map(|(_, item)| item).collect(), next_cursor)
     };
     join_assets(source, registry, &mut items)?;
     Ok(json!({
@@ -532,24 +418,15 @@ fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
     registry_for(source, None)
 }
 
-fn registry_for(
-    source: Option<&Source<'_>>,
-    needed: Option<&BTreeMap<String, Value>>,
-) -> Result<Vec<Value>, Failure> {
+fn registry_for(source: Option<&Source<'_>>, needed: Option<&BTreeMap<String, Value>>) -> Result<Vec<Value>, Failure> {
     let source = source.ok_or(Failure::Unavailable("registry_unavailable"))?;
     let mut assets = Vec::new();
     let mut cursor = 0;
     // The catalogue API has no denom selector. Bound discovery to 3,200 records;
     // exhaustion is an explicit refusal, never incomplete fallback metadata.
     for _ in 0..32 {
-        let query = if cursor == 0 {
-            format!("limit={MAXIMUM_LIMIT}")
-        } else {
-            format!("limit={MAXIMUM_LIMIT}&cursor={cursor}")
-        };
-        let (status, body) = source
-            .get("/v1/assets", &query)
-            .map_err(Failure::Unavailable)?;
+        let query = if cursor == 0 { format!("limit={MAXIMUM_LIMIT}") } else { format!("limit={MAXIMUM_LIMIT}&cursor={cursor}") };
+        let (status, body) = source.get("/v1/assets", &query).map_err(Failure::Unavailable)?;
         match status {
             200 => {}
             429 => return Err(Failure::Unavailable("registry_rate_limited")),
@@ -558,27 +435,15 @@ fn registry_for(
         if body.get("version") != Some(&json!(1)) {
             return Err(Failure::Unavailable("invalid_indexer_response"));
         }
-        let rows = body
-            .get("items")
-            .and_then(Value::as_array)
-            .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
-        if rows.len() > MAXIMUM_LIMIT as usize {
+        let rows = body.get("items").and_then(Value::as_array).ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+        if u64::try_from(rows.len()).map_or(true, |count| count > MAXIMUM_LIMIT) {
             return Err(Failure::Unavailable("invalid_indexer_response"));
         }
         for row in rows {
-            if text(row, "asset").is_none()
-                || text(row, "kind").is_none()
-                || !row.get("metadata").is_some_and(Value::is_object)
-            {
+            if text(row, "asset").is_none() || text(row, "kind").is_none() || !row.get("metadata").is_some_and(Value::is_object) {
                 return Err(Failure::Unavailable("invalid_indexer_response"));
             }
-            if text(row, "kind") != Some("layerx")
-                || needed.is_some_and(|needed| {
-                    !needed
-                        .iter()
-                        .any(|(asset, record)| registry_matches(asset, record, row))
-                })
-            {
+            if text(row, "kind") != Some("layerx") || needed.is_some_and(|needed| !needed.iter().any(|(asset, record)| registry_matches(asset, record, row))) {
                 continue;
             }
             assets.push(json!({
@@ -589,13 +454,7 @@ fn registry_for(
             }));
         }
         // Validate the page envelope even when this page resolves every field.
-        if !matches!(body.get("next_cursor"), Some(Value::Null))
-            && !body
-                .get("next_cursor")
-                .and_then(Value::as_str)
-                .and_then(decimal)
-                .is_some_and(|next| next > cursor)
-        {
+        if !matches!(body.get("next_cursor"), Some(Value::Null)) && body.get("next_cursor").and_then(Value::as_str).and_then(decimal).is_none_or(|next| next <= cursor) {
             return Err(Failure::Unavailable("invalid_indexer_response"));
         }
         if needed.is_some_and(|needed| {
@@ -609,9 +468,7 @@ fn registry_for(
         match body.get("next_cursor") {
             Some(Value::Null) => return registry_result(Some(json!({"assets": assets}))),
             Some(Value::String(next)) => {
-                cursor = decimal(next)
-                    .filter(|next| *next > cursor)
-                    .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+                cursor = decimal(next).filter(|next| *next > cursor).ok_or(Failure::Unavailable("invalid_indexer_response"))?;
                 if rows.is_empty() {
                     return Err(Failure::Unavailable("invalid_indexer_response"));
                 }
@@ -624,40 +481,17 @@ fn registry_for(
 
 fn registry_result(result: Option<Value>) -> Result<Vec<Value>, Failure> {
     let result = result.ok_or(Failure::Unavailable("registry_unavailable"))?;
-    result
-        .get("assets")
-        .and_then(Value::as_array)
-        .cloned()
-        .ok_or(Failure::Unavailable("invalid_registry_response"))
+    result.get("assets").and_then(Value::as_array).cloned().ok_or(Failure::Unavailable("invalid_registry_response"))
 }
 
 fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> Value {
-    let source = config.indexer.as_ref().map(|indexer| Source {
-        indexer,
-        client: Some(&config.client),
-    });
-    served(
-        &config.read_windows,
-        &mut |request| super::paxeer::node(config, request),
-        source.as_ref(),
-        &|needed| registry_for(source.as_ref(), Some(needed)),
-        method,
-        id,
-        params,
-    )
+    let source = config.indexer.as_ref().map(|indexer| Source { indexer, client: Some(&config.client) });
+    served(&config.read_windows, &mut |request| super::paxeer::node(config, request), source.as_ref(), &|needed| registry_for(source.as_ref(), Some(needed)), method, id, params)
 }
 
 /// One history answer: the account resolved on Paxeer through `node`, its
 /// page read from `source`, and the envelope around it.
-fn served(
-    read_windows: &std::sync::Mutex<public_reads::ReadWindows>,
-    node: &mut super::paxeer::Node<'_>,
-    source: Option<&Source<'_>>,
-    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
-    method: &str,
-    id: &Value,
-    params: Option<&Value>,
-) -> Value {
+fn served(read_windows: &std::sync::Mutex<public_reads::ReadWindows>, node: &mut super::paxeer::Node<'_>, source: Option<&Source<'_>>, registry: &RegistryQuery<'_>, method: &str, id: &Value, params: Option<&Value>) -> Value {
     let (account, query) = match self::params(params) {
         Ok(selected) => selected,
         Err(code) => return super::rpc::error(id, code, "Invalid params"),
@@ -679,72 +513,38 @@ fn served(
         },
     };
     let Some(source) = source else {
-        return refusal(
-            id,
-            -32001,
-            "History unavailable",
-            json!({"code": "indexer_not_configured"}),
-        );
+        return refusal(id, -32001, "History unavailable", json!({"code": "indexer_not_configured"}));
     };
     if !public_reads::consume_read(read_windows) {
-        return refusal(
-            id,
-            -32005,
-            "Read unavailable",
-            json!({"code": "public_read_rate_limit"}),
-        );
+        return refusal(id, -32005, "Read unavailable", json!({"code": "public_read_rate_limit"}));
     }
     let unified = method == "px_getUnifiedHistory";
     let result = match history(source, registry, &accounts, &query, unified) {
         Ok(result) => result,
         Err(Failure::Refused(body)) => return refusal(id, -32602, "Invalid params", body),
-        Err(Failure::Unavailable(code)) => {
-            return refusal(id, -32001, "History unavailable", json!({"code": code}))
-        }
+        Err(Failure::Unavailable(code)) => return refusal(id, -32001, "History unavailable", json!({"code": code})),
     };
     let freshness = match source.get("/readyz", "") {
         Ok((200 | 503, body)) if readiness_status(&body).is_some() => body,
-        _ => {
-            return refusal(
-                id,
-                -32001,
-                "History unavailable",
-                json!({"code": "invalid_indexer_readiness"}),
-            )
-        }
+        _ => return refusal(id, -32001, "History unavailable", json!({"code": "invalid_indexer_readiness"})),
     };
     let chain_height = match super::paxeer::block_number(node) {
         Ok(height) => height,
         Err(code) => return refusal(id, -32001, "History unavailable", json!({"code": code})),
     };
-    let result = envelope(
-        result,
-        chain_height,
-        freshness,
-        document,
-        unified.then_some(&accounts[..]),
-    );
+    let result = envelope(result, chain_height, freshness, document, unified.then_some(&accounts[..]));
     json!({"jsonrpc": "2.0", "id": id, "result": result})
 }
 
 /// A history page with the chain height, indexer freshness and account
 /// document, plus the merged `accounts` of a unified page.
-fn envelope(
-    mut result: Value,
-    chain_height: u64,
-    freshness: Value,
-    document: Value,
-    accounts: Option<&[(&'static str, String)]>,
-) -> Value {
+fn envelope(mut result: Value, chain_height: u64, freshness: Value, document: Value, accounts: Option<&[(&'static str, String)]>) -> Value {
     if let Some(object) = result.as_object_mut() {
         object.insert("chainHeight".to_owned(), json!(chain_height));
         object.insert("freshness".to_owned(), freshness);
         object.insert("account".to_owned(), document);
         if let Some(accounts) = accounts {
-            let sides: Vec<Value> = accounts
-                .iter()
-                .map(|(side, account)| json!({"side": side, "account": account}))
-                .collect();
+            let sides: Vec<Value> = accounts.iter().map(|(side, account)| json!({"side": side, "account": account})).collect();
             object.insert("accounts".to_owned(), Value::Array(sides));
         }
     }
@@ -763,10 +563,7 @@ pub(super) fn holder_params(params: Option<&Value>) -> Result<(String, Query), i
         return Err(-32602);
     }
     let account = args[0].as_str().and_then(paxeer_key).ok_or(-32602)?;
-    let kind = args[1]
-        .as_str()
-        .filter(|kind| HOLDER_KINDS.contains(kind))
-        .ok_or(-32602)?;
+    let kind = args[1].as_str().filter(|kind| HOLDER_KINDS.contains(kind)).ok_or(-32602)?;
     let cursor = match args.get(2) {
         None | Some(Value::Null) => None,
         Some(Value::String(cursor)) if Position::parse(cursor).is_some() => Some(cursor.clone()),
@@ -774,36 +571,17 @@ pub(super) fn holder_params(params: Option<&Value>) -> Result<(String, Query), i
     };
     let limit = match args.get(3) {
         None | Some(Value::Null) => DEFAULT_LIMIT,
-        Some(Value::Number(limit)) => limit
-            .as_u64()
-            .filter(|limit| (1..=MAXIMUM_LIMIT).contains(limit))
-            .ok_or(-32602)?,
+        Some(Value::Number(limit)) => limit.as_u64().filter(|limit| (1..=MAXIMUM_LIMIT).contains(limit)).ok_or(-32602)?,
         Some(_) => return Err(-32602),
     };
-    Ok((
-        account,
-        Query {
-            cursor,
-            limit,
-            kind: Some(kind.to_owned()),
-        },
-    ))
+    Ok((account, Query { cursor, limit, kind: Some(kind.to_owned()) }))
 }
 
 /// One page of `account`'s holder records of `query.kind` from the indexer
 /// `/v1/holders/{address}` route: its rows, its position cursor and the
 /// indexed Paxeer height.
-pub(super) fn holder_records(
-    source: &Source<'_>,
-    account: &str,
-    query: &Query,
-) -> Result<Value, Failure> {
-    let (status, body) = source
-        .get(
-            &format!("/v1/holders/{}", encode(account)),
-            &query.encoded(),
-        )
-        .map_err(Failure::Unavailable)?;
+pub(super) fn holder_records(source: &Source<'_>, account: &str, query: &Query) -> Result<Value, Failure> {
+    let (status, body) = source.get(&format!("/v1/holders/{}", encode(account)), &query.encoded()).map_err(Failure::Unavailable)?;
     match status {
         200 => {}
         400 => return Err(Failure::Refused(body)),
@@ -826,13 +604,7 @@ pub(super) fn holder_records(
     let items = body
         .get("items")
         .and_then(Value::as_array)
-        .filter(|items| {
-            u64::try_from(items.len()).is_ok_and(|count| count <= query.limit)
-                && items.iter().all(|item| {
-                    text(item, "holder") == Some(account)
-                        && text(item, "kind") == query.kind.as_deref()
-                })
-        })
+        .filter(|items| u64::try_from(items.len()).is_ok_and(|count| count <= query.limit) && items.iter().all(|item| text(item, "holder") == Some(account) && text(item, "kind") == query.kind.as_deref()))
         .ok_or_else(invalid)?;
     Ok(json!({"items": items, "next_cursor": next_cursor, "indexedHeight": indexed_height}))
 }
@@ -843,31 +615,16 @@ fn answer_holders(config: &Config, id: &Value, params: Option<&Value>) -> Value 
         Err(code) => return super::rpc::error(id, code, "Invalid params"),
     };
     let Some(indexer) = &config.indexer else {
-        return refusal(
-            id,
-            -32001,
-            "History unavailable",
-            json!({"code": "indexer_not_configured"}),
-        );
+        return refusal(id, -32001, "History unavailable", json!({"code": "indexer_not_configured"}));
     };
     if !public_reads::consume_read(&config.read_windows) {
-        return refusal(
-            id,
-            -32005,
-            "Read unavailable",
-            json!({"code": "public_read_rate_limit"}),
-        );
+        return refusal(id, -32005, "Read unavailable", json!({"code": "public_read_rate_limit"}));
     }
-    let source = Source {
-        indexer,
-        client: Some(&config.client),
-    };
+    let source = Source { indexer, client: Some(&config.client) };
     let mut result = match holder_records(&source, &account, &query) {
         Ok(result) => result,
         Err(Failure::Refused(body)) => return refusal(id, -32602, "Invalid params", body),
-        Err(Failure::Unavailable(code)) => {
-            return refusal(id, -32001, "History unavailable", json!({"code": code}))
-        }
+        Err(Failure::Unavailable(code)) => return refusal(id, -32001, "History unavailable", json!({"code": code})),
     };
     match super::paxeer::block_number(&mut |request| super::paxeer::node(config, request)) {
         Ok(height) => result["chainHeight"] = json!(height),
@@ -878,12 +635,7 @@ fn answer_holders(config: &Config, id: &Value, params: Option<&Value>) -> Value 
 
 /// Answers the two history methods and `px_listHolderRecords`, or `None`
 /// for any other method.
-pub(super) fn dispatch(
-    config: &Config,
-    method: &str,
-    id: &Value,
-    params: Option<&Value>,
-) -> Option<Value> {
+pub(super) fn dispatch(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> Option<Value> {
     match method {
         "px_getHistory" | "px_getUnifiedHistory" => Some(answer(config, method, id, params)),
         "px_listHolderRecords" => Some(answer_holders(config, id, params)),
@@ -904,14 +656,7 @@ fn readiness_status(body: &Value) -> Option<&'static str> {
             return None;
         }
         names.push(name);
-        for field in [
-            "source_head",
-            "indexed_cursor",
-            "finalized_cursor",
-            "last_success_at",
-            "freshness_secs",
-            "last_error_at",
-        ] {
+        for field in ["source_head", "indexed_cursor", "finalized_cursor", "last_success_at", "freshness_secs", "last_error_at"] {
             let value = source.get(field)?;
             if !value.is_null() && value.as_u64().is_none() {
                 return None;
@@ -922,12 +667,7 @@ fn readiness_status(body: &Value) -> Option<&'static str> {
         let state = source.get("state")?.as_str()?;
         let source_rank = match state {
             "ready" => {
-                if !source.get("reconciled")?.as_bool()?
-                    || source.get("last_success_at")?.as_u64().is_none()
-                    || source.get("freshness_secs")?.as_u64().is_none()
-                    || source.get("consecutive_failures")?.as_u64()? != 0
-                    || source.get("source_head")? != source.get("indexed_cursor")?
-                {
+                if !source.get("reconciled")?.as_bool()? || source.get("last_success_at")?.as_u64().is_none() || source.get("freshness_secs")?.as_u64().is_none() || source.get("consecutive_failures")?.as_u64()? != 0 || source.get("source_head")? != source.get("indexed_cursor")? {
                     return None;
                 }
                 0
@@ -951,10 +691,7 @@ pub(super) fn status(config: &Config) -> &'static str {
     let Some(indexer) = &config.indexer else {
         return "not_configured";
     };
-    let source = Source {
-        indexer,
-        client: Some(&config.client),
-    };
+    let source = Source { indexer, client: Some(&config.client) };
     match source.get("/readyz", "") {
         Ok((200, body)) => readiness_status(&body).unwrap_or("unavailable"),
         Ok((503, body)) => match readiness_status(&body) {
@@ -985,23 +722,12 @@ mod tests {
     const BUDGET: &str = "0101010101010101010101010101010101010101010101010101010101010101";
 
     fn transaction_hash(kind: &str, position: u64, tx_index: u32) -> String {
-        format!(
-            "0x{}",
-            crate::hex(&Sha256::digest(format!("{kind}-{position}-{tx_index}")))
-        )
+        format!("0x{}", crate::hex(&Sha256::digest(format!("{kind}-{position}-{tx_index}"))))
     }
 
     /// One transfer leg of transaction `tx_index` at `position`: a native
     /// value row when `ordinal` is 0, else the log at index `ordinal - 1`.
-    fn leg(
-        (position, tx_index, ordinal): (u64, u32, u64),
-        kind: &str,
-        direction: &'static str,
-        account: &str,
-        counterparty: &str,
-        asset: &str,
-        amount: &str,
-    ) -> TransferRow {
+    fn leg((position, tx_index, ordinal): (u64, u32, u64), kind: &str, direction: &'static str, account: &str, counterparty: &str, asset: &str, amount: &str) -> TransferRow {
         TransferRow {
             height_or_seq: position,
             tx_index,
@@ -1017,13 +743,7 @@ mod tests {
         }
     }
 
-    fn asset(
-        asset: &str,
-        chain: &str,
-        kind: &str,
-        address: Option<&str>,
-        denom: Option<&str>,
-    ) -> AssetRow {
+    fn asset(asset: &str, chain: &str, kind: &str, address: Option<&str>, denom: Option<&str>) -> AssetRow {
         AssetRow {
             asset: asset.to_owned(),
             chain: chain.to_owned(),
@@ -1034,12 +754,7 @@ mod tests {
         }
     }
 
-    fn unit(
-        chain: &str,
-        position: u64,
-        transfers: Vec<TransferRow>,
-        assets: Vec<AssetRow>,
-    ) -> Unit {
+    fn unit(chain: &str, position: u64, transfers: Vec<TransferRow>, assets: Vec<AssetRow>) -> Unit {
         Unit {
             chain: chain.to_owned(),
             position,
@@ -1054,11 +769,7 @@ mod tests {
     }
 
     fn at(height: u64, tx_index: u32, log_index: u32) -> Position {
-        Position {
-            height,
-            tx_index,
-            log_index,
-        }
+        Position { height, tx_index, log_index }
     }
 
     /// A real indexer store and read API on a loopback port, filled with both
@@ -1080,10 +791,7 @@ mod tests {
             unit(
                 "layerx",
                 1,
-                vec![
-                    leg((1, 0, 0), "lxp_transfer", "out", ALICE, BOB, LXP, "5"),
-                    leg((1, 0, 0), "lxp_transfer", "in", BOB, ALICE, LXP, "5"),
-                ],
+                vec![leg((1, 0, 0), "lxp_transfer", "out", ALICE, BOB, LXP, "5"), leg((1, 0, 0), "lxp_transfer", "in", BOB, ALICE, LXP, "5")],
                 vec![AssetRow {
                     metadata: json!({"supply": "100"}),
                     ..asset(LXP, "layerx", "layerx", None, None)
@@ -1093,24 +801,8 @@ mod tests {
                 "paxeer",
                 10,
                 vec![
-                    leg(
-                        (10, 0, 0),
-                        "native_transfer",
-                        "out",
-                        EVE,
-                        FRANK,
-                        "evm:native",
-                        "1000000000000000000",
-                    ),
-                    leg(
-                        (10, 0, 0),
-                        "native_transfer",
-                        "in",
-                        FRANK,
-                        EVE,
-                        "evm:native",
-                        "1000000000000000000",
-                    ),
+                    leg((10, 0, 0), "native_transfer", "out", EVE, FRANK, "evm:native", "1000000000000000000"),
+                    leg((10, 0, 0), "native_transfer", "in", FRANK, EVE, "evm:native", "1000000000000000000"),
                 ],
                 vec![asset("evm:native", "paxeer", "native", None, None)],
             ),
@@ -1127,24 +819,8 @@ mod tests {
                 "paxeer",
                 11,
                 vec![
-                    leg(
-                        (11, 0, 1),
-                        "pointer_transfer",
-                        "in",
-                        EVE,
-                        FRANK,
-                        &format!("evm:{POINTER}"),
-                        "3",
-                    ),
-                    leg(
-                        (11, 0, 1),
-                        "pointer_transfer",
-                        "out",
-                        FRANK,
-                        EVE,
-                        &format!("evm:{POINTER}"),
-                        "3",
-                    ),
+                    leg((11, 0, 1), "pointer_transfer", "in", EVE, FRANK, &format!("evm:{POINTER}"), "3"),
+                    leg((11, 0, 1), "pointer_transfer", "out", FRANK, EVE, &format!("evm:{POINTER}"), "3"),
                     leg((11, 1, 0), "custody_deposit", "in", ALICE, EVE, LXP, "9"),
                 ],
                 Vec::new(),
@@ -1167,30 +843,14 @@ mod tests {
                     vec![
                         leg((12, 0, 0), "bank_transfer", "out", EVE, FRANK, TICKET, "2"),
                         leg((12, 0, 0), "bank_transfer", "in", FRANK, EVE, TICKET, "2"),
-                        leg(
-                            (12, 1, 1),
-                            "erc20_transfer",
-                            "in",
-                            EVE,
-                            FRANK,
-                            "evm:0x0000000000000000000000000000000000000abc",
-                            "4",
-                        ),
+                        leg((12, 1, 1), "erc20_transfer", "in", EVE, FRANK, "evm:0x0000000000000000000000000000000000000abc", "4"),
                     ],
-                    vec![asset(
-                        TICKET,
-                        "paxeer",
-                        "tokenfactory",
-                        None,
-                        Some("factory/pax1issuer/ticket"),
-                    )],
+                    vec![asset(TICKET, "paxeer", "tokenfactory", None, Some("factory/pax1issuer/ticket"))],
                 )
             },
         ];
         for unit in &units {
-            store
-                .commit(unit, 64)
-                .unwrap_or_else(|error| panic!("{error}"));
+            store.commit(unit, 64).unwrap_or_else(|error| panic!("{error}"));
         }
         serve(store)
     }
@@ -1198,18 +858,14 @@ mod tests {
     /// The indexer read API over `store` on a loopback port.
     fn serve(store: Store) -> Indexer {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-        let address = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"));
+        let address = listener.local_addr().unwrap_or_else(|error| panic!("{error}"));
         let store = Arc::new(store);
         std::thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
         Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn registry(_: &BTreeMap<String, Value>) -> Result<Vec<Value>, Failure> {
-        Ok(vec![
-            json!({"asset_id": LXP, "symbol": "LXP", "name": "LayerX Points", "decimals": 6, "denom": "ulxp"}),
-        ])
+    fn registry(_: &BTreeMap<String, Value>) -> Vec<Value> {
+        vec![json!({"asset_id": LXP, "symbol": "LXP", "name": "LayerX Points", "decimals": 6, "denom": "ulxp"})]
     }
 
     fn query(cursor: Option<&str>, limit: u64, kind: Option<&str>) -> Query {
@@ -1221,53 +877,21 @@ mod tests {
     }
 
     fn read(indexer: &Indexer, accounts: &[(&'static str, String)], query: &Query) -> Value {
-        history(
-            &Source {
-                indexer,
-                client: None,
-            },
-            &registry,
-            accounts,
-            query,
-            accounts.len() > 1,
-        )
-        .unwrap_or_else(|failure| panic!("{failure:?}"))
+        history(&Source { indexer, client: None }, &|map| Ok(registry(map)), accounts, query, accounts.len() > 1).unwrap_or_else(|failure| panic!("{failure:?}"))
     }
 
     fn items(page: &Value) -> &[Value] {
-        page["items"]
-            .as_array()
-            .map(Vec::as_slice)
-            .unwrap_or_else(|| panic!("no items in {page}"))
+        page["items"].as_array().map_or_else(|| panic!("no items in {page}"), Vec::as_slice)
     }
 
     fn ids(page: &Value) -> Vec<u64> {
-        items(page)
-            .iter()
-            .map(|item| {
-                item["id"]
-                    .as_str()
-                    .and_then(|id| id.parse().ok())
-                    .unwrap_or_else(|| panic!("row id in {item}"))
-            })
-            .collect()
+        items(page).iter().map(|item| item["id"].as_str().and_then(|id| id.parse().ok()).unwrap_or_else(|| panic!("row id in {item}"))).collect()
     }
 
     fn position(item: &Value) -> Position {
-        let field = |name: &str| {
-            item[name]
-                .as_str()
-                .and_then(|text| text.parse::<u64>().ok())
-                .unwrap_or_else(|| panic!("{name} in {item}"))
-        };
-        let index = |name: &str| {
-            u32::try_from(field(name)).unwrap_or_else(|error| panic!("{name}: {error}"))
-        };
-        at(
-            field("height_or_seq"),
-            index("tx_index"),
-            index("log_index"),
-        )
+        let field = |name: &str| item[name].as_str().and_then(|text| text.parse::<u64>().ok()).unwrap_or_else(|| panic!("{name} in {item}"));
+        let index = |name: &str| u32::try_from(field(name)).unwrap_or_else(|error| panic!("{name}: {error}"));
+        at(field("height_or_seq"), index("tx_index"), index("log_index"))
     }
 
     fn positions(page: &Value) -> Vec<Position> {
@@ -1275,26 +899,11 @@ mod tests {
     }
 
     fn raw(indexer: &Indexer, path: &str, query: &str) -> Value {
-        Source {
-            indexer,
-            client: None,
-        }
-        .get(path, query)
-        .unwrap_or_else(|code| panic!("{code}"))
-        .1
+        Source { indexer, client: None }.get(path, query).unwrap_or_else(|code| panic!("{code}")).1
     }
 
     fn refused_code(indexer: &Indexer, cursor: &str) -> Value {
-        match history(
-            &Source {
-                indexer,
-                client: None,
-            },
-            &registry,
-            &[("layerx", ALICE.to_owned())],
-            &query(Some(cursor), 10, None),
-            false,
-        ) {
+        match history(&Source { indexer, client: None }, &|map| Ok(registry(map)), &[("layerx", ALICE.to_owned())], &query(Some(cursor), 10, None), false) {
             Err(Failure::Refused(body)) => body["error"]["code"].clone(),
             other => panic!("cursor {cursor} answered {other:?}"),
         }
@@ -1309,10 +918,7 @@ mod tests {
         assert_eq!(positions(&first), vec![at(1, 0, 0), at(2, 0, 0)]);
         let upstream = raw(&indexer, &format!("/v1/history/{ALICE}"), "limit=2");
         assert_eq!(first["next_cursor"], upstream["next_cursor"]);
-        assert_eq!(
-            first["next_cursor"],
-            json!("00000000000000020000000000000000")
-        );
+        assert_eq!(first["next_cursor"], json!("00000000000000020000000000000000"));
         assert_eq!(upstream["indexedHeight"], json!(12));
         assert_eq!(upstream["chainHeight"], Value::Null);
         assert_eq!(upstream["freshness"]["version"], json!(1));
@@ -1325,13 +931,7 @@ mod tests {
             assert_eq!(item["tx_hash"], row["tx_id"]);
             let mut stripped = item.clone();
             if let Some(object) = stripped.as_object_mut() {
-                for field in [
-                    "asset_metadata",
-                    "blockHeight",
-                    "txIndex",
-                    "logIndex",
-                    "tx_hash",
-                ] {
+                for field in ["asset_metadata", "blockHeight", "txIndex", "logIndex", "tx_hash"] {
                     object.remove(field);
                 }
             }
@@ -1366,10 +966,7 @@ mod tests {
         let eve = [("paxeer", EVE.to_owned())];
         let page = read(&indexer, &eve, &query(None, 50, None));
         assert_eq!(ids(&page), vec![3, 6, 9, 11]);
-        assert_eq!(
-            positions(&page),
-            vec![at(10, 0, 0), at(11, 0, 0), at(12, 0, 0), at(12, 1, 0)]
-        );
+        assert_eq!(positions(&page), vec![at(10, 0, 0), at(11, 0, 0), at(12, 0, 0), at(12, 1, 0)]);
         assert_eq!(page["next_cursor"], Value::Null);
         let metadata = |index: usize| page["items"][index]["asset_metadata"].clone();
         let native = metadata(0);
@@ -1399,15 +996,8 @@ mod tests {
         assert_eq!(metadata(3), Value::Null);
         let paged = read(&indexer, &eve, &query(None, 3, None));
         assert_eq!(ids(&paged), vec![3, 6, 9]);
-        assert_eq!(
-            paged["next_cursor"],
-            json!("000000000000000c0000000000000000")
-        );
-        let rest = read(
-            &indexer,
-            &eve,
-            &query(Some("000000000000000c0000000000000000"), 3, None),
-        );
+        assert_eq!(paged["next_cursor"], json!("000000000000000c0000000000000000"));
+        let rest = read(&indexer, &eve, &query(Some("000000000000000c0000000000000000"), 3, None));
         assert_eq!(ids(&rest), vec![11]);
         assert_eq!(rest["next_cursor"], Value::Null);
     }
@@ -1423,10 +1013,7 @@ mod tests {
         assert_eq!(records[0]["record_id"], json!(BUDGET));
         assert_eq!(records[0]["holder"], json!(EVE));
         assert_eq!(records[0]["state"], json!("active"));
-        assert_eq!(
-            records[0]["opened"]["cursor"],
-            json!("000000000000000c0000000200000001")
-        );
+        assert_eq!(records[0]["opened"]["cursor"], json!("000000000000000c0000000200000001"));
         assert_eq!(budgets["next_cursor"], Value::Null);
         assert_eq!(budgets["indexedHeight"], json!(12));
         let grants = raw(&indexer, &format!("/v1/holders/{EVE}"), "kind=grant");
@@ -1442,25 +1029,11 @@ mod tests {
         let order = positions(&whole);
         assert!(order.windows(2).all(|pair| pair[0] < pair[1]), "{order:?}");
         assert_eq!(whole["next_cursor"], Value::Null);
-        let tags: Vec<&str> = items(&whole)
-            .iter()
-            .map(|item| item["side"].as_str().unwrap_or_default())
-            .collect();
-        assert_eq!(
-            tags,
-            vec!["layerx", "layerx", "paxeer", "paxeer", "layerx", "paxeer", "paxeer"]
-        );
-        let chains: Vec<&str> = items(&whole)
-            .iter()
-            .map(|item| item["chain"].as_str().unwrap_or_default())
-            .collect();
-        assert_eq!(
-            chains,
-            vec!["layerx", "layerx", "paxeer", "paxeer", "paxeer", "paxeer", "paxeer"]
-        );
-        assert!(items(&whole)
-            .iter()
-            .all(|item| item.get("asset_metadata").is_some()));
+        let tags: Vec<&str> = items(&whole).iter().map(|item| item["side"].as_str().unwrap_or_default()).collect();
+        assert_eq!(tags, vec!["layerx", "layerx", "paxeer", "paxeer", "layerx", "paxeer", "paxeer"]);
+        let chains: Vec<&str> = items(&whole).iter().map(|item| item["chain"].as_str().unwrap_or_default()).collect();
+        assert_eq!(chains, vec!["layerx", "layerx", "paxeer", "paxeer", "paxeer", "paxeer", "paxeer"]);
+        assert!(items(&whole).iter().all(|item| item.get("asset_metadata").is_some()));
         let mut walked = Vec::new();
         let mut cursor: Option<String> = None;
         loop {
@@ -1469,10 +1042,7 @@ mod tests {
             walked.extend(ids(&page));
             match page["next_cursor"].as_str() {
                 Some(next) => {
-                    assert_eq!(
-                        Some(next.to_owned()),
-                        positions(&page).last().map(Position::encode)
-                    );
+                    assert_eq!(Some(next.to_owned()), positions(&page).last().map(Position::encode));
                     cursor = Some(next.to_owned());
                 }
                 None => break,
@@ -1502,18 +1072,12 @@ mod tests {
     fn unified_history_keeps_native_before_first_log_on_a_shared_position() {
         let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
         let token = "evm:0x0000000000000000000000000000000000000abc";
-        let swap = |row: TransferRow| TransferRow {
-            tx_id: transaction_hash("swap", 20, 0),
-            ..row
-        };
+        let swap = |row: TransferRow| TransferRow { tx_id: transaction_hash("swap", 20, 0), ..row };
         let units = [
             unit(
                 "layerx",
                 1,
-                vec![
-                    leg((1, 0, 0), "lxp_transfer", "out", ALICE, BOB, LXP, "5"),
-                    leg((1, 0, 0), "lxp_transfer", "in", BOB, ALICE, LXP, "5"),
-                ],
+                vec![leg((1, 0, 0), "lxp_transfer", "out", ALICE, BOB, LXP, "5"), leg((1, 0, 0), "lxp_transfer", "in", BOB, ALICE, LXP, "5")],
                 vec![asset(LXP, "layerx", "layerx", None, None)],
             ),
             unit(
@@ -1529,24 +1093,8 @@ mod tests {
                 "paxeer",
                 19,
                 vec![
-                    leg(
-                        (19, 0, 0),
-                        "native_transfer",
-                        "out",
-                        EVE,
-                        FRANK,
-                        "evm:native",
-                        "1",
-                    ),
-                    leg(
-                        (19, 0, 0),
-                        "native_transfer",
-                        "in",
-                        FRANK,
-                        EVE,
-                        "evm:native",
-                        "1",
-                    ),
+                    leg((19, 0, 0), "native_transfer", "out", EVE, FRANK, "evm:native", "1"),
+                    leg((19, 0, 0), "native_transfer", "in", FRANK, EVE, "evm:native", "1"),
                     leg((19, 1, 1), "erc20_transfer", "out", FRANK, EVE, token, "4"),
                     leg((19, 1, 1), "erc20_transfer", "in", EVE, FRANK, token, "4"),
                     leg((19, 2, 0), "custody_deposit", "in", ALICE, EVE, LXP, "9"),
@@ -1557,50 +1105,16 @@ mod tests {
                 "paxeer",
                 20,
                 vec![
-                    swap(leg(
-                        (20, 0, 0),
-                        "native_transfer",
-                        "out",
-                        EVE,
-                        FRANK,
-                        "evm:native",
-                        "2",
-                    )),
-                    swap(leg(
-                        (20, 0, 0),
-                        "native_transfer",
-                        "in",
-                        FRANK,
-                        EVE,
-                        "evm:native",
-                        "2",
-                    )),
-                    swap(leg(
-                        (20, 0, 1),
-                        "erc20_transfer",
-                        "out",
-                        EVE,
-                        FRANK,
-                        token,
-                        "6",
-                    )),
-                    swap(leg(
-                        (20, 0, 1),
-                        "erc20_transfer",
-                        "in",
-                        FRANK,
-                        EVE,
-                        token,
-                        "6",
-                    )),
+                    swap(leg((20, 0, 0), "native_transfer", "out", EVE, FRANK, "evm:native", "2")),
+                    swap(leg((20, 0, 0), "native_transfer", "in", FRANK, EVE, "evm:native", "2")),
+                    swap(leg((20, 0, 1), "erc20_transfer", "out", EVE, FRANK, token, "6")),
+                    swap(leg((20, 0, 1), "erc20_transfer", "in", FRANK, EVE, token, "6")),
                 ],
                 Vec::new(),
             ),
         ];
         for unit in &units {
-            store
-                .commit(unit, 64)
-                .unwrap_or_else(|error| panic!("{error}"));
+            store.commit(unit, 64).unwrap_or_else(|error| panic!("{error}"));
         }
         let indexer = serve(store);
         let eve = [("paxeer", EVE.to_owned())];
@@ -1609,52 +1123,20 @@ mod tests {
 
         let history = read(&indexer, &eve, &query(None, 100, None));
         assert_eq!(ids(&history), vec![4, 7, 9, 11]);
-        assert_eq!(
-            positions(&history),
-            vec![at(19, 0, 0), at(19, 1, 0), shared, shared]
-        );
+        assert_eq!(positions(&history), vec![at(19, 0, 0), at(19, 1, 0), shared, shared]);
         let legs: Vec<(&str, &str, &str)> = items(&history)[2..]
             .iter()
-            .map(|item| {
-                (
-                    item["tx_id"].as_str().unwrap_or_default(),
-                    item["kind"].as_str().unwrap_or_default(),
-                    item["ordinal"].as_str().unwrap_or_default(),
-                )
-            })
+            .map(|item| (item["tx_id"].as_str().unwrap_or_default(), item["kind"].as_str().unwrap_or_default(), item["ordinal"].as_str().unwrap_or_default()))
             .collect();
         let swap_hash = transaction_hash("swap", 20, 0);
-        assert_eq!(
-            legs,
-            vec![
-                (swap_hash.as_str(), "native_transfer", "0"),
-                (swap_hash.as_str(), "erc20_transfer", "1")
-            ]
-        );
+        assert_eq!(legs, vec![(swap_hash.as_str(), "native_transfer", "0"), (swap_hash.as_str(), "erc20_transfer", "1")]);
         assert_eq!(history["next_cursor"], Value::Null);
 
         let unified = read(&indexer, &sides, &query(None, 100, None));
         assert_eq!(ids(&unified), vec![1, 3, 4, 7, 8, 9, 11]);
-        assert_eq!(
-            positions(&unified),
-            vec![
-                at(1, 0, 0),
-                at(2, 0, 0),
-                at(19, 0, 0),
-                at(19, 1, 0),
-                at(19, 2, 0),
-                shared,
-                shared
-            ]
-        );
-        let tags: Vec<&str> = items(&unified)
-            .iter()
-            .map(|item| item["side"].as_str().unwrap_or_default())
-            .collect();
-        assert_eq!(
-            tags,
-            vec!["layerx", "layerx", "paxeer", "paxeer", "layerx", "paxeer", "paxeer"]
-        );
+        assert_eq!(positions(&unified), vec![at(1, 0, 0), at(2, 0, 0), at(19, 0, 0), at(19, 1, 0), at(19, 2, 0), shared, shared]);
+        let tags: Vec<&str> = items(&unified).iter().map(|item| item["side"].as_str().unwrap_or_default()).collect();
+        assert_eq!(tags, vec!["layerx", "layerx", "paxeer", "paxeer", "layerx", "paxeer", "paxeer"]);
         assert_eq!(unified["next_cursor"], Value::Null);
 
         let before = at(19, 2, 0).encode();
@@ -1667,68 +1149,31 @@ mod tests {
         }
 
         assert_eq!(walk(&indexer, &eve, 2), vec![vec![4, 7], vec![9, 11]]);
-        assert_eq!(
-            walk(&indexer, &sides, 2),
-            vec![vec![1, 3], vec![4, 7], vec![8, 9, 11]]
-        );
-        assert_eq!(
-            walk(&indexer, &sides, 1),
-            vec![vec![1], vec![3], vec![4], vec![7], vec![8], vec![9, 11]]
-        );
+        assert_eq!(walk(&indexer, &sides, 2), vec![vec![1, 3], vec![4, 7], vec![8, 9, 11]]);
+        assert_eq!(walk(&indexer, &sides, 1), vec![vec![1], vec![3], vec![4], vec![7], vec![8], vec![9, 11]]);
     }
 
     #[test]
     fn unknown_account_history_is_an_empty_page() {
         let indexer = indexer();
-        for accounts in [
-            vec![("layerx", "cd".repeat(32))],
-            vec![("paxeer", format!("0x{}", "12".repeat(20)))],
-            vec![
-                ("paxeer", format!("0x{}", "12".repeat(20))),
-                ("layerx", "cd".repeat(32)),
-            ],
-        ] {
+        for accounts in [vec![("layerx", "cd".repeat(32))], vec![("paxeer", format!("0x{}", "12".repeat(20)))], vec![("paxeer", format!("0x{}", "12".repeat(20))), ("layerx", "cd".repeat(32))]] {
             let page = read(&indexer, &accounts, &query(None, 10, None));
-            assert_eq!(
-                page,
-                json!({"items": [], "next_cursor": null, "indexedHeight": 12})
-            );
+            assert_eq!(page, json!({"items": [], "next_cursor": null, "indexedHeight": 12}));
         }
     }
 
     #[test]
     fn history_refusals_keep_the_indexer_answer() {
         let indexer = indexer();
-        for cursor in [
-            "abc",
-            "5",
-            "000000000000000C0000000000000000",
-            "ab".repeat(56).as_str(),
-        ] {
-            assert_eq!(
-                refused_code(&indexer, cursor),
-                json!("invalid_cursor"),
-                "{cursor}"
-            );
+        for cursor in ["abc", "5", "000000000000000C0000000000000000", "ab".repeat(56).as_str()] {
+            assert_eq!(refused_code(&indexer, cursor), json!("invalid_cursor"), "{cursor}");
         }
         let closed = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-        let address = closed
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"));
+        let address = closed.local_addr().unwrap_or_else(|error| panic!("{error}"));
         drop(closed);
-        let gone =
-            Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
+        let gone = Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(
-            history(
-                &Source {
-                    indexer: &gone,
-                    client: None,
-                },
-                &registry,
-                &[("layerx", ALICE.to_owned())],
-                &query(None, 10, None),
-                false,
-            ),
+            history(&Source { indexer: &gone, client: None }, &|map| Ok(registry(map)), &[("layerx", ALICE.to_owned())], &query(None, 10, None), false,),
             Err(Failure::Unavailable("indexer_unreachable"))
         );
     }
@@ -1737,21 +1182,9 @@ mod tests {
     fn history_params_accounts_and_endpoints_are_exact() {
         let cursor = at(66, 3, 7).encode();
         assert_eq!(cursor, "00000000000000420000000300000007");
-        assert_eq!(
-            params(Some(&json!([ALICE]))),
-            Ok((ALICE.to_owned(), query(None, DEFAULT_LIMIT, None)))
-        );
-        assert_eq!(
-            params(Some(&json!([EVE, cursor, 7, "erc20_transfer"]))),
-            Ok((
-                EVE.to_owned(),
-                query(Some(&cursor), 7, Some("erc20_transfer"))
-            ))
-        );
-        assert_eq!(
-            params(Some(&json!([EVE, null, null, null]))),
-            Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, None)))
-        );
+        assert_eq!(params(Some(&json!([ALICE]))), Ok((ALICE.to_owned(), query(None, DEFAULT_LIMIT, None))));
+        assert_eq!(params(Some(&json!([EVE, cursor, 7, "erc20_transfer"]))), Ok((EVE.to_owned(), query(Some(&cursor), 7, Some("erc20_transfer")))));
+        assert_eq!(params(Some(&json!([EVE, null, null, null]))), Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, None))));
         for invalid in [
             json!([]),
             json!({}),
@@ -1776,37 +1209,18 @@ mod tests {
             assert_eq!(params(Some(&invalid)), Err(-32602), "{invalid}");
         }
         assert_eq!(params(None), Err(-32602));
-        assert_eq!(
-            query(Some(&cursor), 7, Some("erc20_transfer")).encoded(),
-            format!("limit=7&cursor={cursor}&kind=erc20_transfer")
-        );
+        assert_eq!(query(Some(&cursor), 7, Some("erc20_transfer")).encoded(), format!("limit=7&cursor={cursor}&kind=erc20_transfer"));
         assert_eq!(encode(TICKET), "denom%3Afactory%2Fpax1issuer%2Fticket");
-        assert_eq!(
-            paxeer_key(&EVE.to_ascii_uppercase().replacen("0X", "0x", 1)),
-            Some(EVE.to_owned())
-        );
+        assert_eq!(paxeer_key(&EVE.to_ascii_uppercase().replacen("0X", "0x", 1)), Some(EVE.to_owned()));
         assert_eq!(paxeer_key(&EVE[2..]), None);
         assert_eq!(paxeer_key(ALICE), None);
         assert!(matches!(
             Indexer::parse("http://127.0.0.1:8480/indexer/"),
             Ok(Indexer::Loopback { ref base_path, .. }) if base_path == "/indexer"
         ));
-        assert!(matches!(
-            Indexer::parse("http://[::1]:8480"),
-            Ok(Indexer::Loopback { .. })
-        ));
-        assert!(matches!(
-            Indexer::parse("https://indexer.internal:8480"),
-            Ok(Indexer::Tls(_))
-        ));
-        for refused in [
-            "http://10.0.0.8:8480",
-            "http://indexer.internal:8480",
-            "http://127.0.0.1",
-            "http://127.0.0.1:8480/?x",
-            "ftp://indexer.internal",
-            "https://10.0.0.8:8480",
-        ] {
+        assert!(matches!(Indexer::parse("http://[::1]:8480"), Ok(Indexer::Loopback { .. })));
+        assert!(matches!(Indexer::parse("https://indexer.internal:8480"), Ok(Indexer::Tls(_))));
+        for refused in ["http://10.0.0.8:8480", "http://indexer.internal:8480", "http://127.0.0.1", "http://127.0.0.1:8480/?x", "ftp://indexer.internal", "https://10.0.0.8:8480"] {
             assert!(Indexer::parse(refused).is_err(), "{refused}");
         }
     }
@@ -1816,21 +1230,13 @@ mod tests {
         let indexer = indexer();
         let eve = [("paxeer", EVE.to_owned())];
         let first = read(&indexer, &eve, &query(None, 2, None));
-        let cursor = first["next_cursor"]
-            .as_str()
-            .unwrap_or_else(|| panic!("next cursor in {first}"))
-            .to_owned();
+        let cursor = first["next_cursor"].as_str().unwrap_or_else(|| panic!("next cursor in {first}")).to_owned();
         assert_eq!(cursor, at(11, 0, 0).encode());
-        let (account, selected) = params(Some(&json!([EVE, cursor, 2])))
-            .unwrap_or_else(|code| panic!("position cursor refused: {code}"));
+        let (account, selected) = params(Some(&json!([EVE, cursor, 2]))).unwrap_or_else(|code| panic!("position cursor refused: {code}"));
         assert_eq!(selected.cursor.as_deref(), Some(cursor.as_str()));
         assert!(selected.encoded().contains(&format!("cursor={cursor}")));
         let next = read(&indexer, &[("paxeer", account)], &selected);
-        let upstream = raw(
-            &indexer,
-            &format!("/v1/history/{EVE}"),
-            &format!("limit=2&cursor={cursor}"),
-        );
+        let upstream = raw(&indexer, &format!("/v1/history/{EVE}"), &format!("limit=2&cursor={cursor}"));
         assert_eq!(ids(&next), vec![9, 11]);
         assert_eq!(next["next_cursor"], upstream["next_cursor"]);
         assert_eq!(next["indexedHeight"], upstream["indexedHeight"]);
@@ -1840,8 +1246,7 @@ mod tests {
                 (
                     item["blockHeight"].as_u64().unwrap_or_default(),
                     u32::try_from(item["txIndex"].as_u64().unwrap_or_default()).unwrap_or_default(),
-                    u32::try_from(item["logIndex"].as_u64().unwrap_or_default())
-                        .unwrap_or_default(),
+                    u32::try_from(item["logIndex"].as_u64().unwrap_or_default()).unwrap_or_default(),
                 )
             })
             .collect();
@@ -1854,34 +1259,19 @@ mod tests {
     #[test]
     fn history_dids_resolve_through_addr_before_the_indexer_read() {
         let did = format!("did:layerx:{ALICE}");
-        assert_eq!(
-            super::super::paxeer::history_selector(&did),
-            Ok(super::super::paxeer::Selector::Did([0xaa; 32]))
-        );
-        assert_eq!(
-            super::super::paxeer::history_selector(EVE),
-            Ok(super::super::paxeer::Selector::Evm([0xee; 20]))
-        );
+        assert_eq!(super::super::paxeer::history_selector(&did), Ok(super::super::paxeer::Selector::Did([0xaa; 32])));
+        assert_eq!(super::super::paxeer::history_selector(EVE), Ok(super::super::paxeer::Selector::Evm([0xee; 20])));
         for refused in [ALICE, "did:layerx:00", "nope", "did:layerx:", ""] {
-            assert_eq!(
-                super::super::paxeer::history_selector(refused),
-                Err(-32602),
-                "{refused}"
-            );
+            assert_eq!(super::super::paxeer::history_selector(refused), Err(-32602), "{refused}");
         }
         let mut bound = [0_u8; 32];
         bound[12..].copy_from_slice(&[0xee; 20]);
-        let address = super::super::paxeer::bound_address(&bound)
-            .unwrap_or_else(|code| panic!("bound DID refused: {code}"));
+        let address = super::super::paxeer::bound_address(&bound).unwrap_or_else(|code| panic!("bound DID refused: {code}"));
         let key = evm::address_hex(&address);
         assert_eq!(key, EVE);
         let indexer = indexer();
         let resolved = read(&indexer, &[("paxeer", key)], &query(None, 50, None));
-        let direct = read(
-            &indexer,
-            &[("paxeer", EVE.to_owned())],
-            &query(None, 50, None),
-        );
+        let direct = read(&indexer, &[("paxeer", EVE.to_owned())], &query(None, 50, None));
         assert_eq!(ids(&resolved), vec![3, 6, 9, 11]);
         assert_eq!(resolved, direct);
     }
@@ -1889,14 +1279,10 @@ mod tests {
     /// The `addr` binding of Eve: the DID of a fixed Ed25519 key and its
     /// canonical main account.
     fn binding() -> ([u8; 32], [u8; 32]) {
-        let did = ed25519_dalek::SigningKey::from_bytes(&[0x45; 32])
-            .verifying_key()
-            .to_bytes();
+        let did = ed25519_dalek::SigningKey::from_bytes(&[0x45; 32]).verifying_key().to_bytes();
         let name = format!("agent:did:layerx:{}:main", crate::hex(&did));
-        let account = layerx_types::account::AccountId::parse(&name)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-        let main = layerx_wire::hash::account_id_for_protocol(&account, 3)
-            .unwrap_or_else(|error| panic!("{error:?}"));
+        let account = layerx_types::account::AccountId::parse(&name).unwrap_or_else(|error| panic!("{error:?}"));
+        let main = layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap_or_else(|error| panic!("{error:?}"));
         (did, main)
     }
 
@@ -1904,7 +1290,7 @@ mod tests {
     /// `getUnifiedAccount(eve)` and `getEvmAddrByLayerX(did)` with Eve's
     /// [`binding`] and `pax1` address in the precompile's ABI layout, at head
     /// height 12.
-    fn chain(request: &Value) -> Result<Value, &'static str> {
+    fn chain(request: &Value) -> Value {
         let eve = [0xee_u8; 20];
         let (did, main) = binding();
         let mut padded = [0_u8; 32];
@@ -1921,23 +1307,11 @@ mod tests {
         let result = match request["method"].as_str() {
             Some("eth_blockNumber") => json!("0xc"),
             Some("eth_call") => {
-                assert_eq!(
-                    request["params"][0]["to"],
-                    json!(evm::address_hex(&evm::ADDR_PRECOMPILE))
-                );
+                assert_eq!(request["params"][0]["to"], json!(evm::address_hex(&evm::ADDR_PRECOMPILE)));
                 let data = request["params"][0]["data"].as_str().unwrap_or_default();
-                let answer = if data
-                    == calldata(evm::calldata_address(
-                        evm::SELECTOR_GET_UNIFIED_ACCOUNT,
-                        &eve,
-                    )) {
+                let answer = if data == calldata(evm::calldata_address(evm::SELECTOR_GET_UNIFIED_ACCOUNT, &eve)) {
                     unified
-                } else if data
-                    == calldata(evm::calldata_word(
-                        evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
-                        &did,
-                    ))
-                {
+                } else if data == calldata(evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, &did)) {
                     padded.to_vec()
                 } else {
                     panic!("unexpected addr call {request}")
@@ -1946,38 +1320,20 @@ mod tests {
             }
             other => panic!("unexpected Paxeer method {other:?}"),
         };
-        Ok(json!({"jsonrpc": "2.0", "id": request["id"], "result": result}))
+        json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
     }
 
     /// One history answer as the gateway serves it, resolving on [`chain`]
     /// and reading the loopback indexer store.
     fn answered(indexer: &Indexer, method: &str, params: &Value) -> Value {
-        served(
-            &Default::default(),
-            &mut chain,
-            Some(&Source {
-                indexer,
-                client: None,
-            }),
-            &registry,
-            method,
-            &json!(1),
-            Some(params),
-        )
+        served(&std::sync::Mutex::default(), &mut |request| Ok(chain(request)), Some(&Source { indexer, client: None }), &|map| Ok(registry(map)), method, &json!(1), Some(params))
     }
 
     fn history_config(indexer: Option<Indexer>, paxeer: Option<Vec<Endpoint>>) -> Config {
-        let ca = native_tls::Certificate::from_pem(include_bytes!(
-            "../../../../../consensus/rpc/jsonrpc/server/test.crt"
-        ))
-        .unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
+        let ca = native_tls::Certificate::from_pem(include_bytes!("../../../../../consensus/rpc/jsonrpc/server/test.crt")).unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
         Config {
-            wallet_caps: None,
-            routes: crate::routes::Registry::configured("layerx-testnet", "1")
-                .unwrap_or_else(|error| panic!("test routes must configure: {error}")),
-            listen: "127.0.0.1:0"
-                .parse()
-                .unwrap_or_else(|error| panic!("test address must parse: {error}")),
+            routes: crate::routes::Registry::configured("layerx-testnet", "1").unwrap_or_else(|error| panic!("test routes must configure: {error}")),
+            listen: "127.0.0.1:0".parse().unwrap_or_else(|error| panic!("test address must parse: {error}")),
             listener: crate::Listener::Plain,
             client: Client::without_identity(ca.clone()),
             client_identity: false,
@@ -1988,14 +1344,13 @@ mod tests {
             state_clock: crate::now,
             paxeer,
             capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
-            read_windows: Default::default(),
+            read_windows: std::sync::Mutex::default(),
             indexer,
             registration_token: None,
             trusted_proxies: Vec::new(),
             faucet: None,
             store: Arc::new(crate::RedisStore::new(
-                crate::RedisEndpoint::parse("rediss://localhost:6379")
-                    .unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}")),
+                crate::RedisEndpoint::parse("rediss://localhost:6379").unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}")),
                 ca,
                 zeroize::Zeroizing::new("gateway".to_owned()),
                 zeroize::Zeroizing::new(String::new()),
@@ -2005,39 +1360,23 @@ mod tests {
             wire_version: "1".to_owned(),
             protocol_version: 1,
             protocol_network_id: 1,
-            idempotency_seconds: 3600,
         }
     }
 
     #[test]
     fn unified_history_answer_reads_the_paxeer_node_over_http() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-        let address = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"));
+        let address = listener.local_addr().unwrap_or_else(|error| panic!("{error}"));
         let node = std::thread::spawn(move || {
             let mut requests = Vec::new();
-            for expected in [
-                "eth_chainId",
-                "eth_call",
-                "eth_chainId",
-                "eth_call",
-                "eth_chainId",
-                "eth_blockNumber",
-            ] {
+            for expected in ["eth_chainId", "eth_call", "eth_chainId", "eth_call", "eth_chainId", "eth_blockNumber"] {
                 let (mut stream, _) = listener.accept().unwrap_or_else(|error| panic!("{error}"));
-                stream
-                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .unwrap_or_else(|error| panic!("{error}"));
-                stream
-                    .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-                    .unwrap_or_else(|error| panic!("{error}"));
-                let request =
-                    http::read_request(&mut stream, 4096).unwrap_or_else(|error| panic!("{error}"));
+                stream.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap_or_else(|error| panic!("{error}"));
+                stream.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap_or_else(|error| panic!("{error}"));
+                let request = http::read_request(&mut stream, 4096).unwrap_or_else(|error| panic!("{error}"));
                 assert_eq!(request.method, "POST");
                 assert_eq!(request.path, "/rpc");
-                let request: Value =
-                    serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
+                let request: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
                 assert_eq!(request["jsonrpc"], "2.0");
                 assert_eq!(request["method"], expected);
                 let response = if expected == "eth_chainId" {
@@ -2045,7 +1384,7 @@ mod tests {
                     assert_eq!(request["params"], json!([]));
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": "0x7d"})
                 } else {
-                    chain(&request).unwrap_or_else(|code| panic!("{code}"))
+                    chain(&request)
                 };
                 http::write_response(
                     &mut stream,
@@ -2053,8 +1392,7 @@ mod tests {
                         status: 200,
                         content_type: "application/json".to_owned(),
                         headers: Vec::new(),
-                        body: serde_json::to_vec(&response)
-                            .unwrap_or_else(|error| panic!("{error}")),
+                        body: serde_json::to_vec(&response).unwrap_or_else(|error| panic!("{error}")),
                         retry_after: None,
                     },
                 )
@@ -2067,12 +1405,7 @@ mod tests {
         endpoint.base_path = "/rpc".to_owned();
         let config = history_config(Some(indexer()), Some(vec![endpoint]));
         let id = json!("http-history");
-        let response = answer(
-            &config,
-            "px_getUnifiedHistory",
-            &id,
-            Some(&json!([EVE, null, 100, null])),
-        );
+        let response = answer(&config, "px_getUnifiedHistory", &id, Some(&json!([EVE, null, 100, null])));
         assert!(response.get("error").is_none(), "{response}");
         assert_eq!(response["jsonrpc"], "2.0");
         assert_eq!(response["id"], id);
@@ -2088,55 +1421,23 @@ mod tests {
                 "bound": true
             })
         );
-        assert_eq!(
-            response["result"]["accounts"],
-            json!([{"side": "paxeer", "account": EVE}])
-        );
+        assert_eq!(response["result"]["accounts"], json!([{"side": "paxeer", "account": EVE}]));
         assert_eq!(response["result"]["chainHeight"], 12);
         let requests = node.join().unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(requests.len(), 6);
-        assert_eq!(
-            requests[1]["params"][0]["data"],
-            format!(
-                "0x{}",
-                crate::hex(&evm::calldata_address(
-                    evm::SELECTOR_GET_UNIFIED_ACCOUNT,
-                    &[0xee; 20],
-                ))
-            )
-        );
-        assert_eq!(
-            requests[3]["params"][0]["data"],
-            format!(
-                "0x{}",
-                crate::hex(&evm::calldata_word(
-                    evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
-                    &did,
-                ))
-            )
-        );
+        assert_eq!(requests[1]["params"][0]["data"], format!("0x{}", crate::hex(&evm::calldata_address(evm::SELECTOR_GET_UNIFIED_ACCOUNT, &[0xee; 20],))));
+        assert_eq!(requests[3]["params"][0]["data"], format!("0x{}", crate::hex(&evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, &did,))));
     }
 
     #[test]
     fn unified_history_with_a_did_selector_resolves_through_addr() {
         let indexer = indexer();
         let (did, main) = binding();
-        let response = answered(
-            &indexer,
-            "px_getUnifiedHistory",
-            &json!([format!("did:layerx:{}", crate::hex(&did)), null, 100, null]),
-        );
-        let evm = answered(
-            &indexer,
-            "px_getUnifiedHistory",
-            &json!([EVE, null, 100, null]),
-        );
+        let response = answered(&indexer, "px_getUnifiedHistory", &json!([format!("did:layerx:{}", crate::hex(&did)), null, 100, null]));
+        let evm = answered(&indexer, "px_getUnifiedHistory", &json!([EVE, null, 100, null]));
         assert!(response.get("error").is_none(), "{response}");
         assert_eq!(ids(&response["result"]), vec![3, 6, 9, 11]);
-        assert_eq!(
-            response["result"]["accounts"],
-            json!([{"side": "paxeer", "account": EVE}])
-        );
+        assert_eq!(response["result"]["accounts"], json!([{"side": "paxeer", "account": EVE}]));
         assert_eq!(
             response["result"]["account"],
             json!({
@@ -2154,12 +1455,7 @@ mod tests {
     fn unified_history_without_paxeer_config_answers_unconfigured() {
         let config = history_config(Some(indexer()), None);
         let id = json!("unconfigured-history");
-        let response = answer(
-            &config,
-            "px_getUnifiedHistory",
-            &id,
-            Some(&json!([EVE, null, 100, null])),
-        );
+        let response = answer(&config, "px_getUnifiedHistory", &id, Some(&json!([EVE, null, 100, null])));
         assert_eq!(response, crate::paxeer::unconfigured(&id));
         assert_eq!(
             response,
@@ -2192,51 +1488,23 @@ mod tests {
                 "asset_id": id, "denom": denom, "symbol": symbol, "decimals": 6,
             }));
         }
-        rows.push(asset(
-            &format!("evm:{POINTER}"),
-            "paxeer",
-            "pointer",
-            Some(POINTER),
-            Some("uasset0"),
-        ));
-        store
-            .register_assets(&rows)
-            .unwrap_or_else(|error| panic!("{error}"));
+        rows.push(asset(&format!("evm:{POINTER}"), "paxeer", "pointer", Some(POINTER), Some("uasset0")));
+        store.register_assets(&rows).unwrap_or_else(|error| panic!("{error}"));
         let indexer = serve(store);
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
-        let registered =
-            super::registry(Some(&source)).unwrap_or_else(|failure| panic!("{failure:?}"));
+        let source = Source { indexer: &indexer, client: None };
+        let registered = super::registry(Some(&source)).unwrap_or_else(|failure| panic!("{failure:?}"));
         assert_eq!(registered, expected);
         let pointer = raw(&indexer, &format!("/v1/assets/evm%3A{POINTER}"), "");
         let joined = asset_metadata(&format!("evm:{POINTER}"), &pointer["asset"], &registered);
         assert_eq!(joined["symbol"], json!("ASSET0"));
         assert_eq!(joined["decimals"], json!(6));
         assert_eq!(joined["native_id"], json!(format!("{:064x}", 0)));
-        assert_eq!(
-            super::registry(None),
-            Err(Failure::Unavailable("registry_unavailable"))
-        );
-        let Indexer::Loopback {
-            address, authority, ..
-        } = indexer
-        else {
+        assert_eq!(super::registry(None), Err(Failure::Unavailable("registry_unavailable")));
+        let Indexer::Loopback { address, authority, .. } = indexer else {
             panic!("expected loopback indexer");
         };
-        let missing = Indexer::Loopback {
-            address,
-            authority,
-            base_path: "/missing".to_owned(),
-        };
-        assert_eq!(
-            super::registry(Some(&Source {
-                indexer: &missing,
-                client: None
-            })),
-            Err(Failure::Unavailable("registry_unavailable"))
-        );
+        let missing = Indexer::Loopback { address, authority, base_path: "/missing".to_owned() };
+        assert_eq!(super::registry(Some(&Source { indexer: &missing, client: None })), Err(Failure::Unavailable("registry_unavailable")));
     }
 
     #[test]
@@ -2247,57 +1515,22 @@ mod tests {
                 &unit(
                     "paxeer",
                     10,
-                    vec![
-                        leg(
-                            (10, 0, 0),
-                            "native_transfer",
-                            "out",
-                            EVE,
-                            FRANK,
-                            "evm:native",
-                            "1",
-                        ),
-                        leg(
-                            (10, 1, 1),
-                            "erc20_transfer",
-                            "in",
-                            EVE,
-                            FRANK,
-                            &format!("evm:{POINTER}"),
-                            "2",
-                        ),
-                    ],
+                    vec![leg((10, 0, 0), "native_transfer", "out", EVE, FRANK, "evm:native", "1"), leg((10, 1, 1), "erc20_transfer", "in", EVE, FRANK, &format!("evm:{POINTER}"), "2")],
                     Vec::new(),
                 ),
                 64,
             )
             .unwrap_or_else(|error| panic!("{error}"));
         let indexer = serve(store);
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
+        let source = Source { indexer: &indexer, client: None };
         let reads = std::cell::Cell::new(0);
         let unavailable = |_: &BTreeMap<String, Value>| {
             reads.set(reads.get() + 1);
             Err(Failure::Unavailable("registry_unavailable"))
         };
         for method in ["px_getHistory", "px_getUnifiedHistory"] {
-            for (kind, expected) in [
-                (Value::Null, vec![1, 2]),
-                (json!("native_transfer"), vec![1]),
-                (json!("erc20_transfer"), vec![2]),
-                (json!("lxp_transfer"), vec![]),
-            ] {
-                let answer = served(
-                    &Default::default(),
-                    &mut chain,
-                    Some(&source),
-                    &unavailable,
-                    method,
-                    &json!(7),
-                    Some(&json!([EVE, null, 100, kind])),
-                );
+            for (kind, expected) in [(Value::Null, vec![1, 2]), (json!("native_transfer"), vec![1]), (json!("erc20_transfer"), vec![2]), (json!("lxp_transfer"), vec![])] {
+                let answer = served(&std::sync::Mutex::default(), &mut |request| Ok(chain(request)), Some(&source), &unavailable, method, &json!(7), Some(&json!([EVE, null, 100, kind])));
                 assert!(answer.get("error").is_none(), "{method} {answer}");
                 assert_eq!(ids(&answer["result"]), expected, "{method} {answer}");
                 for item in items(&answer["result"]) {
@@ -2305,10 +1538,7 @@ mod tests {
                 }
             }
         }
-        let mut rows = [
-            json!({"kind": "native_transfer", "asset": null}),
-            json!({"kind": "native_transfer"}),
-        ];
+        let mut rows = [json!({"kind": "native_transfer", "asset": null}), json!({"kind": "native_transfer"})];
         assert_eq!(join_assets(&source, &unavailable, &mut rows), Ok(()));
         for row in rows {
             assert_eq!(row.get("asset_metadata"), Some(&Value::Null));
@@ -2325,26 +1555,7 @@ mod tests {
                 &unit(
                     "paxeer",
                     10,
-                    vec![
-                        leg(
-                            (10, 0, 0),
-                            "native_transfer",
-                            "out",
-                            EVE,
-                            FRANK,
-                            "evm:native",
-                            "1",
-                        ),
-                        leg(
-                            (10, 1, 1),
-                            "erc20_transfer",
-                            "in",
-                            EVE,
-                            FRANK,
-                            &complete,
-                            "2",
-                        ),
-                    ],
+                    vec![leg((10, 0, 0), "native_transfer", "out", EVE, FRANK, "evm:native", "1"), leg((10, 1, 1), "erc20_transfer", "in", EVE, FRANK, &complete, "2")],
                     vec![
                         asset("evm:native", "paxeer", "native", None, None),
                         AssetRow {
@@ -2357,25 +1568,14 @@ mod tests {
             )
             .unwrap_or_else(|e| panic!("{e}"));
         let indexer = serve(store);
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
+        let source = Source { indexer: &indexer, client: None };
         let reads = std::cell::Cell::new(0);
         let unavailable = |_: &BTreeMap<String, Value>| {
             reads.set(reads.get() + 1);
             Err(Failure::Unavailable("registry_unavailable"))
         };
         for method in ["px_getHistory", "px_getUnifiedHistory"] {
-            let answer = served(
-                &Default::default(),
-                &mut chain,
-                Some(&source),
-                &unavailable,
-                method,
-                &json!(7),
-                Some(&json!([EVE, null, 100])),
-            );
+            let answer = served(&std::sync::Mutex::default(), &mut |request| Ok(chain(request)), Some(&source), &unavailable, method, &json!(7), Some(&json!([EVE, null, 100])));
             assert!(answer.get("error").is_none(), "{answer}");
             assert_eq!(ids(&answer["result"]), vec![1, 2]);
             let rows = items(&answer["result"]);
@@ -2393,51 +1593,24 @@ mod tests {
     #[test]
     fn history_registry_passes_through_refusal_codes() {
         let closed = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-        let address = closed
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"));
+        let address = closed.local_addr().unwrap_or_else(|error| panic!("{error}"));
         drop(closed);
-        let gone =
-            Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
-        let unavailable = Source {
-            indexer: &gone,
-            client: None,
-        };
-        assert_eq!(
-            super::registry(Some(&unavailable)),
-            Err(Failure::Unavailable("indexer_unreachable"))
-        );
+        let gone = Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
+        let unavailable = Source { indexer: &gone, client: None };
+        assert_eq!(super::registry(Some(&unavailable)), Err(Failure::Unavailable("indexer_unreachable")));
         let indexer = indexer();
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
+        let source = Source { indexer: &indexer, client: None };
         for method in ["px_getHistory", "px_getUnifiedHistory"] {
-            let answer = served(
-                &Default::default(),
-                &mut chain,
-                Some(&source),
-                &|_| super::registry(Some(&unavailable)),
-                method,
-                &json!(7),
-                Some(&json!([EVE, null, 100])),
-            );
+            let answer = served(&std::sync::Mutex::default(), &mut |request| Ok(chain(request)), Some(&source), &|_| super::registry(Some(&unavailable)), method, &json!(7), Some(&json!([EVE, null, 100])));
             assert_eq!(answer["error"]["code"], json!(-32001), "{method} {answer}");
-            assert_eq!(
-                answer["error"]["data"]["code"],
-                json!("indexer_unreachable"),
-                "{method} {answer}"
-            );
+            assert_eq!(answer["error"]["data"]["code"], json!("indexer_unreachable"), "{method} {answer}");
         }
     }
 
     #[test]
     fn history_registry_read_failures_refuse_both_rpc_methods() {
         let indexer = indexer();
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
+        let source = Source { indexer: &indexer, client: None };
         for (result, code) in [
             (None, "registry_unavailable"),
             (Some(json!({})), "invalid_registry_response"),
@@ -2445,15 +1618,7 @@ mod tests {
             (Some(json!({"assets": {}})), "invalid_registry_response"),
         ] {
             for method in ["px_getHistory", "px_getUnifiedHistory"] {
-                let answer = served(
-                    &Default::default(),
-                    &mut chain,
-                    Some(&source),
-                    &|_| registry_result(result.clone()),
-                    method,
-                    &json!(7),
-                    Some(&json!([EVE, null, 100])),
-                );
+                let answer = served(&std::sync::Mutex::default(), &mut |request| Ok(chain(request)), Some(&source), &|_| registry_result(result.clone()), method, &json!(7), Some(&json!([EVE, null, 100])));
                 assert_eq!(
                     answer,
                     json!({
@@ -2487,12 +1652,7 @@ mod tests {
                 let hash = row["tx_hash"].as_str().unwrap_or_else(|| panic!("{row}"));
                 assert_eq!(hash.len(), 66, "{row}");
                 assert!(hash.starts_with("0x"), "{row}");
-                assert!(
-                    hash[2..]
-                        .bytes()
-                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
-                    "{row}"
-                );
+                assert!(hash[2..].bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)), "{row}");
                 if method == "px_getUnifiedHistory" {
                     assert_eq!(row["side"], json!("paxeer"), "{row}");
                 }
@@ -2513,10 +1673,7 @@ mod tests {
         for item in items(&unified["result"]) {
             assert_eq!(item["side"], json!("paxeer"), "{item}");
         }
-        for (plain, unified) in items(&plain["result"])
-            .iter()
-            .zip(items(&unified["result"]))
-        {
+        for (plain, unified) in items(&plain["result"]).iter().zip(items(&unified["result"])) {
             assert!(plain.get("side").is_none(), "{plain}");
             let mut untagged = unified.clone();
             if let Some(row) = untagged.as_object_mut() {
@@ -2524,10 +1681,7 @@ mod tests {
             }
             assert_eq!(*plain, untagged);
         }
-        assert_eq!(
-            unified["result"]["accounts"],
-            json!([{"side": "paxeer", "account": EVE}])
-        );
+        assert_eq!(unified["result"]["accounts"], json!([{"side": "paxeer", "account": EVE}]));
         assert!(plain["result"].get("accounts").is_none(), "{plain}");
     }
 
@@ -2541,11 +1695,7 @@ mod tests {
     #[test]
     fn unified_history_answer_matches_the_web_fixture() {
         let indexer = indexer();
-        let answer = answered(
-            &indexer,
-            "px_getUnifiedHistory",
-            &json!([EVE, null, 25, null]),
-        );
+        let answer = answered(&indexer, "px_getUnifiedHistory", &json!([EVE, null, 25, null]));
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(ids(&answer["result"]), vec![3, 6, 9, 11], "{answer}");
         let (did, main) = binding();
@@ -2562,37 +1712,23 @@ mod tests {
         assert_eq!(answer["result"]["chainHeight"], json!(12));
         assert!(readiness_status(&answer["result"]["freshness"]).is_some());
         assert_eq!(answer["result"]["freshness"]["sources"], json!([]));
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../../apps/web/e2e/fixtures/px-get-unified-history.json");
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../apps/web/e2e/fixtures/px-get-unified-history.json");
         if std::env::var_os("RECORD_UNIFIED_HISTORY_FIXTURE").is_some() {
-            let text =
-                serde_json::to_string_pretty(&answer).unwrap_or_else(|error| panic!("{error}"));
+            let text = serde_json::to_string_pretty(&answer).unwrap_or_else(|error| panic!("{error}"));
             std::fs::write(&fixture, text + "\n").unwrap_or_else(|error| panic!("{error}"));
         }
-        let recorded: Value = serde_json::from_str(
-            &std::fs::read_to_string(&fixture).unwrap_or_else(|error| panic!("{error}")),
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(&fixture).unwrap_or_else(|error| panic!("{error}"))).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(recorded, answer);
     }
 
     #[test]
     fn history_unbound_did_is_invalid_params_and_lx_get_history_is_not_found() {
-        assert_eq!(
-            super::super::paxeer::bound_address(&[0_u8; 32]),
-            Err(super::super::paxeer::UNBOUND_DID)
-        );
+        assert_eq!(super::super::paxeer::bound_address(&[0_u8; 32]), Err(super::super::paxeer::UNBOUND_DID));
         let id = json!(4);
         let unbound = super::super::paxeer::history_refusal(&id, super::super::paxeer::UNBOUND_DID);
         assert_eq!(unbound["error"]["code"], json!(-32602));
-        assert_eq!(
-            unbound["error"]["data"]["code"],
-            json!("identity_binding_unavailable")
-        );
-        assert_eq!(
-            super::super::paxeer::history_refusal(&id, "paxeer_unreachable")["error"]["code"],
-            json!(-32001)
-        );
+        assert_eq!(unbound["error"]["data"]["code"], json!("identity_binding_unavailable"));
+        assert_eq!(super::super::paxeer::history_refusal(&id, "paxeer_unreachable")["error"]["code"], json!(-32001));
         let config = history_config(None, None);
         let request = crate::IncomingRequest {
             method: "POST".into(),
@@ -2601,11 +1737,7 @@ mod tests {
             body: Vec::new(),
         };
         assert_eq!(
-            super::super::rpc::dispatch(
-                &config,
-                &request,
-                &json!({"jsonrpc": "2.0", "id": id, "method": "lx_getHistory", "params": [ALICE]})
-            ),
+            super::super::rpc::dispatch(&config, &request, &json!({"jsonrpc": "2.0", "id": id, "method": "lx_getHistory", "params": [ALICE]})),
             Some(super::super::rpc::error(&id, -32601, "Method not found"))
         );
     }
@@ -2615,17 +1747,9 @@ mod tests {
             position: at(height, 0, 0),
             holder: holder.to_owned(),
             kind,
-            contract: if kind == "budget" {
-                "layerxpay"
-            } else {
-                "ledger"
-            },
+            contract: if kind == "budget" { "layerxpay" } else { "ledger" },
             record_id: record.to_owned(),
-            event: if kind == "budget" {
-                "BudgetCreated"
-            } else {
-                "PayerGrantIssued"
-            },
+            event: if kind == "budget" { "BudgetCreated" } else { "PayerGrantIssued" },
             state: "active",
             tx_id: transaction_hash(kind, height, 0),
             decoded: json!({}),
@@ -2654,26 +1778,14 @@ mod tests {
                 holders: rows,
                 ..unit("paxeer", height, Vec::new(), Vec::new())
             };
-            store
-                .commit(&unit, 64)
-                .unwrap_or_else(|error| panic!("{error}"));
+            store.commit(&unit, 64).unwrap_or_else(|error| panic!("{error}"));
         }
         let indexer = serve(store);
-        let source = Source {
-            indexer: &indexer,
-            client: None,
-        };
-        let records = |cursor: Option<&str>, limit: u64, kind: &str| {
-            holder_records(&source, EVE, &query(cursor, limit, Some(kind)))
-                .unwrap_or_else(|failure| panic!("{failure:?}"))
-        };
+        let source = Source { indexer: &indexer, client: None };
+        let records = |cursor: Option<&str>, limit: u64, kind: &str| holder_records(&source, EVE, &query(cursor, limit, Some(kind))).unwrap_or_else(|failure| panic!("{failure:?}"));
 
         let first = records(None, 2, "grant");
-        let upstream = raw(
-            &indexer,
-            &format!("/v1/holders/{EVE}"),
-            "limit=2&kind=grant",
-        );
+        let upstream = raw(&indexer, &format!("/v1/holders/{EVE}"), "limit=2&kind=grant");
         assert_eq!(first["items"], upstream["items"]);
         assert_eq!(first["next_cursor"], json!(at(7, 0, 0).encode()));
         assert_eq!(first["indexedHeight"], json!(8));
@@ -2702,37 +1814,16 @@ mod tests {
         assert_eq!(budgets["next_cursor"], Value::Null);
 
         let stranger = format!("0x{}", "12".repeat(20));
-        assert_eq!(
-            holder_records(&source, &stranger, &query(None, 10, Some("grant"))),
-            Ok(json!({"items": [], "next_cursor": null, "indexedHeight": 8}))
-        );
-        assert_eq!(
-            holder_records(&source, FRANK, &query(None, 10, Some("grant")))
-                .map(|page| items(&page).len()),
-            Ok(1)
-        );
+        assert_eq!(holder_records(&source, &stranger, &query(None, 10, Some("grant"))), Ok(json!({"items": [], "next_cursor": null, "indexedHeight": 8})));
+        assert_eq!(holder_records(&source, FRANK, &query(None, 10, Some("grant"))).map(|page| items(&page).len()), Ok(1));
     }
 
     #[test]
     fn px_list_holder_records_params_are_exact() {
         let cursor = at(66, 3, 7).encode();
-        assert_eq!(
-            holder_params(Some(&json!([EVE, "grant"]))),
-            Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, Some("grant"))))
-        );
-        assert_eq!(
-            holder_params(Some(&json!([
-                EVE.to_ascii_uppercase().replacen("0X", "0x", 1),
-                "budget",
-                cursor,
-                7
-            ]))),
-            Ok((EVE.to_owned(), query(Some(&cursor), 7, Some("budget"))))
-        );
-        assert_eq!(
-            holder_params(Some(&json!([EVE, "grant", null, null]))),
-            Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, Some("grant"))))
-        );
+        assert_eq!(holder_params(Some(&json!([EVE, "grant"]))), Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, Some("grant")))));
+        assert_eq!(holder_params(Some(&json!([EVE.to_ascii_uppercase().replacen("0X", "0x", 1), "budget", cursor, 7]))), Ok((EVE.to_owned(), query(Some(&cursor), 7, Some("budget")))));
+        assert_eq!(holder_params(Some(&json!([EVE, "grant", null, null]))), Ok((EVE.to_owned(), query(None, DEFAULT_LIMIT, Some("grant")))));
         for invalid in [
             json!([EVE]),
             json!([EVE, null]),

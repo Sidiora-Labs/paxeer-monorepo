@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/internaltest"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,10 +37,25 @@ const canonicalExplorerSchema = `
 CREATE TABLE public.blocks(number bigint,hash bytea,parent_hash bytea,timestamp timestamptz,consensus boolean);
 CREATE TABLE public.transactions(hash bytea,block_hash bytea,"index" bigint,from_address_hash bytea);
 CREATE TABLE public.logs(address_hash bytea,first_topic bytea,second_topic bytea,third_topic bytea,fourth_topic bytea,data bytea,transaction_hash bytea,block_hash bytea,block_number bigint,"index" bigint,transaction_index bigint);
-CREATE ROLE explorer_reader LOGIN PASSWORD 'owned-fixture-reader' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT USAGE ON SCHEMA public TO explorer_reader;
-GRANT SELECT ON public.blocks,public.transactions,public.logs TO explorer_reader;
+CREATE INDEX ON public.blocks(number);
+CREATE INDEX ON public.blocks(hash);
+CREATE INDEX ON public.transactions(block_hash,"index");
+CREATE INDEX ON public.logs(address_hash,block_number,transaction_index,"index");
+CREATE ROLE %s LOGIN PASSWORD 'owned-fixture-reader' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT USAGE ON SCHEMA public TO %s;
+GRANT SELECT ON public.blocks,public.transactions,public.logs TO %s;
 `
+
+func historicalHTTPClient(t *testing.T) *http.Client {
+	t.Helper()
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = cap(processPermits)
+	transport.MaxIdleConnsPerHost = cap(processPermits)
+	transport.MaxConnsPerHost = cap(processPermits)
+	client := &http.Client{Transport: transport, Timeout: 15 * time.Second}
+	t.Cleanup(client.CloseIdleConnections)
+	return client
+}
 
 func genuineHistoricalNode(t *testing.T) (context.Context, *ethclient.Client, string) {
 	t.Helper()
@@ -144,9 +160,14 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	gas, err := client.EstimateGas(ctx, ethereum.CallMsg{From: sender, To: &token, GasPrice: price, Data: input})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for block := 0; block < 100; block++ {
+		var last *ethtypes.Transaction
 		for item := 0; item < 100; item++ {
-			tx, err := ethtypes.SignTx(ethtypes.NewTransaction(nonce, token, big.NewInt(0), 80000, price, input), ethtypes.LatestSignerForChainID(big.NewInt(125)), key)
+			tx, err := ethtypes.SignTx(ethtypes.NewTransaction(nonce, token, big.NewInt(0), gas, price, input), ethtypes.LatestSignerForChainID(big.NewInt(125)), key)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -154,9 +175,14 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 				t.Fatal(err)
 			}
 			nonce++
+			last = tx
 		}
 		if err = client.Client().CallContext(ctx, nil, "anvil_mine", "0x1"); err != nil {
 			t.Fatal(err)
+		}
+		mined, err := client.TransactionReceipt(ctx, last.Hash())
+		if err != nil || mined.Status != ethtypes.ReceiptStatusSuccessful || len(mined.Logs) != 1 {
+			t.Fatalf("real transfer block %d gas=%d: receipt=%+v err=%v", block+2, gas, mined, err)
 		}
 	}
 	if err = client.Client().CallContext(ctx, nil, "anvil_mine", "0x9"); err != nil {
@@ -168,8 +194,7 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 	}
 	var oversized atomic.Bool
 	oversized.Store(true)
-	upstream := &http.Client{Timeout: 15 * time.Second}
-	defer upstream.CloseIdleConnections()
+	upstream := historicalHTTPClient(t)
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
@@ -224,7 +249,7 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 			}
 		}
 	}))
-	defer proxy.Close()
+	t.Cleanup(proxy.Close)
 	genesis, err := client.HeaderByNumber(ctx, big.NewInt(0))
 	if err != nil {
 		t.Fatal(err)
@@ -243,6 +268,7 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 	before := rpcSource.Metrics()
 	enriched, err := rpcSource.FetchCommitted(ctx, FetchOptions{FromBlock: 2, ToBlock: 101}, true, nil)
 	after := rpcSource.Metrics()
+	t.Logf("range 2..101: err=%v logs=%d header_before=%d header_after=%d header_delta=%d tx_origins=%d", err, len(enriched.Logs), before.HeaderFetches, after.HeaderFetches, after.HeaderFetches-before.HeaderFetches, len(enriched.TxFromMap))
 	if err != nil || len(enriched.Logs) != 10000 || after.HeaderFetches-before.HeaderFetches > 100 || len(enriched.TxFromMap) != 0 {
 		t.Fatalf("10000 real logs/100 headers: %+v %v", after, err)
 	}
@@ -255,8 +281,31 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	canonical.Complete = true
+	var readerRole string
+	t.Cleanup(func() {
+		if readerRole == "" {
+			return
+		}
+		cleanup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		admin, err := pgx.Connect(cleanup, os.Getenv(internaltest.ExternalPostgresEnv))
+		if err != nil {
+			t.Errorf("connect to drop explorer reader role: %v", err)
+			return
+		}
+		defer admin.Close(context.Background())
+		if _, err := admin.Exec(cleanup, "DROP ROLE IF EXISTS "+pgx.Identifier{readerRole}.Sanitize()); err != nil {
+			t.Errorf("drop explorer reader role: %v", err)
+		}
+	})
 	dsn, pool := internaltest.NewPostgres(t)
-	if _, err = pool.Exec(ctx, canonicalExplorerSchema); err != nil {
+	readerURL, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readerRole = "explorer_reader_" + strings.TrimPrefix(readerURL.Path, "/indexer_test_")
+	quotedRole := pgx.Identifier{readerRole}.Sanitize()
+	if _, err = pool.Exec(ctx, fmt.Sprintf(canonicalExplorerSchema, quotedRole, quotedRole, quotedRole)); err != nil {
 		t.Fatal(err)
 	}
 	seedBlocks := func(from, to uint64) {
@@ -295,18 +344,18 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 			columns []string
 			rows    [][]any
 		}{{"blocks", []string{"number", "hash", "parent_hash", "timestamp", "consensus"}, blocks}, {"transactions", []string{"hash", "block_hash", "index", "from_address_hash"}, transactions}, {"logs", []string{"address_hash", "first_topic", "second_topic", "third_topic", "fourth_topic", "data", "transaction_hash", "block_hash", "block_number", "index", "transaction_index"}, logs}} {
-			if _, err = pool.CopyFrom(ctx, pgx.Identifier{"public", batch.table}, batch.columns, pgx.CopyFromRows(batch.rows)); err != nil {
-				t.Fatal(err)
+			count, err := pool.CopyFrom(ctx, pgx.Identifier{"public", batch.table}, batch.columns, pgx.CopyFromRows(batch.rows))
+			if err != nil || count != int64(len(batch.rows)) {
+				t.Fatalf("seed %s: rows=%d want=%d err=%v", batch.table, count, len(batch.rows), err)
 			}
+		}
+		if _, err = pool.Exec(ctx, "ANALYZE public.blocks; ANALYZE public.transactions; ANALYZE public.logs"); err != nil {
+			t.Fatal(err)
 		}
 	}
 	seedBlocks(1, 100)
-	readerURL, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	readerURL.User = url.UserPassword("explorer_reader", "owned-fixture-reader")
-	explorer, err := NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "owned-explorer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: "explorer_reader", MaxConnections: 2, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource})
+	readerURL.User = url.UserPassword(readerRole, "owned-fixture-reader")
+	explorer, err := NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "owned-explorer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: readerRole, MaxConnections: 2, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +475,7 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 	if _, err = NewCommittedPaxscan(ctx, dsn, CommittedPaxscanOptions{SourceID: "denied-writer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: "kl", ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
 		t.Fatal("write-capable explorer role accepted")
 	}
-	if _, err = NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "denied-schema", SchemaVersion: "unknown", ExpectedRole: "explorer_reader", ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
+	if _, err = NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "denied-schema", SchemaVersion: "unknown", ExpectedRole: readerRole, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
 		t.Fatal("unapproved explorer schema accepted")
 	}
 }
@@ -442,6 +491,7 @@ func TestCommittedAdversarialRecoveryGenuineChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	var conflict, paused, stale, incorrectSample atomic.Bool
+	upstreamClient := historicalHTTPClient(t)
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -478,7 +528,7 @@ func TestCommittedAdversarialRecoveryGenuineChain(t *testing.T) {
 			return
 		}
 		upstream.Header.Set("Content-Type", "application/json")
-		response, err := http.DefaultClient.Do(upstream)
+		response, err := upstreamClient.Do(upstream)
 		if err != nil {
 			http.Error(w, err.Error(), 502)
 			return
@@ -508,7 +558,7 @@ func TestCommittedAdversarialRecoveryGenuineChain(t *testing.T) {
 		w.WriteHeader(response.StatusCode)
 		_, _ = w.Write(data)
 	}))
-	defer proxy.Close()
+	t.Cleanup(proxy.Close)
 	options := CommittedOptions{Endpoints: map[string]string{"healthy": endpoint, "adversarial": proxy.URL}, GenesisHash: genesis.Hash(), ManifestDigest: "genuine-recovery", Epochs: []AddressEpoch{{Address: "0x0000000000000000000000000000000000000001", Role: "emitter", ABIRevision: "1", ManifestDigest: "genuine-recovery"}}}
 	s, err := NewCommittedSource(ctx, options)
 	if err != nil {
@@ -601,6 +651,7 @@ func TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain(t *testing.T) 
 		t.Fatal(err)
 	}
 	arrived := make(chan struct{}, 16)
+	upstreamClient := historicalHTTPClient(t)
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -623,7 +674,7 @@ func TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain(t *testing.T) 
 			return
 		}
 		upstream.Header.Set("Content-Type", "application/json")
-		response, err := http.DefaultClient.Do(upstream)
+		response, err := upstreamClient.Do(upstream)
 		if err != nil {
 			http.Error(w, err.Error(), 502)
 			return
@@ -632,7 +683,7 @@ func TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain(t *testing.T) 
 		w.WriteHeader(response.StatusCode)
 		_, _ = io.Copy(w, response.Body)
 	}))
-	defer proxy.Close()
+	t.Cleanup(proxy.Close)
 	options := CommittedOptions{Endpoints: map[string]string{"historical": proxy.URL}, GenesisHash: genesis.Hash(), ManifestDigest: "genuine-saturation", Epochs: []AddressEpoch{{Address: "0x0000000000000000000000000000000000000001", Role: "emitter", ABIRevision: "1", ManifestDigest: "genuine-saturation"}}}
 	sources := make([]*CommittedSource, 16)
 	finished := make(chan error, 16)

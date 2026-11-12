@@ -54,7 +54,7 @@ const (
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
-	// PxIndexerURL supplies /v1/assets enumeration; empty means unavailable.
+	// PxIndexerURL supplies px_listAssets and history reads from one indexer; empty means unavailable.
 	PxIndexerURL string `mapstructure:"px_indexer_url"`
 
 	// Maximum number of requests in an RPC batch.
@@ -575,7 +575,7 @@ http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
 http_address = "{{ .EVM.HTTPAddress }}"
 
-# Optional indexer for px_listAssets; metadata comes from this node.
+# Optional single indexer for px_listAssets and history reads; asset metadata comes from this node.
 px_indexer_url = "{{ .EVM.PxIndexerURL }}"
 
 # controls whether a websocket server is enabled

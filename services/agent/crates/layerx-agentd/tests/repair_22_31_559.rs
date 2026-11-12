@@ -1,3 +1,7 @@
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -48,17 +52,19 @@ fn producer(name: &str) -> Value {
         "reverted" => "V2-layerxledger-revert",
         _ => panic!("unknown producer case"),
     };
-    transcript["cases"]
-        .as_array()
-        .expect("producer cases")
-        .iter()
-        .find(|case| case["id"] == id)
-        .expect("producer case")
-        .clone()
+    require_some(
+        transcript["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "producer cases"))
+            .iter()
+            .find(|case| case["id"] == id),
+        "producer case",
+    )
+    .clone()
 }
 
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    let text = value.as_str().expect("hex string");
+    let text = require_some(value.as_str(), "hex string");
     must(must(hex::decode(text.strip_prefix("0x").unwrap_or(text))).try_into())
 }
 
@@ -242,11 +248,7 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
     let node = NodeTranscript::open(&case);
     let authenticated = node.authenticated(&case);
     let verifier = authority(&node, layerx_wire::limits::PROTOCOL_VERSION);
-    let amount = authenticated
-        .receipt()
-        .protocol()
-        .expect("protocol")
-        .amount();
+    let amount = require_some(authenticated.receipt().protocol(), "protocol").amount();
     assert!(amount > 0);
     let hash = authenticated.activity_id();
     let tenant_a = must(TenantId::new("tenant-a"));
@@ -288,36 +290,52 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
         record.evidence.canonical_receipt,
         authenticated.canonical_bytes()
     );
-    let verified = must(verifier.verify_current_receipt(&record.evidence));
+    let authenticated_receipt = must(verifier.verify_current_receipt(&record.evidence));
     assert_eq!(
-        verified.receipt_ref(),
+        authenticated_receipt.receipt_ref(),
         <[u8; 32]>::from(sha2::Sha256::digest(authenticated.canonical_bytes()))
     );
-    assert_eq!(verified.activity_id(), hash);
-    assert_eq!(verified.global_sequence(), record.global_sequence);
-    assert_eq!(verified.amount(), amount);
-    assert_eq!(verified.result_code(), 0);
+    assert_eq!(authenticated_receipt.activity_id(), hash);
     assert_eq!(
-        verified.module_id(),
-        authenticated
-            .receipt()
-            .protocol()
-            .expect("protocol")
-            .module_id()
+        authenticated_receipt.global_sequence(),
+        record.global_sequence
+    );
+    assert_eq!(authenticated_receipt.amount(), amount);
+    assert_eq!(authenticated_receipt.result_code(), 0);
+    assert_eq!(
+        authenticated_receipt.module_id(),
+        require_some(authenticated.receipt().protocol(), "protocol").module_id()
     );
     assert_eq!(
-        verified.operation(),
-        authenticated
-            .receipt()
-            .protocol()
-            .expect("protocol")
-            .operation()
+        authenticated_receipt.operation(),
+        require_some(authenticated.receipt().protocol(), "protocol").operation()
     );
     let recovery = must(recover_tenant_budget_with_evidence(
         &mut store,
         &tenant_a,
         &request(&inventory, &verifier, protocol(amount, 1, 100)),
     ));
+    finish_restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corruption_1_repair_22_31_559(FinishRestartRecoversCurrentReceiptsHoldsMissingEvidenceAndRefusesCorruption1Repair2231559Context { node, verifier, amount, hash, tenant_a, tenant_b, root, store, recovery });
+}
+
+struct FinishRestartRecoversCurrentReceiptsHoldsMissingEvidenceAndRefusesCorruption1Repair2231559Context
+{
+    node: NodeTranscript,
+    verifier: EvidenceAuthority,
+    amount: u128,
+    hash: [u8; 32],
+    tenant_a: TenantId,
+    tenant_b: TenantId,
+    root: std::path::PathBuf,
+    store: Store,
+    recovery: layerx_agentd::human_runtime::TenantBudgetRecovery,
+}
+
+fn finish_restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corruption_1_repair_22_31_559(
+    context: FinishRestartRecoversCurrentReceiptsHoldsMissingEvidenceAndRefusesCorruption1Repair2231559Context,
+) {
+    let FinishRestartRecoversCurrentReceiptsHoldsMissingEvidenceAndRefusesCorruption1Repair2231559Context { node, verifier, amount, hash, tenant_a, tenant_b, root, mut store, recovery } = context;
+
     assert!(recovery.admission.is_ok());
     must(recovery.recovered.require_write_ready());
     assert_eq!(
@@ -352,7 +370,9 @@ fn restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corrupti
     ));
 
     let key = evidence_key(&tenant_a, hash, b"receipt-evidence:");
-    let mut bytes = store.get(&key).expect("stored evidence").bytes().to_vec();
+    let mut bytes = require_some(store.get(&key), "stored evidence")
+        .bytes()
+        .to_vec();
     // LXRE/v2 + LXRM/v2 + hash + height + index + status + gas + bloom.
     let signature_offset = 5 + 5 + 32 + 8 + 8 + 1 + 8 + 256;
     bytes[signature_offset] ^= 1;
@@ -435,11 +455,13 @@ fn governed_current_receipt_authority_enforces_signature_version_and_height_wind
     assert!(verifier.verify_current_receipt(&changed_height).is_err());
     let mut forged = raw.clone();
     let signature = &raw.metadata.receipt_signature[..64];
-    let offset = forged
-        .canonical_receipt
-        .windows(64)
-        .position(|bytes| bytes == signature)
-        .expect("canonical signature");
+    let offset = require_some(
+        forged
+            .canonical_receipt
+            .windows(64)
+            .position(|bytes| bytes == signature),
+        "canonical signature",
+    );
     forged.canonical_receipt[offset] ^= 1;
     forged.metadata.receipt_signature[0] ^= 1;
     assert!(
@@ -499,11 +521,7 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     let node = NodeTranscript::open(&case);
     let authenticated = node.authenticated(&case);
     let verifier = authority(&node, layerx_wire::limits::PROTOCOL_VERSION);
-    let amount = authenticated
-        .receipt()
-        .protocol()
-        .expect("protocol")
-        .amount();
+    let amount = require_some(authenticated.receipt().protocol(), "protocol").amount();
     let tenant = must(TenantId::new("mixed"));
     let root = support::directory("repair-559-mixed");
     let mut store = must(Store::open(&root));
@@ -562,10 +580,31 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     must(recovery.recovered.require_write_ready());
     let duplicate = PersistedReceipt {
         expected_activity_id: authenticated.activity_id(),
+        requested_amount: amount,
         evidence: BudgetReceiptEvidence::Current(
             inventory.with_current_evidence[0].evidence.clone(),
         ),
     };
+    continue_mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals_1_repair_22_31_559(ContinueMixedInventoryRebuildsBothFormatsAndPreservesReplayAndArchiveRefusals1Repair2231559Context { verifier, amount, tenant, root, store, request, duplicate });
+}
+
+struct ContinueMixedInventoryRebuildsBothFormatsAndPreservesReplayAndArchiveRefusals1Repair2231559Context<
+    'a,
+> {
+    verifier: EvidenceAuthority,
+    amount: u128,
+    tenant: TenantId,
+    root: std::path::PathBuf,
+    store: Store,
+    request: BudgetRecoveryRequest<'a, BudgetReceiptEvidence>,
+    duplicate: PersistedReceipt<BudgetReceiptEvidence>,
+}
+
+fn continue_mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals_1_repair_22_31_559(
+    context: ContinueMixedInventoryRebuildsBothFormatsAndPreservesReplayAndArchiveRefusals1Repair2231559Context<'_>,
+) {
+    let ContinueMixedInventoryRebuildsBothFormatsAndPreservesReplayAndArchiveRefusals1Repair2231559Context { verifier, amount, tenant, root, mut store, request, duplicate } = context;
+
     assert!(matches!(
         budget::rebuild_with_evidence(
             &store,
@@ -588,7 +627,9 @@ fn mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusa
     assert_eq!(recovery.recovered.budget_accounting.receipt_consumed, 25);
     let archive = evidence_key(&tenant, [0x45; 32], b"receipt-legacy-evidence:");
     let public = evidence_key(&tenant, [0x45; 32], b"receipt-evidence:");
-    let bytes = store.get(&public).expect("legacy record").bytes().to_vec();
+    let bytes = require_some(store.get(&public), "legacy record")
+        .bytes()
+        .to_vec();
     assert_eq!(&bytes[..5], b"LXRE\x01");
     let mut unsupported = bytes.clone();
     unsupported[4] = u8::MAX;
@@ -640,9 +681,9 @@ fn failed_current_receipt_does_not_consume_budget() {
         &authenticated,
     ));
     let inventory = must(receipt::evidence_inventory(&store, &tenant));
-    let verified =
+    let authenticated_receipt =
         must(verifier.verify_current_receipt(&inventory.with_current_evidence[0].evidence));
-    assert_ne!(verified.result_code(), 0);
+    assert_ne!(authenticated_receipt.result_code(), 0);
     let recovery = must(recover_tenant_budget_with_evidence(
         &mut store,
         &tenant,
@@ -651,8 +692,10 @@ fn failed_current_receipt_does_not_consume_budget() {
     assert_eq!(recovery.recovered.budget_accounting.receipt_consumed, 0);
     assert!(recovery.admission.is_ok());
     let key = evidence_key(&tenant, authenticated.activity_id(), b"receipt-evidence:");
-    let mut bytes = store.get(&key).expect("current evidence").bytes().to_vec();
-    *bytes.last_mut().expect("canonical signature") ^= 1;
+    let mut bytes = require_some(store.get(&key), "current evidence")
+        .bytes()
+        .to_vec();
+    *require_some(bytes.last_mut(), "canonical signature") ^= 1;
     must(store.put_local(key, bytes));
     assert!(matches!(
         receipt::evidence_inventory(&store, &tenant),

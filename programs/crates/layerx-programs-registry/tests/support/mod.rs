@@ -6,6 +6,8 @@
 pub mod chain;
 mod node_deployment;
 
+// Re-exported for registry integration targets; path-included daemon tests use other fixtures.
+#[allow(unused_imports)]
 pub use node_deployment::{node_deployment_fixture, NodeDeploymentFixture};
 
 use chain::ChainFixture;
@@ -55,6 +57,9 @@ pub struct ProtocolFixture {
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn verifier_for_fixture(
     fixture: &ProtocolFixture,
     staleness_ms: u64,
@@ -68,11 +73,17 @@ pub fn verifier_for_fixture(
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn program() -> ProgramId {
     ProgramId::new(PROGRAM_BYTES).unwrap_or_else(|error| panic!("program: {error}"))
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn code_hash(wasm: &[u8]) -> [u8; 32] {
     hash_bytes(HashAlgorithm::Sha256, wasm)
         .unwrap_or_else(|error| panic!("program code hash: {error}"))
@@ -132,6 +143,9 @@ pub fn programs_call_fixture(payload: &[u8], block_height: u64, timestamp: u64) 
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn wrong_abi_fixture(block_height: u64, timestamp: u64) -> ProtocolFixture {
     let mut fixture = deploy_fixture(
         WASM_V1,
@@ -170,6 +184,9 @@ pub fn upgrade_fixture(
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn deprecated_state(fixture: &ProtocolFixture, timestamp: u64) -> ProgramStateProof {
     self::fixture(
         &fixture.proof.state.transaction,
@@ -235,40 +252,7 @@ fn fixture_with_interface(
     let transaction_hash = code_hash(transaction);
     let transaction_root = hash_from_byte_slices(&[&transaction_hash]);
     chain.header.data_hash = transaction_root.to_vec();
-    chain.commit.height = chain.header.height;
-    chain.commit.block_id.hash = chain
-        .header
-        .hash()
-        .unwrap_or_else(|error| panic!("block header hash: {error:?}"))
-        .to_vec();
-    let keys = VALIDATOR_SEEDS
-        .iter()
-        .map(SigningKey::from_bytes)
-        .collect::<Vec<_>>();
-    for signature in &mut chain.commit.signatures {
-        let key = keys
-            .iter()
-            .find(|key| {
-                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
-                    .address
-                    .as_slice()
-                    == signature.validator_address
-            })
-            .unwrap_or_else(|| panic!("validator signing key absent"));
-        signature.timestamp = Timestamp {
-            seconds: chain.header.time.seconds,
-            nanos: chain.header.time.nanos,
-        };
-        let bytes = vote_sign_bytes(
-            &chain.header.chain_id,
-            chain.commit.height,
-            chain.commit.round,
-            Some(&chain.commit.block_id),
-            signature.timestamp,
-        )
-        .unwrap_or_else(|error| panic!("vote sign bytes: {error:?}"));
-        signature.signature = key.sign(&bytes).to_bytes().to_vec();
-    }
+    resign_chain(&mut chain);
     let commitment = decode_commitment_proof(
         &chain
             .encode_key(&program_key)
@@ -333,6 +317,43 @@ fn fixture_with_interface(
     }
 }
 
+fn resign_chain(chain: &mut ChainFixture) {
+    chain.commit.height = chain.header.height;
+    chain.commit.block_id.hash = chain
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("block header hash: {error:?}"))
+        .to_vec();
+    let keys = VALIDATOR_SEEDS
+        .iter()
+        .map(SigningKey::from_bytes)
+        .collect::<Vec<_>>();
+    for signature in &mut chain.commit.signatures {
+        let key = keys
+            .iter()
+            .find(|key| {
+                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                    .address
+                    .as_slice()
+                    == signature.validator_address
+            })
+            .unwrap_or_else(|| panic!("validator signing key absent"));
+        signature.timestamp = Timestamp {
+            seconds: chain.header.time.seconds,
+            nanos: chain.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &chain.header.chain_id,
+            chain.commit.height,
+            chain.commit.round,
+            Some(&chain.commit.block_id),
+            signature.timestamp,
+        )
+        .unwrap_or_else(|error| panic!("vote sign bytes: {error:?}"));
+        signature.signature = key.sign(&bytes).to_bytes().to_vec();
+    }
+}
+
 fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterface) -> Vec<u8> {
     use layerx_types::program_lifecycle::{NativeProgramDeploy, ProgramUpgradePolicy};
     NativeProgramDeploy {
@@ -352,6 +373,10 @@ fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterfa
 
 /// Primitive runtime/record fixture, followed by independently synthesized chain
 /// proofs. This does not prove a node/host producer-to-consumer deployment.
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
+#[must_use]
 pub fn produced_deployment(
     wasm: &[u8],
     policy: UpgradePolicy,
@@ -378,11 +403,14 @@ pub fn produced_deployment(
             upgrade_policy: policy,
         })
         .unwrap_or_else(|error| panic!("runtime producer: {error}"));
+    let Some(header_height) = block_height.checked_add(1) else {
+        panic!("header height");
+    };
     let record = layerx_programs::DeploymentRecord::from_deployment(
         &receipt,
         &version,
         policy,
-        block_height.checked_add(1).expect("header height"),
+        header_height,
         timestamp,
     )
     .unwrap_or_else(|error| panic!("producer record: {error}"));
@@ -393,6 +421,7 @@ pub fn produced_deployment(
 }
 
 impl ProtocolFixture {
+    #[must_use]
     pub fn program_bundle(&self) -> layerx_programs::ProgramStateBundle {
         layerx_programs::ProgramStateBundle {
             commitment: self.proof.state.commitment.clone(),
@@ -422,6 +451,9 @@ fn upgrade_payload(old_wasm: &[u8], new_wasm: &[u8]) -> Vec<u8> {
 }
 
 #[must_use]
+/// # Panics
+///
+/// Panics if the deterministic fixture cannot be constructed.
 pub fn fixture_interface(wasm: &[u8]) -> ProgramInterface {
     ProgramInterface::bind(
         wasm,

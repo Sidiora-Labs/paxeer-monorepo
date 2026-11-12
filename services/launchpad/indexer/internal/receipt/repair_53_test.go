@@ -49,6 +49,125 @@ type repair53Recorded struct {
 	Error  json.RawMessage `json:"error,omitempty"`
 }
 
+// Decision 3177: recorded digests may name Current or an Approved history
+// entry until the packet is re-recorded after the upgrade (decision 3119).
+func repair53ApprovedSourceDigest(digest string) bool {
+	if digest == deployment.Current().SourceManifestSHA256 {
+		return true
+	}
+	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
+		manifest, approved := deployment.Approved(height)
+		if approved && digest == manifest.SourceManifestSHA256 {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRepair_22_39_328(t *testing.T) {
+	if !repair53ApprovedSourceDigest(deployment.Current().SourceManifestSHA256) {
+		t.Fatal("current source digest refused")
+	}
+	history := 0
+	for height, ok := deployment.NextActivationHeight(0); ok; height, ok = deployment.NextActivationHeight(height) {
+		manifest, approved := deployment.Approved(height)
+		if !approved || !repair53ApprovedSourceDigest(manifest.SourceManifestSHA256) {
+			t.Fatalf("approved source digest refused at activation %d", height)
+		}
+		if height < deployment.Current().ActivationHeight {
+			history++
+		}
+	}
+	if history == 0 {
+		t.Fatal("approved history must exercise recorded digest admission")
+	}
+	for _, digest := range []string{"", strings.Repeat("0", 64), strings.Repeat("f", 64), deployment.Current().SourceManifestSHA256[:63]} {
+		if repair53ApprovedSourceDigest(digest) {
+			t.Fatalf("unapproved source digest accepted: %q", digest)
+		}
+	}
+}
+
+func repair53AssertManifest(t *testing.T, options RPCOptions) {
+	t.Helper()
+	recorded, current := options.Manifest, deployment.Current()
+	// Decision 3177: retain an approved recorded source digest until the packet
+	// is re-recorded after the upgrade; compare every other manifest field.
+	if !repair53ApprovedSourceDigest(recorded.SourceManifestSHA256) {
+		t.Fatal("recorded manifest must bind a current or approved historical source manifest")
+	}
+	recorded.SourceManifestSHA256 = current.SourceManifestSHA256
+	// Decision 3119: keep the producer's runtime identities until the upgrade;
+	// re-record the packet after the upgrade to restore exact runtime equality.
+	// Copy both role maps so code attestation still sees the recorded hashes.
+	recorded.Roles = make(map[string]deployment.Role, len(options.Manifest.Roles))
+	currentRoles := current.Roles
+	current.Roles = make(map[string]deployment.Role, len(currentRoles))
+	for name, role := range options.Manifest.Roles {
+		approved, ok := currentRoles[name]
+		if !ok || role.Address != approved.Address || role.Kind != approved.Kind {
+			t.Fatalf("recorded role %s must retain the current address and kind", name)
+		}
+		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
+		recorded.Roles[name] = role
+	}
+	for name, role := range currentRoles {
+		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
+		current.Roles[name] = role
+	}
+	if !reflect.DeepEqual(recorded, current) {
+		t.Fatal("recorded manifest must match the current deployment apart from role runtime hashes")
+	}
+
+	var catalog, reviewed decode.Catalog
+	if err := json.Unmarshal(options.CatalogJSON, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &reviewed); err != nil {
+		t.Fatal(err)
+	}
+	// Decision 3177: only the embedded evidence may retain an approved history
+	// digest until re-recording after the upgrade; the live review is exact.
+	if !repair53ApprovedSourceDigest(catalog.ManifestSHA256) {
+		t.Fatal("recorded ABI must bind a current or approved historical source manifest")
+	}
+	if reviewed.ManifestSHA256 != current.SourceManifestSHA256 {
+		t.Fatal("reviewed ABI must bind the current source manifest exactly")
+	}
+	recordedRevisions, reviewedRevisions := map[string]string{}, map[string]string{}
+	for _, contract := range catalog.Contracts {
+		recordedRevisions[contract.Name] = contract.ABIRevision
+	}
+	for _, contract := range reviewed.Contracts {
+		reviewedRevisions[contract.Name] = contract.ABIRevision
+	}
+	if len(recordedRevisions) == 0 || !reflect.DeepEqual(recordedRevisions, reviewedRevisions) {
+		t.Fatal("recorded ABI revisions must match the reviewed catalog")
+	}
+	for _, epoch := range options.Epochs {
+		role := epoch.Deployment.Role
+		if role == deployment.LaunchpadPrecompileRole {
+			role = "EventEmitter"
+		}
+		if epoch.Deployment.ABIRevision == "" || epoch.Deployment.ABIRevision != reviewedRevisions[role] {
+			t.Fatalf("recorded epoch %s must retain its reviewed ABI revision", epoch.Deployment.Role)
+		}
+	}
+	for _, template := range options.Discovery {
+		if template.ABIRevision == "" || template.ABIRevision != reviewedRevisions[template.Role] {
+			t.Fatalf("recorded discovery role %s must retain its reviewed ABI revision", template.Role)
+		}
+	}
+}
+
 func repair53InputsFromProducer(t *testing.T) repair53Inputs {
 	t.Helper()
 	// The transcript must be captured by the owning node domain from actual
@@ -64,7 +183,8 @@ func repair53InputsFromProducer(t *testing.T) repair53Inputs {
 	if err := decoder.Decode(&input); err != nil {
 		t.Fatal(err)
 	}
-	if len(input.Markets) == 0 || !reflect.DeepEqual(input.Options.Manifest, deployment.Current()) {
+	repair53AssertManifest(t, input.Options)
+	if len(input.Markets) == 0 {
 		t.Fatal("producer packet must name the approved current deployment and real markets")
 	}
 	return repair53Replay(t, input)
@@ -450,6 +570,58 @@ func repair53SwapRestart(t *testing.T, tenant bool) {
 
 func TestRepair_53_native_swap_qualification(t *testing.T)        { repair53SwapRestart(t, false) }
 func TestRepair_53_tenant_transaction_qualification(t *testing.T) { repair53SwapRestart(t, true) }
+
+func TestRepair_53_staged_pin_qualification(t *testing.T) {
+	input := repair53InputsFromProducer(t)
+	for name, role := range input.Options.Manifest.Roles {
+		if role.StagedRuntimeHash != "" || role.StagedUpgrade != "" {
+			t.Fatalf("recorded role %s must predate the staged pin", name)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeClient()
+	authority, err := NewRPCQualificationWithAttestation(ctx, client, input.Options, nil)
+	if err != nil || authority == nil {
+		t.Fatalf("recorded manifest without staged pins refused: %v", err)
+	}
+	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
+		t.Fatal(err)
+	}
+	repair53Fill(t, ctx, authority, input.NativeSwap)
+	approved, ok := deployment.Approved(input.Options.Manifest.ActivationHeight)
+	if !ok || approved.Roles["Router"].StagedRuntimeHash == "" || approved.Roles["Router"].StagedUpgrade == "" {
+		t.Fatal("approved router must carry the staged pin")
+	}
+	for _, field := range []string{"hash", "upgrade"} {
+		t.Run(field, func(t *testing.T) {
+			options := input.Options
+			options.Manifest.Roles = make(map[string]deployment.Role, len(input.Options.Manifest.Roles))
+			for name, role := range input.Options.Manifest.Roles {
+				options.Manifest.Roles[name] = role
+			}
+			role := options.Manifest.Roles["Router"]
+			role.StagedRuntimeHash = approved.Roles["Router"].StagedRuntimeHash
+			role.StagedUpgrade = approved.Roles["Router"].StagedUpgrade
+			if field == "hash" {
+				role.StagedRuntimeHash = common.HexToHash("0x01").Hex()
+			} else {
+				role.StagedUpgrade += "-other"
+			}
+			options.Manifest.Roles["Router"] = role
+			if err := options.Manifest.Validate(); err != nil {
+				t.Fatalf("different staged pin must remain a well-formed manifest: %v", err)
+			}
+			if got, err := NewRPCQualificationWithAttestation(ctx, client, options, nil); !errors.Is(err, ErrQualification) || got != nil {
+				t.Fatalf("unapproved staged %s admitted: authority=%v err=%v", field, got, err)
+			}
+		})
+	}
+}
 
 func TestRepair_53_migrated_role_epochs(t *testing.T) {
 	input := repair53InputsFromProducer(t)

@@ -179,6 +179,54 @@ fn audit_entry_v3_records_transaction_hash_and_rung() {
         Err(RecordError::Decode(_))
     ));
 
+    assert_session_reconstruction();
+}
+
+#[test]
+fn version_two_audit_entries_stay_readable() {
+    let payload =
+        hex::decode(VERSION_TWO_ENTRY).unwrap_or_else(|error| panic!("version 2 fixture: {error}"));
+    let mut legacy = entry();
+    legacy.resulting_activity_id = Some(ActivityId::new([5; 32]));
+    legacy.verification_level = VerificationLevel::STATE_PROVEN;
+    legacy.tx_hash = None;
+    legacy.nonce = None;
+    legacy.rung = None;
+    assert_eq!(
+        read_payload(&payload).unwrap_or_else(|error| panic!("read version 2: {error}")),
+        vec![legacy.clone()]
+    );
+    let directory = Directory::new("mixed-versions");
+    let mut log = directory.log();
+    log.before_operation(&payload, || ())
+        .unwrap_or_else(|error| panic!("append version 2: {error}"));
+    let current = entry();
+    record(&mut log, &mut Coverage::default(), &current, || ())
+        .unwrap_or_else(|error| panic!("append version 3: {error}"));
+    assert_eq!(
+        read_entries(log.path()).unwrap_or_else(|error| panic!("mixed versions: {error}")),
+        vec![legacy, current]
+    );
+    let mut version_one = payload;
+    version_one[4] = 1;
+    version_one.drain(6..14);
+    log.before_operation(&version_one, || ())
+        .unwrap_or_else(|error| panic!("append version 1: {error}"));
+    assert!(matches!(
+        read_entries(log.path()),
+        Err(RecordError::Version)
+    ));
+    for version in [0, 1, 4, u8::MAX] {
+        let mut unsupported = b"LXAR".to_vec();
+        unsupported.push(version);
+        assert!(matches!(
+            read_payload(&unsupported),
+            Err(RecordError::Version)
+        ));
+    }
+}
+
+fn assert_session_reconstruction() {
     let submitted_bytes = b"canonical-signed-transaction".to_vec();
     let mut submission = entry();
     submission.class = EventClass::Submission;
@@ -249,48 +297,4 @@ fn audit_entry_v3_records_transaction_hash_and_rung() {
         ),
         Err(RecordError::IncompleteReconstruction(_))
     ));
-}
-
-#[test]
-fn version_two_audit_entries_stay_readable() {
-    let payload =
-        hex::decode(VERSION_TWO_ENTRY).unwrap_or_else(|error| panic!("version 2 fixture: {error}"));
-    let mut legacy = entry();
-    legacy.resulting_activity_id = Some(ActivityId::new([5; 32]));
-    legacy.verification_level = VerificationLevel::STATE_PROVEN;
-    legacy.tx_hash = None;
-    legacy.nonce = None;
-    legacy.rung = None;
-    assert_eq!(
-        read_payload(&payload).unwrap_or_else(|error| panic!("read version 2: {error}")),
-        vec![legacy.clone()]
-    );
-    let directory = Directory::new("mixed-versions");
-    let mut log = directory.log();
-    log.before_operation(&payload, || ())
-        .unwrap_or_else(|error| panic!("append version 2: {error}"));
-    let current = entry();
-    record(&mut log, &mut Coverage::default(), &current, || ())
-        .unwrap_or_else(|error| panic!("append version 3: {error}"));
-    assert_eq!(
-        read_entries(log.path()).unwrap_or_else(|error| panic!("mixed versions: {error}")),
-        vec![legacy, current]
-    );
-    let mut version_one = payload;
-    version_one[4] = 1;
-    version_one.drain(6..14);
-    log.before_operation(&version_one, || ())
-        .unwrap_or_else(|error| panic!("append version 1: {error}"));
-    assert!(matches!(
-        read_entries(log.path()),
-        Err(RecordError::Version)
-    ));
-    for version in [0, 1, 4, u8::MAX] {
-        let mut unsupported = b"LXAR".to_vec();
-        unsupported.push(version);
-        assert!(matches!(
-            read_payload(&unsupported),
-            Err(RecordError::Version)
-        ));
-    }
 }

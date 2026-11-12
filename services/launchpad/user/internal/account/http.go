@@ -137,7 +137,7 @@ func (h HTTP) profileGet(w http.ResponseWriter, r *http.Request) {
 	if match := r.Header.Get("If-None-Match"); match != "" {
 		if match == etag {
 			if h.Runtime != nil {
-				h.Runtime.Metrics.Observe("projection", "success", 0)
+				h.Runtime.Metrics.Observe("projection", outcomeSuccess, 0)
 			}
 			w.WriteHeader(http.StatusNotModified)
 			return
@@ -154,10 +154,10 @@ func (h HTTP) profileGet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if deleted {
-			h.Runtime.Metrics.Observe("projection", "success", h.Store.now().Sub(updated))
+			h.Runtime.Metrics.Observe("projection", outcomeSuccess, h.Store.now().Sub(updated))
 		}
 	}
-	h.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision, nil)
+	h.respond(w, id, map[string]PublicProfile{fieldProfile: profile}, profile.Revision, nil)
 }
 
 func (h HTTP) ownedWallet(ctx context.Context, p Principal) (string, error) {
@@ -176,7 +176,7 @@ func (h HTTP) profilePatch(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err, id)
 		return
 	}
-	h.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision, nil)
+	h.respond(w, id, map[string]PublicProfile{fieldProfile: profile}, profile.Revision, nil)
 }
 
 func (h HTTP) patchProfile(r *http.Request) (PublicProfile, error) {
@@ -223,10 +223,10 @@ func (h HTTP) patchProfile(r *http.Request) (PublicProfile, error) {
 }
 
 func (h HTTP) encodeCursor(p Principal, revision int64, last WatchEntry) string {
-	raw := make([]byte, 53)
+	raw := make([]byte, 53, 85)
 	raw[0] = 1
 	copy(raw[1:17], p.AccountID[:])
-	binary.BigEndian.PutUint64(raw[17:25], uint64(revision))
+	binary.BigEndian.PutUint64(raw[17:25], uint64(revision)) //nolint:gosec // Cursor revision retains its signed database bit pattern.
 	binary.BigEndian.PutUint64(raw[25:33], uint64(last.AddedAt.UnixNano()))
 	pool, _ := hex.DecodeString(last.Pool[2:])
 	copy(raw[33:], pool)
@@ -247,10 +247,10 @@ func (h HTTP) decodeCursor(p Principal, revision int64, encoded string) (WatchCu
 	if !hmac.Equal(raw[53:], mac.Sum(nil)) || !hmac.Equal(raw[1:17], p.AccountID[:]) {
 		return WatchCursor{}, ErrCursor
 	}
-	if binary.BigEndian.Uint64(raw[17:25]) != uint64(revision) {
+	if binary.BigEndian.Uint64(raw[17:25]) != uint64(revision) { //nolint:gosec // Cursor revision retains its signed database bit pattern.
 		return WatchCursor{}, errResnapshot
 	}
-	return WatchCursor{At: time.Unix(0, int64(binary.BigEndian.Uint64(raw[25:33]))).UTC(), Pool: "0x" + hex.EncodeToString(raw[33:53])}, nil
+	return WatchCursor{At: time.Unix(0, int64(binary.BigEndian.Uint64(raw[25:33]))).UTC(), Pool: "0x" + hex.EncodeToString(raw[33:53])}, nil //nolint:gosec // Cursor timestamp retains its signed Unix nanosecond bit pattern.
 }
 
 func (h HTTP) watchSnapshot(ctx context.Context, p Principal) (state, []WatchEntry, error) {
@@ -261,7 +261,7 @@ func (h HTTP) watchSnapshot(ctx context.Context, p Principal) (state, []WatchEnt
 		if err != nil {
 			return state{}, nil, err
 		}
-		defer tx.Rollback(ctx)
+		defer rollbackAccountTx(ctx, tx)
 	}
 	a, err := load(ctx, tx, p.AccountID)
 	if err != nil {
@@ -299,7 +299,7 @@ func (h HTTP) watchGet(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err, id)
 		return
 	}
-	h.respond(w, id, map[string]any{"items": items}, revision, next)
+	h.respond(w, id, map[string]any{fieldItems: items}, revision, next)
 }
 
 func (h HTTP) watchPage(r *http.Request) ([]WireWatchEntry, string, *string, error) {

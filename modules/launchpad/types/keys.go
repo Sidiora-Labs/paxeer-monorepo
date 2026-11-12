@@ -47,16 +47,22 @@ var (
 	HoldingEntryPrefix   = []byte{0x24}
 	AirdropBasisPrefix   = []byte{0x25}
 
-	SurfacePrefix        = []byte{0x30}
-	RolePrefix           = []byte{0x31}
-	HeldQuotePrefix      = []byte{0x32}
-	FeeHeldPrefix        = []byte{0x33}
-	TreasuryLedgerPrefix = []byte{0x34}
-	TreasuryHeldPrefix   = []byte{0x35}
-	BookHeldDeltaPrefix  = []byte{0x36}
-	FeeRightIDMapPrefix  = []byte{0x37}
-	RetiredPrefix        = []byte{0x38}
-	MigratedKey          = []byte{0x39}
+	SurfacePrefix           = []byte{0x30}
+	RolePrefix              = []byte{0x31}
+	HeldQuotePrefix         = []byte{0x32}
+	FeeHeldPrefix           = []byte{0x33}
+	TreasuryLedgerPrefix    = []byte{0x34}
+	TreasuryHeldPrefix      = []byte{0x35}
+	BookHeldDeltaPrefix     = []byte{0x36}
+	FeeRightIDMapPrefix     = []byte{0x37}
+	RetiredPrefix           = []byte{0x38}
+	MigratedKey             = []byte{0x39}
+	LaunchedChainPrefix     = []byte{0x53}
+	ChainPoolPrefix         = []byte{0x54}
+	HomeChainPrefix         = []byte{0x55}
+	ChainRevenueEpochPrefix = []byte{0x56}
+	ChainRevenueLastPrefix  = []byte{0x57}
+	ChainRevenueClaimPrefix = []byte{0x58}
 )
 
 func join(prefix []byte, parts ...[]byte) []byte {
@@ -120,3 +126,16 @@ func FeeRightIDMapKey(generation1ID uint64) []byte {
 // RetiredKey is a retired generation 1 address; its record names the role and
 // replacement.
 func RetiredKey(address [20]byte) []byte { return join(RetiredPrefix, address[:]) }
+
+func LaunchedChainKey(number uint64) []byte { return join(LaunchedChainPrefix, uint64Bytes(number)) }
+func ChainPoolKey(pool [20]byte) []byte     { return join(ChainPoolPrefix, pool[:]) }
+func HomeChainKey(pool [20]byte) []byte     { return join(HomeChainPrefix, pool[:]) }
+func ChainRevenueEpochKey(chain, epoch uint64) []byte {
+	return join(ChainRevenueEpochPrefix, uint64Bytes(chain), uint64Bytes(epoch))
+}
+func ChainRevenueLastKey(chain uint64) []byte {
+	return join(ChainRevenueLastPrefix, uint64Bytes(chain))
+}
+func ChainRevenueClaimKey(chain, epoch uint64, holder [20]byte) []byte {
+	return join(ChainRevenueClaimPrefix, uint64Bytes(chain), uint64Bytes(epoch), holder[:])
+}

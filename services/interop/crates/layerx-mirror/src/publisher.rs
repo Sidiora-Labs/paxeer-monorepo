@@ -91,10 +91,11 @@ pub struct ArchiveData {
 impl ArchiveData {
     #[must_use]
     pub fn committed_coordinate(&self) -> Option<CommittedCoordinate> {
-        Some(CommittedCoordinate {
+        CommittedCoordinate {
             height: self.batch_number,
             block_hash: self.committed.block_hash,
-        })
+        }
+        .into()
     }
 
     /// Decodes a committed block archive and validates its framing.
@@ -136,6 +137,7 @@ impl ArchiveData {
         })
     }
 
+    #[cfg(test)]
     fn encode(&self) -> Result<Vec<u8>, ArchiveError> {
         self.committed.encode(self.network_id, self.batch_number)
     }
@@ -156,6 +158,9 @@ impl Archive {
     /// committed coordinate; it is retained as freshness metadata by the spool,
     /// while the network id is part of the immutable archive bytes. Runtime
     /// callers use `RuntimeConfig::committed_network_id` for checked conversion.
+    ///
+    /// # Errors
+    /// Refuses malformed blocks, a head behind the block or archive encoding errors.
     pub fn from_committed(
         block: &CommittedBlock,
         network_id: u32,
@@ -655,6 +660,7 @@ pub struct MirrorFreshness {
 }
 
 impl MirrorFreshness {
+    #[must_use]
     pub fn new(cursor: MirrorCursor, node: NodeHead) -> Self {
         let batch_lag = node
             .sealed_height()

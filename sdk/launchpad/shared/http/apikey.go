@@ -34,7 +34,7 @@ func APIKeyAuth(opts APIKeyOptions) (func(http.Handler) http.Handler, error) {
 				next.ServeHTTP(w, r)
 				return
 			}
-			if opts.RoutePrefix != "" && !(r.URL.Path == strings.TrimSuffix(opts.RoutePrefix, "/") || strings.HasPrefix(r.URL.Path, strings.TrimSuffix(opts.RoutePrefix, "/")+"/")) {
+			if opts.RoutePrefix != "" && r.URL.Path != strings.TrimSuffix(opts.RoutePrefix, "/") && !strings.HasPrefix(r.URL.Path, strings.TrimSuffix(opts.RoutePrefix, "/")+"/") {
 				next.ServeHTTP(w, r)
 				return
 			}

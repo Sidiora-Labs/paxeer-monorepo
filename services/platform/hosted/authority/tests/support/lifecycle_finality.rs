@@ -3,7 +3,7 @@ fn historical_anchor_abi_preserves_checkpoint_decoding_layout() {
     let abi: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../../precompiles/layerxanchor/abi.json"
     ))
-    .expect("historical anchor ABI");
+    .unwrap_or_else(|error| panic!("historical anchor ABI: {error}"));
     let methods = abi.as_array().unwrap_or_else(|| panic!("anchor ABI"));
     let latest = methods
         .iter()
@@ -49,7 +49,9 @@ pub(super) fn assert_committed_budget_membership(
         proof["budget_state"]["observed_head_sequence"],
         receipt_sequence
     );
-    let state_height = finality["state_height"].as_u64().expect("state height");
+    let state_height = finality["state_height"]
+        .as_u64()
+        .unwrap_or_else(|| panic!("state height"));
     assert_eq!(finality["height"].as_u64(), state_height.checked_add(1));
     for call in ["budget_call", "remaining_call"] {
         assert_eq!(proof["proofs"][call]["height"], state_height);
@@ -65,13 +67,15 @@ pub(super) fn assert_committed_budget_membership(
     .chain(
         join["balances"]
             .as_array()
-            .expect("authenticated balances")
+            .unwrap_or_else(|| panic!("authenticated balances"))
             .iter()
             .map(|balance| &balance["proof"]),
     ) {
         assert_eq!(membership["code"], 0);
         assert_eq!(membership["height"], state_height.to_string());
-        let ops = membership["proofOps"]["ops"].as_array().expect("proof ops");
+        let ops = membership["proofOps"]["ops"]
+            .as_array()
+            .unwrap_or_else(|| panic!("proof ops"));
         assert_eq!(ops.len(), 2);
         assert_eq!(ops[0]["type"], "ics23:iavl");
         assert_eq!(ops[1]["type"], "ics23:simple");

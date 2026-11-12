@@ -79,7 +79,7 @@ func (s *DurableStore) messageLimit() int {
 }
 func (s *DurableStore) ready() bool { return s != nil && s.Pool != nil }
 func conversation(in SendInput) string {
-	if in.Kind == "pool" {
+	if in.Kind == poolResource {
 		return "pool:" + in.Target
 	}
 	a, b := common.SortedPair(in.Actor, in.Target)
@@ -91,7 +91,7 @@ const messageColumns = `id,conversation_id,sender,content,reply_to,sequence,revi
 func scanMessage(row pgx.Row, kind string) (m DurableMessage, err error) {
 	err = row.Scan(&m.ID, &m.ConversationID, &m.Sender, &m.Content, &m.ReplyTo, &m.Sequence, &m.Revision, &m.CreatedAt, &m.Deleted, &m.ClientID)
 	m.Type = wireKind(kind)
-	if kind == "pool" {
+	if kind == poolResource {
 		m.PoolAddress = strings.TrimPrefix(m.ConversationID, "pool:")
 	}
 	if m.Deleted {
@@ -114,7 +114,7 @@ func (s *DurableStore) Send(ctx context.Context, in SendInput) (DurableMessage, 
 		return zero, ErrInvalid
 	}
 	in.Content = common.Sanitize(in.Content)
-	if !common.IsAddr(in.Actor) || !common.IsAddr(in.Target) || in.Actor == in.Target || (in.Kind != "dm" && in.Kind != "pool") || len(in.ClientID) < 1 || len(in.ClientID) > 128 || !utf8.ValidString(in.Content) || utf8.RuneCountInString(in.Content) < 1 || utf8.RuneCountInString(in.Content) > s.messageLimit() || len(in.ReplyTo) > 128 {
+	if !common.IsAddr(in.Actor) || !common.IsAddr(in.Target) || in.Actor == in.Target || (in.Kind != "dm" && in.Kind != poolResource) || len(in.ClientID) < 1 || len(in.ClientID) > 128 || !utf8.ValidString(in.Content) || utf8.RuneCountInString(in.Content) < 1 || utf8.RuneCountInString(in.Content) > s.messageLimit() || len(in.ReplyTo) > 128 {
 		return zero, ErrInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
@@ -209,7 +209,7 @@ func (s *DurableStore) Send(ctx context.Context, in SendInput) (DurableMessage, 
 	}
 	now := s.now()
 	m := DurableMessage{Type: wireKind(in.Kind), ID: id.String(), ClientID: in.ClientID, ConversationID: conv, Sender: in.Actor, Content: in.Content, ReplyTo: in.ReplyTo, Sequence: seq, Revision: 1, CreatedAt: now.Unix()}
-	if in.Kind == "pool" {
+	if in.Kind == poolResource {
 		m.PoolAddress = in.Target
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO chat_messages(id,conversation_id,sender,client_id,content,reply_to,sequence,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, m.ID, conv, in.Actor, in.ClientID, in.Content, in.ReplyTo, seq, now); err != nil {
@@ -506,7 +506,7 @@ func (s *DurableStore) JoinPool(ctx context.Context, actor, pool string) error {
 		return err
 	}
 	defer rollback(tx)
-	in := SendInput{Actor: actor, Kind: "pool", Target: pool}
+	in := SendInput{Actor: actor, Kind: poolResource, Target: pool}
 	if err = s.Policy(ctx, tx, in); err != nil {
 		return err
 	}
@@ -563,7 +563,7 @@ func (s *DurableStore) Revise(ctx context.Context, actor, id string, expected in
 		return zero, err
 	}
 	m.Type = wireKind(kind)
-	if kind == "pool" {
+	if kind == poolResource {
 		m.PoolAddress = strings.TrimPrefix(m.ConversationID, "pool:")
 	}
 	target := strings.TrimPrefix(m.ConversationID, "pool:")
@@ -615,7 +615,7 @@ func (s *DurableStore) MarkRead(ctx context.Context, actor, conv string, through
 }
 
 func wireKind(kind string) string {
-	if kind == "pool" {
+	if kind == poolResource {
 		return "pool_message"
 	}
 	return kind
@@ -658,7 +658,7 @@ func (s *DurableStore) ModerateTx(ctx context.Context, tx pgx.Tx, id string) err
 	m.Deleted = true
 	m.Revision++
 	target := strings.TrimPrefix(m.ConversationID, "pool:")
-	if kind == "pool" {
+	if kind == poolResource {
 		m.PoolAddress = target
 	}
 	if _, e = tx.Exec(ctx, `UPDATE chat_messages SET content='',reply_to='',deleted_at=clock_timestamp(),revision=$2 WHERE id=$1`, id, m.Revision); e != nil {
@@ -678,7 +678,7 @@ func (s *DurableStore) CurrentEvent(ctx context.Context, payload []byte) ([]byte
 	if e := json.Unmarshal(payload, &incoming); e != nil {
 		return nil, e
 	}
-	if incoming.Type == "read_marker" && incoming.ID == "" {
+	if incoming.Type == readMarkerType && incoming.ID == "" {
 		return payload, nil
 	}
 	if incoming.ID == "" {
@@ -699,7 +699,7 @@ func (s *DurableStore) CurrentEvent(ctx context.Context, payload []byte) ([]byte
 	if current.Type != incoming.Type {
 		return nil, ErrConflict
 	}
-	if kind == "pool" {
+	if kind == poolResource {
 		current.PoolAddress = strings.TrimPrefix(current.ConversationID, "pool:")
 	}
 	if s.Projection != nil {

@@ -208,8 +208,30 @@ def test_f064_retains_nonempty_native_and_explorer_acceptance_corpora():
     gateway = (ROOT / "services/platform/hosted/gateway/src/lib.rs").read_text()
     assert "fn production_route_refuses_every_program_and_activity_route()" in gateway
     explorer = ROOT / "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"
-    assert 'test "committed_vectors_drive_verify"' in explorer.read_text()
-    assert "SequencerReceipt.verify(tx_hash" in explorer.read_text()
+    vectors = explorer.read_text()
+    assert 'test "committed_vectors_drive_verify"' in vectors
+    # 20d1e29d9d installs governed trust and supplies full committed evidence.
+    assert 'Code.require_file("../../../support/fixture/paxeer_x/governed_receipt_fixtures.exs", __DIR__)' in vectors
+    assert "alias Explorer.Chain.PaxeerX.GovernedReceiptFixtures" in vectors
+    assert re.search(
+        r"setup do\s+GovernedReceiptFixtures\.restore_on_exit\(\)\s+"
+        r"GovernedReceiptFixtures\.configure_committed\(\)", vectors,
+    )
+    assert 'committed_vectors.json' in vectors
+    assert '%{"cases" => cases} = @vectors |> File.read!() |> Jason.decode!()' in vectors
+    assert "Enum.map(cases, &committed_vectors_drive_verify/1)" in vectors
+    assert "defp committed_vectors_drive_verify(test_case) do" in vectors
+    assert '"0x" <> raw_transaction = test_case["rawTransaction"]' in vectors
+    assert "tx_hash = raw_transaction |> Base.decode16!(case: :mixed) |> ExKeccak.hash_256()" in vectors
+    assert '{:ok, keys} = SequencerReceipt.decode_receipt_keys([test_case["pinnedKey"]])' in vectors
+    assert re.search(
+        r'SequencerReceipt\.verify\(\s*tx_hash,\s*test_case\["receiptJson"\],\s*keys,\s*'
+        r'GovernedReceiptFixtures\.committed_opts\(test_case\)\s*\)', vectors,
+    )
+    assert re.search(
+        r"Enum\.map\(cases, &committed_vectors_drive_verify/1\) == \[\s*"
+        r"\{:committed, key, 10\},\s*\{:error, :r7\},\s*\{:error, :r8\}\s*\]", vectors,
+    )
 
 
 def test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals():

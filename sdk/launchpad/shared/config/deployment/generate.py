@@ -9,6 +9,7 @@ The external USDL code identity is frozen provenance, not a fresh attestation.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 
@@ -18,7 +19,9 @@ RECORDED_STATUS = {'pending-beacon-acceptance': 'pending-beacon-acceptance', 'fi
 
 RELEASE = 'v6.12.0'
 ACTIVATION_HEIGHT = 37220320
-SURFACE_RUNTIME_HASH = '0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993'
+SURFACE_RUNTIME_HASH = '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f'
+STAGED_SURFACE_RUNTIME_HASH = '0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993'
+STAGED_UPGRADE = 'v7.0'
 PRECOMPILE_ROLE = 'LaunchpadPrecompile'
 PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000001017'
 
@@ -45,14 +48,18 @@ def confirmed(manifest: dict, records: dict, name: str) -> dict:
     return dict(proxy=proxy, implementation=implementation)
 
 
-def surface(manifest: dict, records: dict, name: str, runtime_hash: str) -> dict:
+def surface(manifest: dict, records: dict, name: str, runtime_hash: str,
+            staged_runtime_hash: str, staged_upgrade: str) -> dict:
     proxy = confirmed(manifest, records, name)['proxy']
-    return dict(address=proxy['address'], kind='surface', runtimeHash=runtime_hash)
+    return dict(address=proxy['address'], kind='surface', runtimeHash=runtime_hash,
+                stagedRuntimeHash=staged_runtime_hash, stagedUpgrade=staged_upgrade)
 
 
 def generate(source: bytes, frozen_client: dict, activation_height: int,
              surface_runtime_hash: str = SURFACE_RUNTIME_HASH,
-             frozen_attestation: dict = None) -> dict:
+             frozen_attestation: dict = None,
+             staged_runtime_hash: str = STAGED_SURFACE_RUNTIME_HASH,
+             staged_upgrade: str = STAGED_UPGRADE) -> dict:
     manifest = json.loads(source)
     core = frozen_client['core']
     digest = hashlib.sha256(source).hexdigest()
@@ -64,6 +71,11 @@ def generate(source: bytes, frozen_client: dict, activation_height: int,
             or surface_runtime_hash != surface_runtime_hash.lower()):
         raise ValueError('surface_runtime_hash_malformed')
     int(surface_runtime_hash[2:], 16)
+    if (re.fullmatch(r'0x[0-9a-f]{64}', staged_runtime_hash) is None
+            or int(staged_runtime_hash[2:], 16) == 0
+            or staged_runtime_hash == surface_runtime_hash
+            or re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,95}', staged_upgrade) is None):
+        raise ValueError('staged_runtime_identity_invalid')
     records = manifest['_deployment']['records']
     deployed = max(r['blockNumber'] for r in records.values())
     if activation_height <= deployed:
@@ -71,7 +83,8 @@ def generate(source: bytes, frozen_client: dict, activation_height: int,
     roles = {}
     for name, proxied in PROXY_ROLES:
         if not proxied:
-            roles[name] = surface(manifest, records, name, surface_runtime_hash)
+            roles[name] = surface(manifest, records, name, surface_runtime_hash,
+                                  staged_runtime_hash, staged_upgrade)
             continue
         r = confirmed(manifest, records, name)
         roles[name] = dict(address=r['proxy']['address'], kind='erc1967',
@@ -101,7 +114,8 @@ def generate(source: bytes, frozen_client: dict, activation_height: int,
                 or frozen_attestation['usdlCodeHash'] != usdl_hash):
             raise ValueError('settlement_identity_conflict')
     roles['USDL'] = dict(address=core['usdl'], kind='direct', runtimeHash=usdl_hash)
-    roles['Treasury'] = surface(manifest, records, 'Treasury', surface_runtime_hash)
+    roles['Treasury'] = surface(manifest, records, 'Treasury', surface_runtime_hash,
+                               staged_runtime_hash, staged_upgrade)
     roles[PRECOMPILE_ROLE] = dict(address=PRECOMPILE_ADDRESS, kind='precompile')
     return dict(schemaVersion=1, deploymentVersion='paxeer125-' + RELEASE,
                 sourceManifestSha256=digest, chainId=125,
@@ -123,6 +137,8 @@ def main():
     p.add_argument('--frozen-attestation', type=Path)
     p.add_argument('--activation-height', type=int, default=ACTIVATION_HEIGHT)
     p.add_argument('--surface-runtime-hash', default=SURFACE_RUNTIME_HASH)
+    p.add_argument('--staged-runtime-hash', default=STAGED_SURFACE_RUNTIME_HASH)
+    p.add_argument('--staged-upgrade', default=STAGED_UPGRADE)
     p.add_argument('--output', required=True, type=Path)
     p.add_argument('--check', action='store_true')
     args = p.parse_args()
@@ -135,7 +151,8 @@ def main():
         return data
     attestation = json.loads(read(args.frozen_attestation)) if args.frozen_attestation else None
     result = generate(read(args.source), json.loads(read(args.frozen_client)),
-                      args.activation_height, args.surface_runtime_hash, attestation)
+                      args.activation_height, args.surface_runtime_hash, attestation,
+                      args.staged_runtime_hash, args.staged_upgrade)
     rendered = (json.dumps(result, indent=2) + '\n').encode()
     if args.check:
         if read(args.output) != rendered:

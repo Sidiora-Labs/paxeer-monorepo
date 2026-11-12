@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { AddressInfo } from 'node:net';
-import { WebSocket, WebSocketServer } from 'ws';
+import { RawData, WebSocket, WebSocketServer } from 'ws';
 import { assertNoAdditionalNotifications, WsClient } from './subscribeUtils';
 
 async function subscriptionOverDeliveryRegression(): Promise<void> {
     const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
     const clients: WsClient[] = [];
     let nextSubscription = 1;
-    server.on('connection', peer => {
+    server.on('connection', (peer: WebSocket) => {
         const subscriptions = new Set<string>();
-        peer.on('message', raw => {
+        peer.on('message', (raw: RawData) => {
             const request = JSON.parse(raw.toString());
             if (request.method === 'eth_subscribe') {
                 const subId = `0x${(nextSubscription++).toString(16)}`;

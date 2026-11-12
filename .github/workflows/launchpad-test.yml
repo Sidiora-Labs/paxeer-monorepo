@@ -69,9 +69,45 @@ jobs:
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install pinned Foundry for web fixtures
+        if: matrix.package == 'apps/launchpad/web'
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Set up Python for web fixture producers
+        if: matrix.package == 'apps/launchpad/web'
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: '3.12'
+      - name: Set up Go for launchpad services
+        if: matrix.package == 'apps/launchpad/web'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: sdk/launchpad/shared/go.mod
+          cache: false
+      - name: Install the joined event broker
+        if: matrix.package == 'apps/launchpad/web'
+        run: |
+          go install github.com/nats-io/nats-server/v2@v2.11.6
+          echo "NATS_SERVER_BINARY=$(go env GOPATH)/bin/nats-server" >> "$GITHUB_ENV"
+      - name: Install local database and TLS tools
+        if: matrix.package == 'apps/launchpad/web'
+        run: sudo apt-get update && sudo apt-get install --yes postgresql postgresql-client redis-server openssl
+      - name: Allow the owned loopback issuer to bind standard HTTPS
+        if: matrix.package == 'apps/launchpad/web'
+        run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+      - name: Install Chromium for the declared chart browser case
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: pnpm exec playwright install --with-deps chromium
       - name: Build SDK packages
         run: pnpm run build:packages
+      - name: Prepare chain fixtures and run web Vitest
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
       - name: Test package
+        if: matrix.package != 'apps/launchpad/web'
         working-directory: .
         run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
 
@@ -106,6 +142,11 @@ jobs:
     env:
       GOWORK: "off"
       GOTOOLCHAIN: go1.27.3
+      GOFLAGS: -timeout=15m
+      CLAMAV_HOST: 127.0.0.1
+      CLAMAV_PORT: "23310"
+      METADATA_TEST_CLAMAV_ADDR: 127.0.0.1:23310
+      USER_TEST_CLAMAV_ADDR: 127.0.0.1:23310
       L07_POSTGRES_DSN: postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_test?sslmode=disable
       L09_REDIS_URL: redis://127.0.0.1:26379/9
       L09_NAMESPACE: kd_223975223975223975223975
@@ -270,14 +311,37 @@ jobs:
           exit 1
       - name: Install fixture binaries
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes redis-server
           go install github.com/nats-io/nats-server/v2@v2.11.6
+          sudo apt-get install --no-install-recommends --yes nginx unzip
+          fixture_bin="$RUNNER_TEMP/launchpad-fixture-bin"
+          mkdir -p "$fixture_bin"
+          cd "$fixture_bin"
+          curl --fail --location --output vault_1.20.2_linux_amd64.zip https://releases.hashicorp.com/vault/1.20.2/vault_1.20.2_linux_amd64.zip
+          curl --fail --location --output vault-checksums.txt https://releases.hashicorp.com/vault/1.20.2/vault_1.20.2_SHA256SUMS
+          grep ' vault_1.20.2_linux_amd64.zip$' vault-checksums.txt | sha256sum --check --strict
+          unzip vault_1.20.2_linux_amd64.zip vault
+          sudo install -m 0755 vault /usr/local/bin/vault
+          curl --fail --location --output livekit_1.9.0_linux_amd64.tar.gz https://github.com/livekit/livekit/releases/download/v1.9.0/livekit_1.9.0_linux_amd64.tar.gz
+          curl --fail --location --output livekit-checksums.txt https://github.com/livekit/livekit/releases/download/v1.9.0/checksums.txt
+          grep ' livekit_1.9.0_linux_amd64.tar.gz$' livekit-checksums.txt | sha256sum --check --strict
+          tar -xzf livekit_1.9.0_linux_amd64.tar.gz livekit-server
+          sudo install -m 0755 livekit-server /usr/local/bin/livekit-server
       - name: Start API NATS fixture
         run: |
-          nats-server --addr 127.0.0.1 --port 24222 --jetstream --store_dir "$RUNNER_TEMP/launchpad-nats" > "$RUNNER_TEMP/launchpad-nats.log" 2>&1 &
+          nats-server --addr 127.0.0.1 --port 24222 --jetstream --name launchpad-1 --cluster_name launchpad-fixture \
+            --cluster nats://127.0.0.1:26222 --routes nats://127.0.0.1:26223,nats://127.0.0.1:26224 \
+            --http_port 28222 --store_dir "$RUNNER_TEMP/launchpad-nats" > "$RUNNER_TEMP/launchpad-nats-1.log" 2>&1 &
+          nats-server --addr 127.0.0.1 --port 24223 --jetstream --name launchpad-2 --cluster_name launchpad-fixture \
+            --cluster nats://127.0.0.1:26223 --routes nats://127.0.0.1:26222,nats://127.0.0.1:26224 \
+            --store_dir "$RUNNER_TEMP/launchpad-nats-2" > "$RUNNER_TEMP/launchpad-nats-2.log" 2>&1 &
+          nats-server --addr 127.0.0.1 --port 24224 --jetstream --name launchpad-3 --cluster_name launchpad-fixture \
+            --cluster nats://127.0.0.1:26224 --routes nats://127.0.0.1:26222,nats://127.0.0.1:26223 \
+            --store_dir "$RUNNER_TEMP/launchpad-nats-3" > "$RUNNER_TEMP/launchpad-nats-3.log" 2>&1 &
           for attempt in {1..30}; do
-            if (echo > /dev/tcp/127.0.0.1/24222) 2>/dev/null; then exit 0; fi
+            if (echo > /dev/tcp/127.0.0.1/24222) 2>/dev/null && curl --fail --silent http://127.0.0.1:28222/jsz | jq --exit-status '.meta_cluster.leader != null and (.meta_cluster.replicas | length == 2) and all(.meta_cluster.replicas[]; .current == true)' > /dev/null; then exit 0; fi
             sleep 1
           done
           exit 1
@@ -292,6 +356,16 @@ jobs:
           curl --fail --aws-sigv4 "aws:amz:us-east-1:s3" \
             --user "$SHARED_TEST_MINIO_ACCESS_KEY_ID:$SHARED_TEST_MINIO_SECRET_ACCESS_KEY" \
             --request PUT http://localhost:9000/launchpad-user-test
+      - name: Start malware scanner fixture
+        run: |
+          docker run --detach --name launchpad-clamav --publish 127.0.0.1:23310:3310 \
+            clamav/clamav@sha256:45fe5149fbee5a46509c9848ef20d0c354b7b2323c9369f285939a37cf33422a
+          for attempt in {1..90}; do
+            if docker exec launchpad-clamav clamdcheck.sh; then exit 0; fi
+            sleep 2
+          done
+          docker logs launchpad-clamav
+          exit 1
       - name: Build native library for protocol producer proofs
         working-directory: .
         run: |
@@ -331,6 +405,16 @@ jobs:
               cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"
               go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod -o "$RUNNER_TEMP/launchpad-repair28-producer" .
             )
+          fi
+      - name: Record indexer fixture prerequisites
+        run: |
+          if [ "${{ matrix.module }}" = services/launchpad/indexer ]; then
+            anvil --version
+            test -s internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz
+            test -s internal/receipt/testdata/repair53-producer.json
+            test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraNFT.sol/SidioraNFT.json
+            test -s ../../../contracts/launchpad/artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json
+            # The historical range and NFT tests mine their own chain-125 inputs.
           fi
       - name: Test Go module
         run: python3 "$GITHUB_WORKSPACE/tests/ci/data/launchpad_go_tests.py" --module .

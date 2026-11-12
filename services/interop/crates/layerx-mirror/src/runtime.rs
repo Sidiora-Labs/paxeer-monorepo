@@ -22,7 +22,9 @@ use crate::rpc::{RpcCluster, RpcQuorumConfig};
 use crate::signer::{RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm};
 use crate::solana::{SolanaArchiveClient, SolanaError, SolanaProductionConfig, SolanaProgress};
 use crate::store::{ArchiveSpool, MirrorChain, PublicationPhase};
-use crate::{Archive, ArchiveCommitment, ChainProgress, ProgressGate};
+#[cfg(test)]
+use crate::ArchiveCommitment;
+use crate::{Archive, ChainProgress, ProgressGate};
 
 pub const MAX_ACQUIRED_PER_POLL: usize = 16;
 pub const MAX_LANE_ARCHIVES_PER_POLL: usize = 32;
@@ -211,6 +213,7 @@ enum SpoolRecoveryError {
     Store,
     Archive,
     BatchBeforeFirst,
+    #[cfg(test)]
     DuplicateBatch,
     BatchGap,
     SequenceExhausted,
@@ -304,6 +307,10 @@ pub struct CommittedAcquisition {
 }
 
 impl CommittedAcquisition {
+    /// Opens committed block acquisition with durable spool state.
+    ///
+    /// # Errors
+    /// Refuses invalid configuration, spool state or source identity.
     pub fn open(
         config: &crate::committed::CommittedSourceConfig,
         spool: ArchiveSpool,
@@ -342,7 +349,7 @@ impl CommittedAcquisition {
             value.status_revision = 2;
             value.source_chain_id = config.chain_id;
             value.native_network_id = Some(network_id);
-            value.service_version = env!("CARGO_PKG_VERSION").to_owned();
+            env!("CARGO_PKG_VERSION").clone_into(&mut value.service_version);
             value.checkpoint_freshness_budget_batches = freshness_budget_blocks;
             value.node.latest_batch_mirrored = previous.map(|coordinate| coordinate.height);
         });
@@ -357,11 +364,19 @@ impl CommittedAcquisition {
         })
     }
 
+    /// Returns the current acquisition status as JSON.
+    ///
+    /// # Errors
+    /// Returns a status error when state cannot be read or serialized.
     pub fn status_json(&self) -> Result<serde_json::Value, RuntimeError> {
         let status = self.status.lock().map_err(|_| RuntimeError::Status)?;
         serde_json::to_value(&*status).map_err(|_| RuntimeError::Status)
     }
 
+    /// Acquires the next bounded set of committed blocks.
+    ///
+    /// # Errors
+    /// Refuses unavailable, malformed or inconsistent source blocks.
     pub fn poll(&mut self) -> Result<usize, CommittedRefusal> {
         let result = self.poll_inner();
         if let Err(error) = result {
@@ -539,8 +554,8 @@ fn spawn_ethereum(
             );
             let mut publication_error = None;
             for archive in &ordered {
-                match archive {
-                    Ok(archive) => match client.advance(archive) {
+                if let Ok(archive) = archive {
+                    match client.advance(archive) {
                         Ok(progress) => update_ethereum(&status, progress),
                         Err(error) => {
                             let error_class = ethereum_error_class(&error);
@@ -550,14 +565,13 @@ fn spawn_ethereum(
                                 value.ethereum.error_class = Some(error_class);
                             });
                         }
-                    },
-                    Err(()) => {
-                        publication_error.get_or_insert("archive_spool");
-                        update_status(&status, |value| {
-                            value.ethereum.ready = false;
-                            value.ethereum.error_class = Some("archive_spool");
-                        });
                     }
+                } else {
+                    publication_error.get_or_insert("archive_spool");
+                    update_status(&status, |value| {
+                        value.ethereum.ready = false;
+                        value.ethereum.error_class = Some("archive_spool");
+                    });
                 }
             }
             let archives = ordered.into_iter().flatten().collect::<Vec<_>>();
@@ -602,8 +616,8 @@ fn spawn_solana(
             );
             let mut publication_error = None;
             for archive in &ordered {
-                match archive {
-                    Ok(archive) => match client.advance(archive) {
+                if let Ok(archive) = archive {
+                    match client.advance(archive) {
                         Ok(progress) => update_solana(&status, progress),
                         Err(error) => {
                             let error_class = solana_error_class(&error);
@@ -613,14 +627,13 @@ fn spawn_solana(
                                 value.error_class = Some(error_class);
                             });
                         }
-                    },
-                    Err(()) => {
-                        publication_error.get_or_insert("archive_spool");
-                        update_solana_status(&status, |value| {
-                            value.ready = false;
-                            value.error_class = Some("archive_spool");
-                        });
                     }
+                } else {
+                    publication_error.get_or_insert("archive_spool");
+                    update_solana_status(&status, |value| {
+                        value.ready = false;
+                        value.error_class = Some("archive_spool");
+                    });
                 }
             }
             let archives = ordered.into_iter().flatten().collect::<Vec<_>>();
@@ -636,6 +649,10 @@ fn spawn_solana(
     });
 }
 
+/// Saves the cursor of a lane after canonical readback.
+///
+/// # Errors
+/// Returns a spool error when the cursor cannot be persisted.
 pub fn save_lane_progress(
     spool: &ArchiveSpool,
     lane: MirrorChain,
@@ -653,6 +670,7 @@ pub fn save_lane_progress(
 
 /// Selects only the bounded recheck window plus new work; the journal tip is
 /// always included for independent canonical readback, including after restart.
+#[must_use]
 pub fn lane_archives(
     spool: &ArchiveSpool,
     lane: MirrorChain,
@@ -1103,7 +1121,7 @@ fn apply_progress(
     verified.apply(status);
     if let Some(error_class) = progress
         .refusal
-        .map(|refusal| refusal.code())
+        .map(crate::publisher::ReconcileRefusal::code)
         .or(publication_error)
     {
         status.ready = false;
@@ -1330,7 +1348,9 @@ mod tests {
         recover_batch_sequence, recover_next_batch, recover_spool, ComponentStatus, RuntimeConfig,
         RuntimeStatus, SpoolRecoveryError,
     };
-    use crate::committed::{CommittedCoordinate, CommittedRefusal};
+    use crate::committed::{
+        CommittedBlock, CommittedCoordinate, CommittedHeader, CommittedRefusal,
+    };
     use crate::store::{ArchiveSpool, StoreError};
     use crate::{archive_commitment, ArchiveCommitment, ChainProgress, NodeHead};
 
@@ -1588,10 +1608,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn the_runtime_spools_committed_archives_in_height_order() {
-        use crate::committed::{CommittedBlock, CommittedCoordinate, CommittedHeader};
-
+    fn recorded_committed_blocks() -> (CommittedBlock, CommittedBlock) {
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../tests/fixtures/committed_blocks.json"))
                 .unwrap_or_else(|e| panic!("recorded committed block: {e}"));
@@ -1623,6 +1640,64 @@ mod tests {
             },
             receipts: Vec::new(),
         };
+        (first, second)
+    }
+
+    fn assert_ordered_archives(
+        spool: &ArchiveSpool,
+        first: &CommittedBlock,
+        second: &CommittedBlock,
+        status: &Arc<Mutex<RuntimeStatus>>,
+        first_height: u64,
+    ) {
+        let archives = super::ordered_archives(spool)
+            .into_iter()
+            .map(|archive| archive.unwrap_or_else(|()| panic!("load committed archive")))
+            .collect::<Vec<_>>();
+        assert_eq!(archives.len(), 2);
+        for (archive, block) in archives.iter().zip([first, second]) {
+            assert_eq!(archive.data().batch_number, block.header.height);
+            assert_eq!(archive.data().network_id, 125);
+            assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
+            let committed = &archive.data().committed;
+            assert_eq!(committed.block_hash, block.header.block_hash);
+            assert_eq!(committed.receipts, block.receipts);
+            assert_eq!(
+                archive.node_head(),
+                NodeHead::new(
+                    block.header.height,
+                    Some(crate::CommittedCoordinate {
+                        height: block.header.height,
+                        block_hash: block.header.block_hash,
+                    })
+                )
+            );
+        }
+        assert_eq!(
+            recover_next_batch(spool, first_height)
+                .unwrap_or_else(|e| panic!("recover completed prefix: {e:?}")),
+            second.header.height + 1
+        );
+        let value = status
+            .lock()
+            .unwrap_or_else(|e| panic!("runtime status: {e}"));
+        assert!(value.node.ready);
+        assert!(value.committed_ready);
+        assert_eq!(value.node.latest_batch_mirrored, Some(second.header.height));
+        assert_eq!(value.latest_committed_height, Some(second.header.height));
+        assert_eq!(
+            value.latest_committed_block_hash,
+            Some(hex_bytes(&second.header.block_hash))
+        );
+        assert_eq!(
+            value.ethereum.latest_batch_verified,
+            Some(second.header.height)
+        );
+    }
+
+    #[test]
+    fn the_runtime_spools_committed_archives_in_height_order() {
+        let (first, second) = recorded_committed_blocks();
         let scratch = ScratchDirectory::new("committed-height-order");
         let directory = scratch.path().join("archives");
         let spool = ArchiveSpool::open(&directory).unwrap_or_else(|e| panic!("open spool: {e:?}"));
@@ -1720,49 +1795,7 @@ mod tests {
             },
         )
         .unwrap_or_else(|e| panic!("spool next block after restart: {e}"));
-        let archives = super::ordered_archives(&spool)
-            .into_iter()
-            .map(|archive| archive.unwrap_or_else(|()| panic!("load committed archive")))
-            .collect::<Vec<_>>();
-        assert_eq!(archives.len(), 2);
-        for (archive, block) in archives.iter().zip([&first, &second]) {
-            assert_eq!(archive.data().batch_number, block.header.height);
-            assert_eq!(archive.data().network_id, 125);
-            assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
-            let committed = &archive.data().committed;
-            assert_eq!(committed.block_hash, block.header.block_hash);
-            assert_eq!(committed.receipts, block.receipts);
-            assert_eq!(
-                archive.node_head(),
-                NodeHead::new(
-                    block.header.height,
-                    Some(crate::CommittedCoordinate {
-                        height: block.header.height,
-                        block_hash: block.header.block_hash,
-                    })
-                )
-            );
-        }
-        assert_eq!(
-            recover_next_batch(&spool, first_height)
-                .unwrap_or_else(|e| panic!("recover completed prefix: {e:?}")),
-            second.header.height + 1
-        );
-        let value = status
-            .lock()
-            .unwrap_or_else(|e| panic!("runtime status: {e}"));
-        assert!(value.node.ready);
-        assert!(value.committed_ready);
-        assert_eq!(value.node.latest_batch_mirrored, Some(second.header.height));
-        assert_eq!(value.latest_committed_height, Some(second.header.height));
-        assert_eq!(
-            value.latest_committed_block_hash,
-            Some(hex_bytes(&second.header.block_hash))
-        );
-        assert_eq!(
-            value.ethereum.latest_batch_verified,
-            Some(second.header.height)
-        );
+        assert_ordered_archives(&spool, &first, &second, &status, first_height);
     }
 
     #[test]

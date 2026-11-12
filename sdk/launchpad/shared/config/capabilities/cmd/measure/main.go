@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
@@ -19,6 +20,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/capabilities"
@@ -65,11 +68,15 @@ func readPinned(path, digest string, max int64) ([]byte, error) {
 	if path == "" || len(digest) != 64 {
 		return nil, deployment.Issue{Code: "pinned_file_input_missing"}
 	}
-	file, err := os.Open(path)
+	file, err := util.OpenPath(path)
 	if err != nil {
 		return nil, deployment.Issue{Code: "pinned_file_unavailable"}
 	}
-	defer file.Close()
+	defer func() {
+		if cleanupErr := file.Close(); cleanupErr != nil {
+			log.Printf("cleanup file.Close: %v", cleanupErr)
+		}
+	}()
 	data, err := io.ReadAll(io.LimitReader(file, max+1))
 	if err != nil || int64(len(data)) > max {
 		return nil, deployment.Issue{Code: "pinned_file_size_invalid"}
@@ -89,7 +96,7 @@ func decode(data []byte, into any) error {
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(into) != nil || decoder.Decode(&validate) != io.EOF {
-		return deployment.Issue{Code: "measurement_input_malformed"}
+		return deployment.Issue{Code: valueMeasurementInputMalformed}
 	}
 	return nil
 }
@@ -141,17 +148,17 @@ func strictObject(data []byte) error {
 		return err
 	}
 	if err := walk(0); err != nil {
-		return deployment.Issue{Code: "measurement_input_malformed"}
+		return deployment.Issue{Code: valueMeasurementInputMalformed}
 	}
 	if _, err := decoder.Token(); err != io.EOF {
-		return deployment.Issue{Code: "measurement_input_malformed"}
+		return deployment.Issue{Code: valueMeasurementInputMalformed}
 	}
 	return nil
 }
 
 func validateSource(root string, index sourceIndex) error {
 	if root == "" || index.SchemaVersion != 1 || len(index.Files) == 0 || len(index.Files) > 10000 {
-		return deployment.Issue{Code: "candidate_source_index_invalid"}
+		return deployment.Issue{Code: valueCandidateSourceIndexInvalid}
 	}
 	seen := map[string]bool{}
 	for _, file := range index.Files {
@@ -160,7 +167,7 @@ func validateSource(root string, index sourceIndex) error {
 		}
 		seen[file.Path] = true
 		if _, err := readPinned(filepath.Join(root, file.Path), file.SHA256, 64<<20); err != nil {
-			return deployment.Issue{Code: "candidate_source_changed"}
+			return deployment.Issue{Code: valueCandidateSourceChanged}
 		}
 	}
 	for _, required := range requiredSourcePaths() {
@@ -175,11 +182,15 @@ func checkBuild(path string, expected string) error {
 	if path == "" || len(expected) != 64 {
 		return deployment.Issue{Code: "consumer_build_artifact_missing"}
 	}
-	file, err := os.Open(path)
+	file, err := util.OpenPath(path)
 	if err != nil {
 		return deployment.Issue{Code: "consumer_build_artifact_missing"}
 	}
-	defer file.Close()
+	defer func() {
+		if cleanupErr := file.Close(); cleanupErr != nil {
+			log.Printf("cleanup file.Close: %v", cleanupErr)
+		}
+	}()
 	hash := sha256.New()
 	count, err := io.Copy(hash, io.LimitReader(file, 256<<20+1))
 	if err != nil || count > 256<<20 || hex.EncodeToString(hash.Sum(nil)) != expected {
@@ -239,16 +250,17 @@ func run() error {
 	if endpoint == "" || len(endpoint) > 4096 || hex.EncodeToString(endpointDigest[:]) != approved.URLSHA256 || parseErr != nil || parsed.Hostname() == "" || parsed.Fragment != "" || parsed.Opaque != "" {
 		return deployment.Issue{Code: "approved_endpoint_unavailable"}
 	}
-	if approved.Realm == "production" {
+	switch approved.Realm {
+	case "production":
 		if parsed.Scheme != "https" {
 			return deployment.Issue{Code: "approved_endpoint_transport_invalid"}
 		}
-	} else if approved.Realm == "private_fixture" {
+	case "private_fixture":
 		ip := net.ParseIP(parsed.Hostname())
 		if parsed.Scheme != "http" || ip == nil || !ip.IsLoopback() || parsed.User != nil {
 			return deployment.Issue{Code: "private_fixture_endpoint_invalid"}
 		}
-	} else {
+	default:
 		return deployment.Issue{Code: "endpoint_realm_invalid"}
 	}
 	policyData, err := readPinned(*policyPath, plan.PolicySHA256, 1<<20)
@@ -356,7 +368,11 @@ func run() error {
 	if err != nil {
 		return deployment.Issue{Code: "measurement_raw_output_unavailable"}
 	}
-	defer raw.Close()
+	defer func() {
+		if cleanupErr := raw.Close(); cleanupErr != nil {
+			log.Printf("cleanup raw.Close: %v", cleanupErr)
+		}
+	}()
 	report, measureErr := engine.Measure(ctx, plan, raw)
 	report.PlanFileSHA256 = *planDigest
 	if err := raw.Sync(); err != nil {
@@ -372,7 +388,11 @@ func run() error {
 	if err != nil {
 		return deployment.Issue{Code: "measurement_report_output_unavailable"}
 	}
-	defer output.Close()
+	defer func() {
+		if cleanupErr := output.Close(); cleanupErr != nil {
+			log.Printf("cleanup output.Close: %v", cleanupErr)
+		}
+	}()
 	if err := json.NewEncoder(output).Encode(report); err != nil {
 		return deployment.Issue{Code: "measurement_report_write_failed"}
 	}

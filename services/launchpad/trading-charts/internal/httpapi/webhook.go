@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -34,6 +36,7 @@ type WebhookEvent struct {
 	BlockTimestamp int64                  `json:"blockTimestamp"`
 	TxHash         string                 `json:"txHash"`
 	LogIndex       int                    `json:"logIndex"`
+	Position       *engine.ChainOrder     `json:"position"`
 	Args           map[string]interface{} `json:"args"`
 }
 
@@ -85,10 +88,11 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 				AmountIn:       asString(event.Args["amountIn"]),
 				AmountOut:      asString(event.Args["amountOut"]),
 				Fee:            asString(event.Args["fee"]),
-				Price:          asString(event.Args["price"]),
+				Price:          asString(event.Args[modePrice]),
 				BlockTimestamp: event.BlockTimestamp,
 				TxHash:         event.TxHash,
 				LogIndex:       event.LogIndex,
+				Position:       event.Position,
 			}
 
 			if err := deps.Builder.ProcessSwap(r.Context(), swap); err != nil {
@@ -109,22 +113,25 @@ func webhookHandler(deps WebhookDeps) http.HandlerFunc {
 			status = http.StatusUnprocessableEntity
 		}
 		sharedhttp.WriteJSON(w, status, map[string]interface{}{
-			"ok":        errCount == 0,
-			"processed": processed,
-			"errors":    errCount,
-			"retryable": retryable,
+			"ok":           errCount == 0,
+			"processed":    processed,
+			"errors":       errCount,
+			fieldRetryable: retryable,
 		})
 	}
 }
 
 func validWebhookSwap(event WebhookEvent) bool {
+	if event.BlockNumber <= 0 || event.Position == nil || event.Position.Height != uint64(event.BlockNumber) || event.LogIndex < 0 || event.Position.LogIndex != uint64(event.LogIndex) {
+		return false
+	}
 	if event.BlockTimestamp < 1704067200 || event.TxHash == "" || event.LogIndex < 0 || asString(event.Args["poolAddress"]) == "" || asString(event.Args["sender"]) == "" {
 		return false
 	}
 	if _, ok := event.Args["isBuy"].(bool); !ok {
 		return false
 	}
-	for _, key := range []string{"amountIn", "amountOut", "price"} {
+	for _, key := range []string{"amountIn", "amountOut", modePrice} {
 		if _, err := engine.RawUint256(asString(event.Args[key])); err != nil {
 			return false
 		}
@@ -200,7 +207,7 @@ func webhookAuth(secret string) func(http.Handler) http.Handler {
 			}
 
 			r.Body = http.MaxBytesReader(w, r.Body, MaxWebhookBodyBytes)
-			defer r.Body.Close()
+			defer chartcleanup.Close(r.Body)
 			// Limit bytes before buffering, parsing or HMAC verification.
 			body, err := io.ReadAll(r.Body)
 			if err != nil {

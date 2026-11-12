@@ -20,6 +20,34 @@ def anvil_binary(env):
     raise SystemExit('anvil binary unavailable: set ANVIL_BIN or PATH')
 
 
+def prepare_fixture(owner):
+    contracts = root / 'contracts/launchpad'
+    owner.run(['corepack', 'pnpm', '--dir', str(contracts), '--ignore-workspace',
+               'install', '--frozen-lockfile', '--ignore-scripts'], 'creation-install', cwd=contracts)
+    owner.run(['corepack', 'pnpm', '--dir', str(contracts), '--ignore-workspace',
+               'run', 'compile'], 'creation-compile', cwd=contracts)
+    child, _ = owner.anvil(22700)
+    original = owner.output / 'creation-deployment.json'
+    owner.env.update(creation_environment(owner.env))
+    owner.env.update(L27_OWNED_ANVIL_PID=str(child.pid), L27_PHASE2='1', FIXTURE_OUTPUT=str(original))
+    owner.run(['node', str(owned / 'creation-chain.fixture.cjs')], 'creation-deploy')
+    profile = owner.output / 'creation-authority.json'
+    authority = owner.start(['node', str(owned / 'creation-authority.mjs'), str(original),
+                            str(profile), owner.env['LAUNCHPAD_TLS_CERT'],
+                            owner.env['LAUNCHPAD_TLS_KEY'], str(root)], 'creation-authority')
+    # Initial instant-mining deployment may place the head ahead of wall time;
+    # the authority must await that real timestamp before publishing readiness.
+    owner.wait_file(profile, authority, timeout=180)
+    qualified = owner.output / 'creation.json'
+    trading = owner.output / 'trading-chain.json'
+    owner.run(['node', str(web_root / 'src/widgets/meta-ag/prepare-owned-deployment.mjs'),
+               '--core', str(original), str(profile), str(qualified), str(trading)], 'shared-deployment')
+    owner.env.update(L26_FIXTURE_JSON=str(trading),
+                     L26_FIXTURE_SHA256=hashlib.sha256(trading.read_bytes()).hexdigest())
+    owner.env.update(L27_PHASE2_FIXTURE=str(qualified), L27_AUTHORITY_PROFILE=str(profile),
+                     DISPATCH_TEST_ERC20_ARTIFACT=str(contracts / 'artifacts/contracts/core/SidioraERC20.sol/SidioraERC20.json'))
+
+
 if __name__ == '__main__':
     if '--phase4' in sys.argv[1:]:
         parser=argparse.ArgumentParser(description='Measure actual creation browser and private chain candidate')

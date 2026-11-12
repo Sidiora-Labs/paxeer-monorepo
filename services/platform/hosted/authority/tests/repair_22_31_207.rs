@@ -1,5 +1,7 @@
 //! Regression evidence for audit 22.30.85: real native execution, reopened
 //! SDK membership proofs, loopback transport and the actual TLS authority.
+use layerx_platform_authority::assertion::Must;
+
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
 use layerx_platform_authority::{hex, receipt_locator};
 use layerx_types::payload::{ActivityType, ModuleId};
@@ -193,7 +195,7 @@ fn launch_at(root: PathBuf, node: &Node) -> (Server, std::net::SocketAddr) {
             .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[9; 32]))
             .env(
                 "LAYERX_AUTHORITY_CHAIN_RPC_URL",
-                &format!("{}/evm", node.base),
+                format!("{}/evm", node.base),
             )
             .env(
                 "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
@@ -346,10 +348,12 @@ fn corpus() -> &'static Value {
             "native host runtime",
             &root.join("runtime-build.log"),
         );
-        let now = SystemTime::now()
+        let now: u64 = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+            .must()
+            .as_millis()
+            .try_into()
+            .must();
         let public = ed25519_dalek::SigningKey::from_bytes(&[0x61; 32])
             .verifying_key()
             .to_bytes();
@@ -387,7 +391,7 @@ fn corpus() -> &'static Value {
                 .spawn(),
         );
         must(serde_json::to_writer(
-            producer.stdin.take().unwrap(),
+            producer.stdin.take().must(),
             &json!({
             "Directory":root, "Now":now, "Grant":hex::encode(&grant.registration_payload)}),
         ));
@@ -401,7 +405,7 @@ fn corpus() -> &'static Value {
             root.join("corpus.json"),
         ))));
         assert_eq!(corpus["did"], did);
-        assert!(!corpus["queries"].as_object().unwrap().is_empty());
+        assert!(!corpus["queries"].as_object().must().is_empty());
         corpus
     })
 }
@@ -422,9 +426,9 @@ fn produced_receipt(kind: &str, height: u64, seed: u8) -> Receipt {
     let signer = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
     let public = signer.verifying_key().to_bytes();
     let key_id: [u8; 32] = Sha256::digest(public).into();
-    let bytes = must(hex::decode(corpus()[kind].as_str().unwrap()));
+    let bytes = must(hex::decode(corpus()[kind].as_str().must()));
     let decoded = must(layerx_wire::receipt::decode(&bytes));
-    let protocol = decoded.protocol().unwrap();
+    let protocol = decoded.protocol().must();
     assert_eq!(protocol.global_sequence(), height);
     assert_eq!(protocol.result_code(), 0);
     assert_eq!(protocol.context_hash(), key_id);
@@ -470,6 +474,26 @@ struct Node {
 }
 
 impl Node {
+    fn request_head(reader: &mut std::io::BufReader<TcpStream>) -> (String, bool, usize) {
+        let mut line = String::new();
+        must(reader.read_line(&mut line));
+        let path = line.split_whitespace().nth(1).must().to_owned();
+        let get = line.starts_with("GET ");
+        let mut length = 0;
+        loop {
+            line.clear();
+            assert_ne!(must(reader.read_line(&mut line)), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some(s) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = must(s.trim().parse::<usize>());
+            }
+        }
+        assert!(length < 65536);
+        (path, get, length)
+    }
+
     fn open() -> Self {
         let corpus = corpus().clone();
         let receipts = vec![
@@ -497,38 +521,23 @@ impl Node {
                 };
                 must(stream.set_read_timeout(Some(Duration::from_secs(10))));
                 let mut reader = std::io::BufReader::new(stream);
-                let mut line = String::new();
-                must(reader.read_line(&mut line));
-                let path = line.split_whitespace().nth(1).unwrap().to_owned();
-                let get = line.starts_with("GET ");
-                let mut length = 0;
-                loop {
-                    line.clear();
-                    assert_ne!(must(reader.read_line(&mut line)), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some(s) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = must(s.trim().parse::<usize>());
-                    }
-                }
-                assert!(length < 65536);
-                let fault = *thread_fault.lock().unwrap();
+                let (path, get, length) = Self::request_head(&mut reader);
+                let fault = *thread_fault.lock().must();
                 let answer = if get {
                     assert_ne!(fault,"offline-replica", "replay unexpectedly fetched replica");
-                    served.iter().find(|r| r.replica_path == path).expect("real replica locator").document.clone()
+                    served.iter().find(|r| r.replica_path == path).must_with("real replica locator").document.clone()
                 } else {
                     let mut bytes = vec![0;length]; must(reader.read_exact(&mut bytes));
                     let request: Value = must(serde_json::from_slice(&bytes));
-                    let method = request["method"].as_str().unwrap();
+                    let method = request["method"].as_str().must();
                     let mut result = match method {
                         "eth_chainId" => json!("0x7d"),
                         "eth_blockNumber" => json!("0x9"),
-                        "eth_getBlockByNumber" => corpus["blocks"][request["params"][0].as_str().unwrap()].clone(),
+                        "eth_getBlockByNumber" => corpus["blocks"][request["params"][0].as_str().must()].clone(),
                         "px_getCommit" => { assert_eq!(request["params"],json!(["9"])); corpus["commit"].clone() },
                         "pax_sequencerReceipt" => {
-                            let id = request["params"][0].as_str().unwrap().strip_prefix("0x").unwrap();
-                            let r = served.iter().find(|r| r.activity == id).unwrap();
+                            let id = request["params"][0].as_str().must().strip_prefix("0x").must();
+                            let r = served.iter().find(|r| r.activity == id).must();
                             json!({"txHash":format!("0x{id}"),"rung":"committed", "height":format!("0x{:x}",r.height),
                                 "blockNumber":format!("0x{:x}",r.height),"blockHash":corpus["blocks"][format!("0x{:x}",r.height)]["hash"],
                                 "receipt":format!("0x{}",hex::encode(&r.bytes)),"keyId":format!("0x{}",hex::encode(&r.key_id)),
@@ -538,7 +547,7 @@ impl Node {
                             assert_eq!(path,"/comet");
                             assert_eq!(request["params"]["path"],"/store/lxphost/key");
                             assert_eq!(request["params"]["height"],"8"); assert_eq!(request["params"]["prove"],true);
-                            let key = request["params"]["data"].as_str().unwrap().strip_prefix("0x").unwrap();
+                            let key = request["params"]["data"].as_str().must().strip_prefix("0x").must();
                             let mut query = corpus["queries"][key].clone();
                             assert!(query.is_object(),"missing real SDK membership {key}");
                             match fault {
@@ -583,7 +592,7 @@ impl Drop for Node {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker.join().must();
         }
     }
 }
@@ -594,21 +603,21 @@ fn configure(root: &Path, node: &Node) {
     let decoded = must(layerx_wire::receipt::decode(&receipts[0].bytes));
     let state = decoded
         .protocol()
-        .unwrap()
+        .must()
         .effects()
         .iter()
         .find(|e| e.event_type() == 0x7110)
-        .unwrap()
+        .must()
         .body();
-    let number = |offset| u64::from_be_bytes(state[offset..offset + 8].try_into().unwrap());
+    let number = |offset| u64::from_be_bytes(state[offset..offset + 8].try_into().must());
     let granted = must(layerx_wire::receipt::decode(&receipts[1].bytes));
     let summary = granted
         .protocol()
-        .unwrap()
+        .must()
         .effects()
         .iter()
         .find(|e| e.event_type() == 0x7145)
-        .unwrap()
+        .must()
         .body();
     let rotation = json!({"policy_revision":number(167),"required_delay_seconds":number(199).div_ceil(1000),
         "maximum_delay_seconds":number(207)/1000,"effective_sequence":2,"evidence":reference(&receipts[0])});
@@ -676,16 +685,16 @@ fn retain(server: &Server, address: std::net::SocketAddr, node: &Node) {
     }
 }
 fn human_paths() -> Vec<String> {
-    let did = corpus()["did"].as_str().unwrap();
-    let grant = must(hex::decode(corpus()["grant"].as_str().unwrap()));
+    let did = corpus()["did"].as_str().must();
+    let grant = must(hex::decode(corpus()["grant"].as_str().must()));
     let decoded = must(layerx_wire::receipt::decode(&grant));
     let summary = decoded
         .protocol()
-        .unwrap()
+        .must()
         .effects()
         .iter()
         .find(|e| e.event_type() == 0x7145)
-        .unwrap()
+        .must()
         .body();
     let base = format!("tenant=tenant%20space&principal=principal&did={did}");
     vec![
@@ -711,7 +720,7 @@ fn retired_anchor_finality_binds_identity_capability_and_key_policy() {
         let document = request(&server, address, &path, 200);
         if path.contains("/identity?") {
             assert_eq!(document["head_sequence"], 3);
-            let authorities = document["authorities"].as_array().unwrap();
+            let authorities = document["authorities"].as_array().must();
             assert_eq!(authorities.len(), 2);
             assert!(authorities.iter().any(|a| a["kind"] == "session_key"));
         }
@@ -725,14 +734,14 @@ fn retired_anchor_finality_binds_identity_capability_and_key_policy() {
             document["finality"]["app_hash"],
             corpus()["blocks"]["0x9"]["stateRoot"]
                 .as_str()
-                .unwrap()
+                .must()
                 .trim_start_matches("0x")
         );
         assert_eq!(
             document["finality"]["block_hash"],
             corpus()["blocks"]["0x9"]["hash"]
                 .as_str()
-                .unwrap()
+                .must()
                 .trim_start_matches("0x")
         );
     }
@@ -747,7 +756,7 @@ fn retired_anchor_finality_binds_identity_capability_and_key_policy() {
         "height",
         "uncommitted",
     ] {
-        *node.fault.lock().unwrap() = fault;
+        *node.fault.lock().must() = fault;
         for path in human_paths() {
             request(&server, address, &path, 503);
         }
@@ -765,7 +774,7 @@ fn rotated_human_receipt_key_lookup_retention_and_replay() {
         request(&server, address, &path, 200);
     }
     drop(server); // Stop authority, then reload its actual durable evidence.
-    *node.fault.lock().unwrap() = "offline-replica";
+    *node.fault.lock().must() = "offline-replica";
     let (server, address) = launch_at(root.clone(), &node);
     let rotated = &node.receipts[1];
     let held = request(
