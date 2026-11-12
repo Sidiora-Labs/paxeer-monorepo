@@ -13516,6 +13516,12 @@ value = "The paths of task 22.39.441 gain the six member directories of services
 basis = "Gotcha 4317. Decisions 3340 to 3346."
 affects = ["22.39.441"]
 
+[decision.3401]
+title = "Task 22.39.454 repairs a lint finding in the lines the project added to the vendored interpreter"
+value = "Where clippy reports a line of programs/vendor/wasmi-0.31.2 that the project added, task 22.39.454 repairs that line in the form clippy proposes. The repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte and the cases of the interpreter member keep their results. Each repair is noted in PATCHES.md of that directory. No other file under programs/vendor is changed, no allow attribute is added and the recipe keeps its options. For these lines this replaces the vendor rule of the second step of the task."
+basis = "Gotcha 4318. Decisions 3340 to 3346."
+affects = ["22.39.454"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -290564,6 +290570,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4318, decision 3401. Repair the findings clippy reports in the lines the project added to programs/vendor/wasmi-0.31.2, such as the two closures in src/engine/executor.rs that only observe an error and the missing errors section of execute_step in src/engine/mod.rs. Use the form clippy proposes, change no behaviour, add no allow attribute and note each repair in PATCHES.md of that directory. Run the cases of the interpreter member by hand and confirm the vectors and fixtures are unchanged before the counted runs. Change no other file under programs/vendor."
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"
