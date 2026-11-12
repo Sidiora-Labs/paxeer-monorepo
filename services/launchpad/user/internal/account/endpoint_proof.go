@@ -9,9 +9,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/google/uuid"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // EndpointChallenge is signed by an explicitly configured trusted provider
@@ -75,7 +76,11 @@ func CompactEndpointProofVerifier(provider ed25519.PublicKey) EndpointProofVerif
 		if !bytes.Equal(wire[17:49], digest[:]) {
 			return ErrDenied
 		}
-		expiry := int64(binary.BigEndian.Uint64(wire[65:73]))
+		wireExpiry := binary.BigEndian.Uint64(wire[65:73])
+		if wireExpiry > ^uint64(0)>>1 {
+			return ErrDenied
+		}
+		expiry := int64(wireExpiry)
 		if expiry <= now.Unix() || expiry > now.Add(5*time.Minute).Unix() {
 			return ErrDenied
 		}
@@ -119,12 +124,16 @@ func CompactDeviceProofVerifier(provider ed25519.PublicKey) DeviceProofVerifier 
 		for _, v := range nonce {
 			nonzero = nonzero || v != 0
 		}
-		expiry := int64(binary.BigEndian.Uint64(raw[97:105]))
+		wireExpiry := binary.BigEndian.Uint64(raw[97:105])
+		if wireExpiry > ^uint64(0)>>1 {
+			return ErrDenied
+		}
+		expiry := int64(wireExpiry)
 		if !nonzero || expiry <= now.Unix() || expiry > now.Add(5*time.Minute).Unix() {
 			return ErrDenied
 		}
-		platforms := map[string]byte{"web": 1, "ios": 2, "android": 3}
-		providers := map[string]byte{"webpush": 1, "apns": 2, "fcm": 3}
+		platforms := map[string]byte{platformWeb: 1, platformIOS: 2, platformAndroid: 3}
+		providers := map[string]byte{providerWebpush: 1, providerAPNS: 2, "fcm": 3}
 		if platforms[b.Platform] == 0 || providers[b.Provider] == 0 || raw[105] != platforms[b.Platform] || raw[106] != providers[b.Provider] {
 			return ErrDenied
 		}
