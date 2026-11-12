@@ -16,10 +16,10 @@ function chain_launch_uses_producer_function_and_event_names() {
     const published = producer.find(item => item.name === name);
     expect(published).toBeDefined();
     expect(local.type).toBe(published!.type);
-    expect(local.inputs.map(input => ({ name: input.name, type: input.type, indexed: 'indexed' in input && input.indexed === true })))
+    expect(local.inputs.map(input => ({ name: 'name' in input ? input.name : undefined, type: input.type, indexed: 'indexed' in input && input.indexed === true })))
       .toEqual(published!.inputs!.map(input => ({ name: input.name, type: input.type, indexed: input.indexed === true })));
     if (local.type === 'function') {
-      expect(local.outputs.map(output => ({ name: output.name, type: output.type })))
+      expect(local.outputs.map(output => ({ name: 'name' in output ? output.name : undefined, type: output.type })))
         .toEqual(published!.outputs!.map(output => ({ name: output.name, type: output.type })));
       expect(local.stateMutability).toBe(published!.stateMutability);
     }
