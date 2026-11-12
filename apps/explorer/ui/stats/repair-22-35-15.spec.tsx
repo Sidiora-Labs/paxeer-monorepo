@@ -11,7 +11,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import React from 'react';
 
-import type { ChartMarketResponse, ChartSecondaryCoinPriceResponse, ChartTransactionResponse } from 'types/api/charts';
+import type { ChartMarketResponse, ChartSecondaryCoinMarketResponse, ChartTransactionResponse } from 'types/api/charts';
 import type { FeedMarketsResponse } from 'types/api/paxeerXFeed';
 
 import type { ExplorerStats, ExplorerTransactionsStats } from 'lib/api/services/general/stats';
@@ -139,7 +139,7 @@ const paxChart: ChartMarketResponse = {
     { date: dateDaysAgo(2), closing_price: '0.15', market_cap: '15000000' },
   ],
 };
-const sidChart: ChartSecondaryCoinPriceResponse = {
+const sidChart: ChartSecondaryCoinMarketResponse = {
   available_supply: '200000000',
   chart_data: [
     { date: dateDaysAgo(0), closing_price: '4', market_cap: '800000000' },
