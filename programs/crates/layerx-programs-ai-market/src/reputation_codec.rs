@@ -1,10 +1,10 @@
 use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
-    errors::{CodecResult, BAD_VERSION, CAPACITY, F07_RESOURCE_LIMIT, NON_CANONICAL},
+    errors::{BAD_VERSION, CAPACITY, CodecResult, F07_RESOURCE_LIMIT, NON_CANONICAL},
     reputation::{
-        ClosureReason, CompletedHistory, HistoryStatus, Observation, ReputationCurrent,
-        ReputationState, SegmentKey, CURRENT_BYTES, HISTORY_BYTES, LIMIT, SECTION_CAP,
+        CURRENT_BYTES, ClosureReason, CompletedHistory, HISTORY_BYTES, HistoryStatus, LIMIT,
+        Observation, ReputationCurrent, ReputationState, SECTION_CAP, SegmentKey,
     },
     types::{Digest32, MarketId, Presence, PrincipalId, Score, Version, WorkerId},
 };

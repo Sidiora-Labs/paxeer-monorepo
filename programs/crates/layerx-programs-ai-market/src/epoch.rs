@@ -47,14 +47,15 @@
 //!   byte-identical across every other producer, which reads the F08 table only.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS,
     admission::{AdmissionMeta, AdmissionTable, Participant},
     aggregation::{self, Outcome as Aggregated},
     codec::{
-        self, derive_market, Envelope, EventCommon, Reader, Roster, ValidatedEnvelope, Writer,
+        self, Envelope, EventCommon, Reader, Roster, ValidatedEnvelope, Writer, derive_market,
     },
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_ACTIVATION_NOT_READY,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F01_ACTIVATION_NOT_READY,
         F01_ACTIVATION_TOO_EARLY, F01_ALREADY_ACTIVATED, F01_LIFECYCLE_CLOSED, F01_STALE_REVISION,
         F07_BINDING_MISMATCH, F07_IDEMPOTENCY_CONFLICT, F07_IDENTITY_FROZEN, F07_UNKNOWN_WORKER,
         F08_MARKET_PAUSED, INSUFFICIENT_FREE, NON_CANONICAL, NOT_FOUND, READINESS_BLOCKED,
@@ -62,27 +63,27 @@ use crate::{
         WRONG_MARKET, WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{self, split_identity_section, SnapshotContext},
+        authority::{self, SnapshotContext, split_identity_section},
         model::GrantStatus,
     },
     policy::TaskPolicyV1,
-    registry::{check_f01_capacity, market_clock, MarketHeader},
+    registry::{MarketHeader, check_f01_capacity, market_clock},
     registry_ops::{
-        activate_pending_policy, CallContext, PolicySection, ACTIVE, REGISTERED, SUSPENDED,
+        ACTIVE, CallContext, PolicySection, REGISTERED, SUSPENDED, activate_pending_policy,
     },
     reputation::{ClosureReason, HistoryStatus, ReputationCurrent, SegmentKey},
     reputation_transition::{
-        bound_record, check_expected, encode_joint, replace_record, reset_segment, set_status,
-        split_joint, Region, SegmentBinding, WorkerObservation,
+        Region, SegmentBinding, WorkerObservation, bound_record, check_expected, encode_joint,
+        replace_record, reset_segment, set_status, split_joint,
     },
     rewards::{
-        decode_reward_state, EpochStatus, RewardEpoch, RewardOutcome, RewardState,
-        REWARD_STATE_BYTES,
+        EpochStatus, REWARD_STATE_BYTES, RewardEpoch, RewardOutcome, RewardState,
+        decode_reward_state,
     },
     roster::{self, ROLLOVER_SCRATCH_BYTES},
     state::{
-        decode_shared_state, encode_shared_state, ActorSlot, ReplayDecision, ReplayRequest,
-        RetainedResult, Section, SharedState,
+        ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, encode_shared_state,
     },
     tasks,
     types::{
@@ -90,7 +91,6 @@ use crate::{
         Presence, PrincipalId, ResultDigest, RosterDigest, Version, WorkerId, WorkerRosterEntry,
     },
     workers::{WorkerState, WorkerTable},
-    MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS,
 };
 
 const POLICY_CAP: usize = Section::PolicyLifecycle.payload_cap();

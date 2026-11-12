@@ -21,11 +21,12 @@
 //!   ledger context roster.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_PAYOUT_IDENTITIES, MAX_RETAINED_EPOCHS, MAX_WORKERS, SCHEMA_VERSION,
     admission::AdmissionTable,
-    codec::{self, domain_hash, Envelope, EventCommon, Reader, ValidatedEnvelope, Writer},
+    codec::{self, Envelope, EventCommon, Reader, ValidatedEnvelope, Writer, domain_hash},
     dispatch,
     errors::{
-        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F06_AGGREGATION_MISMATCH,
+        ACCOUNT_BINDING, ARITHMETIC, CAPACITY, CodecResult, F06_AGGREGATION_MISMATCH,
         F06_CLAIM_EXPIRED, F06_CLAIM_NOT_READY, F06_CONTRIBUTION_CONSENT_REQUIRED,
         F06_EPOCH_ALREADY_RESERVED, F06_EPOCH_NOT_RESERVED, F06_EPOCH_TERMINAL,
         F06_FUNDING_POLICY_MISMATCH, F06_INVALID_AMOUNT, F06_LEDGER_INVARIANT_VIOLATION,
@@ -34,21 +35,20 @@ use crate::{
         NON_CANONICAL, NOT_FOUND, RETENTION_FULL, STALE_CURSOR, UNAUTHORIZED, UNKNOWN_OPERATION,
         WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE, WRONG_ROSTER,
     },
-    registry::{check_f01_capacity, MarketHeader},
+    registry::{MarketHeader, check_f01_capacity},
     registry_ops::{
-        CallContext, PolicySection, ACTIVE, CLOSED, REGISTERED, SUSPENDED, WINDING_DOWN,
+        ACTIVE, CLOSED, CallContext, PolicySection, REGISTERED, SUSPENDED, WINDING_DOWN,
     },
-    reward_math::{claim_expiry, conservation_holds, Allocation},
+    reward_math::{Allocation, claim_expiry, conservation_holds},
     state::{
-        decode_shared_state, encode_shared_state, ActorSlot, Control, ReplayDecision,
-        ReplayRequest, ReplayTable, RetainedResult, Section, SharedState,
+        ActorSlot, Control, ReplayDecision, ReplayRequest, ReplayTable, RetainedResult, Section,
+        SharedState, decode_shared_state, encode_shared_state,
     },
     types::{
         AccountId, Amount, AssetId, Digest32, FrozenBinding, Presence, PrincipalId, RequestDigest,
         ResultDigest, RosterDigest, Version, WorkerId, WorkerRosterEntry,
     },
     value_adapter::{self, RewardsAccount},
-    MAX_PAYOUT_IDENTITIES, MAX_RETAINED_EPOCHS, MAX_WORKERS, SCHEMA_VERSION,
 };
 
 pub const FUNDING_POLICY_VERSION: u64 = 1;
@@ -809,11 +809,7 @@ impl RewardEpoch {
             }
             _ => false,
         };
-        if ok {
-            Ok(())
-        } else {
-            Err(NON_CANONICAL)
-        }
+        if ok { Ok(()) } else { Err(NON_CANONICAL) }
     }
     /// Entries must name occupied slots ordered strictly by `worker_id` bytes.
     ///
@@ -1250,11 +1246,7 @@ impl FundingAuthority {
         } else {
             false
         };
-        if ok {
-            Ok(())
-        } else {
-            Err(UNAUTHORIZED)
-        }
+        if ok { Ok(()) } else { Err(UNAUTHORIZED) }
     }
 }
 
@@ -1702,16 +1694,28 @@ pub(crate) fn committed_row(section: &[u8], epoch: u64) -> CodecResult<Committed
 struct Draft<'b> {
     ledger: RewardLedger,
     bytes: &'b mut [u8],
+    payout_tail: Option<usize>,
 }
 impl<'b> Draft<'b> {
     fn start(current: &RewardState<'_>, next: &'b mut [u8]) -> CodecResult<Self> {
         if next.len() != REWARD_STATE_BYTES {
             return Err(NON_CANONICAL);
         }
+        Self::start_with_ledger(current, next, current.ledger()?)
+    }
+    fn start_with_ledger(
+        current: &RewardState<'_>,
+        next: &'b mut [u8],
+        ledger: RewardLedger,
+    ) -> CodecResult<Self> {
+        if next.len() != REWARD_STATE_BYTES {
+            return Err(NON_CANONICAL);
+        }
         next.guest_copy_from_slice(current.bytes);
         Ok(Self {
-            ledger: current.ledger()?,
+            ledger,
             bytes: next,
+            payout_tail: None,
         })
     }
     fn dictionary(&self) -> RecipientDictionary<'_> {
@@ -1739,9 +1743,22 @@ impl<'b> Draft<'b> {
         )
     }
     fn commit(self, effect: RewardEffect) -> CodecResult<(RewardState<'b>, RewardEffect)> {
-        let Self { ledger, bytes } = self;
+        let Self { ledger, bytes, .. } = self;
         encode_ledger(&ledger, bytes.guest_index_mut(..DICTIONARY_AT))?;
-        Ok((decode_reward_state(bytes)?, effect))
+        let state = if matches!(effect, RewardEffect::NoTransfer) {
+            // Payout credits and dictionary references were checked as each
+            // credit was written; the retained epoch rows are unchanged.
+            RewardState { bytes }
+        } else {
+            decode_reward_state(bytes)?
+        };
+        Ok((state, effect))
+    }
+
+    // The current reward section was validated at commitment. A bond lock
+    // copies it unchanged; its new held balance lives in the room book.
+    fn carry_unchanged(self) -> RewardState<'b> {
+        RewardState { bytes: self.bytes }
     }
 
     fn commit_row(
@@ -1772,7 +1789,7 @@ impl<'b> Draft<'b> {
         if dictionary.occupied() != usize::from(self.ledger.recipient_count) {
             return Err(F06_LEDGER_INVARIANT_VIOLATION);
         }
-        let Self { ledger, bytes } = self;
+        let Self { ledger, bytes, .. } = self;
         encode_ledger(&ledger, bytes.guest_index_mut(..DICTIONARY_AT))?;
         Ok((RewardState { bytes }, effect))
     }
@@ -1796,27 +1813,52 @@ impl<'b> Draft<'b> {
         }
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    fn admit(&mut self, worker: WorkerId, recipient: AccountId) -> CodecResult<u16> {
+    fn admit(
+        &mut self,
+        worker: WorkerId,
+        recipient: AccountId,
+        slot_hint: Option<u16>,
+    ) -> CodecResult<u16> {
         if recipient == self.ledger.account {
             return Err(ACCOUNT_BINDING);
         }
         let dictionary = self.dictionary();
         let mut found = None;
-        for (index, bytes) in dictionary.raw() {
+        let mut free = None;
+        if let Some(index) = slot_hint {
+            if let Some(slot) = dictionary.get(index)? {
+                if slot.worker == worker && slot.recipient == recipient {
+                    found = Some((index, slot));
+                }
+            }
+        }
+        for index in 0..MAX_PAYOUT_IDENTITIES {
+            if found.is_some() {
+                break;
+            }
+            let slot_index = index as u16;
+            let bytes = dictionary
+                .bytes
+                .guest_index(index * SLOT_BYTES..(index + 1) * SLOT_BYTES);
             match bytes[0] {
-                0 => {} // padding was checked before Draft::start; setters only write canonical slots
+                0 => {
+                    free.get_or_insert(slot_index);
+                    if unused(&dictionary.bytes[index * SLOT_BYTES..]) {
+                        break;
+                    }
+                }
                 1 => {
-                    let slot = dictionary.slot(index)?;
-                    if slot.worker == worker && slot.recipient == recipient {
-                        found = Some(index);
+                    if bytes.guest_index(1..33) == worker.as_bytes()
+                        && bytes.guest_index(33..65) == recipient.as_bytes()
+                    {
+                        found = Some((slot_index, dictionary.slot(slot_index)?));
                         break;
                     }
                 }
                 _ => return Err(NON_CANONICAL),
             }
         }
-        if let Some(index) = found {
-            let mut slot = self.dictionary().slot(index)?;
+        if let Some((index, mut slot)) = found {
             if slot.references >= MAX_SLOT_REFERENCES {
                 return Err(CAPACITY);
             }
@@ -1824,7 +1866,7 @@ impl<'b> Draft<'b> {
             self.set_slot(index, Some(&slot))?;
             return Ok(index);
         }
-        let index = self.dictionary().first_free().ok_or(CAPACITY)?;
+        let index = free.ok_or(CAPACITY)?;
         self.set_slot(
             index,
             Some(&RecipientSlot {
@@ -2008,16 +2050,19 @@ impl<'a> RewardState<'a> {
     }
     /// # Errors
     /// Any ledger decoding error.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn ledger(&self) -> CodecResult<RewardLedger> {
         decode_ledger(self.bytes.guest_index(..DICTIONARY_AT))
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn dictionary(&self) -> RecipientDictionary<'a> {
         RecipientDictionary {
             bytes: self.bytes.guest_index(DICTIONARY_AT..ROWS_AT),
         }
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn rows(&self) -> EpochRows<'a> {
         EpochRows {
             bytes: self.bytes.guest_index(ROWS_AT..LAST_REFUND_AT),
@@ -2318,13 +2363,11 @@ impl<'a> RewardState<'a> {
         let pruning = self.completed()? >= MAX_RETAINED_EPOCHS;
         let mut draft = Draft::start(self, next)?;
         if pruning {
-            effect = RewardEffect::Pruned(draft.remove_oldest().map_err(|e| {
-                if e == WRONG_PHASE {
-                    RETENTION_FULL
-                } else {
-                    e
-                }
-            })?);
+            effect = RewardEffect::Pruned(
+                draft
+                    .remove_oldest()
+                    .map_err(|e| if e == WRONG_PHASE { RETENTION_FULL } else { e })?,
+            );
         }
         let slots = draft.admit_roster(roster)?;
         draft.ledger = draft.ledger.reserve(budget)?;
@@ -3573,6 +3616,7 @@ impl RewardState<'_> {
     fn credit_payout(
         &self,
         draft: &mut Draft<'_>,
+        slot_hint: Option<u16>,
         epoch: u64,
         worker: WorkerId,
         recipient: AccountId,
@@ -3583,28 +3627,31 @@ impl RewardState<'_> {
         if amount == 0 {
             return Ok(());
         }
-        let mut free = None;
-        let mut existing = None;
-        for i in 0..PAYOUT_CREDIT_CAPACITY {
-            let at = PAYOUT_AT + i * PAYOUT_CREDIT_BYTES;
-            match PayoutCredit::decode(draft.bytes.guest_index(at..at + PAYOUT_CREDIT_BYTES))? {
-                None => {
-                    if free.is_none() {
-                        free = Some(i);
-                    }
-                }
-                Some(credit)
-                    if credit.epoch == epoch
-                        && draft.dictionary().slot(credit.slot)?.worker == worker =>
+        let mut free = draft
+            .payout_tail
+            .filter(|end| *end < PAYOUT_CREDIT_CAPACITY);
+        let existing = self.payout_credit(epoch, worker)?;
+        if let Some((_, credit)) = existing {
+            if draft.dictionary().slot(credit.slot)?.recipient != recipient {
+                return Err(F06_WRONG_CLAIM_RECIPIENT);
+            }
+        } else if free.is_none() {
+            for i in 0..draft.payout_tail.unwrap_or(PAYOUT_CREDIT_CAPACITY) {
+                let at = PAYOUT_AT + i * PAYOUT_CREDIT_BYTES;
+                if PayoutCredit::decode(draft.bytes.guest_index(at..at + PAYOUT_CREDIT_BYTES))?
+                    .is_none()
                 {
-                    if draft.dictionary().slot(credit.slot)?.recipient != recipient {
-                        return Err(F06_WRONG_CLAIM_RECIPIENT);
+                    free = Some(i);
+                    if draft.payout_tail.is_none()
+                        && unused(draft.bytes.guest_index(at..PAYOUT_CURSORS_AT))
+                    {
+                        draft.payout_tail = Some(i);
                     }
-                    existing = Some((i, credit));
+                    break;
                 }
-                Some(_) => {}
             }
         }
+        let new_credit = existing.is_none();
         let (index, mut credit) = match existing {
             Some((index, credit)) => {
                 if credit.expired || height >= credit.expiry {
@@ -3616,7 +3663,7 @@ impl RewardState<'_> {
                 free.ok_or(CAPACITY)?,
                 PayoutCredit {
                     epoch,
-                    slot: draft.admit(worker, recipient)?,
+                    slot: draft.admit(worker, recipient, slot_hint)?,
                     amount: 0,
                     paid: 0,
                     last_paid: 0,
@@ -3638,7 +3685,11 @@ impl RewardState<'_> {
             .guest_copy_from_slice(worker.as_bytes());
         credit.allocation = domain_hash("PAXAI/payout-credit/v1", &preimage)?;
         credit.amount = credit.amount.checked_add(amount).ok_or(ARITHMETIC)?;
-        draft.set_payout_credit(index, Some(&credit))
+        draft.set_payout_credit(index, Some(&credit))?;
+        if new_credit && draft.payout_tail == Some(index) {
+            draft.payout_tail = Some(index + 1);
+        }
+        Ok(())
     }
 }
 
@@ -3658,7 +3709,7 @@ pub fn apply_split_payout(
     let state = decode_shared_state(current)?;
     let policy = crate::canary::check_call(ctx, e, &state)?;
     let request = SplitPayoutRequest::decode(e.payload)?;
-    let settled = crate::laps::settlement_from_state(current, request.deal)?.ok_or(NOT_FOUND)?;
+    let settled = crate::laps::settlement_from_shared(&state, request.deal)?.ok_or(NOT_FOUND)?;
     if request.batch != settled.batch.batch_digest {
         return Err(crate::errors::CONFLICT);
     }
@@ -3671,7 +3722,7 @@ pub fn apply_split_payout(
     if e.roster != Presence::Present(settled.roster) {
         return Err(WRONG_ROSTER);
     }
-    let book = crate::rooms::RoomBook::decode(state.room_market()?.1)?;
+    let book = crate::rooms::RoomBook::committed(state.room_market()?.1)?;
     let deal = book.deal(request.deal)?.ok_or(NOT_FOUND)?;
     let room = book
         .room(deal.room_id)?
@@ -3684,7 +3735,12 @@ pub fn apply_split_payout(
     if e.actor != room.host_key && ctx.height < end {
         return Err(UNAUTHORIZED);
     }
-    let rewards = crate::state::settlement_rewards(&state, None)?;
+    let rewards = committed_state(
+        state
+            .section(Section::SettlementClaims)?
+            .get(..REWARD_STATE_BYTES)
+            .ok_or(WRONG_EPOCH)?,
+    )?;
     let before = rewards.ledger()?;
     check_bindings(&before, &policy.header)?;
     rewards.row(e.epoch)?;
@@ -3733,18 +3789,18 @@ pub fn apply_split_payout(
     {
         return Err(crate::errors::CONFLICT);
     }
-    let captured = crate::epoch::captured_roster(&state)?.ok_or(WRONG_ROSTER)?;
+    let captured = crate::epoch::committed_roster(&state)?;
     let mut peers = [(captured.workers().guest_index(0).worker, 0u64); MAX_WORKERS];
     let mut recipients = [before.refund_recipient; MAX_WORKERS];
-    let count = deal.layers.iter().flatten().count();
-    for (i, layer) in deal.layers.iter().flatten().enumerate() {
+    let mut count = 0;
+    for layer in deal.layers.iter().flatten() {
         let bid = book.bid(layer.bid_id)?.ok_or(NOT_FOUND)?;
         let worker = captured
             .workers()
             .iter()
             .find(|w| w.owner == bid.peer_key)
             .ok_or(NOT_FOUND)?;
-        *peers.guest_index_mut(i) = (
+        *peers.guest_index_mut(count) = (
             worker.worker,
             u64::from(
                 layer
@@ -3753,7 +3809,8 @@ pub fn apply_split_payout(
                     .ok_or(ARITHMETIC)?,
             ),
         );
-        *recipients.guest_index_mut(i) = worker.recipient;
+        *recipients.guest_index_mut(count) = worker.recipient;
+        count += 1;
     }
     // Keep recipient bindings with their workers while canonicalizing rounding ties.
     for i in 1..count {
@@ -3806,15 +3863,17 @@ pub fn apply_split_payout(
     )?;
     let (policy_out, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (settlement, control) = rest.split_at_mut_checked(SETTLEMENT_CAP).ok_or(CAPACITY)?;
-    let mut draft = Draft::start(
+    let mut draft = Draft::start_with_ledger(
         &rewards,
         settlement.get_mut(..REWARD_STATE_BYTES).ok_or(CAPACITY)?,
+        before,
     )?;
     enable_payouts(&mut draft)?;
     let allocation = Digest32::new(response.result()?.bytes())?;
     for i in 0..count {
         rewards.credit_payout(
             &mut draft,
+            Some(i as u16),
             e.epoch,
             peers.guest_index(i).0,
             *recipients.guest_index(i),
@@ -3828,6 +3887,7 @@ pub fn apply_split_payout(
             WorkerId::new(domain_hash("PAXAI/payout-host/v1", room.host_key.as_bytes())?.bytes())?;
         rewards.credit_payout(
             &mut draft,
+            None,
             e.epoch,
             worker,
             AccountId::new(room.host_key.bytes())?,
@@ -3844,6 +3904,7 @@ pub fn apply_split_payout(
             WorkerId::new(domain_hash("PAXAI/payout-protocol/v1", treasury.as_bytes())?.bytes())?;
         rewards.credit_payout(
             &mut draft,
+            None,
             e.epoch,
             worker,
             AccountId::new(treasury.bytes())?,
@@ -3911,7 +3972,7 @@ pub(crate) fn finish_room_transition<'a>(
     *shared
         .feature_sections
         .guest_index_mut(Section::SettlementClaims.index()) = settlement;
-    let (revision, state_len) = finish_feature_transition(
+    let (revision, state_len) = finish_transition(
         shared,
         policy,
         replay,
@@ -3921,6 +3982,7 @@ pub(crate) fn finish_room_transition<'a>(
         policy_out,
         control,
         next,
+        true,
     )?;
     let event_len = codec::encode_event_frame(
         e.operation,
@@ -3944,6 +4006,32 @@ pub(crate) fn finish_room_transition<'a>(
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn finish_feature_transition<'a>(
+    shared: SharedState<'a>,
+    policy: crate::registry_ops::PolicySection<'a>,
+    replay: Option<&ReplayRequest>,
+    height: u64,
+    result: ResultDigest,
+    replay_error: crate::errors::ApplicationError,
+    policy_out: &'a mut [u8],
+    control: &mut [u8],
+    next: &mut [u8],
+) -> CodecResult<(u64, usize)> {
+    finish_transition(
+        shared,
+        policy,
+        replay,
+        height,
+        result,
+        replay_error,
+        policy_out,
+        control,
+        next,
+        false,
+    )
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn finish_transition<'a>(
     mut shared: SharedState<'a>,
     mut policy: crate::registry_ops::PolicySection<'a>,
     replay: Option<&ReplayRequest>,
@@ -3953,6 +4041,7 @@ pub(crate) fn finish_feature_transition<'a>(
     policy_out: &'a mut [u8],
     control: &mut [u8],
     next: &mut [u8],
+    preserve_policy: bool,
 ) -> CodecResult<(u64, usize)> {
     let revision = shared.revision.checked_add(1).ok_or(ARITHMETIC)?;
     if let Some(request) = replay {
@@ -3965,8 +4054,16 @@ pub(crate) fn finish_feature_transition<'a>(
     if shared.revision != revision {
         return Err(NON_CANONICAL);
     }
-    policy.header.state_revision = revision;
-    let p = policy.encode(policy_out)?;
+    let p = if preserve_policy {
+        policy.encode_revision(
+            shared.section(Section::PolicyLifecycle)?,
+            revision,
+            policy_out,
+        )?
+    } else {
+        policy.header.state_revision = revision;
+        policy.encode(policy_out)?
+    };
     *shared
         .feature_sections
         .guest_index_mut(Section::PolicyLifecycle.index()) = policy_out.guest_index(..p);

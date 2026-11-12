@@ -4,16 +4,16 @@ use crate::{
     dispatch,
     epoch::captured_roster,
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, F04_COMMIT_MISMATCH,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, F04_COMMIT_MISMATCH,
         F11_BOND_INSUFFICIENT, F11_CHALLENGE_WINDOW_CLOSED, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED,
         WRONG_CONFIG, WRONG_EPOCH, WRONG_ROSTER,
     },
     evaluators::{admission::ChallengeRegion, codec::verify_digest, model::VerificationError},
     evidence::SealRegion,
-    policy::{RoomProfile, ROOM_PROFILE_BYTES},
+    policy::{ROOM_PROFILE_BYTES, RoomProfile},
     registry_ops::{CallContext, PolicySection},
     state::{
-        decode_shared_state, HeightWindow, ReplayRequest, RetainedResult, Section, SharedState,
+        HeightWindow, ReplayRequest, RetainedResult, Section, SharedState, decode_shared_state,
     },
     types::{
         AccountId, Digest32, FrozenBinding, Presence, PrincipalId, RequestDigest, Signature64,
@@ -494,6 +494,7 @@ impl<'a> CanaryRegion<'a> {
         Ok(w.len())
     }
 }
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn commitment_from_state(current: &[u8], id: Digest32) -> CodecResult<CanaryCommitment> {
     let state = decode_shared_state(current)?;

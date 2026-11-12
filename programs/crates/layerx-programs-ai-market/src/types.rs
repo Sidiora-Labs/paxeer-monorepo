@@ -1,5 +1,5 @@
 //! Checked common identities, immutable bindings, and bounded records.
-use crate::errors::{CodecResult, ARITHMETIC, F03_SCORE_RANGE, NON_CANONICAL};
+use crate::errors::{ARITHMETIC, CodecResult, F03_SCORE_RANGE, NON_CANONICAL};
 
 /// Bounds-checked access to internal storage, trapping guest invariant failures
 /// without constructing a formatted panic. Native callers retain Rust indexing.

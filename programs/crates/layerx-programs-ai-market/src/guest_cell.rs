@@ -177,8 +177,8 @@ pub(crate) fn copy_within<T: Copy>(values: &mut [T], start: usize, end: usize, d
 // The SDK caller decoder copies a fixed slice through a generic panic path.
 // Preserve its field, status and identifier checks with a checked array conversion.
 #[inline(never)]
-pub(crate) fn immediate_caller(
-) -> Result<Option<layerx_program_sdk::ProgramId>, layerx_program_sdk::ProgramError> {
+pub(crate) fn immediate_caller()
+-> Result<Option<layerx_program_sdk::ProgramId>, layerx_program_sdk::ProgramError> {
     use layerx_program_sdk::{Field, ProgramError, ProgramId, Reason};
 
     #[link(wasm_import_module = "layerx_v2")]
