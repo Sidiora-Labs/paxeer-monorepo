@@ -34,13 +34,15 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(Path(__file__).parent))
 import agent_operation_envelope as envelope
-from fixtures.merged_runtime_fixture import RuntimeFixture, RootRpc, ChainWriter, reserve_ports
+from fixtures.merged_runtime_fixture import RuntimeFixture, RootRpc, ChainWriter, reserve_ports, read_lap_settlement, read_payout_credits
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.evm_transaction import decode_signed
+from merged_qualification import decode_abi as decode_full_abi
 from layerx_sdk.evm_transaction import Type2Transaction, encode_call, decode_abi
 from layerx_sdk import account_derivation as accounts
 from layerx_sdk.program_lifecycle import NativeProgramDeploy, NativeProgramUpgrade
 from layerx_sdk.native_program_call import decode_native_program_call
+from layerx_sdk.ai_market import OPERATIONS, PaxaiEnvelope, decode_envelope
 from fixtures.xweb_native_evm import sign_transaction
 from fixtures.hosted_delivery_fixture import CaMaterial
 from fixtures.receipt_authority_fixture import der_pair, https
@@ -920,12 +922,15 @@ class RoomCustody:
         return results
 
 
-def configuration(directory, build_directory, manifest):
+def configuration(directory, build_directory, manifest, mode='room'):
     directory = Path(directory)
     keys = directory / 'keys'
     keys.mkdir(mode=0o700)
     generated = {}
-    for name in ('host', 'asker', 'peer0', 'peer1', 'evidence0', 'evidence1', 'evidence2'):
+    roles = ['host', 'asker', 'peer0', 'peer1', 'evidence0', 'evidence1', 'evidence2']
+    if mode == 'settlement':
+        roles.append('settler')
+    for name in roles:
         seed = os.urandom(64)
         derived = accounts.derive_from_seed(seed)
         require(derived.evm_private_key is not None, 'generated native signer key')
@@ -950,7 +955,7 @@ def configuration(directory, build_directory, manifest):
     profile = {'minimum_bond': '1000', 'canary_ratio_bps': 0, 'lap_size_tokens': 5,
                'challenge_window_blocks': 64, 'slash_fraction_bps': 1000,
                'host_share_bps': 1000, 'protocol_share_bps': 100,
-               'settlement_account': generated['host']['main_account'],
+               'settlement_account': generated.get('settler', generated['host'])['main_account'],
                'max_generated_tokens': 4, 'queue_depth': 1,
                'liveness_timeout_ms': 120000, 'acknowledgement_window_ms': 60000,
                'canary_relative_tolerance_bps': 0}
@@ -1116,6 +1121,7 @@ class GeneratedRoomWrites:
         *_, asset = self.view(PROGRAMS, 'getCurrentFeeSchedule', [], [],
                              ['uint32', *(['uint64'] * 7), 'bytes32'])
         self.config['asset'] = asset.hex()
+        asset = bytes.fromhex(self.config.get('market_asset', asset.hex()))
         market = encoded(self.driver.manifest, 'CreateMarket', {
             'program': self.config['program'], 'owner': account['principal'],
             'asset': asset.hex(), 'refund': account['main_account'],
@@ -1166,7 +1172,8 @@ class GeneratedRoomWrites:
                                'ABI 5 upgrade')},
               'get_program': program_read})
 
-    def operation(self, name, parameters, account, state=None, phase=None, delegate=False):
+    def operation(self, name, parameters, account, state=None, phase=None, delegate=False,
+                  payload=None, frozen=None):
         version, ceiling, asset = self.view(PROGRAMS, 'quoteCallFee', ['uint64[7]'],
                                             [RESOURCES], ['uint32', 'uint128', 'bytes32'])
         require(version > 0 and asset.hex() == self.config['asset'],
@@ -1194,7 +1201,8 @@ class GeneratedRoomWrites:
         inputs = {**parameters, 'height': height, 'request': request_id}
         if state is not None:
             inputs['state'] = state
-        payload = encoded(self.driver.manifest, name, inputs)['payload']
+        if payload is None:
+            payload = encoded(self.driver.manifest, name, inputs)['payload']
         save(self.driver.directory / ('program-call-fee-quote-' + request_id[:12] + '.json'),
              {'operation': name, 'height': height, 'version': version, 'ceiling': ceiling,
               'asset': asset.hex(), 'signed_limit': self.config['fee_limit'],
@@ -1206,12 +1214,40 @@ class GeneratedRoomWrites:
             request['state'] = state
         if delegate:
             request['delegate_seed'] = Path(account['delegate_seed']).read_bytes().hex()
-        envelope_bytes = encoded(self.driver.manifest, 'Envelope', request)['payload']
+        if frozen is not None:
+            binding = encoded(self.driver.manifest, 'StateInfo',
+                              {'state': state, 'height': height + 1})
+            operation = next(item for item in OPERATIONS.values() if item.name == name)
+            require(binding['admission_epoch'] == frozen['epoch']
+                    and binding['config'] == frozen['config'],
+                    'settlement operation retains the recorded deal epoch and configuration')
+            envelope_bytes = PaxaiEnvelope(
+                selector=operation.selector,
+                chain=bytes.fromhex(self.driver.support['chain']),
+                program=bytes.fromhex(self.config['program']),
+                market=bytes.fromhex(self.config['market_id']),
+                actor=bytes.fromhex(account['principal']),
+                epoch=frozen['epoch'], config=frozen['config'],
+                roster=bytes(frozen['roster_digest']),
+                sequence=0 if operation.object_local else binding['actors'][account['principal']],
+                expiry=request['expiry'],
+                request=bytes.fromhex(request_id), payload=bytes.fromhex(payload),
+            ).encode().hex()
+        else:
+            envelope_bytes = encoded(self.driver.manifest, 'Envelope', request)['payload']
+        self.last_envelope = bytes.fromhex(envelope_bytes)
         call_terms = {'operation': request['operation'], 'program': self.config['program'],
                       'actor': account['principal'], 'payload': envelope_bytes,
                       'resources': RESOURCES, 'fee_limit': str(self.config['fee_limit'])}
         if name in ('LockBond', 'FUND'):
-            call_terms.update(asset=self.config['asset'], rewards=self.config['rewards'],
+            call_terms.update(asset=self.config.get('market_asset', self.config['asset']),
+                              rewards=self.config['rewards'],
+                              amount=parameters['amount'])
+        if name == 'CLAIM':
+            call_terms.update(seed=b'paxai/rewards/v1'.hex(),
+                              source_account=self.config['rewards'],
+                              asset=self.config.get('market_asset', self.config['asset']),
+                              recipient=parameters['recipient'],
                               amount=parameters['amount'])
         call = encoded(self.driver.manifest, 'NativeCall', call_terms)
         try:
@@ -1456,12 +1492,13 @@ class GeneratedRoomWrites:
 
     def fund_ask(self):
         account = self.config['accounts']['asker']
+        recipient = self.config['accounts'].get('settler', self.config['accounts']['host'])
         require(int(self.config['price']) % 1000 == 0, 'exact integer per-token ask rate required')
         self.submit('fund-ask-stream', account, PAY,
                     encode_call('streamOpenForAsk',
                                 ['bytes32', 'address', 'uint256', 'uint8', 'uint256', 'bytes32'],
                                 [bytes.fromhex(self.config['ask_id']),
-                                 bytes.fromhex(self.config['accounts']['host']['address'][2:]),
+                                 bytes.fromhex(recipient['address'][2:]),
                                  int(self.config['price']) // 1000, 1, 1000000,
                                  bytes.fromhex(self.config['host_meter_key'])]), 'fund_ask_stream')
         stream, = self.view(PAY, 'askStreamOf', ['bytes32'],
@@ -1480,6 +1517,7 @@ class GeneratedRoomWrites:
         *_, asset = self.view(PROGRAMS, 'getCurrentFeeSchedule', [], [],
                              ['uint32', *(['uint64'] * 7), 'bytes32'])
         self.config['asset'] = asset.hex()
+        asset = bytes.fromhex(self.config.get('market_asset', asset.hex()))
         host = self.config['accounts']['host']
         parameters = {'program': self.config['program'], 'owner': host['principal'],
                       'asset': asset.hex(), 'refund': host['main_account'],
@@ -1593,6 +1631,8 @@ class InferenceRoomDriver:
                        'LAYERX_INDEXER_EVM_CHAIN_ID': '125',
                        'LAYERX_INDEXER_TLS_CERT_DER': str(cert_der),
                        'LAYERX_INDEXER_TLS_KEY_DER': str(key_der)}
+        if self.config.get('proof_mode') == 'settlement':
+            indexer_env['LAYERX_INDEXER_POLL_MS'] = '3000'
         gateway_env = {'LAYERX_GATEWAY_LISTEN': '127.0.0.1:' + str(gateway),
                        'LAYERX_GATEWAY_LISTENER': 'tls',
                        'LAYERX_GATEWAY_TLS_CERT_DER': str(cert_der),
@@ -1926,7 +1966,20 @@ class InferenceRoomDriver:
         generated.open_epoch()
         generated.publish_manifests(generated.pending_manifests)
         generated.enrol_peers(self.config['peers'][1:])
+        if self.config.get('proof_mode') == 'settlement':
+            state = generated.snapshot()
+            activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+            generated.operation('SCHEDULE_ACTIVATION', {}, self.config['accounts']['host'],
+                                state['state'], payload=activation.hex())
         generated.advance_epoch()
+        if self.config.get('proof_mode') == 'settlement':
+            opened = decode_envelope(generated.last_envelope)
+            state = generated.snapshot()
+            activation = state['info']['revision'].to_bytes(8, 'big') + (1).to_bytes(8, 'big')
+            generated.operation('ADVANCE_ACTIVATION', {}, self.config['accounts']['host'],
+                                state['state'], payload=activation.hex(),
+                                frozen={'epoch': opened.epoch, 'config': opened.config,
+                                        'roster_digest': opened.roster})
         generated.quote_peers()
         generated.observe_peers()
         self.materialize()
@@ -2126,33 +2179,308 @@ def tls_tunnel(path):
         server.serve_forever()
 
 
-def worker(directory):
+def proof_settlement(driver):
+    """Trace the committed lap batch through the meter, split and peer claims."""
+    runtime = driver.runtime
+    generated = GeneratedRoomWrites(driver)
+    journey = encoded(driver.manifest, 'EpochJourney', {'state': generated.snapshot()['state']})
+    commit_height = journey['settlement_height'] - 32
+    runtime.wait(lambda: int(runtime.rpc.request('eth_blockNumber', []), 16)
+                 >= commit_height, seconds=300)
+    generated.operation('SEAL_TASK_SET', {}, driver.config['accounts']['host'],
+                        generated.snapshot()['state'])
+    sealed_epoch = decode_envelope(generated.last_envelope)
+    reward_binding = {'epoch': sealed_epoch.epoch, 'config': sealed_epoch.config,
+                      'roster_digest': sealed_epoch.roster}
+    deal = load(driver.directory / 'peer0-deal.json', 'settlement deal')
+    model = load(driver.directory / 'model-output.json', 'settlement lap')
+    receipt = model['receipt']
+    deal_id = bytes(deal['deal_id']).hex()
+    require(reward_binding['epoch'] == deal['epoch'] and reward_binding['config'] == deal['config']
+            and bytes(receipt['deal_id']).hex() == deal_id and receipt['lap_index'] == 0
+            and receipt['cumulative_tokens'] == receipt['prompt_tokens'] + receipt['generated_tokens']
+            and receipt['peer_countersignatures'] == 3,
+            'countersigned completion lap binds the native deal and cumulative reading')
+
+    def digest(domain, data):
+        return hashlib.sha256(domain.encode() + b'\x00' + data).digest()
+
+    def receipt_bytes(value):
+        return (bytes(value['deal_id'])
+                + b''.join(int(value[key]).to_bytes(8, 'big') for key in
+                           ('lap_index', 'prompt_tokens', 'generated_tokens', 'cumulative_tokens'))
+                + len(value['layer_range_digests']).to_bytes(1, 'big')
+                + b''.join(bytes(row) for row in value['layer_range_digests'])
+                + bytes(value['host_signature'])
+                + int(value['peer_countersignatures']).to_bytes(4, 'big'))
+
+    batch_digest = digest('PAXAI/lap-receipt/v1', receipt_bytes(receipt)).hex()
+    def daemon_manifest():
+        session = load(driver.directory / 'journal' / ('lap-' + deal_id + '.json'),
+                       'daemon lap session')
+        manifest = session['artifact_manifest']
+        return bytes(manifest) if manifest is not None else None
+    manifest = driver.processes.wait(daemon_manifest)
+    require(len(manifest) == 419 and manifest[:10] == b'PAXAIF09\x00\x01'
+            and manifest[10:16] == b'\x09\x00\x00\x00\x00\x00'
+            and manifest[48:80].hex() == driver.config['program']
+            and manifest[80:112].hex() == driver.config['market_id']
+            and manifest[152:184].hex() == driver.config['accounts']['host']['principal'],
+            'daemon evidence manifest binds the native market and room host')
+    root = digest('PAXAI/artifact-manifest/v1',
+                  manifest[16:144] + len(manifest).to_bytes(4, 'big') + manifest)
+    archive_path = driver.directory / 'journal' / ('lap-' + deal_id + '.batch-0.json')
+    driver.processes.wait(archive_path.is_file)
+    archive = load(archive_path, 'daemon settled lap batch')
+    require(archive['receipts'] == [receipt],
+            'daemon archived the exact countersigned completion lap after settlement')
+    driver.last_write_height = max(driver.last_write_height,
+                                   int(runtime.rpc.request('eth_blockNumber', []), 16) - 1)
+    batch = read_lap_settlement(bytes.fromhex(generated.snapshot()['state']), deal_id)
+    require(batch['batch_digest'] == batch_digest,
+            'daemon settled batch digest is present in verified native chain state')
+    require(batch['deal_id'] == deal_id and batch['first_lap_index'] == '0'
+            and batch['last_lap_index'] == '0'
+            and int(batch['cumulative_tokens']) == receipt['cumulative_tokens']
+            and batch['countersign_quorum'] == 2 and batch['missing_countersigners'] == 0
+            and batch['epoch'] == deal['epoch'] and batch['config'] == deal['config']
+            and batch['roster'] == bytes(deal['roster_digest']).hex(),
+            'sealed on-chain receipt batch matches the countersigned completion lap')
+    recorded = runtime.rpc.request('px_getInferenceDeal', [deal_id])
+    amount = int(recorded['settled_amount_owed'])
+    require(int(recorded['settled_tokens']) == receipt['cumulative_tokens']
+            and amount == int(batch['settled_amount_owed'])
+            and amount == receipt['cumulative_tokens'] * int(deal['price']) // 1000
+            and amount > 0, 'settled deal amount follows its price and cumulative tokens')
+    save(driver.directory / 'settled-lap.json', batch)
+    stream = bytes.fromhex(load(driver.directory / 'ask-stream.json', 'ask stream')['stream'])
+    stream_type = ('(bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,'
+                   'uint64,uint128,uint128,uint128,uint128,uint64,bytes32[],bool,bool,bool)')
+    def stream_read():
+        data = encode_call('getStream', ['bytes32'], [stream])
+        raw = runtime.rpc.request('eth_call', [{'to': PAY, 'data': '0x' + data.hex()}, 'latest'])
+        return decode_full_abi([stream_type], raw)[0]
+    driver.processes.wait(lambda: stream_read()[14] == receipt['cumulative_tokens'])
+    before_stream = stream_read()
+    writes = runtime.collect_chain_writes(record=False)
+    driver.last_write_height = max(driver.last_write_height,
+                                   *(int(row['receipt']['blockNumber'], 16) for row in writes))
+    program_address = bytes.fromhex(PROGRAMS[2:])
+    call_types = ['bytes32', 'uint16', 'string', 'bytes', 'bytes', 'bytes',
+                  'uint32', 'uint64[7]', 'uint128']
+    call_selector = keccak256(('call(' + ','.join(call_types) + ')').encode())[:4]
+
+    def market_write(selector, marker):
+        matched = []
+        for row in writes:
+            if row['receipt']['status'] != '0x1':
+                continue
+            tx, _ = decode_signed(bytes.fromhex(row['raw_transaction'][2:]))
+            if tx.to != program_address or tx.data[:4] != call_selector:
+                continue
+            call = decode_full_abi(call_types, '0x' + tx.data[4:].hex())
+            if call[0].hex() != driver.config['program']:
+                continue
+            envelope_bytes = call[3]
+            require(call[1] == 5 and envelope_bytes[:8] == b'PAXAI1\x00\x01'
+                    and envelope_bytes[42:74] == call[0]
+                    and len(envelope_bytes) >= 239,
+                    'native market write binds its program and envelope schema')
+            payload_length = int.from_bytes(envelope_bytes[234:238], 'big')
+            payload = envelope_bytes[238:238 + payload_length]
+            require(len(payload) == payload_length,
+                    'native market write carries its complete declared payload')
+            if envelope_bytes[8:10] == selector and marker in payload:
+                matched.append(row)
+        return matched
+
+    settled_writes = market_write(b'\x0b\x05', bytes.fromhex(batch_digest))
+    seal_writes = market_write(b'\x09\x01', root)
+
+    def position(row):
+        receipt = row['receipt']
+        return (int(receipt['blockNumber'], 16), int(receipt['transactionIndex'], 16))
+
+    require(settled_writes and seal_writes
+            and min(map(position, seal_writes)) < min(map(position, settled_writes)),
+            'sealed batch digest and ordered native SealEvidence and SettleLaps writes')
+    save(driver.directory / 'lap-evidence-seal.json',
+         {'manifest': manifest.hex(), 'root': root.hex(),
+          'transactions': [row['transaction_hash'] for row in seal_writes]})
+    meter_types = ['bytes32', 'uint64', 'bytes32', 'bytes']
+    meter_selector = keccak256(b'streamMeter(bytes32,uint64,bytes32,bytes)')[:4]
+    meter_writes = []
+    for row in writes:
+        if row['receipt']['status'] != '0x1':
+            continue
+        tx, _ = decode_signed(bytes.fromhex(row['raw_transaction'][2:]))
+        if tx.to == bytes.fromhex(PAY[2:]) and tx.data[:4] == meter_selector:
+            metered = decode_full_abi(meter_types, '0x' + tx.data[4:].hex())
+            if metered[0] == stream:
+                require(metered[1] == receipt['cumulative_tokens']
+                        and metered[2].hex() == driver.config['host_meter_key'],
+                        'streamMeter write binds the settled reading and host meter authority')
+                meter_writes.append(row)
+    require(meter_writes
+            and min(map(position, settled_writes)) < min(map(position, meter_writes)),
+            'native streamMeter write follows SettleLaps')
+    asset = bytes.fromhex(driver.config['market_asset'])
+    host = driver.config['accounts']['host']
+    settlement = driver.config['accounts']['settler']
+    require(before_stream[14] == int(batch['cumulative_tokens'])
+            and before_stream[11] == amount and before_stream[12] == 0
+            and before_stream[3] == asset
+            and before_stream[2] == bytes.fromhex(settlement['main_account'])
+            and settlement['main_account'] == driver.config['room']['profile']['settlement_account'],
+            'streamMeter reading and accrued amount equal the settled lap')
+    settlement_before_stream = runtime.recorded_balance('settlement-before-stream',
+                                                        settlement['main_account'], asset.hex())
+    generated.submit('settle-ask-stream', driver.config['accounts']['asker'], PAY,
+                     encode_call('streamSettle', ['bytes32', 'bytes32'],
+                                 [stream, os.urandom(32)]))
+    after_stream = stream_read()
+    settlement_after_stream = runtime.recorded_balance('settlement-after-stream',
+                                                       settlement['main_account'], asset.hex())
+    require(after_stream[12] == amount and after_stream[14] == receipt['cumulative_tokens']
+            and settlement_after_stream == settlement_before_stream + amount,
+            'ask stream paid the settled amount to the room settlement account')
+
+    def balance(name, account):
+        return runtime.recorded_balance(name, account, asset.hex())
+    rewards = driver.config['rewards']
+    before_rewards = balance('rewards-before-funding', rewards)
+    generated.submit('fund-settled-payout', settlement, PROGRAMS,
+                     encode_call('transfer',
+                                 ['bytes32', '(bytes32,bytes32,bytes32,uint128)[]'],
+                                 [bytes.fromhex(driver.config['program']),
+                                  [(bytes.fromhex(settlement['main_account']), asset,
+                                    bytes.fromhex(rewards), amount)]]))
+    require(balance('rewards-after-funding', rewards) == before_rewards + amount,
+            'settled stream amount funds the reward account')
+    require(balance('settlement-after-funding', settlement['main_account']) == settlement_before_stream,
+            'reward funding transferred the settled amount from the settlement account')
+    split_payload = deal_id + batch_digest + amount.to_bytes(16, 'big').hex()
+    split_state = generated.snapshot()
+    require(split_state['info']['admission_epoch'] == deal['epoch']
+            and split_state['info']['config'] == deal['config']
+            and split_state['info']['roster'] == bytes(deal['roster_digest']).hex(),
+            'SplitPayout uses the settled deal epoch, configuration and roster')
+    split_receipt = generated.operation('SplitPayout', {}, host,
+                                        split_state['state'], payload=split_payload)
+
+    profile = driver.config['room']['profile']
+    host_amount = amount * int(profile['host_share_bps']) // 10000
+    protocol_amount = amount * int(profile['protocol_share_bps']) // 10000
+    pool = amount - host_amount - protocol_amount
+    peers = []
+    for layer in deal['plan']['layers']:
+        peer = next(peer for peer in driver.config['peers']
+                    if peer['peer_key'] == bytes(layer['peer_key']).hex())
+        peers.append((peer, layer['end_layer'] - layer['first_layer']))
+    require(len(peers) == 2 and len({peer['worker'] for peer, _ in peers}) == 2,
+            'split payout covers the two distinct deal workers')
+    peers.sort(key=lambda row: row[0]['worker'])
+    weight = sum(row[1] for row in peers)
+    shares = [pool * row[1] // weight for row in peers]
+    remainders = [pool * row[1] % weight for row in peers]
+    for index in sorted(range(len(peers)), key=lambda i: (-remainders[i], i))[:pool - sum(shares)]:
+        shares[index] += 1
+    require(host_amount + protocol_amount + sum(shares) == amount
+            and all(share > 0 for share in shares),
+            'deal layer proportions conserve the split payout')
+    credits = read_payout_credits(bytes.fromhex(generated.snapshot()['state']))
+    expected_credits = {peer['worker']: (peer['owner'], share)
+                        for (peer, _), share in zip(peers, shares)}
+    if host_amount:
+        expected_credits[digest('PAXAI/payout-host/v1', bytes.fromhex(host['principal'])).hex()] = (
+            host['principal'], host_amount)
+    require(protocol_amount == 0, 'room market without a treasury has no protocol credit')
+    require({row['worker']: (row['recipient'], row['amount']) for row in credits} == expected_credits
+            and all(row['paid'] == 0 and row['last_paid'] == 0 and row['expired'] == 0 for row in credits)
+            and sum(row['amount'] for row in credits) == amount,
+            'SplitPayout recorded exact unclaimed credits in the deal proportions')
+    save(driver.directory / 'split-payout-credits.json', credits)
+    claims = []
+    for (peer, layers), share in zip(peers, shares):
+        recipient = peer['owner']
+        owner, = generated.view(LEDGER, 'accountOwner', ['bytes32'],
+                                [bytes.fromhex(peer['main_account'])], ['bytes32'])
+        require(owner.hex() == recipient,
+                'peer payout account belongs to the frozen credit recipient')
+        before = balance(peer['worker'] + '-before-claim', peer['main_account'])
+        claim_payload = peer['worker'] + recipient + share.to_bytes(16, 'big').hex()
+        claim_receipt = generated.operation('CLAIM',
+                                            {'recipient': recipient, 'amount': str(share)}, peer,
+                                            generated.snapshot()['state'],
+                                            payload=claim_payload, frozen=reward_binding)
+        after = balance(peer['worker'] + '-after-claim', peer['main_account'])
+        require(after == before + share, 'peer CLAIM moved its exact split credit to its account')
+        remaining = read_payout_credits(bytes.fromhex(generated.snapshot()['state']))
+        paid = next(row for row in remaining if row['worker'] == peer['worker'])
+        require(paid['paid'] == paid['amount'] == paid['last_paid'] == share
+                and paid['recipient'] == recipient, 'peer CLAIM consumed its exact recorded credit')
+        claims.append({'worker': peer['worker'], 'recipient': recipient,
+                       'account': peer['main_account'], 'layers': layers,
+                       'credit': str(share), 'balance_before': str(before),
+                       'balance_after': str(after),
+                       'claim_transaction': claim_receipt['transactionHash']})
+    require(balance('rewards-after-claims', rewards) == before_rewards + amount - sum(shares),
+            'reward account debited by the two exact peer claims')
+    save(driver.directory / 'settlement.json',
+         {'deal_id': deal_id, 'batch_digest': batch_digest,
+          'asset': asset.hex(),
+          'cumulative_tokens': receipt['cumulative_tokens'], 'settled_amount': str(amount),
+          'metered_amount': str(before_stream[11]), 'stream_paid': str(after_stream[12]),
+          'settlement_account': settlement['main_account'],
+          'settlement_before_stream': str(settlement_before_stream),
+          'settlement_after_stream': str(settlement_after_stream),
+          'host_credit': str(host_amount), 'protocol_credit': str(protocol_amount),
+          'split_credits': credits,
+          'seal_transactions': [row['transaction_hash'] for row in seal_writes],
+          'settle_transactions': [row['transaction_hash'] for row in settled_writes],
+          'meter_transactions': [row['transaction_hash'] for row in meter_writes],
+          'split_transaction': split_receipt['transactionHash'],
+          'peer_claims': claims})
+    driver.results.append({'case': 'settlement_stream_split_and_peer_claims', 'passed': True})
+    save(driver.directory / 'settlement-case-results.json', driver.results)
+
+
+def worker(directory, mode='room'):
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['PAXEER_X_PARENT_' + name.upper()], 'isolated native room namespace required')
     subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
     build_directory, manifest = built_artifacts()
-    driver = InferenceRoomDriver(directory, configuration(directory, build_directory, manifest),
+    driver = InferenceRoomDriver(directory, configuration(directory, build_directory, manifest, mode),
                                  build_directory, manifest)
+    driver.config['proof_mode'] = mode
+    if mode == 'settlement':
+        driver.runtime.config['mirror_native_balances'] = True
+        driver.runtime.config['block_interval_ns'] = 2_000_000_000
+        driver.config['market_asset'] = hashlib.sha256(
+            b'LX:ASSET:v1' + bytes.fromhex(driver.config['accounts']['host']['principal'])
+            + b'\x66' * 32).hexdigest()
     try:
         driver.run()
+        if mode == 'settlement':
+            proof_settlement(driver)
     finally:
         driver.stop()
-    print('PAXEER_X_GATE tests=2 skipped=0', flush=True)
+    print('PAXEER_X_GATE tests=' + str(len(driver.results)) + ' skipped=0', flush=True)
 
 
-def proof():
+def proof(mode='room'):
     evidence = envelope.private_dir(os.environ.get('PAXEER_X_EVIDENCE_DIR'), 'PAXEER_X_EVIDENCE_DIR')
     directory = evidence / ('inference-room-' + uuid.uuid4().hex)
     directory.mkdir(mode=0o700)
     revision = envelope.capture(['git', 'rev-parse', 'HEAD'])
-    save(directory / 'invocation.json', {'schema': SCHEMA, 'task': TASK, 'revision': revision,
-                                       'command': 'python3 tools/qualification/paxeer-x/inference_market_room.py --proof room',
+    save(directory / 'invocation.json', {'schema': SCHEMA, 'task': TASK if mode == 'room' else '22.38.38', 'revision': revision,
+                                       'command': 'python3 tools/qualification/paxeer-x/inference_market_room.py --proof ' + mode,
                                        'evidence': str(directory)})
     env = dict(os.environ)
     for name in ('net', 'pid', 'mnt'):
         env['PAXEER_X_PARENT_' + name.upper()] = os.readlink('/proc/self/ns/' + name)
     argv = ['unshare', '--mount', '--net', '--pid', '--fork', '--kill-child=KILL', '--mount-proc',
-            '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)]
+            '--propagation', 'private', sys.executable, str(Path(__file__).resolve()), '--worker', str(directory), mode]
     print('INFERENCE_ROOM_EVIDENCE ' + str(directory), flush=True)
     return envelope.run_participant(argv, env, directory, revision, directory, timeout=900, log_name='native.log')
 
@@ -2163,8 +2491,8 @@ def main():
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument('--begin-build', action='store_true')
     modes.add_argument('--build', action='store_true')
-    modes.add_argument('--proof', choices=('room',))
-    modes.add_argument('--worker', help=argparse.SUPPRESS)
+    modes.add_argument('--proof', choices=('room', 'settlement'))
+    modes.add_argument('--worker', nargs='+', help=argparse.SUPPRESS)
     modes.add_argument('--asker', help=argparse.SUPPRESS)
     modes.add_argument('--tls-tunnel', help=argparse.SUPPRESS)
     modes.add_argument('--identity-issuer', help=argparse.SUPPRESS)
@@ -2174,7 +2502,9 @@ def main():
     elif args.build:
         build()
     elif args.worker:
-        worker(args.worker)
+        require(len(args.worker) == 2 and args.worker[1] in ('room', 'settlement'),
+                'native proof worker mode')
+        worker(*args.worker)
     elif args.asker:
         asker(args.asker)
     elif args.tls_tunnel:
@@ -2182,7 +2512,7 @@ def main():
     elif args.identity_issuer:
         identity_issuer(args.identity_issuer)
     else:
-        return proof()
+        return proof(args.proof)
     return 0
 
 

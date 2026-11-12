@@ -13570,6 +13570,24 @@ value = "The rules of the wallet attestor policy gain the field program_calls, a
 basis = "Gotcha 4325. Decision 3046."
 affects = []
 
+[decision.3410]
+title = "The unsafe rule of the programs workspace names the files of the native boundary"
+value = "The unsafe rule of scripts/programs/dependency-policy.sh keeps one list of excepted files. The list names single files, never a directory or a pattern over a member, and every entry carries one line that states why the file needs the keyword: a foreign function declaration or export, a guest cell of the single threaded guest, or a counting allocator or a foreign function link of a test. The list holds the files of the present native boundary. Every other Rust file under programs/crates stays under the rule, and the rule keeps refusing with the present message. No code moves between files for this."
+basis = "Gotcha 4326. Decisions 3401 and 3407."
+affects = []
+
+[decision.3411]
+title = "The advisory settings of the programs workspace record the big integer crate of the secp256k1 chain"
+value = "The runtime member of the programs workspace calls the secp256k1 crate for verification and for key recovery, both over public inputs, and holds no signing key outside its tests. programs/deny.toml records the advisory that the check reports for crypto-bigint 0.5 as one entry with that reason. The entry names the single advisory and nothing wider. No vendored file changes for it. A later move of the secp256k1 chain to a line that takes crypto-bigint 0.7.6 or later removes the entry."
+basis = "Gotcha 4327. Decision 3410."
+affects = []
+
+[decision.3412]
+title = "The intents crate of the human workspace gains the receipt constructors the service member needs"
+value = "The paths of task 22.39.441 gain services/human/crates/layerx-intents. The crate gains constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, with the same bytes for the same fields as today, and the two files call the constructors. The payload rule of the boundary check stays as it is and no file joins an exception for it. Nothing else of the crate changes."
+basis = "Gotcha 4328. Decisions 3046 and 3402."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -164454,7 +164472,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.17]
 title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.13", "22.35.15"]
@@ -189068,7 +189086,7 @@ do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
@@ -290647,7 +290665,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.456"]
@@ -290678,10 +290696,12 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4318, decision 3401. Repair the findings clippy reports in the lines the project added to programs/vendor/wasmi-0.31.2, such as the two closures in src/engine/executor.rs that only observe an error and the missing errors section of execute_step in src/engine/mod.rs. Use the form clippy proposes, change no behaviour, add no allow attribute and note each repair in PATCHES.md of that directory. Run the cases of the interpreter member by hand and confirm the vectors and fixtures are unchanged before the counted runs. Change no other file under programs/vendor."
 do_5 = "do_5 Decision 3407, gotcha 4323. Change the Ed25519 dependency declaration of services/interop/crates/layerx-committed-proof/Cargo.toml so that it takes no default features and keeps alloc, fast and zeroize, with the matching line of services/interop/Cargo.toml where the declaration is inherited from there. The dependency policy of the programs workspace then passes. The members of services/interop compile and the tests of the proof crate pass with the change. Note the change in programs/repair_22_39_454.kvx."
+do_6 = "do_6 Decision 3410, gotcha 4326. Give the unsafe rule of scripts/programs/dependency-policy.sh one list of excepted files with a reason line for every entry, the same list for both search tools of the script. The list names the files of the present native boundary one by one: the foreign function files and the native contract file of the runtime member, the guest cell file of the market program, the host boundary files and the library file of the isolation member, and the test files that declare a foreign function or a counting allocator. Read every finding the rule prints before adding its file and add no file whose use is not one of the three kinds of decision 3410. Change no Rust file for this rule. Add a case to the self-test of the script, or one next to it under scripts/programs, that asserts a file outside the list is still refused. Note the list in programs/repair_22_39_454.kvx."
+do_7 = "do_7 Decision 3411, gotcha 4327. Add to the ignore list of programs/deny.toml one entry for the advisory the check reports against crypto-bigint 0.5.5, with a reason that states that the runtime member uses the secp256k1 crate for verification and key recovery over public inputs only. Before adding it, confirm with a search of programs/crates that no code outside tests builds a signing key of that crate, and write the result into programs/repair_22_39_454.kvx. Change no vendored file and no dependency version for this."
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440"]
@@ -290693,7 +290713,7 @@ do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-
 do_2 = "do_2 Repair each stop inside services/human/tools/boundary-check, services/human/tools/copy-lint, services/human/tools/dependency-policy.sh and apps/web by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table or of a lint configuration, no removal of a check."
 do_3 = "do_3 A stop whose cause lies in a member crate is listed in the closing report with file and first message. Record in services/human/tools/repair_22_39_441.kvx what each step of the recipe covers. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider"]
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-intents"]
 tests = []
 planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
 build_cmd = "make -n human-lint > /dev/null"
@@ -290712,6 +290732,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4317, decision 3400. Run the boundary check over services/human/crates by hand and repair every file it reports for a direct read of the clock or of the random source, in the member that holds the file. Bound a wait by a count of steps or by the clock the member already injects and take a random value from the source the member already injects. Change no rule and no pattern of the boundary check and keep the behaviour of each member outside its tests. Run the tests of each changed member by hand before the counted runs and name each changed file in services/human/tools/repair_22_39_441.kvx."
 do_5 = "do_5 Gotchas 4319 and 4320, decisions 3402 to 3404. Give the boundary check the list of decision 3402 with its two files and their reasons and a case that asserts the list. Bring the policy check of apps/web and its record in line with the manifest of the wallet package as decision 3403 says. The advisory, ban and source check of the lock file is not part of this task; name its findings in the closing report only. A test of a member that already stops at the base revision is not repaired here, and a test file this task changes keeps the result it has at the base revision."
+do_6 = "do_6 Decision 3412, gotcha 4328. Add to services/human/crates/layerx-intents the constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, and let both files call them. A test of the crate asserts for each constructor that its bytes equal the bytes the replaced code produced for the same fields. The payload rule of the boundary check keeps its list of entry points and gains no exception. The tests of the intents crate pass as at the base revision."
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
@@ -426218,7 +426239,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.19]
 title = "Store the market value of every PAX price history point in the explorer backend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.18"]
@@ -426247,7 +426268,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.18]
 title = "Take the market value of SID from the price times the circulating supply in the explorer backend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.16"]

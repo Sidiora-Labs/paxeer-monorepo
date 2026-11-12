@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,6 +83,19 @@ func TestNewBadRedisURL(t *testing.T) {
 	t.Parallel()
 	if _, err := New(nil, "not-a-valid-url", slog.Default()); err == nil {
 		t.Fatal("New with invalid redis URL should error")
+	}
+}
+
+func TestConsumerStartRequiresAvailableSubscription(t *testing.T) {
+	consumer, err := New(nil, "redis://127.0.0.1:1", slog.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = consumer.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := consumer.Start(ctx); err == nil || !strings.Contains(err.Error(), "subscribe") {
+		t.Fatalf("unavailable swap subscription: %v", err)
 	}
 }
 

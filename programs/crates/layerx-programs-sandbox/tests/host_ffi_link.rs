@@ -58,7 +58,8 @@ fn host_ffi_exports_link_and_refuse_unknown_tokens() {
             path.file_name()
                 .and_then(|name| name.to_str())
                 .is_some_and(|name| {
-                    name.starts_with("liblayerx_programs_sandbox-") && name.ends_with(".a")
+                    name.starts_with("liblayerx_programs_sandbox-")
+                        && path.extension() == Some(std::ffi::OsStr::new("a"))
                 })
         })
         .collect();

@@ -290,7 +290,7 @@ impl Host {
         self.kms = Some(Worker::spawn(listener, move |tcp| {
             // Production connection authenticates mTLS, decodes and validates the
             // frame, dispatches the durable store and serializes the response.
-            let _ = server::serve_connection(tcp, &config, &store, clock.as_ref());
+            let _ = server::serve_connection(tcp, config.clone(), store.clone(), clock.clone());
         })?);
         Ok(())
     }

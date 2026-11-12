@@ -3,14 +3,13 @@ import type { ChainIndicatorId } from 'types/homepage';
 
 import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
+import useStatsService from 'ui/stats/useStatsService';
 
 import { getChartData } from './utils/chart';
 
 const rollupFeature = config.features.rollup;
 const isOptimisticRollup = rollupFeature.isEnabled && rollupFeature.type === 'optimistic';
 const isArbitrumRollup = rollupFeature.isEnabled && rollupFeature.type === 'arbitrum';
-
-const isStatsFeatureEnabled = config.features.stats.isEnabled;
 
 export type UseFetchChartDataResult = {
   isError: boolean;
@@ -19,10 +18,11 @@ export type UseFetchChartDataResult = {
 };
 
 export default function useChartDataQuery(indicatorId: ChainIndicatorId, calendarWindowDays?: number): UseFetchChartDataResult {
+  const hasStatsService = useStatsService();
   const statsDailyTxsQuery = useApiQuery('stats:pages_main', {
     queryOptions: {
       refetchOnMount: false,
-      enabled: isStatsFeatureEnabled && indicatorId === 'daily_txs',
+      enabled: hasStatsService && indicatorId === 'daily_txs',
       select: (data) => data.daily_new_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [],
     },
   });
@@ -30,7 +30,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
   const statsDailyOperationalTxsQuery = useApiQuery('stats:pages_main', {
     queryOptions: {
       refetchOnMount: false,
-      enabled: isStatsFeatureEnabled && indicatorId === 'daily_operational_txs',
+      enabled: hasStatsService && indicatorId === 'daily_operational_txs',
       select: (data) => {
         if (isArbitrumRollup) {
           return data.daily_new_operational_transactions?.chart.map((item) => ({ date: new Date(item.date), value: item.value })) || [];
@@ -45,7 +45,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
   const apiDailyTxsQuery = useApiQuery('general:stats_charts_txs', {
     queryOptions: {
       refetchOnMount: false,
-      enabled: !isStatsFeatureEnabled && indicatorId === 'daily_txs',
+      enabled: !hasStatsService && indicatorId === 'daily_txs',
       select: (data) => data.chart_data.map((item) => ({ date: new Date(item.date), value: item.transactions_count })),
     },
   });
@@ -100,7 +100,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
 
   switch (indicatorId) {
     case 'daily_txs': {
-      const query = isStatsFeatureEnabled ? statsDailyTxsQuery : apiDailyTxsQuery;
+      const query = hasStatsService ? statsDailyTxsQuery : apiDailyTxsQuery;
       return {
         data: getChartData(indicatorId, query.data || [], calendarWindowDays),
         isError: query.isError,
