@@ -62,7 +62,7 @@ func digestHex(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -244,7 +244,7 @@ func (s *Service) rebuild(ctx context.Context, wallet, token string, end int64, 
 		}
 		record.TokenDecimals = &tokenDecimals
 		record.Leg.Predecessor = last
-		if record.Leg.Kind == "sell" || record.Leg.Kind == "outgoing" || record.Leg.Kind == "burn" {
+		if record.Leg.Kind == sideSell || record.Leg.Kind == movementOutgoing || record.Leg.Kind == movementBurn {
 			var allocation Disposal
 			state, allocation, e = Dispose(state, record.Leg.Quantity, record.Leg.ActualUSDL)
 			record.Allocation = &allocation
@@ -647,7 +647,7 @@ func (s *Service) PublishRebuiltWallet(ctx context.Context, wallet string, head 
 		return summary, delivery.ErrIntegrity
 	}
 	headSnapshot := snapshots[0]
-	watermark := l17.Watermark{ChainID: "125", Height: strconv.FormatInt(head, 10), BlockHash: headSnapshot.BlockHash, ProjectionRevision: revision.String(), ObservedAt: headSnapshot.ObservedThrough.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	watermark := l17.Watermark{ChainID: "125", Height: strconv.FormatInt(head, 10), BlockHash: headSnapshot.BlockHash, ProjectionRevision: revision.String(), ObservedAt: headSnapshot.ObservedThrough.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: statusHealthy}
 	positions := make([]l17.Position, 0, len(snapshots))
 	for _, snapshot := range snapshots {
 		if snapshot.BlockHash != headSnapshot.BlockHash || !snapshot.ObservedThrough.Equal(headSnapshot.ObservedThrough) {
@@ -657,7 +657,7 @@ func (s *Service) PublishRebuiltWallet(ctx context.Context, wallet string, head 
 		if len(parts) != 3 || parts[1] != wallet {
 			return summary, delivery.ErrIntegrity
 		}
-		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, nil, "unpriced")
+		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, nil, statusUnpriced)
 		if e != nil {
 			return summary, e
 		}
@@ -673,8 +673,8 @@ func (s *Service) PublishRebuiltWallet(ctx context.Context, wallet string, head 
 	if err != nil {
 		return summary, err
 	}
-	envelope := delivery.Envelope{EventID: source, EventType: "portfolio.snapshot.v2", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(head, 10), TransactionIndex: "0", LogIndex: "0"}, EmittedAt: headSnapshot.ObservedThrough.UTC(), TraceID: source, PayloadHash: delivery.Hash(payload), Payload: payload}
-	if summary, err = repository.CommitFullProjectionDeliveryTx(bounded, tx, s.outbox, "portfolio.snapshot.v2", source, summary, positions, time.Now().UTC().Add(24*time.Hour), envelope); err != nil {
+	envelope := delivery.Envelope{EventID: source, EventType: portfolioSnapshotV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(head, 10), TransactionIndex: "0", LogIndex: "0"}, EmittedAt: headSnapshot.ObservedThrough.UTC(), TraceID: source, PayloadHash: delivery.Hash(payload), Payload: payload}
+	if summary, err = repository.CommitFullProjectionDeliveryTx(bounded, tx, s.outbox, portfolioSnapshotV2, source, summary, positions, time.Now().UTC().Add(24*time.Hour), envelope); err != nil {
 		return summary, err
 	}
 	if err = s.commitRebuiltHistoryTx(bounded, tx, wallet, id, source, snapshots, repository); err != nil {
@@ -756,7 +756,7 @@ func intervalRecords(records []EconomicRecord, step time.Duration) ([]IntervalPn
 				gasByTransaction[transaction] = record
 			}
 		}
-		trade := leg.Kind == "buy" || leg.Kind == "sell"
+		trade := leg.Kind == sideBuy || leg.Kind == sideSell
 		gasCharge := record.GasPAXRaw != "" && record.GasPAXRaw != "0" && leg.Sender == leg.Wallet
 		if !trade && !gasCharge {
 			continue
@@ -775,7 +775,7 @@ func intervalRecords(records []EconomicRecord, step time.Duration) ([]IntervalPn
 		if trade {
 			item.TradeCount++
 		}
-		if leg.Kind == "sell" {
+		if leg.Kind == sideSell {
 			if record.Allocation == nil || leg.ActualUSDL == nil {
 				return nil, delivery.ErrIntegrity
 			}
@@ -831,7 +831,7 @@ func intervalRecords(records []EconomicRecord, step time.Duration) ([]IntervalPn
 			key := chain + ":" + address + ":" + strconv.Itoa(decimals)
 			fee := fees[bucket][key]
 			if fee.AmountRaw == "" {
-				fee = IntervalFee{Asset: l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &address, Decimals: &decimals}, AmountRaw: "0"}
+				fee = IntervalFee{Asset: l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &address, Decimals: &decimals}, AmountRaw: "0"}
 			}
 			prior, _ := aggregate(fee.AmountRaw, false)
 			fee.AmountRaw = add(prior, value).String()
@@ -941,36 +941,36 @@ func (s *Service) commitRebuiltHistoryTx(ctx context.Context, tx pgx.Tx, wallet,
 		seen[id] = true
 		chain, token := "125", leg.Token
 		kind := "trade"
-		quality := "complete"
+		quality := statusComplete
 		switch leg.Kind {
-		case "incoming", "mint":
+		case movementIncoming, movementMint:
 			kind = "transfer_in"
-			quality = "unknown"
-		case "outgoing", "burn":
+			quality = statusUnknown
+		case movementOutgoing, movementBurn:
 			kind = "transfer_out"
 			if record.Allocation == nil {
 				return delivery.ErrIntegrity
 			}
 			if record.Allocation.Unknown != "0" {
-				quality = "partial"
+				quality = statusPartial
 			}
-		case "sell":
+		case sideSell:
 			if record.Allocation == nil {
 				return delivery.ErrIntegrity
 			}
 			if record.Allocation.Unknown != "0" {
-				quality = "partial"
+				quality = statusPartial
 			}
 		}
-		history = append(history, l17.HistoryRecord{EventID: id, Kind: kind, Asset: l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &token, Decimals: record.TokenDecimals}, AmountRaw: leg.Quantity, QuoteAmountUsdlRaw: leg.ActualUSDL, BasisQuality: quality, Position: l17.ChainPosition{ChainID: "125", Height: strconv.FormatUint(leg.Height, 10), TransactionIndex: strconv.FormatUint(uint64(leg.TransactionIndex), 10), LogIndex: strconv.FormatUint(uint64(leg.Identity.Log), 10), TransactionHash: leg.Identity.Transaction, BlockHash: record.BlockHash}})
+		history = append(history, l17.HistoryRecord{EventID: id, Kind: kind, Asset: l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &token, Decimals: record.TokenDecimals}, AmountRaw: leg.Quantity, QuoteAmountUsdlRaw: leg.ActualUSDL, BasisQuality: quality, Position: l17.ChainPosition{ChainID: "125", Height: strconv.FormatUint(leg.Height, 10), TransactionIndex: strconv.FormatUint(uint64(leg.TransactionIndex), 10), LogIndex: strconv.FormatUint(uint64(leg.Identity.Log), 10), TransactionHash: leg.Identity.Transaction, BlockHash: record.BlockHash}})
 	}
 	if err := repository.CommitHistoryTx(ctx, tx, wallet, snapshot, source, history); err != nil {
 		return err
 	}
-	chain, currency, quoteAddress := "125", "USDL", "0x85FcD13735F4309833A503EE804ea32395851479"
+	chain, currency, quoteAddress := "125", symbolUSDL, "0x85FcD13735F4309833A503EE804ea32395851479"
 	decimals := 6
 	if start.Before(end) {
-		if err := repository.CommitHistoryMetadataTx(ctx, tx, wallet, snapshot, l17.SnapshotHistoryMetadata{SourceEvent: source, Start: start, End: end, Quote: l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &quoteAddress, Decimals: &decimals, CurrencyCode: &currency}, Periods: []l17.ReturnPeriod{}}); err != nil {
+		if err := repository.CommitHistoryMetadataTx(ctx, tx, wallet, snapshot, l17.SnapshotHistoryMetadata{SourceEvent: source, Start: start, End: end, Quote: l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &quoteAddress, Decimals: &decimals, CurrencyCode: &currency}, Periods: []l17.ReturnPeriod{}}); err != nil {
 			return err
 		}
 	}
@@ -1139,7 +1139,7 @@ func replayEconomicRecord(prior Inventory, record EconomicRecord) (Inventory, er
 		return prior, err
 	}
 	switch record.Leg.Kind {
-	case "sell", "outgoing", "burn":
+	case sideSell, movementOutgoing, movementBurn:
 		next, allocation, err := Dispose(prior, record.Leg.Quantity, record.Leg.ActualUSDL)
 		if err != nil {
 			return prior, err

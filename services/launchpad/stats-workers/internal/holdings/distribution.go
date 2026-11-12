@@ -69,7 +69,7 @@ func (a *Accumulator) Add(b Balance, isCreator bool) error {
 		return err
 	}
 	switch b.Category {
-	case "unknown", "external_wallet", "pool_reserve", "burn", "treasury", "router":
+	case valueUnknown, valueExternal_wallet, valuePool_reserve, valueBurn, valueTreasury, valueRouter:
 	default:
 		return errors.New("invalid category")
 	}
@@ -83,14 +83,14 @@ func (a *Accumulator) Add(b Balance, isCreator bool) error {
 		a.creator.Add(a.creator, v)
 	}
 	switch b.Category {
-	case "external_wallet":
+	case valueExternal_wallet:
 		a.result.ExternalWalletCount++
 		a.circulating.Add(a.circulating, v)
 		a.circulatingTop = addLeader(a.circulatingTop, v)
 		if isCreator {
 			a.circulatingCreator.Add(a.circulatingCreator, v)
 		}
-	case "unknown":
+	case valueUnknown:
 		a.result.UnknownCount++
 	}
 	band := len(v.String()) - 1
@@ -130,8 +130,8 @@ func (a *Accumulator) Finish() (Distribution, error) {
 	r.Top10 = BasisPoints(top.String(), a.supply)
 	r.Creator = BasisPoints(a.creator.String(), a.supply)
 	r.CirculatingRaw = a.circulating.String()
-	r.InclusiveDenominator = Denominator{Raw: a.supply, Policy: "indexed_supply_v1", ExcludedCategories: []string{}}
-	r.CirculatingDenominator = Denominator{Raw: r.CirculatingRaw, Policy: "verified_external_wallets_v1", ExcludedCategories: []string{"unknown", "pool_reserve", "burn", "treasury", "router"}}
+	r.InclusiveDenominator = Denominator{Raw: a.supply, Policy: valueIndexedSupplyV1, ExcludedCategories: []string{}}
+	r.CirculatingDenominator = Denominator{Raw: r.CirculatingRaw, Policy: valueVerifiedExternalWalletsV1, ExcludedCategories: []string{valueUnknown, valuePool_reserve, valueBurn, valueTreasury, valueRouter}}
 	circulatingTop := new(big.Int)
 	for _, v := range a.circulatingTop {
 		circulatingTop.Add(circulatingTop, v)

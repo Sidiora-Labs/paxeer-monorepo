@@ -64,7 +64,7 @@ func (a *RPCQualification) ValidateSignedDomain(ctx context.Context, b Bundle) e
 	if err != nil {
 		return err
 	}
-	id := uint32(b.Transaction.ChainId().Uint64() - virtualChainIDBase)
+	id := uint32(b.Transaction.ChainId().Uint64() - virtualChainIDBase) //nolint:gosec // chain or log identity uses the existing 32-bit field
 	created := registryABI.Events["ChainCreated"]
 	changed := registryABI.Events["ChainStatusChanged"]
 	topic := common.BigToHash(new(big.Int).SetUint64(uint64(id)))

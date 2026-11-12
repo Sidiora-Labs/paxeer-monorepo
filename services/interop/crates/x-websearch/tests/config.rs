@@ -410,18 +410,7 @@ fn malformed_receipt_keys_are_refused_naming_the_field() -> Result<(), Box<dyn s
     use serde_json::json;
     let valid = valid_json()?;
     let entry = valid["gateway"]["receipt_keys"][0].clone();
-    for malformed in [json!([]), json!({}), json!("keys"), json!([false])] {
-        let mut value = valid.clone();
-        value["gateway"]["receipt_keys"] = malformed.clone();
-        let error = Config::parse(&value.to_string())
-            .err()
-            .ok_or("accepted malformed list")?;
-        assert!(
-            error.field.starts_with("gateway.receipt_keys"),
-            "{malformed}: {error}"
-        );
-        assert_eq!(error.refusal, Refusal::Invalid);
-    }
+    assert_malformed_receipt_lists(&valid)?;
     for (field, malformed, reason) in [
         ("key_id", json!("bad"), Refusal::Invalid),
         ("public_key", json!("bad"), Refusal::Invalid),
@@ -516,6 +505,23 @@ fn malformed_receipt_keys_are_refused_naming_the_field() -> Result<(), Box<dyn s
         Config::parse(&missing.to_string()).err(),
         Some(refusal("gateway.receipt_keys", Refusal::Missing))
     );
+    Ok(())
+}
+
+fn assert_malformed_receipt_lists(valid: &Value) -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::json;
+    for malformed in [json!([]), json!({}), json!("keys"), json!([false])] {
+        let mut value = (*valid).clone();
+        value["gateway"]["receipt_keys"] = malformed.clone();
+        let error = Config::parse(&value.to_string())
+            .err()
+            .ok_or("accepted malformed list")?;
+        assert!(
+            error.field.starts_with("gateway.receipt_keys"),
+            "{malformed}: {error}"
+        );
+        assert_eq!(error.refusal, Refusal::Invalid);
+    }
     Ok(())
 }
 

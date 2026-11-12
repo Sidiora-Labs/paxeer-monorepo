@@ -415,19 +415,23 @@ fn configured_node_client_identity() -> Result<Option<RegistryClientIdentity>, S
     }
 }
 
+fn configured_authorities() -> Result<(RegistryAuthority, RegistryAuthority), String> {
+    let request = RegistryAuthority::new(read_secret("LAYERX_REGISTRY_REQUEST_TOKEN_FILE")?)?;
+    let publication =
+        RegistryAuthority::new(read_secret("LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE")?)?;
+    if request.same_as(&publication) {
+        return Err("request and publication authorities must be distinct".to_owned());
+    }
+    Ok((request, publication))
+}
+
 fn config(builder_cgroup_root: &Path) -> Result<(Config, String), String> {
     let chain_rpc_url = env::var("LAYERX_REGISTRY_CHAIN_RPC_URL")
         .map_err(|_| "LAYERX_REGISTRY_CHAIN_RPC_URL is required".to_owned())?;
     let root = parse_path("LAYERX_REGISTRY_STATE", PathBuf::from(DEFAULT_ROOT));
     let digest = env::var("LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST")
         .map_err(|_| "LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST is required".to_owned())?;
-    let request_authority =
-        RegistryAuthority::new(read_secret("LAYERX_REGISTRY_REQUEST_TOKEN_FILE")?)?;
-    let publication_authority =
-        RegistryAuthority::new(read_secret("LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE")?)?;
-    if request_authority.same_as(&publication_authority) {
-        return Err("request and publication authorities must be distinct".to_owned());
-    }
+    let (request_authority, publication_authority) = configured_authorities()?;
     let request_timeout_seconds = parse_u64("LAYERX_REGISTRY_REQUEST_TIMEOUT_SECONDS", 1_800)?;
     if !(1..=3_600).contains(&request_timeout_seconds) {
         return Err("LAYERX_REGISTRY_REQUEST_TIMEOUT_SECONDS is outside its bound".to_owned());
@@ -857,7 +861,7 @@ fn health_verdict(
     route_request(service, &healthz, deadline)
 }
 
-fn serve_health(listener: TcpListener, service: &Arc<Service>) {
+fn serve_health(listener: &TcpListener, service: &Arc<Service>) {
     for connection in listener.incoming() {
         let Ok(mut stream) = connection else {
             continue;
@@ -942,7 +946,7 @@ fn serve(config: &Config) -> Result<(), String> {
         let health_service = Arc::clone(&service);
         thread::Builder::new()
             .name("registry-readiness".to_owned())
-            .spawn(move || serve_health(health, &health_service))
+            .spawn(move || serve_health(&health, &health_service))
             .map_err(|error| format!("registry readiness thread: {error}"))?;
         eprintln!(
             "layerx-program-registry: readiness verdict of the mTLS /healthz served on {address}"
@@ -1239,6 +1243,7 @@ fn serve_connection(
 
 #[cfg(test)]
 mod tests {
+    const REGISTRY_SECURITY_CONTEXT: &str = "securityContext: {runAsUser: 0, runAsGroup: 0, runAsNonRoot: false, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL], add: [CHOWN, SETUID, SETGID]}, seccompProfile: {type: RuntimeDefault}}";
     const REGISTRY_DEPLOYMENT: &str = include_str!("../deployment.yaml");
     const GATEWAY_DEPLOYMENT: &str = include_str!("../../gateway/deployment.yaml");
     const BUILDER_SOURCE: &str = include_str!("builder.rs");
@@ -1275,7 +1280,6 @@ mod tests {
         assert!(
             pod.contains("runAsNonRoot: true, runAsUser: 4030, runAsGroup: 4030, fsGroup: 4030")
         );
-        const REGISTRY_SECURITY_CONTEXT: &str = "securityContext: {runAsUser: 0, runAsGroup: 0, runAsNonRoot: false, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL], add: [CHOWN, SETUID, SETGID]}, seccompProfile: {type: RuntimeDefault}}";
         assert!(registry.contains(REGISTRY_SECURITY_CONTEXT));
         let containers = registry
             .split_once("\n      volumes:")
@@ -1321,6 +1325,10 @@ mod tests {
             }
             assert!(!line.contains("add:"), "{line} adds capabilities");
         }
+        assert_privilege_drop_order();
+    }
+
+    fn assert_privilege_drop_order() {
         let source = MAIN_SOURCE.split("#[cfg(test)]").next().unwrap_or_default();
         for required in [
             "geteuid().is_root()",

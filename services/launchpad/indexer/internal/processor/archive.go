@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
@@ -24,7 +26,7 @@ func (a *Archive) Produce(ctx context.Context, stream string, from, to int64) (s
 	if a == nil || a.Store == nil || a.Objects == nil || a.Source == nil || from < 0 || to < from || to-from >= 1000 {
 		return manifest, errors.New("archive requires actual storage, qualified source and bounded committed range")
 	}
-	batch, receipts, err := a.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to))
+	batch, receipts, err := a.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to)) //nolint:gosec // persisted chain values use the existing unsigned protocol representation
 	if err != nil {
 		return manifest, err
 	}
@@ -73,7 +75,7 @@ func (a *Archive) readVerified(ctx context.Context, manifest store.ArchiveManife
 	if err != nil {
 		return nil, err
 	}
-	defer object.Body.Close()
+	defer checked.Close(object.Body)
 	if object.Size != manifest.ByteLength {
 		return nil, store.ErrIntegrity
 	}

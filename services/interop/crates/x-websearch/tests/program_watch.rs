@@ -50,7 +50,7 @@ fn program_log() -> Checked<Value> {
 
 fn expected_request() -> ProgramRequest {
     ProgramRequest {
-        program_id: std::array::from_fn(|i| 0xa0 + u8::try_from(i).unwrap()),
+        program_id: std::array::from_fn(|i| 0xa0 + u8::try_from(i).or_panic("expected Ok value")),
         request_id: 7,
         kind: 1,
         payload: b"https://paxeer.app/".to_vec(),
@@ -293,38 +293,7 @@ fn the_watcher_journals_program_requests_beside_web_requests() -> Checked {
         vec![expected_request(), decode_program_requested(&other)?]
     );
     assert_eq!(watcher.next_block(), Some(0x1f));
-    let journal: Value = serde_json::from_slice(&std::fs::read(state.join("pending.json"))?)?;
-    assert_eq!(
-        journal["entries"]
-            .as_array()
-            .ok_or("web entries missing")?
-            .len(),
-        1
-    );
-    assert_eq!(
-        journal["program_entries"]
-            .as_array()
-            .ok_or("program entries missing")?
-            .len(),
-        2
-    );
-    assert_eq!(journal["program_entries"][0]["block_number"], json!(0x1c));
-    assert_eq!(
-        journal["program_entries"][0]["source"]["chain_id"],
-        json!(CHAIN_ID)
-    );
-    assert_eq!(
-        journal["program_entries"][0]["source"]["block_hash"],
-        json!([0x31; 32].to_vec())
-    );
-    assert_eq!(
-        journal["program_entries"][0]["source"]["transaction_hash"],
-        json!([0x71; 32].to_vec())
-    );
-    assert_eq!(
-        journal["program_entries"][0]["source"]["log_index"],
-        json!(1)
-    );
+    assert_pending_journal(&state)?;
     assert_eq!(watcher.canonical(&requests[0])?, Canonical::Present);
     drop(watcher);
     let mut reopened =
@@ -376,7 +345,47 @@ fn the_watcher_journals_program_requests_beside_web_requests() -> Checked {
         json!("0x19")
     );
     drop(calls);
+    assert_invalid_and_unbound(&scratch, program)?;
+    Ok(())
+}
 
+fn assert_pending_journal(state: &std::path::Path) -> Checked {
+    let journal: Value = serde_json::from_slice(&std::fs::read(state.join("pending.json"))?)?;
+    assert_eq!(
+        journal["entries"]
+            .as_array()
+            .ok_or("web entries missing")?
+            .len(),
+        1
+    );
+    assert_eq!(
+        journal["program_entries"]
+            .as_array()
+            .ok_or("program entries missing")?
+            .len(),
+        2
+    );
+    assert_eq!(journal["program_entries"][0]["block_number"], json!(0x1c));
+    assert_eq!(
+        journal["program_entries"][0]["source"]["chain_id"],
+        json!(CHAIN_ID)
+    );
+    assert_eq!(
+        journal["program_entries"][0]["source"]["block_hash"],
+        json!([0x31; 32].to_vec())
+    );
+    assert_eq!(
+        journal["program_entries"][0]["source"]["transaction_hash"],
+        json!([0x71; 32].to_vec())
+    );
+    assert_eq!(
+        journal["program_entries"][0]["source"]["log_index"],
+        json!(1)
+    );
+    Ok(())
+}
+
+fn assert_invalid_and_unbound(scratch: &Scratch, program: Value) -> Checked {
     let malformed = replace_word(&program, 3, 64)?;
     let invalid_node = Replay::start(vec![web_log()?, malformed])?;
     let invalid_state = scratch.0.join("invalid");
@@ -428,4 +437,26 @@ fn the_watcher_journals_program_requests_beside_web_requests() -> Checked {
         .with_chain_id(CHAIN_ID)?;
     assert_eq!(unbound.program_work(), vec![expected_request()]);
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

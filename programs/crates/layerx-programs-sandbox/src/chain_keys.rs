@@ -2,6 +2,8 @@ use layerx_programs::chain_evidence::programs_state_key;
 
 use crate::activity::SandboxActivityRefusal;
 
+/// # Errors
+/// Returns a refusal when the key kind is outside the sandbox state range.
 pub fn sandbox_state_key(kind: u8, lease_id: [u8; 32]) -> Result<Vec<u8>, SandboxActivityRefusal> {
     if kind > 2 {
         return Err(SandboxActivityRefusal::NonCanonical);

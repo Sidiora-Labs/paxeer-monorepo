@@ -295,7 +295,7 @@ static void activation_as_position(
     position->legacy = true;
 }
 
-static lxp_result activation_payer_matches(
+static lxp_result namespace_payer_matches(
     lxp_programs_occupancy_bridge *bridge, const occ_position *position)
 {
     uint8_t owner[32];
@@ -506,7 +506,7 @@ static lxp_result validate_evidence(
              lxp_u128_cmp(before->arrears, prior_arrears) != 0))
             return LXP_ERR_CONTEXT_MISMATCH;
         if (transition && before != NULL && before->legacy &&
-            activation_payer_matches(bridge, &charge) != LXP_OK)
+            namespace_payer_matches(bridge, &charge) != LXP_OK)
             return LXP_ERR_UNAUTHORIZED_DEBIT;
         if (transition && before == NULL) {
             if (disposition == 5U || recorded_bytes != 0U ||
@@ -515,6 +515,12 @@ static lxp_result validate_evidence(
                 return LXP_ERR_CONTEXT_MISMATCH;
             }
         }
+        if (transition && before != NULL && !before->legacy &&
+            final_bytes != 0U && final_bytes != recorded_bytes &&
+            lxp_u128_is_zero(added) &&
+            (final_bytes > before->maximum_bytes ||
+             namespace_payer_matches(bridge, &charge) != LXP_OK))
+            return LXP_ERR_UNAUTHORIZED_DEBIT;
         if (to_batch != batch || from_batch > to_batch ||
             final_bytes > maximum_bytes)
             return LXP_ERR_NON_CANONICAL;
@@ -535,6 +541,8 @@ static lxp_result validate_evidence(
             status = LXP_OK;
         if (status != LXP_OK) return status;
         if (transition && !lxp_u128_is_zero(added)) {
+            /* This path runs for the call publication as well as for the
+             * block transition, so an unauthorised position never commits. */
             if (!bridge->call_authorized || bridge->finalizing ||
                 memcmp(charge.payer, bridge->authorized_payer, 32U) != 0 ||
                 memcmp(charge.root_program,
@@ -542,7 +550,7 @@ static lxp_result validate_evidence(
                 memcmp(charge.activity_binding,
                        bridge->authorized_activity_binding, 32U) != 0 ||
                 (charge.namespace_length == 33U &&
-                 activation_payer_matches(bridge, &charge) != LXP_OK))
+                 namespace_payer_matches(bridge, &charge) != LXP_OK))
                 return LXP_ERR_UNAUTHORIZED_DEBIT;
             status = lxp_u128_add(authorized_added, added,
                                   &authorized_added);
@@ -550,6 +558,7 @@ static lxp_result validate_evidence(
                     authorized_added,
                     bridge->authorized_responsibility_ceiling) > 0)
                 return status == LXP_OK ? LXP_ERR_UNAUTHORIZED_DEBIT : status;
+            bridge->call_added_responsibility = true;
         }
         if (!lxp_u128_is_zero(added)) {
             status = mandate_matches(&charge, maximum_bytes, maximum_price,

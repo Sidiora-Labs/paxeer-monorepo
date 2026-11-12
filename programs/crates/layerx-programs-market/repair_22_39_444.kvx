@@ -1,0 +1,11 @@
+[market_lint]
+crate = "layerx-programs-market"
+dead_code = 1
+missing_errors_doc = 11
+manual_is_multiple_of = 1
+large_types_passed_by_value = 6
+too_many_arguments = 1
+too_many_lines = 2
+range_plus_one = 3
+cast_sign_loss = 1
+semicolon_if_nothing_returned = 2

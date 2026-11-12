@@ -1,0 +1,77 @@
+[meta]
+title = "Program SDK and lint member source hygiene"
+
+[lint.dead_code]
+locations = 30
+
+[lint.bool_to_int_with_if]
+locations = 3
+
+[lint.cast_possible_truncation]
+locations = 4
+
+[lint.cast_sign_loss]
+locations = 1
+
+[lint.expect_used]
+locations = 8
+
+[lint.format_push_string]
+locations = 2
+
+[lint.if_not_else]
+locations = 2
+
+[lint.match_same_arms]
+locations = 1
+
+[lint.needless_raw_string_hashes]
+locations = 7
+
+[lint.unused_self]
+locations = 2
+
+[lint.too_many_lines]
+locations = 4
+
+[lint.missing_errors_doc]
+locations = 17
+
+[lint.manual_contains]
+locations = 2
+
+[lint.must_use_candidate]
+locations = 1
+
+[lint.missing_panics_doc]
+locations = 1
+
+[lint.unnecessary_wraps]
+locations = 1
+
+[lint.items_after_test_module]
+locations = 1
+
+[lint.items_after_statements]
+locations = 1
+
+[lint.large_stack_arrays]
+locations = 1
+
+[lint.elidable_lifetime_names]
+locations = 2
+
+[lint.doc_markdown]
+locations = 2
+
+[lint.unwrap_used]
+locations = 46
+
+[lint.unnecessary_debug_formatting]
+locations = 1
+
+[lint.format_collect]
+locations = 1
+
+[lint.needless_pass_by_value]
+locations = 1

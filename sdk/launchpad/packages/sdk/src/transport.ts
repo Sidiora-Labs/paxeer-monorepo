@@ -1,6 +1,6 @@
 import { decodeContract, errorsText } from './validate.js';
 import type { ContractTypes } from './types.gen.js';
-import type { ContractTypes as V2ContractTypes } from '@kindle/sdk-v2/types';
+import type { ContractTypes as GeneratedV2ContractTypes, PoolDetailData as GeneratedPoolDetailData, PoolDetailResponse as GeneratedPoolDetailResponse } from '@kindle/sdk-v2/types';
 import { v2ContractValidators } from './validators-v2.gen.js';
 
 export function decodeV2Contract<N extends keyof V2ContractTypes>(
@@ -17,7 +17,9 @@ export function decodeV2Contract<N extends keyof V2ContractTypes>(
     );
   return value as V2ContractTypes[N];
 }
-export type { V2ContractTypes };
+export type PoolDetailData = GeneratedPoolDetailData;
+export type PoolDetailResponse = GeneratedPoolDetailResponse;
+export type V2ContractTypes = GeneratedV2ContractTypes;
 export interface RequestOptions {
   signal?: AbortSignal;
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
@@ -242,6 +244,13 @@ export class SdkClient {
       response,
       await this.boundedRequest(path, options, 2),
     );
+  }
+  async requestV2Validated<T>(
+    path: string,
+    validator: (value: unknown) => T,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    return validator(await this.boundedRequest(path, options, 2));
   }
   async requestV2Empty(path: string, options: RequestOptions): Promise<void> {
     const value = await this.boundedRequest(path, options, 2);

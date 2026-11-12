@@ -1,5 +1,6 @@
 //! Scalar-only C ingress for one real Programs CALL activity.
 
+use crate::call_occupancy::{settle_call_occupancy, CallOccupancySettlement};
 use crate::occupancy::{
     OccupancyAuthority, OccupancyDebitAuthority, OccupancyError, OccupancyLedger, OccupancyUsage,
     MAX_OCCUPANCY_EVIDENCE_BYTES, MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
@@ -358,6 +359,7 @@ pub unsafe extern "C" fn layerx_programs_schedule_plan(
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
+const UNAUTHORIZED_DEBIT: i32 = -207;
 const UNKNOWN_FIELD: i32 = -7;
 const MARKET_HALTED: i32 = -703;
 const LENGTH_LIMIT: i32 = -5;
@@ -2302,138 +2304,6 @@ impl OccupancyDebitAuthority for NativeOccupancyDebits {
     }
 }
 
-struct CallOccupancySettlement<'a> {
-    batch: u64,
-    authority: OccupancyAuthority,
-    schedule: crate::FeeSchedule,
-    initial_sizes: &'a BTreeMap<StorageNamespace, u64>,
-    program_owners: &'a BTreeMap<ProgramId, PrincipalId>,
-    storage: &'a Storage,
-    ledger: &'a mut OccupancyLedger,
-}
-
-fn occupancy_responsibilities(
-    eligible: Vec<(StorageNamespace, u64)>,
-    authority: OccupancyAuthority,
-    schedule: crate::FeeSchedule,
-) -> Result<Vec<crate::occupancy::OccupancyResponsibility>, i32> {
-    let mut responsibilities = Vec::new();
-    let price = schedule.occupancy_byte_batch_price();
-    if price == 0 {
-        return Err(NON_CANONICAL);
-    }
-    let minimum_total = eligible
-        .iter()
-        .try_fold(0u128, |total, (_, bytes)| {
-            total.checked_add(u128::from(*bytes).checked_mul(u128::from(price))?)
-        })
-        .ok_or(-500)?;
-    if minimum_total > authority.fee_ceiling() {
-        return Err(NON_CANONICAL);
-    }
-    let share_count = u128::try_from(eligible.len()).map_err(|_| LENGTH_LIMIT)?;
-    let surplus = authority
-        .fee_ceiling()
-        .checked_sub(minimum_total)
-        .ok_or(-500)?;
-    let equal_share = if share_count == 0 {
-        0
-    } else {
-        surplus / share_count
-    };
-    let mut remainder = if share_count == 0 {
-        0
-    } else {
-        surplus % share_count
-    };
-    for (namespace, bytes) in eligible {
-        let minimum = u128::from(bytes)
-            .checked_mul(u128::from(price))
-            .ok_or(-500)?;
-        let charge_ceiling = minimum
-            .checked_add(equal_share)
-            .and_then(|value| value.checked_add(u128::from(remainder != 0)))
-            .ok_or(-500)?;
-        if remainder != 0 {
-            remainder = remainder.checked_sub(1).ok_or(-500)?;
-        }
-        let maximum_bytes = u64::try_from(charge_ceiling / u128::from(price))
-            .map_err(|_| LENGTH_LIMIT)?
-            .max(bytes);
-        let responsibility = authority
-            .authorize(namespace, maximum_bytes, charge_ceiling)
-            .map_err(|_| NON_CANONICAL)?;
-        responsibilities.push(responsibility);
-    }
-    Ok(responsibilities)
-}
-
-fn settle_call_occupancy(
-    request: CallOccupancySettlement<'_>,
-) -> Result<crate::OccupancySettlement, i32> {
-    let CallOccupancySettlement {
-        batch,
-        authority,
-        schedule,
-        initial_sizes,
-        program_owners,
-        storage,
-        ledger,
-    } = request;
-    let sizes: BTreeMap<_, _> = storage
-        .namespace_sizes()
-        .map_err(|_| NON_CANONICAL)?
-        .into_iter()
-        .collect();
-    let changed: BTreeSet<_> = initial_sizes
-        .keys()
-        .chain(sizes.keys())
-        .copied()
-        .filter(|namespace| {
-            initial_sizes.get(namespace) != sizes.get(namespace)
-                || (ledger.requires_migration(*namespace) && storage.was_accessed(*namespace))
-        })
-        .collect();
-    let mut eligible = Vec::new();
-    for namespace in changed {
-        let final_bytes = sizes.get(&namespace).copied().unwrap_or(0);
-        if final_bytes == 0 {
-            continue;
-        }
-        if ledger.requires_migration(namespace) && namespace.program() != authority.root_program() {
-            continue;
-        }
-        let authorized_payer = match namespace.principal_scope() {
-            Some(principal) => principal,
-            None => *program_owners
-                .get(&namespace.program())
-                .ok_or(NON_CANONICAL)?,
-        };
-        if authorized_payer != authority.payer() {
-            continue;
-        }
-        match ledger.responsibility_limits(namespace) {
-            Some((payer, _))
-                if payer != authority.payer() && !ledger.requires_migration(namespace) => {}
-            Some((_, maximum_bytes))
-                if final_bytes <= maximum_bytes && !ledger.requires_migration(namespace) => {}
-            _ => eligible.push((namespace, final_bytes)),
-        }
-    }
-    let responsibilities = occupancy_responsibilities(eligible, authority, schedule)?;
-    let prepared = ledger
-        .prepare_batch(batch, storage, responsibilities, schedule)
-        .map_err(|_| NON_CANONICAL)?;
-    let settlement = prepared.settlement().clone();
-    let committed = ledger
-        .commit_after_debits(prepared, storage)
-        .map_err(|_| NON_CANONICAL)?;
-    if committed != settlement {
-        return Err(FATAL_INVARIANT);
-    }
-    Ok(settlement)
-}
-
 fn wrap_reserved_evidence(
     evidence: &mut Vec<u8>,
     domain: &[u8],
@@ -3069,7 +2939,11 @@ pub extern "C" fn layerx_programs_call_begin(
                                 return terminal(TerminalPublication {
                                     token,
                                     kind: FAILURE,
-                                    result: PROGRAM_REFUSED,
+                                    result: if status == UNAUTHORIZED_DEBIT {
+                                        status
+                                    } else {
+                                        PROGRAM_REFUSED
+                                    },
                                     runtime: record.execution().runtime_version(),
                                     abi: abi_version,
                                     schedule: fee_schedule_version,

@@ -461,6 +461,7 @@ func (r *StreamOutboxRelay) markPublished(ctx context.Context, l *streamPublicat
 		if !bytes.Equal(frame, l.frame) || Hash(frame) != l.frameHash || topic != l.topic {
 			return ErrIntegrity
 		}
+		//nolint:gosec // Acknowledgement sequences are bounded to MaxInt64 at admission.
 		tag, err := tx.Exec(ctx, `UPDATE api_stream.stream_delivery_publications SET state='published',broker_stream=$5,broker_sequence=$6,published_at=clock_timestamp(),acknowledgement_latency_ms=GREATEST(0,EXTRACT(EPOCH FROM(clock_timestamp()-claimed_at))*1000)::bigint,owner=NULL,expires_at=NULL,failure_class=NULL WHERE partition_id=$1 AND sequence=$2 AND epoch=$3 AND owner=$4 AND expires_at>clock_timestamp() AND state='pending'`, l.partition, l.sequence, l.epoch, r.config.Owner, ack.Stream, int64(ack.Sequence))
 		if err != nil {
 			return err
@@ -468,6 +469,7 @@ func (r *StreamOutboxRelay) markPublished(ctx context.Context, l *streamPublicat
 		if tag.RowsAffected() != 1 {
 			return ErrLease
 		}
+		//nolint:gosec // Acknowledgement sequences are bounded to MaxInt64 at admission.
 		tag, err = tx.Exec(ctx, `UPDATE api_stream.stream_delivery_offsets SET next_sequence=$2+1,broker_stream=$3,broker_sequence=$4,updated_at=clock_timestamp() WHERE partition_id=$1 AND next_sequence=$2`, l.partition, l.sequence, ack.Stream, int64(ack.Sequence))
 		if err != nil {
 			return err

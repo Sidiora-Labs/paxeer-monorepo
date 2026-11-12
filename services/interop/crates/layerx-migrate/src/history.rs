@@ -1,7 +1,7 @@
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
-use sha2::{Digest as _, Sha256};
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 
 use crate::journal::Journal;
 use crate::source_codec::{decode_hex, ethereum_hex, Reader, Writer};
@@ -20,12 +20,18 @@ pub struct DurableExternalHistory {
 }
 
 impl DurableExternalHistory {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn new(config: &JournalConfig) -> Result<Self, MigrationError> {
         Ok(Self {
             journal: Journal::new(config)?,
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn read(
         &self,
         principal: &PrincipalId,
@@ -49,8 +55,13 @@ impl ExternalHistorySink for DurableExternalHistory {
         if page.records().len() > HISTORY_PAGE_LIMIT || page.evidence_digest() == [0; 32] {
             return Err(MigrationError::InvalidHistory);
         }
-        let rows = page.records().iter().map(encode).collect::<Result<Vec<_>, _>>()?;
-        self.journal.store_external_history(principal, page.evidence_digest(), rows)
+        let rows = page
+            .records()
+            .iter()
+            .map(encode)
+            .collect::<Result<Vec<_>, _>>()?;
+        self.journal
+            .store_external_history(principal, page.evidence_digest(), rows)
     }
 }
 
@@ -119,16 +130,29 @@ pub(crate) fn record_key(record: &ExternalHistoryRecord) -> [u8; 32] {
 fn encode(record: &ExternalHistoryRecord) -> Result<String, MigrationError> {
     record.validate()?;
     let mut writer = Writer::new(RECORD_DOMAIN);
-    match (record.chain(), record.transaction(), record.address(), record.provenance()) {
-        (SourceChain::Ethereum { chain_id }, SourceTransaction::Ethereum(transaction),
-         ExternalAddress::Ethereum(address), ExternalProvenance::Ethereum) => {
+    match (
+        record.chain(),
+        record.transaction(),
+        record.address(),
+        record.provenance(),
+    ) {
+        (
+            SourceChain::Ethereum { chain_id },
+            SourceTransaction::Ethereum(transaction),
+            ExternalAddress::Ethereum(address),
+            ExternalProvenance::Ethereum,
+        ) => {
             writer.u8(1);
             writer.u64(chain_id);
             writer.fixed(&transaction);
             writer.fixed(&address);
         }
-        (SourceChain::Solana { genesis_hash }, SourceTransaction::Solana(transaction),
-         ExternalAddress::Solana(address), ExternalProvenance::Solana) => {
+        (
+            SourceChain::Solana { genesis_hash },
+            SourceTransaction::Solana(transaction),
+            ExternalAddress::Solana(address),
+            ExternalProvenance::Solana,
+        ) => {
             writer.u8(2);
             writer.fixed(&genesis_hash);
             writer.fixed(&transaction);
@@ -155,13 +179,17 @@ fn decode_inner(encoded: &str) -> Result<ExternalHistoryRecord, MigrationError> 
     let mut reader = Reader::new(&bytes, RECORD_DOMAIN)?;
     let (chain, transaction, address, provenance) = match reader.u8()? {
         1 => (
-            SourceChain::Ethereum { chain_id: reader.u64()? },
+            SourceChain::Ethereum {
+                chain_id: reader.u64()?,
+            },
             SourceTransaction::ethereum(reader.array()?)?,
             ExternalAddress::Ethereum(reader.array()?),
             ExternalProvenance::Ethereum,
         ),
         2 => (
-            SourceChain::Solana { genesis_hash: reader.array()? },
+            SourceChain::Solana {
+                genesis_hash: reader.array()?,
+            },
             SourceTransaction::solana(reader.array()?)?,
             ExternalAddress::Solana(reader.array()?),
             ExternalProvenance::Solana,
@@ -175,7 +203,10 @@ fn decode_inner(encoded: &str) -> Result<ExternalHistoryRecord, MigrationError> 
         _ => return Err(MigrationError::InvalidHistory),
     };
     let record = ExternalHistoryRecord {
-        chain, transaction, address, kind,
+        chain,
+        transaction,
+        address,
+        kind,
         timestamp: reader.u64()?,
         source_asset: reader.array()?,
         source_amount: reader.u128()?,

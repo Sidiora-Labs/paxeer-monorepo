@@ -22,6 +22,7 @@ type FrozenOperation struct {
 func FrozenV2Operations(t *testing.T) []FrozenOperation {
 	t.Helper()
 	path := filepath.Join(RepositoryRoot(t), "sdk", "launchpad", "packages", "sdk", "src", "operations.gen.ts")
+	//nolint:gosec // The test catalog path is supplied by the repository fixture.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

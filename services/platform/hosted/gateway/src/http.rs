@@ -13,8 +13,7 @@ const IO_TIMEOUT: Duration = Duration::from_secs(8);
 const MAX_HEADERS: usize = 32 * 1024;
 const MAX_RESPONSE: usize = 8 * 1024 * 1024;
 const MAX_IDLE_CONNECTIONS_PER_ENDPOINT: usize = 8;
-const MAX_IDLE_AGE: Duration =
-    Duration::from_secs(layerx_platform_internal::http::IO_TIMEOUT.as_secs() / 2);
+const MAX_IDLE_AGE: Duration = Duration::from_secs(layerx_platform_internal::http::IO_TIMEOUT.as_secs() / 2);
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum BrowserRouteProfile {
@@ -24,93 +23,53 @@ pub enum BrowserRouteProfile {
     UnifiedAccount,
 }
 
+#[must_use]
 pub fn browser_route_profile(target: &str) -> BrowserRouteProfile {
     let Ok((path, _)) = split_target(target) else {
         return BrowserRouteProfile::Legacy;
     };
-    if matches!(
-        path,
-        "/gas-station/quote" | "/gas-station/submit" | "/gas-station/status" | "/gas-station/retry"
-    ) {
+    if matches!(path, "/gas-station/quote" | "/gas-station/submit" | "/gas-station/status" | "/gas-station/retry") {
         return BrowserRouteProfile::GasStation;
     }
-    let Some(account) = path
-        .strip_prefix("/v1/accounts/")
-        .and_then(|part| part.strip_suffix("/unified"))
-    else {
+    let Some(account) = path.strip_prefix("/v1/accounts/").and_then(|part| part.strip_suffix("/unified")) else {
         return BrowserRouteProfile::Legacy;
     };
     if account.len() > 128 || account.contains('/') {
         return BrowserRouteProfile::Legacy;
     }
-    let decoded = account
-        .replace("%3A", ":")
-        .replace("%3a", ":")
-        .to_ascii_lowercase();
-    let hexadecimal = |value: &str, count: usize| {
-        value.len() == count && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-    };
-    if hexadecimal(&decoded, 64)
-        || decoded
-            .strip_prefix("0x")
-            .is_some_and(|value| hexadecimal(value, 40))
-        || decoded
-            .strip_prefix("did:layerx:")
-            .is_some_and(|value| hexadecimal(value, 64))
-    {
+    let decoded = account.replace("%3A", ":").replace("%3a", ":").to_ascii_lowercase();
+    let hexadecimal = |value: &str, count: usize| value.len() == count && value.bytes().all(|byte| byte.is_ascii_hexdigit());
+    if hexadecimal(&decoded, 64) || decoded.strip_prefix("0x").is_some_and(|value| hexadecimal(value, 40)) || decoded.strip_prefix("did:layerx:").is_some_and(|value| hexadecimal(value, 64)) {
         BrowserRouteProfile::UnifiedAccount
     } else {
         BrowserRouteProfile::Legacy
     }
 }
 
+#[must_use]
 pub fn browser_profile_request_header(method: &str, target: &str, name: &str, value: &str) -> bool {
     match browser_route_profile(target) {
-        BrowserRouteProfile::GasStation => {
-            method == "OPTIONS"
-                && matches!(
-                    name,
-                    "access-control-request-method" | "access-control-request-headers"
-                )
-        }
-        BrowserRouteProfile::UnifiedAccount => {
-            method == "GET" && name == "layerx-unified-profile" && matches!(value, "1" | "2")
-        }
+        BrowserRouteProfile::GasStation => method == "OPTIONS" && matches!(name, "access-control-request-method" | "access-control-request-headers"),
+        BrowserRouteProfile::UnifiedAccount => method == "GET" && name == "layerx-unified-profile" && matches!(value, "1" | "2"),
         BrowserRouteProfile::Legacy => false,
     }
 }
 
+#[must_use]
 pub fn browser_profile_response_header(profile: BrowserRouteProfile, name: &str) -> bool {
-    profile == BrowserRouteProfile::GasStation
-        && matches!(
-            name,
-            "access-control-allow-origin"
-                | "access-control-allow-methods"
-                | "access-control-allow-headers"
-                | "vary"
-        )
+    profile == BrowserRouteProfile::GasStation && matches!(name, "access-control-allow-origin" | "access-control-allow-methods" | "access-control-allow-headers" | "vary")
 }
 
+#[must_use]
 pub fn unified_account_preflight(request: &IncomingRequest) -> bool {
     request.method == "OPTIONS"
         && browser_route_profile(&request.path) == BrowserRouteProfile::UnifiedAccount
         && request.body.is_empty()
-        && request
-            .headers
-            .get("access-control-request-method")
-            .is_some_and(|method| method == "GET")
+        && request.headers.get("access-control-request-method").is_some_and(|method| method == "GET")
         && request
             .headers
             .get("access-control-request-headers")
-            .is_none_or(|headers| {
-                headers.len() <= 4096
-                    && headers.split(',').all(|name| {
-                        matches!(
-                            name.trim().to_ascii_lowercase().as_str(),
-                            "authorization" | "content-type" | "layerx-unified-profile"
-                        )
-                    })
-            })
+            .is_none_or(|headers| headers.len() <= 4096 && headers.split(',').all(|name| matches!(name.trim().to_ascii_lowercase().as_str(), "authorization" | "content-type" | "layerx-unified-profile")))
 }
 
 #[derive(Clone)]
@@ -135,53 +94,25 @@ impl Endpoint {
     /// policy that admits it.
     #[must_use]
     pub fn plain(host: String, port: u16) -> Self {
-        Self {
-            host,
-            port,
-            base_path: String::new(),
-            plain: true,
-        }
+        Self { host, port, base_path: String::new(), plain: true }
     }
 
     /// # Errors
     /// Refuses noncanonical HTTPS endpoints or invalid DNS names and ports.
     pub fn parse(value: &str) -> Result<Self, String> {
-        let rest = value
-            .strip_prefix("https://")
-            .ok_or_else(|| "component endpoint must use HTTPS".to_owned())?;
-        let (authority, path) = rest
-            .split_once('/')
-            .map_or((rest, ""), |(authority, path)| (authority, path));
-        if authority.is_empty()
-            || authority.contains(['@', '?', '#', '\\'])
-            || path.contains(['?', '#', '\\'])
-        {
+        let rest = value.strip_prefix("https://").ok_or_else(|| "component endpoint must use HTTPS".to_owned())?;
+        let (authority, path) = rest.split_once('/').map_or((rest, ""), |(authority, path)| (authority, path));
+        if authority.is_empty() || authority.contains(['@', '?', '#', '\\']) || path.contains(['?', '#', '\\']) {
             return Err("component endpoint is not canonical".to_owned());
         }
-        let (host, port) = authority.rsplit_once(':').map_or_else(
-            || Ok::<_, String>((authority.to_owned(), 443)),
-            |(host, port)| {
-                Ok((
-                    host.to_owned(),
-                    port.parse::<u16>()
-                        .map_err(|_| "component endpoint port is invalid".to_owned())?,
-                ))
-            },
-        )?;
+        let (host, port) = authority
+            .rsplit_once(':')
+            .map_or_else(|| Ok::<_, String>((authority.to_owned(), 443)), |(host, port)| Ok((host.to_owned(), port.parse::<u16>().map_err(|_| "component endpoint port is invalid".to_owned())?)))?;
         if host.is_empty() || host.contains(['[', ']']) || host.parse::<IpAddr>().is_ok() {
             return Err("component TLS endpoint must use a DNS name".to_owned());
         }
-        let base_path = if path.is_empty() {
-            String::new()
-        } else {
-            format!("/{}", path.trim_end_matches('/'))
-        };
-        Ok(Self {
-            host,
-            port,
-            base_path,
-            plain: false,
-        })
+        let base_path = if path.is_empty() { String::new() } else { format!("/{}", path.trim_end_matches('/')) };
+        Ok(Self { host, port, base_path, plain: false })
     }
 
     fn authority(&self) -> String {
@@ -237,8 +168,7 @@ struct IdleConnection {
 
 impl IdleConnection {
     fn reusable(&self, now: Instant) -> bool {
-        now.checked_duration_since(self.retained_at)
-            .is_some_and(|age| age < MAX_IDLE_AGE)
+        now.checked_duration_since(self.retained_at).is_some_and(|age| age < MAX_IDLE_AGE)
     }
 }
 
@@ -263,6 +193,7 @@ struct OutboundHeaders<'a> {
 }
 
 impl Client {
+    #[must_use]
     pub fn independent(&self) -> Self {
         Self {
             ca: self.ca.clone(),
@@ -292,26 +223,21 @@ impl Client {
         }
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the endpoint cannot establish a TLS connection.
     pub fn connect_tls(&self, endpoint: &Endpoint) -> Result<TlsStream<TcpStream>, String> {
         if endpoint.plain {
             return Err("plain endpoint refused on a TLS connection".to_owned());
         }
         let mut failure = "upstream unavailable".to_owned();
-        for address in (endpoint.host.as_str(), endpoint.port)
-            .to_socket_addrs()
-            .map_err(|_| "upstream resolution failed")?
-            .take(8)
-        {
+        for address in (endpoint.host.as_str(), endpoint.port).to_socket_addrs().map_err(|_| "upstream resolution failed")?.take(8) {
             match TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) {
                 Ok(tcp) => {
-                    tcp.set_read_timeout(Some(IO_TIMEOUT))
-                        .map_err(|e| e.to_string())?;
-                    tcp.set_write_timeout(Some(IO_TIMEOUT))
-                        .map_err(|e| e.to_string())?;
-                    return self
-                        .connector()?
-                        .connect(&endpoint.host, tcp)
-                        .map_err(|_| "upstream TLS refused".to_owned());
+                    tcp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|e| e.to_string())?;
+                    tcp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|e| e.to_string())?;
+                    return self.connector()?.connect(&endpoint.host, tcp).map_err(|_| "upstream TLS refused".to_owned());
                 }
                 Err(error) => failure = error.to_string(),
             }
@@ -322,9 +248,7 @@ impl Client {
     fn connector(&self) -> Result<&TlsConnector, String> {
         match self.connector.get_or_init(|| {
             let mut builder = TlsConnector::builder();
-            builder
-                .add_root_certificate(self.ca.clone())
-                .min_protocol_version(Some(native_tls::Protocol::Tlsv12));
+            builder.add_root_certificate(self.ca.clone()).min_protocol_version(Some(native_tls::Protocol::Tlsv12));
             if let Some(identity) = &self.identity {
                 builder.identity(identity.clone());
             }
@@ -336,10 +260,7 @@ impl Client {
     }
 
     fn take_idle(&self, pool_key: &str) -> Result<Option<Upstream>, String> {
-        let mut idle = self
-            .idle
-            .lock()
-            .map_err(|_| "gateway HTTP connection pool is unavailable".to_owned())?;
+        let mut idle = self.idle.lock().map_err(|_| "gateway HTTP connection pool is unavailable".to_owned())?;
         let now = Instant::now();
         let Some(connections) = idle.get_mut(pool_key) else {
             return Ok(None);
@@ -353,30 +274,19 @@ impl Client {
     }
 
     fn retain_idle(&self, pool_key: &str, stream: Upstream) -> Result<(), String> {
-        let mut idle = self
-            .idle
-            .lock()
-            .map_err(|_| "gateway HTTP connection pool is unavailable".to_owned())?;
+        let mut idle = self.idle.lock().map_err(|_| "gateway HTTP connection pool is unavailable".to_owned())?;
         let now = Instant::now();
         let connections = idle.entry(pool_key.to_owned()).or_default();
         connections.retain(|connection| connection.reusable(now));
         if connections.len() < MAX_IDLE_CONNECTIONS_PER_ENDPOINT {
-            connections.push(IdleConnection {
-                stream,
-                retained_at: now,
-            });
+            connections.push(IdleConnection { stream, retained_at: now });
         }
         Ok(())
     }
 
     /// # Errors
     /// Refuses requests outside the configured bounds and TLS or HTTP failures.
-    pub fn request(
-        &self,
-        endpoint: &Endpoint,
-        bearer: &str,
-        request: &OutboundRequest<'_>,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn request(&self, endpoint: &Endpoint, bearer: &str, request: &OutboundRequest<'_>) -> Result<UpstreamResponse, String> {
         self.request_authorized(endpoint, &format!("Bearer {bearer}"), request)
     }
 
@@ -387,11 +297,7 @@ impl Client {
     ///
     /// # Errors
     /// Refuses requests outside the configured bounds and TLS or HTTP failures.
-    pub fn request_unauthenticated(
-        &self,
-        endpoint: &Endpoint,
-        request: &OutboundRequest<'_>,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn request_unauthenticated(&self, endpoint: &Endpoint, request: &OutboundRequest<'_>) -> Result<UpstreamResponse, String> {
         self.request_authorized(endpoint, "", request)
     }
 
@@ -400,12 +306,7 @@ impl Client {
     ///
     /// # Errors
     /// Refuses requests outside the configured bounds and TLS or HTTP failures.
-    pub fn request_authorized(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn request_authorized(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>) -> Result<UpstreamResponse, String> {
         self.request_authorized_traced(endpoint, authorization, request, None)
     }
 
@@ -413,33 +314,15 @@ impl Client {
     ///
     /// # Errors
     /// Refuses invalid traces, requests outside bounds and TLS or HTTP failures.
-    pub fn request_authorized_traced(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-        trace: Option<&str>,
-    ) -> Result<UpstreamResponse, String> {
-        self.request_with_freshness(
-            endpoint,
-            authorization,
-            request,
-            OutboundHeaders {
-                trace,
-                ..OutboundHeaders::default()
-            },
-        )
+    pub fn request_authorized_traced(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, trace: Option<&str>) -> Result<UpstreamResponse, String> {
+        self.request_with_freshness(endpoint, authorization, request, OutboundHeaders { trace, ..OutboundHeaders::default() })
     }
 
-    pub fn request_migration_source_settlement(
-        &self,
-        endpoint: &Endpoint,
-        service_authorization: &str,
-        request: &OutboundRequest<'_>,
-        trace: Option<&str>,
-        customer_authorization: &str,
-        expected_did: &[u8; 32],
-    ) -> Result<UpstreamResponse, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the migration source request cannot be sent or read.
+    pub fn request_migration_source_settlement(&self, endpoint: &Endpoint, service_authorization: &str, request: &OutboundRequest<'_>, trace: Option<&str>, customer_authorization: &str, expected_did: &[u8; 32]) -> Result<UpstreamResponse, String> {
         self.request_with_freshness(
             endpoint,
             service_authorization,
@@ -458,14 +341,7 @@ impl Client {
     /// # Errors
     /// Refuses invalid publication keys, requests outside the configured bounds
     /// and TLS or HTTP failures.
-    pub fn request_with_publication_key(
-        &self,
-        endpoint: &Endpoint,
-        bearer: &str,
-        request: &OutboundRequest<'_>,
-        trace: Option<&str>,
-        publication_key: &str,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn request_with_publication_key(&self, endpoint: &Endpoint, bearer: &str, request: &OutboundRequest<'_>, trace: Option<&str>, publication_key: &str) -> Result<UpstreamResponse, String> {
         self.request_with_freshness(
             endpoint,
             &format!("Bearer {bearer}"),
@@ -484,14 +360,7 @@ impl Client {
     ///
     /// # Errors
     /// Refuses requests outside the configured bounds and TLS or HTTP failures.
-    pub fn request_program_read(
-        &self,
-        endpoint: &Endpoint,
-        bearer: &str,
-        request: &OutboundRequest<'_>,
-        minimum_sequence: u64,
-        expected_state_root: Option<[u8; 32]>,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn request_program_read(&self, endpoint: &Endpoint, bearer: &str, request: &OutboundRequest<'_>, minimum_sequence: u64, expected_state_root: Option<[u8; 32]>) -> Result<UpstreamResponse, String> {
         self.request_with_freshness(
             endpoint,
             &format!("Bearer {bearer}"),
@@ -509,12 +378,7 @@ impl Client {
     /// # Errors
     /// Refuses a query outside the percent-encoded pair alphabet, requests
     /// outside the configured bounds and TLS or HTTP failures.
-    pub fn get_with_query(
-        &self,
-        endpoint: &Endpoint,
-        path: &str,
-        query: &str,
-    ) -> Result<UpstreamResponse, String> {
+    pub fn get_with_query(&self, endpoint: &Endpoint, path: &str, query: &str) -> Result<UpstreamResponse, String> {
         if !query_is_canonical(query) {
             return Err("outbound query exceeds its boundary".to_owned());
         }
@@ -535,35 +399,21 @@ impl Client {
         )
     }
 
-    pub fn request_forwarded(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-        forwarded: &[(&str, &str)],
-    ) -> Result<UpstreamResponse, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the forwarded request cannot be sent or read.
+    pub fn request_forwarded(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)]) -> Result<UpstreamResponse, String> {
         let (path, query) = split_target(request.path)?;
         let request = OutboundRequest { path, ..*request };
-        self.request_with_freshness(
-            endpoint,
-            authorization,
-            &request,
-            OutboundHeaders {
-                query,
-                forwarded,
-                ..OutboundHeaders::default()
-            },
-        )
+        self.request_with_freshness(endpoint, authorization, &request, OutboundHeaders { query, forwarded, ..OutboundHeaders::default() })
     }
 
-    pub fn request_browser_forwarded(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-        forwarded: &[(&str, &str)],
-        browser_profile: BrowserRouteProfile,
-    ) -> Result<UpstreamResponse, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the browser request cannot be sent or read.
+    pub fn request_browser_forwarded(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)], browser_profile: BrowserRouteProfile) -> Result<UpstreamResponse, String> {
         let (path, query) = split_target(request.path)?;
         let request = OutboundRequest { path, ..*request };
         self.request_with_freshness(
@@ -579,13 +429,11 @@ impl Client {
         )
     }
 
-    pub fn request_hpx_forwarded(
-        &self,
-        endpoint: &Endpoint,
-        request: &OutboundRequest<'_>,
-        address: std::net::IpAddr,
-        token: Option<&str>,
-    ) -> Result<UpstreamResponse, String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the HPX request cannot be sent or read.
+    pub fn request_hpx_forwarded(&self, endpoint: &Endpoint, request: &OutboundRequest<'_>, address: std::net::IpAddr, token: Option<&str>) -> Result<UpstreamResponse, String> {
         self.request_with_freshness(
             endpoint,
             "",
@@ -597,29 +445,19 @@ impl Client {
         )
     }
 
-    pub fn stream_forwarded(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-        forwarded: &[(&str, &str)],
-        downstream: &mut impl Write,
-        origin: Option<&str>,
-    ) -> Result<(), String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the forwarded stream cannot be sent or read.
+    pub fn stream_forwarded(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)], downstream: &mut impl Write, origin: Option<&str>) -> Result<(), String> {
         let (path, query) = split_target(request.path)?;
         let request = OutboundRequest { path, ..*request };
-        let outbound = OutboundHeaders {
-            query,
-            forwarded,
-            ..OutboundHeaders::default()
-        };
+        let outbound = OutboundHeaders { query, forwarded, ..OutboundHeaders::default() };
         check_outbound_boundary(authorization, &request, outbound)?;
         if request.method != "GET" || !request.body.is_empty() {
             return Err("stream request is invalid".to_owned());
         }
-        if origin.is_some_and(|value| {
-            value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_graphic())
-        }) {
+        if origin.is_some_and(|value| value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_graphic())) {
             return Err("invalid stream origin".to_owned());
         }
         let mut upstream = self.connect_tls(endpoint)?;
@@ -630,24 +468,10 @@ impl Client {
         if parts.next() != Some("HTTP/1.1") {
             return Err("invalid stream HTTP version".to_owned());
         }
-        let status = parts
-            .next()
-            .ok_or("missing stream status")?
-            .parse::<u16>()
-            .map_err(|_| "invalid stream status")?;
-        let content_type = head
-            .1
-            .iter()
-            .find(|(name, _)| name == "content-type")
-            .map_or("", |(_, value)| value.as_str());
+        let status = parts.next().ok_or("missing stream status")?.parse::<u16>().map_err(|_| "invalid stream status")?;
+        let content_type = head.1.iter().find(|(name, _)| name == "content-type").map_or("", |(_, value)| value.as_str());
         if status != 200 || content_type.split(';').next() != Some("text/event-stream") {
-            let response = response_parts(read_message_body(
-                &mut upstream,
-                MAX_RESPONSE,
-                true,
-                started,
-                head,
-            )?)?;
+            let response = response_parts(read_message_body(&mut upstream, MAX_RESPONSE, true, started, head)?)?;
             return write_response_connection_with_origin(
                 downstream,
                 &OutgoingResponse {
@@ -674,35 +498,17 @@ impl Client {
             return Err("stream response headers exceed their bound".to_owned());
         }
         headers.push_str("\r\n");
-        downstream
-            .write_all(headers.as_bytes())
-            .and_then(|()| downstream.flush())
-            .map_err(|error| error.to_string())?;
+        downstream.write_all(headers.as_bytes()).and_then(|()| downstream.flush()).map_err(|error| error.to_string())?;
         stream_body(&mut upstream, downstream, head.2, head.3, started)
     }
 
-    fn request_with_freshness(
-        &self,
-        endpoint: &Endpoint,
-        authorization: &str,
-        request: &OutboundRequest<'_>,
-        headers: OutboundHeaders<'_>,
-    ) -> Result<UpstreamResponse, String> {
+    fn request_with_freshness(&self, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, headers: OutboundHeaders<'_>) -> Result<UpstreamResponse, String> {
         let total_started = Instant::now();
         check_outbound_boundary(authorization, request, headers)?;
         let connector_started = Instant::now();
-        let connector = if endpoint.plain {
-            None
-        } else {
-            Some(self.connector()?)
-        };
+        let connector = if endpoint.plain { None } else { Some(self.connector()?) };
         pay_timing("gateway.http.connector", connector_started);
-        let pool_key = format!(
-            "{}{}:{}",
-            if endpoint.plain { "http://" } else { "" },
-            endpoint.host,
-            endpoint.port
-        );
+        let pool_key = format!("{}{}:{}", if endpoint.plain { "http://" } else { "" }, endpoint.host, endpoint.port);
         let pool_started = Instant::now();
         let pooled = self.take_idle(&pool_key)?;
         pay_timing("gateway.http.pool", pool_started);
@@ -710,19 +516,14 @@ impl Client {
             let exchange_started = Instant::now();
             let result = exchange(&mut stream, endpoint, authorization, request, headers);
             pay_timing("gateway.http.exchange", exchange_started);
-            if result
-                .as_ref()
-                .is_ok_and(|response| !response.connection_close)
-            {
+            if result.as_ref().is_ok_and(|response| !response.connection_close) {
                 self.retain_idle(&pool_key, stream)?;
             }
             pay_timing("gateway.http.total", total_started);
             return result;
         }
         let resolve_started = Instant::now();
-        let addresses = (endpoint.host.as_str(), endpoint.port)
-            .to_socket_addrs()
-            .map_err(|error| error.to_string())?;
+        let addresses = (endpoint.host.as_str(), endpoint.port).to_socket_addrs().map_err(|error| error.to_string())?;
         pay_timing("gateway.http.resolve", resolve_started);
         let mut last_error = None;
         for address in addresses.take(8) {
@@ -731,16 +532,12 @@ impl Client {
                 Ok(tcp) => {
                     pay_timing("gateway.http.tcp_connect", connect_started);
                     tcp.set_nodelay(true).map_err(|error| error.to_string())?;
-                    tcp.set_read_timeout(Some(IO_TIMEOUT))
-                        .map_err(|error| error.to_string())?;
-                    tcp.set_write_timeout(Some(IO_TIMEOUT))
-                        .map_err(|error| error.to_string())?;
+                    tcp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
+                    tcp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
                     let mut stream = match connector {
                         Some(connector) => {
                             let tls_started = Instant::now();
-                            let stream = connector
-                                .connect(&endpoint.host, tcp)
-                                .map_err(|error| error.to_string())?;
+                            let stream = connector.connect(&endpoint.host, tcp).map_err(|error| error.to_string())?;
                             pay_timing("gateway.http.tls_handshake", tls_started);
                             Upstream::Tls(stream)
                         }
@@ -749,10 +546,7 @@ impl Client {
                     let exchange_started = Instant::now();
                     let result = exchange(&mut stream, endpoint, authorization, request, headers);
                     pay_timing("gateway.http.exchange", exchange_started);
-                    if result
-                        .as_ref()
-                        .is_ok_and(|response| !response.connection_close)
-                    {
+                    if result.as_ref().is_ok_and(|response| !response.connection_close) {
                         self.retain_idle(&pool_key, stream)?;
                     }
                     pay_timing("gateway.http.total", total_started);
@@ -764,59 +558,43 @@ impl Client {
                 }
             }
         }
-        Err(last_error.map_or_else(
-            || "component endpoint did not resolve".to_owned(),
-            |error| error.to_string(),
-        ))
+        Err(last_error.map_or_else(|| "component endpoint did not resolve".to_owned(), |error| error.to_string()))
     }
 }
 
-fn check_outbound_boundary(
-    authorization: &str,
-    request: &OutboundRequest<'_>,
-    headers: OutboundHeaders<'_>,
-) -> Result<(), String> {
-    let OutboundHeaders {
-        trace,
-        publication_key,
-        ..
-    } = headers;
+fn check_hpx_boundary(authorization: &str, request: &OutboundRequest<'_>, headers: OutboundHeaders<'_>) -> Result<(), String> {
     if let Some((address, token)) = headers.hpx_ingress {
-        if !matches!(
-            (request.method, request.path),
-            ("POST", "/api/register") | ("GET", "/api/myip")
-        ) || address.is_unspecified()
+        if !matches!((request.method, request.path), ("POST", "/api/register") | ("GET", "/api/myip"))
+            || address.is_unspecified()
             || address.is_multicast()
             || !authorization.is_empty()
             || !headers.forwarded.is_empty()
             || headers.query.is_some()
             || headers.migration_source.is_some()
             || headers.browser_profile != BrowserRouteProfile::Legacy
-            || token.is_some_and(|token| {
-                token.is_empty()
-                    || token.len() > 4096
-                    || !token.bytes().all(|byte| byte.is_ascii_graphic())
-            })
+            || token.is_some_and(|token| token.is_empty() || token.len() > 4096 || !token.bytes().all(|byte| byte.is_ascii_graphic()))
             || request.path == "/api/myip" && !request.body.is_empty()
             || request.path == "/api/register" && request.body.len() > 65_536
         {
             return Err("HPX provenance outside owner boundary".into());
         }
     }
+    Ok(())
+}
+
+fn check_outbound_boundary(authorization: &str, request: &OutboundRequest<'_>, headers: OutboundHeaders<'_>) -> Result<(), String> {
+    let OutboundHeaders { trace, publication_key, .. } = headers;
+    check_hpx_boundary(authorization, request, headers)?;
     if let Some((customer_authorization, _)) = headers.migration_source {
         let bearer = authorization.strip_prefix("Bearer ");
         if request.method != "POST"
             || request.path != "/internal/v2/source-settlements"
             || request.content_type != "application/json"
-            || bearer.is_none_or(|value| {
-                value.is_empty() || !value.bytes().all(|b| b.is_ascii_graphic())
-            })
+            || bearer.is_none_or(|value| value.is_empty() || !value.bytes().all(|b| b.is_ascii_graphic()))
             || authorization.len() > 4096
             || customer_authorization.is_empty()
             || customer_authorization.len() > 4096
-            || customer_authorization
-                .bytes()
-                .any(|b| !b.is_ascii_graphic() && b != b' ')
+            || customer_authorization.bytes().any(|b| !b.is_ascii_graphic() && b != b' ')
             || !headers.forwarded.is_empty()
             || headers.query.is_some()
             || headers.publication_key.is_some()
@@ -826,65 +604,34 @@ fn check_outbound_boundary(
         }
     }
     for (name, value) in headers.forwarded {
-        let profile_header = (headers.browser_profile == BrowserRouteProfile::GasStation
-            && request.method == "OPTIONS"
-            && matches!(request.path, "/quote" | "/submit" | "/status" | "/retry")
-            && matches!(
-                *name,
-                "access-control-request-method" | "access-control-request-headers"
-            ))
-            || (headers.browser_profile == BrowserRouteProfile::UnifiedAccount
-                && browser_profile_request_header(request.method, request.path, name, value));
-        if !(request_header_is_forwardable(name) || profile_header)
-            || value.len() > 4096
-            || value.bytes().any(|b| !b.is_ascii_graphic() && b != b' ')
-        {
+        let profile_header = (headers.browser_profile == BrowserRouteProfile::GasStation && request.method == "OPTIONS" && matches!(request.path, "/quote" | "/submit" | "/status" | "/retry") && matches!(*name, "access-control-request-method" | "access-control-request-headers"))
+            || (headers.browser_profile == BrowserRouteProfile::UnifiedAccount && browser_profile_request_header(request.method, request.path, name, value));
+        if !(request_header_is_forwardable(name) || profile_header) || value.len() > 4096 || value.bytes().any(|b| !b.is_ascii_graphic() && b != b' ') {
             return Err("forwarded header outside boundary".to_owned());
         }
     }
-    if request
-        .idempotency
-        .is_some_and(|s| s.len() > 256 || !s.bytes().all(|b| b.is_ascii_graphic()))
-        || !request
-            .content_type
-            .bytes()
-            .all(|b| b.is_ascii_graphic() || b == b' ')
-    {
+    if request.idempotency.is_some_and(|s| s.len() > 256 || !s.bytes().all(|b| b.is_ascii_graphic())) || !request.content_type.bytes().all(|b| b.is_ascii_graphic() || b == b' ') {
         return Err("outbound metadata outside boundary".to_owned());
     }
     let path = request.path;
     let body = request.body;
     if !path.starts_with('/')
         || path.len() > MAX_QUERY
-        || !path
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte))
+        || !path.bytes().all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte))
         || !request.method.bytes().all(|byte| byte.is_ascii_uppercase())
         || request.method.is_empty()
-        || headers
-            .query
-            .is_some_and(|query| !query_is_canonical(query))
+        || headers.query.is_some_and(|query| !query_is_canonical(query))
         || body.len() > MAX_RESPONSE
     {
         return Err("outbound request exceeds its boundary".to_owned());
     }
-    if authorization.len() > 4096
-        || authorization
-            .bytes()
-            .any(|byte| matches!(byte, b'\r' | b'\n' | 0))
-    {
+    if authorization.len() > 4096 || authorization.bytes().any(|byte| matches!(byte, b'\r' | b'\n' | 0)) {
         return Err("outbound authorization exceeds its boundary".to_owned());
     }
-    if trace.is_some_and(|value| {
-        value.is_empty()
-            || value.len() > 64
-            || value.bytes().any(|byte| matches!(byte, b'\r' | b'\n' | 0))
-    }) {
+    if trace.is_some_and(|value| value.is_empty() || value.len() > 64 || value.bytes().any(|byte| matches!(byte, b'\r' | b'\n' | 0))) {
         return Err("outbound trace exceeds its boundary".to_owned());
     }
-    if publication_key.is_some_and(|value| {
-        value.is_empty() || value.len() > 4096 || !value.bytes().all(|byte| byte.is_ascii_graphic())
-    }) {
+    if publication_key.is_some_and(|value| value.is_empty() || value.len() > 4096 || !value.bytes().all(|byte| byte.is_ascii_graphic())) {
         return Err("outbound publication key exceeds its boundary".to_owned());
     }
     Ok(())
@@ -904,10 +651,7 @@ pub fn query_is_canonical(query: &str) -> bool {
     while index < bytes.len() {
         match bytes[index] {
             b'%' => {
-                if !bytes
-                    .get(index + 1..index + 3)
-                    .is_some_and(|pair| pair.iter().all(u8::is_ascii_hexdigit))
-                {
+                if !bytes.get(index + 1..index + 3).is_some_and(|pair| pair.iter().all(u8::is_ascii_hexdigit)) {
                     return false;
                 }
                 index += 3;
@@ -926,42 +670,18 @@ pub fn query_is_canonical(query: &str) -> bool {
 /// # Errors
 /// Refuses non-loopback addresses, a path or query outside its boundary and
 /// connection or HTTP failures.
-pub fn loopback_get(
-    address: std::net::SocketAddr,
-    host: &str,
-    path: &str,
-    query: &str,
-) -> Result<UpstreamResponse, String> {
+pub fn loopback_get(address: std::net::SocketAddr, host: &str, path: &str, query: &str) -> Result<UpstreamResponse, String> {
     if !address.ip().is_loopback() {
         return Err("plain HTTP is only admitted to loopback components".to_owned());
     }
-    if !path.starts_with('/')
-        || path.len() > MAX_QUERY
-        || !path
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte))
-        || !query_is_canonical(query)
-        || host.is_empty()
-        || !host.bytes().all(|byte| byte.is_ascii_graphic())
-    {
+    if !path.starts_with('/') || path.len() > MAX_QUERY || !path.bytes().all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte)) || !query_is_canonical(query) || host.is_empty() || !host.bytes().all(|byte| byte.is_ascii_graphic()) {
         return Err("outbound request exceeds its boundary".to_owned());
     }
-    let mut tcp =
-        TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).map_err(|error| error.to_string())?;
-    tcp.set_read_timeout(Some(IO_TIMEOUT))
-        .map_err(|error| error.to_string())?;
-    tcp.set_write_timeout(Some(IO_TIMEOUT))
-        .map_err(|error| error.to_string())?;
-    let query = if query.is_empty() {
-        String::new()
-    } else {
-        format!("?{query}")
-    };
-    write!(
-        tcp,
-        "GET {path}{query} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
-    )
-    .map_err(|error| error.to_string())?;
+    let mut tcp = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT).map_err(|error| error.to_string())?;
+    tcp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
+    tcp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
+    let query = if query.is_empty() { String::new() } else { format!("?{query}") };
+    write!(tcp, "GET {path}{query} HTTP/1.1\r\nHost: {host}\r\nAccept: application/json\r\nConnection: close\r\n\r\n").map_err(|error| error.to_string())?;
     tcp.flush().map_err(|error| error.to_string())?;
     read_response(&mut tcp)
 }
@@ -998,13 +718,7 @@ pub struct UpstreamResponse {
     connection_close: bool,
 }
 
-fn send_request(
-    stream: &mut impl Write,
-    endpoint: &Endpoint,
-    authorization: &str,
-    request: &OutboundRequest<'_>,
-    headers: OutboundHeaders<'_>,
-) -> Result<(), String> {
+fn send_request(stream: &mut impl Write, endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, headers: OutboundHeaders<'_>) -> Result<(), String> {
     let OutboundHeaders {
         trace,
         freshness,
@@ -1015,9 +729,7 @@ fn send_request(
         hpx_ingress,
         ..
     } = headers;
-    let idempotency = request
-        .idempotency
-        .map_or_else(String::new, |key| format!("Idempotency-Key: {key}\r\n"));
+    let idempotency = request.idempotency.map_or_else(String::new, |key| format!("Idempotency-Key: {key}\r\n"));
     let trace = trace.map_or_else(String::new, |value| format!("X-Trace-Id: {value}\r\n"));
     let freshness = freshness.map_or_else(String::new, |(minimum, root)| {
         let mut headers = format!("LayerX-Minimum-Sequence: {minimum}\r\n");
@@ -1030,28 +742,18 @@ fn send_request(
         }
         headers
     });
-    let publication = publication_key.map_or_else(zeroize::Zeroizing::default, |key| {
-        zeroize::Zeroizing::new(format!("LayerX-Key: {key}\r\n"))
-    });
+    let publication = publication_key.map_or_else(zeroize::Zeroizing::default, |key| zeroize::Zeroizing::new(format!("LayerX-Key: {key}\r\n")));
     let migration = migration_source.map_or_else(zeroize::Zeroizing::default, |(customer, did)| {
-        let mut value = zeroize::Zeroizing::new(format!(
-            "X-LayerX-Customer-Authorization: {customer}\r\nX-LayerX-Expected-Did: "
-        ));
+        let mut value = zeroize::Zeroizing::new(format!("X-LayerX-Customer-Authorization: {customer}\r\nX-LayerX-Expected-Did: "));
         for byte in did {
             let _ = write!(value, "{byte:02x}");
         }
         value.push_str("\r\n");
         value
     });
-    let authorization = if authorization.is_empty() {
-        zeroize::Zeroizing::new(String::new())
-    } else {
-        zeroize::Zeroizing::new(format!("Authorization: {authorization}\r\n"))
-    };
+    let authorization = if authorization.is_empty() { zeroize::Zeroizing::new(String::new()) } else { zeroize::Zeroizing::new(format!("Authorization: {authorization}\r\n")) };
     let hpx_headers = hpx_ingress.map_or_else(zeroize::Zeroizing::default, |(address, token)| {
-        let mut fields = zeroize::Zeroizing::new(format!(
-            "X-Forwarded-For: {address}\r\nX-Real-IP: {address}\r\n"
-        ));
+        let mut fields = zeroize::Zeroizing::new(format!("X-Forwarded-For: {address}\r\nX-Real-IP: {address}\r\n"));
         if let Some(token) = token {
             fields.push_str("X-HPX-Token: ");
             fields.push_str(token);
@@ -1059,17 +761,11 @@ fn send_request(
         }
         fields
     });
-    let forwarded_headers = zeroize::Zeroizing::new(
-        forwarded
-            .iter()
-            .map(|(name, value)| format!("{name}: {value}\r\n"))
-            .collect::<String>(),
-    );
-    let accept = if forwarded.iter().any(|(name, _)| *name == "accept") {
-        ""
-    } else {
-        "Accept: application/json\r\n"
-    };
+    let forwarded_headers = zeroize::Zeroizing::new(forwarded.iter().fold(String::new(), |mut headers, (name, value)| {
+        let _ = write!(headers, "{name}: {value}\r\n");
+        headers
+    }));
+    let accept = if forwarded.iter().any(|(name, _)| *name == "accept") { "" } else { "Accept: application/json\r\n" };
     let forwarded = forwarded_headers.as_str();
     let migration_headers = migration.as_str();
     let hpx_headers = hpx_headers.as_str();
@@ -1089,19 +785,11 @@ fn send_request(
     )
     .map_err(|error| error.to_string())?;
     outbound.extend_from_slice(request.body);
-    stream
-        .write_all(&outbound)
-        .map_err(|error| error.to_string())?;
+    stream.write_all(&outbound).map_err(|error| error.to_string())?;
     stream.flush().map_err(|error| error.to_string())
 }
 
-fn exchange(
-    stream: &mut (impl Read + Write),
-    endpoint: &Endpoint,
-    authorization: &str,
-    request: &OutboundRequest<'_>,
-    headers: OutboundHeaders<'_>,
-) -> Result<UpstreamResponse, String> {
+fn exchange(stream: &mut (impl Read + Write), endpoint: &Endpoint, authorization: &str, request: &OutboundRequest<'_>, headers: OutboundHeaders<'_>) -> Result<UpstreamResponse, String> {
     send_request(stream, endpoint, authorization, request, headers)?;
     read_response_with_browser_profile(stream, headers.browser_profile)
 }
@@ -1112,23 +800,17 @@ pub fn read_request(stream: &mut impl Read, maximum: usize) -> Result<IncomingRe
     let (start, headers, body) = read_message(stream, maximum, false)?;
     let headers: BTreeMap<_, _> = headers.into_iter().collect();
     let mut parts = start.split_whitespace();
-    let method = parts
-        .next()
-        .ok_or_else(|| "request method is missing".to_owned())?;
-    let path = parts
-        .next()
-        .ok_or_else(|| "request target is missing".to_owned())?;
+    let method = parts.next().ok_or_else(|| "request method is missing".to_owned())?;
+    let path = parts.next().ok_or_else(|| "request target is missing".to_owned())?;
     if parts.next() != Some("HTTP/1.1")
         || parts.next().is_some()
-        || (if crate::explorer_target::owns_target(path) {
+        || if crate::explorer_target::owns_target(path) {
             crate::explorer_target::split_target(path).is_err()
+        } else if ui_owns_target(path) {
+            ui_split_target(path).is_err()
         } else {
-            if ui_owns_target(path) {
-                ui_split_target(path).is_err()
-            } else {
-                split_target(path).is_err()
-            }
-        })
+            split_target(path).is_err()
+        }
         || !headers.contains_key("host")
     {
         return Err("request line is invalid".to_owned());
@@ -1141,6 +823,7 @@ pub fn read_request(stream: &mut impl Read, maximum: usize) -> Result<IncomingRe
     })
 }
 
+#[must_use]
 pub fn request_header_is_forwardable(name: &str) -> bool {
     matches!(
         name,
@@ -1171,45 +854,21 @@ pub fn request_header_is_forwardable(name: &str) -> bool {
 fn response_header_is_forwardable(name: &str) -> bool {
     matches!(
         name,
-        "set-cookie"
-            | "payment-required"
-            | "payment-response"
-            | "x-payment-response"
-            | "retry-after"
-            | "www-authenticate"
-            | "content-disposition"
-            | "last-event-id"
-            | "etag"
-            | "x-content-sha256"
-            | "x-layerx-batch"
+        "set-cookie" | "payment-required" | "payment-response" | "x-payment-response" | "retry-after" | "www-authenticate" | "content-disposition" | "last-event-id" | "etag" | "x-content-sha256" | "x-layerx-batch"
     )
 }
 
 fn browser_response_header_is_forwardable(name: &str) -> bool {
-    matches!(
-        name,
-        "cache-control"
-            | "content-encoding"
-            | "vary"
-            | "location"
-            | "content-security-policy"
-            | "last-modified"
-            | "expires"
-            | "x-csrf-token"
-    )
+    matches!(name, "cache-control" | "content-encoding" | "vary" | "location" | "content-security-policy" | "last-modified" | "expires" | "x-csrf-token")
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the target is malformed or exceeds its size bound.
 pub fn split_target(target: &str) -> Result<(&str, Option<&str>), String> {
-    let (path, query) = target
-        .split_once('?')
-        .map_or((target, None), |(path, query)| (path, Some(query)));
-    if !path.starts_with('/')
-        || path.len() > MAX_QUERY
-        || !path
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte))
-        || query.is_some_and(|query| !query_is_canonical(query))
-    {
+    let (path, query) = target.split_once('?').map_or((target, None), |(path, query)| (path, Some(query)));
+    if !path.starts_with('/') || path.len() > MAX_QUERY || !path.bytes().all(|byte| byte.is_ascii_graphic() && !b"?#\\".contains(&byte)) || query.is_some_and(|query| !query_is_canonical(query)) {
         return Err("request target exceeds its boundary".to_owned());
     }
     Ok((path, query))
@@ -1219,10 +878,11 @@ fn read_response(stream: &mut impl Read) -> Result<UpstreamResponse, String> {
     response_parts(read_message(stream, MAX_RESPONSE, true)?)
 }
 
-pub fn read_response_with_browser_profile(
-    stream: &mut impl Read,
-    profile: BrowserRouteProfile,
-) -> Result<UpstreamResponse, String> {
+///
+/// # Errors
+///
+/// Returns an error when the upstream response is invalid or cannot be read.
+pub fn read_response_with_browser_profile(stream: &mut impl Read, profile: BrowserRouteProfile) -> Result<UpstreamResponse, String> {
     response_parts_with_browser_profile(read_message(stream, MAX_RESPONSE, true)?, profile)
 }
 
@@ -1230,66 +890,32 @@ fn response_parts((start, fields, body): HttpMessage) -> Result<UpstreamResponse
     response_parts_with_browser_profile((start, fields, body), BrowserRouteProfile::Legacy)
 }
 
-fn response_parts_with_browser_profile(
-    (start, fields, body): HttpMessage,
-    profile: BrowserRouteProfile,
-) -> Result<UpstreamResponse, String> {
+fn response_parts_with_browser_profile((start, fields, body): HttpMessage, profile: BrowserRouteProfile) -> Result<UpstreamResponse, String> {
     let mut parts = start.split_whitespace();
     if parts.next() != Some("HTTP/1.1") {
         return Err("component response must use HTTP/1.1".to_owned());
     }
-    let status = parts
-        .next()
-        .ok_or("component response status is missing")?
-        .parse::<u16>()
-        .map_err(|_| "component response status is invalid")?;
+    let status = parts.next().ok_or("component response status is missing")?.parse::<u16>().map_err(|_| "component response status is invalid")?;
     if !(100..=599).contains(&status) {
         return Err("component response status is invalid".to_owned());
     }
-    let field = |name: &str| {
-        fields
-            .iter()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.as_str())
-    };
+    let field = |name: &str| fields.iter().find(|(key, _)| key == name).map(|(_, value)| value.as_str());
     let content_type = field("content-type").unwrap_or_default().to_owned();
-    let connection_close = field("connection").is_some_and(|value| {
-        value
-            .split(',')
-            .any(|token| token.trim().eq_ignore_ascii_case("close"))
-    }) || (field("content-length").is_none()
-        && field("transfer-encoding").is_none());
-    let headers = fields
-        .into_iter()
-        .filter(|(name, _)| {
-            response_header_is_forwardable(name) || browser_profile_response_header(profile, name)
-        })
-        .collect();
-    Ok(UpstreamResponse {
-        status,
-        content_type,
-        headers,
-        body,
-        connection_close,
-    })
+    let connection_close = field("connection").is_some_and(|value| value.split(',').any(|token| token.trim().eq_ignore_ascii_case("close"))) || (field("content-length").is_none() && field("transfer-encoding").is_none());
+    let headers = fields.into_iter().filter(|(name, _)| response_header_is_forwardable(name) || browser_profile_response_header(profile, name)).collect();
+    Ok(UpstreamResponse { headers, status, content_type, body, connection_close })
 }
 
 type HttpMessage = (String, Vec<(String, String)>, Vec<u8>);
 
-fn bounded_line(
-    stream: &mut impl Read,
-    maximum: usize,
-    started: Instant,
-) -> Result<Vec<u8>, String> {
+fn bounded_line(stream: &mut impl Read, maximum: usize, started: Instant) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     loop {
         if started.elapsed() > IO_TIMEOUT || bytes.len() >= maximum {
             return Err("HTTP line exceeds its deadline or bound".to_owned());
         }
         let mut byte = [0_u8; 1];
-        stream
-            .read_exact(&mut byte)
-            .map_err(|error| error.to_string())?;
+        stream.read_exact(&mut byte).map_err(|error| error.to_string())?;
         bytes.push(byte[0]);
         if bytes.ends_with(b"\r\n") {
             bytes.truncate(bytes.len() - 2);
@@ -1305,9 +931,7 @@ fn bounded_body(stream: &mut impl Read, body: &mut [u8], started: Instant) -> Re
             return Err("HTTP message deadline exceeded".to_owned());
         }
         let end = body.len().min(offset + 2048);
-        let count = stream
-            .read(&mut body[offset..end])
-            .map_err(|error| error.to_string())?;
+        let count = stream.read(&mut body[offset..end]).map_err(|error| error.to_string())?;
         if count == 0 {
             return Err("HTTP body is truncated".to_owned());
         }
@@ -1318,47 +942,30 @@ fn bounded_body(stream: &mut impl Read, body: &mut [u8], started: Instant) -> Re
 
 type MessageHead = (String, Vec<(String, String)>, Option<usize>, bool, usize);
 
-fn read_head(
-    stream: &mut impl Read,
-    maximum: usize,
-    response: bool,
-    started: Instant,
-) -> Result<MessageHead, String> {
-    let start = String::from_utf8(bounded_line(stream, MAX_HEADERS.min(maximum), started)?)
-        .map_err(|_| "HTTP start line is not UTF-8")?;
+fn read_head(stream: &mut impl Read, maximum: usize, response: bool, started: Instant) -> Result<MessageHead, String> {
+    let start = String::from_utf8(bounded_line(stream, MAX_HEADERS.min(maximum), started)?).map_err(|_| "HTTP start line is not UTF-8")?;
     let mut header_size = start.len() + 2;
     let mut headers = Vec::new();
     let mut names = std::collections::BTreeSet::new();
     let mut content_length = None;
     let mut chunked = false;
     loop {
-        let line = bounded_line(
-            stream,
-            MAX_HEADERS.min(maximum).saturating_sub(header_size),
-            started,
-        )?;
+        let line = bounded_line(stream, MAX_HEADERS.min(maximum).saturating_sub(header_size), started)?;
         header_size += line.len() + 2;
         if line.is_empty() {
             break;
         }
         let line = std::str::from_utf8(&line).map_err(|_| "HTTP header is not UTF-8")?;
         let (name, value) = line.split_once(':').ok_or("HTTP header is malformed")?;
-        if name.is_empty()
-            || !name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte))
-        {
+        if name.is_empty() || !name.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte)) {
             return Err("HTTP header name is invalid".to_owned());
         }
         let name = name.to_ascii_lowercase();
-        if !names.insert(name.clone()) && !(response && name == "set-cookie") {
+        if !(names.insert(name.clone()) || response && name == "set-cookie") {
             return Err("duplicate HTTP header".to_owned());
         }
         let value = value.trim().to_owned();
-        if !value
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() || byte == b' ' || byte == b'\t')
-        {
+        if !value.bytes().all(|byte| byte.is_ascii_graphic() || byte == b' ' || byte == b'\t') {
             return Err("HTTP header value is invalid".to_owned());
         }
         if name == "transfer-encoding" {
@@ -1371,11 +978,7 @@ fn read_head(
             if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
                 return Err("content length is invalid".to_owned());
             }
-            content_length = Some(
-                value
-                    .parse::<usize>()
-                    .map_err(|_| "content length is invalid")?,
-            );
+            content_length = Some(value.parse::<usize>().map_err(|_| "content length is invalid")?);
         }
         headers.push((name, value));
     }
@@ -1385,23 +988,13 @@ fn read_head(
     Ok((start, headers, content_length, chunked, header_size))
 }
 
-fn read_message(
-    stream: &mut impl Read,
-    maximum: usize,
-    response: bool,
-) -> Result<HttpMessage, String> {
+fn read_message(stream: &mut impl Read, maximum: usize, response: bool) -> Result<HttpMessage, String> {
     let started = Instant::now();
     let head = read_head(stream, maximum, response, started)?;
     read_message_body(stream, maximum, response, started, head)
 }
 
-fn read_message_body(
-    stream: &mut impl Read,
-    maximum: usize,
-    response: bool,
-    started: Instant,
-    head: MessageHead,
-) -> Result<HttpMessage, String> {
+fn read_message_body(stream: &mut impl Read, maximum: usize, response: bool, started: Instant, head: MessageHead) -> Result<HttpMessage, String> {
     let (start, headers, content_length, chunked, header_size) = head;
     let limit = maximum.saturating_sub(header_size);
     let mut body = Vec::new();
@@ -1462,13 +1055,7 @@ fn read_message_body(
     Ok((start, headers, body))
 }
 
-fn stream_body(
-    upstream: &mut impl Read,
-    downstream: &mut impl Write,
-    content_length: Option<usize>,
-    chunked: bool,
-    started: Instant,
-) -> Result<(), String> {
+fn stream_body(upstream: &mut impl Read, downstream: &mut impl Write, content_length: Option<usize>, chunked: bool, started: Instant) -> Result<(), String> {
     if content_length.is_some_and(|length| length > MAX_RESPONSE) {
         return Err("stream body exceeds its bound".to_owned());
     }
@@ -1507,17 +1094,12 @@ fn stream_body(
                 return Err("stream lifetime exceeded".to_owned());
             }
             let maximum = chunk_remaining.map_or(buffer.len(), |left| left.min(buffer.len()));
-            let count = upstream
-                .read(&mut buffer[..maximum])
-                .map_err(|error| error.to_string())?;
+            let count = upstream.read(&mut buffer[..maximum]).map_err(|error| error.to_string())?;
             if count == 0 {
                 if chunk_remaining.is_some() {
                     return Err("stream body is truncated".to_owned());
                 }
-                downstream
-                    .write_all(b"0\r\n\r\n")
-                    .and_then(|()| downstream.flush())
-                    .map_err(|error| error.to_string())?;
+                downstream.write_all(b"0\r\n\r\n").and_then(|()| downstream.flush()).map_err(|error| error.to_string())?;
                 return Ok(());
             }
             total = total.checked_add(count).ok_or("stream body bound")?;
@@ -1525,11 +1107,7 @@ fn stream_body(
                 return Err("stream body exceeds its bound".to_owned());
             }
             write!(downstream, "{count:x}\r\n").map_err(|error| error.to_string())?;
-            downstream
-                .write_all(&buffer[..count])
-                .and_then(|()| downstream.write_all(b"\r\n"))
-                .and_then(|()| downstream.flush())
-                .map_err(|error| error.to_string())?;
+            downstream.write_all(&buffer[..count]).and_then(|()| downstream.write_all(b"\r\n")).and_then(|()| downstream.flush()).map_err(|error| error.to_string())?;
             if let Some(left) = chunk_remaining.as_mut() {
                 *left -= count;
                 if *left == 0 {
@@ -1545,10 +1123,7 @@ fn stream_body(
             remaining = Some(0);
         }
     }
-    downstream
-        .write_all(b"0\r\n\r\n")
-        .and_then(|()| downstream.flush())
-        .map_err(|error| error.to_string())
+    downstream.write_all(b"0\r\n\r\n").and_then(|()| downstream.flush()).map_err(|error| error.to_string())
 }
 
 /// # Errors
@@ -1561,89 +1136,43 @@ pub fn write_response(stream: &mut impl Write, response: &OutgoingResponse) -> R
 ///
 /// # Errors
 /// Returns an error when writing or flushing the response fails.
-pub fn write_response_connection(
-    stream: &mut impl Write,
-    response: &OutgoingResponse,
-    keep_alive: bool,
-) -> Result<(), String> {
+pub fn write_response_connection(stream: &mut impl Write, response: &OutgoingResponse, keep_alive: bool) -> Result<(), String> {
     write_response_connection_with_origin(stream, response, keep_alive, None)
 }
 
-pub fn write_response_connection_with_origin(
-    stream: &mut impl Write,
-    response: &OutgoingResponse,
-    keep_alive: bool,
-    origin: Option<&str>,
-) -> Result<(), String> {
-    write_response_connection_with_origin_profile(
-        stream,
-        response,
-        keep_alive,
-        origin,
-        BrowserRouteProfile::Legacy,
-    )
+///
+/// # Errors
+///
+/// Returns an error when the response cannot be written to the connection.
+pub fn write_response_connection_with_origin(stream: &mut impl Write, response: &OutgoingResponse, keep_alive: bool, origin: Option<&str>) -> Result<(), String> {
+    write_response_connection_with_origin_profile(stream, response, keep_alive, origin, BrowserRouteProfile::Legacy)
 }
 
-pub fn write_response_connection_with_browser_profile(
-    stream: &mut impl Write,
-    response: &OutgoingResponse,
-    keep_alive: bool,
-    origin: Option<&str>,
-    target: &str,
-) -> Result<(), String> {
+///
+/// # Errors
+///
+/// Returns an error when the browser response cannot be written to the connection.
+pub fn write_response_connection_with_browser_profile(stream: &mut impl Write, response: &OutgoingResponse, keep_alive: bool, origin: Option<&str>, target: &str) -> Result<(), String> {
     let profile = browser_route_profile(target);
-    write_response_connection_with_origin_profile(
-        stream,
-        response,
-        keep_alive,
-        if profile == BrowserRouteProfile::GasStation {
-            None
-        } else {
-            origin
-        },
-        profile,
-    )
+    write_response_connection_with_origin_profile(stream, response, keep_alive, if profile == BrowserRouteProfile::GasStation { None } else { origin }, profile)
 }
 
-fn write_response_connection_with_origin_profile(
-    stream: &mut impl Write,
-    response: &OutgoingResponse,
-    keep_alive: bool,
-    origin: Option<&str>,
-    profile: BrowserRouteProfile,
-) -> Result<(), String> {
+fn write_response_connection_with_origin_profile(stream: &mut impl Write, response: &OutgoingResponse, keep_alive: bool, origin: Option<&str>, profile: BrowserRouteProfile) -> Result<(), String> {
     let mut cors = match origin {
         Some(origin) if origin.bytes().all(|b| b.is_ascii_graphic()) => format!("Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\nAccess-Control-Allow-Credentials: true\r\nAccess-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization, Idempotency-Key, X-Agent-Key, X-Agent-Nonce, X-Agent-Expires, X-Agent-Signature, X-Agent-Attestor-Authorization-Id, X-Agent-Attestor-Authorization, X-Trace-Id, X-CSRF-Token, X-LayerX-CSRF, X-LayerX-Trace, LayerX-Payer-DID, X-LayerX-Wallet-Binding, Payment-Signature, X-Payment, Last-Event-ID\r\nAccess-Control-Expose-Headers: Payment-Required, Payment-Response, X-Payment-Response, Retry-After, Content-Disposition, ETag, X-Content-SHA256, X-LayerX-Batch\r\n"),
         Some(_) => return Err("invalid CORS origin".to_owned()),
         None => String::new(),
     };
     if profile == BrowserRouteProfile::UnifiedAccount {
-        cors = cors.replace(
-            "X-Payment, Last-Event-ID\r\n",
-            "X-Payment, Last-Event-ID, LayerX-Unified-Profile\r\n",
-        );
+        cors = cors.replace("X-Payment, Last-Event-ID\r\n", "X-Payment, Last-Event-ID, LayerX-Unified-Profile\r\n");
     }
-    if !response
-        .content_type
-        .bytes()
-        .all(|byte| byte.is_ascii_graphic() || byte == b' ')
-    {
+    if !response.content_type.bytes().all(|byte| byte.is_ascii_graphic() || byte == b' ') {
         return Err("invalid response content type".to_owned());
     }
-    let content_type = if response.content_type.is_empty() {
-        String::new()
-    } else {
-        format!("Content-Type: {}\r\n", response.content_type)
-    };
+    let content_type = if response.content_type.is_empty() { String::new() } else { format!("Content-Type: {}\r\n", response.content_type) };
     let mut forwarded = String::new();
     for (name, value) in &response.headers {
-        if !(response_header_is_forwardable(name)
-            || browser_response_header_is_forwardable(name)
-            || browser_profile_response_header(profile, name))
-            || !value
-                .bytes()
-                .all(|byte| byte.is_ascii_graphic() || byte == b' ' || byte == b'\t')
-        {
+        if !(response_header_is_forwardable(name) || browser_response_header_is_forwardable(name) || browser_profile_response_header(profile, name)) || !value.bytes().all(|byte| byte.is_ascii_graphic() || byte == b' ' || byte == b'\t') {
             return Err("invalid response header".to_owned());
         }
         write!(forwarded, "{name}: {value}\r\n").map_err(|error| error.to_string())?;
@@ -1670,9 +1199,7 @@ fn write_response_connection_with_origin_profile(
         503 => "Service Unavailable",
         _ => "Error",
     };
-    let retry = response
-        .retry_after
-        .map_or_else(String::new, |value| format!("Retry-After: {value}\r\n"));
+    let retry = response.retry_after.map_or_else(String::new, |value| format!("Retry-After: {value}\r\n"));
     let connection = if keep_alive { "keep-alive" } else { "close" };
     write!(
         stream,
@@ -1681,185 +1208,59 @@ fn write_response_connection_with_origin_profile(
         response.body.len()
     )
     .map_err(|error| error.to_string())?;
-    stream
-        .write_all(&response.body)
-        .map_err(|error| error.to_string())?;
+    stream.write_all(&response.body).map_err(|error| error.to_string())?;
     stream.flush().map_err(|error| error.to_string())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Cursor;
-
-    #[test]
-    fn ingress_preserves_query_and_unconsumed_websocket_bytes() {
-        let wire = b"GET /rpc/ws?cursor=1%2F2 HTTP/1.1\r\nHost: gateway.example\r\n\r\n\x81\x00";
-        let mut reader = Cursor::new(wire);
-        let request = read_request(&mut reader, 4096).unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(request.path, "/rpc/ws?cursor=1%2F2");
-        assert_eq!(reader.position(), (wire.len() - 2) as u64);
-        for target in ["/v1?x=%", "/v1?x=%GG", "/v1?x=#fragment", "/v1?x=\r\n"] {
-            assert!(split_target(target).is_err());
-        }
-    }
-
-    #[test]
-    fn upstream_chunked_body_and_repeated_cookies_are_preserved() {
-        let mut reader = Cursor::new(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: a=1; Secure\r\nSet-Cookie: b=2; Secure\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n0\r\n\r\n");
-        let response = read_response(&mut reader).unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(response.body, b"ok");
-        assert_eq!(response.content_type, "text/plain");
-        assert_eq!(response.headers.len(), 2);
-        assert_eq!(response.headers[0].1, "a=1; Secure");
-        assert_eq!(response.headers[1].1, "b=2; Secure");
-    }
-
-    #[test]
-    fn conflicting_framing_and_ingress_duplicates_remain_refused() {
-        for wire in [
-            &b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
-                [..],
-            &b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 2\r\n\r\nok"[..],
-            &b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nFFFFFFF\r\n"[..],
-        ] {
-            assert!(read_response(&mut Cursor::new(wire)).is_err());
-        }
-        for wire in [
-            &b"GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n"[..],
-            &b"POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"[..],
-        ] {
-            assert!(read_request(&mut Cursor::new(wire), 4096).is_err());
-        }
-    }
-
-    #[test]
-    fn response_serialization_preserves_content_type_and_cookie_headers() {
-        let response = OutgoingResponse {
-            status: 200,
-            content_type: "text/plain".to_owned(),
-            headers: vec![
-                ("set-cookie".to_owned(), "a=1; Secure".to_owned()),
-                ("set-cookie".to_owned(), "b=2; Secure".to_owned()),
-            ],
-            body: b"ok".to_vec(),
-            retry_after: None,
-        };
-        let mut bytes = Vec::new();
-        write_response(&mut bytes, &response).unwrap_or_else(|error| panic!("{error}"));
-        let parsed =
-            read_response(&mut Cursor::new(bytes)).unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(parsed.headers, response.headers);
-        assert_eq!(parsed.content_type, response.content_type);
-        assert_eq!(parsed.body, response.body);
-    }
-}
-
+//
+/// # Errors
+///
+/// Returns an error when the public TLS connection cannot be established.
 pub fn connect_public_tls(endpoint: &Endpoint) -> Result<TlsStream<TcpStream>, String> {
-    if endpoint.plain
-        || !endpoint.base_path.is_empty()
-        || endpoint.host.is_empty()
-        || !endpoint
-            .host
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
-        || endpoint.port != 443
-    {
+    if endpoint.plain || !endpoint.base_path.is_empty() || endpoint.host.is_empty() || !endpoint.host.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-') || endpoint.port != 443 {
         return Err("public HTTPS endpoint refused".into());
     }
-    let connector = TlsConnector::builder()
-        .min_protocol_version(Some(native_tls::Protocol::Tlsv12))
-        .build()
-        .map_err(|_| "public TLS configuration unavailable")?;
+    let connector = TlsConnector::builder().min_protocol_version(Some(native_tls::Protocol::Tlsv12)).build().map_err(|_| "public TLS configuration unavailable")?;
     let started = Instant::now();
-    let addresses = (endpoint.host.as_str(), endpoint.port)
-        .to_socket_addrs()
-        .map_err(|_| "public upstream resolution failed")?;
+    let addresses = (endpoint.host.as_str(), endpoint.port).to_socket_addrs().map_err(|_| "public upstream resolution failed")?;
     for address in addresses.take(8) {
         if started.elapsed() >= IO_TIMEOUT {
             break;
         }
         let disallowed = match address.ip() {
-            IpAddr::V4(ip) => {
-                ip.is_private()
-                    || ip.is_loopback()
-                    || ip.is_link_local()
-                    || ip.is_unspecified()
-                    || ip.is_multicast()
-                    || ip.is_broadcast()
-            }
-            IpAddr::V6(ip) => {
-                ip.is_loopback()
-                    || ip.is_unspecified()
-                    || ip.is_multicast()
-                    || (ip.segments()[0] & 0xfe00 == 0xfc00)
-                    || (ip.segments()[0] & 0xffc0 == 0xfe80)
-                    || ip.to_ipv4_mapped().is_some()
-            }
+            IpAddr::V4(ip) => ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_unspecified() || ip.is_multicast() || ip.is_broadcast(),
+            IpAddr::V6(ip) => ip.is_loopback() || ip.is_unspecified() || ip.is_multicast() || (ip.segments()[0] & 0xfe00 == 0xfc00) || (ip.segments()[0] & 0xffc0 == 0xfe80) || ip.to_ipv4_mapped().is_some(),
         };
         if disallowed {
             return Err("public upstream address refused".into());
         }
         if let Ok(tcp) = TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) {
-            tcp.set_nodelay(true)
-                .map_err(|_| "public upstream socket unavailable")?;
-            tcp.set_read_timeout(Some(IO_TIMEOUT))
-                .map_err(|_| "public upstream deadline unavailable")?;
-            tcp.set_write_timeout(Some(IO_TIMEOUT))
-                .map_err(|_| "public upstream deadline unavailable")?;
-            return connector
-                .connect(&endpoint.host, tcp)
-                .map_err(|_| "public upstream TLS refused".into());
+            tcp.set_nodelay(true).map_err(|_| "public upstream socket unavailable")?;
+            tcp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| "public upstream deadline unavailable")?;
+            tcp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| "public upstream deadline unavailable")?;
+            return connector.connect(&endpoint.host, tcp).map_err(|_| "public upstream TLS refused".into());
         }
     }
     Err("public upstream unavailable".into())
 }
 
-pub fn explorer_request(
-    endpoint: &Endpoint,
-    request: &OutboundRequest<'_>,
-    forwarded: &[(&str, &str)],
-) -> Result<UpstreamResponse, String> {
+///
+/// # Errors
+///
+/// Returns an error when the explorer upstream request cannot be completed.
+pub fn explorer_request(endpoint: &Endpoint, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)]) -> Result<UpstreamResponse, String> {
     crate::explorer_target::split_target(request.path)?;
-    if !matches!(request.method, "GET" | "POST" | "PUT" | "PATCH" | "DELETE")
-        || request.body.len() > MAX_RESPONSE
-        || request.content_type.len() > 256
-        || !request
-            .content_type
-            .bytes()
-            .all(|b| b.is_ascii_graphic() || b == b' ')
-        || request.idempotency.is_some()
-    {
+    if !matches!(request.method, "GET" | "POST" | "PUT" | "PATCH" | "DELETE") || request.body.len() > MAX_RESPONSE || request.content_type.len() > 256 || !request.content_type.bytes().all(|b| b.is_ascii_graphic() || b == b' ') || request.idempotency.is_some() {
         return Err("explorer request outside boundary".into());
     }
-    let mut head = zeroize::Zeroizing::new(format!(
-        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Length: {}\r\nConnection: close\r\n",
-        request.method,
-        request.path,
-        endpoint.authority(),
-        request.body.len()
-    ));
+    let mut head = zeroize::Zeroizing::new(format!("{} {} HTTP/1.1\r\nHost: {}\r\nContent-Length: {}\r\nConnection: close\r\n", request.method, request.path, endpoint.authority(), request.body.len()));
     if !request.content_type.is_empty() {
-        write!(head, "Content-Type: {}\r\n", request.content_type)
-            .map_err(|_| "explorer header encoding failed")?;
+        write!(head, "Content-Type: {}\r\n", request.content_type).map_err(|_| "explorer header encoding failed")?;
     }
     let mut seen = std::collections::BTreeSet::new();
     for (name, value) in forwarded {
-        if !(matches!(
-            *name,
-            "accept"
-                | "accept-language"
-                | "cookie"
-                | "origin"
-                | "referer"
-                | "x-csrf-token"
-                | "if-none-match"
-                | "if-modified-since"
-                | "x-forwarded-host"
-                | "x-forwarded-proto"
-        ) || (*name == "authorization"
-            && request.method == "GET"
-            && request.path.split('?').next() == Some("/api/account/v2/authenticate_via_dynamic")))
+        if !(matches!(*name, "accept" | "accept-language" | "cookie" | "origin" | "referer" | "x-csrf-token" | "if-none-match" | "if-modified-since" | "x-forwarded-host" | "x-forwarded-proto")
+            || (*name == "authorization" && request.method == "GET" && request.path.split('?').next() == Some("/api/account/v2/authenticate_via_dynamic")))
             || !seen.insert(*name)
             || value.len() > 4096
             || !value.bytes().all(|b| b.is_ascii_graphic() || b == b' ')
@@ -1873,19 +1274,10 @@ pub fn explorer_request(
     }
     head.push_str("\r\n");
     let mut upstream = connect_public_tls(endpoint)?;
-    upstream
-        .write_all(head.as_bytes())
-        .and_then(|()| upstream.write_all(request.body))
-        .and_then(|()| upstream.flush())
-        .map_err(|_| "explorer upstream write failed")?;
+    upstream.write_all(head.as_bytes()).and_then(|()| upstream.write_all(request.body)).and_then(|()| upstream.flush()).map_err(|_| "explorer upstream write failed")?;
     let started = Instant::now();
     let head = read_head(&mut upstream, MAX_RESPONSE, true, started)?;
-    let status = head
-        .0
-        .split_whitespace()
-        .nth(1)
-        .and_then(|v| v.parse::<u16>().ok())
-        .ok_or("explorer upstream status refused")?;
+    let status = head.0.split_whitespace().nth(1).and_then(|v| v.parse::<u16>().ok()).ok_or("explorer upstream status refused")?;
     if status < 200 {
         return Err("explorer HTTP upgrade or interim response refused".into());
     }
@@ -1897,24 +1289,9 @@ pub fn explorer_request(
     } else {
         read_message_body(&mut upstream, MAX_RESPONSE, true, started, head)?
     };
-    let nominated: std::collections::BTreeSet<String> = fields
-        .iter()
-        .filter(|(name, _)| name == "connection")
-        .flat_map(|(_, value)| {
-            value
-                .split(',')
-                .map(|token| token.trim().to_ascii_lowercase())
-        })
-        .collect();
-    let fields: Vec<(String, String)> = fields
-        .into_iter()
-        .filter(|(name, _)| !nominated.contains(name))
-        .collect();
-    let browser_headers: Vec<(String, String)> = fields
-        .iter()
-        .filter(|(name, _)| browser_response_header_is_forwardable(name))
-        .cloned()
-        .collect();
+    let nominated: std::collections::BTreeSet<String> = fields.iter().filter(|(name, _)| name == "connection").flat_map(|(_, value)| value.split(',').map(|token| token.trim().to_ascii_lowercase())).collect();
+    let fields: Vec<(String, String)> = fields.into_iter().filter(|(name, _)| !nominated.contains(name)).collect();
+    let browser_headers: Vec<(String, String)> = fields.iter().filter(|(name, _)| browser_response_header_is_forwardable(name)).cloned().collect();
     let mut answer = response_parts((start, fields, body))?;
     answer.headers.extend(browser_headers);
     Ok(answer)
@@ -1924,57 +1301,37 @@ fn next_static_path(path: &str, prefix: &str) -> bool {
     path.strip_prefix(prefix).is_some_and(|tail| {
         !tail.is_empty()
             && tail.len() < 1024
-            && tail.split('/').all(|part| {
-                !part.is_empty()
-                    && !part.starts_with('.')
-                    && part
-                        .bytes()
-                        .all(|byte| byte.is_ascii_alphanumeric() || b"-._[]()".contains(&byte))
-            })
-            && [
-                ".js", ".json", ".css", ".woff", ".woff2", ".ttf", ".otf", ".png", ".jpg", ".jpeg",
-                ".webp", ".avif", ".svg", ".ico",
-            ]
-            .iter()
-            .any(|extension| tail.ends_with(extension))
+            && tail.split('/').all(|part| !part.is_empty() && !part.starts_with('.') && part.bytes().all(|byte| byte.is_ascii_alphanumeric() || b"-._[]()".contains(&byte)))
+            && [".js", ".json", ".css", ".woff", ".woff2", ".ttf", ".otf", ".png", ".jpg", ".jpeg", ".webp", ".avif", ".svg", ".ico"].iter().any(|extension| tail.ends_with(extension))
     })
 }
 
+#[must_use]
 pub fn human_web_owns_target(target: &str) -> bool {
     let path = target.split('?').next().unwrap_or(target);
-    matches!(path, "/explorer/verify" | "/api/explorer/verify")
-        || next_static_path(path, "/human-ui/_next/static/")
+    matches!(path, "/explorer/verify" | "/api/explorer/verify") || next_static_path(path, "/human-ui/_next/static/")
 }
 
+#[must_use]
 pub fn human_web_admitted(method: &str, path: &str) -> bool {
-    (matches!(method, "GET" | "HEAD")
-        && (path == "/explorer/verify" || next_static_path(path, "/human-ui/_next/static/")))
-        || (method == "POST" && path == "/api/explorer/verify")
+    (matches!(method, "GET" | "HEAD") && (path == "/explorer/verify" || next_static_path(path, "/human-ui/_next/static/"))) || (method == "POST" && path == "/api/explorer/verify")
 }
 
+#[must_use]
 pub fn ui_owns_target(target: &str) -> bool {
-    human_web_owns_target(target)
-        || ["/wallet", "/explorer"].iter().any(|prefix| {
-            target.strip_prefix(prefix).is_some_and(|tail| {
-                tail.is_empty() || tail.starts_with('/') || tail.starts_with('?')
-            })
-        })
+    human_web_owns_target(target) || ["/wallet", "/explorer"].iter().any(|prefix| target.strip_prefix(prefix).is_some_and(|tail| tail.is_empty() || tail.starts_with('/') || tail.starts_with('?')))
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the UI target is malformed or exceeds its size bound.
 pub fn ui_split_target(target: &str) -> Result<(&str, Option<&str>), String> {
     if target.len() > 4096 {
         return Err("UI target exceeds bound".into());
     }
-    let (path, query) = target
-        .split_once('?')
-        .map_or((target, None), |(p, q)| (p, Some(q)));
-    if !path.starts_with('/')
-        || path.len() > 2048
-        || path.contains(['#', '\\'])
-        || !path.bytes().all(|b| b.is_ascii_graphic())
-        || path.contains("//")
-        || path.split('/').any(|p| matches!(p, "." | ".."))
-    {
+    let (path, query) = target.split_once('?').map_or((target, None), |(p, q)| (p, Some(q)));
+    if !path.starts_with('/') || path.len() > 2048 || path.contains(['#', '\\']) || !path.bytes().all(|b| b.is_ascii_graphic()) || path.contains("//") || path.split('/').any(|p| matches!(p, "." | "..")) {
         return Err("UI path refused".into());
     }
     let mut path_bytes = path.as_bytes().iter().copied();
@@ -1995,18 +1352,12 @@ pub fn ui_split_target(target: &str) -> Result<(&str, Option<&str>), String> {
                 if !digits.iter().all(u8::is_ascii_hexdigit) {
                     return Err("UI query escape refused".into());
                 }
-                let value = u8::from_str_radix(
-                    std::str::from_utf8(digits).map_err(|_| "UI query escape refused")?,
-                    16,
-                )
-                .map_err(|_| "UI query escape refused")?;
+                let value = u8::from_str_radix(std::str::from_utf8(digits).map_err(|_| "UI query escape refused")?, 16).map_err(|_| "UI query escape refused")?;
                 if value == 0 || value == b'\r' || value == b'\n' {
                     return Err("UI query control refused".into());
                 }
                 i += 3;
-            } else if bytes[i].is_ascii_alphanumeric()
-                || b"-._~!$&'()*+,;=:@/?[]".contains(&bytes[i])
-            {
+            } else if bytes[i].is_ascii_alphanumeric() || b"-._~!$&'()*+,;=:@/?[]".contains(&bytes[i]) {
                 i += 1;
             } else {
                 return Err("UI query character refused".into());
@@ -2051,84 +1402,32 @@ fn ui_response_header(name: &str) -> bool {
     )
 }
 
-pub fn ui_request(
-    endpoint: &Endpoint,
-    request: &OutboundRequest<'_>,
-    forwarded: &[(&str, &str)],
-) -> Result<UiResponse, String> {
+///
+/// # Errors
+///
+/// Returns an error when the UI upstream request cannot be completed.
+pub fn ui_request(endpoint: &Endpoint, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)]) -> Result<UiResponse, String> {
     ui_request_profile(endpoint, request, forwarded, false)
 }
 
-pub fn human_web_request(
-    endpoint: &Endpoint,
-    request: &OutboundRequest<'_>,
-    forwarded: &[(&str, &str)],
-) -> Result<UiResponse, String> {
+///
+/// # Errors
+///
+/// Returns an error when the human web upstream request cannot be completed.
+pub fn human_web_request(endpoint: &Endpoint, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)]) -> Result<UiResponse, String> {
     ui_request_profile(endpoint, request, forwarded, true)
 }
 
-fn ui_request_profile(
-    endpoint: &Endpoint,
-    request: &OutboundRequest<'_>,
-    forwarded: &[(&str, &str)],
-    human_web: bool,
-) -> Result<UiResponse, String> {
-    let (path, query) = ui_split_target(request.path)?;
-    let verify = human_web && request.method == "POST" && path == "/api/explorer/verify";
-    let admitted = if human_web {
-        (verify && query.is_none())
-            || (matches!(request.method, "GET" | "HEAD")
-                && (path == "/explorer/verify" || next_static_path(path, "/_next/static/"))
-                && request.body.is_empty())
-    } else {
-        ["/wallet", "/explorer"].iter().any(|prefix| {
-            path.strip_prefix(prefix)
-                .is_some_and(|tail| tail.is_empty() || tail.starts_with('/'))
-        }) && matches!(request.method, "GET" | "HEAD" | "POST" | "DELETE")
-    };
-    if !admitted
-        || request.body.len() > if verify { 1_100_000 } else { 32768 }
-        || (verify && request.content_type.split(';').next() != Some("application/json"))
-        || request.idempotency.is_some()
-        || request.content_type.len() > 256
-        || !request
-            .content_type
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() || byte == b' ')
-    {
-        return Err("UI outbound request refused".into());
-    }
-    let mut head = zeroize::Zeroizing::new(format!(
-        "{} {} HTTP/1.1\r\nHost: {}\r\nContent-Length: {}\r\nConnection: close\r\n",
-        request.method,
-        request.path,
-        endpoint.authority(),
-        request.body.len()
-    ));
+fn ui_request_head(endpoint: &Endpoint, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)]) -> Result<zeroize::Zeroizing<String>, String> {
+    let mut head = zeroize::Zeroizing::new(format!("{} {} HTTP/1.1\r\nHost: {}\r\nContent-Length: {}\r\nConnection: close\r\n", request.method, request.path, endpoint.authority(), request.body.len()));
     if !request.content_type.is_empty() {
-        write!(head, "Content-Type: {}\r\n", request.content_type)
-            .map_err(|_| "UI header encoding")?;
+        write!(head, "Content-Type: {}\r\n", request.content_type).map_err(|_| "UI header encoding")?;
     }
     let mut seen = std::collections::BTreeSet::new();
     for (name, value) in forwarded {
         if !matches!(
             *name,
-            "accept"
-                | "accept-language"
-                | "accept-encoding"
-                | "cookie"
-                | "origin"
-                | "referer"
-                | "rsc"
-                | "next-router-state-tree"
-                | "next-router-prefetch"
-                | "next-url"
-                | "x-csrf-token"
-                | "if-none-match"
-                | "if-modified-since"
-                | "user-agent"
-                | "x-forwarded-host"
-                | "x-forwarded-proto"
+            "accept" | "accept-language" | "accept-encoding" | "cookie" | "origin" | "referer" | "rsc" | "next-router-state-tree" | "next-router-prefetch" | "next-url" | "x-csrf-token" | "if-none-match" | "if-modified-since" | "user-agent" | "x-forwarded-host" | "x-forwarded-proto"
         ) || !seen.insert(*name)
             || value.len() > 8192
             || !value.bytes().all(|b| b.is_ascii_graphic() || b == b' ')
@@ -2141,54 +1440,47 @@ fn ui_request_profile(
         return Err("UI request headers exceed bound".into());
     }
     head.push_str("\r\n");
+    Ok(head)
+}
+
+fn ui_request_profile(endpoint: &Endpoint, request: &OutboundRequest<'_>, forwarded: &[(&str, &str)], human_web: bool) -> Result<UiResponse, String> {
+    let (path, query) = ui_split_target(request.path)?;
+    let verify = human_web && request.method == "POST" && path == "/api/explorer/verify";
+    let admitted = if human_web {
+        (verify && query.is_none()) || (matches!(request.method, "GET" | "HEAD") && (path == "/explorer/verify" || next_static_path(path, "/_next/static/")) && request.body.is_empty())
+    } else {
+        ["/wallet", "/explorer"].iter().any(|prefix| path.strip_prefix(prefix).is_some_and(|tail| tail.is_empty() || tail.starts_with('/'))) && matches!(request.method, "GET" | "HEAD" | "POST" | "DELETE")
+    };
+    if !admitted
+        || request.body.len() > if verify { 1_100_000 } else { 32768 }
+        || (verify && request.content_type.split(';').next() != Some("application/json"))
+        || request.idempotency.is_some()
+        || request.content_type.len() > 256
+        || !request.content_type.bytes().all(|byte| byte.is_ascii_graphic() || byte == b' ')
+    {
+        return Err("UI outbound request refused".into());
+    }
+    let head = ui_request_head(endpoint, request, forwarded)?;
     let mut upstream = connect_public_tls(endpoint)?;
-    upstream
-        .write_all(head.as_bytes())
-        .and_then(|()| upstream.write_all(request.body))
-        .and_then(|()| upstream.flush())
-        .map_err(|_| "UI upstream write failed")?;
+    upstream.write_all(head.as_bytes()).and_then(|()| upstream.write_all(request.body)).and_then(|()| upstream.flush()).map_err(|_| "UI upstream write failed")?;
     let started = Instant::now();
     let head = read_head(&mut upstream, MAX_RESPONSE, true, started)?;
     let mut start = head.0.split_whitespace();
     if start.next() != Some("HTTP/1.1") {
         return Err("UI upstream version refused".into());
     }
-    let status = start
-        .next()
-        .and_then(|v| v.parse::<u16>().ok())
-        .ok_or("UI upstream status refused")?;
+    let status = start.next().and_then(|v| v.parse::<u16>().ok()).ok_or("UI upstream status refused")?;
     if !(200..=599).contains(&status) {
         return Err("UI interim or upgrade refused".into());
     }
-    let content_type = head
-        .1
-        .iter()
-        .find(|(n, _)| n == "content-type")
-        .map_or("", |(_, v)| v.as_str())
-        .to_owned();
-    let nominated: std::collections::BTreeSet<String> = head
-        .1
-        .iter()
-        .filter(|(n, _)| n == "connection")
-        .flat_map(|(_, v)| v.split(',').map(|s| s.trim().to_ascii_lowercase()))
-        .collect();
-    if nominated.contains("content-type")
-        || nominated.contains("content-length")
-        || nominated.contains("transfer-encoding")
-    {
+    let content_type = head.1.iter().find(|(n, _)| n == "content-type").map_or("", |(_, v)| v.as_str()).to_owned();
+    let nominated: std::collections::BTreeSet<String> = head.1.iter().filter(|(n, _)| n == "connection").flat_map(|(_, v)| v.split(',').map(|s| s.trim().to_ascii_lowercase())).collect();
+    if nominated.contains("content-type") || nominated.contains("content-length") || nominated.contains("transfer-encoding") {
         return Err("UI framing nominated by connection".into());
     }
-    let fields = head
-        .1
-        .iter()
-        .filter(|(n, _)| ui_response_header(n) && !nominated.contains(n))
-        .cloned()
-        .collect();
+    let fields = head.1.iter().filter(|(n, _)| ui_response_header(n) && !nominated.contains(n)).cloned().collect();
     let representation_length = head.2;
-    let streaming = request.method == "POST"
-        && path == "/wallet/api/chat"
-        && status == 200
-        && content_type.split(';').next() == Some("text/event-stream");
+    let streaming = request.method == "POST" && path == "/wallet/api/chat" && status == 200 && content_type.split(';').next() == Some("text/event-stream");
     let (body, stream) = if request.method == "HEAD" || matches!(status, 204 | 304) {
         if status == 204 && (head.3 || head.2.is_some_and(|n| n != 0)) {
             return Err("UI bodyless response framing refused".into());
@@ -2197,10 +1489,7 @@ fn ui_request_profile(
     } else if streaming {
         (Vec::new(), Some((upstream, head.2, head.3, started)))
     } else {
-        (
-            read_message_body(&mut upstream, MAX_RESPONSE, true, started, head)?.2,
-            None,
-        )
+        (read_message_body(&mut upstream, MAX_RESPONSE, true, started, head)?.2, None)
     };
     Ok(UiResponse {
         response: UpstreamResponse {
@@ -2215,27 +1504,19 @@ fn ui_request_profile(
     })
 }
 
-pub fn write_ui_response(
-    downstream: &mut impl Write,
-    mut answer: UiResponse,
-    head_only: bool,
-) -> Result<(), String> {
+///
+/// # Errors
+///
+/// Returns an error when the UI response cannot be written.
+pub fn write_ui_response(downstream: &mut impl Write, mut answer: UiResponse, head_only: bool) -> Result<(), String> {
     let response = &answer.response;
-    let mut head = format!(
-        "HTTP/1.1 {} UI\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\n",
-        response.status
-    );
+    let mut head = format!("HTTP/1.1 {} UI\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\n", response.status);
     if !response.content_type.is_empty() {
-        write!(head, "Content-Type: {}\r\n", response.content_type)
-            .map_err(|_| "UI response encoding")?;
+        write!(head, "Content-Type: {}\r\n", response.content_type).map_err(|_| "UI response encoding")?;
     }
     let mut has_cache = false;
     for (name, value) in &response.headers {
-        if !ui_response_header(name)
-            || !value
-                .bytes()
-                .all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t')
-        {
+        if !ui_response_header(name) || !value.bytes().all(|b| b.is_ascii_graphic() || b == b' ' || b == b'\t') {
             return Err("UI response header refused".into());
         }
         has_cache |= name == "cache-control";
@@ -2247,11 +1528,7 @@ pub fn write_ui_response(
     if answer.stream.is_some() {
         head.push_str("Transfer-Encoding: chunked\r\n");
     } else if response.status != 204 {
-        let length = if head_only || response.status == 304 {
-            answer.representation_length
-        } else {
-            Some(response.body.len())
-        };
+        let length = if head_only || response.status == 304 { answer.representation_length } else { Some(response.body.len()) };
         if let Some(length) = length {
             write!(head, "Content-Length: {length}\r\n").map_err(|_| "UI response encoding")?;
         }
@@ -2260,28 +1537,21 @@ pub fn write_ui_response(
     if head.len() > MAX_HEADERS {
         return Err("UI response headers exceed bound".into());
     }
-    downstream
-        .write_all(head.as_bytes())
-        .and_then(|()| downstream.flush())
-        .map_err(|_| "UI response write failed")?;
+    downstream.write_all(head.as_bytes()).and_then(|()| downstream.flush()).map_err(|_| "UI response write failed")?;
     if let Some((mut upstream, length, chunked, started)) = answer.stream.take() {
         return stream_body(&mut upstream, downstream, length, chunked, started);
     }
     if !head_only && !matches!(response.status, 204 | 304) {
-        downstream
-            .write_all(&response.body)
-            .map_err(|_| "UI body write failed")?;
+        downstream.write_all(&response.body).map_err(|_| "UI body write failed")?;
     }
-    downstream
-        .flush()
-        .map_err(|_| "UI response flush failed".into())
+    downstream.flush().map_err(|_| "UI response flush failed".into())
 }
 
-pub fn write_ui_failure(
-    downstream: &mut impl Write,
-    response: OutgoingResponse,
-    head_only: bool,
-) -> Result<(), String> {
+///
+/// # Errors
+///
+/// Returns an error when the UI failure response cannot be written.
+pub fn write_ui_failure(downstream: &mut impl Write, response: OutgoingResponse, head_only: bool) -> Result<(), String> {
     let length = response.body.len();
     write_ui_response(
         downstream,
@@ -2298,4 +1568,64 @@ pub fn write_ui_failure(
         },
         head_only,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn ingress_preserves_query_and_unconsumed_websocket_bytes() {
+        let wire = b"GET /rpc/ws?cursor=1%2F2 HTTP/1.1\r\nHost: gateway.example\r\n\r\n\x81\x00";
+        let mut reader = Cursor::new(wire);
+        let request = read_request(&mut reader, 4096).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(request.path, "/rpc/ws?cursor=1%2F2");
+        assert_eq!(reader.position(), (wire.len() - 2) as u64);
+        for target in ["/v1?x=%", "/v1?x=%GG", "/v1?x=#fragment", "/v1?x=\r\n"] {
+            assert!(split_target(target).is_err());
+        }
+    }
+
+    #[test]
+    fn upstream_chunked_body_and_repeated_cookies_are_preserved() {
+        let mut reader = Cursor::new(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: a=1; Secure\r\nSet-Cookie: b=2; Secure\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n0\r\n\r\n");
+        let response = read_response(&mut reader).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(response.body, b"ok");
+        assert_eq!(response.content_type, "text/plain");
+        assert_eq!(response.headers.len(), 2);
+        assert_eq!(response.headers[0].1, "a=1; Secure");
+        assert_eq!(response.headers[1].1, "b=2; Secure");
+    }
+
+    #[test]
+    fn conflicting_framing_and_ingress_duplicates_remain_refused() {
+        for wire in [
+            &b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"[..],
+            &b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 2\r\n\r\nok"[..],
+            &b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nFFFFFFF\r\n"[..],
+        ] {
+            assert!(read_response(&mut Cursor::new(wire)).is_err());
+        }
+        for wire in [&b"GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n"[..], &b"POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n"[..]] {
+            assert!(read_request(&mut Cursor::new(wire), 4096).is_err());
+        }
+    }
+
+    #[test]
+    fn response_serialization_preserves_content_type_and_cookie_headers() {
+        let response = OutgoingResponse {
+            status: 200,
+            content_type: "text/plain".to_owned(),
+            headers: vec![("set-cookie".to_owned(), "a=1; Secure".to_owned()), ("set-cookie".to_owned(), "b=2; Secure".to_owned())],
+            body: b"ok".to_vec(),
+            retry_after: None,
+        };
+        let mut bytes = Vec::new();
+        write_response(&mut bytes, &response).unwrap_or_else(|error| panic!("{error}"));
+        let parsed = read_response(&mut Cursor::new(bytes)).unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(parsed.headers, response.headers);
+        assert_eq!(parsed.content_type, response.content_type);
+        assert_eq!(parsed.body, response.body);
+    }
 }

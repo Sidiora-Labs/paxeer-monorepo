@@ -51,17 +51,17 @@ func (h HTTP) exportV2Post(w http.ResponseWriter, r *http.Request) {
 	// Keep those timestamps identical so reopening returns the created job.
 	at := h.Store.now()
 	h.Store.Clock = func() time.Time { return at }
-	serveV2Owner(w, r, h.exportPost, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, "export", false) })
+	serveV2Owner(w, r, h.exportPost, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, kindExport, false) })
 }
 
 func (h HTTP) exportV2Get(w http.ResponseWriter, r *http.Request) {
-	serveV2Owner(w, r, h.exportGet, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, "export", true) })
+	serveV2Owner(w, r, h.exportGet, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, kindExport, true) })
 }
 
 func (h HTTP) deletionV2Post(w http.ResponseWriter, r *http.Request) {
-	serveV2Owner(w, r, h.deletionPost, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, "deletion", false) })
+	serveV2Owner(w, r, h.deletionPost, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, kindDeletion, false) })
 }
 
 func (h HTTP) deletionV2Get(w http.ResponseWriter, r *http.Request) {
-	serveV2Owner(w, r, h.deletionGet, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, "deletion", true) })
+	serveV2Owner(w, r, h.deletionGet, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, kindDeletion, true) })
 }

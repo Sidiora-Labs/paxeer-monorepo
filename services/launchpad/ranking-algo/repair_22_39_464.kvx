@@ -1,0 +1,10 @@
+[ranking_lint]
+bodyclose = "2 HTTP response bodies close at their request sites."
+errcheck = "20 resource closes and transaction rollbacks report cleanup errors."
+goconst = "12 repeated category, environment, route, and reason values share constants."
+goimports = "2 import groups use the module import order."
+gosec = "3 bound file reads stay within their selected directories; cursor expiry conversion checks its range."
+prealloc = "1 cursor buffer reserves space for its signature."
+staticcheck = "3 profile, entry conversion, and schema character expressions use the direct forms."
+nolint_comments = []
+external_changes = []

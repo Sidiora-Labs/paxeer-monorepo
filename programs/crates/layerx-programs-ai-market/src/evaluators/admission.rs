@@ -592,8 +592,13 @@ fn view_in_state<'a>(
     known_reports: Option<ReportRegion<'a>>,
 ) -> CodecResult<Opened<'a>> {
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
-        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let rewards = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
+        if e == NOT_FOUND {
+            WRONG_EPOCH
+        } else {
+            e
+        }
+    })?;
     let row = rewards.row;
     let header = &section.header;
     let frozen = FrozenBinding {

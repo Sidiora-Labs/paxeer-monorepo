@@ -58,6 +58,10 @@ type ProcessorStore interface {
 	GetPoolByPoolID(ctx context.Context, poolID string) (*sqlcdb.IndexerPool, error)
 	IngestReady(ctx context.Context, chain int32, stream, owner string, fence int64) error
 	InsertAirdropClaim(ctx context.Context, p sqlcdb.InsertAirdropClaimParams) error
+	InsertLaunchedChain(ctx context.Context, row store.LaunchedChain) error
+	InsertChainRevenueEpoch(ctx context.Context, row store.ChainRevenueEpoch) error
+	InsertChainRevenueClaim(ctx context.Context, row store.ChainRevenueClaim) error
+	RetireLaunchedChain(ctx context.Context, chain, block int64) error
 	InsertConfigUpdate(ctx context.Context, p sqlcdb.InsertConfigUpdateParams) error
 	InsertFeeDistribution(ctx context.Context, p sqlcdb.InsertFeeDistributionParams) error
 	InsertFeeEvent(ctx context.Context, p sqlcdb.InsertFeeEventParams) error
@@ -298,7 +302,7 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 			return store.ErrWatermark
 		}
 		readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to))
+		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		cancel()
 		if err != nil {
 			if p.deps.Quarantine != nil && p.deps.Source != nil {
@@ -421,8 +425,8 @@ func (p *Processor) collect(ctx context.Context, from, to int64) ([]publisher.We
 // processEvent persists one decoded event to its typed table and returns the
 // webhook envelope to fan out (nil for events with no downstream contract).
 func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs int64, txFrom map[string]string) (*publisher.WebhookEvent, error) {
-	blockNumber := int64(ev.BlockNumber)
-	logIndex := int32(ev.LogIndex)
+	blockNumber := int64(ev.BlockNumber) //nolint:gosec // chain value uses the existing signed storage representation
+	logIndex := int32(ev.LogIndex)       //nolint:gosec // EVM log index uses the existing 32-bit event field
 	id := fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex)
 	traceID := fmt.Sprintf("%s:%d", ev.TxHash, ev.LogIndex)
 
@@ -443,13 +447,52 @@ func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs 
 	}
 
 	switch ev.EventName {
-	case "MarketCreated":
+	case "ChainLaunched":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertLaunchedChain(ctx, store.LaunchedChain{Chain: chain, ChainID: asString(args["chainId"]), Pool: asString(args["pool"]), Token: asString(args["token"]), FeeRight: asString(args["nftId"]), Creator: asString(args["creator"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueEpochOpened":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueEpoch(ctx, store.ChainRevenueEpoch{Chain: chain, Epoch: asString(args["epoch"]), Amount: asString(args["epochAmount"]), SnapshotBlock: asString(args["snapshotBlock"]), EligibleSupply: asString(args["eligibleSupply"]), OpenedBlock: blockNumber})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueClaimed":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueClaim(ctx, store.ChainRevenueClaim{Chain: chain, Epoch: asString(args["epoch"]), Holder: asString(args["holder"]), Amount: asString(args["amount"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "LaunchedChainRetired":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		if err := p.deps.Store.RetireLaunchedChain(ctx, chain, blockNumber); err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case valueMarketCreated:
 		if err := p.handleMarketCreated(ctx, args, ev.TxHash, blockNumber, blockTs); err != nil {
 			return nil, err
 		}
 		return wev(), nil
 
-	case "Swap":
+	case valueSwap:
 		eventSender := asString(args["sender"])
 		actualUser := eventSender
 		poolAddr, err := p.handleSwap(ctx, args, id, eventSender, actualUser, blockNumber, blockTs, logIndex)
@@ -619,7 +662,7 @@ func (p *Processor) handleFeeDistributed(ctx context.Context, args map[string]an
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		Strategy:       int32(strategy),
+		Strategy:       int32(strategy), //nolint:gosec // decoded strategy uses the existing 32-bit event field
 		Amount:         asString(args["amount"]),
 		Recipient:      asString(args["recipient"]),
 		BlockNumber:    blockNumber,
@@ -646,8 +689,8 @@ func (p *Processor) handleFeeStrategyChanged(ctx context.Context, args map[strin
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		OldStrategy:    int32(oldStrat),
-		NewStrategy:    int32(newStrat),
+		OldStrategy:    int32(oldStrat), //nolint:gosec // decoded strategy uses the existing 32-bit event field
+		NewStrategy:    int32(newStrat), //nolint:gosec // decoded strategy uses the existing 32-bit event field
 		BlockNumber:    blockNumber,
 		BlockTimestamp: blockTs,
 		TxHash:         txHashFromID(id),
@@ -852,7 +895,7 @@ func asInt64(v any) (int64, error) {
 	case uint32:
 		return int64(x), nil
 	case uint64:
-		return int64(x), nil
+		return int64(x), nil //nolint:gosec // chain value uses the existing signed storage representation
 	case *big.Int:
 		return x.Int64(), nil
 	default:
@@ -880,7 +923,7 @@ func (p *Processor) Ready(ctx context.Context) error {
 }
 
 func unknownLegacyActors(caller string) *decode.ActorContext {
-	actors := &decode.ActorContext{AttributionConfidence: "unknown", AttributionMethod: "unavailable", EvidenceIdentity: []decode.RawIdentity{}, Revision: "actor-v1"}
+	actors := &decode.ActorContext{AttributionConfidence: "unknown", AttributionMethod: valueUnavailable, EvidenceIdentity: []decode.RawIdentity{}, Revision: "actor-v1"}
 	if common.IsHexAddress(caller) && common.HexToAddress(caller) != (common.Address{}) {
 		normalized := strings.ToLower(common.HexToAddress(caller).Hex())
 		actors.EventCaller = &normalized

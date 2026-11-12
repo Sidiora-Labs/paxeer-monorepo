@@ -426,7 +426,6 @@ fn an_observed_release_answers_the_bundle_fields_the_bridge_app_reads() {
         }
         view = snapshot(&journal, Some(&cosign), None);
         assert_eq!(release_bundle(&view, &attestation)["status"], "attesting");
-        view = snapshot(&journal, Some(&cosign), Some(2));
         drop(journal);
         journal = directory.journal();
         view = snapshot(&journal, Some(&cosign), Some(2));

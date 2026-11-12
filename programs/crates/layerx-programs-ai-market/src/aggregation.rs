@@ -554,7 +554,8 @@ fn view(frame: codec::StateFrame<'_>, chunk: bool) -> CodecResult<View<'_>> {
             frame.sections[Section::ReputationAdmission.index()],
         )?)?
         .ok_or(WRONG_EPOCH)?;
-    let settlement = frame.sections[Section::SettlementClaims.index()];
+    let settlement =
+        crate::state::room_market_parts(frame.sections[Section::SettlementClaims.index()])?.0;
     let (rewards, tail) = settlement
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
@@ -732,7 +733,7 @@ fn committed_roster(frame: codec::StateFrame<'_>) -> CodecResult<crate::epoch::C
         frame.sections[Section::PolicyLifecycle.index()],
         frame.sections[Section::IdentityRoster.index()],
         frame.sections[Section::ReputationAdmission.index()],
-        frame.sections[Section::SettlementClaims.index()],
+        crate::state::room_market_parts(frame.sections[Section::SettlementClaims.index()])?.0,
     )
 }
 

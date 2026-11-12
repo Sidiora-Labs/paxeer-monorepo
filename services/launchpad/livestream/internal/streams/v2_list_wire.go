@@ -56,7 +56,7 @@ func AdaptV2StreamList(requestID string, items []V2Stream, nextCursor *string, g
 		RequestID:   requestID,
 		Data:        v2StreamListData{Items: items},
 		Revision:    revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		NextCursor:  nextCursor,
 		GeneratedAt: generatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
 	})

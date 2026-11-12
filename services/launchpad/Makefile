@@ -15,6 +15,7 @@ GOFLAGS ?=
 export GOWORK := off
 export GOTOOLCHAIN := go1.27.3
 
+TEST_BASELINE := $(abspath ../../tests/ci/data/launchpad_go_test_baseline.json)
 TEST_RUNNER := $(abspath ../../tests/ci/data/launchpad_go_tests.py)
 COVER_INVENTORY := $(abspath ../../tools/launchpad/coverage_inventory.py)
 
@@ -55,7 +56,8 @@ pkgs=$$(cd $(1) && $(GO) list ./...) || { status=$$?; echo ">> package discovery
 endef
 
 build: ## go build ./... in every module that has packages
-	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> build $$m"; ( cd $$m && $(GO) build $(GOFLAGS) ./... ) || exit 1; done
+	# The workflow's GOFLAGS includes the test timeout; go build does not accept it.
+	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> build $$m"; ( cd $$m && $(GO) build $(filter-out -timeout=%,$(GOFLAGS)) ./... ) || exit 1; done
 
 vet: ## go vet ./... in every module that has packages
 	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> vet $$m"; ( cd $$m && $(GO) vet ./... ) || exit 1; done
@@ -68,8 +70,15 @@ fmt-check: ## fail if any file is not gofmt-clean
 	@out=$$(gofmt -l $(MODULES)); if [ -n "$$out" ]; then echo "gofmt needs to run on:"; echo "$$out"; exit 1; fi
 
 lint: ## golangci-lint run in every module (zero warnings, SECTION 17)
-	@command -v golangci-lint >/dev/null || { echo "golangci-lint not installed"; exit 1; }
-	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> lint $$m"; ( cd $$m && golangci-lint run ) || exit 1; done
+	@lint=golangci-lint; \
+	if ! command -v "$$lint" >/dev/null || ! "$$lint" version | grep -Eq '(^|[^0-9.])v?2\.15\.0([^0-9.]|$$)'; then \
+		mkdir -p build/bin; \
+		GOBIN="$(CURDIR)/build/bin" GOTOOLCHAIN=go1.27.3 $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0; \
+		lint="$(CURDIR)/build/bin/golangci-lint"; \
+	fi; \
+	for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> lint $$m"; ( cd $$m && "$$lint" run --config "$(abspath ../../.golangci.yml)" ) || exit 1; done
+
+test race cover: $(TEST_BASELINE) $(TEST_RUNNER)
 
 test: ## go test ./... in every module that has packages
 	@for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> test $$m"; python3 $(TEST_RUNNER) --module "$$m" --go "$(GO)" --flags="$(GOFLAGS)" || exit 1; done

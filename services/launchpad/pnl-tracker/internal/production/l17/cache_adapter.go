@@ -3,9 +3,10 @@ package l17
 import (
 	"context"
 	"encoding/json"
-	redis "github.com/redis/go-redis/v9"
 	"strconv"
 	"time"
+
+	redis "github.com/redis/go-redis/v9"
 )
 
 func stringInt(v int) string { return strconv.Itoa(v) }

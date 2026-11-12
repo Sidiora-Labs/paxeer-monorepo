@@ -261,7 +261,8 @@ enum {
 };
 
 /* Governed schedule validation, activation and occupancy pricing share these
- * APIs with the chain host and the governance module. */
+ * APIs with the chain host and the governance module. A call's occupancy
+ * responsibility uses the fee schedule's seventh price. */
 lxp_result lxp_programs_fee_governance_proposal_validate(
     const uint8_t *payload, size_t payload_length);
 lxp_result lxp_programs_fee_governance_stage(
@@ -984,7 +985,8 @@ typedef struct lxp_programs_occupancy_receipt {
 
 /* The batch coordinator invokes this exactly once after the batch's activity
  * transitions and before sealing roots, including for an empty batch. The
- * encoded receipt is included in the canonical batch receipt set. */
+ * encoded receipt is included in the canonical batch receipt set. Covered
+ * calls retain the standing responsibility payer for occupancy charges. */
 lxp_result lxp_programs_finalize_occupancy_batch_selected(
     struct lxp_kernel *kernel, uint16_t protocol_version, uint32_t schedule_version,
     uint64_t batch_number, uint64_t batch_timestamp_ms,

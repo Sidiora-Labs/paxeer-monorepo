@@ -13,7 +13,7 @@ func AdaptV2Preferences(raw []byte, update bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	preferences, err := v2OwnerObject(data["preferences"])
+	preferences, err := v2OwnerObject(data[fieldPreferences])
 	if err != nil {
 		return nil, fmt.Errorf("preferences: %w", err)
 	}
@@ -32,7 +32,7 @@ func AdaptV2Preferences(raw []byte, update bool) ([]byte, error) {
 	}
 	preferences["notificationCategories"] = categoryJSON
 	projected := make(map[string]json.RawMessage)
-	for _, name := range []string{"revision", "locale", "timezone", "notificationCategories", "channels", "quietHours", "analyticsConsent"} {
+	for _, name := range []string{fieldRevision, "locale", "timezone", "notificationCategories", "channels", "quietHours", "analyticsConsent"} {
 		if value, present := preferences[name]; present {
 			projected[name] = value
 		}
@@ -41,7 +41,7 @@ func AdaptV2Preferences(raw []byte, update bool) ([]byte, error) {
 	if update {
 		schema = "PreferencesUpdateResponse"
 	}
-	return v2OwnerResponse(schema, envelope, map[string]any{"preferences": projected})
+	return v2OwnerResponse(schema, envelope, map[string]any{fieldPreferences: projected})
 }
 
 func AdaptV2DeviceRegister(raw []byte) ([]byte, error) {
@@ -50,7 +50,7 @@ func AdaptV2DeviceRegister(raw []byte) ([]byte, error) {
 		return nil, err
 	}
 	projected := make(map[string]json.RawMessage)
-	for _, name := range []string{"deviceId", "state", "revision"} {
+	for _, name := range []string{"deviceId", "state", fieldRevision} {
 		if value, present := data[name]; present {
 			projected[name] = value
 		}
@@ -61,12 +61,12 @@ func AdaptV2DeviceRegister(raw []byte) ([]byte, error) {
 func AdaptV2AccountJob(raw []byte, kind string, status bool) ([]byte, error) {
 	var schema string
 	switch kind {
-	case "export":
+	case kindExport:
 		schema = "AccountExportResponse"
 		if status {
 			schema = "AccountExportStatusResponse"
 		}
-	case "deletion":
+	case kindDeletion:
 		schema = "AccountDeleteResponse"
 		if status {
 			schema = "AccountDeleteStatusResponse"
@@ -78,7 +78,7 @@ func AdaptV2AccountJob(raw []byte, kind string, status bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	job, err := v2OwnerObject(data["job"])
+	job, err := v2OwnerObject(data[fieldJob])
 	if err != nil {
 		return nil, fmt.Errorf("job: %w", err)
 	}
@@ -86,13 +86,13 @@ func AdaptV2AccountJob(raw []byte, kind string, status bool) ([]byte, error) {
 	if err := json.Unmarshal(job["kind"], &jobKind); err != nil || jobKind != kind {
 		return nil, fmt.Errorf("account job kind does not match %q", kind)
 	}
-	projected := map[string]json.RawMessage{"job": data["job"]}
-	if kind == "export" && status {
+	projected := map[string]json.RawMessage{fieldJob: data[fieldJob]}
+	if kind == kindExport && status {
 		if value, present := data["downloadUrl"]; present {
 			projected["downloadUrl"] = value
 		}
 	}
-	if kind == "deletion" && !status {
+	if kind == kindDeletion && !status {
 		if value, present := data["retentionSummary"]; present {
 			projected["retentionSummary"] = value
 		}

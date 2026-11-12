@@ -228,6 +228,8 @@ platform-emulator-conformance:
 		"$$LAYERX_TESTNET_URL" "$${LAYERX_CONFORMANCE_ACTIVITIES}"
 
 platform-sdk-check:
+	cargo run --offline --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --check
+	node services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs --check
 	python3 sdk/platform/generators/generate_portable.py --check $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py --check $(CURDIR)
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check
@@ -239,6 +241,7 @@ platform-human-api-generate:
 
 platform-sdk-generate: platform-human-api-generate
 	cargo run --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --write
+	node services/agent/sdk/typescript/scripts/generate-precompile-writes.mjs
 	python3 sdk/platform/generators/generate_portable.py $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py $(CURDIR)
 	$(PLATFORM_CARGO) run --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --write

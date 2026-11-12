@@ -44,7 +44,7 @@ The registry operator is the chain's revenue account and never changes. For nonz
 
 ## storage
 
-New launchpad store prefixes hold these records and indexes; genesis export and import preserve them. A genesis without these families has empty launch records and a missing home-chain entry reads as zero.
+The `LaunchedChainPrefix`, `ChainPoolPrefix`, `HomeChainPrefix`, `ChainRevenueEpochPrefix`, `ChainRevenueLastPrefix` and `ChainRevenueClaimPrefix` keys hold these records and indexes; genesis export and import preserve them. A genesis without these families has empty launch records and a missing home-chain entry reads as zero.
 
 | Record | Key | Value |
 | --- | --- | --- |
@@ -77,4 +77,6 @@ The launchpad API serves these reads from indexed launch and revenue events. `ID
 | `GET /v2/chains/ID` | One item with `chain`, `chainId`, `pool`, `token`, `nftId`, `creator`, `blockNumber`, `status`, plus registry `name`, `gasAllowance`, `byteAllowance`, `feeShareBps`, `bond` and `revenueAccount`. |
 | `GET /v2/chains/ID/revenue` | Newest-first epochs, each with `chain`, `epoch`, `epochAmount`, `snapshotBlock`, `eligibleSupply`, `claimedTotal`, `openedAt`, and `nextCursor`. With `holder`, each epoch also has that holder's `claimable` amount and `claimed` state. |
 
-The v2 pool detail includes `homeChain`, zero for a root-home market. The [virtual chains contract](virtual-chains.md) defines registry IDs, chain status and scoped RPC behavior.
+The v2 pool detail includes `homeChain`, zero for a root-home market. The [virtual chains contract](virtual-chains.md) defines registry IDs, chain status and scoped RPC behavior. The [chain launch guide](../../../docs/launchpad/chain-launch.md) explains the wallet flow, trading path and revenue claims.
+
+The TypeScript SDK exposes these reads as `Chains.list`, `Chains.get` and `Chains.revenue`.

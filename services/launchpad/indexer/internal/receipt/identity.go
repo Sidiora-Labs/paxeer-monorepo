@@ -149,7 +149,7 @@ func (a *RPCQualification) headerByNumber(ctx context.Context, number *big.Int) 
 	if number != nil {
 		tag = hexutil.EncodeBig(number)
 	}
-	raw, err := a.rawBlock(ctx, "eth_getBlockByNumber", tag, false)
+	raw, err := a.rawBlock(ctx, valueEthGetBlockByNumber, tag, false)
 	if err != nil {
 		return nil, common.Hash{}, err
 	}
@@ -164,7 +164,7 @@ func (a *RPCQualification) headerByNumber(ctx context.Context, number *big.Int) 
 }
 
 func (a *RPCQualification) headerByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	raw, err := a.rawBlock(ctx, "eth_getBlockByHash", hash, false)
+	raw, err := a.rawBlock(ctx, valueEthGetBlockByHash, hash, false)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (a *RPCQualification) headerByHash(ctx context.Context, hash common.Hash) (
 // blockByHash reads a full block by identity and authenticates every
 // transaction by recomputing its hash from the signed payload.
 func (a *RPCQualification) blockByHash(ctx context.Context, hash common.Hash) (pinnedBlock, error) {
-	raw, err := a.rawBlock(ctx, "eth_getBlockByHash", hash, true)
+	raw, err := a.rawBlock(ctx, valueEthGetBlockByHash, hash, true)
 	if err != nil {
 		return pinnedBlock{}, err
 	}
@@ -268,7 +268,7 @@ func validCodeRanges(role string, ranges []CodeRange) bool {
 	if len(ranges) == 0 {
 		return true
 	}
-	if role != "SidioraERC20" || len(ranges) > 64 {
+	if role != valueSidioraERC20 || len(ranges) > 64 {
 		return false
 	}
 	sorted := append([]CodeRange(nil), ranges...)
@@ -289,7 +289,7 @@ func validCodeRanges(role string, ranges []CodeRange) bool {
 // the runtime code with exactly those spans zeroed. Manifest roles are never
 // masked.
 func (a *RPCQualification) immutableRanges(e RPCCodeEpoch) []CodeRange {
-	if e.Identity.Kind != "direct" || e.Deployment.Role != "SidioraERC20" {
+	if e.Identity.Kind != valueDirect || e.Deployment.Role != valueSidioraERC20 {
 		return nil
 	}
 	manifest, err := a.epochManifest(e)
@@ -302,7 +302,7 @@ func (a *RPCQualification) immutableRanges(e RPCCodeEpoch) []CodeRange {
 		}
 	}
 	for _, template := range a.epochDiscovery(e) {
-		if template.Role == "SidioraERC20" && template.ABIRevision == e.Deployment.ABIRevision && common.HexToHash(template.RuntimeHash) == common.HexToHash(e.Identity.RuntimeHash) {
+		if template.Role == valueSidioraERC20 && template.ABIRevision == e.Deployment.ABIRevision && common.HexToHash(template.RuntimeHash) == common.HexToHash(e.Identity.RuntimeHash) {
 			return template.Immutables
 		}
 	}
@@ -353,7 +353,7 @@ func (a *RPCQualification) DiscoveredEpochs() []RPCCodeEpoch {
 	authority := a.current()
 	out := []RPCCodeEpoch{}
 	for _, e := range authority.options.Epochs {
-		if (e.Deployment.Role == "SidioraPool" || e.Deployment.Role == "SidioraERC20") && !authority.manifestAddress(e.Deployment.Address) {
+		if (e.Deployment.Role == valueSidioraPool || e.Deployment.Role == valueSidioraERC20) && !authority.manifestAddress(e.Deployment.Address) {
 			out = append(out, e)
 		}
 	}
@@ -373,17 +373,17 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 	if template == nil {
 		return RPCCodeEpoch{}, ErrQualification
 	}
-	identity := deployment.Role{Address: address.Hex(), Kind: "direct", RuntimeHash: template.RuntimeHash}
-	if role == "SidioraPool" {
+	identity := deployment.Role{Address: address.Hex(), Kind: valueDirect, RuntimeHash: template.RuntimeHash}
+	if role == valueSidioraPool {
 		switch template.Kind {
-		case "", "beacon_proxy":
+		case "", valueBeaconProxy:
 			beacon := owned.Manifest.Roles["PoolBeacon"]
-			identity.Kind = "beacon_proxy"
+			identity.Kind = valueBeaconProxy
 			identity.BeaconAddress = beacon.Address
 			identity.ImplementationAddress = beacon.ImplementationAddress
 			identity.ImplementationHash = beacon.ImplementationHash
-		case "surface":
-			identity.Kind = "surface"
+		case valueSurface:
+			identity.Kind = valueSurface
 		default:
 			return RPCCodeEpoch{}, ErrQualification
 		}
@@ -427,7 +427,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	for _, e := range owned.Epochs {
 		known[e.Deployment.Address] = true
 	}
-	factory := common.HexToAddress(owned.Manifest.Roles["SidioraFactory"].Address)
+	var factory common.Address
 	registry := common.HexToAddress(owned.Manifest.Roles["PoolRegistry"].Address)
 	changed := false
 	for _, market := range markets {
@@ -468,7 +468,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 				}
 			}
 		}
-		factory = common.HexToAddress(generation.options.Manifest.Roles["SidioraFactory"].Address)
+		factory = common.HexToAddress(generation.options.Manifest.Roles[valueSidioraFactory].Address)
 		marketEpochs, err := base.rehydratedMarketEpochs(market, generation)
 		if err != nil {
 			return fmt.Errorf("%w: rehydrate market epochs: %v", ErrQualification, err)
@@ -550,7 +550,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 		return out, ErrQualification
 	}
 	e, err := authority.epoch(pool, decode.Order{Block: header.Number.Uint64(), Transaction: ^uint(0), Log: ^uint(0)})
-	if err != nil || e.Deployment.Role != "SidioraPool" {
+	if err != nil || e.Deployment.Role != valueSidioraPool {
 		return out, ErrQualification
 	}
 	read, release, err := authority.scalarRead(ctx)
@@ -601,7 +601,7 @@ func migratedRoleEpoch(manifest deployment.Manifest, e RPCCodeEpoch) RPCCodeEpoc
 		return e
 	}
 	approved, ok := deployment.Approved(manifest.ActivationHeight)
-	if !ok || approved.Roles[e.Deployment.Role] != e.Identity || e.Identity.Kind != "surface" || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
+	if !ok || !e.Identity.MatchesApproved(approved.Roles[e.Deployment.Role]) || e.Identity.Kind != valueSurface || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
 		return e
 	}
 	e.Identity.RuntimeHash = crypto.Keccak256Hash(common.FromHex(migratedSurfaceRuntime)).Hex()
@@ -620,7 +620,7 @@ func (a *RPCQualification) rehydratedMarketEpochs(market DiscoveredMarket, gener
 	for _, item := range []struct {
 		address common.Address
 		role    string
-	}{{market.Token, "SidioraERC20"}, {market.Pool, "SidioraPool"}} {
+	}{{market.Token, valueSidioraERC20}, {market.Pool, valueSidioraPool}} {
 		from := decode.Order{Block: market.Height, Transaction: market.TransactionIndex}
 		original, err := generation.discoveryEpoch(generation.options, item.address, item.role, from)
 		if err != nil {
@@ -636,7 +636,7 @@ func (a *RPCQualification) rehydratedMarketEpochs(market DiscoveredMarket, gener
 		if err != nil {
 			return nil, err
 		}
-		if item.role == "SidioraPool" && active.Identity.Kind == "surface" {
+		if item.role == valueSidioraPool && active.Identity.Kind == valueSurface {
 			// MigrateV6120 installs keeper.SurfaceRuntime on the approved
 			// historical pools. This nonpayable surface has its own exact code
 			// identity; the earlier discovery template names a different runtime.
@@ -775,7 +775,7 @@ func (a *RPCQualification) proveHistoricalMarket(ctx context.Context, market Dis
 			continue
 		}
 		env, err := discovered.registry.Decode(*log)
-		if err != nil || env.Event == nil || env.EventName != "MarketCreated" || env.EmitterRole != "SidioraFactory" || log.Address != common.HexToAddress(a.options.Manifest.Roles["SidioraFactory"].Address) {
+		if err != nil || env.Event == nil || env.EventName != valueMarketCreated || env.EmitterRole != valueSidioraFactory || log.Address != common.HexToAddress(a.options.Manifest.Roles[valueSidioraFactory].Address) {
 			return ErrQualification
 		}
 		if env.Event.Args["token"] != strings.ToLower(market.Token.Hex()) || env.Event.Args["pool"] != strings.ToLower(market.Pool.Hex()) {

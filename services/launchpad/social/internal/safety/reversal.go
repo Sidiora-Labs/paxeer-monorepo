@@ -3,6 +3,7 @@ package safety
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -34,7 +35,7 @@ func (s *Store) ReverseBanAppeal(ctx context.Context, c ReversalCommand) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var issuer, caseID, pool, state, appellant, scope, resource, banWallet, caseState string
 	var revision, caseRev, banRev int64
 	e = tx.QueryRow(ctx, `SELECT a.actor,c.id,c.pool_id,ap.state,ap.appellant,ap.revision,c.revision,c.state FROM safety_appeals ap JOIN safety_actions a ON a.id=ap.action_id JOIN safety_cases c ON c.id=a.case_id WHERE ap.id=$1 FOR UPDATE OF c,ap`, c.AppealID).Scan(&issuer, &caseID, &pool, &state, &appellant, &revision, &caseRev, &caseState)
@@ -42,10 +43,10 @@ func (s *Store) ReverseBanAppeal(ctx context.Context, c ReversalCommand) error {
 		return e
 	}
 	if issuer == p.Wallet || !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return s.denial(ctx, p, "appeal_reversal")
 	}
-	if revision != c.ExpectedRevision || (state != "submitted" && state != "reviewing") || caseState != "appealed" {
+	if revision != c.ExpectedRevision || (state != submittedState && state != "reviewing") || caseState != appealedState {
 		return ErrConflict
 	}
 	e = tx.QueryRow(ctx, `SELECT b.scope,b.resource,b.wallet,b.revision FROM safety_bans b JOIN safety_action_bans link ON link.ban_id=b.id JOIN safety_appeals ap ON ap.action_id=link.action_id WHERE b.id=$1 AND ap.id=$2 AND b.revoked_at IS NULL FOR UPDATE OF b`, c.BanID, c.AppealID).Scan(&scope, &resource, &banWallet, &banRev)
@@ -56,11 +57,11 @@ func (s *Store) ReverseBanAppeal(ctx context.Context, c ReversalCommand) error {
 		return ErrConflict
 	}
 	banPool := ""
-	if scope == "pool" {
+	if scope == poolResource {
 		banPool = resource
 	}
 	if !Authorized(p, banPool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return s.denial(ctx, p, "appeal_reversal")
 	}
 	if _, e = tx.Exec(ctx, `UPDATE safety_bans SET revoked_at=$2,revision=revision+1 WHERE id=$1`, c.BanID, s.now()); e != nil {
@@ -115,28 +116,28 @@ func (s *Store) ActionBan(ctx context.Context, caseID string, expected int64, c 
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var pool, state, affected string
 	var rev int64
 	if e = tx.QueryRow(ctx, `SELECT pool_id,state,affected_wallet,revision FROM safety_cases WHERE id=$1 FOR UPDATE`, caseID).Scan(&pool, &state, &affected, &rev); e != nil {
 		return "", e
 	}
 	scopePool := ""
-	if c.Scope == "pool" {
+	if c.Scope == poolResource {
 		scopePool = c.Resource
 	}
 	if !Authorized(p, pool, true, s.now()) || !Authorized(p, scopePool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return "", s.denial(ctx, p, "case_ban")
 	}
-	if rev != expected || (state != "open" && state != "triaged") || affected != c.Wallet || (c.Scope == "pool" && c.Resource != pool) {
+	if rev != expected || (state != "open" && state != triagedState) || affected != c.Wallet || (c.Scope == poolResource && c.Resource != pool) {
 		return "", ErrConflict
 	}
 	id := uuid.NewString()
 	if _, e = tx.Exec(ctx, `INSERT INTO safety_bans(id,wallet,scope,resource,actor,expires_at)VALUES($1,$2,$3,$4,$5,$6)`, id, c.Wallet, c.Scope, c.Resource, p.Wallet, c.ExpiresAt); e != nil {
 		return "", e
 	}
-	action, e := audit(ctx, tx, p, &caseID, "actioned", c.Reason, c.PolicyVersion, rev+1)
+	action, e := audit(ctx, tx, p, &caseID, actionedState, c.Reason, c.PolicyVersion, rev+1)
 	if e != nil {
 		return "", e
 	}
@@ -178,7 +179,7 @@ func (s *Store) RestoreAppealedVisibility(ctx context.Context, c RestoreCommand)
 	if e != nil {
 		return v, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var pool, affected, state string
 	var reversed bool
 	e = tx.QueryRow(ctx, `SELECT target_type,target_id,pool_id,affected_wallet,state,EXISTS(SELECT 1 FROM safety_actions a WHERE a.case_id=c.id AND a.kind='appeal_reversed') FROM safety_cases c WHERE id=$1 FOR UPDATE`, c.CaseID).Scan(&v.TargetType, &v.TargetID, &pool, &affected, &state, &reversed)
@@ -186,7 +187,7 @@ func (s *Store) RestoreAppealedVisibility(ctx context.Context, c RestoreCommand)
 		return v, e
 	}
 	if !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return v, s.denial(ctx, p, "appeal_restore")
 	}
 	if state != "final" || !reversed {
@@ -201,7 +202,7 @@ func (s *Store) RestoreAppealedVisibility(ctx context.Context, c RestoreCommand)
 			return v, ErrForbidden
 		}
 		if pool != "" {
-			decision = s.CheckTx(ctx, tx, affected, "pool", pool)
+			decision = s.CheckTx(ctx, tx, affected, poolResource, pool)
 			if decision == Unavailable {
 				return v, ErrUnavailable
 			}
@@ -219,10 +220,10 @@ func (s *Store) RestoreAppealedVisibility(ctx context.Context, c RestoreCommand)
 	if e != nil {
 		return v, e
 	}
-	if revision != c.ExpectedRevision || old != "removed" {
+	if revision != c.ExpectedRevision || old != removedState {
 		return v, ErrConflict
 	}
-	v.Status = "restored"
+	v.Status = restoredState
 	v.CaseID = c.CaseID
 	v.Revision = revision + 1
 	if _, e = tx.Exec(ctx, `UPDATE safety_visibility SET revision=$3,status='restored',case_id=$4 WHERE target_type=$1 AND target_id=$2`, v.TargetType, v.TargetID, v.Revision, c.CaseID); e != nil {

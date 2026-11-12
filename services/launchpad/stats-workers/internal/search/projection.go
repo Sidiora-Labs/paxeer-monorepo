@@ -104,7 +104,7 @@ func (c Change) Validate() error {
 		return ErrInvalid
 	}
 	switch c.Kind {
-	case "creation", "metadata", "lifecycle", "metrics":
+	case valueCreation, "metadata", "lifecycle", "metrics":
 		if c.Document == nil || c.Document.Validate() != nil || c.PoolAddress != c.Document.PoolAddress {
 			return ErrInvalid
 		}
@@ -112,7 +112,7 @@ func (c Change) Validate() error {
 		if !exactIdentity(c.PoolAddress) {
 			return ErrInvalid
 		}
-	case "profile_deletion":
+	case valueProfileDeletion:
 		if !exactIdentity(c.ProfileWallet) {
 			return ErrInvalid
 		}
@@ -167,15 +167,15 @@ func (p *Projection) Consume(ctx context.Context, subject string, wire []byte, m
 		if err = tx.QueryRow(ctx, "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision").Scan(&revision); err != nil {
 			return err
 		}
-		payload, _ := json.Marshal(map[string]any{"version": 2, "revision": strconv.FormatInt(revision, 10)})
+		payload, _ := json.Marshal(map[string]any{valueVersion: 2, valueRevision: strconv.FormatInt(revision, 10)})
 		invalidation := delivery.Envelope{EventID: "search_" + delivery.Hash([]byte(e.EventID)), EventType: p.InvalidationEventType, SchemaVersion: 1, ChainID: 125, SourceOrder: e.SourceOrder, EmittedAt: e.EmittedAt, TraceID: e.TraceID, PayloadHash: delivery.Hash(payload), Payload: payload}
 		return p.Delivery.Enqueue(ctx, tx, p.InvalidationSubject, invalidation)
 	})
 }
 func (p *Projection) authorizeTx(ctx context.Context, tx pgx.Tx, e delivery.Envelope, c Change) error {
-	if c.Kind == "creation" {
+	if c.Kind == valueCreation {
 		d := c.Document
-		if d.MetadataRevision != 1 || d.LifecycleRevision != 1 || d.MetricRevision != 0 || d.MetricsAt != nil || d.LiquidityRaw != nil || len(d.Volumes) != 0 || d.VerifiedQuoteAsset != nil || len(d.RiskFlags) != 0 || d.PublicExplanation != "" || d.ProfileWallet != "" || d.ProfileLabel != "" || d.PoolStatus != "active" {
+		if d.MetadataRevision != 1 || d.LifecycleRevision != 1 || d.MetricRevision != 0 || d.MetricsAt != nil || d.LiquidityRaw != nil || len(d.Volumes) != 0 || d.VerifiedQuoteAsset != nil || len(d.RiskFlags) != 0 || d.PublicExplanation != "" || d.ProfileWallet != "" || d.ProfileLabel != "" || d.PoolStatus != valueActive {
 			return delivery.ErrIntegrity
 		}
 		var raw []byte
@@ -226,7 +226,7 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 	case "visibility":
 		result, err := tx.Exec(ctx, `INSERT INTO stats_search.authority_v2(pool_address,visibility_revision,public,tombstone) VALUES($1,$2,$3,$4) ON CONFLICT(pool_address) DO UPDATE SET visibility_revision=excluded.visibility_revision,public=excluded.public,tombstone=excluded.tombstone WHERE stats_search.authority_v2.visibility_revision<excluded.visibility_revision`, c.PoolAddress, c.Revision, c.Public, c.Tombstone)
 		return result.RowsAffected() > 0, err
-	case "profile_deletion":
+	case valueProfileDeletion:
 		result, err := tx.Exec(ctx, `INSERT INTO stats_search.profile_tombstones_v2(wallet,revision) VALUES($1,$2) ON CONFLICT(wallet) DO UPDATE SET revision=excluded.revision WHERE stats_search.profile_tombstones_v2.revision<excluded.revision`, c.ProfileWallet, c.Revision)
 		if err != nil || result.RowsAffected() == 0 {
 			return false, err
@@ -256,7 +256,7 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 			return false, delivery.ErrIntegrity
 		}
 		switch c.Kind {
-		case "creation":
+		case valueCreation:
 			return false, nil
 		case "metadata":
 			if c.Revision <= old.MetadataRevision {
@@ -284,7 +284,7 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 		d = old
 	} else if err != pgx.ErrNoRows {
 		return false, err
-	} else if c.Kind != "creation" {
+	} else if c.Kind != valueCreation {
 		return false, ErrUnavailable
 	}
 	var deleted bool
@@ -338,7 +338,7 @@ func applyChangeTx(ctx context.Context, tx pgx.Tx, c Change) (bool, error) {
 		if d.LiquidityRaw != nil {
 			liquidity = *d.LiquidityRaw
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO stats_search.documents_v2(generation,pool_address,token_address,name_key,ticker_key,creator,created_at,pool_status,visibility_revision,revision,metrics_at,liquidity_raw,volume_1h,volume_24h,volume_7d,verified_quote,risk_flags,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,nextval('stats_search.revision_v2'),$10,$11::numeric,$12::numeric,$13::numeric,$14::numeric,$15,$16,$17) ON CONFLICT(generation,pool_address) DO UPDATE SET name_key=excluded.name_key,ticker_key=excluded.ticker_key,pool_status=excluded.pool_status,visibility_revision=excluded.visibility_revision,revision=excluded.revision,metrics_at=excluded.metrics_at,liquidity_raw=excluded.liquidity_raw,volume_1h=excluded.volume_1h,volume_24h=excluded.volume_24h,volume_7d=excluded.volume_7d,verified_quote=excluded.verified_quote,risk_flags=excluded.risk_flags,payload=excluded.payload`, generation, d.PoolAddress, d.TokenAddress, d.NameKey, strings.ToLower(d.CanonicalTicker), d.Creator, d.CreatedAt, d.PoolStatus, d.VisibilityRevision, d.MetricsAt, liquidity, volume("1h"), volume("24h"), volume("7d"), d.VerifiedQuoteAsset, d.RiskFlags, raw)
+		_, err = tx.Exec(ctx, `INSERT INTO stats_search.documents_v2(generation,pool_address,token_address,name_key,ticker_key,creator,created_at,pool_status,visibility_revision,revision,metrics_at,liquidity_raw,volume_1h,volume_24h,volume_7d,verified_quote,risk_flags,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,nextval('stats_search.revision_v2'),$10,$11::numeric,$12::numeric,$13::numeric,$14::numeric,$15,$16,$17) ON CONFLICT(generation,pool_address) DO UPDATE SET name_key=excluded.name_key,ticker_key=excluded.ticker_key,pool_status=excluded.pool_status,visibility_revision=excluded.visibility_revision,revision=excluded.revision,metrics_at=excluded.metrics_at,liquidity_raw=excluded.liquidity_raw,volume_1h=excluded.volume_1h,volume_24h=excluded.volume_24h,volume_7d=excluded.volume_7d,verified_quote=excluded.verified_quote,risk_flags=excluded.risk_flags,payload=excluded.payload`, generation, d.PoolAddress, d.TokenAddress, d.NameKey, strings.ToLower(d.CanonicalTicker), d.Creator, d.CreatedAt, d.PoolStatus, d.VisibilityRevision, d.MetricsAt, liquidity, volume("1h"), volume(value24h), volume("7d"), d.VerifiedQuoteAsset, d.RiskFlags, raw)
 		if err != nil {
 			return false, err
 		}
@@ -392,7 +392,7 @@ func (p *Projection) ConsumeCanonicalCreation(ctx context.Context, subject strin
 		if err != nil {
 			return err
 		}
-		d := IndexedDocument{Document: Document{Version: 1, ChainID: "125", PoolAddress: fact.Pool, TokenAddress: fact.Token, Name: fact.Metadata.Name, Ticker: fact.Metadata.Symbol, NameKey: query.Key, CanonicalTicker: canonicalTicker(fact.Metadata.Symbol), LanguageHints: []string{}, ConfusableWarnings: tickerWarnings(fact.Metadata.Symbol), CreationEventID: "125:" + fact.Position.TransactionHash + ":" + fact.Position.LogIndex, ChainHeight: fact.Position.Height, MetadataRevision: 1, VisibilityRevision: 1, PoolStatus: "active", IndexedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")}, Creator: fact.Creator, CreatedAt: time.Unix(timestamp, 0).UTC(), LifecycleRevision: 1, Volumes: map[string]string{}, RiskFlags: []string{}, SourceHeight: fact.Position.Height, SourceBlockHash: fact.Position.BlockHash}
+		d := IndexedDocument{Document: Document{Version: 1, ChainID: "125", PoolAddress: fact.Pool, TokenAddress: fact.Token, Name: fact.Metadata.Name, Ticker: fact.Metadata.Symbol, NameKey: query.Key, CanonicalTicker: canonicalTicker(fact.Metadata.Symbol), LanguageHints: []string{}, ConfusableWarnings: tickerWarnings(fact.Metadata.Symbol), CreationEventID: "125:" + fact.Position.TransactionHash + ":" + fact.Position.LogIndex, ChainHeight: fact.Position.Height, MetadataRevision: 1, VisibilityRevision: 1, PoolStatus: valueActive, IndexedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")}, Creator: fact.Creator, CreatedAt: time.Unix(timestamp, 0).UTC(), LifecycleRevision: 1, Volumes: map[string]string{}, RiskFlags: []string{}, SourceHeight: fact.Position.Height, SourceBlockHash: fact.Position.BlockHash}
 		if d.Validate() != nil {
 			return ErrInvalid
 		}
@@ -405,7 +405,7 @@ func (p *Projection) ConsumeCanonicalCreation(ctx context.Context, subject strin
 		if _, err = tx.Exec(ctx, "SELECT revision FROM stats_search.active_v2 WHERE singleton FOR UPDATE"); err != nil {
 			return err
 		}
-		changed, err := applyChangeTx(ctx, tx, Change{Version: 2, Kind: "creation", Revision: 1, PoolAddress: d.PoolAddress, Document: &d})
+		changed, err := applyChangeTx(ctx, tx, Change{Version: 2, Kind: valueCreation, Revision: 1, PoolAddress: d.PoolAddress, Document: &d})
 		if err != nil || !changed {
 			return err
 		}
@@ -413,7 +413,7 @@ func (p *Projection) ConsumeCanonicalCreation(ctx context.Context, subject strin
 		if err = tx.QueryRow(ctx, "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision").Scan(&revision); err != nil {
 			return err
 		}
-		payload, _ := json.Marshal(map[string]any{"version": 2, "revision": strconv.FormatInt(revision, 10)})
+		payload, _ := json.Marshal(map[string]any{valueVersion: 2, valueRevision: strconv.FormatInt(revision, 10)})
 		notification := delivery.Envelope{EventID: "search_" + delivery.Hash([]byte(e.EventID)), EventType: p.InvalidationEventType, SchemaVersion: 1, ChainID: 125, SourceOrder: e.SourceOrder, EmittedAt: e.EmittedAt, TraceID: e.TraceID, PayloadHash: delivery.Hash(payload), Payload: payload}
 		return p.Delivery.Enqueue(ctx, tx, p.InvalidationSubject, notification)
 	})
@@ -450,7 +450,7 @@ func (p *Projection) ConsumeAccountProfile(ctx context.Context, subject string, 
 			if revision < 1 {
 				return delivery.ErrIntegrity
 			}
-			if _, err = applyChangeTx(ctx, tx, Change{Version: 2, Kind: "profile_deletion", Revision: revision, ProfileWallet: wallet}); err != nil {
+			if _, err = applyChangeTx(ctx, tx, Change{Version: 2, Kind: valueProfileDeletion, Revision: revision, ProfileWallet: wallet}); err != nil {
 				return err
 			}
 			if _, err = tx.Exec(ctx, "DELETE FROM stats_search.profile_documents_v2 WHERE wallet=$1", wallet); err != nil {
@@ -479,7 +479,7 @@ func (p *Projection) ConsumeAccountProfile(ctx context.Context, subject string, 
 		if err = tx.QueryRow(ctx, "UPDATE stats_search.active_v2 SET revision=nextval('stats_search.revision_v2'),privacy_revision=privacy_revision+1 WHERE singleton RETURNING revision").Scan(&searchRevision); err != nil {
 			return err
 		}
-		payload, _ := json.Marshal(map[string]any{"version": 2, "revision": strconv.FormatInt(searchRevision, 10)})
+		payload, _ := json.Marshal(map[string]any{valueVersion: 2, valueRevision: strconv.FormatInt(searchRevision, 10)})
 		notification := delivery.Envelope{EventID: "search_" + delivery.Hash([]byte(event.EventID)), EventType: p.InvalidationEventType, SchemaVersion: 1, ChainID: 125, SourceOrder: event.SourceOrder, EmittedAt: event.EmittedAt, TraceID: event.TraceID, PayloadHash: delivery.Hash(payload), Payload: payload}
 		return p.Delivery.Enqueue(ctx, tx, p.InvalidationSubject, notification)
 	})

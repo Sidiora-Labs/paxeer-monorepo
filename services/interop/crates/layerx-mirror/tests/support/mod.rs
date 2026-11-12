@@ -31,10 +31,8 @@ pub fn fixture() -> Value {
 }
 
 pub fn bytes(text: &Value) -> Vec<u8> {
-    let digits = text.as_str().unwrap_or_else(|| panic!("hex string"));
-    let digits = digits
-        .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("hex prefix"));
+    let digits = text.as_str().or_panic("hex string");
+    let digits = digits.strip_prefix("0x").or_panic("hex prefix");
     (0..digits.len())
         .step_by(2)
         .map(|index| {
@@ -50,6 +48,229 @@ pub struct TestRpc {
     addresses: Vec<SocketAddr>,
     threads: Vec<JoinHandle<()>>,
     directory: PathBuf,
+}
+
+fn create_test_ca(
+    key: &PKey<openssl::pkey::Private>,
+) -> (X509, openssl::x509::X509Name, Asn1Time, Asn1Time) {
+    let mut name = X509NameBuilder::new().unwrap_or_else(|e| panic!("name: {e}"));
+    name.append_entry_by_text("CN", "Committed source test CA")
+        .unwrap_or_else(|e| panic!("name: {e}"));
+    let name = name.build();
+    let mut ca = X509::builder().unwrap_or_else(|e| panic!("CA: {e}"));
+    ca.set_version(2).unwrap_or_else(|e| panic!("version: {e}"));
+    let serial = BigNum::from_u32(1)
+        .and_then(|n| n.to_asn1_integer())
+        .unwrap_or_else(|e| panic!("serial: {e}"));
+    ca.set_serial_number(&serial)
+        .unwrap_or_else(|e| panic!("serial: {e}"));
+    ca.set_subject_name(&name)
+        .unwrap_or_else(|e| panic!("subject: {e}"));
+    ca.set_issuer_name(&name)
+        .unwrap_or_else(|e| panic!("issuer: {e}"));
+    ca.set_pubkey(key)
+        .unwrap_or_else(|e| panic!("public key: {e}"));
+    let before = Asn1Time::days_from_now(0).unwrap_or_else(|e| panic!("time: {e}"));
+    let after = Asn1Time::days_from_now(1).unwrap_or_else(|e| panic!("time: {e}"));
+    ca.set_not_before(&before)
+        .unwrap_or_else(|e| panic!("time: {e}"));
+    ca.set_not_after(&after)
+        .unwrap_or_else(|e| panic!("time: {e}"));
+    ca.append_extension(
+        BasicConstraints::new()
+            .critical()
+            .ca()
+            .build()
+            .unwrap_or_else(|e| panic!("CA constraints: {e}")),
+    )
+    .unwrap_or_else(|e| panic!("extension: {e}"));
+    ca.append_extension(
+        KeyUsage::new()
+            .key_cert_sign()
+            .crl_sign()
+            .build()
+            .unwrap_or_else(|e| panic!("CA usage: {e}")),
+    )
+    .unwrap_or_else(|e| panic!("extension: {e}"));
+    ca.sign(key, MessageDigest::sha256())
+        .unwrap_or_else(|e| panic!("CA signature: {e}"));
+    let ca = ca.build();
+    (ca, name, before, after)
+}
+
+fn make_tls_acceptor(directory: &std::path::Path) -> (Arc<SslAcceptor>, PathBuf) {
+    let key = PKey::from_rsa(Rsa::generate(2048).unwrap_or_else(|e| panic!("RSA: {e}")))
+        .unwrap_or_else(|e| panic!("key: {e}"));
+    let (ca, name, before, after) = create_test_ca(&key);
+    let ca_path = directory.join("ca.der");
+    fs::write(&ca_path, ca.to_der().unwrap_or_else(|e| panic!("DER: {e}")))
+        .unwrap_or_else(|e| panic!("CA file: {e}"));
+
+    let mut certificate = X509::builder().unwrap_or_else(|e| panic!("certificate: {e}"));
+    certificate
+        .set_version(2)
+        .unwrap_or_else(|e| panic!("version: {e}"));
+    let serial = BigNum::from_u32(2)
+        .and_then(|n| n.to_asn1_integer())
+        .unwrap_or_else(|e| panic!("serial: {e}"));
+    certificate
+        .set_serial_number(&serial)
+        .unwrap_or_else(|e| panic!("serial: {e}"));
+    certificate
+        .set_subject_name(&name)
+        .unwrap_or_else(|e| panic!("subject: {e}"));
+    certificate
+        .set_issuer_name(ca.subject_name())
+        .unwrap_or_else(|e| panic!("issuer: {e}"));
+    certificate
+        .set_pubkey(&key)
+        .unwrap_or_else(|e| panic!("public key: {e}"));
+    certificate
+        .set_not_before(&before)
+        .unwrap_or_else(|e| panic!("time: {e}"));
+    certificate
+        .set_not_after(&after)
+        .unwrap_or_else(|e| panic!("time: {e}"));
+    certificate
+        .append_extension(
+            BasicConstraints::new()
+                .critical()
+                .build()
+                .unwrap_or_else(|e| panic!("constraints: {e}")),
+        )
+        .unwrap_or_else(|e| panic!("extension: {e}"));
+    certificate
+        .append_extension(
+            KeyUsage::new()
+                .digital_signature()
+                .key_encipherment()
+                .build()
+                .unwrap_or_else(|e| panic!("usage: {e}")),
+        )
+        .unwrap_or_else(|e| panic!("extension: {e}"));
+    certificate
+        .append_extension(
+            ExtendedKeyUsage::new()
+                .server_auth()
+                .build()
+                .unwrap_or_else(|e| panic!("usage: {e}")),
+        )
+        .unwrap_or_else(|e| panic!("extension: {e}"));
+    let san = SubjectAlternativeName::new()
+        .ip("127.0.0.1")
+        .build(&certificate.x509v3_context(Some(&ca), None))
+        .unwrap_or_else(|e| panic!("SAN: {e}"));
+    certificate
+        .append_extension(san)
+        .unwrap_or_else(|e| panic!("extension: {e}"));
+    certificate
+        .sign(&key, MessageDigest::sha256())
+        .unwrap_or_else(|e| panic!("signature: {e}"));
+    let certificate = certificate.build();
+    let mut acceptor =
+        SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap_or_else(|e| panic!("TLS: {e}"));
+    acceptor
+        .set_certificate(&certificate)
+        .unwrap_or_else(|e| panic!("TLS certificate: {e}"));
+    acceptor
+        .set_private_key(&key)
+        .unwrap_or_else(|e| panic!("TLS key: {e}"));
+    acceptor
+        .check_private_key()
+        .unwrap_or_else(|e| panic!("TLS key check: {e}"));
+    let acceptor = Arc::new(acceptor.build());
+    (acceptor, ca_path)
+}
+
+fn serve_rpc(
+    listener: &TcpListener,
+    acceptor: &Arc<SslAcceptor>,
+    requests: &Arc<Mutex<Vec<(usize, Value)>>>,
+    running: &Arc<AtomicBool>,
+    index: usize,
+    document: &Value,
+) {
+    while running.load(Ordering::Acquire) {
+        let (tcp, _) = listener.accept().unwrap_or_else(|e| panic!("accept: {e}"));
+        if !running.load(Ordering::Acquire) {
+            break;
+        }
+        tcp.set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap_or_else(|e| panic!("timeout: {e}"));
+        tcp.set_write_timeout(Some(Duration::from_secs(2)))
+            .unwrap_or_else(|e| panic!("timeout: {e}"));
+        let mut stream = acceptor
+            .accept(tcp)
+            .unwrap_or_else(|e| panic!("TLS accept: {e}"));
+        let mut head = Vec::new();
+        while !head.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream
+                .read_exact(&mut byte)
+                .unwrap_or_else(|e| panic!("HTTP header: {e}"));
+            head.push(byte[0]);
+            assert!(head.len() <= 32 * 1024);
+        }
+        let head = String::from_utf8(head).unwrap_or_else(|e| panic!("HTTP: {e}"));
+        assert!(head.starts_with("POST / HTTP/1.1\r\n"));
+        assert!(head
+            .lines()
+            .any(|line| line == format!("Authorization: Bearer {TOKEN}")));
+        let length: usize = head
+            .lines()
+            .find_map(|line| line.strip_prefix("Content-Length: "))
+            .or_panic("content length")
+            .parse()
+            .unwrap_or_else(|e| panic!("length: {e}"));
+        assert!(length <= 512 * 1024);
+        let mut body = vec![0; length];
+        stream
+            .read_exact(&mut body)
+            .unwrap_or_else(|e| panic!("HTTP body: {e}"));
+        let request: Value =
+            serde_json::from_slice(&body).unwrap_or_else(|e| panic!("JSON-RPC: {e}"));
+        requests
+            .lock()
+            .unwrap_or_else(|e| panic!("requests: {e}"))
+            .push((index, request.clone()));
+        let result = match request["method"].as_str() {
+            Some("eth_chainId") => {
+                assert_eq!(request["params"], json!([]));
+                document["chainId"].clone()
+            }
+            Some("eth_getBlockByNumber") => {
+                assert_eq!(request["params"][1], false);
+                match request["params"][0].as_str() {
+                    Some("0x0") => document["genesis"].clone(),
+                    Some("0x8") => document["block8"].clone(),
+                    Some("finalized") => document["finalized"].clone(),
+                    _ => {
+                        assert_eq!(request["params"][0], document["committedBlock"]["number"]);
+                        document["committedBlock"].clone()
+                    }
+                }
+            }
+            Some("pax_sequencerReceipt") => document["receipts"]
+                .as_array()
+                .or_panic("receipts")
+                .iter()
+                .find(|receipt| receipt["txHash"] == request["params"][0])
+                .or_panic("requested transaction")
+                .clone(),
+            _ => panic!("unexpected method"),
+        };
+        let response =
+            serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":request["id"], "result":result}))
+                .unwrap_or_else(|e| panic!("response: {e}"));
+        write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.len()).unwrap_or_else(|e| panic!("HTTP response: {e}"));
+        stream
+            .write_all(&response)
+            .unwrap_or_else(|e| panic!("response: {e}"));
+        stream.flush().unwrap_or_else(|e| panic!("flush: {e}"));
+        stream
+            .shutdown()
+            .unwrap_or_else(|e| panic!("TLS close_notify: {e}"));
+    }
 }
 
 impl TestRpc {
@@ -73,127 +294,7 @@ impl TestRpc {
             .write_all(TOKEN.as_bytes())
             .unwrap_or_else(|e| panic!("test bearer: {e}"));
 
-        let key = PKey::from_rsa(Rsa::generate(2048).unwrap_or_else(|e| panic!("RSA: {e}")))
-            .unwrap_or_else(|e| panic!("key: {e}"));
-        let mut name = X509NameBuilder::new().unwrap_or_else(|e| panic!("name: {e}"));
-        name.append_entry_by_text("CN", "Committed source test CA")
-            .unwrap_or_else(|e| panic!("name: {e}"));
-        let name = name.build();
-        let mut ca = X509::builder().unwrap_or_else(|e| panic!("CA: {e}"));
-        ca.set_version(2).unwrap_or_else(|e| panic!("version: {e}"));
-        let serial = BigNum::from_u32(1)
-            .and_then(|n| n.to_asn1_integer())
-            .unwrap_or_else(|e| panic!("serial: {e}"));
-        ca.set_serial_number(&serial)
-            .unwrap_or_else(|e| panic!("serial: {e}"));
-        ca.set_subject_name(&name)
-            .unwrap_or_else(|e| panic!("subject: {e}"));
-        ca.set_issuer_name(&name)
-            .unwrap_or_else(|e| panic!("issuer: {e}"));
-        ca.set_pubkey(&key)
-            .unwrap_or_else(|e| panic!("public key: {e}"));
-        let before = Asn1Time::days_from_now(0).unwrap_or_else(|e| panic!("time: {e}"));
-        let after = Asn1Time::days_from_now(1).unwrap_or_else(|e| panic!("time: {e}"));
-        ca.set_not_before(&before)
-            .unwrap_or_else(|e| panic!("time: {e}"));
-        ca.set_not_after(&after)
-            .unwrap_or_else(|e| panic!("time: {e}"));
-        ca.append_extension(
-            BasicConstraints::new()
-                .critical()
-                .ca()
-                .build()
-                .unwrap_or_else(|e| panic!("CA constraints: {e}")),
-        )
-        .unwrap_or_else(|e| panic!("extension: {e}"));
-        ca.append_extension(
-            KeyUsage::new()
-                .key_cert_sign()
-                .crl_sign()
-                .build()
-                .unwrap_or_else(|e| panic!("CA usage: {e}")),
-        )
-        .unwrap_or_else(|e| panic!("extension: {e}"));
-        ca.sign(&key, MessageDigest::sha256())
-            .unwrap_or_else(|e| panic!("CA signature: {e}"));
-        let ca = ca.build();
-        let ca_path = directory.join("ca.der");
-        fs::write(&ca_path, ca.to_der().unwrap_or_else(|e| panic!("DER: {e}")))
-            .unwrap_or_else(|e| panic!("CA file: {e}"));
-
-        let mut certificate = X509::builder().unwrap_or_else(|e| panic!("certificate: {e}"));
-        certificate
-            .set_version(2)
-            .unwrap_or_else(|e| panic!("version: {e}"));
-        let serial = BigNum::from_u32(2)
-            .and_then(|n| n.to_asn1_integer())
-            .unwrap_or_else(|e| panic!("serial: {e}"));
-        certificate
-            .set_serial_number(&serial)
-            .unwrap_or_else(|e| panic!("serial: {e}"));
-        certificate
-            .set_subject_name(&name)
-            .unwrap_or_else(|e| panic!("subject: {e}"));
-        certificate
-            .set_issuer_name(ca.subject_name())
-            .unwrap_or_else(|e| panic!("issuer: {e}"));
-        certificate
-            .set_pubkey(&key)
-            .unwrap_or_else(|e| panic!("public key: {e}"));
-        certificate
-            .set_not_before(&before)
-            .unwrap_or_else(|e| panic!("time: {e}"));
-        certificate
-            .set_not_after(&after)
-            .unwrap_or_else(|e| panic!("time: {e}"));
-        certificate
-            .append_extension(
-                BasicConstraints::new()
-                    .critical()
-                    .build()
-                    .unwrap_or_else(|e| panic!("constraints: {e}")),
-            )
-            .unwrap_or_else(|e| panic!("extension: {e}"));
-        certificate
-            .append_extension(
-                KeyUsage::new()
-                    .digital_signature()
-                    .key_encipherment()
-                    .build()
-                    .unwrap_or_else(|e| panic!("usage: {e}")),
-            )
-            .unwrap_or_else(|e| panic!("extension: {e}"));
-        certificate
-            .append_extension(
-                ExtendedKeyUsage::new()
-                    .server_auth()
-                    .build()
-                    .unwrap_or_else(|e| panic!("usage: {e}")),
-            )
-            .unwrap_or_else(|e| panic!("extension: {e}"));
-        let san = SubjectAlternativeName::new()
-            .ip("127.0.0.1")
-            .build(&certificate.x509v3_context(Some(&ca), None))
-            .unwrap_or_else(|e| panic!("SAN: {e}"));
-        certificate
-            .append_extension(san)
-            .unwrap_or_else(|e| panic!("extension: {e}"));
-        certificate
-            .sign(&key, MessageDigest::sha256())
-            .unwrap_or_else(|e| panic!("signature: {e}"));
-        let certificate = certificate.build();
-        let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls())
-            .unwrap_or_else(|e| panic!("TLS: {e}"));
-        acceptor
-            .set_certificate(&certificate)
-            .unwrap_or_else(|e| panic!("TLS certificate: {e}"));
-        acceptor
-            .set_private_key(&key)
-            .unwrap_or_else(|e| panic!("TLS key: {e}"));
-        acceptor
-            .check_private_key()
-            .unwrap_or_else(|e| panic!("TLS key check: {e}"));
-        let acceptor = Arc::new(acceptor.build());
+        let (acceptor, ca_path) = make_tls_acceptor(&directory);
         let requests = Arc::new(Mutex::new(Vec::new()));
         let running = Arc::new(AtomicBool::new(true));
         let mut addresses = Vec::new();
@@ -215,48 +316,7 @@ impl TestRpc {
             let requests = Arc::clone(&requests);
             let running = Arc::clone(&running);
             threads.push(thread::spawn(move || {
-                while running.load(Ordering::Acquire) {
-                    let (tcp, _) = listener.accept().unwrap_or_else(|e| panic!("accept: {e}"));
-                    if !running.load(Ordering::Acquire) { break; }
-                    tcp.set_read_timeout(Some(Duration::from_secs(2))).unwrap_or_else(|e| panic!("timeout: {e}"));
-                    tcp.set_write_timeout(Some(Duration::from_secs(2))).unwrap_or_else(|e| panic!("timeout: {e}"));
-                    let mut stream = acceptor.accept(tcp).unwrap_or_else(|e| panic!("TLS accept: {e}"));
-                    let mut head = Vec::new();
-                    while !head.ends_with(b"\r\n\r\n") {
-                        let mut byte = [0];
-                        stream.read_exact(&mut byte).unwrap_or_else(|e| panic!("HTTP header: {e}"));
-                        head.push(byte[0]);
-                        assert!(head.len() <= 32 * 1024);
-                    }
-                    let head = String::from_utf8(head).unwrap_or_else(|e| panic!("HTTP: {e}"));
-                    assert!(head.starts_with("POST / HTTP/1.1\r\n"));
-                    assert!(head.lines().any(|line| line == format!("Authorization: Bearer {TOKEN}")));
-                    let length: usize = head.lines().find_map(|line| line.strip_prefix("Content-Length: "))
-                        .unwrap_or_else(|| panic!("content length")).parse().unwrap_or_else(|e| panic!("length: {e}"));
-                    assert!(length <= 512 * 1024);
-                    let mut body = vec![0; length];
-                    stream.read_exact(&mut body).unwrap_or_else(|e| panic!("HTTP body: {e}"));
-                    let request: Value = serde_json::from_slice(&body).unwrap_or_else(|e| panic!("JSON-RPC: {e}"));
-                    requests.lock().unwrap_or_else(|e| panic!("requests: {e}")).push((index, request.clone()));
-                    let result = match request["method"].as_str() {
-                        Some("eth_chainId") => { assert_eq!(request["params"], json!([])); document["chainId"].clone() }
-                        Some("eth_getBlockByNumber") => {
-                            assert_eq!(request["params"][1], false);
-                            if request["params"][0] == "0x0" { document["genesis"].clone() }
-                            else { assert_eq!(request["params"][0], document["committedBlock"]["number"]); document["committedBlock"].clone() }
-                        }
-                        Some("pax_sequencerReceipt") => document["receipts"].as_array().unwrap_or_else(|| panic!("receipts"))
-                            .iter().find(|receipt| receipt["txHash"] == request["params"][0]).unwrap_or_else(|| panic!("requested transaction")).clone(),
-                        _ => panic!("unexpected method"),
-                    };
-                    let response = serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":request["id"], "result":result})).unwrap_or_else(|e| panic!("response: {e}"));
-                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.len()).unwrap_or_else(|e| panic!("HTTP response: {e}"));
-                    stream.write_all(&response).unwrap_or_else(|e| panic!("response: {e}"));
-                    stream.flush().unwrap_or_else(|e| panic!("flush: {e}"));
-                    stream
-                        .shutdown()
-                        .unwrap_or_else(|e| panic!("TLS close_notify: {e}"));
-                }
+                serve_rpc(&listener, &acceptor, &requests, &running, index, &document);
             }));
         }
         let document = fixture();
@@ -273,23 +333,13 @@ impl TestRpc {
                 chain_id: 125,
                 genesis_hash_hex: document["genesis"]["hash"]
                     .as_str()
-                    .unwrap_or_else(|| panic!("genesis hash"))
+                    .or_panic("genesis hash")
                     .to_owned(),
                 receipt_keys: vec![ReceiptKeyConfig {
-                    sequencer_id_hex: key["keyId"]
-                        .as_str()
-                        .unwrap_or_else(|| panic!("key ID"))
-                        .to_owned(),
-                    public_key_hex: key["publicKey"]
-                        .as_str()
-                        .unwrap_or_else(|| panic!("public key"))
-                        .to_owned(),
-                    first_height: key["firstHeight"]
-                        .as_u64()
-                        .unwrap_or_else(|| panic!("first height")),
-                    last_height: key["lastHeight"]
-                        .as_u64()
-                        .unwrap_or_else(|| panic!("last height")),
+                    sequencer_id_hex: key["keyId"].as_str().or_panic("key ID").to_owned(),
+                    public_key_hex: key["publicKey"].as_str().or_panic("public key").to_owned(),
+                    first_height: key["firstHeight"].as_u64().or_panic("first height"),
+                    last_height: key["lastHeight"].as_u64().or_panic("last height"),
                 }],
             },
             requests,
@@ -314,5 +364,27 @@ impl Drop for TestRpc {
             .fold(false, |failed, next| failed | next);
         fs::remove_dir_all(&self.directory).unwrap_or_else(|e| panic!("test cleanup: {e}"));
         assert!(!failed, "TLS JSON-RPC emulator failed");
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

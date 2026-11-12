@@ -85,7 +85,7 @@ func (p *platformPrivate) handler(next http.Handler) http.Handler {
 			return
 		}
 		if peer == nil || fmt.Sprintf("%x", sha256.Sum256(peer.Raw)) != p.gatewayPin {
-			sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{"code": "TRUSTED_INGRESS_REQUIRED"})
+			sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{codeField: trustedIngressRequiredCode})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -105,16 +105,16 @@ func (p *platformPrivate) authority(w http.ResponseWriter, r *http.Request, peer
 		}
 	}
 	if !allowed {
-		sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{"code": "SERVICE_AUTHORITY_REQUIRED"})
+		sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{codeField: "SERVICE_AUTHORITY_REQUIRED"})
 		return
 	}
 	if r.Method != http.MethodGet || r.URL.Path != "/internal/v2/social/ranking-visibility" {
-		sharedhttp.WriteJSON(w, http.StatusNotFound, map[string]string{"code": "NOT_FOUND"})
+		sharedhttp.WriteJSON(w, http.StatusNotFound, map[string]string{codeField: notFoundCode})
 		return
 	}
 	value, err := platformRankingVisibility(r.Context(), p.pool)
 	if err != nil {
-		sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "SOCIAL_AUTHORITY_UNAVAILABLE"})
+		sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{codeField: "SOCIAL_AUTHORITY_UNAVAILABLE"})
 		return
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, value)
@@ -131,7 +131,7 @@ func platformRankingVisibility(ctx context.Context, pool *pgxpool.Pool) (any, er
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() { rollbackTx(ctx, tx) }()
 	var observed time.Time
 	if err = tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&observed); err != nil {
 		return nil, err
@@ -152,7 +152,9 @@ func platformRankingVisibility(ctx context.Context, pool *pgxpool.Pool) (any, er
 			return nil, err
 		}
 		pools[address] = visible
-		fmt.Fprintf(hash, "%s:%t:%d\n", address, visible, revision)
+		if _, err = fmt.Fprintf(hash, "%s:%t:%d\n", address, visible, revision); err != nil {
+			return nil, err
+		}
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
@@ -173,11 +175,11 @@ func platformRankingVisibility(ctx context.Context, pool *pgxpool.Pool) (any, er
 // listener.
 func platformPublicOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == "/metrics" {
+		if r.URL.Path == healthPath || strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
-		sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{"code": "TRUSTED_INGRESS_REQUIRED"})
+		sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{codeField: trustedIngressRequiredCode})
 	})
 }
 

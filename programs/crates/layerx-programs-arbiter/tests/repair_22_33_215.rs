@@ -3,6 +3,7 @@
 //! transports encoded proofs, reconstructs admission and consumes both APIs.
 
 #[path = "proof_arbiter_crate.rs"]
+#[allow(dead_code)]
 mod producer;
 
 use std::collections::BTreeMap;

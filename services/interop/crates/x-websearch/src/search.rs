@@ -319,6 +319,8 @@ pub fn search(index: &WebIndex, query: &str) -> Result<Vec<ScoredResult>, Search
     search_with_stats(index, query).map(|(results, _)| results)
 }
 
+/// # Errors
+/// Returns an error when the query or index cannot be processed.
 pub fn search_with_stats(
     index: &WebIndex,
     query: &str,
@@ -389,7 +391,10 @@ fn decode_query_component(value: &str) -> Result<String, Response> {
                 let (Some(high), Some(low)) = (high, low) else {
                     return Err(Response::error(400, "malformed_query"));
                 };
-                decoded.push(((high << 4) | low) as u8);
+                decoded.push(
+                    u8::try_from((high << 4) | low)
+                        .map_err(|_| Response::error(400, "malformed_query"))?,
+                );
             }
             b'+' => decoded.push(b' '),
             byte => decoded.push(byte),

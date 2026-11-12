@@ -150,15 +150,15 @@ fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
 
 /// The F06 reward state and the F05 bytes after it; `None` before the first funding.
 fn rewards<'a>(state: &SharedState<'a>) -> CodecResult<Option<(RewardState<'a>, &'a [u8])>> {
-    let section = *state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
-    if section.is_empty() {
+    let reward_bytes = state.room_market()?.0;
+    if reward_bytes.is_empty() {
         return Ok(None);
     }
-    let (head, tail) = section
+    let section = state.section(Section::SettlementClaims)?;
+    let (head, _) = reward_bytes
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(NON_CANONICAL)?;
+    let tail = section.get(REWARD_STATE_BYTES..).ok_or(NON_CANONICAL)?;
     Ok(Some((decode_reward_state(head)?, tail)))
 }
 

@@ -1,5 +1,4 @@
-//! Retirement proofs for audit findings emulator-head-proof-coverage and
-//! emulator-program-path-coverage; see repair_22_33_1435.kvx for dispositions.
+//! The emulator serves head and program routes through its live HTTP surface.
 
 use std::error::Error;
 use std::io::{Read, Write};
@@ -128,7 +127,13 @@ impl Drop for Server {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 
 fn discovery(server: &Server) -> Result<Value> {

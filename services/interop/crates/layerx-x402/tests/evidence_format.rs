@@ -32,7 +32,13 @@ const TRANSACTION: [u8; 32] = [0x61; 32];
 const GRANT: [u8; 32] = [0x8a; 32];
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
 }
 
 fn offer(scheme: &str) -> PaymentRequirements {
@@ -45,7 +51,8 @@ fn offer(scheme: &str) -> PaymentRequirements {
         network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(1000),
         asset: hex(&ASSET),
-        pay_to: hex(&account_identifiers(ACCOUNT).unwrap()[1]),
+        pay_to: hex(&account_identifiers(ACCOUNT)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))[1]),
         max_timeout_seconds: 90,
         extra: Some(json!({"layerx": terms})),
     }
@@ -58,7 +65,8 @@ fn payment_log(scheme: &str) -> SequencerLog {
         "13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1"
     };
     let topic = std::array::from_fn(|index| {
-        u8::from_str_radix(&signature[index * 2..index * 2 + 2], 16).unwrap()
+        u8::from_str_radix(&signature[index * 2..index * 2 + 2], 16)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
     });
     let mut address = [0; 20];
     address[18..].copy_from_slice(&[0x10, 0x1a]);
@@ -75,7 +83,8 @@ fn payment_log(scheme: &str) -> SequencerLog {
             topic,
             if scheme == "exact" { REFERENCE } else { GRANT },
             PAYER,
-            account_identifiers(ACCOUNT).unwrap()[1],
+            account_identifiers(ACCOUNT)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))[1],
         ],
         data,
         0,
@@ -86,7 +95,11 @@ fn receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8> {
     let mut summary = vec![0; 8 * 3 + 4 + 20 * 2];
     summary.extend_from_slice(&Sha256::digest(b""));
     summary.extend_from_slice(&0_u32.to_be_bytes());
-    summary.extend_from_slice(&u32::try_from(logs.len()).unwrap().to_be_bytes());
+    summary.extend_from_slice(
+        &u32::try_from(logs.len())
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .to_be_bytes(),
+    );
     summary.push(4);
     summary.extend_from_slice(b"uhpx");
     let mut encoder = Encoder::new(4096);
@@ -104,7 +117,10 @@ fn receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8> {
     let mut effects = vec![(1, summary)];
     for log in logs {
         let mut body = log.address().to_vec();
-        body.push(u8::try_from(log.topics().len()).unwrap());
+        body.push(
+            u8::try_from(log.topics().len())
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        );
         for topic in log.topics() {
             body.extend_from_slice(topic);
         }
@@ -114,7 +130,13 @@ fn receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8> {
     assert_eq!(encoder.sequence_length(effects.len(), 4096), Ok(()));
     for (ordinal, (kind, body)) in effects.into_iter().enumerate() {
         assert_eq!(encoder.u16(12), Ok(()));
-        assert_eq!(encoder.u16(u16::try_from(ordinal).unwrap()), Ok(()));
+        assert_eq!(
+            encoder.u16(
+                u16::try_from(ordinal)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            ),
+            Ok(())
+        );
         assert_eq!(encoder.u16(0), Ok(()));
         assert_eq!(encoder.u8(kind), Ok(()));
         assert_eq!(encoder.u8(0), Ok(()));
@@ -136,7 +158,11 @@ fn receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8> {
     assert_eq!(encoder.u128(4000), Ok(()));
     assert_eq!(encoder.u64(1), Ok(()));
     assert_eq!(
-        encoder.bytes(&account_identifiers(ACCOUNT).unwrap()[1], 32),
+        encoder.bytes(
+            &account_identifiers(ACCOUNT)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))[1],
+            32
+        ),
         Ok(())
     );
     assert_eq!(encoder.u128(0), Ok(()));
@@ -165,23 +191,34 @@ fn keys() -> Vec<SequencerAuthorization> {
 
 fn settle(accepted: &PaymentRequirements) -> (String, SettlementResponse, Vec<SequencerLog>) {
     let trace = TraceId::mint([0x73; 16]);
-    let principal = PrincipalId::new("evidence-seller").unwrap();
+    let principal = PrincipalId::new("evidence-seller")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let mut gateway = GatewayCore::new();
-    let suite = ConformanceSuite::new(AdapterId::new("x402-v2").unwrap(), 1, [0x75; 32]).unwrap();
+    let suite = ConformanceSuite::new(
+        AdapterId::new("x402-v2").unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        1,
+        [0x75; 32],
+    )
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     gateway
-        .register_adapter(x402_adapter_descriptor(suite).unwrap(), &trace, 0)
-        .unwrap();
+        .register_adapter(
+            x402_adapter_descriptor(suite)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            &trace,
+            0,
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let request = TranslationRequest::new(
-        AdapterId::new("x402").unwrap(),
+        AdapterId::new("x402").unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         TranslationKind::StateChanging,
         REFERENCE,
         [0x76; 32],
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
         gateway
             .begin_translation(&principal, &request, &trace, 0)
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         TranslationStatus::Pending
     );
     let logs = vec![
@@ -189,7 +226,8 @@ fn settle(accepted: &PaymentRequirements) -> (String, SettlementResponse, Vec<Se
         SequencerLog::new([0x45; 20], vec![[0x46; 32]], vec![], 1),
     ];
     let signer = SigningKey::from_bytes(&[0x72; 32]);
-    let digest = layerx_wire::hash::receipt_digest(&receipt(&logs, None)).unwrap();
+    let digest = layerx_wire::hash::receipt_digest(&receipt(&logs, None))
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let executed = ExecutedPayment {
         committed: None,
         evidence: SequencerEvidence {
@@ -210,7 +248,7 @@ fn settle(accepted: &PaymentRequirements) -> (String, SettlementResponse, Vec<Se
         &trace,
         1,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let SellerOutcome::Settled {
         header,
         response,
@@ -234,9 +272,14 @@ fn built(accepted: PaymentRequirements) -> BuiltPayment {
         payload: json!({"idempotencyKey": hex(&REFERENCE)}),
         extensions: BTreeMap::new(),
     };
-    payload.validate().unwrap();
+    payload
+        .validate()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     BuiltPayment {
-        header: STANDARD.encode(serde_json::to_vec(&payload).unwrap()),
+        header: STANDARD.encode(
+            serde_json::to_vec(&payload)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        ),
         payload,
         idempotency_key: REFERENCE,
     }
@@ -257,13 +300,17 @@ fn buyer_accepts_the_model_asset_format() {
                     }
                     accepted.asset.insert_str(0, asset_prefix);
                     accepted.pay_to.insert_str(0, payee_prefix);
-                    accepted.validate().unwrap();
-                    accepted.layerx_terms().unwrap();
+                    accepted
+                        .validate()
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                    accepted
+                        .layerx_terms()
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                     let (header, response, _) = settle(&accepted);
                     let payment = built(accepted);
                     let trace = TraceId::mint([0x77; 16]);
-                    let captured =
-                        Buyer::capture_settlement(&header, &payment, &keys(), &trace).unwrap();
+                    let captured = Buyer::capture_settlement(&header, &payment, &keys(), &trace)
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                     assert_eq!(captured.response, response);
                     assert_eq!(captured.transaction_hash, TRANSACTION);
                     for field in ["asset", "payTo"] {
@@ -293,12 +340,19 @@ fn seller_evidence_carries_settlement_logs() {
     for scheme in ["exact", "metered", "subscription"] {
         let accepted = offer(scheme);
         let (header, response, logs) = settle(&accepted);
-        let decoded: SettlementResponse =
-            serde_json::from_slice(&STANDARD.decode(&header).unwrap()).unwrap();
+        let decoded: SettlementResponse = serde_json::from_slice(
+            &STANDARD
+                .decode(&header)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(decoded, response);
         let evidence = &decoded.extensions["layerx"];
-        let _: LayerXEvidence = serde_json::from_value(evidence.clone()).unwrap();
-        let served = evidence["logs"].as_array().unwrap();
+        let _: LayerXEvidence = serde_json::from_value(evidence.clone())
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        let served = evidence["logs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("expected Some value"));
         assert!(!served.is_empty());
         assert_eq!(served.len(), logs.len());
         let decoded_logs = served
@@ -320,10 +374,16 @@ fn seller_evidence_carries_settlement_logs() {
             })
             .collect::<Vec<_>>();
         let signed = STANDARD
-            .decode(evidence["receipt"].as_str().unwrap())
-            .unwrap();
-        let receipt = verify_sequencer_signature(&signed, keys().as_slice()).unwrap();
-        let verified = verify_logs(&receipt, decoded_logs).unwrap();
+            .decode(
+                evidence["receipt"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("expected Some value")),
+            )
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        let receipt = verify_sequencer_signature(&signed, keys().as_slice())
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+        let verified = verify_logs(&receipt, decoded_logs)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(verified.logs(), logs);
         if scheme == "exact" {
             let captured = Buyer::capture_settlement(
@@ -332,17 +392,20 @@ fn seller_evidence_carries_settlement_logs() {
                 &keys(),
                 &TraceId::mint([0x78; 16]),
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
             assert_eq!(captured.response, response);
         } else {
             assert_eq!(evidence["purposeHash"], "7c".repeat(32));
         }
         let mut missing_logs = evidence.clone();
-        missing_logs.as_object_mut().unwrap().remove("logs");
+        missing_logs
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .remove("logs");
         assert!(serde_json::from_value::<LayerXEvidence>(missing_logs).is_err());
         assert!(evidence["logs"]
             .as_array()
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .iter()
             .all(Value::is_object));
     }

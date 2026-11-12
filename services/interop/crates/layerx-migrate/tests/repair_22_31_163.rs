@@ -1,8 +1,8 @@
 //! Task 22.31.163, audit 22.30.109.
 //!
-//! history-transfer-loss: history_transfer_loss_multiple_logs_overlap_and_sink_reopen.
-//! solana-code-offset: solana_code_offset_finalized_capture_matches_deployed_code_pin,
-//! solana_code_offset_rejects_invalid_metadata_and_changed_code.
+//! history-transfer-loss: `history_transfer_loss_multiple_logs_overlap_and_sink_reopen`.
+//! solana-code-offset: `solana_code_offset_finalized_capture_matches_deployed_code_pin`,
+//! `solana_code_offset_rejects_invalid_metadata_and_changed_code`.
 //! Baseline: this test target did not exist in the starting tree. No baseline
 //! gate was run: the task's explicit gate order forbids verification before
 //! the complete implementation and requires verification through hf-done.
@@ -11,16 +11,16 @@
 //! opening any component because its protected case file was not supplied.
 //!
 //! Wiring request (domain 11): contracts/bridge/solana/admin/src/main.rs must
-//! generate custody_program_data_hash over the full deployed allocation after
-//! UpgradeableLoaderState::size_of_programdata_metadata(), including padding.
+//! generate `custody_program_data_hash` over the full deployed allocation after
+//! `UpgradeableLoaderState::size_of_programdata_metadata()`, including padding.
 //! Wiring request (domain 11): services/interop/crates/layerx-migrate/OPERATIONS.md
 //! and spec/layerx-merge/interfaces.kvx must document that same pin format.
 //! The Ethereum peer transcript, authenticated v1 journal seed and public
-//! test-only TLS material are committed under tests/fixtures/repair_22_31_163.
+//! test-only TLS material are committed under `tests/fixtures/repair_22_31_163`.
 //! The verifier, RPC quorum, history codec and durable journal run in-process;
 //! the two TLS peers replay the case and maintain independent journal heads.
 //! Wiring request (domain 8): services/platform/hosted/authority must provide
-//! layerx_getMigrationJournalHead/layerx_advanceMigrationJournalHead, or identify
+//! `layerx_getMigrationJournalHead/layerx_advanceMigrationJournalHead`, or identify
 //! the external producer; audit finding rollback-authority-unwired records
 //! this existing dependency. It cannot be implemented inside this task's scope.
 
@@ -59,23 +59,29 @@ const PROGRAM_CAPTURE: &str = include_str!("../src/fixtures/repair_22_31_163_pro
 const DEPLOYED_CODE_PIN: &str = "31f0a627dba051a938de650464e55cc5397a4be0fd496929c1f9cf02fe5e9011";
 
 fn program_capture() -> (Value, Vec<u8>, u64) {
-    let capture: Value = serde_json::from_str(PROGRAM_CAPTURE).expect("genuine RPC capture");
+    let capture: Value = serde_json::from_str(PROGRAM_CAPTURE).or_panic("genuine RPC capture");
     let response = &capture["program_data"]["result"];
     let data = BASE64
         .decode(
             response["value"]["data"][0]
                 .as_str()
-                .expect("base64 account"),
+                .or_panic("base64 account"),
         )
-        .expect("captured bytes");
+        .or_panic("captured bytes");
     let slot = response["context"]["slot"]
         .as_u64()
-        .expect("finalized slot");
+        .or_panic("finalized slot");
     (capture, data, slot)
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 
 #[test]
@@ -98,7 +104,7 @@ fn solana_code_offset_finalized_capture_matches_deployed_code_pin() {
         Some(data.len() as u64),
         "pin covers the complete deployed allocation"
     );
-    let deployment_slot = u64::from_le_bytes(data[4..12].try_into().expect("deployment slot"));
+    let deployment_slot = u64::from_le_bytes(data[4..12].try_into().or_panic("deployment slot"));
     assert!(deployment_slot > 0 && deployment_slot <= slot);
     assert_eq!(data[12], 0, "captured program is immutable");
     assert!(
@@ -107,13 +113,13 @@ fn solana_code_offset_finalized_capture_matches_deployed_code_pin() {
     );
     assert_eq!(&data[45..49], b"\x7fELF");
     assert_eq!(
-        hex(&immutable_program_code_hash(&data, slot).expect("immutable deployed account")),
+        hex(&immutable_program_code_hash(&data, slot).or_panic("immutable deployed account")),
         DEPLOYED_CODE_PIN
     );
     assert_eq!(hex(&Sha256::digest(&data[45..])), DEPLOYED_CODE_PIN);
     assert_ne!(hex(&Sha256::digest(&data[13..])), DEPLOYED_CODE_PIN);
     assert_eq!(
-        hex(&immutable_program_code_hash(&data, deployment_slot).expect("deployment boundary")),
+        hex(&immutable_program_code_hash(&data, deployment_slot).or_panic("deployment boundary")),
         DEPLOYED_CODE_PIN
     );
     assert!(matches!(
@@ -124,8 +130,8 @@ fn solana_code_offset_finalized_capture_matches_deployed_code_pin() {
     let mut extended = data.clone();
     extended.push(0);
     assert_ne!(
-        immutable_program_code_hash(&extended, slot).expect("padded code"),
-        immutable_program_code_hash(&data, slot).expect("original code")
+        immutable_program_code_hash(&extended, slot).or_panic("padded code"),
+        immutable_program_code_hash(&data, slot).or_panic("original code")
     );
 }
 
@@ -163,12 +169,12 @@ fn solana_code_offset_rejects_invalid_metadata_and_changed_code() {
         immutable_program_code_hash(&future, slot),
         Err(MigrationError::CustodyProgramMismatch)
     ));
-    let pin = immutable_program_code_hash(&data, slot).expect("captured pin");
+    let pin = immutable_program_code_hash(&data, slot).or_panic("captured pin");
     for offset in [45, data.len() - 1] {
         let mut altered = data.clone();
         altered[offset] ^= 1;
         assert_ne!(
-            immutable_program_code_hash(&altered, slot).expect("valid metadata"),
+            immutable_program_code_hash(&altered, slot).or_panic("valid metadata"),
             pin
         );
     }
@@ -252,7 +258,8 @@ impl FixtureDirectory {
 
 impl Drop for FixtureDirectory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove private test journal directory");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("remove private test journal directory: {error:?}"));
     }
 }
 
@@ -284,66 +291,37 @@ impl TranscriptServer {
         let worker_requests = Arc::clone(&requests);
         let worker = thread::spawn(move || {
             for tcp in listener.incoming() {
-                let tcp = tcp.expect("loopback accept");
+                let tcp = tcp.or_panic("loopback accept");
                 if worker_stopping.load(Ordering::Acquire) {
                     break;
                 }
                 tcp.set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("fixture read timeout");
+                    .or_panic("fixture read timeout");
                 tcp.set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("fixture write timeout");
-                let connection = ServerConnection::new(Arc::clone(&tls)).expect("fixture TLS");
+                    .or_panic("fixture write timeout");
+                let connection = ServerConnection::new(Arc::clone(&tls)).or_panic("fixture TLS");
                 let mut stream = StreamOwned::new(connection, tcp);
                 let request = read_rpc_request(&mut stream);
-                let method = request["method"].as_str().expect("RPC method");
+                let method = request["method"].as_str().or_panic("RPC method");
                 let params = &request["params"];
                 worker_requests
                     .lock()
-                    .expect("request log")
+                    .or_panic("request log")
                     .push((method.to_owned(), params.clone()));
-                let result = match method {
-                    "layerx_getMigrationJournalHead" => heads
-                        .get(params[0].as_str().expect("anchor id"))
-                        .expect("committed anchor namespace")
-                        .clone(),
-                    "layerx_advanceMigrationJournalHead" => {
-                        let advance = &params[0];
-                        let current = heads
-                            .get_mut(advance["anchor_id"].as_str().expect("anchor id"))
-                            .expect("committed anchor namespace");
-                        assert_eq!(current["sequence"], advance["expected_sequence"]);
-                        assert_eq!(current["digest"], advance["expected_digest"]);
-                        assert_eq!(
-                            advance["sequence"].as_u64(),
-                            Some(current["sequence"].as_u64().expect("head sequence") + 1)
-                        );
-                        assert_eq!(advance["digest"].as_str().expect("head digest").len(), 64);
-                        *current = json!({
-                            "sequence": advance["sequence"],
-                            "digest": advance["digest"]
-                        });
-                        current.clone()
-                    }
-                    _ => transcript
-                        .iter()
-                        .find(|exchange| exchange.method == method && exchange.params == *params)
-                        .unwrap_or_else(|| panic!("unrecorded RPC request: {method} {params}"))
-                        .result
-                        .clone(),
-                };
+                let result = rpc_result(method, params, &mut heads, &transcript);
                 let response = serde_json::to_vec(&json!({
                     "jsonrpc": "2.0", "id": request["id"], "result": result
                 }))
-                .expect("RPC response JSON");
+                .or_panic("RPC response JSON");
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     response.len()
                 )
-                .expect("response header");
-                stream.write_all(&response).expect("response body");
+                .or_panic("response header");
+                stream.write_all(&response).or_panic("response body");
                 stream.conn.send_close_notify();
-                stream.flush().expect("flush TLS response");
+                stream.flush().or_panic("flush TLS response");
             }
         });
         Ok(Self {
@@ -355,13 +333,56 @@ impl TranscriptServer {
     }
 }
 
+fn rpc_result(
+    method: &str,
+    params: &Value,
+    heads: &mut BTreeMap<String, Value>,
+    transcript: &[RpcExchange],
+) -> Value {
+    match method {
+        "layerx_getMigrationJournalHead" => heads
+            .get(params[0].as_str().or_panic("anchor id"))
+            .or_panic("committed anchor namespace")
+            .clone(),
+        "layerx_advanceMigrationJournalHead" => {
+            let advance = &params[0];
+            let current = heads
+                .get_mut(advance["anchor_id"].as_str().or_panic("anchor id"))
+                .or_panic("committed anchor namespace");
+            assert_eq!(current["sequence"], advance["expected_sequence"]);
+            assert_eq!(current["digest"], advance["expected_digest"]);
+            assert_eq!(
+                advance["sequence"].as_u64(),
+                Some(current["sequence"].as_u64().or_panic("head sequence") + 1)
+            );
+            assert_eq!(advance["digest"].as_str().or_panic("head digest").len(), 64);
+            *current = json!({
+                "sequence": advance["sequence"],
+                "digest": advance["digest"]
+            });
+            current.clone()
+        }
+        _ => transcript
+            .iter()
+            .find(|exchange| exchange.method == method && exchange.params == *params)
+            .or_panic(&format!("unrecorded RPC request: {method} {params}"))
+            .result
+            .clone(),
+    }
+}
+
 impl Drop for TranscriptServer {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::Release);
         let _ = TcpStream::connect(self.address);
-        let joined = self.worker.take().expect("fixture worker").join();
+        let joined = self.worker.take().or_panic("fixture worker").join();
         if !thread::panicking() {
-            joined.expect("TLS transcript server completed every request");
+            joined.unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "TLS transcript server completed every request"
+                )
+            });
         }
     }
 }
@@ -371,22 +392,22 @@ fn read_rpc_request(stream: &mut impl Read) -> Value {
     while !header.ends_with(b"\r\n\r\n") {
         assert!(header.len() < 32 * 1024, "bounded request header");
         let mut byte = [0];
-        stream.read_exact(&mut byte).expect("HTTP request header");
+        stream.read_exact(&mut byte).or_panic("HTTP request header");
         header.push(byte[0]);
     }
-    let header = String::from_utf8(header).expect("ASCII HTTP header");
+    let header = String::from_utf8(header).or_panic("ASCII HTTP header");
     assert!(header.starts_with("POST / HTTP/1.1\r\n"));
     assert!(header.contains("Authorization: Bearer public-repair-fixture-token\r\n"));
     let length = header
         .lines()
         .find_map(|line| line.strip_prefix("Content-Length: "))
-        .expect("HTTP content length")
+        .or_panic("HTTP content length")
         .parse::<usize>()
-        .expect("numeric content length");
+        .or_panic("numeric content length");
     assert!(length <= 256 * 1024);
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).expect("RPC request body");
-    let request: Value = serde_json::from_slice(&body).expect("JSON RPC request");
+    stream.read_exact(&mut body).or_panic("RPC request body");
+    let request: Value = serde_json::from_slice(&body).or_panic("JSON RPC request");
     assert_eq!(request["jsonrpc"], "2.0");
     assert!(request["id"].as_u64().is_some());
     request
@@ -433,19 +454,19 @@ impl HistoryFixture {
             .transcript
             .iter()
             .find(|exchange| exchange.method == "eth_getCode")
-            .expect("custody deployment bytecode")
+            .or_panic("custody deployment bytecode")
             .result
             .as_str()
-            .expect("hex code");
-        let code = code.strip_prefix("0x").expect("hex code prefix");
+            .or_panic("hex code");
+        let code = code.strip_prefix("0x").or_panic("hex code prefix");
         let code: Vec<_> = (0..code.len())
             .step_by(2)
-            .map(|offset| u8::from_str_radix(&code[offset..offset + 2], 16).expect("code byte"))
+            .map(|offset| u8::from_str_radix(&code[offset..offset + 2], 16).or_panic("code byte"))
             .collect();
         case.source.custody_code_hash = Keccak256::digest(&code).into();
         for config in [&mut case.source.journal, &mut case.sink] {
-            config.directory = directory.0.clone();
-            config.authentication_key_file = key.clone();
+            config.directory.clone_from(&directory.0);
+            config.authentication_key_file.clone_from(&key);
             config.rollback_anchor_rpc = rpc.clone();
             fs::DirBuilder::new()
                 .mode(0o700)
@@ -463,7 +484,7 @@ impl HistoryFixture {
 
     fn assert_transcript_used(&self) {
         for server in &self.servers {
-            let requests = server.requests.lock().expect("request log");
+            let requests = server.requests.lock().or_panic("request log");
             for exchange in &self.case.transcript {
                 assert!(
                     requests.contains(&(exchange.method.clone(), exchange.params.clone())),
@@ -499,7 +520,7 @@ fn assert_expected(
     assert_eq!(records.len(), 1, "one aggregated declared history identity");
     assert_eq!(
         records[0].source_amount(),
-        expected.amount.parse::<u128>().expect("captured total")
+        expected.amount.parse::<u128>().or_panic("captured total")
     );
     assert_eq!(records[0].provenance(), ExternalProvenance::Ethereum);
 }
@@ -631,8 +652,8 @@ fn history_transfer_loss_rejects_conflicting_log_observations() -> Result<(), Bo
                     .as_array()
                     .is_some_and(|topics| topics.len() == 2)
         })
-        .expect("outgoing transfer transcript");
-    let logs = outgoing.result.as_array_mut().expect("transfer logs");
+        .or_panic("outgoing transfer transcript");
+    let logs = outgoing.result.as_array_mut().or_panic("transfer logs");
     let mut conflicting = logs[0].clone();
     conflicting["data"] = logs[1]["data"].clone();
     assert_ne!(conflicting, logs[0]);
@@ -676,8 +697,8 @@ fn history_transfer_loss_rejects_aggregation_overflow() -> Result<(), Box<dyn Er
                     .as_array()
                     .is_some_and(|topics| topics.len() == 2)
         })
-        .expect("outgoing transfer transcript");
-    let logs = outgoing.result.as_array_mut().expect("transfer logs");
+        .or_panic("outgoing transfer transcript");
+    let logs = outgoing.result.as_array_mut().or_panic("transfer logs");
     logs[0]["data"] = Value::String(format!("0x{:064x}", u128::MAX));
     logs[1]["data"] = Value::String(format!("0x{:064x}", 1));
     let fixture = HistoryFixture::new(case)?;
@@ -705,4 +726,26 @@ fn history_transfer_loss_rejects_aggregation_overflow() -> Result<(), Box<dyn Er
         "overflow cannot advance the page cursor"
     );
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

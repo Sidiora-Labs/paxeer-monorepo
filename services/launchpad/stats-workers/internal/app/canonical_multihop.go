@@ -173,7 +173,7 @@ func multihopWord(data []byte, i int) string {
 
 func (p *canonicalMultihopProjection) projectRoute(ctx context.Context, tx pgx.Tx, route canonicalMultihopLog) error {
 	integrity := consumer.ErrLegacyBridgeIntegrity
-	if accounting.ValidateSourcePosition(route.position()) != nil || (route.Emitter != p.router && route.Emitter != deployment.LaunchpadPrecompileAddress) || len(route.Topics) != 4 || route.Topics[0] != multihopTopic || len(route.Data) != 96 || (route.Emitter == deployment.LaunchpadPrecompileAddress && route.Height < int64(deployment.Current().ActivationHeight)) {
+	if accounting.ValidateSourcePosition(route.position()) != nil || (route.Emitter != p.router && route.Emitter != deployment.LaunchpadPrecompileAddress) || len(route.Topics) != 4 || route.Topics[0] != multihopTopic || len(route.Data) != 96 || (route.Emitter == deployment.LaunchpadPrecompileAddress && (route.Height < 0 || uint64(route.Height) < deployment.Current().ActivationHeight)) {
 		return integrity
 	}
 	var complete bool

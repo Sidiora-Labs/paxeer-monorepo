@@ -114,7 +114,8 @@ pub fn verify_commit(
         .map_err(|_| ProofError::InvalidCommitSignature)?;
         if vote.block_id_flag == BlockIdFlag::Commit {
             // All powers are positive and the total was checked above.
-            signed_power += validator.voting_power as u64;
+            signed_power += u64::try_from(validator.voting_power)
+                .map_err(|_| ProofError::InvalidValidatorSet)?;
         }
     }
 
@@ -148,7 +149,11 @@ fn vote_sign_bytes(chain_id: &str, commit: &Commit, vote: &CommitSig) -> Vec<u8>
     }
     let mut timestamp = Vec::new();
     if vote.timestamp.seconds != 0 {
-        encode_varint_field(1, vote.timestamp.seconds as u64, &mut timestamp);
+        encode_varint_field(
+            1,
+            crate::proto::signed_varint(vote.timestamp.seconds),
+            &mut timestamp,
+        );
     }
     if vote.timestamp.nanos != 0 {
         encode_varint_field(2, u64::from(vote.timestamp.nanos), &mut timestamp);

@@ -50,7 +50,11 @@ func validRecoveryHeader(header http.Header, jobID string) bool {
 		return false
 	}
 	account, err := uuid.FromBytes(raw[17:33])
-	return err == nil && account != uuid.Nil && binary.BigEndian.Uint64(raw[33:41]) > uint64(time.Now().Unix())
+	now := time.Now().Unix()
+	if now < 0 {
+		return false
+	}
+	return err == nil && account != uuid.Nil && binary.BigEndian.Uint64(raw[33:41]) > uint64(now)
 }
 
 func recoveryAccount(receipt string) string {
@@ -94,7 +98,7 @@ func validIngestResponse(raw []byte, streamID string, now time.Time) bool {
 		return false
 	}
 	endpoint, err := url.Parse(response.IngestKey.IngestEndpoint)
-	if err != nil || len(response.IngestKey.IngestEndpoint) > 2048 || (endpoint.Scheme != "https" && endpoint.Scheme != "rtmps") || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || strings.ContainsAny(response.IngestKey.IngestEndpoint, "\r\n\\") {
+	if err != nil || len(response.IngestKey.IngestEndpoint) > 2048 || (endpoint.Scheme != httpsScheme && endpoint.Scheme != "rtmps") || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || strings.ContainsAny(response.IngestKey.IngestEndpoint, "\r\n\\") {
 		return false
 	}
 	expires, err := time.Parse(time.RFC3339, response.IngestKey.VisibilityUntil)

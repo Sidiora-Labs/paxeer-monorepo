@@ -1,0 +1,32 @@
+package coverage
+
+// Shared role, event, and authority vocabulary used by coverage rules.
+const (
+	eventBuy                 = "Buy"
+	roleEventEmitter         = "EventEmitter"
+	eventFeesClaimed         = "FeesClaimed"
+	eventMarketCreated       = "MarketCreated"
+	eventNativeDeposit       = "NativeDeposit"
+	rolePECORVault           = "PECORVault"
+	roleSidioraERC20         = "SidioraERC20"
+	roleSidioraFactory       = "SidioraFactory"
+	eventUpgraded            = "Upgraded"
+	kindPrimary              = "primary"
+	statusAuthorized         = "authorized"
+	statusSchemaUnrecognized = "schema_unrecognized"
+	kindConditionalPrimary   = "conditional_primary"
+	effectControlTransition  = "control_transition"
+	effectCoreFill           = "core_fill"
+	kindCorroboration        = "corroboration"
+	statusDecoded            = "decoded"
+	effectExpiredRefunded    = "expired_refunded"
+	effectFundingMovement    = "funding_movement"
+	effectMarketAttachment   = "market_attachment"
+	effectMinimumOutput      = "minimum_output"
+	effectNone               = "none"
+	effectOrderCancelled     = "order_cancelled"
+	effectOrderCreated       = "order_created"
+	effectOrderFilled        = "order_filled"
+	effectOrderTriggered     = "order_triggered"
+	effectReserveState       = "reserve_state"
+)

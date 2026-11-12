@@ -1,4 +1,10 @@
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 pub mod support;
+
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
@@ -76,7 +82,10 @@ fn foreign_fixture() -> ProtocolFixture {
         vec![
             (
                 commitment.key.clone(),
-                commitment.value.clone().expect("program record"),
+                commitment
+                    .value
+                    .clone()
+                    .unwrap_or_else(|| panic!("{}", "program record")),
             ),
             (
                 programs_state_key(&fixture.interface_witness.key),
@@ -84,13 +93,13 @@ fn foreign_fixture() -> ProtocolFixture {
             ),
         ],
     )
-    .expect("independent foreign chain fixture");
+    .or_panic("independent foreign chain fixture");
     assert_eq!(chain.header.app_hash, fixture.chain.header.app_hash);
     let chain_id = chain.header.chain_id.clone();
     chain.header = fixture.chain.header.clone();
     chain.header.chain_id = chain_id;
     chain.commit.height = chain.header.height;
-    chain.commit.block_id.hash = chain.header.hash().expect("foreign header hash").to_vec();
+    chain.commit.block_id.hash = chain.header.hash().or_panic("foreign header hash").to_vec();
     for signature in &mut chain.commit.signatures {
         let key = VALIDATOR_SEEDS
             .iter()
@@ -101,7 +110,7 @@ fn foreign_fixture() -> ProtocolFixture {
                     .as_slice()
                     == signature.validator_address
             })
-            .expect("validator signing key");
+            .unwrap_or_else(|| panic!("{}", "validator signing key"));
         signature.timestamp.seconds = chain.header.time.seconds;
         signature.timestamp.nanos = chain.header.time.nanos;
         let bytes = vote_sign_bytes(
@@ -111,15 +120,15 @@ fn foreign_fixture() -> ProtocolFixture {
             Some(&chain.commit.block_id),
             signature.timestamp,
         )
-        .expect("foreign vote sign bytes");
+        .or_panic("foreign vote sign bytes");
         signature.signature = key.sign(&bytes).to_bytes().to_vec();
     }
     fixture.proof.state.commitment = decode_commitment_proof(
         &chain
             .encode_key(&commitment.key)
-            .expect("foreign commitment encoding"),
+            .or_panic("foreign commitment encoding"),
     )
-    .expect("foreign commitment");
+    .or_panic("foreign commitment");
     fixture.chain = chain;
     fixture
 }
@@ -146,6 +155,72 @@ fn head_kind_byte_and_digest_domains_are_strict_and_distinct() {
     assert_eq!(maintenance.head_kind(), ProgramHeadKind::Maintenance);
 }
 
+fn verify_foreign_chain_refusals(
+    fixture: &ProtocolFixture,
+    verifier: &ProtocolDeploymentVerifier,
+    chain: &VerifiedChainHead,
+    decoded: &ProgramStateBundle,
+) {
+    let foreign = foreign_fixture();
+    let foreign_verifier = verifier_for_fixture(&foreign, STALENESS_MS);
+    let foreign_chain = ordinary_chain(&foreign_verifier, &foreign);
+    let foreign_bytes = ordinary_bundle(&foreign)
+        .canonical_encoding()
+        .or_panic("foreign version two bundle");
+    assert_eq!(&foreign_bytes[..5], b"LXPB\x02");
+    let foreign_bundle =
+        ProgramStateBundle::decode(&foreign_bytes).or_panic("decoded foreign bundle");
+    assert_ne!(fixture.chain.header.chain_id, foreign.chain.header.chain_id);
+    assert_eq!(
+        fixture.chain.verifier.validators,
+        foreign.chain.verifier.validators
+    );
+    assert_eq!(chain.state_root(), foreign_chain.state_root());
+    assert_eq!(
+        chain.freshness().observed_sequence,
+        foreign_chain.freshness().observed_sequence
+    );
+    assert_eq!(chain.freshness(), foreign_chain.freshness());
+    assert_eq!(chain.receipt_digest(), foreign_chain.receipt_digest());
+    assert_eq!(
+        decoded.program_record_ops,
+        foreign_bundle.program_record_ops
+    );
+    assert_eq!(decoded.interface_ops, foreign_bundle.interface_ops);
+    assert_eq!(decoded.wind_down, foreign_bundle.wind_down);
+    assert_ne!(
+        fixture.chain.header.hash().or_panic("header hash"),
+        foreign.chain.header.hash().or_panic("foreign header hash")
+    );
+    assert_eq!(
+        foreign_verifier
+            .verify_current_program_bundle(&foreign_bundle, &foreign_chain, program(), NOW)
+            .or_panic("foreign bundle against its own chain")
+            .chain_head(),
+        &foreign_chain
+    );
+    assert_eq!(
+        verifier.verify_current_program_bundle(decoded, &foreign_chain, program(), NOW),
+        Err(ProgramBundleError::ChainHeadMismatch)
+    );
+    assert_eq!(
+        foreign_verifier.verify_current_program_bundle(&foreign_bundle, chain, program(), NOW),
+        Err(ProgramBundleError::ChainHeadMismatch)
+    );
+    assert_eq!(
+        verifier.verify_current_program_bundle(&foreign_bundle, chain, program(), NOW),
+        Err(ProgramBundleError::Evidence(
+            ProtocolEvidenceError::StateRoot
+        ))
+    );
+    assert_eq!(
+        foreign_verifier.verify_current_program_bundle(decoded, &foreign_chain, program(), NOW),
+        Err(ProgramBundleError::Evidence(
+            ProtocolEvidenceError::StateRoot
+        ))
+    );
+}
+
 #[test]
 fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
     let fixture = deployed(70, WASM_V1);
@@ -166,42 +241,42 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
     );
     assert_eq!(
         chain.freshness().observed_sequence,
-        u64::try_from(fixture.chain.header.height).expect("positive height")
+        u64::try_from(fixture.chain.header.height).or_panic("positive height")
     );
     assert_eq!(
         chain.freshness().observed_sequence,
         u64::try_from(
             ChainHeader::decode(&fixture.proof.state.commitment.signed_header)
-                .expect("committed header")
+                .or_panic("committed header")
                 .height
         )
-        .expect("positive committed height")
+        .or_panic("positive committed height")
     );
     assert_eq!(chain.freshness().observed_at, OBSERVED_AT);
     assert_eq!(chain.state_root().as_slice(), fixture.chain.header.app_hash);
     assert_eq!(
         ChainHeader::decode(&fixture.proof.state.commitment.signed_header)
-            .expect("committed header")
+            .or_panic("committed header")
             .hash()
-            .expect("committed header hash"),
-        fixture.chain.header.hash().expect("header hash")
+            .or_panic("committed header hash"),
+        fixture.chain.header.hash().or_panic("header hash")
     );
 
     let encoded = ordinary_bundle(&fixture)
         .canonical_encoding()
-        .expect("version two bundle");
+        .or_panic("version two bundle");
     assert_eq!(&encoded[..5], b"LXPB\x02");
-    let decoded = ProgramStateBundle::decode(&encoded).expect("decoded version two bundle");
+    let decoded = ProgramStateBundle::decode(&encoded).or_panic("decoded version two bundle");
     assert_eq!(decoded, ordinary_bundle(&fixture));
-    let verified = verifier
+    let authenticated_bundle = verifier
         .verify_current_program_bundle_bytes(&encoded, &chain, program(), NOW)
-        .expect("bound program bundle");
+        .or_panic("bound program bundle");
     assert_eq!(
-        verified.verify_discovery(program(), NOW, STALENESS_MS),
+        authenticated_bundle.verify_discovery(program(), NOW, STALENESS_MS),
         Ok(())
     );
-    let head = verified.program_head();
-    assert_eq!(verified.chain_head(), &chain);
+    let head = authenticated_bundle.program_head();
+    assert_eq!(authenticated_bundle.chain_head(), &chain);
     assert_eq!(head.program(), program());
     assert_eq!(head.receipt_digest(), chain.receipt_digest());
     assert_eq!(head.state_root(), chain.state_root());
@@ -211,70 +286,16 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
         Some(head.valid_until_ms()),
         chain.freshness().observed_at.checked_add(STALENESS_MS)
     );
-    assert_eq!(verified.interface().state_root, head.state_root());
     assert_eq!(
-        verified.interface().interface,
+        authenticated_bundle.interface().state_root,
+        head.state_root()
+    );
+    assert_eq!(
+        authenticated_bundle.interface().interface,
         support::fixture_interface(WASM_V1)
     );
 
-    let foreign = foreign_fixture();
-    let foreign_verifier = verifier_for_fixture(&foreign, STALENESS_MS);
-    let foreign_chain = ordinary_chain(&foreign_verifier, &foreign);
-    let foreign_bytes = ordinary_bundle(&foreign)
-        .canonical_encoding()
-        .expect("foreign version two bundle");
-    assert_eq!(&foreign_bytes[..5], b"LXPB\x02");
-    let foreign_bundle =
-        ProgramStateBundle::decode(&foreign_bytes).expect("decoded foreign bundle");
-    assert_ne!(fixture.chain.header.chain_id, foreign.chain.header.chain_id);
-    assert_eq!(
-        fixture.chain.verifier.validators,
-        foreign.chain.verifier.validators
-    );
-    assert_eq!(chain.state_root(), foreign_chain.state_root());
-    assert_eq!(
-        chain.freshness().observed_sequence,
-        foreign_chain.freshness().observed_sequence
-    );
-    assert_eq!(chain.freshness(), foreign_chain.freshness());
-    assert_eq!(chain.receipt_digest(), foreign_chain.receipt_digest());
-    assert_eq!(
-        decoded.program_record_ops,
-        foreign_bundle.program_record_ops
-    );
-    assert_eq!(decoded.interface_ops, foreign_bundle.interface_ops);
-    assert_eq!(decoded.wind_down, foreign_bundle.wind_down);
-    assert_ne!(
-        fixture.chain.header.hash().expect("header hash"),
-        foreign.chain.header.hash().expect("foreign header hash")
-    );
-    assert_eq!(
-        foreign_verifier
-            .verify_current_program_bundle(&foreign_bundle, &foreign_chain, program(), NOW)
-            .expect("foreign bundle against its own chain")
-            .chain_head(),
-        &foreign_chain
-    );
-    assert_eq!(
-        verifier.verify_current_program_bundle(&decoded, &foreign_chain, program(), NOW),
-        Err(ProgramBundleError::ChainHeadMismatch)
-    );
-    assert_eq!(
-        foreign_verifier.verify_current_program_bundle(&foreign_bundle, &chain, program(), NOW),
-        Err(ProgramBundleError::ChainHeadMismatch)
-    );
-    assert_eq!(
-        verifier.verify_current_program_bundle(&foreign_bundle, &chain, program(), NOW),
-        Err(ProgramBundleError::Evidence(
-            ProtocolEvidenceError::StateRoot
-        ))
-    );
-    assert_eq!(
-        foreign_verifier.verify_current_program_bundle(&decoded, &foreign_chain, program(), NOW),
-        Err(ProgramBundleError::Evidence(
-            ProtocolEvidenceError::StateRoot
-        ))
-    );
+    verify_foreign_chain_refusals(&fixture, &verifier, &chain, &decoded);
 }
 
 #[test]
@@ -306,7 +327,7 @@ fn unauthorised_validators_and_wrong_program_are_refused() {
         )],
         STALENESS_MS,
     )
-    .expect("different validator trust");
+    .or_panic("different validator trust");
     assert_eq!(
         untrusted.verify_current_program_bundle(&bundle, &chain, program(), NOW),
         Err(ProgramBundleError::Evidence(
@@ -393,7 +414,11 @@ fn altered_head_or_state_material_is_refused() {
         Err(ProgramBundleError::Evidence(_))
     ));
     let mut value = ordinary_bundle(&fixture);
-    value.commitment.value.as_mut().expect("program record")[0] ^= 1;
+    value
+        .commitment
+        .value
+        .as_mut()
+        .unwrap_or_else(|| panic!("{}", "program record"))[0] ^= 1;
     assert_eq!(
         verify(&value),
         Err(ProgramBundleError::Evidence(
@@ -432,7 +457,7 @@ fn altered_head_or_state_material_is_refused() {
     no_neighbours
         .wind_down
         .as_mut()
-        .expect("wind-down proof")
+        .unwrap_or_else(|| panic!("{}", "wind-down proof"))
         .ops
         .clear();
     assert!(matches!(
@@ -443,7 +468,7 @@ fn altered_head_or_state_material_is_refused() {
     forged_neighbour
         .wind_down
         .as_mut()
-        .expect("wind-down proof")
+        .unwrap_or_else(|| panic!("{}", "wind-down proof"))
         .ops = fixture.interface_witness.proof;
     assert!(matches!(
         verify(&forged_neighbour),
@@ -490,13 +515,17 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
         .commitment
         .key
         .strip_prefix(module_prefix.as_slice())
-        .expect("programs module prefix");
+        .unwrap_or_else(|| panic!("{}", "programs module prefix"));
     let proof = ProtocolHeadProof {
         commitment: &state.commitment,
         chain: ChainProtocolHeadProof {
             ops: &state.commitment.proof_ops,
             kernel_key,
-            value: state.commitment.value.as_ref().expect("program record"),
+            value: state
+                .commitment
+                .value
+                .as_ref()
+                .unwrap_or_else(|| panic!("{}", "program record")),
             store_name: HOST_STORE_NAME,
             verifier: &fixture.chain.verifier,
             header: &fixture.chain.header,
@@ -507,7 +536,7 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
     };
     let protocol = verifier
         .verify_current_protocol_head(&proof, NOW)
-        .expect("protocol head");
+        .or_panic("protocol head");
     let chain = chain_head(&verifier, &fixture, ProgramHeadKind::Maintenance);
     assert_eq!(chain.head_kind(), ProgramHeadKind::Maintenance);
     let sha: [u8; 32] = Sha256::digest(&state.transaction).into();
@@ -518,16 +547,16 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
     assert_eq!(chain.receipt_digest(), protocol.receipt_digest());
     assert_eq!(chain.state_root(), protocol.state_root());
     assert_eq!(
-        fixture.chain.header.hash().expect("header hash"),
+        fixture.chain.header.hash().or_panic("header hash"),
         ChainHeader::decode(&proof.commitment.signed_header)
-            .expect("protocol committed header")
+            .or_panic("protocol committed header")
             .hash()
-            .expect("protocol header hash")
+            .or_panic("protocol header hash")
     );
     assert_eq!(chain.freshness(), protocol.freshness());
     assert_eq!(
         chain.freshness().observed_sequence,
-        u64::try_from(fixture.chain.header.height).expect("height")
+        u64::try_from(fixture.chain.header.height).or_panic("height")
     );
 }
 

@@ -2,7 +2,10 @@ use layerx_programs_sandbox::{sandbox_state_key, SandboxActivityRefusal};
 
 #[test]
 fn sandbox_state_key_matches_kernel_layout() {
-    let patterned_lease_id = std::array::from_fn(|index| index as u8);
+    let patterned_lease_id = std::array::from_fn(|index| match u8::try_from(index) {
+        Ok(byte) => byte,
+        Err(error) => panic!("32-byte index: {error}"),
+    });
     for lease_id in [[0xAB; 32], [0; 32], [0xFF; 32], patterned_lease_id] {
         for kind in 0..=2 {
             let mut expected = vec![0x01, 0x00, 0x09, b's', kind];

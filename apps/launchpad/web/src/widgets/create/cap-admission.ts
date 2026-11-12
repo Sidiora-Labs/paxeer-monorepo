@@ -33,8 +33,9 @@ export function runtimeCreationAdmission(authority:CreationAuthority,deployment:
   try{
    if(!Number.isFinite(authority.expiresAt)||Date.now()>=authority.expiresAt||authority.revision.revisionSha256!==deployment.revision||scope.chainId!==125||!Number.isSafeInteger(scope.epoch)||scope.epoch<0||address(draft.creator)!==address(scope.creator)||draft.chainId!==125)throw new Error('Committed creation authority expired or the reviewed deployment changed.');
    for(const [role,expected] of [['Router',deployment.router],['SidioraFactory',deployment.factory],['USDL',deployment.usdl],['ProtocolConfig',deployment.protocolConfig],['PoolRegistry',deployment.poolRegistry]] as const)if(address(authority.network.network.addresses[role]!)!==address(expected))throw new Error('Creation authority differs from the reviewed deployment.');
-   const native=authority.network.network.addresses.LaunchpadPrecompile;
-   if(address(deployment.usdlSpender)!==address(native!))throw new Error('Creation USDL spender differs from the reviewed deployment generation.');
+   const network=authority.network.network;
+   const spender=network.deploymentVersion==='private-fixture-creation125'?network.addresses.Router:network.addresses.LaunchpadPrecompile;
+   if(address(deployment.usdlSpender)!==address(spender!))throw new Error('Creation USDL spender differs from the reviewed deployment generation.');
    if(draft.opticalSelection!=='standard')throw new Error('Selected optical schema has not been admitted.');
    const signal=AbortSignal.timeout(15000);
    const capability=await readFreshCapability('pool_creation',signal);

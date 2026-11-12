@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
 )
 
 // IssueStepUp requires an existing authoritative session, but permits its proof to be older than five minutes.
@@ -19,10 +21,10 @@ func (s *Identity) IssueStepUp(ctx context.Context, p Principal, ip string) (Cha
 
 // VerifyStepUp returns a short-lived one-use action receipt, never a wallet capability.
 func (s *Identity) VerifyStepUp(ctx context.Context, p Principal, id string, proof WalletProof) (string, error) {
-	return s.verifyActionStepUp(ctx, p, id, proof, "step_up", "wallet_unlink")
+	return s.verifyActionStepUp(ctx, p, id, proof, "step_up", walletUnlinkEvent)
 }
 func (s *Identity) IssueActionStepUp(ctx context.Context, p Principal, ip, action string) (Challenge, error) {
-	if action != "account.delete" || net.ParseIP(ip) == nil {
+	if action != accountDeleteScope || net.ParseIP(ip) == nil {
 		return Challenge{}, invalid()
 	}
 	if err := s.CheckSocket(ctx, p); err != nil {
@@ -31,7 +33,7 @@ func (s *Identity) IssueActionStepUp(ctx context.Context, p Principal, ip, actio
 	return s.issue(ctx, p.wallet, "step_up:"+action, p.accountID, p.sessionID, "", ip)
 }
 func (s *Identity) VerifyActionStepUp(ctx context.Context, p Principal, id string, proof WalletProof, action string) (string, error) {
-	if action != "account.delete" {
+	if action != accountDeleteScope {
 		return "", invalid()
 	}
 	return s.verifyActionStepUp(ctx, p, id, proof, "step_up:"+action, action)
@@ -48,7 +50,7 @@ func (s *Identity) verifyActionStepUp(ctx context.Context, p Principal, id strin
 	if e != nil {
 		return "", unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	var epoch int64
 	e = tx.QueryRow(ctx, `SELECT auth_epoch FROM identity_accounts WHERE account_id=$1 FOR UPDATE`, p.accountID).Scan(&epoch)
 	if e != nil || epoch != p.epoch {
@@ -98,7 +100,7 @@ func (s *Identity) CollectExpired(ctx context.Context, limit int) error {
 	if e != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	for _, statement := range identityCollectionStatements {
 		if _, e = tx.Exec(ctx, statement, limit); e != nil {
 			return unavailable()

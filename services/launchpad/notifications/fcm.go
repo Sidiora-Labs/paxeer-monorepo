@@ -64,11 +64,11 @@ func NewFCM(c *Credentials, a TargetAuthority, ref string) (*FCM, error) {
 	}
 	return &FCM{c, a, ref, providerClient()}, nil
 }
-func (*FCM) Provider() string     { return "fcm" }
+func (*FCM) Provider() string     { return providerFCM }
 func (*FCM) MaxPayloadBytes() int { return 4096 }
 func (f *FCM) Send(ctx context.Context, target PushTarget, p Payload) (SendResult, error) {
-	unknown := SendResult{State: "unknown", Reason: "provider_uncertain"}
-	if target.Provider != "fcm" || target.Status != "active" || ValidatePayload(p, 4096) != nil || validateLink(p) != nil {
+	unknown := SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
+	if target.Provider != providerFCM || target.Status != targetActive || ValidatePayload(p, 4096) != nil || validateLink(p) != nil {
 		return unknown, ErrInvalid
 	}
 	raw, e := f.Credentials.Get(f.ServiceAccountRef)
@@ -87,7 +87,7 @@ func (f *FCM) Send(ctx context.Context, target PushTarget, p Payload) (SendResul
 		return unknown, ErrInvalid
 	}
 	now := time.Now()
-	header, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT"})
+	header, _ := json.Marshal(map[string]string{jwtAlgorithmField: "RS256", "typ": "JWT"})
 	claims, _ := json.Marshal(map[string]any{"iss": a.Email, "scope": "https://www.googleapis.com/auth/firebase.messaging", "aud": a.TokenURI, "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix()})
 	input := b64(header) + "." + b64(claims)
 	digest := sha256.Sum256([]byte(input))
@@ -106,7 +106,7 @@ func (f *FCM) Send(ctx context.Context, target PushTarget, p Payload) (SendResul
 		return unknown, e
 	}
 	if status != 200 {
-		return SendResult{State: "retry", Reason: "oauth_unavailable"}, nil
+		return SendResult{State: stateRetry, Reason: "oauth_unavailable"}, nil
 	}
 	var oauth struct {
 		Token string `json:"access_token"`
@@ -132,7 +132,7 @@ func (f *FCM) Send(ctx context.Context, target PushTarget, p Payload) (SendResul
 }
 
 func fcmResult(status int, body []byte) (SendResult, error) {
-	unknown := SendResult{State: "unknown", Reason: "provider_uncertain"}
+	unknown := SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
 	if status == 200 {
 		var accepted struct {
 			Name string `json:"name"`
@@ -140,7 +140,7 @@ func fcmResult(status int, body []byte) (SendResult, error) {
 		if e := json.Unmarshal(body, &accepted); e != nil || accepted.Name == "" {
 			return unknown, ErrUnavailable
 		}
-		return SendResult{State: "accepted", Receipt: accepted.Name}, nil
+		return SendResult{State: stateAccepted, Receipt: accepted.Name}, nil
 	}
 	var failure struct {
 		Error struct {
@@ -153,11 +153,11 @@ func fcmResult(status int, body []byte) (SendResult, error) {
 	_ = json.Unmarshal(body, &failure)
 	for _, detail := range failure.Error.Details {
 		if status == 404 && detail.Type == "type.googleapis.com/google.firebase.fcm.v1.FcmError" && detail.Code == "UNREGISTERED" {
-			return SendResult{State: "rejected", Reason: "UNREGISTERED", DisableTarget: true}, nil
+			return SendResult{State: stateRejected, Reason: "UNREGISTERED", DisableTarget: true}, nil
 		}
 	}
 	if status == 429 || status >= 500 {
-		return SendResult{State: "retry", Reason: "provider_unavailable"}, nil
+		return SendResult{State: stateRetry, Reason: reasonProviderUnavailable}, nil
 	}
-	return SendResult{State: "rejected", Reason: "provider_rejected"}, nil
+	return SendResult{State: stateRejected, Reason: reasonProviderRejected}, nil
 }

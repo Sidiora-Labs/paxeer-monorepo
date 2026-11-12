@@ -1,10 +1,10 @@
 #[path = "support/active_inputs.rs"]
-mod active_inputs;
+pub mod active_inputs;
 
 use layerx_platform_gateway::http;
 use serde_json::{json, Value};
 use std::fs;
-use std::net::TcpListener;
+use std::net::{SocketAddr, TcpListener};
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
@@ -49,17 +49,10 @@ fn run(program: &str, args: &[&str]) -> Output {
 }
 
 fn path(dir: &Path, name: &str) -> String {
-    dir.join(name).to_str().expect("utf-8 path").to_owned()
+    dir.join(name).to_str().or_panic("utf-8 path").to_owned()
 }
 
-fn fixture() -> Fixture {
-    let dir = std::env::temp_dir().join(format!(
-        "layerx-interop-plain-listener-{}-{}",
-        std::process::id(),
-        FIXTURES.fetch_add(1, Ordering::Relaxed)
-    ));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("fixture directory");
+fn prepare_certificates(dir: &Path) {
     run(
         "openssl",
         &[
@@ -77,9 +70,9 @@ fn fixture() -> Fixture {
             "-addext",
             "subjectAltName=DNS:localhost,IP:127.0.0.1",
             "-keyout",
-            &path(&dir, "key.pem"),
+            &path(dir, "key.pem"),
             "-out",
-            &path(&dir, "cert.pem"),
+            &path(dir, "cert.pem"),
         ],
     );
     run(
@@ -87,11 +80,11 @@ fn fixture() -> Fixture {
         &[
             "x509",
             "-in",
-            &path(&dir, "cert.pem"),
+            &path(dir, "cert.pem"),
             "-outform",
             "DER",
             "-out",
-            &path(&dir, "cert.der"),
+            &path(dir, "cert.der"),
         ],
     );
     run(
@@ -101,11 +94,11 @@ fn fixture() -> Fixture {
             "-topk8",
             "-nocrypt",
             "-in",
-            &path(&dir, "key.pem"),
+            &path(dir, "key.pem"),
             "-outform",
             "DER",
             "-out",
-            &path(&dir, "key.der"),
+            &path(dir, "key.der"),
         ],
     );
     run(
@@ -114,76 +107,22 @@ fn fixture() -> Fixture {
             "pkcs12",
             "-export",
             "-in",
-            &path(&dir, "cert.pem"),
+            &path(dir, "cert.pem"),
             "-inkey",
-            &path(&dir, "key.pem"),
+            &path(dir, "key.pem"),
             "-passout",
             "pass:interop-client-identity",
             "-out",
-            &path(&dir, "client.p12"),
+            &path(dir, "client.p12"),
         ],
     );
-    for (name, contents) in [
-        ("identity-password", "interop-client-identity\n"),
-        ("redis-username", "interop\n"),
-        ("redis-password", "interop-redis-password\n"),
-        (
-            "registry.json",
-            "{\"modules\":[{\"module\":1,\"ordinals\":[1]}]}",
-        ),
-    ] {
-        fs::write(dir.join(name), contents).expect("fixture file");
-    }
-    let public_key: String = ed25519_dalek::SigningKey::from_bytes(&[7; 32])
-        .verifying_key()
-        .to_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    let receipt_keys = json!([{
-        "keyId": format!("0x{}", "11".repeat(32)), "publicKey": format!("0x{public_key}"),
-        "firstHeight": 1, "lastHeight": 100,
-    }]);
-    fs::write(
-        dir.join("receipt-keys.json"),
-        serde_json::to_vec(&receipt_keys).unwrap(),
-    )
-    .unwrap();
-    let mut manifest: Value = serde_json::from_slice(include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../deploy/gateway/config.example.json"
-    )))
-    .unwrap();
-    manifest["x402_supported"] = json!({
-        "kinds": [{"x402Version": 2, "scheme": "exact", "network": "eip155:125"}],
-        "extensions": [], "signers": {"eip155:125": [format!("did:layerx:{public_key}")]}
-    });
-    let ap2_key = p256::ecdsa::SigningKey::from_bytes((&[9; 32]).into()).unwrap();
-    let ap2_public_key: String = ap2_key
-        .verifying_key()
-        .to_encoded_point(false)
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    for pin in manifest["ap2_keys"].as_array_mut().unwrap() {
-        pin["public_key_sec1"] = json!(ap2_public_key);
-    }
-    manifest["visa_agents"][0]["public_key"] = json!(public_key);
-    manifest["fiat_providers"][0]["public_key_ed25519"] = json!(public_key);
-    fs::write(
-        dir.join("config.json"),
-        serde_json::to_vec(&manifest).unwrap(),
-    )
-    .unwrap();
-    for entry in fs::read_dir(&dir).unwrap() {
-        fs::set_permissions(entry.unwrap().path(), fs::Permissions::from_mode(0o600)).unwrap();
-    }
-    fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
-    let sequencer = TcpListener::bind("127.0.0.1:0").unwrap();
-    sequencer.set_nonblocking(true).unwrap();
-    let sequencer_address = sequencer.local_addr().unwrap();
-    let lifetime = dir.clone();
+}
+
+fn spawn_sequencer(dir: &Path, receipt_keys: Value) -> SocketAddr {
+    let sequencer = TcpListener::bind("127.0.0.1:0").or_panic("test value");
+    sequencer.set_nonblocking(true).or_panic("test value");
+    let sequencer_address = sequencer.local_addr().or_panic("test value");
+    let lifetime = dir.to_path_buf();
     thread::spawn(move || {
         while lifetime.exists() {
             let (mut stream, _) = match sequencer.accept() {
@@ -196,15 +135,15 @@ fn fixture() -> Fixture {
             };
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            let request = http::read_request(&mut stream, 64 * 1024).unwrap();
-            let rpc: Value = serde_json::from_slice(&request.body).unwrap();
+                .or_panic("test value");
+            let request = http::read_request(&mut stream, 64 * 1024).or_panic("test value");
+            let rpc: Value = serde_json::from_slice(&request.body).or_panic("test value");
             assert_eq!(request.method, "POST");
             assert_eq!(rpc["method"], "px_getReceiptKeys");
             assert_eq!(rpc["params"], json!([]));
             let keys = json!({"keys": receipt_keys});
             layerx_client::sequencer::decode_receipt_keys(&keys)
-                .expect("sequencer publishes the canonical receipt-key response");
+                .or_panic("sequencer publishes the canonical receipt-key response");
             http::write_response(
                 &mut stream,
                 &http::OutgoingResponse {
@@ -214,17 +153,82 @@ fn fixture() -> Fixture {
                     body: serde_json::to_vec(
                         &json!({"jsonrpc": "2.0", "id": rpc["id"], "result": keys}),
                     )
-                    .unwrap(),
+                    .or_panic("test value"),
                     retry_after: None,
                 },
             )
-            .unwrap();
+            .or_panic("test value");
         }
     });
+    sequencer_address
+}
+
+fn fixture() -> Fixture {
+    let dir = std::env::temp_dir().join(format!(
+        "layerx-interop-plain-listener-{}-{}",
+        std::process::id(),
+        FIXTURES.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).or_panic("fixture directory");
+    prepare_certificates(&dir);
+    for (name, contents) in [
+        ("identity-password", "interop-client-identity\n"),
+        ("redis-username", "interop\n"),
+        ("redis-password", "interop-redis-password\n"),
+        (
+            "registry.json",
+            "{\"modules\":[{\"module\":1,\"ordinals\":[1]}]}",
+        ),
+    ] {
+        fs::write(dir.join(name), contents).or_panic("fixture file");
+    }
+    let public_key: String = hex(&ed25519_dalek::SigningKey::from_bytes(&[7; 32])
+        .verifying_key()
+        .to_bytes());
+    let receipt_keys = json!([{
+        "keyId": format!("0x{}", "11".repeat(32)), "publicKey": format!("0x{public_key}"),
+        "firstHeight": 1, "lastHeight": 100,
+    }]);
+    fs::write(
+        dir.join("receipt-keys.json"),
+        serde_json::to_vec(&receipt_keys).or_panic("test value"),
+    )
+    .or_panic("test value");
+    let mut manifest: Value = serde_json::from_slice(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../deploy/gateway/config.example.json"
+    )))
+    .or_panic("test value");
+    manifest["x402_supported"] = json!({
+        "kinds": [{"x402Version": 2, "scheme": "exact", "network": "eip155:125"}],
+        "extensions": [], "signers": {"eip155:125": [format!("did:layerx:{public_key}")]}
+    });
+    let ap2_key = p256::ecdsa::SigningKey::from_bytes((&[9; 32]).into()).or_panic("test value");
+    let ap2_public_key: String = hex(ap2_key.verifying_key().to_encoded_point(false).as_bytes());
+    for pin in manifest["ap2_keys"].as_array_mut().or_panic("test value") {
+        pin["public_key_sec1"] = json!(ap2_public_key);
+    }
+    manifest["visa_agents"][0]["public_key"] = json!(public_key);
+    manifest["fiat_providers"][0]["public_key_ed25519"] = json!(public_key);
+    fs::write(
+        dir.join("config.json"),
+        serde_json::to_vec(&manifest).or_panic("test value"),
+    )
+    .or_panic("test value");
+    for entry in fs::read_dir(&dir).or_panic("test value") {
+        fs::set_permissions(
+            entry.or_panic("test value").path(),
+            fs::Permissions::from_mode(0o600),
+        )
+        .or_panic("test value");
+    }
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).or_panic("test value");
+    let sequencer_address = spawn_sequencer(&dir, receipt_keys);
     let port = TcpListener::bind("127.0.0.1:0")
-        .expect("free port")
+        .or_panic("free port")
         .local_addr()
-        .expect("local address")
+        .or_panic("local address")
         .port();
     Fixture {
         dir,
@@ -291,13 +295,13 @@ fn start(fixture: &Fixture, extra: &[(&str, String)]) -> Gateway {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("interop gateway starts");
+        .or_panic("interop gateway starts");
     Gateway(child)
 }
 
 fn livez(gateway: &mut Gateway, curl: &[String]) -> String {
     for _ in 0..200 {
-        if let Some(status) = gateway.0.try_wait().expect("child status") {
+        if let Some(status) = gateway.0.try_wait().or_panic("child status") {
             let output = gateway
                 .0
                 .stderr
@@ -309,7 +313,10 @@ fn livez(gateway: &mut Gateway, curl: &[String]) -> String {
                 });
             panic!("interop gateway exited with {status}: {output}");
         }
-        let output = Command::new("curl").args(curl).output().expect("curl runs");
+        let output = Command::new("curl")
+            .args(curl)
+            .output()
+            .or_panic("curl runs");
         let text = String::from_utf8_lossy(&output.stdout).into_owned();
         if output.status.success() && text.ends_with("200") {
             return text;
@@ -395,14 +402,14 @@ fn default_listener_answers_livez_over_tls() {
             &format!("http://127.0.0.1:{}/livez", fixture.port),
         ])
         .output()
-        .expect("curl runs");
+        .or_panic("curl runs");
     assert_ne!(String::from_utf8_lossy(&plain.stdout), "200");
 }
 
 fn refused(fixture: &Fixture, extra: &[(&str, String)]) -> String {
     let output = gateway(fixture, extra)
         .output()
-        .expect("interop gateway runs");
+        .or_panic("interop gateway runs");
     assert!(!output.status.success(), "gateway accepted {extra:?}");
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
@@ -442,4 +449,36 @@ fn plain_listener_refuses_tls_material_and_unknown_modes() {
         stderr.contains("LAYERX_INTEROP_LISTENER must be tls or plain"),
         "{stderr}"
     );
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }

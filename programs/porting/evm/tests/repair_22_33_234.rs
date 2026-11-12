@@ -21,11 +21,11 @@ const RECIPIENT: [u8; 32] = [42; 32];
 const PRICE: u64 = 17;
 
 fn program() -> ProgramId {
-    ProgramId::new([31; 32]).expect("program")
+    ProgramId::new([31; 32]).unwrap_or_else(|error| panic!("program: {error:?}"))
 }
 
 fn principal() -> PrincipalId {
-    PrincipalId::new([32; 32]).expect("principal")
+    PrincipalId::new([32; 32]).unwrap_or_else(|error| panic!("principal: {error:?}"))
 }
 
 fn port(price: u64, asset: [u8; 32], recipient: [u8; 32]) -> SharedSupplyPort {
@@ -36,7 +36,7 @@ fn port(price: u64, asset: [u8; 32], recipient: [u8; 32]) -> SharedSupplyPort {
         },
         recipient,
     )
-    .expect("validated terms")
+    .unwrap_or_else(|error| panic!("validated terms: {error:?}"))
 }
 
 fn reopen(storage: Storage) -> Storage {
@@ -48,19 +48,19 @@ fn reopen(storage: Storage) -> Storage {
     ));
     let encoded = storage
         .replay_state_bytes(STATE_LIMIT)
-        .expect("encode storage");
-    std::fs::write(&path, &encoded).expect("persist storage");
+        .unwrap_or_else(|error| panic!("encode storage: {error:?}"));
+    std::fs::write(&path, &encoded).unwrap_or_else(|error| panic!("persist storage: {error:?}"));
     drop(storage);
     let recovered = Storage::decode_untrusted_replay_state(
-        &std::fs::read(&path).expect("read durable state"),
+        &std::fs::read(&path).unwrap_or_else(|error| panic!("read durable state: {error:?}")),
         STATE_LIMIT,
     )
-    .expect("recover storage");
-    std::fs::remove_file(path).expect("remove checkpoint");
+    .unwrap_or_else(|error| panic!("recover storage: {error:?}"));
+    std::fs::remove_file(path).unwrap_or_else(|error| panic!("remove checkpoint: {error:?}"));
     assert_eq!(
         recovered
             .replay_state_bytes(STATE_LIMIT)
-            .expect("canonical state"),
+            .unwrap_or_else(|error| panic!("canonical state: {error:?}")),
         encoded
     );
     recovered
@@ -74,20 +74,23 @@ struct NativeToken {
 
 impl NativeToken {
     fn new(port: SharedSupplyPort) -> Self {
-        let deployment = port.deployment_for_terms(program()).expect("deployment");
+        let deployment = port
+            .deployment_for_terms(program())
+            .unwrap_or_else(|error| panic!("deployment: {error:?}"));
         assert_eq!(deployment.abi_version, ABI_V2_VERSION);
         assert_eq!(
             deployment.wasm,
-            port.code_for_terms().expect("deterministic code")
+            port.code_for_terms()
+                .unwrap_or_else(|error| panic!("deterministic code: {error:?}"))
         );
-        let engine = WasmEngine::declared().expect("engine");
+        let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error:?}"));
         let module = engine
             .validate_versioned(deployment.abi_version, &deployment.wasm)
-            .expect("native module");
+            .unwrap_or_else(|error| panic!("native module: {error:?}"));
         let receipt = Lifecycle::declared()
-            .expect("lifecycle")
+            .unwrap_or_else(|error| panic!("lifecycle: {error:?}"))
             .deploy(deployment)
-            .expect("deploy");
+            .unwrap_or_else(|error| panic!("deploy: {error:?}"));
         assert_eq!(receipt.program(), program());
         Self {
             port,
@@ -117,12 +120,14 @@ impl NativeToken {
                     response_capacity: capacity,
                 },
             )
-            .expect("native activity")
+            .unwrap_or_else(|error| panic!("native activity: {error:?}"))
     }
 
     fn mint(&mut self, amount: u64) -> V2AuthorizedExecutionRecord {
         self.invoke(
-            self.port.mint_capabilities(amount).expect("mint grants"),
+            self.port
+                .mint_capabilities(amount)
+                .unwrap_or_else(|error| panic!("mint grants: {error:?}")),
             MINT_ENTRY_EXPORT,
             &amount.to_be_bytes(),
             32,
@@ -142,19 +147,22 @@ impl NativeToken {
             )
         };
         let mut tx = self.storage.transaction(namespace);
-        tx.write(&key, value).expect("seed migration state");
+        tx.write(&key, value)
+            .unwrap_or_else(|error| panic!("seed migration state: {error:?}"));
         assert_eq!(tx.commit(), 1);
     }
 
     fn views(&mut self, supply: u64, balance: u64) {
         for (grants, entry, expected) in [
             (
-                SharedSupplyPort::supply_query_capabilities().expect("supply grants"),
+                SharedSupplyPort::supply_query_capabilities()
+                    .unwrap_or_else(|error| panic!("supply grants: {error:?}")),
                 TOTAL_SUPPLY_ENTRY_EXPORT,
                 supply,
             ),
             (
-                SharedSupplyPort::balance_query_capabilities().expect("balance grants"),
+                SharedSupplyPort::balance_query_capabilities()
+                    .unwrap_or_else(|error| panic!("balance grants: {error:?}")),
                 BALANCE_OF_ENTRY_EXPORT,
                 balance,
             ),
@@ -167,7 +175,9 @@ impl NativeToken {
 
     fn refuses(&mut self, amount: u64, grants: CapabilitySet, capacity: usize) {
         let before = self.storage.clone();
-        let bytes = before.replay_state_bytes(STATE_LIMIT).expect("before");
+        let bytes = before
+            .replay_state_bytes(STATE_LIMIT)
+            .unwrap_or_else(|error| panic!("before: {error:?}"));
         let record = self.invoke(grants, MINT_ENTRY_EXPORT, &amount.to_be_bytes(), capacity);
         assert!(
             matches!(record.outcome(), V2ActivityOutcome::Failure(_)),
@@ -175,7 +185,9 @@ impl NativeToken {
         );
         assert_eq!(self.storage, before, "failed mint published storage");
         assert_eq!(
-            self.storage.replay_state_bytes(STATE_LIMIT).expect("after"),
+            self.storage
+                .replay_state_bytes(STATE_LIMIT)
+                .unwrap_or_else(|error| panic!("after: {error:?}")),
             bytes
         );
     }
@@ -214,16 +226,23 @@ fn grants(
             maximum_amount,
         });
     }
-    CapabilitySet::new(capabilities).expect("capabilities")
+    CapabilitySet::new(capabilities).unwrap_or_else(|error| panic!("capabilities: {error:?}"))
 }
 
 #[test]
 fn evm_partial_import_invalid_final_cell_reopen_and_retry() {
     let holders = [
-        (Address::new([1; 20]).expect("holder"), principal().bytes()),
-        (Address::new([2; 20]).expect("holder"), [33; 32]),
+        (
+            Address::new([1; 20]).unwrap_or_else(|error| panic!("holder: {error:?}")),
+            principal().bytes(),
+        ),
+        (
+            Address::new([2; 20]).unwrap_or_else(|error| panic!("holder: {error:?}")),
+            [33; 32],
+        ),
     ];
-    let cells = caller_indexed_import(1, &holders).expect("real import producer");
+    let cells = caller_indexed_import(1, &holders)
+        .unwrap_or_else(|error| panic!("real import producer: {error:?}"));
     let original = Word::from_u64(3).bytes();
     let mut storage = Storage::new();
     assert_eq!(
@@ -244,7 +263,7 @@ fn evm_partial_import_invalid_final_cell_reopen_and_retry() {
         recovered
             .transaction(StorageNamespace::principal(program(), principal()))
             .read(&cells[0].layerx_key)
-            .expect("old cell"),
+            .unwrap_or_else(|error| panic!("old cell: {error:?}")),
         Some(original.to_vec())
     );
     plan[1].0 = cells[1];
@@ -253,13 +272,13 @@ fn evm_partial_import_invalid_final_cell_reopen_and_retry() {
     for (cell, value) in &plan {
         let namespace = StorageNamespace::principal(
             program(),
-            PrincipalId::new(cell.principal).expect("owner"),
+            PrincipalId::new(cell.principal).unwrap_or_else(|error| panic!("owner: {error:?}")),
         );
         assert_eq!(
             recovered
                 .transaction(namespace)
                 .read(&cell.layerx_key)
-                .expect("imported cell"),
+                .unwrap_or_else(|error| panic!("imported cell: {error:?}")),
             Some(value.to_vec())
         );
     }
@@ -271,7 +290,14 @@ fn evm_partial_import_invalid_final_cell_reopen_and_retry() {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }
 
 #[test]
@@ -336,7 +362,7 @@ fn unsupported_solidity_signatures_refuse_dynamic_compound_and_malformed() {
         for kind in ["int", "uint"] {
             assert_eq!(
                 MethodAbi::new(&format!("f({kind}{width})"))
-                    .expect("scalar")
+                    .unwrap_or_else(|error| panic!("scalar: {error:?}"))
                     .parameters(),
                 1
             );
@@ -345,22 +371,22 @@ fn unsupported_solidity_signatures_refuse_dynamic_compound_and_malformed() {
     for width in 1..=32 {
         assert_eq!(
             EventAbi::new(&format!("E(bytes{width})"))
-                .expect("fixed bytes")
+                .unwrap_or_else(|error| panic!("fixed bytes: {error:?}"))
                 .arguments(),
             1
         );
     }
     assert_eq!(
         MethodAbi::new("_f$(address,bool)")
-            .expect("identifier")
+            .unwrap_or_else(|error| panic!("identifier: {error:?}"))
             .parameters(),
         2
     );
     assert_eq!(
         MethodAbi::new("f()")
-            .expect("no arguments")
+            .unwrap_or_else(|error| panic!("no arguments: {error:?}"))
             .calldata(&[])
-            .expect("calldata")
+            .unwrap_or_else(|error| panic!("calldata: {error:?}"))
             .len(),
         4
     );
@@ -368,11 +394,14 @@ fn unsupported_solidity_signatures_refuse_dynamic_compound_and_malformed() {
 
 #[test]
 fn supported_solidity_selector_calldata_and_event_vectors() {
-    let method = MethodAbi::new("transfer(address,uint256)").expect("transfer");
+    let method = MethodAbi::new("transfer(address,uint256)")
+        .unwrap_or_else(|error| panic!("transfer: {error:?}"));
     assert_eq!(hex(&method.selector()), "a9059cbb");
-    let address = Word::from_address(Address::new([0x11; 20]).expect("address"));
-    let request =
-        external_call(program(), &method, &[address, Word::from_u64(7)]).expect("external call");
+    let address = Word::from_address(
+        Address::new([0x11; 20]).unwrap_or_else(|error| panic!("address: {error:?}")),
+    );
+    let request = external_call(program(), &method, &[address, Word::from_u64(7)])
+        .unwrap_or_else(|error| panic!("external call: {error:?}"));
     assert_eq!(request.callee, program());
     assert_eq!(request.authority, Capability::Call { program: program() });
     assert_eq!(
@@ -385,7 +414,7 @@ fn supported_solidity_selector_calldata_and_event_vectors() {
     );
     assert_eq!(
         hex(&MethodAbi::new("balanceOf(address)")
-            .expect("balance")
+            .unwrap_or_else(|error| panic!("balance: {error:?}"))
             .selector()),
         "70a08231"
     );
@@ -393,13 +422,16 @@ fn supported_solidity_selector_calldata_and_event_vectors() {
         method.calldata(&[]),
         Err(PortRefusal::ArgumentCountMismatch)
     );
-    let event = EventAbi::envelope_derived("Transfer(address,address,uint256)", 2).expect("event");
+    let event = EventAbi::envelope_derived("Transfer(address,address,uint256)", 2)
+        .unwrap_or_else(|error| panic!("event: {error:?}"));
     assert_eq!(
         hex(&event.topic()),
         "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
     );
     assert_eq!(
-        event.data(&[Word::from_u64(7)]).expect("event data"),
+        event
+            .data(&[Word::from_u64(7)])
+            .unwrap_or_else(|error| panic!("event data: {error:?}")),
         Word::from_u64(7).bytes()
     );
 }
@@ -407,7 +439,9 @@ fn supported_solidity_selector_calldata_and_event_vectors() {
 #[test]
 fn shared_supply_payment_pins_terms_and_native_paid_mint() {
     let configured = port(PRICE, ASSET, RECIPIENT);
-    let code = configured.code_for_terms().expect("code");
+    let code = configured
+        .code_for_terms()
+        .unwrap_or_else(|error| panic!("code: {error:?}"));
     for alternate in [
         port(PRICE + 1, ASSET, RECIPIENT),
         port(PRICE, [43; 32], RECIPIENT),
@@ -417,7 +451,7 @@ fn shared_supply_payment_pins_terms_and_native_paid_mint() {
             code,
             alternate
                 .code_for_terms()
-                .expect("changed terms change code")
+                .unwrap_or_else(|error| panic!("changed terms change code: {error:?}"))
         );
     }
     let mut token = NativeToken::new(configured);
@@ -466,7 +500,10 @@ fn shared_supply_payment_insufficient_authority_and_late_failure_rollback() {
     // Response publication fails after both writes, the transfer, and the event.
     token.refuses(
         amount,
-        token.port.mint_capabilities(amount).expect("grants"),
+        token
+            .port
+            .mint_capabilities(amount)
+            .unwrap_or_else(|error| panic!("grants: {error:?}")),
         0,
     );
     token.storage = reopen(token.storage);
@@ -512,7 +549,14 @@ fn shared_supply_overflow_boundaries_and_independent_balance_check() {
     token.write(false, &Word::from_u64(u64::MAX - 1).bytes());
     success(&token.mint(1), MAX_SUPPLY);
     token.views(MAX_SUPPLY, u64::MAX);
-    token.refuses(1, token.port.mint_capabilities(1).expect("grants"), 32);
+    token.refuses(
+        1,
+        token
+            .port
+            .mint_capabilities(1)
+            .unwrap_or_else(|error| panic!("grants: {error:?}")),
+        32,
+    );
     for amount in [0, MAX_SUPPLY + 1, i64::MAX as u64, 1_u64 << 63, u64::MAX] {
         let mut token = NativeToken::new(port(PRICE, ASSET, RECIPIENT));
         token.write(true, &Word::from_u64(1).bytes());
@@ -521,12 +565,26 @@ fn shared_supply_overflow_boundaries_and_independent_balance_check() {
     }
     let mut token = NativeToken::new(port(PRICE, ASSET, RECIPIENT));
     token.write(false, &Word::from_u64(u64::MAX).bytes());
-    token.refuses(1, token.port.mint_capabilities(1).expect("grants"), 32);
+    token.refuses(
+        1,
+        token
+            .port
+            .mint_capabilities(1)
+            .unwrap_or_else(|error| panic!("grants: {error:?}")),
+        32,
+    );
     token.views(0, u64::MAX);
     for supply in [MAX_SUPPLY + 1, i64::MAX as u64, u64::MAX] {
         let mut token = NativeToken::new(port(PRICE, ASSET, RECIPIENT));
         token.write(true, &Word::from_u64(supply).bytes());
-        token.refuses(1, token.port.mint_capabilities(1).expect("grants"), 32);
+        token.refuses(
+            1,
+            token
+                .port
+                .mint_capabilities(1)
+                .unwrap_or_else(|error| panic!("grants: {error:?}")),
+            32,
+        );
     }
 }
 
@@ -543,15 +601,24 @@ fn shared_supply_overflow_malformed_stored_words_roll_back() {
             let mut token = NativeToken::new(port(PRICE, ASSET, RECIPIENT));
             token.write(shared, value);
             let before = token.storage.clone();
-            token.refuses(1, token.port.mint_capabilities(1).expect("grants"), 32);
+            token.refuses(
+                1,
+                token
+                    .port
+                    .mint_capabilities(1)
+                    .unwrap_or_else(|error| panic!("grants: {error:?}")),
+                32,
+            );
             let (capabilities, entry) = if shared {
                 (
-                    SharedSupplyPort::supply_query_capabilities().expect("grants"),
+                    SharedSupplyPort::supply_query_capabilities()
+                        .unwrap_or_else(|error| panic!("grants: {error:?}")),
                     TOTAL_SUPPLY_ENTRY_EXPORT,
                 )
             } else {
                 (
-                    SharedSupplyPort::balance_query_capabilities().expect("grants"),
+                    SharedSupplyPort::balance_query_capabilities()
+                        .unwrap_or_else(|error| panic!("grants: {error:?}")),
                     BALANCE_OF_ENTRY_EXPORT,
                 )
             };

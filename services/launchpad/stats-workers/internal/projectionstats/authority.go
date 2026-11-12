@@ -7,15 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/jackc/pgx/v5"
 	"math/big"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,7 +50,7 @@ type CoreReceiptAuthority struct {
 }
 
 func pinnedCoreFile(directory, name string) ([]byte, error) {
-	b, e := os.ReadFile(filepath.Join(directory, name))
+	b, e := readFileWithinPath(filepath.Join(directory, name))
 	if e != nil {
 		return nil, e
 	}
@@ -263,16 +263,16 @@ func OpenHistoricalCoreAuthority(directory string) (*CoreReceiptAuthority, error
 				return nil, ErrIntegrity
 			}
 			paid, output, fee := v["amountIn"].(*big.Int).String(), v["amountOut"].(*big.Int).String(), v["fee"].(*big.Int).String()
-			t := Trade{PoolAddress: pool, Sender: strings.ToLower(v["sender"].(common.Address).Hex()), Side: "sell", TokenAmountRaw: paid, USDLAmountRaw: output,
+			t := Trade{PoolAddress: pool, Sender: strings.ToLower(v["sender"].(common.Address).Hex()), Side: valueSell, TokenAmountRaw: paid, USDLAmountRaw: output,
 				Position: Position{"125", strconv.FormatUint(r.BlockNumber, 10), strconv.FormatUint(r.Index, 10), strconv.FormatUint(l.Index, 10), strings.ToLower(r.Hash), strings.ToLower(r.BlockHash)},
-				FeeRaw:   fee, FeeAssetAddress: assets.Token, FeeAssetDecimals: assets.TokenDecimals, FeeDisposition: "retained_token_reserve", PaidInputRaw: &paid, InputDerivationQuality: "receipt_incomplete", RecipientAttribution: "unavailable", RecipientEvidenceRefs: []string{}, EmittingContract: emitter, CodeEpoch: epoch}
+				FeeRaw:   fee, FeeAssetAddress: assets.Token, FeeAssetDecimals: assets.TokenDecimals, FeeDisposition: valueRetainedTokenReserve, PaidInputRaw: &paid, InputDerivationQuality: "receipt_incomplete", RecipientAttribution: valueUnavailable, RecipientEvidenceRefs: []string{}, EmittingContract: emitter, CodeEpoch: epoch}
 			if v["isBuy"].(bool) {
-				t.Side = "buy"
+				t.Side = valueBuy
 				t.TokenAmountRaw = output
 				t.USDLAmountRaw = paid
 				t.FeeAssetAddress = assets.USDL
 				t.FeeAssetDecimals = 6
-				t.FeeDisposition = "distributed_usdl"
+				t.FeeDisposition = valueDistributedUsdl
 			}
 			t.EventID = t.Position.Identity()
 			if old, exists := out.admitted[t.EventID]; exists {
@@ -399,7 +399,7 @@ func (a *AccountingSourceAuthority) OriginalTx(ctx context.Context, tx pgx.Tx, p
 }
 
 func (a *AccountingSourceAuthority) ResolveTx(ctx context.Context, tx pgx.Tx, p accounting.PublicationV1, consumerVersion string) (QualifiedApplyInput, error) {
-	if p.Facet != "market" || p.Fill == nil {
+	if p.Facet != valueMarket || p.Fill == nil {
 		return QualifiedApplyInput{}, ErrInvalid
 	}
 	f, err := a.OriginalTx(ctx, tx, p)
@@ -423,11 +423,11 @@ func qualifiedInput(f accounting.FillV1, consumerVersion, projectionVersion stri
 	}
 	paid := f.PaidInputRaw
 	feeAsset, feeDecimals := f.Token.Address, int(f.Token.Decimals)
-	if f.Side == "buy" {
+	if f.Side == valueBuy {
 		feeAsset, feeDecimals = f.Settlement.Address, int(f.Settlement.Decimals)
 	}
 	refs := []string{}
-	attribution := "unavailable"
+	attribution := valueUnavailable
 	var recipient *string
 	if f.Attribution.Recipient != nil {
 		r := *f.Attribution.Recipient
@@ -454,7 +454,7 @@ func qualifiedInput(f accounting.FillV1, consumerVersion, projectionVersion stri
 	}
 	policy := QualifiedAccountingPolicy{AuthorityEvidenceDigest: string(sourceDigest), tradeDigest: Digest(trade), blockTimestamp: timestamp, assets: assets}
 	if f.Execution.FeeBPS != nil {
-		if f.Execution.Quality == "unavailable" || f.Execution.ReplayEvidenceDigest == nil {
+		if f.Execution.Quality == valueUnavailable || f.Execution.ReplayEvidenceDigest == nil {
 			return QualifiedApplyInput{}, ErrIntegrity
 		}
 		bps := *f.Execution.FeeBPS

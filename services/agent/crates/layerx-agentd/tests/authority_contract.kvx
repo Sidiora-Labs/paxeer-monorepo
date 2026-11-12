@@ -1,0 +1,3 @@
+[authority_contract]
+member = "layerx-platform-authority"
+consumer = "Agent integration cases verify committed membership and budget state with authority readers."

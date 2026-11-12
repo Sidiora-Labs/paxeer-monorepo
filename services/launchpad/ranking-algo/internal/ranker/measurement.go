@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -49,7 +50,11 @@ func ReadBoundFile(file BoundFile, maximum int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			slog.Warn("ranking measurement file close failed", "error", closeErr)
+		}
+	}()
 	raw, err := io.ReadAll(io.LimitReader(f, maximum+1))
 	if err != nil || int64(len(raw)) > maximum {
 		return nil, ErrUnavailable
@@ -186,8 +191,8 @@ func MeasureHistoricalReplay(sample HistoricalReplaySample) (ReplayMeasurement, 
 	}
 	start := time.Now()
 	var dependency *Snapshot
-	if sample.Category == "movers" {
-		trending, e := BuildSnapshot(in, "trending", nil)
+	if sample.Category == categoryMovers {
+		trending, e := BuildSnapshot(in, categoryTrending, nil)
 		if e != nil {
 			return out, e
 		}

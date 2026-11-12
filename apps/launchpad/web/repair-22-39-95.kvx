@@ -1,0 +1,7 @@
+[launchpad_tests]
+wallet = "Web wallet journeys use the SDK boundary with recorded producer responses and owned chain receipts."
+market = "The pool snapshot keeps pool detail, verified token supply, decimals and statistics when optional token metadata cannot be read. Metadata views show their empty state."
+chart = "Chart recovery checks canonical candles, confirmed trade markers, revisions and market capitalisation against the joined chain and services. Development candles value historical supply at their source blocks through the configured chain RPC; production candles use the chart valuation service. An empty older history window leaves the current series revision intact. Confirmed markers reconcile as trade projection catches up. The viewport returns after the new chart series loads, and the decorative shell filter leaves touch controls interactive."
+journeys = "Creation, trading and advanced journeys use the same owned deployment and assert admitted chain actions."
+mobile = "Mobile configuration reads the deployment manifest digest; offline cache cases assert expiration, capacity and reader isolation."
+qualification = "The web suite prepares its owned chain, dependencies and service inputs before running; the mobile suite follows it."

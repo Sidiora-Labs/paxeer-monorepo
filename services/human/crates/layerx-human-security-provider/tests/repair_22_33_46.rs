@@ -1,5 +1,7 @@
 #[path = "support/chain.rs"]
+#[allow(dead_code)]
 mod chain;
+#[allow(dead_code)]
 mod support;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};

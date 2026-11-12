@@ -56,6 +56,7 @@ SERVICE_PACKAGES = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/store',
     },
     'stats-workers': {
+        'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/cmd/stats-migrate',
         'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/cmd/statsd',
         'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics',
         'github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/app',
@@ -75,6 +76,7 @@ SERVICE_PACKAGES = {
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/cmd/charts-measure',
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/cmd/charts-rebuild',
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/cmd/chartsd',
+        'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/development',
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/integration',
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/app',
         'github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread',

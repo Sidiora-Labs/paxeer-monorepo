@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
@@ -47,7 +49,7 @@ func validSourceID(id string) bool {
 		return false
 	}
 	for _, c := range id {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' && c != '.' {
 			return false
 		}
 	}
@@ -116,8 +118,8 @@ func NewCommittedPaxscan(ctx context.Context, dsn string, o CommittedPaxscanOpti
 	return source, nil
 }
 func (s *CommittedPaxscanSource) validateSchema(ctx context.Context) error {
-	expected := map[string][]string{"logs": {"address_hash", "first_topic", "second_topic", "third_topic", "fourth_topic", "data", "transaction_hash", "block_hash", "block_number", "index", "transaction_index"}, "blocks": {"number", "hash", "parent_hash", "timestamp", "consensus"}, "transactions": {"hash", "block_hash", "from_address_hash", "index"}}
-	rows, err := s.pool.Query(ctx, `SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND table_name=ANY($1::text[])`, []string{"logs", "blocks", "transactions"})
+	expected := map[string][]string{valueLogs: {"address_hash", "first_topic", "second_topic", "third_topic", "fourth_topic", "data", "transaction_hash", "block_hash", "block_number", valueIndex, "transaction_index"}, valueBlocks: {"number", "hash", "parent_hash", "timestamp", "consensus"}, valueTransactions: {"hash", "block_hash", "from_address_hash", valueIndex}}
+	rows, err := s.pool.Query(ctx, `SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND table_name=ANY($1::text[])`, []string{valueLogs, valueBlocks, valueTransactions})
 	if err != nil {
 		return sourceError(IdentityError, s.Name(), nil)
 	}
@@ -138,20 +140,20 @@ func (s *CommittedPaxscanSource) validateSchema(ctx context.Context) error {
 			kind := columns[table+"."+column]
 			want := "bytea"
 			switch column {
-			case "number", "block_number", "index", "transaction_index":
+			case "number", "block_number", valueIndex, "transaction_index":
 				want = "integer"
 			case "timestamp":
 				want = "timestamp with time zone"
 			case "consensus":
 				want = "boolean"
 			}
-			if kind != want && !(want == "integer" && kind == "bigint") {
+			if kind != want && (want != "integer" || kind != "bigint") {
 				return sourceError(InvalidError, s.Name(), fmt.Errorf("unsupported schema column %s.%s", table, column))
 			}
 		}
 	}
 	var readable bool
-	if err = s.pool.QueryRow(ctx, `SELECT bool_and(has_table_privilege(current_user,c.oid,'SELECT')) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY($1::text[])`, []string{"logs", "blocks", "transactions"}).Scan(&readable); err != nil || !readable {
+	if err = s.pool.QueryRow(ctx, `SELECT bool_and(has_table_privilege(current_user,c.oid,'SELECT')) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname=ANY($1::text[])`, []string{valueLogs, valueBlocks, valueTransactions}).Scan(&readable); err != nil || !readable {
 		return sourceError(IdentityError, s.Name(), nil)
 	}
 	return nil
@@ -244,7 +246,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	if err != nil {
 		return empty, sourceError(IncompleteError, s.Name(), nil)
 	}
-	defer tx.Rollback(context.Background())
+	defer checked.Rollback(tx, context.Background())
 	var indexed *int64
 	if err = tx.QueryRow(read, paxscanHeadSQL).Scan(&indexed); err != nil || indexed == nil || *indexed < o.ToBlock {
 		return empty, sourceError(IncompleteError, s.Name(), nil)
@@ -262,19 +264,19 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 			blockRows.Close()
 			return empty, sourceError(IncompleteError, s.Name(), nil)
 		}
-		if _, ok := result.Blocks[uint64(height)]; ok {
+		if _, ok := result.Blocks[uint64(height)]; ok { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			blockRows.Close()
 			return empty, sourceError(IntegrityError, s.Name(), nil)
 		}
-		result.Blocks[uint64(height)] = BlockRecord{ChainID: 125, Height: uint64(height), Hash: common.BytesToHash(hash), ParentHash: common.BytesToHash(parent), TimestampSeconds: ts, SourceID: s.Name()}
-		result.BlockTimestamps[uint64(height)] = ts
+		result.Blocks[uint64(height)] = BlockRecord{ChainID: 125, Height: uint64(height), Hash: common.BytesToHash(hash), ParentHash: common.BytesToHash(parent), TimestampSeconds: ts, SourceID: s.Name()} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		result.BlockTimestamps[uint64(height)] = ts                                                                                                                                                         //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 	}
 	err = blockRows.Err()
 	blockRows.Close()
 	if err != nil || len(result.Blocks) != int(o.ToBlock-o.FromBlock+1) {
 		return empty, sourceError(IncompleteError, s.Name(), nil)
 	}
-	for height := uint64(o.FromBlock) + 1; height <= uint64(o.ToBlock); height++ {
+	for height := uint64(o.FromBlock) + 1; height <= uint64(o.ToBlock); height++ { //nolint:gosec // validated fetch range uses unsigned chain heights
 		if result.Blocks[height].ParentHash != result.Blocks[height-1].Hash {
 			return empty, sourceError(IntegrityError, s.Name(), nil)
 		}
@@ -355,7 +357,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				}
 				topics = append(topics, common.BytesToHash(topic))
 			}
-			log := ethtypes.Log{Address: common.BytesToAddress(address), Topics: topics, Data: append([]byte{}, data...), BlockNumber: uint64(height), BlockHash: common.BytesToHash(block), TxHash: common.BytesToHash(hash), TxIndex: uint(txIndex), Index: uint(index)}
+			log := ethtypes.Log{Address: common.BytesToAddress(address), Topics: topics, Data: append([]byte{}, data...), BlockNumber: uint64(height), BlockHash: common.BytesToHash(block), TxHash: common.BytesToHash(hash), TxIndex: uint(txIndex), Index: uint(index)} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			origin, ok := origins[log.TxHash]
 			key := fmt.Sprintf("%s/%s/%d", log.BlockHash, log.TxHash, log.Index)
 			if !filter.active(log) || !ok || origin.block != log.BlockHash || origin.index != log.TxIndex || result.Blocks[log.BlockNumber].Hash != log.BlockHash || (identities[key] && !diagnostic) {
@@ -379,8 +381,8 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 			return empty, sourceError(IncompleteError, s.Name(), nil)
 		}
 	}
-	provenance := &ExplorerProvenance{SourceID: s.Name(), SchemaVersion: s.options.SchemaVersion, IndexedHeight: uint64(*indexed), ValidatedCheckpoints: []BlockRecord{}}
-	samples := map[uint64]bool{uint64(o.FromBlock): true, uint64(o.ToBlock): true, uint64(o.FromBlock + (o.ToBlock-o.FromBlock)/2): true}
+	provenance := &ExplorerProvenance{SourceID: s.Name(), SchemaVersion: s.options.SchemaVersion, IndexedHeight: uint64(*indexed), ValidatedCheckpoints: []BlockRecord{}} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+	samples := map[uint64]bool{uint64(o.FromBlock): true, uint64(o.ToBlock): true, uint64(o.FromBlock + (o.ToBlock-o.FromBlock)/2): true}                                 //nolint:gosec // validated fetch range uses unsigned chain heights
 	heights := []uint64{}
 	for height := range samples {
 		heights = append(heights, height)
@@ -413,7 +415,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 	})
 	result.Explorer = provenance
 	result.Complete = true
-	result.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}}
+	result.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}} //nolint:gosec // validated fetch range uses unsigned chain heights
 	return result, nil
 }
 
@@ -433,7 +435,7 @@ func newExplorerEpochFilter(options CommittedPaxscanOptions, o FetchOptions, dis
 	seenAddresses := map[string]bool{}
 	for _, epoch := range epochs {
 		address := strings.ToLower(epoch.Address)
-		if epoch.ActivationHeight <= uint64(o.ToBlock) && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > uint64(o.FromBlock)) && !seenAddresses[address] {
+		if epoch.ActivationHeight <= uint64(o.ToBlock) && (epoch.RetirementHeight == nil || *epoch.RetirementHeight > uint64(o.FromBlock)) && !seenAddresses[address] { //nolint:gosec // validated fetch range uses unsigned chain heights
 			seenAddresses[address] = true
 			addresses = append(addresses, address)
 		}
