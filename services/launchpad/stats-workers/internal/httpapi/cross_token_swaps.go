@@ -22,7 +22,7 @@ func RegisterCrossTokenSwaps(r chi.Router, st *store.Store) {
 // crossSwapsByWallet serves a wallet's multihop swap history. Ports the TS route.
 func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		wallet := chi.URLParam(r, "wallet")
+		wallet := chi.URLParam(r, valueWallet)
 		scope := "cross-wallet:" + strings.ToLower(wallet)
 		page, err := boundedPage(r.URL.Query(), 50, legacyPageMaximum, 1, scope)
 		if err != nil {
@@ -43,11 +43,11 @@ func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 			next = nextHistoryCursor(scope, store.HistoryPosition{Timestamp: last.BlockTimestamp, ID: last.ID}, nil)
 		}
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"nextCursor": next,
-			"wallet":     wallet,
-			"swaps":      swaps,
-			"limit":      limit,
-			"offset":     offset,
+			valueNextCursor: next,
+			valueWallet:     wallet,
+			"swaps":         swaps,
+			valueLimit:      limit,
+			valueOffset:     offset,
 		})
 	}
 }
@@ -55,7 +55,7 @@ func crossSwapsByWallet(st *store.Store) http.HandlerFunc {
 // crossSwapsByToken serves all multihop swaps involving a token. Ports the TS route.
 func crossSwapsByToken(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokenAddress := chi.URLParam(r, "tokenAddress")
+		tokenAddress := chi.URLParam(r, valueTokenAddress)
 		scope := "cross-token:" + strings.ToLower(tokenAddress)
 		page, err := boundedPage(r.URL.Query(), 50, legacyPageMaximum, 1, scope)
 		if err != nil {
@@ -76,11 +76,11 @@ func crossSwapsByToken(st *store.Store) http.HandlerFunc {
 			next = nextHistoryCursor(scope, store.HistoryPosition{Timestamp: last.BlockTimestamp, ID: last.ID}, nil)
 		}
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"nextCursor":   next,
-			"tokenAddress": tokenAddress,
-			"swaps":        swaps,
-			"limit":        limit,
-			"offset":       offset,
+			valueNextCursor:   next,
+			valueTokenAddress: tokenAddress,
+			"swaps":           swaps,
+			valueLimit:        limit,
+			valueOffset:       offset,
 		})
 	}
 }

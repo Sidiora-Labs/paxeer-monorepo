@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
 	"net/url"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 var transitCiphertext = regexp.MustCompile(`^vault:v[1-9][0-9]*:[A-Za-z0-9+/=]+$`)
@@ -27,12 +28,12 @@ type VaultTransit struct {
 	Client               *http.Client
 }
 
-func (v *VaultTransit) call(ctx context.Context, action string, payload any) (map[string]string, error) {
+func (v *VaultTransit) call(ctx context.Context, action string, payload any) (resultMap map[string]string, resultErr error) {
 	if v == nil {
 		return nil, ErrUnavailable
 	}
 	u, err := url.Parse(v.Endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || len(v.Token) < 16 || strings.ContainsAny(v.Token, "\r\n") || !identityPattern.MatchString(v.Key) {
+	if err != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || len(v.Token) < 16 || strings.ContainsAny(v.Token, "\r\n") || !identityPattern.MatchString(v.Key) {
 		return nil, ErrUnavailable
 	}
 	raw, err := json.Marshal(payload)
@@ -46,7 +47,7 @@ func (v *VaultTransit) call(ctx context.Context, action string, payload any) (ma
 		return nil, ErrUnavailable
 	}
 	req.Header.Set("X-Vault-Token", v.Token)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", jsonMediaType)
 	client := http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	if v.Client != nil {
 		client.Transport = v.Client.Transport
@@ -55,7 +56,12 @@ func (v *VaultTransit) call(ctx context.Context, action string, payload any) (ma
 	if err != nil {
 		return nil, ErrUnavailable
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil && resultErr == nil {
+			resultMap = nil
+			resultErr = ErrUnavailable
+		}
+	}()
 	if response.StatusCode != 200 {
 		return nil, ErrUnavailable
 	}
@@ -72,18 +78,18 @@ func (v *VaultTransit) call(ctx context.Context, action string, payload any) (ma
 	if json.Unmarshal(data, &result) != nil {
 		return nil, ErrUnavailable
 	}
-	return map[string]string{"ciphertext": result.Data.Ciphertext, "plaintext": result.Data.Plaintext}, nil
+	return map[string]string{ciphertextField: result.Data.Ciphertext, "plaintext": result.Data.Plaintext}, nil
 }
 func (v *VaultTransit) Seal(ctx context.Context, operation, provider, secret string) (string, error) {
 	if !frozenUUID.MatchString(operation) || !identityPattern.MatchString(provider) || !identityPattern.MatchString(secret) {
 		return "", ErrInvalid
 	}
 	aad := base64.StdEncoding.EncodeToString([]byte(operation + ":" + provider))
-	result, err := v.call(ctx, "encrypt", map[string]string{"plaintext": base64.StdEncoding.EncodeToString([]byte(secret)), "associated_data": aad})
+	result, err := v.call(ctx, "encrypt", map[string]string{"plaintext": base64.StdEncoding.EncodeToString([]byte(secret)), associatedDataField: aad})
 	if err != nil {
 		return "", err
 	}
-	cipher := result["ciphertext"]
+	cipher := result[ciphertextField]
 	if !transitCiphertext.MatchString(cipher) || len(cipher) > 8192 {
 		return "", ErrUnavailable
 	}
@@ -93,7 +99,7 @@ func (v *VaultTransit) Open(ctx context.Context, operation, provider, cipher str
 	if !frozenUUID.MatchString(operation) || !identityPattern.MatchString(provider) || !transitCiphertext.MatchString(cipher) || len(cipher) > 8192 {
 		return "", ErrInvalid
 	}
-	result, err := v.call(ctx, "decrypt", map[string]string{"ciphertext": cipher, "associated_data": base64.StdEncoding.EncodeToString([]byte(operation + ":" + provider))})
+	result, err := v.call(ctx, "decrypt", map[string]string{ciphertextField: cipher, associatedDataField: base64.StdEncoding.EncodeToString([]byte(operation + ":" + provider))})
 	if err != nil {
 		return "", err
 	}
@@ -124,11 +130,11 @@ type PrivateIngestKey struct {
 }
 
 func (c *EncryptedCredentials) LoadKey(ctx context.Context, o Operation) (PrivateIngestKey, error) {
-	if c == nil || c.Store == nil || c.Transit == nil || o.ProviderID == "" || (o.State != "READY" && o.State != "LIVE") {
+	if c == nil || c.Store == nil || c.Transit == nil || o.ProviderID == "" || (o.State != stateReady && o.State != stateLive) {
 		return PrivateIngestKey{}, ErrUnavailable
 	}
 	endpoint, err := url.Parse(c.IngestEndpoint)
-	if err != nil || (endpoint.Scheme != "https" && endpoint.Scheme != "rtmps") || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+	if err != nil || (endpoint.Scheme != httpsScheme && endpoint.Scheme != "rtmps") || endpoint.Hostname() == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return PrivateIngestKey{}, ErrUnavailable
 	}
 	var provider, cipher, key string
@@ -142,7 +148,7 @@ func (c *EncryptedCredentials) LoadKey(ctx context.Context, o Operation) (Privat
 		return PrivateIngestKey{}, ErrUnavailable
 	}
 	current, err := c.Store.Get(ctx, o.ID)
-	if err != nil || current.Revision != o.Revision || (current.State != "READY" && current.State != "LIVE") {
+	if err != nil || current.Revision != o.Revision || (current.State != stateReady && current.State != stateLive) {
 		return PrivateIngestKey{}, ErrDenied
 	}
 	return PrivateIngestKey{StreamKey: token, IngestEndpoint: c.IngestEndpoint, VisibilityUntil: time.Now().UTC().Add(2 * time.Minute).Format(time.RFC3339)}, nil
@@ -176,15 +182,15 @@ func (s *LifecycleStore) bindEncryptedProvider(ctx context.Context, id, provider
 		}
 		return o, tx.Commit(ctx)
 	}
-	if o.State != "PROVISIONING" && o.State != "REQUESTED" && o.State != "ENDING" && o.State != "SUSPENDED" {
+	if o.State != stateProvisioning && o.State != stateRequested && o.State != stateEnding && o.State != stateSuspended {
 		return Operation{}, ErrConflict
 	}
 	next, intent := o.State, o.Intent
-	if next == "REQUESTED" || next == "PROVISIONING" {
-		next = "READY"
+	if next == stateRequested || next == stateProvisioning {
+		next = stateReady
 	}
 	if suspend {
-		next, intent = "SUSPENDED", "end"
+		next, intent = stateSuspended, endAction
 	}
 	o, err = readOperation(tx.QueryRow(ctx, fmt.Sprintf("UPDATE %s.stream_operations SET provider_id=$2,state=$3,intent=$4,revision=revision+1 WHERE id=$1 RETURNING "+opColumns, s.schema), id, provider, next, intent))
 	if err != nil {
@@ -269,11 +275,11 @@ func (c *EncryptedCredentials) Rewrap(ctx context.Context, id string) error {
 	if key != c.Transit.Key {
 		return ErrUnavailable
 	}
-	result, err := c.Transit.call(ctx, "rewrap", map[string]string{"ciphertext": old, "associated_data": base64.StdEncoding.EncodeToString([]byte(id + ":" + provider))})
+	result, err := c.Transit.call(ctx, "rewrap", map[string]string{ciphertextField: old, associatedDataField: base64.StdEncoding.EncodeToString([]byte(id + ":" + provider))})
 	if err != nil {
 		return err
 	}
-	cipher := result["ciphertext"]
+	cipher := result[ciphertextField]
 	if !transitCiphertext.MatchString(cipher) || len(cipher) > 8192 {
 		return ErrUnavailable
 	}
@@ -327,7 +333,7 @@ func (s *LifecycleStore) requestReplacementTx(ctx context.Context, tx pgx.Tx, id
 		return Operation{}, ErrConflict
 	}
 	if restore {
-		if o.State != "SUSPENDED" && o.State != "ENDED" {
+		if o.State != stateSuspended && o.State != stateEnded {
 			return Operation{}, ErrConflict
 		}
 		var suspended bool
@@ -337,7 +343,7 @@ func (s *LifecycleStore) requestReplacementTx(ctx context.Context, tx pgx.Tx, id
 		if !suspended {
 			return Operation{}, ErrDenied
 		}
-	} else if o.State != "READY" && o.State != "LIVE" {
+	} else if o.State != stateReady && o.State != stateLive {
 		return Operation{}, ErrConflict
 	}
 	_, err = tx.Exec(ctx, fmt.Sprintf("INSERT INTO %s.stream_key_rotations(old_stream_id,wallet,status)VALUES($1,$2,'revoking')", s.schema), id, wallet)
@@ -352,7 +358,7 @@ func (s *LifecycleStore) requestReplacementTx(ctx context.Context, tx pgx.Tx, id
 	if err != nil {
 		return Operation{}, err
 	}
-	if err = s.enqueue(ctx, tx, o, "end"); err != nil {
+	if err = s.enqueue(ctx, tx, o, endAction); err != nil {
 		return Operation{}, err
 	}
 	return o, nil

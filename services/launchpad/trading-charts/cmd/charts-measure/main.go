@@ -17,6 +17,9 @@ import (
 	"strings"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/safefile"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
@@ -113,13 +116,9 @@ func boundedDocument(path, digest string, maximum int64, value any) error {
 	if !filepath.IsAbs(path) || !hash.MatchString(digest) {
 		return errors.New("absolute digest-bound input required")
 	}
-	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Size() > maximum {
-		return errors.New("bounded regular input required")
-	}
-	raw, err := os.ReadFile(path)
+	raw, err := safefile.ReadRegular(path, maximum)
 	if err != nil {
-		return err
+		return errors.New("bounded regular input required")
 	}
 	sum := sha256.Sum256(raw)
 	if hex.EncodeToString(sum[:]) != digest {
@@ -184,7 +183,7 @@ func capture(ctx context.Context, pool *pgxpool.Pool, c config, broker jetstream
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='5s'`); err != nil {
 		return result, err
 	}
@@ -265,7 +264,7 @@ func reconcile(ctx context.Context, pool *pgxpool.Pool, c config, output measure
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='15min'`); err != nil {
 		return nil, err
 	}
@@ -397,24 +396,29 @@ func run() error {
 	if err := os.Mkdir(output, 0700); err != nil {
 		return err
 	}
+	outputRoot, err := os.OpenRoot(output)
+	if err != nil {
+		return err
+	}
+	defer chartcleanup.Close(outputRoot)
 	makeFile := func(name string) (*os.File, error) {
-		return os.OpenFile(filepath.Join(output, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		return outputRoot.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	}
 	samples, err := makeFile("samples.ndjson")
 	if err != nil {
 		return err
 	}
-	defer samples.Close()
+	defer chartcleanup.Close(samples)
 	latencies, err := makeFile("latencies.ndjson")
 	if err != nil {
 		return err
 	}
-	defer latencies.Close()
+	defer chartcleanup.Close(latencies)
 	locks, err := makeFile("locks.ndjson")
 	if err != nil {
 		return err
 	}
-	defer locks.Close()
+	defer chartcleanup.Close(locks)
 	budget := &rawBudget{maximum: c.RawArtifactBudgetBytes}
 	files := measurements{boundedArtifact{samples, budget}, boundedArtifact{latencies, budget}, boundedArtifact{locks, budget}}
 	timeout := 25 * time.Minute
@@ -580,7 +584,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer chartcleanup.Close(file)
 	return json.NewEncoder(file).Encode(result)
 }
 func main() {

@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -31,7 +32,7 @@ type configuration struct {
 	SecretProvider     secrets.ProviderType        `json:"secret_provider"`
 }
 
-func execute() error {
+func execute() (executeErr error) {
 	configPath := flag.String("config", "", "actual isolated release measurement configuration")
 	flag.Parse()
 	if *configPath == "" {
@@ -41,7 +42,7 @@ func execute() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { executeErr = errors.Join(executeErr, file.Close()) }()
 	var c configuration
 	decoder := json.NewDecoder(io.LimitReader(file, 1048577))
 	decoder.DisallowUnknownFields()
@@ -91,7 +92,7 @@ func execute() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { executeErr = errors.Join(executeErr, db.Close()) }()
 	db.SetMaxOpenConns(c.Measurement.Concurrency + 2)
 	db.SetMaxIdleConns(c.Measurement.Concurrency + 2)
 	if err = db.PingContext(ctx); err != nil {
@@ -107,8 +108,7 @@ func execute() error {
 	}()
 	_, err = notifications.RunReleaseMeasurements(ctx, c.Measurement, db, authority, client)
 	cancel()
-	<-refreshed
-	return err
+	return errors.Join(err, <-refreshed)
 }
 
 func main() {

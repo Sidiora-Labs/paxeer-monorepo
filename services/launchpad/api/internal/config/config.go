@@ -18,18 +18,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
-	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	pgxpool "github.com/jackc/pgx/v5/pgxpool"
-	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nkeys"
 	"io"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nkeys"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -147,7 +148,7 @@ type Config struct {
 
 var (
 	validLevels = map[string]struct{}{"debug": {}, "info": {}, "warn": {}, "error": {}}
-	validNodes  = map[string]struct{}{"development": {}, "production": {}, "test": {}}
+	validNodes  = map[string]struct{}{literalDevelopment: {}, literalProduction: {}, "test": {}}
 )
 
 // Load parses the process environment into a validated Config.
@@ -237,8 +238,8 @@ func requireRedisURL(name, raw string) error {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
-		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
+	if c.NodeEnv != literalProduction {
+		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != literalDevelopment {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
 		return nil, func() {}, nil
@@ -313,18 +314,19 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != literalProduction {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -356,7 +358,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != literalProduction {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -380,8 +382,8 @@ func (c *Config) RuntimeRole() (string, error) {
 	switch c.APIRole {
 	case "rest", "sockets":
 		return "apid:" + c.APIRole, nil
-	case "development", "":
-		if c.NodeEnv != "production" {
+	case literalDevelopment, "":
+		if c.NodeEnv != literalProduction {
 			return "apid:development", nil
 		}
 	}
@@ -450,6 +452,7 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
+		//nolint:gosec // The configured document path is part of the runtime configuration contract.
 		if raw, err = os.ReadFile(path); err != nil {
 			return nil, err
 		}
@@ -494,7 +497,7 @@ func decodeBoundDocument(path, inline, digest string, out any) error {
 // identity mTLS material is present and the broker credentials are present
 // whenever this role connects to the broker.
 func (c *Config) checkInlineMaterial() error {
-	production := c.NodeEnv == "production" && c.RuntimeProfile != ""
+	production := c.NodeEnv == literalProduction && c.RuntimeProfile != ""
 	broker := c.APIRole == "sockets" || c.StreamRelayFile != "" || c.StreamRelayDocument != ""
 	for _, p := range []struct {
 		fileName, inlineName, file, inline string
@@ -527,6 +530,7 @@ func materialBytes(fileName, path, inlineName, inline string) ([]byte, error) {
 		if err != nil || !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("%s unavailable", fileName)
 		}
+		//nolint:gosec // The configured material path is part of the runtime configuration contract.
 		if raw, err = os.ReadFile(path); err != nil {
 			return nil, fmt.Errorf("%s unavailable", fileName)
 		}

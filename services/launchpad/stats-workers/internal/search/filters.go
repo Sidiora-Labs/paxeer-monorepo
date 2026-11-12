@@ -2,11 +2,12 @@ package search
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
-	"math/big"
-	"strings"
 )
 
 // Version1 ranges are exact inclusive-minimum/exclusive-maximum comparisons.
@@ -73,7 +74,7 @@ func (f Filter) Validate() error {
 	n := 0
 	if f.PoolStatus != "" {
 		n++
-		if f.PoolStatus != "active" && f.PoolStatus != "paused" {
+		if f.PoolStatus != valueActive && f.PoolStatus != valuePaused {
 			return ErrInvalid
 		}
 	}
@@ -95,7 +96,7 @@ func (f Filter) Validate() error {
 		n++
 	}
 	if v := f.VolumeWindow; v != nil {
-		if v.Window != "1h" && v.Window != "24h" && v.Window != "7d" {
+		if v.Window != "1h" && v.Window != value24h && v.Window != "7d" {
 			return ErrInvalid
 		}
 		k, e := validateRange(v.Range)
@@ -117,13 +118,13 @@ func (f Filter) Validate() error {
 	if f.Creator != "" {
 		n++
 		q, e := Normalize(f.Creator)
-		if e != nil || q.Kind != "exact_address" || common.HexToAddress(f.Creator) == (common.Address{}) {
+		if e != nil || q.Kind != valueExactAddress || common.HexToAddress(f.Creator) == (common.Address{}) {
 			return ErrInvalid
 		}
 	}
 	seen := map[string]bool{}
 	for _, flag := range f.RiskDisclosureFlags {
-		if flag != "unverified" && flag != "paused" && flag != "concentrated_holders" && flag != "restricted_metadata" {
+		if flag != "unverified" && flag != valuePaused && flag != "concentrated_holders" && flag != "restricted_metadata" {
 			return ErrInvalid
 		}
 		if seen[flag] {

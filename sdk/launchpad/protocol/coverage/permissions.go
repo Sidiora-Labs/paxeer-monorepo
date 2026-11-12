@@ -2,6 +2,7 @@ package coverage
 
 import (
 	"bytes"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/protocol/catalog"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -66,7 +67,7 @@ func TypedSelector(event string) ([4]byte, bool) {
 		return [4]byte{}, false
 	}
 	for _, b := range bundles {
-		if b.Name != "EventEmitter" {
+		if b.Name != roleEventEmitter {
 			continue
 		}
 		a, err := abi.JSON(bytes.NewReader(b.ABI))

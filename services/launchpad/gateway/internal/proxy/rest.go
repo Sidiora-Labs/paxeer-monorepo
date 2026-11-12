@@ -62,7 +62,7 @@ func NewREST(d RESTDeps) (*REST, error) {
 	if err != nil {
 		return nil, err
 	}
-	if target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || (target.Scheme != "http" && target.Scheme != "https") {
+	if target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || (target.Scheme != "http" && target.Scheme != httpsScheme) {
 		return nil, errors.New("invalid private upstream")
 	}
 	if d.Timeout <= 0 || d.Timeout > 3*time.Second {
@@ -71,7 +71,7 @@ func NewREST(d RESTDeps) (*REST, error) {
 	prefix := strings.TrimRight(d.Prefix, "/")
 	upstream := d.Upstream
 	if upstream == "" {
-		upstream = "social"
+		upstream = socialServiceName
 	}
 
 	rp := &httputil.ReverseProxy{

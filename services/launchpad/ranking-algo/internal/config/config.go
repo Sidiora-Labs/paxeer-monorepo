@@ -11,19 +11,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	pgxpool "github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/caarlos0/env/v11"
 
 	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
 )
+
+const productionEnv = "production"
 
 // Config is the parsed ranking-algo environment.
 type Config struct {
@@ -94,7 +99,7 @@ func (c Config) NewTickInterval() time.Duration {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -170,18 +175,19 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -213,7 +219,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -288,7 +294,16 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
-		if raw, err = os.ReadFile(path); err != nil {
+		f, openErr := os.OpenInRoot(filepath.Dir(path), filepath.Base(path))
+		if openErr != nil {
+			return nil, openErr
+		}
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil {
+				slog.Warn("runtime document close failed", "error", closeErr)
+			}
+		}()
+		if raw, err = io.ReadAll(io.LimitReader(f, 1048576+1)); err != nil {
 			return nil, err
 		}
 	} else {

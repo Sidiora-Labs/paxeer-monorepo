@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/migrate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -68,7 +70,10 @@ func New(t *testing.T) (string, *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	_, file, _, _ := runtime.Caller(0)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("canonical test: caller path unavailable")
+	}
 	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../../launchpad/spec/production-system/integration/migrations/60000.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -96,11 +101,11 @@ func LostCommitResponse(t *testing.T, dsn string) (string, <-chan struct{}) {
 	var mu sync.Mutex
 	connections := []net.Conn{}
 	t.Cleanup(func() {
-		listener.Close()
+		checked.Close(listener)
 		mu.Lock()
 		defer mu.Unlock()
 		for _, c := range connections {
-			c.Close()
+			checked.Close(c)
 		}
 	})
 	go func() {
@@ -111,7 +116,7 @@ func LostCommitResponse(t *testing.T, dsn string) (string, <-chan struct{}) {
 			}
 			server, err := net.DialTimeout("tcp", upstream, 2*time.Second)
 			if err != nil {
-				client.Close()
+				checked.Close(client)
 				continue
 			}
 			mu.Lock()
@@ -119,8 +124,8 @@ func LostCommitResponse(t *testing.T, dsn string) (string, <-chan struct{}) {
 			mu.Unlock()
 			var committing atomic.Bool
 			go func() {
-				defer client.Close()
-				defer server.Close()
+				defer checked.Close(client)
+				defer checked.Close(server)
 				var startup [4]byte
 				if _, err := io.ReadFull(client, startup[:]); err != nil {
 					return
@@ -150,8 +155,8 @@ func LostCommitResponse(t *testing.T, dsn string) (string, <-chan struct{}) {
 				}
 			}()
 			go func() {
-				defer client.Close()
-				defer server.Close()
+				defer checked.Close(client)
+				defer checked.Close(server)
 				for {
 					frame, err := postgresFrame(server)
 					if err != nil {

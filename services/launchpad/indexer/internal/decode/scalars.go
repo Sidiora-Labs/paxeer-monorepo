@@ -3,18 +3,19 @@ package decode
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"reflect"
 	"unicode/utf8"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func newBig(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
 func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string) (map[string]any, string, error) {
 	indexed := indexedSubset(ev.Inputs)
 	if len(topics) != 1+len(indexed) {
-		return nil, "arity", fmt.Errorf("topic count %d, expected %d", len(topics), 1+len(indexed))
+		return nil, valueArity, fmt.Errorf("topic count %d, expected %d", len(topics), 1+len(indexed))
 	}
 	permitted := map[string]bool{}
 	for _, field := range approved {
@@ -55,7 +56,7 @@ func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []strin
 	}
 	if len(inputs) == 0 {
 		if len(data) != 0 {
-			return nil, "arity", fmt.Errorf("unexpected data")
+			return nil, valueArity, fmt.Errorf("unexpected data")
 		}
 		return out, "", nil
 	}

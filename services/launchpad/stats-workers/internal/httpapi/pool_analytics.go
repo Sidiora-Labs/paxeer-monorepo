@@ -62,7 +62,7 @@ func whales(st *store.Store) http.HandlerFunc {
 // and a buy/sell summary. Ports the TS creator-activity route.
 func creatorActivity(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := chi.URLParam(r, valuePoolAddress)
 		scope := "creator:" + strings.ToLower(poolAddress)
 		page, err := boundedPage(r.URL.Query(), 50, creatorPageMaximum, 1, scope)
 		if err != nil {
@@ -87,13 +87,13 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 
 		if row.CreatorAddress == nil {
 			sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-				"coverage":        "legacy_incomplete",
-				"ownershipSource": "swap_sender_legacy",
-				"poolAddress":     poolAddress,
-				"creatorAddress":  nil,
-				"message":         "Creator address not recorded for this pool",
-				"transactions":    []store.TransactionRow{},
-				"summary":         nil,
+				valueCoverage:        valueLegacy_incomplete,
+				valueOwnershipSource: valueSwap_sender_legacy,
+				valuePoolAddress:     poolAddress,
+				valueCreatorAddress:  nil,
+				valueMessage:         "Creator address not recorded for this pool",
+				valueTransactions:    []store.TransactionRow{},
+				"summary":            nil,
 			})
 			return
 		}
@@ -126,19 +126,19 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 		creatorHoldingsBps := jsNumber(row.CreatorHoldingsPct)
 
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"coverage":                "legacy_incomplete",
-			"ownershipSource":         "swap_sender_legacy",
-			"poolAddress":             poolAddress,
-			"creatorAddress":          creator,
+			valueCoverage:             valueLegacy_incomplete,
+			valueOwnershipSource:      valueSwap_sender_legacy,
+			valuePoolAddress:          poolAddress,
+			valueCreatorAddress:       creator,
 			"createdAt":               row.CreatedAt,
 			"currentBalance":          currentBalance,
 			"currentHoldingsPct":      int64(creatorHoldingsBps),
 			"currentHoldingsPctHuman": humanPct(creatorHoldingsBps),
 			"summary":                 history.Summary,
-			"limit":                   page.Limit,
-			"offset":                  page.Offset,
-			"nextCursor":              next,
-			"transactions":            txs,
+			valueLimit:                page.Limit,
+			valueOffset:               page.Offset,
+			valueNextCursor:           next,
+			valueTransactions:         txs,
 		})
 	}
 }
@@ -147,7 +147,7 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 // risk route.
 func riskBreakdown(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := chi.URLParam(r, valuePoolAddress)
 
 		row, err := st.GetPoolStats(r.Context(), poolAddress)
 		if err != nil {
@@ -189,17 +189,17 @@ func riskBreakdown(st *store.Store) http.HandlerFunc {
 		}
 
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"coverage":        "legacy_incomplete",
-			"ownershipSource": "swap_sender_legacy",
-			"poolAddress":     poolAddress,
-			"riskRating":      row.RiskRating,
-			"riskLevel":       riskLevel,
-			"riskFactors":     riskFactors,
-			"details": map[string]any{
+			valueCoverage:        valueLegacy_incomplete,
+			valueOwnershipSource: valueSwap_sender_legacy,
+			valuePoolAddress:     poolAddress,
+			"riskRating":         row.RiskRating,
+			"riskLevel":          riskLevel,
+			"riskFactors":        riskFactors,
+			valueDetails: map[string]any{
 				"holderCount":           row.HolderCount,
 				"top10ConcentrationPct": humanPct(top10Bps),
 				"creatorHoldingsPct":    humanPct(creatorBps),
-				"creatorAddress":        creatorAddress,
+				valueCreatorAddress:     creatorAddress,
 				"hasCreatorSold":        containsStr(riskFactors, "creator_sold"),
 				"isNew":                 containsStr(riskFactors, "new"),
 				"ageSeconds":            ageSeconds,

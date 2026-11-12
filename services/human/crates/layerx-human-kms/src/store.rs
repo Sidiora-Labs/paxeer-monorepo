@@ -179,14 +179,15 @@ impl EvmAttestor {
         let assertion = std::str::from_utf8(&bytes)
             .map_err(|_| Error::Integrity)?
             .trim();
-        let claims = crate::attestor::assertion_claims(assertion).map_err(attestor_error)?;
+        let claims =
+            crate::attestor::assertion_claims(assertion).map_err(|error| attestor_error(&error))?;
         if claims.subject != self.assertion_subject {
             return Err(Error::Integrity);
         }
-        claims.check(now).map_err(attestor_error)?;
+        claims.check(now).map_err(|error| attestor_error(&error))?;
         self.signer
             .set_evm_assertion(assertion)
-            .map_err(attestor_error)
+            .map_err(|error| attestor_error(&error))
     }
     fn validate_wallet(&self, wallet: &crate::evm::Wallet) -> Result<()> {
         if wallet.evm_key_id != self.key_id
@@ -246,6 +247,60 @@ fn description(record: &Record) -> Result<Vec<u8>> {
     bytes.push(0);
     Ok(bytes)
 }
+
+fn read_state(
+    config: &Config,
+    key: &LessSafeKey,
+    aad: &[u8],
+    network: u32,
+) -> std::result::Result<State, String> {
+    let path = config.state.join("state.aead");
+    if path.try_exists().map_err(|_| "state lookup failed")? {
+        let mut encrypted = protected(&path, MAX_STATE + 28, true)?;
+        if encrypted.len() < 28 {
+            return Err("state truncated".into());
+        }
+        let nonce: [u8; 12] = encrypted[..12]
+            .try_into()
+            .map_err(|_| "state nonce invalid")?;
+        let plain = key
+            .open_in_place(
+                Nonce::assume_unique_for_key(nonce),
+                Aad::from(aad),
+                &mut encrypted[12..],
+            )
+            .map_err(|_| "state authentication failed")?;
+        serde_json::from_slice::<State>(plain).map_err(|_| "state encoding invalid".into())
+    } else {
+        Ok(State {
+            version: 1,
+            provider: config.provider.clone(),
+            network,
+            records: BTreeMap::new(),
+            nonces: BTreeMap::new(),
+        })
+    }
+}
+
+fn remove_recovery_file(root: &std::path::Path) -> std::result::Result<(), String> {
+    let temp = root.join("state.next");
+    if temp
+        .try_exists()
+        .map_err(|_| "state recovery lookup failed")?
+    {
+        let metadata = fs::symlink_metadata(&temp).map_err(|_| "state recovery metadata failed")?;
+        if !metadata.is_file()
+            || metadata.file_type().is_symlink()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o077 != 0
+        {
+            return Err("state recovery file refused".into());
+        }
+        fs::remove_file(temp).map_err(|_| "state recovery failed")?;
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn open(config: &Config) -> std::result::Result<Self, String> {
         Self::open_with_attestors(config, None)
@@ -295,32 +350,7 @@ impl Store {
         aad.extend(config.provider.as_bytes());
         let network = u32::try_from(config.chain.chain_id).map_err(|_| "state chain id invalid")?;
         aad.extend(network.to_be_bytes());
-        let path = config.state.join("state.aead");
-        let mut state = if path.try_exists().map_err(|_| "state lookup failed")? {
-            let mut encrypted = protected(&path, MAX_STATE + 28, true)?;
-            if encrypted.len() < 28 {
-                return Err("state truncated".into());
-            }
-            let nonce: [u8; 12] = encrypted[..12]
-                .try_into()
-                .map_err(|_| "state nonce invalid")?;
-            let plain = key
-                .open_in_place(
-                    Nonce::assume_unique_for_key(nonce),
-                    Aad::from(&aad),
-                    &mut encrypted[12..],
-                )
-                .map_err(|_| "state authentication failed")?;
-            serde_json::from_slice::<State>(plain).map_err(|_| "state encoding invalid")?
-        } else {
-            State {
-                version: 1,
-                provider: config.provider.clone(),
-                network,
-                records: BTreeMap::new(),
-                nonces: BTreeMap::new(),
-            }
-        };
+        let mut state = read_state(config, &key, &aad, network)?;
         validate(&state, config)?;
         let evm_attestors = match attestors {
             Some(path) => EvmAttestor::load_file(config.chain.chain_id, path)?,
@@ -342,22 +372,7 @@ impl Store {
                 }
             }
         }
-        let temp = config.state.join("state.next");
-        if temp
-            .try_exists()
-            .map_err(|_| "state recovery lookup failed")?
-        {
-            let metadata =
-                fs::symlink_metadata(&temp).map_err(|_| "state recovery metadata failed")?;
-            if !metadata.is_file()
-                || metadata.file_type().is_symlink()
-                || metadata.uid() != rustix::process::geteuid().as_raw()
-                || metadata.mode() & 0o077 != 0
-            {
-                return Err("state recovery file refused".into());
-            }
-            fs::remove_file(temp).map_err(|_| "state recovery failed")?;
-        }
+        remove_recovery_file(&config.state)?;
         let mut store = Self {
             root: config.state.clone(),
             state,
@@ -431,7 +446,9 @@ impl Store {
             .write(true)
             .create(true)
             .truncate(true)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .custom_flags(i32::from_ne_bytes(
+                rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+            ))
             .mode(0o600)
             .open(&temp)
             .map_err(|_| Error::Unavailable)?;
@@ -678,7 +695,7 @@ impl Store {
                 signature[64] += 27;
                 signature.to_vec()
             })
-            .map_err(attestor_error)
+            .map_err(|error| attestor_error(&error))
     }
     fn export_primary(&mut self, request: &Request<'_>) -> Result<Vec<u8>> {
         let ceremony: crate::export::ExportCeremony =
@@ -759,49 +776,11 @@ impl Store {
     ) -> Result<Vec<u8>> {
         let authorization: crate::send::SendAuthorization =
             serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-        let key = hex(&authorization.authorization.action_key);
         let reservation: [u8; 32] =
             Sha256::digest(serde_json::to_vec(&authorization).map_err(|_| Error::Integrity)?)
                 .into();
-        if let Some(record) = self.state.records.get(&hex(&request.binding)) {
-            if record.class != request.class || request.reference != record.handle {
-                return Err(Error::Refused);
-            }
-            if record
-                .send_reservations
-                .get(&key)
-                .is_some_and(|previous| *previous != reservation)
-            {
-                return Err(Error::Conflict);
-            }
-            if let Some(action) = record
-                .wallet
-                .as_ref()
-                .and_then(|wallet| wallet.actions.get(&key))
-            {
-                if !action.raw_transaction.is_empty() {
-                    if action.authorization != authorization.authorization {
-                        return Err(Error::Conflict);
-                    }
-                    crate::send::digest(
-                        &authorization,
-                        request.binding,
-                        self.state.network,
-                        3,
-                        now,
-                    )?;
-                    return Ok(action.raw_transaction.clone());
-                }
-            }
-            if let Some(action) =
-                self.archived(request.binding, authorization.authorization.action_key)?
-            {
-                if action.authorization != authorization.authorization {
-                    return Err(Error::Conflict);
-                }
-                crate::send::digest(&authorization, request.binding, self.state.network, 3, now)?;
-                return Ok(action.raw_transaction);
-            }
+        if let Some(transaction) = self.previous_send(request, &authorization, reservation, now)? {
+            return Ok(transaction);
         }
         self.capacity(
             Some(request.binding),
@@ -888,13 +867,63 @@ impl Store {
         self.persist()?;
         Ok(action.raw_transaction)
     }
+
+    fn previous_send(
+        &self,
+        request: &Request<'_>,
+        authorization: &crate::send::SendAuthorization,
+        reservation: [u8; 32],
+        now: u64,
+    ) -> Result<Option<Vec<u8>>> {
+        let key = hex(&authorization.authorization.action_key);
+        if let Some(record) = self.state.records.get(&hex(&request.binding)) {
+            if record.class != request.class || request.reference != record.handle {
+                return Err(Error::Refused);
+            }
+            if record
+                .send_reservations
+                .get(&key)
+                .is_some_and(|previous| *previous != reservation)
+            {
+                return Err(Error::Conflict);
+            }
+            if let Some(action) = record
+                .wallet
+                .as_ref()
+                .and_then(|wallet| wallet.actions.get(&key))
+            {
+                if !action.raw_transaction.is_empty() {
+                    if action.authorization != authorization.authorization {
+                        return Err(Error::Conflict);
+                    }
+                    crate::send::digest(
+                        authorization,
+                        request.binding,
+                        self.state.network,
+                        3,
+                        now,
+                    )?;
+                    return Ok(Some(action.raw_transaction.clone()));
+                }
+            }
+            if let Some(action) =
+                self.archived(request.binding, authorization.authorization.action_key)?
+            {
+                if action.authorization != authorization.authorization {
+                    return Err(Error::Conflict);
+                }
+                crate::send::digest(authorization, request.binding, self.state.network, 3, now)?;
+                return Ok(Some(action.raw_transaction));
+            }
+        }
+        Ok(None)
+    }
     fn evm(
         &mut self,
         request: &Request<'_>,
         clock: &dyn layerx_types::clock::Clock,
         deadline: &mut layerx_types::clock::Deadline,
     ) -> Result<Vec<u8>> {
-        use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};
         let existing = self
             .state
             .records
@@ -906,50 +935,8 @@ impl Store {
         if existing.self_custodied {
             return Err(Error::SelfCustodied);
         }
-        if matches!(request.operation, 7..=10 | 12) {
-            let key = match request.operation {
-                7 => {
-                    serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
-                        .map_err(|_| Error::Refused)?
-                        .action_key
-                }
-                9 => {
-                    serde_json::from_slice::<EvmAcknowledgement>(request.evm)
-                        .map_err(|_| Error::Refused)?
-                        .action_key
-                }
-                12 => {
-                    serde_json::from_slice::<crate::evm_types::EvmExternalSignature>(request.evm)
-                        .map_err(|_| Error::Refused)?
-                        .action_key
-                }
-                _ => serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?,
-            };
-            if let Some(action) = self.archived(request.binding, key)? {
-                if request.operation == 7
-                    && serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
-                        .map_err(|_| Error::Refused)?
-                        != action.authorization
-                {
-                    return Err(Error::Conflict);
-                }
-                if request.operation == 9
-                    && serde_json::from_slice::<EvmAcknowledgement>(request.evm)
-                        .map_err(|_| Error::Refused)?
-                        .transaction_hash
-                        != action.transaction_hash.ok_or(Error::Integrity)?
-                {
-                    return Err(Error::Integrity);
-                }
-                if request.operation == 12 {
-                    let imported: crate::evm_types::EvmExternalSignature =
-                        serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                    let mut wallet = existing.wallet.as_ref().ok_or(Error::NotFound)?.clone();
-                    wallet.actions.insert(hex(&key), action.clone());
-                    wallet.accept_external_with_clock(&key, &imported.signature, clock)?;
-                }
-                return serde_json::to_vec(&action).map_err(|_| Error::Integrity);
-            }
+        if let Some(response) = self.archived_evm(request, clock)? {
+            return Ok(response);
         }
         if request.operation == 8 {
             let key: [u8; 32] = serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
@@ -1003,12 +990,108 @@ impl Store {
             self.persist()?;
             return Ok(address.to_vec());
         }
+        let action = self.execute_evm_action(request, clock, deadline)?;
+        if request.operation == 9 {
+            self.archive(request.binding, &action)?;
+            let record = self
+                .state
+                .records
+                .get_mut(&hex(&request.binding))
+                .ok_or(Error::NotFound)?;
+            let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+            let key = hex(&action.authorization.action_key);
+            wallet
+                .archived
+                .insert(key.clone(), authorization_hash(&action.authorization)?);
+            wallet.actions.remove(&key);
+            record.send_actions.remove(&key);
+        }
+        let response = serde_json::to_vec(&action).map_err(|_| Error::Integrity)?;
+        self.persist()?;
+        Ok(response)
+    }
+
+    fn archived_evm(
+        &self,
+        request: &Request<'_>,
+        clock: &dyn layerx_types::clock::Clock,
+    ) -> Result<Option<Vec<u8>>> {
+        use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};
+        if !matches!(request.operation, 7..=10 | 12) {
+            return Ok(None);
+        }
+        let key = match request.operation {
+            7 => {
+                serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
+                    .map_err(|_| Error::Refused)?
+                    .action_key
+            }
+            9 => {
+                serde_json::from_slice::<EvmAcknowledgement>(request.evm)
+                    .map_err(|_| Error::Refused)?
+                    .action_key
+            }
+            12 => {
+                serde_json::from_slice::<crate::evm_types::EvmExternalSignature>(request.evm)
+                    .map_err(|_| Error::Refused)?
+                    .action_key
+            }
+            _ => serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?,
+        };
+        let Some(action) = self.archived(request.binding, key)? else {
+            return Ok(None);
+        };
+        if request.operation == 7
+            && serde_json::from_slice::<EvmPlanAuthorization>(request.evm)
+                .map_err(|_| Error::Refused)?
+                != action.authorization
+        {
+            return Err(Error::Conflict);
+        }
+        if request.operation == 9
+            && serde_json::from_slice::<EvmAcknowledgement>(request.evm)
+                .map_err(|_| Error::Refused)?
+                .transaction_hash
+                != action.transaction_hash.ok_or(Error::Integrity)?
+        {
+            return Err(Error::Integrity);
+        }
+        if request.operation == 12 {
+            let imported: crate::evm_types::EvmExternalSignature =
+                serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+            let mut wallet = self
+                .state
+                .records
+                .get(&hex(&request.binding))
+                .and_then(|record| record.wallet.as_ref())
+                .ok_or(Error::NotFound)?
+                .clone();
+            wallet.actions.insert(hex(&key), action.clone());
+            wallet.accept_external_with_clock(&key, &imported.signature, clock)?;
+        }
+        serde_json::to_vec(&action)
+            .map(Some)
+            .map_err(|_| Error::Integrity)
+    }
+
+    fn execute_evm_action(
+        &mut self,
+        request: &Request<'_>,
+        clock: &dyn layerx_types::clock::Clock,
+        deadline: &mut layerx_types::clock::Deadline,
+    ) -> Result<crate::evm_types::EvmAction> {
+        use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};
+        let record = self
+            .state
+            .records
+            .get_mut(&hex(&request.binding))
+            .ok_or(Error::NotFound)?;
         let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
         self.evm_attestors
             .get(&hex(&request.binding))
             .ok_or(Error::Unavailable)?
             .validate_wallet(wallet)?;
-        let action = match request.operation {
+        match request.operation {
             7 => {
                 let authorization: EvmPlanAuthorization =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
@@ -1030,7 +1113,7 @@ impl Store {
                     digest,
                 )?;
                 *wallet = candidate;
-                action
+                Ok(action)
             }
             8 => {
                 let key: [u8; 32] =
@@ -1046,7 +1129,7 @@ impl Store {
                     u64::from(self.state.network),
                     &attestor.signer,
                     deadline,
-                )?
+                )
             }
             9 => {
                 let ack: EvmAcknowledgement =
@@ -1059,7 +1142,7 @@ impl Store {
                     return Err(Error::Integrity);
                 }
                 action.acknowledged = true;
-                action.clone()
+                Ok(action.clone())
             }
             10 => {
                 let key: [u8; 32] =
@@ -1067,34 +1150,16 @@ impl Store {
                 wallet
                     .actions
                     .get(&hex(&key))
-                    .ok_or(Error::NotFound)?
-                    .clone()
+                    .ok_or(Error::NotFound)
+                    .cloned()
             }
             12 => {
                 let request: crate::evm_types::EvmExternalSignature =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                wallet.accept_external_with_clock(&request.action_key, &request.signature, clock)?
+                wallet.accept_external_with_clock(&request.action_key, &request.signature, clock)
             }
-            _ => return Err(Error::Refused),
-        };
-        if request.operation == 9 {
-            self.archive(request.binding, &action)?;
-            let record = self
-                .state
-                .records
-                .get_mut(&hex(&request.binding))
-                .ok_or(Error::NotFound)?;
-            let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
-            let key = hex(&action.authorization.action_key);
-            wallet
-                .archived
-                .insert(key.clone(), authorization_hash(&action.authorization)?);
-            wallet.actions.remove(&key);
-            record.send_actions.remove(&key);
+            _ => Err(Error::Refused),
         }
-        let response = serde_json::to_vec(&action).map_err(|_| Error::Integrity)?;
-        self.persist()?;
-        Ok(response)
     }
     fn create(&mut self, request: &Request<'_>) -> Result<Vec<u8>> {
         let key = hex(&request.binding);
@@ -1234,9 +1299,9 @@ fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
     Ok(())
 }
 
-fn attestor_error(error: crate::attestor::AttestorError) -> Error {
+fn attestor_error(error: &crate::attestor::AttestorError) -> Error {
     match error {
-        crate::attestor::AttestorError::Refused { ref code, .. } if code == "assertion.expired" => {
+        crate::attestor::AttestorError::Refused { code, .. } if code == "assertion.expired" => {
             Error::Expired
         }
         crate::attestor::AttestorError::Refused { .. } => Error::Refused,
@@ -1264,7 +1329,7 @@ fn validate_authorization(
 fn fresh(clock: &dyn layerx_types::clock::Clock) -> Result<u64> {
     clock
         .sample(std::time::Duration::from_secs(1))
-        .map(|reading| reading.unix_seconds())
+        .map(layerx_types::clock::ClockReading::unix_seconds)
         .map_err(|_| Error::Unavailable)
 }
 fn authorization_hash(authorization: &crate::evm_types::EvmPlanAuthorization) -> Result<[u8; 32]> {

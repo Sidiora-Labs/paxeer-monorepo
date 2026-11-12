@@ -1,0 +1,23 @@
+[repair]
+module = "services/launchpad/api"
+
+[findings]
+errcheck = "Resource close errors are returned, reported or logged at their call sites."
+goconst = "Repeated protocol fields, route labels, states and event names use package constants."
+goimports = "Imports follow the module's Go import grouping."
+gosec = "Cursor and chain positions are range checked before conversion; configured file paths and declared response bytes retain their contracts."
+prealloc = "The signed cursor buffer reserves space for its authentication tag."
+staticcheck = "HTTP status constants, request rewriting and conditionals use the current Go forms; WebSocket response messages retain their declared text."
+unconvert = "The WebSocket subscription identifier is passed in its existing string type."
+
+[comments]
+config_document = "internal/config/config.go: configured document path"
+config_material = "internal/config/config.go: configured material path"
+frozen_catalog = "internal/internaltest/frozen_catalog.go: repository catalog path"
+runtime_database = "internal/internaltest/runtime_database.go: repository migration path"
+accounting_response = "internal/rest/accounting_v2.go: declared JSON response bytes"
+token_abi = "internal/rest/dev_token.go: public token read ABI"
+sse_response = "internal/sse/authenticated.go: validated event frame"
+ws_invalid_address_input = "internal/ws/ws.go: invalid pool address input response"
+ws_invalid_address_subscription = "internal/ws/ws.go: invalid pool address subscription response"
+ws_subscription_limit = "internal/ws/ws.go: pool subscription limit response"

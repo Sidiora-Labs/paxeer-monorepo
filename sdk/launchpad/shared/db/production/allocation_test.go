@@ -163,6 +163,7 @@ func TestConnectionBudgetParsingRejectsUnknownConfiguration(t *testing.T) {
 }
 
 func TestPhase2RuntimeConstructorsAtAllocatedMaximum(t *testing.T) {
+	requireProductionEnv(t, "L07_POSTGRES_DSN", "L07_READER_PASSWORD")
 	admin := fixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

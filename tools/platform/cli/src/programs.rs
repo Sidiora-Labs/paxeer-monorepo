@@ -18,17 +18,22 @@ use layerx_programs::{
     ProtocolDeploymentVerifier,
 };
 
+#[cfg(test)]
 use layerx_crypto::ed25519;
 use layerx_programs_runtime::access::AccessDeclaration;
+#[cfg(test)]
 use layerx_programs_runtime::terminal::{
     CandidateTerminalOutcome, ExecutionTerminal, FailureTerminal, TerminalAttachment,
     TerminalDetail,
 };
+use layerx_programs_runtime::WasmEngine;
+#[cfg(test)]
 use layerx_programs_runtime::{
     BudgetMeterRefusal, BudgetResourceKind, OccupancyPaymentAccount, OccupancySettlement,
-    WasmEngine, MAX_OCCUPANCY_PAYERS,
+    MAX_OCCUPANCY_PAYERS,
 };
 use layerx_programs_runtime::{Capability, CapabilitySet};
+#[cfg(test)]
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::intent::ProgramId;
 use layerx_types::program_call::{NativeProgramCall, Resources};
@@ -68,17 +73,7 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
     })?;
     let interface = read_program_file(&interface_path)?;
     let proof_bytes = read_program_file(request.deployment_proof)?;
-    let now_ms = if request.historical {
-        None
-    } else {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|error| format!("system clock is unavailable: {error}"))?;
-        Some(
-            u64::try_from(now.as_millis())
-                .map_err(|error| format!("system clock exceeds the protocol range: {error}"))?,
-        )
-    };
+    let now_ms = deployment_time(request.historical)?;
     let (deployment, header_hash) =
         verify_chain_deployment_package(request.trust_history, &proof_bytes, 1_000, now_ms)?;
     let published = deployment
@@ -168,6 +163,18 @@ pub fn program_bindings(request: &BindingRequest<'_>) -> Result<Value, String> {
             "client.kt", "client.py", "client.swift", "Client.cs", "bindings.json"],
         "binding": "verified chain deployment interface and module; generated calls require matching interface digest",
     }))
+}
+
+fn deployment_time(historical: bool) -> Result<Option<u64>, String> {
+    if historical {
+        return Ok(None);
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| format!("system clock is unavailable: {error}"))?;
+    let milliseconds = u64::try_from(now.as_millis())
+        .map_err(|error| format!("system clock exceeds the protocol range: {error}"))?;
+    Ok(Some(milliseconds))
 }
 
 fn write_binding(directory: &Path, name: &str, contents: &[u8]) -> Result<(), String> {
@@ -632,6 +639,7 @@ fn submit_lifecycle(
     submit_lifecycle_transaction_verified(client, &raw, request.policy)
 }
 
+#[cfg(test)]
 pub(crate) fn submit_lifecycle_transaction(client: &Client, raw: &[u8]) -> Result<Value, String> {
     let submitted = submit_program_transaction(client, raw)?;
     if submitted["rung"] == "unknown" {
@@ -838,6 +846,7 @@ pub fn read_lifecycle_policy(
     })
 }
 
+#[cfg(test)]
 fn verify_lifecycle_result(
     ordinal: u16,
     activity: [u8; 32],
@@ -906,6 +915,7 @@ fn verify_lifecycle_result(
     )
 }
 
+#[cfg(test)]
 fn validate_lifecycle_state(result: &Value, result_code: i32) -> Result<(), String> {
     match result.get("state") {
         None => Ok(()),
@@ -919,6 +929,7 @@ fn validate_lifecycle_state(result: &Value, result_code: i32) -> Result<(), Stri
     }
 }
 
+#[cfg(test)]
 fn refuse_transport_response(response: &Value) -> Result<(), String> {
     if response.get("state").and_then(Value::as_str) == Some("refused")
         && response.get("failure").is_some()
@@ -942,6 +953,7 @@ pub fn registry_get(client: &Client, program_id: &str) -> Result<Value, String> 
 /// # Errors
 /// Refuses a response that is not the wrapped envelope, a document that renames
 /// the requested program, and balances without a current receipt proof.
+#[cfg(test)]
 fn registry_program_document(response: &Value, program_id: &str) -> Result<Value, String> {
     let response = program_registry_document(response)?;
     if response["program_id"]
@@ -1026,6 +1038,7 @@ fn registry_program_document(response: &Value, program_id: &str) -> Result<Value
 /// # Errors
 /// Refuses a response that is not the wrapped envelope and refuses a
 /// verification status that is absent, unknown, or unverified without a reason.
+#[cfg(test)]
 fn program_registry_document(response: &Value) -> Result<Value, String> {
     let request_id = response
         .get("request_id")
@@ -1068,6 +1081,7 @@ fn program_registry_document(response: &Value) -> Result<Value, String> {
 /// Requires the current-state freshness that both the gateway and the emulator
 /// publish on a program registry read: a canonical unsigned sequence and a
 /// 32-byte state root.
+#[cfg(test)]
 fn program_registry_freshness(document: &Value) -> Result<(u64, [u8; 32]), String> {
     let observed_sequence = canonical_u64(document, "observed_sequence")
         .map_err(|_| "program discovery omitted its current-state freshness".to_owned())?;
@@ -1099,7 +1113,7 @@ fn program_view(client: &Client, program_id: &str, selector: [u8; 4]) -> Result<
     rpc_call(
         client,
         "eth_call",
-        json!([
+        &json!([
             {"to": PROGRAMS_ADDRESS, "data": format!("0x{}", hex_encode(&data))}, "pending"
         ]),
     )
@@ -1190,6 +1204,7 @@ pub(crate) fn decode_interface_view(program_id: &str, result: &Value) -> Result<
 /// Refuses a response that is not the wrapped envelope, interface bytes that
 /// disagree with their receipt-bound digest, and a read without current-state
 /// freshness.
+#[cfg(test)]
 fn interface_program_document(response: &Value) -> Result<Value, String> {
     let value = program_registry_document(response)?;
     let encoded = value["interface"]
@@ -1262,7 +1277,7 @@ pub const PROGRAM_DEPLOYED_TOPIC: &str =
 const REGISTRY_LOG_SPAN: u64 = 2000;
 
 pub fn registry_list(client: &Client) -> Result<Value, String> {
-    let head = u64::try_from(rpc_quantity(client, "eth_blockNumber", json!([]))?)
+    let head = u64::try_from(rpc_quantity(client, "eth_blockNumber", &json!([]))?)
         .map_err(|_| "eth_blockNumber exceeds 64 bits")?;
     let mut upper = head;
     let mut span = REGISTRY_LOG_SPAN;
@@ -1274,7 +1289,7 @@ pub fn registry_list(client: &Client) -> Result<Value, String> {
         let response = rpc_call(
             client,
             "eth_getLogs",
-            json!([{
+            &json!([{
                 "address": PROGRAMS_ADDRESS,
                 "fromBlock": format!("0x{lower:x}"),
                 "toBlock": format!("0x{upper:x}"),
@@ -1297,7 +1312,7 @@ pub fn registry_list(client: &Client) -> Result<Value, String> {
             }
             Err(error) if error.starts_with("eth_getLogs refused:") => {
                 if error.contains("block range too large") && upper - lower + 1 > 1 {
-                    span = (upper - lower + 1) / 2;
+                    span = (upper - lower).div_ceil(2);
                 } else if error.contains("before earliest available block")
                     || (error.contains("includes pruned blocks")
                         && error.contains("earliest available block"))
@@ -1525,6 +1540,7 @@ impl Default for NativeCallOptions {
     }
 }
 
+#[cfg(test)]
 pub struct CallRequest<'a> {
     pub program_id: &'a str,
     pub calldata: &'a str,
@@ -1543,6 +1559,7 @@ pub struct CallRequest<'a> {
 }
 
 #[derive(Debug)]
+#[cfg(test)]
 struct VerifiedCallHead {
     sequencer_public_key: [u8; 32],
     state_root: [u8; 32],
@@ -1566,7 +1583,7 @@ pub struct EvmCallRequest<'a> {
     pub capabilities: &'a [String],
 }
 
-pub fn rpc_call(client: &Client, method: &str, params: Value) -> Result<Value, String> {
+pub fn rpc_call(client: &Client, method: &str, params: &Value) -> Result<Value, String> {
     let response = client.post(
         "/",
         &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
@@ -1596,10 +1613,10 @@ pub fn transaction_hash(value: &str) -> Result<[u8; 32], String> {
 
 pub fn sequencer_receipt(client: &Client, hash: &str) -> Result<Value, String> {
     transaction_hash(hash)?;
-    rpc_call(client, "pax_sequencerReceipt", json!([hash]))
+    rpc_call(client, "pax_sequencerReceipt", &json!([hash]))
 }
 
-fn rpc_quantity(client: &Client, method: &str, params: Value) -> Result<u128, String> {
+fn rpc_quantity(client: &Client, method: &str, params: &Value) -> Result<u128, String> {
     let result = rpc_call(client, method, params)?;
     let encoded = result
         .as_str()
@@ -1735,16 +1752,16 @@ fn prepare_program_transaction(
     use layerx_crypto::evm_transaction::Eip1559Call;
     let (secret, address) = evm_key(key_file)?;
     let from = format!("0x{}", hex_encode(&address));
-    let chain_id = u64::try_from(rpc_quantity(client, "eth_chainId", json!([]))?)
+    let chain_id = u64::try_from(rpc_quantity(client, "eth_chainId", &json!([]))?)
         .map_err(|_| "chain id exceeds 64 bits")?;
     let nonce = u64::try_from(rpc_quantity(
         client,
         "eth_getTransactionCount",
-        json!([from, "pending"]),
+        &json!([from, "pending"]),
     )?)
     .map_err(|_| "transaction count exceeds 64 bits")?;
-    let gas_price = rpc_quantity(client, "eth_gasPrice", json!([]))?;
-    let priority = rpc_quantity(client, "eth_maxPriorityFeePerGas", json!([]))?;
+    let gas_price = rpc_quantity(client, "eth_gasPrice", &json!([]))?;
+    let priority = rpc_quantity(client, "eth_maxPriorityFeePerGas", &json!([]))?;
     let max_fee = gas_price
         .checked_mul(2)
         .ok_or("gas price exceeds fee range")?;
@@ -1752,7 +1769,7 @@ fn prepare_program_transaction(
         return Err("priority fee exceeds the maximum fee".into());
     }
     let gas_limit = u64::try_from(rpc_quantity(client, "eth_estimateGas",
-        json!([{"from":from,"to":PROGRAMS_ADDRESS,"data":format!("0x{}",hex_encode(&data))}, "pending"]))?)
+        &json!([{"from":from,"to":PROGRAMS_ADDRESS,"data":format!("0x{}",hex_encode(&data))}, "pending"]))?)
         .map_err(|_| "gas estimate exceeds 64 bits")?;
     let transaction = Eip1559Call {
         chain_id,
@@ -1796,6 +1813,7 @@ pub(crate) fn submit_program_transaction(client: &Client, raw: &[u8]) -> Result<
     Ok(outcome)
 }
 
+#[cfg(test)]
 pub(crate) fn submitted_program_result(raw: &[u8], result: &Value) -> Result<Value, String> {
     let expected = layerx_crypto::evm_transaction::transaction_hash(raw);
     let hash = result
@@ -1807,6 +1825,7 @@ pub(crate) fn submitted_program_result(raw: &[u8], result: &Value) -> Result<Val
     Ok(json!({"tx_hash":hash,"rung":"submitted"}))
 }
 
+#[cfg(test)]
 fn bind_execution_material(acknowledgement: &Value, material: &Value) -> Result<Value, String> {
     let material = material.get("result").unwrap_or(material);
     for field in ["activity_id", "receipt"] {
@@ -1825,6 +1844,7 @@ fn bind_execution_material(acknowledgement: &Value, material: &Value) -> Result<
     Ok(material.clone())
 }
 
+#[cfg(test)]
 fn read_program_registry(
     client: &Client,
     program_id: &str,
@@ -1854,7 +1874,7 @@ pub fn simulate(
         )?;
         transaction["from"] = json!(from);
     }
-    let result = rpc_call(client, "eth_call", json!([transaction, "pending"]))?;
+    let result = rpc_call(client, "eth_call", &json!([transaction, "pending"]))?;
     simulated_program_result(&result)
 }
 
@@ -1868,7 +1888,7 @@ pub(crate) fn simulated_program_result(result: &Value) -> Result<Value, String> 
 }
 
 pub(crate) fn decode_call_outcome(bytes: &[u8]) -> Result<Value, String> {
-    if bytes.len() < 128 || bytes.len() % 32 != 0 {
+    if bytes.len() < 128 || !bytes.len().is_multiple_of(32) {
         return Err("program output is not a canonical ABI tuple".into());
     }
     let result = i32::from_be_bytes(
@@ -1907,6 +1927,7 @@ pub(crate) fn decode_call_outcome(bytes: &[u8]) -> Result<Value, String> {
     )
 }
 
+#[cfg(test)]
 fn validate_program_payload(ordinal: u16, payload: &[u8]) -> Result<(), String> {
     let reproduced = match ordinal {
         1 => {
@@ -1945,6 +1966,7 @@ fn validate_program_payload(ordinal: u16, payload: &[u8]) -> Result<(), String> 
     Ok(())
 }
 
+#[cfg(test)]
 fn build_call(request: &CallRequest<'_>) -> Result<Vec<u8>, String> {
     build_native_call(&EvmCallRequest {
         program_id: request.program_id,
@@ -2059,6 +2081,7 @@ fn parse_capability(value: &str) -> Result<Capability, String> {
     }
 }
 
+#[cfg(test)]
 fn render_execution_evidence(detail: &TerminalDetail) -> Value {
     match detail {
         TerminalDetail::Execution(ExecutionTerminal::Legacy { trace, .. }) => {
@@ -2071,6 +2094,7 @@ fn render_execution_evidence(detail: &TerminalDetail) -> Value {
     }
 }
 
+#[cfg(test)]
 fn render_terminal(
     detail: &TerminalDetail,
     program_id: &str,
@@ -2174,6 +2198,7 @@ fn render_terminal(
     })
 }
 
+#[cfg(test)]
 fn verify_terminal_graph(
     detail: &layerx_programs_runtime::terminal::DecodedTerminal,
     available_graph: &[u8],
@@ -2193,10 +2218,14 @@ fn verify_terminal_graph(
     Ok(())
 }
 
+#[cfg(test)]
+type OccupancyPayerHint = (Vec<u8>, [u8; 32]);
+
 /// Reads the occupancy payers a gateway names beside a state-commitment
 /// receipt. They are untrusted: the verifier only uses an account it derives
 /// from the named DID for a payer the signed settlement evidence names.
-fn occupancy_payer_hints(result: &Value) -> Result<Vec<(Vec<u8>, [u8; 32])>, String> {
+#[cfg(test)]
+fn occupancy_payer_hints(result: &Value) -> Result<Vec<OccupancyPayerHint>, String> {
     let Some(hints) = result.get("occupancy_payers") else {
         return Ok(Vec::new());
     };
@@ -2239,6 +2268,7 @@ fn verify_terminal_commitments(
     )
 }
 
+#[cfg(test)]
 fn verify_terminal_commitments_with_accounts(
     detail: &layerx_programs_runtime::terminal::DecodedTerminal,
     available_graph: &[u8],
@@ -2263,7 +2293,7 @@ fn verify_terminal_commitments_with_accounts(
             )
         );
     let occupancy_required = matches!(protocol_version, 2 | 3) && successful_execution;
-    if !matches!(protocol_version, 1 | 2 | 3) {
+    if !matches!(protocol_version, 1..=3) {
         return Err("unsupported receipt protocol version for terminal evidence".to_owned());
     }
     let authority_required = candidate
@@ -2347,6 +2377,7 @@ fn verify_terminal_commitments_with_accounts(
     Ok(())
 }
 
+#[cfg(test)]
 fn verify_receipt_batch_authority(
     result: &Value,
     head: &VerifiedCallHead,
@@ -2412,6 +2443,7 @@ fn verify_receipt_batch_authority(
     ))
 }
 
+#[cfg(test)]
 fn render_program_failure(
     failure: &layerx_programs_runtime::ProgramFailure,
     result_code: i32,
@@ -2421,6 +2453,7 @@ fn render_program_failure(
         "result_code":result_code}})
 }
 
+#[cfg(test)]
 fn render_attachment(attachment: &TerminalAttachment) -> Value {
     match attachment {
         TerminalAttachment::Occupancy(bytes) => {
@@ -2435,6 +2468,7 @@ fn render_attachment(attachment: &TerminalAttachment) -> Value {
     }
 }
 
+#[cfg(test)]
 fn discover_call_head(
     client: &Client,
     request: &CallRequest<'_>,
@@ -2447,6 +2481,7 @@ fn discover_call_head(
 /// Binds program id, version, code hash, ABI, observed sequence, freshness and
 /// state root under one sequencer signature before a call or simulation is
 /// rendered against that head.
+#[cfg(test)]
 fn verify_call_head(
     document: &Value,
     request: &CallRequest<'_>,
@@ -2543,6 +2578,7 @@ fn verify_call_head(
     })
 }
 
+#[cfg(test)]
 fn canonical_u64(document: &Value, field: &str) -> Result<u64, String> {
     match document.get(field) {
         Some(Value::Number(value)) => value.as_u64(),
@@ -2558,6 +2594,7 @@ fn canonical_u64(document: &Value, field: &str) -> Result<u64, String> {
     .ok_or_else(|| format!("{field} must be a canonical unsigned 64-bit integer"))
 }
 
+#[cfg(test)]
 fn render_resource_refusal(refusal: BudgetMeterRefusal) -> Value {
     let resource_name = |resource| match resource {
         BudgetResourceKind::Cpu => "cpu",
@@ -2904,7 +2941,9 @@ mod call_tests {
         let impostor = SigningKey::from_bytes(&[9; 32]);
         let forged = signed_discovery_document(&impostor, 3, 1_699_999_999_000, 1_700_000_300_000);
         assert_eq!(
-            verify_call_head(&forged, &request).unwrap_err(),
+            verify_call_head(&forged, &request)
+                .err()
+                .unwrap_or_else(|| panic!("expected error")),
             "program discovery authority differs from configured trust anchor"
         );
         let other_hex = hex_encode(&impostor.verifying_key().to_bytes());
@@ -2913,7 +2952,9 @@ mod call_tests {
             ..golden_request()
         };
         assert_eq!(
-            verify_call_head(&document, &other_anchor).unwrap_err(),
+            verify_call_head(&document, &other_anchor)
+                .err()
+                .unwrap_or_else(|| panic!("expected error")),
             "program discovery authority differs from configured trust anchor"
         );
 
@@ -2962,7 +3003,9 @@ mod call_tests {
             let mut altered = document.clone();
             altered[field] = tampered;
             assert_eq!(
-                verify_call_head(&altered, &request).unwrap_err(),
+                verify_call_head(&altered, &request)
+                    .err()
+                    .unwrap_or_else(|| panic!("expected error")),
                 expected,
                 "{field}"
             );
@@ -2972,12 +3015,16 @@ mod call_tests {
             .as_object_mut()
             .map(|object| object.remove("discovery_signature"));
         assert_eq!(
-            verify_call_head(&unsigned, &request).unwrap_err(),
+            verify_call_head(&unsigned, &request)
+                .err()
+                .unwrap_or_else(|| panic!("expected error")),
             "program discovery omitted signature"
         );
         let stale = signed_discovery_document(&signer, 3, 1_700_000_000_001, 1_700_000_300_000);
         assert_eq!(
-            verify_call_head(&stale, &request).unwrap_err(),
+            verify_call_head(&stale, &request)
+                .err()
+                .unwrap_or_else(|| panic!("expected error")),
             "program discovery is outside its signed freshness interval"
         );
     }
@@ -3399,8 +3446,8 @@ mod registry_document_tests {
 
     #[test]
     fn freshness_accepts_the_canonical_sequence_string_the_services_publish() {
-        let (observed_sequence, state_root) =
-            program_registry_freshness(&program_document()).expect("canonical freshness");
+        let (observed_sequence, state_root) = program_registry_freshness(&program_document())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "canonical freshness"));
         assert_eq!(observed_sequence, 4);
         assert_eq!(
             state_root[..4],
@@ -3415,7 +3462,7 @@ mod registry_document_tests {
         document["observed_sequence"] = json!(9u64);
         assert_eq!(
             program_registry_freshness(&document)
-                .expect("numeric freshness")
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "numeric freshness"))
                 .0,
             9
         );
@@ -3426,7 +3473,7 @@ mod registry_document_tests {
         let mut document = program_document();
         document
             .as_object_mut()
-            .expect("object")
+            .unwrap_or_else(|| panic!("{}", "object"))
             .remove("observed_sequence");
         assert_eq!(
             program_registry_freshness(&document),
@@ -3449,7 +3496,7 @@ mod registry_document_tests {
         let mut document = program_document();
         document
             .as_object_mut()
-            .expect("object")
+            .unwrap_or_else(|| panic!("{}", "object"))
             .remove("state_root");
         assert_eq!(
             program_registry_freshness(&document),
@@ -3478,7 +3525,7 @@ mod registry_read_tests {
         hex_encode(&[byte; 32])
     }
 
-    fn wrapped(value: serde_json::Value) -> serde_json::Value {
+    fn wrapped(value: &serde_json::Value) -> serde_json::Value {
         json!({
             "request_id": "emu-000000000000000c",
             "value": value,
@@ -3564,7 +3611,7 @@ mod registry_read_tests {
 
     #[test]
     fn registry_read_accepts_the_wrapped_document_the_services_serve() {
-        let Ok(document) = registry_program_document(&wrapped(registry_document()), PROGRAM_ID)
+        let Ok(document) = registry_program_document(&wrapped(&registry_document()), PROGRAM_ID)
         else {
             panic!("the wrapped registry read was refused");
         };
@@ -3578,7 +3625,7 @@ mod registry_read_tests {
             object.remove("value_accounts");
         }
         assert_eq!(
-            registry_program_document(&wrapped(document), PROGRAM_ID),
+            registry_program_document(&wrapped(&document), PROGRAM_ID),
             Err("registry response omitted receipt-proven program balances".to_owned())
         );
     }
@@ -3587,7 +3634,7 @@ mod registry_read_tests {
     fn registry_read_accepts_the_account_incapable_abi_one_block() {
         let mut document = registry_document();
         document["value_accounts"] = json!({"status": "account-incapable-abi1", "accounts": []});
-        let Ok(parsed) = registry_program_document(&wrapped(document.clone()), PROGRAM_ID) else {
+        let Ok(parsed) = registry_program_document(&wrapped(&document.clone()), PROGRAM_ID) else {
             panic!("the account-incapable registry read was refused");
         };
         assert_eq!(parsed, document);
@@ -3610,7 +3657,7 @@ mod registry_read_tests {
         let mut document = registry_document();
         document["value_accounts"]["receipt"]["observed_sequence"] = json!("0");
         assert_eq!(
-            registry_program_document(&wrapped(document), PROGRAM_ID),
+            registry_program_document(&wrapped(&document), PROGRAM_ID),
             Err("program balance freshness is absent or unverifiable".to_owned())
         );
     }
@@ -3620,14 +3667,14 @@ mod registry_read_tests {
         let mut document = registry_document();
         document["value_accounts"]["receipt"]["observed_sequence"] = json!("07");
         assert_eq!(
-            registry_program_document(&wrapped(document), PROGRAM_ID),
+            registry_program_document(&wrapped(&document), PROGRAM_ID),
             Err("program balance freshness is absent or unverifiable".to_owned())
         );
     }
 
     #[test]
     fn interface_read_accepts_the_wrapped_document_the_services_serve() {
-        let Ok(document) = interface_program_document(&wrapped(interface_document())) else {
+        let Ok(document) = interface_program_document(&wrapped(&interface_document())) else {
             panic!("the wrapped interface read was refused");
         };
         assert_eq!(document, interface_document());
@@ -3650,10 +3697,10 @@ mod registry_read_tests {
         let mut document = interface_document();
         document
             .as_object_mut()
-            .expect("object")
+            .unwrap_or_else(|| panic!("{}", "object"))
             .remove("observed_sequence");
         assert_eq!(
-            interface_program_document(&wrapped(document)),
+            interface_program_document(&wrapped(&document)),
             Err("interface read omitted current-state freshness".to_owned())
         );
     }
@@ -3814,7 +3861,7 @@ fn decode_chain_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
                 round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
             }
             (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
-                block_id = Some(decode_chain_block_id(value)?)
+                block_id = Some(decode_chain_block_id(value)?);
             }
             (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
             _ => return Err(ChainProofError::NonCanonical),
@@ -3848,7 +3895,7 @@ fn decode_chain_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
                             );
                         }
                         (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
-                            part_hash = Some(value.to_vec())
+                            part_hash = Some(value.to_vec());
                         }
                         _ => return Err(ChainProofError::NonCanonical),
                     }

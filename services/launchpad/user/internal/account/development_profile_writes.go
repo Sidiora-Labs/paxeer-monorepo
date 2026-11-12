@@ -53,7 +53,7 @@ type DevelopmentProfileWrites struct {
 
 // Routes lists the paths Handler serves, for mounting on an outer router.
 func (DevelopmentProfileWrites) Routes() []string {
-	return []string{"/v3/profiles/{wallet}"}
+	return []string{pathProfileV3}
 }
 
 // Handler returns the development owner write surface.
@@ -171,7 +171,7 @@ func (d DevelopmentProfileWrites) extendedProfilePatch(w http.ResponseWriter, r 
 		return
 	}
 	w.Header().Set("ETag", profileETag(out.PublicProfile, 0))
-	d.Reads.respond(w, id, map[string]any{"profile": out}, out.Revision)
+	d.Reads.respond(w, id, map[string]any{fieldProfile: out}, out.Revision)
 }
 
 // developmentLinks rejects https links the read projection would drop
@@ -244,13 +244,13 @@ func (d DevelopmentProfileWrites) apply(ctx context.Context, wallet string, v Ex
 	}
 	for key, value := range v.Socials {
 		switch key {
-		case "twitter":
+		case socialTwitter:
 			row.twitter = text(value)
-		case "telegram":
+		case socialTelegram:
 			row.telegram = text(value)
-		case "discord":
+		case socialDiscord:
 			row.discord = text(value)
-		case "website":
+		case socialWebsite:
 			row.website = text(value)
 		}
 	}

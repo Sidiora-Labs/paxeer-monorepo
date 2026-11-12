@@ -36,7 +36,7 @@ func realBrokerProcess(t *testing.T) (*nats.Conn, jetstream.JetStream, *exec.Cmd
 		var err error
 		binary, err = exec.LookPath("nats-server")
 		if err != nil {
-			t.Fatal("real file-backed nats-server required: ", err)
+			t.Skip("NATS_SERVER_BINARY is unset and nats-server is not on PATH: ", err)
 		}
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -295,6 +295,9 @@ func phase3Envelope(id string) delivery.Envelope {
 }
 func phase3Database(t *testing.T, ctx context.Context, schema string) *pgxpool.Pool {
 	t.Helper()
+	if os.Getenv("DELIVERY_TEST_DSN") == "" {
+		t.Skip("DELIVERY_TEST_DSN is unset: configure the real PostgreSQL fixture")
+	}
 	config, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))
 	if err != nil || config.ConnConfig.Host != "127.0.0.1" || config.ConnConfig.Port != 25432 || config.ConnConfig.Database != "kindle_fixture" || !strings.HasPrefix(schema, "kd_") || !identifier.MatchString(schema) || len(schema) > 63 {
 		t.Fatal("explicit private PostgreSQL fixture authority required")
@@ -443,7 +446,7 @@ func TestPhase3ActualRelayCrashAndConsumerRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := phase3Config()
-	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: cfg.Stream, Subjects: []string{cfg.Subject}, Storage: jetstream.FileStorage, Replicas: 1, Duplicates: time.Millisecond})
+	stream, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: cfg.Stream, Subjects: []string{cfg.Subject}, Storage: jetstream.FileStorage, Replicas: 1, Duplicates: 100 * time.Millisecond})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +528,7 @@ func TestPhase3ActualRelayCrashAndConsumerRestart(t *testing.T) {
 			if err = pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='delivery-phase3-relay' AND wait_event='PgSleep' AND query LIKE '%delivery_outbox%')").Scan(&marking); err != nil {
 				t.Fatal(err)
 			}
-			return info.State.Msgs == 2 && marking
+			return info.State.Msgs == 2 && marking && time.Since(info.State.LastTime) > 100*time.Millisecond
 		})
 		var pending int
 		if err := pool.QueryRow(ctx, "SELECT count(*) FROM "+q+".delivery_outbox WHERE event_id='ack-before-mark' AND state='pending'").Scan(&pending); err != nil || pending != 1 {
@@ -736,7 +739,7 @@ func TestPhase3ActualOrderedPoisonAndHundredDuplicates(t *testing.T) {
 	cfg := phase3Config()
 	cfg.Subject = subject
 	cfg.AckWait = 10 * time.Second
-	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: cfg.Stream, Subjects: []string{subject}, Storage: jetstream.FileStorage, Replicas: 1, Duplicates: time.Millisecond}); err != nil {
+	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: cfg.Stream, Subjects: []string{subject}, Storage: jetstream.FileStorage, Replicas: 1, Duplicates: 100 * time.Millisecond}); err != nil {
 		t.Fatal(err)
 	}
 	brokerConfig, err := cfg.BrokerConsumerConfig()

@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/google/uuid"
@@ -49,11 +51,11 @@ type Connected struct {
 }
 
 func NewConnected(d ConnectedDeps) (*Connected, error) {
-	if d.Name != "metadata" && d.Name != "user" && d.Name != "social" && d.Name != "livestream" {
+	if d.Name != metadataServiceName && d.Name != userServiceName && d.Name != socialServiceName && d.Name != livestreamServiceName {
 		return nil, errors.New("unknown media upstream")
 	}
 	u, e := url.Parse(d.URL)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil || len(d.SigningKey) != ed25519.PrivateKeySize || d.TLS == nil || d.TLS.InsecureSkipVerify || d.TLS.RootCAs == nil || len(d.TLS.Certificates) == 0 || len(d.Routes) == 0 || len(d.Routes) > 256 {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil || len(d.SigningKey) != ed25519.PrivateKeySize || d.TLS == nil || d.TLS.InsecureSkipVerify || d.TLS.RootCAs == nil || len(d.TLS.Certificates) == 0 || len(d.Routes) == 0 || len(d.Routes) > 256 {
 		return nil, errors.New("private media channel unavailable")
 	}
 	if d.Identity == nil {
@@ -80,40 +82,40 @@ func NewConnected(d ConnectedDeps) (*Connected, error) {
 }
 func FrozenConnectedSurface() map[string]map[string]string {
 	return map[string]map[string]string{
-		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT"},
-		"user":       {"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE"},
-		"livestream": {"/v2/streams": "GET POST", "/v2/streams/operations/{operationId}": "GET", "/v2/streams/{streamId}:start": "POST", "/v2/streams/{streamId}:end": "POST", "/v2/streams/{streamId}/viewers:heartbeat": "POST", "/v2/streams/{streamId}/ingest-credential": "POST"},
-		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST"},
+		metadataServiceName:   {"/v2/tokens/{tokenAddress}/metadata": getPatchMethods, "/v2/tokens/{tokenAddress}/media": getMethod, "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT"},
+		userServiceName:       {profileRoute: getPatchMethods, batchProfilesRoute: getMethod, "/v2/me/watchlist": getMethod, "/v2/me/watchlist/{poolAddress}": putDeleteMethods},
+		livestreamServiceName: {streamsRoute: getPostMethods, "/v2/streams/operations/{operationId}": getMethod, "/v2/streams/{streamId}:start": postMethod, "/v2/streams/{streamId}:end": postMethod, "/v2/streams/{streamId}/viewers:heartbeat": postMethod, "/v2/streams/{streamId}/ingest-credential": postMethod},
+		socialServiceName:     {followingRoute: putDeleteMethods, "/v2/profiles/{wallet}/followers": getMethod, "/v2/profiles/{wallet}/follow-stats": getMethod, "/v2/pools/{poolAddress}/comments": getPostMethods, "/v2/comments/{commentId}": patchDeleteMethods, "/v2/comments/{commentId}/likes/me": putDeleteMethods, "/v2/reports": postMethod, "/v2/callouts": postMethod, "/v2/pools/{poolAddress}/callouts": getMethod, "/v2/bounties": getPostMethods, "/v2/bounties/stats": getMethod, "/v2/bounties/{bountyId}": getMethod, "/v2/bounties/{bountyId}/submissions": getPostMethods, "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": postMethod},
 	}
 }
 
 func allowedConnectedRoute(name string, r ConnectedRoute) bool {
 	routes := FrozenConnectedSurface()
-	if r.Optional && (r.Authenticate || r.Method != "GET") {
+	if r.Optional && (r.Authenticate || r.Method != getMethod) {
 		return false
 	}
-	if name == "user" {
+	if name == userServiceName {
 		for _, route := range UserConnectedRoutes() {
 			if route.Template == r.Template && route.Method == r.Method {
 				return r.Authenticate == route.Authenticate && r.Optional == route.Optional && !r.Upload
 			}
 		}
 	}
-	if name == "metadata" {
+	if name == metadataServiceName {
 		for _, route := range MetadataConnectedRoutes() {
 			if route.Template == r.Template && route.Method == r.Method {
 				return r.Authenticate == route.Authenticate && r.Optional == route.Optional && !r.Upload
 			}
 		}
 	}
-	if name == "livestream" {
+	if name == livestreamServiceName {
 		for _, route := range LivestreamConnectedRoutes() {
 			if route.Template == r.Template && route.Method == r.Method {
 				return r.Authenticate == route.Authenticate && r.Optional == route.Optional && !r.Upload
 			}
 		}
 	}
-	if name == "social" {
+	if name == socialServiceName {
 		for _, route := range SocialConnectedRoutes() {
 			if route.Template == r.Template && route.Method == r.Method {
 				return r.Authenticate == route.Authenticate && r.Optional == route.Optional && !r.Upload
@@ -124,7 +126,7 @@ func allowedConnectedRoute(name string, r ConnectedRoute) bool {
 	if !ok || !strings.Contains(" "+methods+" ", " "+r.Method+" ") {
 		return false
 	}
-	if r.Method != "GET" && !r.Authenticate {
+	if r.Method != getMethod && !r.Authenticate {
 		return false
 	}
 	if strings.HasPrefix(r.Template, "/v2/me/") && !r.Authenticate {
@@ -136,10 +138,10 @@ func allowedConnectedRoute(name string, r ConnectedRoute) bool {
 	if strings.Contains(r.Template, "/operations/") && !r.Authenticate {
 		return false
 	}
-	if name == "metadata" && r.Method == "PUT" && strings.Contains(r.Template, "/assets/") && !r.Upload {
+	if name == metadataServiceName && r.Method == putMethod && strings.Contains(r.Template, "/assets/") && !r.Upload {
 		return false
 	}
-	return !r.Upload || (name == "metadata" && (r.Method == "POST" || r.Method == "PUT") && strings.Contains(r.Template, "/assets/"))
+	return !r.Upload || (name == metadataServiceName && (r.Method == postMethod || r.Method == putMethod) && strings.Contains(r.Template, "/assets/"))
 }
 func connectedMatch(template, path string) bool {
 	a, b := strings.Split(template, "/"), strings.Split(path, "/")
@@ -191,12 +193,12 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r = r.WithContext(ctx)
 	var principal sharedauth.IdentityPrincipal
-	recovery := p.audience == "user" && deletionStatusRoute(selected) && len(r.Header.Values("X-Recovery-Receipt")) != 0
+	recovery := p.audience == userServiceName && deletionStatusRoute(selected) && len(r.Header.Values("X-Recovery-Receipt")) != 0
 	if recovery && !validRecoveryHeader(r.Header, r.URL.Path[strings.LastIndexByte(r.URL.Path, '/')+1:]) {
 		connectedError(w, 400, "recovery_receipt_invalid")
 		return
 	}
-	if p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && !sessionCredentials(r) {
+	if p.audience == livestreamServiceName && selected.Method == http.MethodPost && selected.Template == ingestKeyRoute && !sessionCredentials(r) {
 		connectedError(w, http.StatusUnauthorized, "identity_unavailable")
 		return
 	}
@@ -223,13 +225,13 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		controller := http.NewResponseController(w)
 		deadline, _ := ctx.Deadline()
 		_ = controller.SetReadDeadline(deadline)
-		defer controller.SetReadDeadline(time.Time{})
+		defer func() { cleanup.Report("reset read deadline", controller.SetReadDeadline(time.Time{})) }()
 		var e error
 		limit := int64(1 << 20)
-		if selected.Upload && r.Method == "PUT" {
+		if selected.Upload && r.Method == putMethod {
 			limit = 6 << 20
 		}
-		if p.audience == "metadata" && selected.Template == metadataPublications && r.Method == http.MethodPost {
+		if p.audience == metadataServiceName && selected.Template == metadataPublications && r.Method == http.MethodPost {
 			limit = MetadataPublicationBodyLimit
 		}
 		body, e = io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
@@ -254,7 +256,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 503, "upstream_unavailable")
 		return
 	}
-	if p.audience == "user" && selected.Method == http.MethodGet && selected.Template == "/v2/me/exports/{jobId}/download" {
+	if p.audience == userServiceName && selected.Method == http.MethodGet && selected.Template == "/v2/me/exports/{jobId}/download" {
 		if values := r.Header.Values("X-Export-Authorization"); len(values) != 0 {
 			if len(values) != 1 || !validExportAuthorization(values[0]) {
 				connectedError(w, 400, "export_authorization_invalid")
@@ -271,7 +273,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if p.audience == "livestream" && selected.Template == "/v2/provider-webhooks/livepeer" {
+	if p.audience == livestreamServiceName && selected.Template == "/v2/provider-webhooks/livepeer" {
 		if values := r.Header.Values("Livepeer-Signature"); len(values) == 1 {
 			req.Header.Set("Livepeer-Signature", values[0])
 		} else if len(values) > 1 {
@@ -296,7 +298,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requestID = uuid.NewString()
 			req.Header.Set("X-Request-ID", requestID)
 		}
-		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: connectedAssertionAudience(p.audience, selected.Template), Key: p.key, Transport: actorAssertionTransport(p.audience)}
+		signer := sharedauth.ServiceAssertionIssuer{Issuer: gatewayServiceName, Audience: connectedAssertionAudience(p.audience, selected.Template), Key: p.key, Transport: actorAssertionTransport(p.audience)}
 		if e = signer.SignRequest(req, principal, []string{"owner"}, body); e != nil {
 			connectedError(w, 403, "actor_assertion_denied")
 			return
@@ -307,7 +309,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if _, e := uuid.Parse(requestID); e != nil {
 			req.Header.Set("X-Request-ID", uuid.NewString())
 		}
-		signer := sharedauth.ServiceRequestIssuer{Issuer: "gateway", Audience: "account", Key: p.key, Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
+		signer := sharedauth.ServiceRequestIssuer{Issuer: gatewayServiceName, Audience: "account", Key: p.key, Transport: sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}}
 		if e = signer.SignRequest(req, nil); e != nil {
 			connectedError(w, 403, "recovery_assertion_denied")
 			return
@@ -318,7 +320,11 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 503, "upstream_unavailable")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 && resp.StatusCode != 304 {
 		connectedError(w, 502, "upstream_redirect_denied")
 		return
@@ -334,7 +340,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(resp.StatusCode)
 		return
 	}
-	if p.audience == "social" && selected.Template == "/v2/voice-rooms/{roomId}/recording/object" && resp.StatusCode == 200 {
+	if p.audience == socialServiceName && selected.Template == "/v2/voice-rooms/{roomId}/recording/object" && resp.StatusCode == 200 {
 		if resp.Header.Get("Content-Type") != "audio/ogg" {
 			connectedError(w, 502, "upstream_response_invalid")
 			return
@@ -350,7 +356,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if p.audience == "metadata" && selected.Template == metadataLogo && resp.StatusCode == 200 {
+	if p.audience == metadataServiceName && selected.Template == metadataLogo && resp.StatusCode == 200 {
 		image, e := io.ReadAll(io.LimitReader(resp.Body, metadataLogoLimit+1))
 		if e != nil || len(image) > metadataLogoLimit || resp.Header.Get("Content-Type") != "image/png" || len(image) < 8 || !bytes.Equal(image[:8], []byte("\x89PNG\r\n\x1a\n")) {
 			connectedError(w, 502, "upstream_response_invalid")
@@ -369,7 +375,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 502, "upstream_response_invalid")
 		return
 	}
-	privateIngest := p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && resp.StatusCode == http.StatusOK
+	privateIngest := p.audience == livestreamServiceName && selected.Method == http.MethodPost && selected.Template == ingestKeyRoute && resp.StatusCode == http.StatusOK
 	if privateIngest && !validIngestResponse(result, strings.Split(r.URL.Path, "/")[3], time.Now()) {
 		connectedError(w, 502, "upstream_response_invalid")
 		return
@@ -378,7 +384,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 502, "upstream_response_restricted")
 		return
 	}
-	if p.audience == "user" && deletionCreateRoute(selected) && resp.StatusCode == http.StatusAccepted {
+	if p.audience == userServiceName && deletionCreateRoute(selected) && resp.StatusCode == http.StatusAccepted {
 		var accepted struct {
 			Data struct {
 				Job struct {
@@ -454,8 +460,8 @@ func sessionCredentials(r *http.Request) bool {
 // viewer-aware (Optional), the writes require a session.
 func SocialContractRoutes() []ConnectedRoute {
 	return []ConnectedRoute{
-		{Method: http.MethodPut, Template: "/v2/me/following/{wallet}", Authenticate: true},
-		{Method: http.MethodDelete, Template: "/v2/me/following/{wallet}", Authenticate: true},
+		{Method: http.MethodPut, Template: followingRoute, Authenticate: true},
+		{Method: http.MethodDelete, Template: followingRoute, Authenticate: true},
 		{Method: http.MethodGet, Template: "/v2/profiles/{wallet}/followers", Optional: true},
 		{Method: http.MethodGet, Template: "/v2/profiles/{wallet}/follow-stats", Optional: true},
 	}
@@ -525,13 +531,13 @@ func RetiredConnectedRoutes() []ConnectedRoute {
 
 func SocialConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
-		"/v2/chat/history": "GET", "/v2/chat/conversations": "GET", "/v2/chat/read": "POST", "/v2/chat/revise": "POST",
-		"/v2/social/users/{wallet}/followers": "GET", "/v2/social/users/{wallet}/following": "GET", "/v2/social/users/{wallet}/follow-stats": "GET",
-		"/v2/social/follow/{followee}": "PUT DELETE", "/v2/social/pool/{poolAddress}/comments": "GET POST", "/v2/social/comments/{id}": "PATCH DELETE", "/v2/social/comments/{id}/hide": "POST", "/v2/social/comments/{id}/like": "PUT DELETE", "/v2/social/callouts/{id}/references": "POST", "/v2/social/me/social/privacy": "GET PATCH", "/v2/social/me/social/blocks/{wallet}": "PUT DELETE",
-		"/v2/safety/reports": "POST", "/v2/safety/cases": "GET", "/v2/safety/cases/{caseId}": "PATCH", "/v2/safety/cases/{caseId}/bans": "POST", "/v2/safety/cases/{caseId}/restore": "POST", "/v2/safety/appeals": "POST", "/v2/safety/appeals/{appealId}": "GET", "/v2/safety/appeals/{appealId}/reverse-ban": "POST",
-		"/v2/voice-rooms": "POST", "/v2/voice-rooms/{roomId}/start": "POST", "/v2/voice-rooms/{roomId}/end": "POST", "/v2/voice-rooms/{roomId}/moderation-actions": "POST", "/v2/voice-rooms/{roomId}/prompt": "GET", "/v2/voice-rooms/{roomId}/tickets": "POST", "/v2/voice-rooms/{roomId}/recording": "GET POST", "/v2/voice-rooms/{roomId}/recording/object": "GET", "/v2/voice-rooms/{roomId}/recording/consent": "POST", "/v2/voice-rooms/{roomId}/recording/start": "POST", "/v2/voice-rooms/{roomId}/recording/stop": "POST", "/v2/voice-rooms/{roomId}/speaker-requests": "POST", "/v2/voice-rooms/{roomId}/speakers": "POST", "/v2/voice-rooms/{roomId}/leave": "POST",
-		"/v3/voice-rooms": "POST", "/v3/voice-rooms/{roomId}/moderation-actions": "POST", "/v3/voice-rooms/{roomId}/tickets": "POST",
-		"/v2/voice-rooms/{roomId}": "GET", "/v2/voice-rooms/{roomId}:end": "POST", "/v2/voice-rooms/{roomId}:leave": "POST",
+		"/v2/chat/history": getMethod, "/v2/chat/conversations": getMethod, "/v2/chat/read": postMethod, "/v2/chat/revise": postMethod,
+		"/v2/social/users/{wallet}/followers": getMethod, "/v2/social/users/{wallet}/following": getMethod, "/v2/social/users/{wallet}/follow-stats": getMethod,
+		"/v2/social/follow/{followee}": putDeleteMethods, "/v2/social/pool/{poolAddress}/comments": getPostMethods, "/v2/social/comments/{id}": patchDeleteMethods, "/v2/social/comments/{id}/hide": postMethod, "/v2/social/comments/{id}/like": putDeleteMethods, "/v2/social/callouts/{id}/references": postMethod, "/v2/social/me/social/privacy": getPatchMethods, "/v2/social/me/social/blocks/{wallet}": putDeleteMethods,
+		"/v2/safety/reports": postMethod, "/v2/safety/cases": getMethod, "/v2/safety/cases/{caseId}": "PATCH", "/v2/safety/cases/{caseId}/bans": postMethod, "/v2/safety/cases/{caseId}/restore": postMethod, "/v2/safety/appeals": postMethod, "/v2/safety/appeals/{appealId}": getMethod, "/v2/safety/appeals/{appealId}/reverse-ban": postMethod,
+		"/v2/voice-rooms": postMethod, "/v2/voice-rooms/{roomId}/start": postMethod, "/v2/voice-rooms/{roomId}/end": postMethod, "/v2/voice-rooms/{roomId}/moderation-actions": postMethod, "/v2/voice-rooms/{roomId}/prompt": getMethod, "/v2/voice-rooms/{roomId}/tickets": postMethod, "/v2/voice-rooms/{roomId}/recording": getPostMethods, "/v2/voice-rooms/{roomId}/recording/object": getMethod, "/v2/voice-rooms/{roomId}/recording/consent": postMethod, "/v2/voice-rooms/{roomId}/recording/start": postMethod, "/v2/voice-rooms/{roomId}/recording/stop": postMethod, "/v2/voice-rooms/{roomId}/speaker-requests": postMethod, "/v2/voice-rooms/{roomId}/speakers": postMethod, "/v2/voice-rooms/{roomId}/leave": postMethod,
+		"/v3/voice-rooms": postMethod, "/v3/voice-rooms/{roomId}/moderation-actions": postMethod, "/v3/voice-rooms/{roomId}/tickets": postMethod,
+		"/v2/voice-rooms/{roomId}": getMethod, "/v2/voice-rooms/{roomId}:end": postMethod, "/v2/voice-rooms/{roomId}:leave": postMethod,
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
@@ -543,7 +549,7 @@ func SocialConnectedRoutes() []ConnectedRoute {
 	for _, route := range routes {
 		seen[route.Method+" "+route.Template] = true
 	}
-	frozen := FrozenConnectedSurface()["social"]
+	frozen := FrozenConnectedSurface()[socialServiceName]
 	frozenPaths := make([]string, 0, len(frozen))
 	for path := range frozen {
 		frozenPaths = append(frozenPaths, path)
@@ -578,7 +584,7 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 		{Method: http.MethodGet, Template: "/v2/streams/{streamId}"},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/viewer-session"},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/heartbeat"},
-		{Method: http.MethodPost, Template: "/v2/streams", Authenticate: true},
+		{Method: http.MethodPost, Template: streamsRoute, Authenticate: true},
 		{Method: http.MethodPatch, Template: "/v2/streams/{streamId}", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/go-live", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/end", Authenticate: true},
@@ -587,8 +593,8 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 		{Method: http.MethodGet, Template: "/v2/streams/{streamId}/key-rotation", Authenticate: true},
 		{Method: http.MethodGet, Template: "/v2/streams/{streamId}/private-playback", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-credential", Authenticate: true},
-		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-key", Authenticate: true},
-		{Method: http.MethodGet, Template: "/v2/streams"},
+		{Method: http.MethodPost, Template: ingestKeyRoute, Authenticate: true},
+		{Method: http.MethodGet, Template: streamsRoute},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:start", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:end", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/viewers:heartbeat"},
@@ -598,10 +604,10 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 
 func UserConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
-		"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
-		"/v1/me/watchlist": "GET", "/v1/me/watchlist/{poolAddress}": "PUT DELETE",
-		"/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE",
-		"/v2/me/devices/{deviceId}": "PUT DELETE", "/v2/me/exports": "POST", "/v2/me/exports/{jobId}": "GET", "/v2/me/deletion-requests": "POST", "/v2/me/deletion-requests/{jobId}": "GET",
+		profileRoute: getPatchMethods, batchProfilesRoute: getMethod, v3ProfileRoute: getPatchMethods, "/v3/me/preferences": getPatchMethods, "/v1/me/preferences": getPatchMethods, "/v2/me/preferences": getPatchMethods, "/v1/me/devices": getMethod, "/v1/me/devices/{deviceId}": putDeleteMethods, "/v1/me/exports": postMethod, "/v1/me/exports/{jobId}": getMethod, "/v2/me/exports/{jobId}/download": getMethod, "/v1/me/deletion-requests": postMethod, "/v1/me/deletion-requests/{jobId}": getMethod, "/v1/profiles/{wallet}": getPatchMethods,
+		"/v1/me/watchlist": getMethod, "/v1/me/watchlist/{poolAddress}": putDeleteMethods,
+		"/v2/me/watchlist": getMethod, "/v2/me/watchlist/{poolAddress}": putDeleteMethods,
+		"/v2/me/devices/{deviceId}": putDeleteMethods, "/v2/me/exports": postMethod, "/v2/me/exports/{jobId}": getMethod, "/v2/me/deletion-requests": postMethod, "/v2/me/deletion-requests/{jobId}": getMethod,
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
@@ -611,7 +617,7 @@ func UserConnectedRoutes() []ConnectedRoute {
 	routes := []ConnectedRoute{}
 	for _, path := range paths {
 		for _, method := range strings.Fields(methods[path]) {
-			public := method == http.MethodGet && (path == "/v3/profiles/{wallet}" || path == "/v2/profiles/{wallet}" || path == "/v2/profiles:batch")
+			public := method == http.MethodGet && (path == v3ProfileRoute || path == profileRoute || path == batchProfilesRoute)
 			routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: !public})
 		}
 	}
@@ -627,9 +633,9 @@ func UserConnectedRoutes() []ConnectedRoute {
 // attached when a session is present); every other method requires a session.
 func DevelopmentSocialRoutes() []ConnectedRoute {
 	extra := map[string]string{
-		"/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE",
-		"/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET",
-		"/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST",
+		"/v2/pools/{poolAddress}/comments": getPostMethods, "/v2/comments/{commentId}": patchDeleteMethods, "/v2/comments/{commentId}/likes/me": putDeleteMethods,
+		"/v2/reports": postMethod, "/v2/callouts": postMethod, "/v2/pools/{poolAddress}/callouts": getMethod,
+		"/v2/bounties": getPostMethods, "/v2/bounties/stats": getMethod, "/v2/bounties/{bountyId}": getMethod, "/v2/bounties/{bountyId}/submissions": getPostMethods, "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": postMethod,
 	}
 	routes := []ConnectedRoute{}
 	seen := map[string]bool{}
@@ -662,7 +668,7 @@ func DevelopmentSocialRoutes() []ConnectedRoute {
 // PATCH /v3/profiles/{wallet}. They require a session here, and media/user
 // re-authenticates the forwarded bearer against the identity authority.
 func DevelopmentUserRoutes() []ConnectedRoute {
-	return []ConnectedRoute{{Method: http.MethodPatch, Template: "/v3/profiles/{wallet}", Authenticate: true}}
+	return []ConnectedRoute{{Method: http.MethodPatch, Template: v3ProfileRoute, Authenticate: true}}
 }
 
 // The media/metadata routes behind the gateway beyond the frozen v2 media
@@ -707,7 +713,7 @@ func MetadataConnectedRoutes() []ConnectedRoute {
 // confirms the identity and verifies the creator's committed operation
 // against the chain inside one transaction.
 func (p *Connected) slowRoute(route *ConnectedRoute) bool {
-	return p.audience == "metadata" && route.Method == http.MethodPost && route.Template == metadataPublications
+	return p.audience == metadataServiceName && route.Method == http.MethodPost && route.Template == metadataPublications
 }
 
 // MetadataActorTransport is the header pair media/metadata's private channel
@@ -716,14 +722,14 @@ func (p *Connected) slowRoute(route *ConnectedRoute) bool {
 var MetadataActorTransport = sharedauth.AssertionTransport{AssertionHeader: "X-Internal-Assertion", SignatureHeader: "X-Internal-Signature"}
 
 func connectedAssertionAudience(upstream, template string) string {
-	if upstream == "user" {
+	if upstream == userServiceName {
 		return "account"
 	}
 	return upstream
 }
 
 func actorAssertionTransport(upstream string) sharedauth.AssertionTransport {
-	if upstream == "metadata" {
+	if upstream == metadataServiceName {
 		return MetadataActorTransport
 	}
 	return sharedauth.AssertionTransport{AssertionHeader: sharedauth.ActorAssertionHeader, SignatureHeader: sharedauth.ActorSignatureHeader}

@@ -1,6 +1,8 @@
+#[allow(dead_code)]
+mod programs {
+    include!("../src/programs.rs");
+}
 use layerx_platform_cli::{encoding, http};
-#[path = "../src/programs.rs"]
-mod programs;
 
 use std::io::{BufRead as _, Read as _, Write as _};
 use std::net::{Shutdown, TcpListener};
@@ -131,6 +133,51 @@ fn abi_hex(bytes: &[u8]) -> Value {
     json!(format!("0x{}", encoding::hex_encode(bytes)))
 }
 
+fn read_registry_request(
+    socket: std::net::TcpStream,
+) -> (std::io::BufReader<std::net::TcpStream>, Value) {
+    socket
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(|error| panic!("{error}"));
+    let mut reader = std::io::BufReader::new(socket);
+    let mut line = String::new();
+    reader
+        .read_line(&mut line)
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(line, "POST / HTTP/1.1\r\n");
+    let mut length = None;
+    loop {
+        line.clear();
+        assert!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("{error}"))
+                > 0
+        );
+        if line == "\r\n" {
+            break;
+        }
+        if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("{error}")),
+            );
+        }
+    }
+    let length = length.unwrap_or_else(|| panic!("missing content length"));
+    assert!(length <= 4 * 1024 * 1024);
+    let mut body = vec![0; length];
+    reader
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let request: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(request["jsonrpc"], "2.0");
+    assert_eq!(request["id"], 1);
+    (reader, request)
+}
+
 fn registry_listing(
     head: u64,
     max_span: u64,
@@ -161,46 +208,7 @@ fn registry_listing(
                 }
                 Err(error) => panic!("{error}"),
             };
-            socket
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap_or_else(|error| panic!("{error}"));
-            let mut reader = std::io::BufReader::new(socket);
-            let mut line = String::new();
-            reader
-                .read_line(&mut line)
-                .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(line, "POST / HTTP/1.1\r\n");
-            let mut length = None;
-            loop {
-                line.clear();
-                assert!(
-                    reader
-                        .read_line(&mut line)
-                        .unwrap_or_else(|error| panic!("{error}"))
-                        > 0
-                );
-                if line == "\r\n" {
-                    break;
-                }
-                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = Some(
-                        value
-                            .trim()
-                            .parse::<usize>()
-                            .unwrap_or_else(|error| panic!("{error}")),
-                    );
-                }
-            }
-            let length = length.unwrap_or_else(|| panic!("missing content length"));
-            assert!(length <= 4 * 1024 * 1024);
-            let mut body = vec![0; length];
-            reader
-                .read_exact(&mut body)
-                .unwrap_or_else(|error| panic!("{error}"));
-            let request: Value =
-                serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(request["jsonrpc"], "2.0");
-            assert_eq!(request["id"], 1);
+            let (mut reader, request) = read_registry_request(socket);
             let mut response = json!({"jsonrpc": "2.0", "id": 1});
             match request["method"].as_str() {
                 Some("eth_blockNumber") => {
@@ -495,53 +503,7 @@ fn program_registry_list_reads_logs() -> Result<(), String> {
     Ok(())
 }
 
-#[test]
-fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
-    program_registry_list_reads_logs()?;
-    let early = json!({
-        "address": ADDRESS, "removed": false,
-        "topics": [programs::PROGRAM_DEPLOYED_TOPIC, format!("0x{}", "22".repeat(32))],
-        "data": format!("0x{}", "33".repeat(32)),
-        "transactionHash": format!("0x{}", "44".repeat(32)),
-        "logIndex": "0x0", "blockNumber": "0x0"
-    });
-    let mut late = early.clone();
-    late["topics"][1] = json!(format!("0x{}", "11".repeat(32)));
-    late["transactionHash"] = json!(format!("0x{}", "55".repeat(32)));
-    late["blockNumber"] = json!("0x7d0");
-    let (output, requests) = registry_listing(
-        2000,
-        2000,
-        0,
-        "",
-        vec![early.clone(), early.clone(), late.clone(), late.clone()],
-    )?;
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(requests.len(), 3);
-    assert_eq!(requests[0]["method"], "eth_blockNumber");
-    assert_eq!(requests[0]["params"], json!([]));
-    assert_eq!(requests[1]["params"][0]["fromBlock"], "0x1");
-    assert_eq!(requests[1]["params"][0]["toBlock"], "0x7d0");
-    assert_eq!(requests[2]["params"][0]["fromBlock"], "0x0");
-    assert_eq!(requests[2]["params"][0]["toBlock"], "0x0");
-    let listing: Value =
-        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
-    let listing = &listing["data"];
-    assert_eq!(
-        listing["program_ids"],
-        json!(["11".repeat(32), "22".repeat(32)])
-    );
-    assert_eq!(listing["events"], json!([early, late]));
-    assert_eq!(listing["from_block"], 0);
-    assert_eq!(listing["to_block"], 2000);
-    assert_eq!(listing["earliest_scanned"], 0);
-    assert_eq!(listing["history_complete"], true);
-    assert!(listing.get("block_tag").is_none());
-
+fn assert_registry_pruned(early: &Value, late: &Value) -> Result<(), String> {
     for refusal in ["before", "pruned", "to_before"] {
         let mut retained = early.clone();
         retained["blockNumber"] = json!("0x5");
@@ -590,6 +552,57 @@ fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
         );
     }
 
+    Ok(())
+}
+
+#[test]
+fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
+    program_registry_list_reads_logs()?;
+    let early = json!({
+        "address": ADDRESS, "removed": false,
+        "topics": [programs::PROGRAM_DEPLOYED_TOPIC, format!("0x{}", "22".repeat(32))],
+        "data": format!("0x{}", "33".repeat(32)),
+        "transactionHash": format!("0x{}", "44".repeat(32)),
+        "logIndex": "0x0", "blockNumber": "0x0"
+    });
+    let mut late = early.clone();
+    late["topics"][1] = json!(format!("0x{}", "11".repeat(32)));
+    late["transactionHash"] = json!(format!("0x{}", "55".repeat(32)));
+    late["blockNumber"] = json!("0x7d0");
+    let (output, requests) = registry_listing(
+        2000,
+        2000,
+        0,
+        "",
+        vec![early.clone(), early.clone(), late.clone(), late.clone()],
+    )?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(requests.len(), 3);
+    assert_eq!(requests[0]["method"], "eth_blockNumber");
+    assert_eq!(requests[0]["params"], json!([]));
+    assert_eq!(requests[1]["params"][0]["fromBlock"], "0x1");
+    assert_eq!(requests[1]["params"][0]["toBlock"], "0x7d0");
+    assert_eq!(requests[2]["params"][0]["fromBlock"], "0x0");
+    assert_eq!(requests[2]["params"][0]["toBlock"], "0x0");
+    let listing: Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    let listing = &listing["data"];
+    assert_eq!(
+        listing["program_ids"],
+        json!(["11".repeat(32), "22".repeat(32)])
+    );
+    assert_eq!(listing["events"], json!([early, late]));
+    assert_eq!(listing["from_block"], 0);
+    assert_eq!(listing["to_block"], 2000);
+    assert_eq!(listing["earliest_scanned"], 0);
+    assert_eq!(listing["history_complete"], true);
+    assert!(listing.get("block_tag").is_none());
+
+    assert_registry_pruned(&early, &late)?;
     let (output, requests) = registry_listing(2000, 2000, 5, "before", vec![])?;
     assert!(
         output.status.success(),

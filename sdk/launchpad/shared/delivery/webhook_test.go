@@ -33,6 +33,7 @@ func verifyWebhookFixtureAdmin(ctx context.Context, action string) error {
 	return verifyWebhookFixtureSignature(strings.Repeat("admin-secret", 4), credential.timestamp, action, credential.signature, time.Now(), time.Minute)
 }
 func TestWebhookTargetsResumeIndependentlyPostgresTLS(t *testing.T) {
+	requireDeliveryEnv(t, "DELIVERY_TEST_DSN")
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	cfg, err := pgxpool.ParseConfig(os.Getenv("DELIVERY_TEST_DSN"))

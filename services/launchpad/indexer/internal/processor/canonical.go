@@ -49,14 +49,14 @@ func (p *Processor) ProcessCanonicalBatch(ctx context.Context, b store.Canonical
 			for i, t := range r.Topics {
 				topics[i] = common.HexToHash(t)
 			}
-			ev, err := p.deps.Decoder.Decode(ethtypes.Log{Address: common.HexToAddress(r.Emitter), Topics: topics, Data: r.Data, BlockNumber: uint64(r.Height), TxHash: common.HexToHash(r.TransactionHash), TxIndex: uint(r.TransactionIndex), BlockHash: common.HexToHash(r.BlockHash), Index: uint(r.LogIndex)})
+			ev, err := p.deps.Decoder.Decode(ethtypes.Log{Address: common.HexToAddress(r.Emitter), Topics: topics, Data: r.Data, BlockNumber: uint64(r.Height), TxHash: common.HexToHash(r.TransactionHash), TxIndex: uint(r.TransactionIndex), BlockHash: common.HexToHash(r.BlockHash), Index: uint(r.LogIndex)}) //nolint:gosec // persisted raw height uses the EVM log height field
 			if err != nil {
 				return nil, fmt.Errorf("required decode: %w", err)
 			}
 			if ev == nil {
 				continue
 			}
-			ts := timestamps[uint64(r.Height)]
+			ts := timestamps[uint64(r.Height)] //nolint:gosec // persisted raw height uses the EVM log height field
 			if ts <= 0 {
 				return nil, fmt.Errorf("missing block timestamp")
 			}
@@ -126,7 +126,7 @@ func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.
 				return store.ErrIntegrity
 			}
 			key := event.TxHash + ":" + strconv.FormatUint(uint64(event.LogIndex), 10)
-			if event.EventName == "Swap" {
+			if event.EventName == valueSwap {
 				if !selected[key] {
 					return errors.New("primary swap lacks qualified accounting fact")
 				}

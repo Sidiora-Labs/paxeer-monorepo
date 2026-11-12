@@ -9,6 +9,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/holdings"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/projectionstats"
@@ -23,13 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"log/slog"
-	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -95,7 +96,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := sharedprocess.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		var e error
 		metrics, e = telemetry.New("statsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -107,7 +108,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != valueProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -129,7 +130,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}()
 	var rdb *goredis.Client
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		rdb, err = sharedredis.NewBoundedClient(cfg.RedisURL, 40*time.Millisecond)
 	} else {
 		rdb, err = sharedredis.NewClient(cfg.RedisURL)
@@ -180,7 +181,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	var nc *nats.Conn
 	var rpc *ethclient.Client
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		var d statsRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
 			return nil, err
@@ -219,7 +220,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
-		authority, e := projectionstats.NewAccountingSourceAuthority("indexer")
+		authority, e := projectionstats.NewAccountingSourceAuthority(valueIndexer)
 		if e != nil {
 			return nil, e
 		}
@@ -227,7 +228,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
-		reads, e = projectionstats.NewReadService(repository, projectionstats.ReadConfig{SourceSchema: "indexer", SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, CursorKey: cursorKey, CursorTTL: time.Duration(d.Phase2.CursorTTLSeconds) * time.Second})
+		reads, e = projectionstats.NewReadService(repository, projectionstats.ReadConfig{SourceSchema: valueIndexer, SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, CursorKey: cursorKey, CursorTTL: time.Duration(d.Phase2.CursorTTLSeconds) * time.Second})
 		if e != nil {
 			return nil, e
 		}
@@ -236,7 +237,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		reactions = analytics.ReactionAuthority{Pool: pool, Schema: d.Schema}
-		projector, e := NewAnalyticsProjector(reactions, d.Phase2.HolderSchema, "indexer", d.SourceStream, d.ProjectionVersion)
+		projector, e := NewAnalyticsProjector(reactions, d.Phase2.HolderSchema, valueIndexer, d.SourceStream, d.ProjectionVersion)
 		if e != nil {
 			return nil, e
 		}
@@ -254,7 +255,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		if e != nil {
 			return nil, e
 		}
-		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
+		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{MarketEffect: projector.Effect, Pool: pool, Deliveries: durable, Partitions: partitions, Repository: repository, Authority: authority, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: valueIndexer, RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills})
 		if e != nil {
 			return nil, e
 		}
@@ -355,7 +356,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		jobs = append(jobs, multihopJob)
-		legacy := &consumer.CanonicalLegacyBridge{Pool: pool, ProjectionSchema: d.Schema, SourceSchema: "indexer", SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, Market: marketConsumer, Swap: swapConsumer, Holder: holderTracker, Batch: cfg.LegacyBridgeBatch}
+		legacy := &consumer.CanonicalLegacyBridge{Pool: pool, ProjectionSchema: d.Schema, SourceSchema: valueIndexer, SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, Market: marketConsumer, Swap: swapConsumer, Holder: holderTracker, Batch: cfg.LegacyBridgeBatch}
 		runtimeHealth.set("legacy read model", errors.New("legacy read model awaiting canonical replay"))
 		jobs = append(jobs, statsRuntimeJob{name: "canonical legacy read model", run: func(ctx context.Context) error {
 			return retryStatsJob(ctx, time.Duration(cfg.LegacyBridgeIntervalMS)*time.Millisecond, runtimeHealth, "legacy read model", func(ctx context.Context) error {
@@ -450,7 +451,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	httpapi.RegisterSearch(router, st, rdb)
 	httpapi.RegisterPressure(router, st, rdb)
 	httpapi.RegisterReactions(router, rdb)
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == valueProduction {
 		(projectionstats.PublicHandlers{Service: reads, Clock: time.Now}).Register(router)
 		httpapi.RegisterTransferHolders(router, st, holders)
 		httpapi.RegisterDurableAnalytics(router, reactions)
@@ -459,7 +460,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		httpapi.RegisterIntegratedSearch(router, searchService, identity)
 	}
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != valueProduction {
 		// The web token page reads IF_HOLDERS from this host whenever a stats
 		// URL is configured; dev answers it from the webhook-fed ledger.
 		httpapi.RegisterDevPoolHolders(router, st)
@@ -644,7 +645,7 @@ func Run(parent context.Context) error {
 
 	cancel()
 
-	var result error = shutErr
+	result := shutErr
 	select {
 	case err := <-serveErr:
 		result = errors.Join(result, err)

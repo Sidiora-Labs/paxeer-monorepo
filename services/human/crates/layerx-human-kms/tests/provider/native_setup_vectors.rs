@@ -1,5 +1,4 @@
 use super::{checked, registry, Result};
-use layerx_crypto::onboarding::OnboardingConsent;
 use layerx_intents::canonical as hash;
 use layerx_types::account::AccountId;
 use layerx_types::ids::Did;
@@ -14,17 +13,7 @@ pub(super) const CREATION_KINDS: [&str; 5] = [
 ];
 
 pub(super) fn creation_cases(public: [u8; 32]) -> Result<Vec<(&'static str, Payload)>> {
-    let consent = OnboardingConsent {
-        sponsor: checked(hash::did_id_for_protocol(
-            &checked(Did::new(b"did:layerx:sponsor"))?,
-            3,
-        ))?,
-        target: checked(Did::new(b"did:layerx:alice"))?,
-        target_public_key: public,
-        native_asset: [3; 32],
-        action_key: [4; 32],
-        expires_at: 1010,
-    };
+    let consent = historical_consent_payload(public)?;
     let opening = checked(
         layerx_crypto::payments::Payment::OpenAccount { asset: [3; 32] }
             .encode(b"did:layerx:alice"),
@@ -32,7 +21,7 @@ pub(super) fn creation_cases(public: [u8; 32]) -> Result<Vec<(&'static str, Payl
     Ok(vec![
         (
             "onboarding-consent",
-            payload(ModuleId::Governance, 1, &checked(consent.payload())?)?,
+            payload(ModuleId::Governance, 1, &consent)?,
         ),
         (
             "recovery-policy",
@@ -48,6 +37,51 @@ pub(super) fn creation_cases(public: [u8; 32]) -> Result<Vec<(&'static str, Payl
         ),
         ("open-account", payload(ModuleId::Asset, 4, &opening)?),
     ])
+}
+
+fn canonical_ed25519_public_key(public: [u8; 32]) -> bool {
+    const FIELD_PRIME: [u8; 32] = [
+        0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0x7f,
+    ];
+    let mut y = public;
+    y[31] &= 0x7f;
+    if y.iter().all(|byte| *byte == 0) || (y[0] == 1 && y[1..].iter().all(|byte| *byte == 0)) {
+        return false;
+    }
+    (0..32)
+        .rev()
+        .find_map(|index| {
+            if y[index] == FIELD_PRIME[index] {
+                None
+            } else {
+                Some(y[index] < FIELD_PRIME[index])
+            }
+        })
+        .unwrap_or(false)
+}
+
+pub(super) fn historical_consent_payload(public: [u8; 32]) -> Result<Vec<u8>> {
+    if !canonical_ed25519_public_key(public) {
+        return Err("noncanonical consent public key".into());
+    }
+    let sponsor = checked(hash::did_id_for_protocol(
+        &checked(Did::new(b"did:layerx:sponsor"))?,
+        3,
+    ))?;
+    let target = checked(hash::account_id_for_protocol(
+        &checked(AccountId::parse("agent:did:layerx:alice:main"))?,
+        3,
+    ))?;
+    let mut bytes = Vec::with_capacity(140);
+    bytes.extend_from_slice(&[0x71, 1, 3, 5]);
+    bytes.extend_from_slice(&sponsor);
+    bytes.extend_from_slice(&[3; 32]);
+    bytes.extend_from_slice(&target);
+    bytes.extend_from_slice(&[4; 32]);
+    bytes.extend_from_slice(&1010_u64.to_be_bytes());
+    Ok(bytes)
 }
 
 pub(super) fn creation_limits(payload: &Payload) -> (u64, u128) {
@@ -103,6 +137,7 @@ pub(super) fn recovery(extended: bool) -> Result<Vec<u8>> {
     ))
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub(crate) fn setup_call(
     payload: Payload,
     (sequence, fee): (u64, u128),

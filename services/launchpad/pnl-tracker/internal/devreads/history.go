@@ -191,7 +191,7 @@ func (h *handlers) intervalHistory(w http.ResponseWriter, r *http.Request) {
 	input := sha256.New()
 	rp := newReplay()
 	for _, t := range trades {
-		fmt.Fprintf(input, "%s|%s|%t|%s|%s|%d|%d\n", t.id, t.pool, t.isBuy, t.usdl, t.amount, t.block, t.ts)
+		_, _ = fmt.Fprintf(input, "%s|%s|%t|%s|%s|%d|%d\n", t.id, t.pool, t.isBuy, t.usdl, t.amount, t.block, t.ts)
 		gain, basis, known := rp.apply(t)
 		at := time.Unix(t.ts, 0).UTC()
 		if at.Before(from) || !at.Before(to) {

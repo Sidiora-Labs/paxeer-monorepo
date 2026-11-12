@@ -61,12 +61,12 @@ func parseHistory(q url.Values) (HistoryRequest, error) {
 			return r, fmt.Errorf("duplicate %s", k)
 		}
 		switch k {
-		case "symbol", "resolution", "from", "to", "countback", "cursor", "chainId":
+		case "symbol", "resolution", "from", "to", "countback", "cursor", fieldChainID:
 		default:
 			return r, fmt.Errorf("unknown field %s", k)
 		}
 	}
-	if q.Has("chainId") && q.Get("chainId") != "125" {
+	if q.Has(fieldChainID) && q.Get(fieldChainID) != "125" {
 		return r, fmt.Errorf("chainId must be 125")
 	}
 	r.Symbol = strings.ToLower(q.Get("symbol"))
@@ -254,7 +254,7 @@ func historyError(w http.ResponseWriter, status int, code, msg string, retry boo
 		delay = 1000
 		w.Header().Set("Retry-After", "1")
 	}
-	sharedhttp.WriteJSON(w, status, map[string]interface{}{"code": code, "message": msg, "requestId": uuid.NewString(), "retryable": retry, "retryAfterMs": delay, "fieldErrors": []interface{}{}, "details": nil})
+	sharedhttp.WriteJSON(w, status, map[string]interface{}{fieldCode: code, fieldMessage: msg, "requestId": uuid.NewString(), fieldRetryable: retry, "retryAfterMs": delay, "fieldErrors": []interface{}{}, "details": nil})
 }
 func (h HistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if len(req.URL.RawQuery) > 16384 {
@@ -418,7 +418,7 @@ func writeHistoryPage(w http.ResponseWriter, rows []store.CandleRow, next string
 		return
 	}
 	if len(bars) == 0 {
-		sharedhttp.WriteJSON(w, 200, map[string]string{"s": "no_data"})
+		sharedhttp.WriteJSON(w, 200, map[string]string{"s": statusNoData})
 		return
 	}
 	ts := make([]int64, len(bars))

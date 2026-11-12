@@ -118,7 +118,7 @@ func accountAmounts(t Trade, assets PoolAssets, feeBPS *uint16, qualified bool) 
 		return bad()
 	}
 	if t.Recipient == nil {
-		if t.RecipientAttribution != "unavailable" || len(t.RecipientEvidenceRefs) != 0 {
+		if t.RecipientAttribution != valueUnavailable || len(t.RecipientEvidenceRefs) != 0 {
 			return bad()
 		}
 	} else {
@@ -150,14 +150,14 @@ func accountAmounts(t Trade, assets PoolAssets, feeBPS *uint16, qualified bool) 
 			return bad()
 		}
 	}
-	expectedAsset, expectedDecimals, disposition := assets.Token, assets.TokenDecimals, "retained_token_reserve"
+	expectedAsset, expectedDecimals, disposition := assets.Token, assets.TokenDecimals, valueRetainedTokenReserve
 	input := t.TokenAmountRaw
 	reserve := new(big.Int).Set(paid)
-	if t.Side == "buy" {
-		expectedAsset, expectedDecimals, disposition = assets.USDL, 6, "distributed_usdl"
+	if t.Side == valueBuy {
+		expectedAsset, expectedDecimals, disposition = assets.USDL, 6, valueDistributedUsdl
 		input = t.USDLAmountRaw
 		reserve.Sub(reserve, fee)
-	} else if t.Side != "sell" {
+	} else if t.Side != valueSell {
 		return bad()
 	}
 	if input != *t.PaidInputRaw || t.FeeAssetAddress != expectedAsset || t.FeeAssetDecimals != expectedDecimals || t.FeeDisposition != disposition || reserve.Sign() < 0 {
@@ -185,7 +185,7 @@ func accountAmounts(t Trade, assets PoolAssets, feeBPS *uint16, qualified bool) 
 			return bad()
 		}
 	}
-	return Accounting{t.USDLAmountRaw, reserve.String(), FeeGroup{"125", expectedAsset, expectedDecimals, "trading_fee", disposition}}, nil
+	return Accounting{t.USDLAmountRaw, reserve.String(), FeeGroup{"125", expectedAsset, expectedDecimals, valueTradingFee, disposition}}, nil
 }
 func Digest(t Trade) string       { b, _ := json.Marshal(t); return digestBytes(b) }
 func digestBytes(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }

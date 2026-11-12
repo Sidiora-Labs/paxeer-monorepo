@@ -38,7 +38,7 @@ func identityBoundaryError(err error) error {
 func (h HTTP) ServiceHandler(authority sharedauth.RequestIdentityAuthority) http.Handler {
 	next := h.Handler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/profiles/") || strings.HasPrefix(r.URL.Path, "/v2/profiles/") || r.URL.Path == "/v2/profiles:batch" || strings.HasPrefix(r.URL.Path, "/v3/profiles/")) {
+		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/profiles/") || strings.HasPrefix(r.URL.Path, "/v2/profiles/") || r.URL.Path == pathBatchProfilesV2 || strings.HasPrefix(r.URL.Path, "/v3/profiles/")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -97,7 +97,7 @@ func (h HTTP) preferencesGet(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e, id)
 		return
 	}
-	h.respond(w, id, map[string]Preferences{"preferences": v}, v.Revision, nil)
+	h.respond(w, id, map[string]Preferences{fieldPreferences: v}, v.Revision, nil)
 }
 func (h HTTP) preferencesPatch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -113,7 +113,7 @@ func (h HTTP) preferencesPatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if e != nil {
 		if h.Runtime != nil {
-			h.Runtime.Metrics.Observe("preferences", "invalid", time.Since(start))
+			h.Runtime.Metrics.Observe(fieldPreferences, "invalid", time.Since(start))
 		}
 		WriteError(w, e, id)
 		return
@@ -124,9 +124,9 @@ func (h HTTP) preferencesPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.Runtime != nil {
-		h.Runtime.Metrics.Observe("preferences", "success", time.Since(start))
+		h.Runtime.Metrics.Observe(fieldPreferences, outcomeSuccess, time.Since(start))
 	}
-	h.respond(w, id, map[string]Preferences{"preferences": v}, v.Revision, nil)
+	h.respond(w, id, map[string]Preferences{fieldPreferences: v}, v.Revision, nil)
 }
 
 type ExtendedPreferencesPatch struct {
@@ -144,7 +144,7 @@ type ConsentPatch struct {
 }
 
 func (s Store) PatchExtendedPreferences(ctx context.Context, p Principal, v ExtendedPreferencesPatch) error {
-	if e := v.PreferencesPatch.Validate(); e != nil {
+	if e := v.Validate(); e != nil {
 		return e
 	}
 	if v.Currency != nil && *v.Currency != "USD" && *v.Currency != "EUR" && *v.Currency != "GBP" {
@@ -301,7 +301,7 @@ func ownerAction(method, path string) string {
 	}
 	if len(parts) == 4 {
 		switch {
-		case parts[3] == "preferences" && method == http.MethodPatch:
+		case parts[3] == fieldPreferences && method == http.MethodPatch:
 			return "preferences.update"
 		case parts[1] != "v3" && parts[3] == "exports" && method == http.MethodPost:
 			return "account.export"
@@ -311,7 +311,7 @@ func ownerAction(method, path string) string {
 		return ""
 	}
 	switch parts[3] {
-	case "watchlist":
+	case fieldWatchlist:
 		if method == http.MethodPut {
 			return "watchlist.update"
 		}
@@ -335,7 +335,7 @@ func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, res
 		bounded, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 		r = r.WithContext(bounded)
-		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/profiles/") || strings.HasPrefix(r.URL.Path, "/v2/profiles/") || r.URL.Path == "/v2/profiles:batch" || strings.HasPrefix(r.URL.Path, "/v3/profiles/")) {
+		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/profiles/") || strings.HasPrefix(r.URL.Path, "/v2/profiles/") || r.URL.Path == pathBatchProfilesV2 || strings.HasPrefix(r.URL.Path, "/v3/profiles/")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -431,7 +431,7 @@ func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, res
 			WriteError(w, e, requestID(r))
 			return
 		}
-		defer tx.Rollback(ctx)
+		defer rollbackAccountTx(ctx, tx)
 		_, e = resolver.ResolveTx(ctx, tx, gateway)
 		if e != nil {
 			WriteError(w, identityBoundaryError(e), requestID(r))
@@ -519,7 +519,7 @@ func writeCaptured(w http.ResponseWriter, r capturedResponse) {
 }
 
 func (s Store) PatchExtendedProfile(ctx context.Context, p Principal, v ExtendedProfilePatch) error {
-	if e := v.ProfilePatch.Validate(); e != nil {
+	if e := v.Validate(); e != nil {
 		return e
 	}
 	if v.Website.Value != nil {
@@ -532,7 +532,7 @@ func (s Store) PatchExtendedProfile(ctx context.Context, p Principal, v Extended
 	}
 	for k, value := range v.Socials {
 		switch k {
-		case "website", "twitter", "telegram", "discord":
+		case socialWebsite, socialTwitter, socialTelegram, socialDiscord:
 		default:
 			return ErrUnknown
 		}
@@ -682,7 +682,7 @@ func reconcileProvisionedPreferences(a *state, choices bool, at time.Time) bool 
 	blank := Profile{PublicProfile: PublicProfile{Wallet: a.Wallet, Revision: "0"}, SchemaVersion: 1, UpdatedAt: a.Profile.UpdatedAt}
 	legacy := initialPreferences(a.Preferences.UpdatedAt)
 	legacy.PrivateActivity = false
-	legacy.QuietHours = QuietHours{Timezone: "UTC", Start: "00:00", End: "00:00"}
+	legacy.QuietHours = QuietHours{Timezone: timezoneUTC, Start: "00:00", End: "00:00"}
 	if !reflect.DeepEqual(a.Profile, blank) || !reflect.DeepEqual(a.Preferences, legacy) {
 		return false
 	}
@@ -695,7 +695,7 @@ func (s Store) ensureIdentityAccount(ctx context.Context, resolver sharedauth.Po
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	identity, e := resolver.ResolveTx(ctx, tx, gateway)
 	if e != nil {
 		return e
@@ -757,7 +757,7 @@ func (h HTTP) extendedProfileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=1")
-	h.respond(w, id, map[string]any{"profile": profile}, profile.Revision, nil)
+	h.respond(w, id, map[string]any{fieldProfile: profile}, profile.Revision, nil)
 }
 func (h HTTP) extendedPreferencesGet(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)
@@ -790,13 +790,13 @@ func (h HTTP) extendedPreferencesGet(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e, id)
 		return
 	}
-	h.respond(w, id, map[string]any{"preferences": preferences, "consents": consents}, preferences.Revision, nil)
+	h.respond(w, id, map[string]any{fieldPreferences: preferences, "consents": consents}, preferences.Revision, nil)
 }
 
 func accountExtendedPoliciesV3() (sharedauth.PolicyRegistry, map[string]sharedauth.ActionRoute) {
 	policies, routes := sharedauth.AccountOwnerPoliciesV2()
 	policies.Version = "3"
-	for action, path := range map[string]string{"profile.update": "/v3/profiles/{wallet}", "preferences.update": "/v3/me/preferences"} {
+	for action, path := range map[string]string{"profile.update": pathProfileV3, "preferences.update": "/v3/me/preferences"} {
 		route := routes[action]
 		route.Template = path
 		routes[action] = route

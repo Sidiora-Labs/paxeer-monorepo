@@ -5,7 +5,7 @@ use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 use layerx_mcp::binding::Binding;
-use layerx_mcp::server::{DeploymentMode, ToolKind};
+use layerx_mcp::server::{DeploymentMode, ToolDefinition, ToolKind};
 use serde_json::{json, Value};
 
 use crate::config;
@@ -61,50 +61,7 @@ pub fn platform_install_mcp(request: &Request) -> Result<(String, Value), String
                 "the authenticated agent daemon did not admit this installation binding: {error}"
             )
         })?;
-    let description = session
-        .handle(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#)
-        .ok_or_else(|| "the authenticated daemon returned no tool catalogue".to_owned())?;
-    let listings = description
-        .pointer("/result/tools")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "the authenticated daemon refused its tool catalogue".to_owned())?;
-    let mut definitions = toolset::daemon_surface(mode)?;
-    definitions.extend(
-        layerx_mcp::catalogue::web_surface()
-            .into_iter()
-            .filter(|tool| mode == DeploymentMode::Full || tool.kind == ToolKind::Read),
-    );
-    let tools = listings
-        .iter()
-        .map(|listing| {
-            let name = listing
-                .get("name")
-                .and_then(Value::as_str)
-                .ok_or_else(|| "the daemon catalogue omitted a tool name".to_owned())?;
-            definitions
-                .iter()
-                .find(|tool| tool.name == name)
-                .copied()
-                .ok_or_else(|| {
-                    "the daemon returned a tool outside its installation catalogue".to_owned()
-                })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    if mode == DeploymentMode::Full
-        && [
-            "activity.prepare",
-            "activity.disclose",
-            "activity.sign",
-            "activity.submit",
-            "activity.track",
-        ]
-        .iter()
-        .any(|name| !tools.iter().any(|tool| tool.name == *name))
-    {
-        return Err(
-            "the authenticated daemon has not admitted the complete payment journey".to_owned(),
-        );
-    }
+    let tools = admitted_tools(&mut session, mode)?;
     let command = executable()?;
     let variables: BTreeMap<String, String> = BTreeMap::new();
     let agent_endpoint = binding.agent_endpoint().to_owned();
@@ -157,6 +114,57 @@ pub fn platform_install_mcp(request: &Request) -> Result<(String, Value), String
         "idempotent": true,
     });
     Ok((agent_endpoint, document))
+}
+
+fn admitted_tools(
+    session: &mut crate::mcp::InstalledSession,
+    mode: DeploymentMode,
+) -> Result<Vec<ToolDefinition>, String> {
+    let description = session
+        .handle(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#)
+        .ok_or_else(|| "the authenticated daemon returned no tool catalogue".to_owned())?;
+    let listings = description
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "the authenticated daemon refused its tool catalogue".to_owned())?;
+    let mut definitions = toolset::daemon_surface(mode)?;
+    definitions.extend(
+        layerx_mcp::catalogue::web_surface()
+            .into_iter()
+            .filter(|tool| mode == DeploymentMode::Full || tool.kind == ToolKind::Read),
+    );
+    let tools = listings
+        .iter()
+        .map(|listing| {
+            let name = listing
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "the daemon catalogue omitted a tool name".to_owned())?;
+            definitions
+                .iter()
+                .find(|tool| tool.name == name)
+                .copied()
+                .ok_or_else(|| {
+                    "the daemon returned a tool outside its installation catalogue".to_owned()
+                })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if mode == DeploymentMode::Full
+        && [
+            "activity.prepare",
+            "activity.disclose",
+            "activity.sign",
+            "activity.submit",
+            "activity.track",
+        ]
+        .iter()
+        .any(|name| !tools.iter().any(|tool| tool.name == *name))
+    {
+        return Err(
+            "the authenticated daemon has not admitted the complete payment journey".to_owned(),
+        );
+    }
+    Ok(tools)
 }
 
 fn open_binding(path: &Path) -> Result<(Binding, BindingDocument), String> {

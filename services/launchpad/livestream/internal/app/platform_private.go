@@ -62,7 +62,7 @@ func (p *platformPrivate) handler(next http.Handler) http.Handler {
 // platformPublicOnly restricts the plain listener to health and metrics.
 func platformPublicOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == "/metrics" {
+		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -95,7 +95,7 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 			continue
 		}
 		timestamp, ok := timestamps[r.TransactionHash]
-		if !ok || timestamp <= 0 || ev.TxHash != r.TransactionHash || ev.LogIndex != uint(r.LogIndex) || ev.BlockNumber != uint64(r.Height) {
+		if !ok || timestamp <= 0 || ev.TxHash != r.TransactionHash || ev.LogIndex != uint(r.LogIndex) || ev.BlockNumber != uint64(r.Height) { //nolint:gosec // persisted raw height uses the EVM log height field
 			return store.ErrIntegrity
 		}
 		if _, err := p.processEvent(ctx, ev, timestamp, senders); err != nil {
@@ -117,7 +117,7 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 			BlockNumber:    r.Height,
 			BlockTimestamp: timestamp,
 			TxHash:         r.TransactionHash,
-			LogIndex:       int32(r.LogIndex),
+			LogIndex:       int32(r.LogIndex), //nolint:gosec // persisted log index uses the existing 32-bit event field
 		}); err != nil {
 			return fmt.Errorf("legacy projection reserves: %w", err)
 		}

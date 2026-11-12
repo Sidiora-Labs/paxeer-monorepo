@@ -1,0 +1,76 @@
+# Media gateway source and boundary checks.
+
+[gateway]
+component = "media gateway"
+behavior = "Gateway request, response, storage, and identity boundaries retain their declared values."
+
+[checks]
+bodyclose = "11 response bodies are closed at their call sites."
+dogsled = "1 request result has an explicit outcome check."
+errcheck = "80 returned errors are handled or reported."
+goconst = "117 repeated values use package constants."
+goimports = "18 import groups follow the module format."
+gosec = "19 boundary findings have guards or site-specific rationale."
+prealloc = "1 route list reserves its known capacity."
+staticcheck = "9 expressions use the supported forms."
+unconvert = "1 CPU duration expression uses its native type."
+
+[comment.1]
+site = "internal/app/app.go:808"
+reason = "The configured TLS file is regular, size bounded, and digest verified."
+
+[comment.2]
+site = "internal/auth/identity_http.go:158"
+reason = "SessionCookie sets the security attributes of response cookies."
+
+[comment.3]
+site = "internal/auth/identity_measurement.go:666"
+reason = "The output path is an exclusive private evidence file."
+
+[comment.4]
+site = "internal/auth/identity_measurement.go:918"
+reason = "The approved receipt is regular, size bounded, and digest verified."
+
+[comment.5]
+site = "internal/auth/identity_measurement.go:995"
+reason = "WalkDir limits reads to regular Go sources in the selected tree."
+
+[comment.6]
+site = "internal/auth/identity_measurement_evidence.go:43"
+reason = "The evidence file is regular and bounded before decoding."
+
+[comment.7]
+site = "internal/auth/identity_transport.go:234"
+reason = "CSRF cookie stays readable to the client while SessionCookie sets Secure and SameSite."
+
+[comment.8]
+site = "internal/auth/identity_transport.go:380"
+reason = "SessionCookie sets the security attributes of response cookies."
+
+[comment.9]
+site = "internal/config/config.go:458"
+reason = "The configured runtime document is regular, bounded, and digest verified."
+
+[comment.10]
+site = "internal/storage/envelope.go:1085"
+reason = "The executable is digest bound to the licensed fixture."
+
+[comment.11]
+site = "internal/storage/envelope.go:1280"
+reason = "The player binary is digest bound to the configured fixture."
+
+[comment.12]
+site = "internal/storage/inventory.go:67"
+reason = "S3's page field is int32 and this value is at most 1000."
+
+[comment.13]
+site = "internal/upload/upload.go:128"
+reason = "MaxBytesReader caps the body before multipart parsing."
+
+[comment.14]
+site = "internal/upload/upload.go:274"
+reason = "The service URL is configured and the path address is validated."
+
+[comment.15]
+site = "internal/upload/upload.go:281"
+reason = "The request targets the configured metadata service and redirects are disabled."

@@ -2,11 +2,12 @@ package voice
 
 import (
 	"context"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"time"
 )
 
 type RecordingPolicy struct {
@@ -73,19 +74,19 @@ func (c *Control) RequestRecording(ctx context.Context, room string) (Recording,
 	if p.Wallet != r.HostWallet {
 		return Recording{}, safety.ErrForbidden
 	}
-	if r.State != "live" {
+	if r.State != liveState {
 		return Recording{}, safety.ErrConflict
 	}
 	tx, e := c.DB.Begin(ctx)
 	if e != nil {
 		return Recording{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var state string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, room).Scan(&state); e != nil {
 		return Recording{}, e
 	}
-	if state != "live" {
+	if state != liveState {
 		return Recording{}, safety.ErrConflict
 	}
 	id := uuid.NewString()
@@ -115,12 +116,12 @@ func (c *Control) Consent(ctx context.Context, room, recording string, expected 
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var roomState string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, room).Scan(&roomState); e != nil {
 		return e
 	}
-	if roomState != "live" {
+	if roomState != liveState {
 		return safety.ErrConflict
 	}
 	var state, version, purpose string
@@ -170,12 +171,12 @@ func (c *Control) StartConsentedRecording(ctx context.Context, room string, expe
 	if e != nil {
 		return Recording{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var state string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, room).Scan(&state); e != nil {
 		return Recording{}, e
 	}
-	if state != "live" {
+	if state != liveState {
 		return Recording{}, safety.ErrConflict
 	}
 	var rec Recording
@@ -211,7 +212,7 @@ func (c *Control) StartConsentedRecording(ctx context.Context, room string, expe
 	if e != nil || id == "" {
 		return rec, ErrUnavailable
 	}
-	if e = c.recordingTransition(ctx, rec.ID, room, rec.Revision, "starting", "recording", id, p); e != nil {
+	if e = c.recordingTransition(ctx, rec.ID, room, rec.Revision, startingState, recordingState, id, p); e != nil {
 		return rec, e
 	}
 	return c.Recording(ctx, room)
@@ -232,10 +233,10 @@ func (c *Control) StopConsentedRecording(ctx context.Context, room string, expec
 	if e != nil {
 		return rec, e
 	}
-	if rec.Revision != expected || (rec.State != "starting" && rec.State != "recording" && rec.State != "stopping") {
+	if rec.Revision != expected || (rec.State != startingState && rec.State != recordingState && rec.State != "stopping") {
 		return rec, safety.ErrConflict
 	}
-	if rec.State == "recording" || rec.State == "starting" {
+	if rec.State == recordingState || rec.State == startingState {
 		if e = c.recordingTransition(ctx, rec.ID, room, rec.Revision, rec.State, "stopping", rec.ProviderID, p); e != nil {
 			return rec, e
 		}
@@ -345,12 +346,12 @@ func (c *Control) recordingTransition(ctx context.Context, id, room string, expe
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var roomState string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, room).Scan(&roomState); e != nil {
 		return e
 	}
-	interrupted := to == "recording" && roomState != "live"
+	interrupted := to == recordingState && roomState != liveState
 	if interrupted {
 		to = "stopping"
 	}

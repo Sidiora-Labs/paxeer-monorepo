@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -34,85 +35,21 @@ fn fixture(pairs: Vec<(Vec<u8>, Vec<u8>)>) -> ChainFixture {
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
         pairs,
     )
-    .unwrap()
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-#[test]
-fn chain_lifecycle_reads_proven_record_state() {
-    let active = ProgramId::new([0x11; 32]).unwrap();
-    let deprecated = ProgramId::new([0x22; 32]).unwrap();
-    let tombstoned = ProgramId::new([0x33; 32]).unwrap();
-    let missing = ProgramId::new([0x44; 32]).unwrap();
-    let record = program_record();
-    let fixture = fixture(vec![
-        (key(b"program\0", active), record.clone()),
-        (key(b"program\0", deprecated), record.clone()),
-        (key(b"program\0", tombstoned), record.clone()),
-        (
-            key(b"wind-down\0s", deprecated),
-            status_record(deprecated, 2),
-        ),
-        (
-            key(b"wind-down\0s", tombstoned),
-            status_record(tombstoned, 3),
-        ),
-    ]);
-    let head = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let proof_for = |program, status| ChainLifecycleProof {
-        program,
-        record: Some(record.clone()),
-        record_ops: fixture.prove(&key(b"program\0", program)).unwrap(),
-        status,
-        status_ops: if program == active {
-            fixture
-                .prove_absent(&key(b"wind-down\0s", program))
-                .unwrap()
-        } else {
-            fixture.prove(&key(b"wind-down\0s", program)).unwrap()
-        },
-    };
-    let active_proof = proof_for(active, None);
-    let deprecated_proof = proof_for(deprecated, Some(status_record(deprecated, 2)));
-    let tombstoned_proof = proof_for(tombstoned, Some(status_record(tombstoned, 3)));
-    assert_eq!(active_proof.verify(&head), Ok(ProgramLifecycle::Active));
-    assert_eq!(
-        deprecated_proof.verify(&head),
-        Ok(ProgramLifecycle::Deprecated)
-    );
-    assert_eq!(
-        tombstoned_proof.verify(&head),
-        Ok(ProgramLifecycle::Tombstoned)
-    );
-
-    let absent = ChainLifecycleProof {
-        program: missing,
-        record: None,
-        record_ops: fixture.prove_absent(&key(b"program\0", missing)).unwrap(),
-        status: None,
-        status_ops: fixture
-            .prove_absent(&key(b"wind-down\0s", missing))
-            .unwrap(),
-    };
-    assert_eq!(
-        absent.verify(&head),
-        Err(ProtocolEvidenceError::LifecycleProof)
-    );
-    let fabricated = ChainLifecycleProof {
-        record: Some(record.clone()),
-        ..absent
-    };
-    assert_eq!(
-        fabricated.verify(&head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-
+fn verify_invalid_proof_mutations(
+    deprecated_proof: &ChainLifecycleProof,
+    active: ProgramId,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+) {
     let mut changed_status = deprecated_proof.clone();
-    changed_status.status = Some(status_record(deprecated, 3));
+    changed_status.status = Some(status_record(deprecated_proof.program, 3));
     let mut changed_record = deprecated_proof.clone();
-    changed_record.record.as_mut().unwrap()[33] ^= 1;
+    changed_record
+        .record
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected value"))[33] ^= 1;
     let mut wrong_program = deprecated_proof.clone();
     wrong_program.program = active;
     let mut missing_record_ops = deprecated_proof.clone();
@@ -135,42 +72,11 @@ fn chain_lifecycle_reads_proven_record_state() {
         wrong_store,
         damaged_ops,
     ] {
-        assert_eq!(
-            invalid.verify(&head),
-            Err(ProtocolEvidenceError::StateProof)
-        );
+        assert_eq!(invalid.verify(head), Err(ProtocolEvidenceError::StateProof));
     }
+}
 
-    let other = self::fixture(vec![
-        (key(b"program\0", deprecated), record.clone()),
-        (
-            key(b"wind-down\0s", deprecated),
-            status_record(deprecated, 3),
-        ),
-    ]);
-    let other_head = other
-        .verifier
-        .verify_head(&other.header, &other.commit)
-        .unwrap();
-    assert_ne!(head.app_hash(), other_head.app_hash());
-    assert_eq!(
-        deprecated_proof.verify(&other_head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-    let mixed_heads = ChainLifecycleProof {
-        status: Some(status_record(deprecated, 3)),
-        status_ops: other.prove(&key(b"wind-down\0s", deprecated)).unwrap(),
-        ..deprecated_proof.clone()
-    };
-    assert_eq!(
-        mixed_heads.verify(&head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-    assert_eq!(
-        mixed_heads.verify(&other_head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-
+fn verify_invalid_status_records(deprecated: ProgramId, record: &[u8]) {
     let canonical = status_record(deprecated, 2);
     let mut invalid_statuses = Vec::new();
     for length in [1, 53, 55] {
@@ -190,43 +96,181 @@ fn chain_lifecycle_reads_proven_record_state() {
     }
     for value in invalid_statuses {
         let invalid = self::fixture(vec![
-            (key(b"program\0", deprecated), record.clone()),
+            (key(b"program\0", deprecated), record.to_vec()),
             (key(b"wind-down\0s", deprecated), value.clone()),
         ]);
         let invalid_head = invalid
             .verifier
             .verify_head(&invalid.header, &invalid.commit)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let proof = ChainLifecycleProof {
             program: deprecated,
-            record: Some(record.clone()),
-            record_ops: invalid.prove(&key(b"program\0", deprecated)).unwrap(),
+            record: Some(record.to_vec()),
+            record_ops: invalid
+                .prove(&key(b"program\0", deprecated))
+                .unwrap_or_else(|error| panic!("{error:?}")),
             status: Some(value),
-            status_ops: invalid.prove(&key(b"wind-down\0s", deprecated)).unwrap(),
+            status_ops: invalid
+                .prove(&key(b"wind-down\0s", deprecated))
+                .unwrap_or_else(|error| panic!("{error:?}")),
         };
         assert_eq!(
             proof.verify(&invalid_head),
             Err(ProtocolEvidenceError::LifecycleProof)
         );
     }
+}
 
+fn verify_malformed_program_record(
+    active: ProgramId,
+    record: Vec<u8>,
+    active_proof: ChainLifecycleProof,
+) {
     let mut malformed_record = record;
     malformed_record[0] = 2;
     let malformed = self::fixture(vec![(key(b"program\0", active), malformed_record.clone())]);
     let malformed_head = malformed
         .verifier
         .verify_head(&malformed.header, &malformed.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let malformed_proof = ChainLifecycleProof {
         record: Some(malformed_record),
-        record_ops: malformed.prove(&key(b"program\0", active)).unwrap(),
+        record_ops: malformed
+            .prove(&key(b"program\0", active))
+            .unwrap_or_else(|error| panic!("{error:?}")),
         status_ops: malformed
             .prove_absent(&key(b"wind-down\0s", active))
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         ..active_proof
     };
     assert_eq!(
         malformed_proof.verify(&malformed_head),
         Err(ProtocolEvidenceError::ProgramRecord)
     );
+}
+
+fn verify_absent_lifecycle(
+    missing: ProgramId,
+    record: &[u8],
+    fixture: &ChainFixture,
+    head: &layerx_programs::chain_proof::VerifiedChainHead,
+) {
+    let absent = ChainLifecycleProof {
+        program: missing,
+        record: None,
+        record_ops: fixture
+            .prove_absent(&key(b"program\0", missing))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        status: None,
+        status_ops: fixture
+            .prove_absent(&key(b"wind-down\0s", missing))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    };
+    assert_eq!(
+        absent.verify(head),
+        Err(ProtocolEvidenceError::LifecycleProof)
+    );
+    let fabricated = ChainLifecycleProof {
+        record: Some(record.to_vec()),
+        ..absent
+    };
+    assert_eq!(
+        fabricated.verify(head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+}
+
+#[test]
+fn chain_lifecycle_reads_proven_record_state() {
+    let active = ProgramId::new([0x11; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let deprecated = ProgramId::new([0x22; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let tombstoned = ProgramId::new([0x33; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let missing = ProgramId::new([0x44; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let record = program_record();
+    let fixture = fixture(vec![
+        (key(b"program\0", active), record.clone()),
+        (key(b"program\0", deprecated), record.clone()),
+        (key(b"program\0", tombstoned), record.clone()),
+        (
+            key(b"wind-down\0s", deprecated),
+            status_record(deprecated, 2),
+        ),
+        (
+            key(b"wind-down\0s", tombstoned),
+            status_record(tombstoned, 3),
+        ),
+    ]);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let proof_for = |program, status| ChainLifecycleProof {
+        program,
+        record: Some(record.clone()),
+        record_ops: fixture
+            .prove(&key(b"program\0", program))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        status,
+        status_ops: if program == active {
+            fixture
+                .prove_absent(&key(b"wind-down\0s", program))
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        } else {
+            fixture
+                .prove(&key(b"wind-down\0s", program))
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        },
+    };
+    let active_proof = proof_for(active, None);
+    let deprecated_proof = proof_for(deprecated, Some(status_record(deprecated, 2)));
+    let tombstoned_proof = proof_for(tombstoned, Some(status_record(tombstoned, 3)));
+    assert_eq!(active_proof.verify(&head), Ok(ProgramLifecycle::Active));
+    assert_eq!(
+        deprecated_proof.verify(&head),
+        Ok(ProgramLifecycle::Deprecated)
+    );
+    assert_eq!(
+        tombstoned_proof.verify(&head),
+        Ok(ProgramLifecycle::Tombstoned)
+    );
+
+    verify_absent_lifecycle(missing, &record, &fixture, &head);
+
+    verify_invalid_proof_mutations(&deprecated_proof, active, &head);
+
+    let other = self::fixture(vec![
+        (key(b"program\0", deprecated), record.clone()),
+        (
+            key(b"wind-down\0s", deprecated),
+            status_record(deprecated, 3),
+        ),
+    ]);
+    let other_head = other
+        .verifier
+        .verify_head(&other.header, &other.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_ne!(head.app_hash(), other_head.app_hash());
+    assert_eq!(
+        deprecated_proof.verify(&other_head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    let mixed_heads = ChainLifecycleProof {
+        status: Some(status_record(deprecated, 3)),
+        status_ops: other
+            .prove(&key(b"wind-down\0s", deprecated))
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        ..deprecated_proof.clone()
+    };
+    assert_eq!(
+        mixed_heads.verify(&head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    assert_eq!(
+        mixed_heads.verify(&other_head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+
+    verify_invalid_status_records(deprecated, &record);
+
+    verify_malformed_program_record(active, record, active_proof);
 }

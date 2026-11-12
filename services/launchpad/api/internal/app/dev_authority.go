@@ -231,7 +231,7 @@ func newDevelopmentAuthority(ctx context.Context, deps developmentReadDeps) (*de
 		return d, nil
 	}
 	u, err := url.Parse(c.NetworkRPCURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.Fragment != "" {
+	if err != nil || (u.Scheme != literalHttps && u.Scheme != "http") || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return nil, errors.New("NETWORK_RPC_URL must be an http(s) URL without credentials")
 	}
 	d.endpoints = deployment.PublicEndpoints{RPC: c.NetworkRPCURL, Explorer: developmentExplorer, AllowedRPCs: []string{c.NetworkRPCURL}, AllowedExplorers: []string{developmentExplorer}}
@@ -337,7 +337,7 @@ func developmentPreflightOrigin(r *http.Request, origins map[string]bool, proxie
 	}
 	proto := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0])
 	host := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0])
-	return proto == "https" && host != "" && origin == "https://"+host
+	return proto == literalHttps && host != "" && origin == "https://"+host
 }
 
 func trustedPeer(remote string, proxies []string) bool {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,7 +47,7 @@ func (a *Authority) safety(name string) string {
 }
 func ValidDeliveryKey(key string) bool {
 	parts := strings.Split(key, "/")
-	if len(parts) != 4 || parts[0] != "approved" || !digest.MatchString(parts[1]) || (parts[2] != "256" && parts[2] != "512" && parts[2] != "1024") || !strings.HasSuffix(parts[3], ".png") {
+	if len(parts) != 4 || parts[0] != approvedState || !digest.MatchString(parts[1]) || (parts[2] != "256" && parts[2] != "512" && parts[2] != "1024") || !strings.HasSuffix(parts[3], ".png") {
 		return false
 	}
 	return digest.MatchString(strings.TrimSuffix(parts[3], ".png"))
@@ -86,14 +88,14 @@ CREATE TABLE %s(hash text PRIMARY KEY,revision bigint NOT NULL CHECK(revision>0)
 CREATE TABLE %s(id bigserial PRIMARY KEY,kind text NOT NULL,hash text NOT NULL,revision bigint NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(kind,hash,revision));`, a.table("restrictions"), a.table("operations"), a.table("restrictions"), a.table("lineage"), a.table("restrictions"), a.table("tombstones"), a.table("outbox"))
 }
 func (a *Authority) Restrict(ctx context.Context, hash string, revision int64, state string) (string, error) {
-	if !digest.MatchString(hash) || revision < 1 || (state != "approved" && state != "blocked" && state != "deleted") {
+	if !digest.MatchString(hash) || revision < 1 || (state != approvedState && state != blockedState && state != deletedState) {
 		return "", ErrConflict
 	}
 	tx, e := a.Pool.Begin(ctx)
 	if e != nil {
 		return "", ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "media:"+hash); e != nil {
 		return "", ErrUnavailable
 	}
@@ -111,23 +113,23 @@ func (a *Authority) Restrict(ctx context.Context, hash string, revision int64, s
 	if revision < tombstoneRevision {
 		return "", ErrConflict
 	}
-	if revision < previous || (revision == previous && old != state) || ((old == "deleted" || deleted) && state != "deleted") {
+	if revision < previous || (revision == previous && old != state) || ((old == deletedState || deleted) && state != deletedState) {
 		return "", ErrConflict
 	}
 	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) VALUES($1,$2,$3) ON CONFLICT(hash) DO UPDATE SET revision=EXCLUDED.revision,state=EXCLUDED.state,initial_visibility=false,updated_at=clock_timestamp()", hash, revision, state); e != nil {
 		return "", ErrUnavailable
 	}
 	var id string
-	if state != "approved" {
-		kind := "purge"
-		if state == "deleted" {
-			kind = "delete"
+	if state != approvedState {
+		kind := purgeKind
+		if state == deletedState {
+			kind = deleteKind
 		}
 		id = uuid.NewString()
 		if e = tx.QueryRow(ctx, "INSERT INTO "+a.table("operations")+"(id,hash,revision,kind,state) VALUES($1,$2,$3,$4,'requested') ON CONFLICT(hash,revision,kind) DO UPDATE SET hash=EXCLUDED.hash RETURNING id::text", id, hash, revision, kind).Scan(&id); e != nil {
 			return "", ErrUnavailable
 		}
-		if state == "deleted" {
+		if state == deletedState {
 			if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("operations")+"(id,hash,revision,kind,state) VALUES($1,$2,$3,'purge','requested') ON CONFLICT(hash,revision,kind) DO NOTHING", uuid.NewString(), hash, revision); e != nil {
 				return "", ErrUnavailable
 			}
@@ -198,12 +200,12 @@ func (a *Authority) ImportApprovedLineage(ctx context.Context, assetID string) e
 	}
 	for _, size := range []string{"256", "512", "1024"} {
 		key := variants[size]
-		if !ValidDeliveryKey(key) || !strings.HasPrefix(key, "approved/"+hash+"/"+size+"/") {
+		if !ValidDeliveryKey(key) || !strings.HasPrefix(key, approvedPrefix+hash+"/"+size+"/") {
 			return ErrConflict
 		}
 	}
 	for _, size := range []string{"256", "512", "1024"} {
-		if e := a.RegisterLineage(ctx, LineageObject{Hash: hash, Key: variants[size], Kind: "variant", LegalHold: hold, RetainUntil: created.Add(365 * 24 * time.Hour)}); e != nil {
+		if e := a.RegisterLineage(ctx, LineageObject{Hash: hash, Key: variants[size], Kind: variantKind, LegalHold: hold, RetainUntil: created.Add(365 * 24 * time.Hour)}); e != nil {
 			return e
 		}
 	}
@@ -291,9 +293,9 @@ func (a *Authority) IntakeRestrictions(ctx context.Context, evict func(context.C
 			return i, ErrUnavailable
 		}
 		for _, hash := range hashes {
-			state := "approved"
+			state := approvedState
 			if visibility.Status == "removed" {
-				state = "blocked"
+				state = blockedState
 			}
 			if _, e = a.Restrict(ctx, hash, event.Revision, state); e != nil {
 				if !errors.Is(e, ErrConflict) {
@@ -354,7 +356,7 @@ func (a *Authority) importQuarantineOriginal(ctx context.Context, assetID, hash 
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "media:"+hash); e != nil {
 		return ErrUnavailable
 	}
@@ -374,7 +376,7 @@ func (a *Authority) importQuarantineOriginal(ctx context.Context, assetID, hash 
 	if e = tx.QueryRow(ctx, "SELECT kind,retain_until FROM "+a.table("lineage")+" WHERE hash=$1 AND object_key=$2", hash, key).Scan(&kind, &retain); e != nil {
 		return ErrUnavailable
 	}
-	if kind != "original" || !retain.Equal(created.Add(30*24*time.Hour)) {
+	if kind != originalKind || !retain.Equal(created.Add(30*24*time.Hour)) {
 		return ErrConflict
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -434,7 +436,7 @@ func (a *Authority) IntakeDeletedAssets(ctx context.Context) (int, error) {
 		return 0, ErrUnavailable
 	}
 	for index, d := range deletions {
-		if _, e = a.Restrict(ctx, d.hash, d.revision, "deleted"); e != nil {
+		if _, e = a.Restrict(ctx, d.hash, d.revision, deletedState); e != nil {
 			return index, e
 		}
 	}

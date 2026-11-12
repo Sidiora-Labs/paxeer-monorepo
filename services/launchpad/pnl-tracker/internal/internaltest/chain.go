@@ -48,18 +48,18 @@ func NewAnvilFixture(t *testing.T, ctx context.Context, root string) (*rpc.Clien
 	if err := listener.Close(); err != nil {
 		t.Fatal(err)
 	}
-	anvil, err := exec.LookPath("anvil")
+	_, err = exec.LookPath("anvil")
 	if err != nil {
 		t.Fatalf("services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs requires a local Anvil executable: %v", err)
 	}
 	// The existing fixture requires this exact loopback endpoint and verifies
 	// the PID, start time, and socket ownership before every chain mutation.
-	cmd := exec.CommandContext(ctx, anvil, "--host", "127.0.0.1", "--port", "21800", "--chain-id", "125", "--silent")
+	cmd := exec.CommandContext(ctx, "anvil", "--host", "127.0.0.1", "--port", "21800", "--chain-id", "125", "--silent")
 	log, err := os.CreateTemp(t.TempDir(), "anvil-*.log")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer log.Close()
+	defer func() { _ = log.Close() }()
 	cmd.Stdout, cmd.Stderr = log, log
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("real Anvil required on PATH: %v", err)
@@ -89,7 +89,8 @@ func NewAnvilFixture(t *testing.T, ctx context.Context, root string) (*rpc.Clien
 	if !ready {
 		t.Fatal("owned real chain did not become ready")
 	}
-	fixture := exec.CommandContext(ctx, "node", filepath.Join(root, "services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs"))
+	fixture := exec.CommandContext(ctx, "node", "services/launchpad/pnl-tracker/internal/production/l18/fixture.cjs")
+	fixture.Dir = root
 	fixture.Env = append(os.Environ(), "L18_ANVIL_IDENTITY="+string(identity))
 	var stderr bytes.Buffer
 	fixture.Stderr = &stderr

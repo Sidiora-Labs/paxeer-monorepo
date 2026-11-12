@@ -106,7 +106,7 @@ func (c *Creator) read(ctx context.Context, b Checkpoint, target string, a abi.A
 		return nil, e
 	}
 	var result hexutil.Bytes
-	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, "data": hexutil.Encode(data)}, map[string]any{"blockHash": b.Hash, "requireCanonical": true})
+	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, "data": hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
 	if e != nil {
 		return nil, e
 	}
@@ -187,7 +187,7 @@ func (c *Creator) PrepareClaim(ctx context.Context, id, caller, displayCreator s
 	if who != p.Owner {
 		return PreparedCall{}, ErrUnauthorized
 	}
-	if !p.Capability.Available || p.Capability.Strategy != "CLAIM" || p.ClaimableRaw == "0" {
+	if !p.Capability.Available || p.Capability.Strategy != eventClaim || p.ClaimableRaw == "0" {
 		return PreparedCall{}, ErrUnavailable
 	}
 	n, _ := amount(id)

@@ -64,7 +64,7 @@ func (c *SwapConsumer) processEvent(ctx context.Context, ev SwapEvent, holder *H
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 
 	inserted, err := project(ctx, c.store.WithTx(tx), ev, shareddb.NowSeconds())

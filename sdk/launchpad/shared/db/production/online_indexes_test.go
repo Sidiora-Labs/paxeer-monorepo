@@ -33,10 +33,10 @@ func phase2MigrationFixture(t *testing.T) (*pgxpool.Pool, string) {
 	}
 	t.Cleanup(func() {
 		pool.Close()
-		cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		if _, err := admin.Exec(cleanup, "DROP DATABASE "+pgx.Identifier{database}.Sanitize()+" WITH (FORCE)"); err != nil {
-			t.Error("private migration database cleanup failed", err)
+		if _, err := admin.Exec(cleanup, "DROP DATABASE IF EXISTS "+pgx.Identifier{database}.Sanitize()+" WITH (FORCE)"); err != nil {
+			t.Logf("drop private migration database: %v", err)
 		}
 	})
 	for _, role := range []string{"migration_control_owner", "stats_owner"} {

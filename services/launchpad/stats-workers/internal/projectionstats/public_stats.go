@@ -146,7 +146,7 @@ func (p *PublicStatsProjector) refreshPage(ctx context.Context, after string, no
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", publicStatsLockKey); err != nil {
 		return page, err
@@ -437,7 +437,7 @@ func (p *PublicStatsProjector) swapPriceTx(ctx context.Context, tx pgx.Tx, fill 
 	if isBuy {
 		output = fill.TokenAmountRaw
 	}
-	if words[0].Cmp(big.NewInt(1)) > 0 || isBuy != (fill.Side == "buy") || words[1].String() != fill.PaidInputRaw || words[2].String() != output || words[3].String() != fill.FeeRaw || !words[5].IsInt64() || words[5].Int64() != blockTimestamp || words[6].String() != fill.Position.Height {
+	if words[0].Cmp(big.NewInt(1)) > 0 || isBuy != (fill.Side == valueBuy) || words[1].String() != fill.PaidInputRaw || words[2].String() != output || words[3].String() != fill.FeeRaw || !words[5].IsInt64() || words[5].Int64() != blockTimestamp || words[6].String() != fill.Position.Height {
 		return e, ErrIntegrity
 	}
 	if e.height, e.transactionIndex, e.logIndex, err = positionInts(fill.Position.Height, fill.Position.TransactionIndex, fill.Position.LogIndex); err != nil {
@@ -654,7 +654,7 @@ func (p *PublicStatsProjector) holdingsAtAnchorTx(ctx context.Context, tx pgx.Tx
 	if err != nil {
 		return nil, err
 	}
-	if coverage != "complete" {
+	if coverage != valueComplete {
 		return nil, nil
 	}
 	supply, err := Uint(supplyRaw)
@@ -913,13 +913,13 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 		if created >= start {
 			return &zero, "insufficient_history", nil
 		}
-		return &zero, "complete", nil
+		return &zero, valueComplete, nil
 	case baseline != nil:
 		change, ok := priceChangeBps(baseline.price, current.price)
 		if !ok {
-			return change, "unavailable", nil
+			return change, valueUnavailable, nil
 		}
-		return change, "complete", nil
+		return change, valueComplete, nil
 	default:
 		// Every price-moving event lies inside the window and the creation
 		// price is not carried by a canonical event.
@@ -930,7 +930,7 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created int64) (PublicPoolStats, *committedFill, error) {
 	end := anchor.timestamp + 1
 	start := end - publicStatsWindowSeconds
-	doc := PublicPoolStats{PoolAddress: pool, WindowStart: publicTime(start), WindowEnd: publicTime(end), SourceUpperPosition: anchor.Position, SupplyValuationQuality: "unavailable"}
+	doc := PublicPoolStats{PoolAddress: pool, WindowStart: publicTime(start), WindowEnd: publicTime(end), SourceUpperPosition: anchor.Position, SupplyValuationQuality: valueUnavailable}
 	schema := p.reads.repository.schema
 	err := tx.QueryRow(ctx, fmt.Sprintf(`SELECT COALESCE(SUM(t.volume),0)::text,COUNT(*) FILTER(WHERE t.side='buy')::text,COUNT(*) FILTER(WHERE t.side='sell')::text,COUNT(DISTINCT t.actor)::text,COUNT(*)::text FROM %[1]s.trade_facts t JOIN %[1]s.accounting_market_commits c ON c.projection_version=t.projection_version AND c.pool=t.pool AND c.fill->'position'->>'transactionHash'=t.payload->'position'->>'transactionHash' AND (c.fill->'position'->>'logIndex')::numeric=t.log_index WHERE t.projection_version=$1 AND t.pool=$2 AND (t.height,t.transaction_index,t.log_index)<=($3::numeric,$4::numeric,$5::numeric) AND t.block_timestamp>=$6 AND t.block_timestamp<$7`, schema), p.reads.config.ProjectionVersion, pool, anchor.Height, anchor.TransactionIndex, anchor.LogIndex, start, end).Scan(&doc.Volume24hRaw, &doc.Buys24h, &doc.Sells24h, &doc.UniqueTraders24h, &doc.TxCount24h)
 	if err != nil {
@@ -1056,7 +1056,7 @@ func ValidatePublicStatsFrame(wire []byte) error {
 	if err != nil || end.Sub(start) != publicStatsWindowSeconds*time.Second {
 		return ErrIntegrity
 	}
-	if f.Topic != publicStatsTopicPrefix+f.Payload.PoolAddress || f.Watermark != f.Payload.Watermark || f.Watermark.Integrity != "healthy" || f.Revision != f.Watermark.ProjectionRevision || f.Payload.SourceUpperPosition.Height != f.Watermark.Height || f.Payload.SourceUpperPosition.BlockHash != f.Watermark.BlockHash || f.Coalesced || f.SourceSequenceFirst != nil || f.SourceSequenceLast != nil {
+	if f.Topic != publicStatsTopicPrefix+f.Payload.PoolAddress || f.Watermark != f.Payload.Watermark || f.Watermark.Integrity != valueHealthy || f.Revision != f.Watermark.ProjectionRevision || f.Payload.SourceUpperPosition.Height != f.Watermark.Height || f.Payload.SourceUpperPosition.BlockHash != f.Watermark.BlockHash || f.Coalesced || f.SourceSequenceFirst != nil || f.SourceSequenceLast != nil {
 		return ErrIntegrity
 	}
 	return nil
@@ -1109,7 +1109,7 @@ func (p *PublicStatsProjector) appendTx(ctx context.Context, tx pgx.Tx, anchor p
 		}
 		revision.Add(previousRevision, big.NewInt(1))
 	}
-	doc.Watermark = PublicWatermark{ChainID: "125", Height: anchor.Height, BlockHash: anchor.BlockHash, ProjectionRevision: revision.String(), ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	doc.Watermark = PublicWatermark{ChainID: "125", Height: anchor.Height, BlockHash: anchor.BlockHash, ProjectionRevision: revision.String(), ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: valueHealthy}
 	frame := publicStatsFrame{EventID: "stats:" + doc.PoolAddress + ":" + revision.String(), Topic: topic, Sequence: "1", Revision: revision.String(), OccurredAt: publicTime(anchor.timestamp), Watermark: doc.Watermark, Payload: doc}
 	wire, err := json.Marshal(frame)
 	if err != nil {
@@ -1213,7 +1213,7 @@ func ValidatePublicPriceFrame(wire []byte) error {
 	if decoder.Decode(&f) != nil {
 		return ErrIntegrity
 	}
-	if !strings.HasPrefix(f.Topic, "market.price.0x") || f.Watermark.Integrity != "healthy" || f.Revision != f.Watermark.ProjectionRevision || f.Payload.Source.Position.Height != f.Watermark.Height || f.Payload.Source.Position.BlockHash != f.Watermark.BlockHash || f.Coalesced || f.SourceSequenceFirst != nil || f.SourceSequenceLast != nil {
+	if !strings.HasPrefix(f.Topic, "market.price.0x") || f.Watermark.Integrity != valueHealthy || f.Revision != f.Watermark.ProjectionRevision || f.Payload.Source.Position.Height != f.Watermark.Height || f.Payload.Source.Position.BlockHash != f.Watermark.BlockHash || f.Coalesced || f.SourceSequenceFirst != nil || f.SourceSequenceLast != nil {
 		return ErrIntegrity
 	}
 	return nil
@@ -1247,7 +1247,7 @@ func (p *PublicStatsProjector) appendPriceTx(ctx context.Context, tx pgx.Tx, las
 		return false, err
 	}
 	revision := strconv.FormatInt(last.sequence, 10)
-	watermark := PublicWatermark{ChainID: "125", Height: last.fill.Position.Height, BlockHash: last.fill.Position.BlockHash, ProjectionRevision: revision, ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	watermark := PublicWatermark{ChainID: "125", Height: last.fill.Position.Height, BlockHash: last.fill.Position.BlockHash, ProjectionRevision: revision, ObservedAt: observedAt.UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: valueHealthy}
 	frame := publicPriceFrame{EventID: "price:" + price.Source.SourceEventID, Topic: topic, Sequence: "1", Revision: revision, OccurredAt: price.Source.ObservedAt, Watermark: watermark, Payload: price}
 	wire, err := json.Marshal(frame)
 	if err != nil {

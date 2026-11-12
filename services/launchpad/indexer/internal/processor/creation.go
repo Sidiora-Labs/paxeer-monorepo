@@ -52,7 +52,7 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 	facts := []store.CreationFact{}
 	var err error
 	for _, env := range events {
-		if env == nil || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != "MarketCreated" {
+		if env == nil || env.Event == nil || env.EmitterRole != "SidioraFactory" || env.EventName != valueMarketCreated {
 			continue
 		}
 		args := env.Event.Args
@@ -234,7 +234,7 @@ func inventoryPending(code string) error { return &inventoryRefusal{code: code, 
 func qualifiedInventoryEnrichment(ctx context.Context, c store.CanonicalTx, b store.CanonicalBatch, fill accounting.FillV1, generation, version string) (accounting.EnrichmentV1, []string, error) {
 	var e accounting.EnrichmentV1
 	a := fill.Attribution
-	if a.Payer == nil || a.Recipient == nil || *a.Payer != *a.Recipient || a.Quality == "unavailable" || a.TransactionSender != *a.Payer || (a.Trader != nil && *a.Trader != *a.Payer) {
+	if a.Payer == nil || a.Recipient == nil || *a.Payer != *a.Recipient || a.Quality == valueUnavailable || a.TransactionSender != *a.Payer || (a.Trader != nil && *a.Trader != *a.Payer) {
 		return e, nil, inventoryIneligible("not-same-owner")
 	}
 	wallet := *a.Payer
