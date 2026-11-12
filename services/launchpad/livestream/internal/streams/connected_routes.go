@@ -87,7 +87,7 @@ func (h *Handlers) operationMutationResponse(w http.ResponseWriter, r *http.Requ
 	var envelope sharedauth.OperationEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if decoder.Decode(&envelope) != nil || decoder.Decode(new(any)) != io.EOF {
+	if decoder.Decode(&envelope) != nil || decoder.Decode(new(any)) != io.EOF || envelope.Version != 1 {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
