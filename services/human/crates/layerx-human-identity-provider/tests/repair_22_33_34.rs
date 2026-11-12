@@ -52,6 +52,70 @@ enum Damage {
     ChangedRoot,
 }
 
+#[derive(Default)]
+struct ReadCounts {
+    head: u32,
+    block: u32,
+    root: u32,
+}
+
+fn transcript_result(
+    record: &Value,
+    request: &Value,
+    damage: Damage,
+    height: u64,
+    counts: &mut ReadCounts,
+) -> Value {
+    let params = &request["params"];
+    match text(&request["method"]) {
+        "eth_chainId" => {
+            assert_eq!(params, &json!([]));
+            json!("0x7d")
+        }
+        "eth_blockNumber" => {
+            assert_eq!(params, &json!([]));
+            counts.head += 1;
+            json!(format!(
+                "{:#x}",
+                height + u64::from(matches!(damage, Damage::AdvancingHead) && counts.head > 1)
+            ))
+        }
+        "eth_getBlockByNumber" => {
+            assert_eq!(params[0], format!("{height:#x}"));
+            let mut block = record["block"].clone();
+            if params[1] == true {
+                counts.block += 1;
+                if matches!(damage, Damage::ChangedHash) && counts.block > 1 {
+                    block["hash"] = json!(format!("0x{}", "ff".repeat(32)));
+                }
+            } else {
+                assert_eq!(params[1], false);
+                counts.root += 1;
+                if matches!(damage, Damage::ChangedRoot) && counts.root > 1 {
+                    block["stateRoot"] = json!(format!("0x{}", "ff".repeat(32)));
+                }
+            }
+            block
+        }
+        "px_getAccount" => {
+            assert_eq!(params, &json!([record["owner_did"]]));
+            record["account"].clone()
+        }
+        "eth_call" => {
+            assert_eq!(params[1], format!("{height:#x}"));
+            let calls = record["calls"]
+                .as_array()
+                .unwrap_or_else(|| panic!("calls"));
+            calls
+                .iter()
+                .find(|call| call["to"] == params[0]["to"] && call["data"] == params[0]["data"])
+                .unwrap_or_else(|| panic!("unrecorded call: {request}"))["result"]
+                .clone()
+        }
+        other => panic!("unrecorded method: {other}"),
+    }
+}
+
 // The peer serves the committed ABI codec artifact from a disk-backed transcript.
 // The production component under repair is validate_account_head, including its
 // actual SequencerEndpoint and PxEndpoint transports and decoders.
@@ -76,9 +140,7 @@ impl TranscriptPeer {
             let height = record["height"]
                 .as_u64()
                 .unwrap_or_else(|| panic!("height"));
-            let mut head_reads = 0;
-            let mut block_reads = 0;
-            let mut root_reads = 0;
+            let mut counts = ReadCounts::default();
             while !stopped.load(Ordering::Acquire) {
                 let stream = match listener.accept() {
                     Ok((stream, _)) => stream,
@@ -112,66 +174,14 @@ impl TranscriptPeer {
                 let request: Value = must(serde_json::from_slice(&bytes));
                 assert_eq!(request["jsonrpc"], "2.0");
                 must(seen.lock()).push(request.clone());
-                let params = &request["params"];
-                let result = match text(&request["method"]) {
-                    "eth_chainId" => {
-                        assert_eq!(params, &json!([]));
-                        json!("0x7d")
-                    }
-                    "eth_blockNumber" => {
-                        assert_eq!(params, &json!([]));
-                        head_reads += 1;
-                        json!(format!(
-                            "{:#x}",
-                            height
-                                + u64::from(
-                                    matches!(damage, Damage::AdvancingHead) && head_reads > 1
-                                )
-                        ))
-                    }
-                    "eth_getBlockByNumber" => {
-                        assert_eq!(params[0], format!("{height:#x}"));
-                        let mut block = record["block"].clone();
-                        if params[1] == true {
-                            block_reads += 1;
-                            if matches!(damage, Damage::ChangedHash) && block_reads > 1 {
-                                block["hash"] = json!(format!("0x{}", "ff".repeat(32)));
-                            }
-                        } else {
-                            assert_eq!(params[1], false);
-                            root_reads += 1;
-                            if matches!(damage, Damage::ChangedRoot) && root_reads > 1 {
-                                block["stateRoot"] = json!(format!("0x{}", "ff".repeat(32)));
-                            }
-                        }
-                        block
-                    }
-                    "px_getAccount" => {
-                        assert_eq!(params, &json!([record["owner_did"]]));
-                        record["account"].clone()
-                    }
-                    "eth_call" => {
-                        assert_eq!(params[1], format!("{height:#x}"));
-                        let calls = record["calls"]
-                            .as_array()
-                            .unwrap_or_else(|| panic!("calls"));
-                        calls
-                            .iter()
-                            .find(|call| {
-                                call["to"] == params[0]["to"] && call["data"] == params[0]["data"]
-                            })
-                            .unwrap_or_else(|| panic!("unrecorded call: {request}"))["result"]
-                            .clone()
-                    }
-                    other => panic!("unrecorded method: {other}"),
-                };
+                let result = transcript_result(&record, &request, damage, height, &mut counts);
                 let mut response = if matches!(damage, Damage::RpcError) {
                     json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32000,"message":"unsupported history"}})
                 } else {
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result})
                 };
                 if matches!(damage, Damage::WrongResponseId) {
-                    response["id"] = json!(999999);
+                    response["id"] = json!(999_999);
                 }
                 let body = response.to_string();
                 let mut stream = reader.into_inner();
