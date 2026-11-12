@@ -230407,7 +230407,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.458]
 title = "Pin the linter release of the launchpad lint stage and keep the launchpad wiring test in step with the baseline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
