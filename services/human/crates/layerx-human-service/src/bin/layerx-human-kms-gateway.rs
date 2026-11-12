@@ -52,7 +52,6 @@ mod tests {
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
     use rustls::{ClientConfig, ClientConnection, StreamOwned};
-    use sha2::{Digest as _, Sha256};
 
     use super::startup::protected;
     use super::*;

@@ -19,8 +19,8 @@ use sha2::{Digest as _, Sha256};
 const COMMITTED: &str = include_str!("../fixtures/repair_22_33_50/conformance-v4-committed.json");
 const RECORDED: &str = include_str!("../fixtures/repair_22_33_50/paxd-v4-committed.json");
 pub fn recorded_rpc_receipt() -> Value {
-    let source: Value = serde_json::from_str(RECORDED).expect("paxd recorder output");
-    let normalized: Value = serde_json::from_str(COMMITTED).expect("conformance recording");
+    let source: Value = serde_json::from_str(RECORDED).or_fail("paxd recorder output");
+    let normalized: Value = serde_json::from_str(COMMITTED).or_fail("conformance recording");
     assert_eq!(
         source["settlement"]["receipt"],
         normalized["cases"][0]["receiptJson"]
@@ -37,15 +37,15 @@ pub struct RecordedCommit {
 }
 
 pub fn recorded_commit() -> RecordedCommit {
-    let source: Value = serde_json::from_str(RECORDED).expect("paxd recorder output");
-    let normalized: Value = serde_json::from_str(COMMITTED).expect("conformance recording");
+    let source: Value = serde_json::from_str(RECORDED).or_fail("paxd recorder output");
+    let normalized: Value = serde_json::from_str(COMMITTED).or_fail("conformance recording");
     assert_eq!(source["positive"], normalized["positive"]);
     let settlement = &source["settlement"];
     let case = &normalized["cases"][0];
-    let height = case["executionHeader"]["height"].as_u64().expect("height");
+    let height = case["executionHeader"]["height"].as_u64().or_fail("height");
     let validators: Vec<_> = settlement["validators"]
         .as_array()
-        .expect("recorded validators")
+        .or_fail("recorded validators")
         .iter()
         .map(|v| json!({"address":v["address"], "pubKey":v["pub_key"], "votingPower":v["voting_power"]}))
         .collect();
@@ -53,15 +53,15 @@ pub fn recorded_commit() -> RecordedCommit {
     let verifier = ChainProofVerifier {
         chain_id: settlement["execution_header"]["chain_id"]
             .as_str()
-            .expect("chain")
+            .or_fail("chain")
             .to_owned(),
-        validators: decode_validators(&validators).expect("recorded validator pins"),
+        validators: decode_validators(&validators).or_fail("recorded validator pins"),
     };
     let recorded_proof = &settlement["sequence_batch_proof"];
     let decode = |v: &Value| {
         STANDARD
-            .decode(v.as_str().expect("base64 field"))
-            .expect("recorded bytes")
+            .decode(v.as_str().or_fail("base64 field"))
+            .or_fail("recorded bytes")
     };
     // Comet's transaction proof carries SHA256(transaction) as its leaf payload,
     // unlike an ABCI result proof. Retain the recorded leaf-hash check below.
@@ -69,14 +69,14 @@ pub fn recorded_commit() -> RecordedCommit {
     let mut leaf = b"LXAR\x01".to_vec();
     let total: i64 = recorded_proof["proof"]["total"]
         .as_str()
-        .expect("total")
+        .or_fail("total")
         .parse()
-        .expect("i64 total");
+        .or_fail("i64 total");
     let index: i64 = recorded_proof["proof"]["index"]
         .as_str()
-        .expect("index")
+        .or_fail("index")
         .parse()
-        .expect("i64 index");
+        .or_fail("i64 index");
     leaf.extend_from_slice(&total.to_be_bytes());
     leaf.extend_from_slice(&index.to_be_bytes());
     leaf.extend_from_slice(&Sha256::digest(&batch_transaction));
@@ -84,11 +84,11 @@ pub fn recorded_commit() -> RecordedCommit {
     fields.extend(
         recorded_proof["proof"]["aunts"]
             .as_array()
-            .expect("aunts")
+            .or_fail("aunts")
             .iter()
             .map(decode),
     );
-    let batch = AbciResultProof::decode(&fields).expect("recorded batch inclusion");
+    let batch = AbciResultProof::decode(&fields).or_fail("recorded batch inclusion");
     assert_eq!(
         batch.proof.leaf_hash.as_slice(),
         decode(&recorded_proof["proof"]["leaf_hash"])
@@ -100,14 +100,14 @@ pub fn recorded_commit() -> RecordedCommit {
     let hex = |v: &Value| {
         format!(
             "0x{}",
-            v.as_str().expect("recorded hash").to_ascii_lowercase()
+            v.as_str().or_fail("recorded hash").to_ascii_lowercase()
         )
     };
     let block_hash = hex(&settlement["execution_commit"]["block_id"]["hash"]);
     let block = json!({
         "number":format!("{height:#x}"), "hash":block_hash,
         "parentHash":hex(&settlement["execution_header"]["last_block_id"]["hash"]),
-        "timestamp":format!("{:#x}", case["executionHeader"]["time"]["seconds"].as_u64().expect("timestamp")),
+        "timestamp":format!("{:#x}", case["executionHeader"]["time"]["seconds"].as_u64().or_fail("timestamp")),
         "transactionsRoot":hex(&settlement["execution_header"]["data_hash"]),
         "receiptsRoot":hex(&settlement["header"]["last_results_hash"]),
         "transactions":[recorded_transaction(settlement, &block_hash, height)]
@@ -163,12 +163,7 @@ fn recorded_transaction(settlement: &Value, block_hash: &str, height: u64) -> Va
     assert!(rest.is_empty());
     let values: Vec<_> = (0..9).map(|_| item(&mut fields)).collect();
     assert!(fields.is_empty());
-    let hex = |data: &[u8]| {
-        format!(
-            "0x{}",
-            data.iter().map(|b| format!("{b:02x}")).collect::<String>()
-        )
-    };
+    let hex = |data: &[u8]| format!("0x{}", layerx_human_service::hex::lower(data));
     let quantity = |data: &[u8]| {
         let encoded = hex(data);
         let digits = encoded[2..].trim_start_matches('0');
@@ -196,26 +191,26 @@ fn recorded_transaction(settlement: &Value, block_hash: &str, height: u64) -> Va
 fn bytes(value: &Value) -> Vec<u8> {
     let text = value
         .as_str()
-        .expect("hex string")
+        .or_fail("hex string")
         .strip_prefix("0x")
-        .expect("0x prefix");
+        .or_fail("0x prefix");
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).expect("hex byte"))
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).or_fail("hex byte"))
         .collect()
 }
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().expect("fixed-width field")
+    bytes(value).try_into().or_fail("fixed-width field")
 }
 fn time(value: &Value) -> CommitTimestamp {
     CommitTimestamp {
-        seconds: value["seconds"].as_i64().expect("seconds"),
+        seconds: value["seconds"].as_i64().or_fail("seconds"),
         nanos: value["nanos"]
             .as_u64()
-            .expect("nanos")
+            .or_fail("nanos")
             .try_into()
-            .expect("u32 nanos"),
+            .or_fail("u32 nanos"),
     }
 }
 fn block_id(value: &Value) -> BlockId {
@@ -223,9 +218,9 @@ fn block_id(value: &Value) -> BlockId {
         hash: fixed(&value["hash"]),
         part_set_total: value["parts"]["total"]
             .as_u64()
-            .expect("parts")
+            .or_fail("parts")
             .try_into()
-            .expect("u32 parts"),
+            .or_fail("u32 parts"),
         part_set_hash: fixed(&value["parts"]["hash"]),
     }
 }
@@ -238,10 +233,10 @@ fn header(v: &Value) -> CheckpointHeader {
         }
     };
     CheckpointHeader {
-        version_block: v["version"]["block"].as_u64().expect("version"),
-        version_app: v["version"]["app"].as_u64().expect("app version"),
-        chain_id: v["chain_id"].as_str().expect("chain id").to_owned(),
-        height: v["height"].as_u64().expect("height"),
+        version_block: v["version"]["block"].as_u64().or_fail("version"),
+        version_app: v["version"]["app"].as_u64().or_fail("app version"),
+        chain_id: v["chain_id"].as_str().or_fail("chain id").to_owned(),
+        height: v["height"].as_u64().or_fail("height"),
         time: time(&v["time"]),
         last_block_id: Some(block_id(&v["last_block_id"])),
         last_commit_hash: optional("last_commit_hash"),
@@ -256,58 +251,10 @@ fn header(v: &Value) -> CheckpointHeader {
     }
 }
 
-pub fn recorded_receipt() -> (
-    ActivityEntryId,
-    ReceiptFact,
-    Vec<ReceiptKeyEntry>,
-    Vec<ConsensusAuthority>,
-) {
-    let v: Value = serde_json::from_str(COMMITTED).expect("Go node conformance recording");
-    assert_eq!(
-        v["provenance"]["sourceSha256"],
-        format!("{:x}", Sha256::digest(RECORDED.as_bytes()))
-    );
-    let c = &v["cases"][0];
-    assert_eq!(c["id"], "committed-payExact");
-    assert_eq!(c["receiptJson"]["rung"], "committed");
-    let raw: Value = serde_json::from_str(RECORDED).expect("original Go recorder output");
-    // Pin the recording's provenance and retain the actual tx-zero bytes.
-    assert_eq!(c["signedReceipt"], raw["positive"]["receipt"]);
-    assert_eq!(
-        bytes(&c["batchProof"]["data"]),
-        STANDARD
-            .decode(
-                raw["settlement"]["sequence_batch_proof"]["data"]
-                    .as_str()
-                    .expect("batch base64")
-            )
-            .expect("recorded batch")
-    );
-    let key = &c["pinnedKey"];
-    let keys = vec![ReceiptKeyEntry {
-        key_id: fixed(&key["keyId"]),
-        public_key: fixed(&key["publicKey"]),
-        first_height: key["firstHeight"].as_u64().expect("first"),
-        last_height: key["lastHeight"].as_u64().expect("last"),
-    }];
-    let validators: Vec<_> = c["validators"]
+fn committed_votes(commit: &Value, validators: &[CommitValidator]) -> Vec<CommitVote> {
+    commit["signatures"]
         .as_array()
-        .expect("validators")
-        .iter()
-        .map(|v| {
-            let public_key = fixed(&v["pub_key"]);
-            CommitValidator {
-                address: CommitValidator::address_for_key(&public_key),
-                public_key,
-                voting_power: v["voting_power"].as_u64().expect("power"),
-            }
-        })
-        .collect();
-    let h = header(&c["header"]);
-    let commit = &c["commit"];
-    let votes = commit["signatures"]
-        .as_array()
-        .expect("votes")
+        .or_fail("votes")
         .iter()
         .map(|vote| {
             assert_eq!(vote["block_id_flag"], 2);
@@ -317,63 +264,118 @@ pub fn recorded_receipt() -> (
                 voting_power: validators
                     .iter()
                     .find(|v| v.address == address)
-                    .expect("pinned validator")
+                    .or_fail("pinned validator")
                     .voting_power,
                 timestamp: time(&vote["timestamp"]),
                 signature: fixed(&vote["signature"]),
             }
         })
-        .collect();
-    let id = ActivityEntryId::new("act_repair2233350").expect("entry");
-    let mut fact = EvidenceBundle::receipt_fact(&id, bytes(&c["signedReceipt"]), Rung::Committed)
-        .expect("real receipt codec");
-    fact.committed = Some(CommittedReceiptEvidence {
-        header: h.clone(),
-        execution_header: header(&c["executionHeader"]),
-        commit: BlockCommit {
-            height: commit["height"].as_u64().expect("commit height"),
-            round: commit["round"]
-                .as_u64()
-                .expect("round")
-                .try_into()
-                .expect("round u32"),
-            block_id: block_id(&commit["block_id"]),
-            votes,
-        },
-        batch_transaction: bytes(&c["batchProof"]["data"]),
-        batch_total: c["batchProof"]["total"].as_u64().expect("total"),
-        batch_aunts: c["batchProof"]["aunts"]
-            .as_array()
-            .expect("aunts")
-            .iter()
-            .map(fixed)
-            .collect(),
-        activity_ids: vec![fact.tx_hash],
-    });
-    let binding = &v["positive"];
-    fact.header_binding = Some(ReceiptHeaderBinding {
+        .collect()
+}
+
+fn recorded_header_binding(binding: &Value) -> ReceiptHeaderBinding {
+    ReceiptHeaderBinding {
         canonical_header_bytes: bytes(&binding["header"]),
         header_signature: fixed(&binding["header_signature"]),
         receipt_proof: Proof::new(
             binding["proof"]["LeafIndex"]
                 .as_u64()
-                .expect("leaf index")
+                .or_fail("leaf index")
                 .try_into()
-                .expect("index u32"),
+                .or_fail("index u32"),
             binding["proof"]["LeafCount"]
                 .as_u64()
-                .expect("count")
+                .or_fail("count")
                 .try_into()
-                .expect("count u32"),
+                .or_fail("count u32"),
             binding["proof"]["Siblings"]
                 .as_array()
-                .expect("siblings")
+                .or_fail("siblings")
                 .iter()
-                .map(|s| serde_json::from_value(s.clone()).expect("sibling digest"))
+                .map(|s| serde_json::from_value(s.clone()).or_fail("sibling digest"))
                 .collect(),
         )
-        .expect("real receipt Merkle proof"),
+        .or_fail("real receipt Merkle proof"),
+    }
+}
+
+pub fn recorded_receipt() -> (
+    ActivityEntryId,
+    ReceiptFact,
+    Vec<ReceiptKeyEntry>,
+    Vec<ConsensusAuthority>,
+) {
+    let v: Value = serde_json::from_str(COMMITTED).or_fail("Go node conformance recording");
+    assert_eq!(
+        v["provenance"]["sourceSha256"],
+        format!("{:x}", Sha256::digest(RECORDED.as_bytes()))
+    );
+    let c = &v["cases"][0];
+    assert_eq!(c["id"], "committed-payExact");
+    assert_eq!(c["receiptJson"]["rung"], "committed");
+    let raw: Value = serde_json::from_str(RECORDED).or_fail("original Go recorder output");
+    // Pin the recording's provenance and retain the actual tx-zero bytes.
+    assert_eq!(c["signedReceipt"], raw["positive"]["receipt"]);
+    assert_eq!(
+        bytes(&c["batchProof"]["data"]),
+        STANDARD
+            .decode(
+                raw["settlement"]["sequence_batch_proof"]["data"]
+                    .as_str()
+                    .or_fail("batch base64")
+            )
+            .or_fail("recorded batch")
+    );
+    let key = &c["pinnedKey"];
+    let keys = vec![ReceiptKeyEntry {
+        key_id: fixed(&key["keyId"]),
+        public_key: fixed(&key["publicKey"]),
+        first_height: key["firstHeight"].as_u64().or_fail("first"),
+        last_height: key["lastHeight"].as_u64().or_fail("last"),
+    }];
+    let validators: Vec<_> = c["validators"]
+        .as_array()
+        .or_fail("validators")
+        .iter()
+        .map(|v| {
+            let public_key = fixed(&v["pub_key"]);
+            CommitValidator {
+                address: CommitValidator::address_for_key(&public_key),
+                public_key,
+                voting_power: v["voting_power"].as_u64().or_fail("power"),
+            }
+        })
+        .collect();
+    let h = header(&c["header"]);
+    let commit = &c["commit"];
+    let votes = committed_votes(commit, &validators);
+    let id = ActivityEntryId::new("act_repair2233350").or_fail("entry");
+    let mut fact = EvidenceBundle::receipt_fact(&id, bytes(&c["signedReceipt"]), Rung::Committed)
+        .or_fail("real receipt codec");
+    fact.committed = Some(CommittedReceiptEvidence {
+        header: h.clone(),
+        execution_header: header(&c["executionHeader"]),
+        commit: BlockCommit {
+            height: commit["height"].as_u64().or_fail("commit height"),
+            round: commit["round"]
+                .as_u64()
+                .or_fail("round")
+                .try_into()
+                .or_fail("round u32"),
+            block_id: block_id(&commit["block_id"]),
+            votes,
+        },
+        batch_transaction: bytes(&c["batchProof"]["data"]),
+        batch_total: c["batchProof"]["total"].as_u64().or_fail("total"),
+        batch_aunts: c["batchProof"]["aunts"]
+            .as_array()
+            .or_fail("aunts")
+            .iter()
+            .map(fixed)
+            .collect(),
+        activity_ids: vec![fact.tx_hash],
     });
+    fact.header_binding = Some(recorded_header_binding(&v["positive"]));
     (
         id,
         fact,
@@ -386,3 +388,5 @@ pub fn recorded_receipt() -> (
         }],
     )
 }
+
+use crate::require_value::RequireValue as _;

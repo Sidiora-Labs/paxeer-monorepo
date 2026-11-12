@@ -27,33 +27,32 @@
 //!   `ActorSlot::evaluator(i)` yet (F08 evaluator acceptance must).
 use crate::types::GuestIndex as _;
 use crate::{
-    MAX_EVALUATORS, MAX_WORKERS,
     admission::{AdmissionTable, Participant},
-    codec::{self, EventCommon, Reader, Writer, compare_native_principal, derive_market},
+    codec::{self, compare_native_principal, derive_market, EventCommon, Reader, Writer},
     codec::{RevealScoreEvent, ValidatedEnvelope},
     dispatch,
     errors::{
-        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F03_CHALLENGE_CAPACITY,
+        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_CHALLENGE_CAPACITY,
         F03_REPORT_ALREADY_FINAL, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED,
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{EvaluatorRegion, FrozenEvaluator, evaluator_region},
+        authority::{evaluator_region, EvaluatorRegion, FrozenEvaluator},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
-        model::{ReportContext, SIGNED_REPORT_MAX_BYTES, SignedReport, VerificationError},
+        model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
     },
     evidence::SealRegion,
     registry_ops::{CallContext, PolicySection},
     rewards::{RewardEpoch, RewardState},
     state::{
-        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState, decode_shared_state,
-        settlement_rewards,
+        decode_shared_state, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
     },
     types::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
-        ReportDigest, ResultDigest, Version, WorkerRosterEntry,
+        ReportDigest, ResultDigest, Version,
     },
+    MAX_EVALUATORS,
 };
 
 /// Fixed bytes of one admitted-report row before its signed report.
@@ -165,7 +164,7 @@ impl<'a> AdmittedReport<'a> {
         }
         Ok(row)
     }
-    /// Parses only rows whose body and receipt were checked by ReportRegion::decode.
+    /// Parses only rows whose body and receipt were checked by `ReportRegion::decode`.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read_validated(r: &mut Reader<'a>) -> CodecResult<Self> {
         let receipt = crate::codec::read_record!(r, AdmissionReceipt {  }; evaluator = r.evaluator_id()?;
@@ -552,7 +551,7 @@ pub fn admitted_report<'a>(
 /// Committed F01 section of `state`; its header revision must equal the shared revision.
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -577,23 +576,30 @@ struct Opened<'a> {
 fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecResult<Opened<'a>> {
     let section = committed(state)?;
     let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
-    view_in_state(state, section, known, &admission, None)
+    view_in_state(state, &section, known, &admission, None)
 }
 
 fn view_in_state<'a>(
     state: &SharedState<'a>,
-    section: PolicySection<'a>,
+    section: &PolicySection<'a>,
     _known: Option<RewardState<'a>>,
     admission: &AdmissionTable,
     known_reports: Option<ReportRegion<'a>>,
 ) -> CodecResult<Opened<'a>> {
+    let section = *section;
+
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = crate::rewards::committed_row(state.room_market()?.0, epoch)
-        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let rewards = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
+        if e == NOT_FOUND {
+            WRONG_EPOCH
+        } else {
+            e
+        }
+    })?;
     let row = rewards.row;
     let header = &section.header;
     let frozen = FrozenBinding {
@@ -607,7 +613,7 @@ fn view_in_state<'a>(
     let reports = match known_reports {
         Some(reports) => reports,
         None => ReportRegion::decode(
-            *state
+            state
                 .feature_sections
                 .guest_index(Section::CurrentReports.index()),
         )?,
@@ -718,7 +724,7 @@ fn verify(
                 admission,
                 &opened.section,
                 region,
-                opened.row,
+                &opened.row,
                 opened.dictionary,
             )?;
             Ok((
@@ -751,7 +757,7 @@ fn verify(
     // Worker ownership is also a live role constraint; the captured roster
     // remains the immutable source of report keys and metadata.
     let (workers, _) = crate::evaluators::authority::split_identity_section(
-        *state
+        state
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
@@ -784,14 +790,12 @@ fn commit_report(
     let result = row.receipt.result()?;
     crate::rewards::finish_feature_transition(
         candidate,
-        opened.section,
+        &opened.section,
         Some(&reveal.request),
         reveal.height,
         result,
         NON_CANONICAL,
-        policy,
-        control,
-        next,
+        (policy, control, next),
     )
 }
 
@@ -839,7 +843,10 @@ pub(crate) fn admit_report_with<'a>(
     let signed = signed.get(..signed_len).ok_or(CAPACITY)?;
     let state = decode_shared_state(current)?;
     admit_encoded_report(
-        &state, reveal, signed, next, scratch, event, known, None, None, None,
+        &state,
+        reveal,
+        signed,
+        (next, scratch, event, known, None, None, None),
     )
 }
 
@@ -848,24 +855,23 @@ pub(crate) fn admit_report_in_state<'a>(
     admission: &AdmissionTable,
     reports: ReportRegion<'a>,
     reveal: &RevealAdmission<'_>,
-    next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    known: Option<RewardState<'a>>,
-    report: ReportDigest,
-    signed: &[u8],
+    context: ReportAdmissionContext<'_, 'a>,
 ) -> Result<Admission, VerificationError> {
+    let (next, scratch, event, known, report, signed) = context;
+
     admit_encoded_report(
         state,
         reveal,
         signed,
-        next,
-        scratch,
-        event,
-        known,
-        Some(admission),
-        Some(reports),
-        Some(report),
+        (
+            next,
+            scratch,
+            event,
+            known,
+            Some(admission),
+            Some(reports),
+            Some(report),
+        ),
     )
 }
 
@@ -873,30 +879,24 @@ fn admit_encoded_report<'a>(
     state: &SharedState<'a>,
     reveal: &RevealAdmission<'_>,
     signed: &[u8],
-    next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
-    known: Option<RewardState<'a>>,
-    known_admission: Option<&AdmissionTable>,
-    known_reports: Option<ReportRegion<'a>>,
-    known_digest: Option<ReportDigest>,
+    context: EncodedAdmissionContext<'_, 'a>,
 ) -> Result<Admission, VerificationError> {
+    let (next, scratch, event, known, known_admission, known_reports, known_digest) = context;
+
     let body = &reveal.report.body;
     let section = committed(state)?;
     let decoded;
-    let admission = match known_admission {
-        Some(admission) => admission,
-        None => {
-            decoded =
-                AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
-                    *state
-                        .feature_sections
-                        .guest_index(Section::ReputationAdmission.index()),
-                )?)?;
-            &decoded
-        }
+    let admission = if let Some(admission) = known_admission {
+        admission
+    } else {
+        decoded = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
+            state
+                .feature_sections
+                .guest_index(Section::ReputationAdmission.index()),
+        )?)?;
+        &decoded
     };
-    let opened = view_in_state(state, section, known, admission, known_reports)?;
+    let opened = view_in_state(state, &section, known, admission, known_reports)?;
     let frozen = frozen_evaluator(state, &opened, &body.binding)?;
     if reveal.request.principal != frozen.entry.owner {
         return Err(UNAUTHORIZED.into());
@@ -916,7 +916,7 @@ fn admit_encoded_report<'a>(
     }
     check_membership(admission, &frozen)?;
     let report = verify(
-        &state,
+        state,
         &opened,
         &frozen,
         &reveal.report,
@@ -932,7 +932,7 @@ fn admit_encoded_report<'a>(
         },
         signed,
     };
-    let (revision, state_len) = commit_report(&state, &opened, &row, reveal, next, scratch)?;
+    let (revision, state_len) = commit_report(state, &opened, &row, reveal, next, scratch)?;
     let reveal_event = RevealScoreEvent {
         common: EventCommon {
             market: opened.frozen.market,
@@ -1091,7 +1091,7 @@ impl<'a> ChallengeRegion<'a> {
             .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 170]>::as_slice)
             .enumerate()
         {
             let id = ChallengeRecord::decode(record)?.id;
@@ -1102,7 +1102,7 @@ impl<'a> ChallengeRegion<'a> {
                 .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; 170]>::as_slice)
             {
                 if ChallengeRecord::decode(other)?.id == id {
                     return Err(NON_CANONICAL);
@@ -1131,7 +1131,7 @@ impl<'a> ChallengeRegion<'a> {
             .as_chunks::<{ CHALLENGE_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 170]>::as_slice)
             .map(ChallengeRecord::decode)
     }
     /// The challenge `id` recorded in `epoch`.
@@ -1279,7 +1279,7 @@ fn check_reference(
     allegation: &Allegation,
 ) -> CodecResult<()> {
     let region = evaluator_region(
-        *state
+        state
             .feature_sections
             .guest_index(Section::IdentityRoster.index()),
     )?;
@@ -1336,14 +1336,12 @@ fn commit_challenge(
     candidate.control.feature_bytes = features.get(..features_len).ok_or(CAPACITY)?;
     let (revision, state_len) = crate::rewards::finish_feature_transition(
         candidate,
-        opened.section,
+        &opened.section,
         None,
         0,
         result,
         NON_CANONICAL,
-        policy,
-        control,
-        next,
+        (policy, control, next),
     )?;
     let event_len = codec::encode_event_frame(
         dispatch::ChallengeAssessment,
@@ -1431,3 +1429,22 @@ pub fn apply_challenge(
     check_reference(&state, &opened, &allegation)?;
     commit_challenge(&state, &opened, envelope, &record, (next, scratch, event))
 }
+
+type ReportAdmissionContext<'b, 'a> = (
+    &'b mut [u8],
+    &'b mut [u8],
+    &'b mut [u8],
+    Option<RewardState<'a>>,
+    ReportDigest,
+    &'b [u8],
+);
+
+type EncodedAdmissionContext<'b, 'a> = (
+    &'b mut [u8],
+    &'b mut [u8],
+    &'b mut [u8],
+    Option<RewardState<'a>>,
+    Option<&'b AdmissionTable>,
+    Option<ReportRegion<'a>>,
+    Option<ReportDigest>,
+);

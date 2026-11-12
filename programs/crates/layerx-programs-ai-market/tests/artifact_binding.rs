@@ -2172,39 +2172,9 @@ impl Market {
 
 #[test]
 fn f09_seal_stores_the_digest_bound_to_the_output_commitment() -> TestResult {
-    let mut m = opened()?;
-    m.admit(0x21, 1, 1172, 1140)?;
+    let (mut m, published, set) = committed_output_market()?;
     let task = m.task_id(0x21, 1)?;
-    let published = publish(&m, task, &delegate_key(1))?;
     let commitment = published.root;
-    m.worker_step(dispatch::ACCEPT_TASK, 1, task, [0xac; 32], 1141)?;
-    let Task::Applied { .. } =
-        m.worker_step(dispatch::COMMIT_TASK_RESULT, 2, task, commitment, 1142)?
-    else {
-        return Err(NON_CANONICAL);
-    };
-    let committed = m.task_binding(task)?;
-    assert_eq!(
-        (committed.status, committed.result),
-        (
-            tasks::TaskStatus::ResultCommitted,
-            Some(Digest32::new(commitment)?)
-        )
-    );
-    assert_eq!(
-        check_root_binding(
-            &published.manifest,
-            &published.context,
-            SubjectContext::Task { epoch: 1, task },
-            ArtifactKind::Result,
-            commitment,
-        )
-        .map(ArtifactManifestRoot::bytes),
-        Ok(commitment)
-    );
-    let set = m.set_digest()?;
-    m.seal_set(set, 1192)?;
-    assert_eq!(m.sealed_set()?, set);
     let proof = Proof {
         binding: EvaluatorBinding {
             frozen: m.frozen_binding(),
@@ -2300,4 +2270,40 @@ fn f09_seal_stores_the_digest_bound_to_the_output_commitment() -> TestResult {
         Err(F03_EVIDENCE_ROOT_MISMATCH)
     );
     Ok(())
+}
+fn committed_output_market() -> CodecResult<(Market, Published, Digest32)> {
+    let mut m = opened()?;
+    m.admit(0x21, 1, 1172, 1140)?;
+    let task = m.task_id(0x21, 1)?;
+    let published = publish(&m, task, &delegate_key(1))?;
+    let commitment = published.root;
+    m.worker_step(dispatch::ACCEPT_TASK, 1, task, [0xac; 32], 1141)?;
+    let Task::Applied { .. } =
+        m.worker_step(dispatch::COMMIT_TASK_RESULT, 2, task, commitment, 1142)?
+    else {
+        return Err(NON_CANONICAL);
+    };
+    let committed = m.task_binding(task)?;
+    assert_eq!(
+        (committed.status, committed.result),
+        (
+            tasks::TaskStatus::ResultCommitted,
+            Some(Digest32::new(commitment)?)
+        )
+    );
+    assert_eq!(
+        check_root_binding(
+            &published.manifest,
+            &published.context,
+            SubjectContext::Task { epoch: 1, task },
+            ArtifactKind::Result,
+            commitment,
+        )
+        .map(ArtifactManifestRoot::bytes),
+        Ok(commitment)
+    );
+    let set = m.set_digest()?;
+    m.seal_set(set, 1192)?;
+    assert_eq!(m.sealed_set()?, set);
+    Ok((m, published, set))
 }

@@ -19,7 +19,7 @@ fn material(rung: Rung) -> ReceiptMaterial {
     replay.extend_from_slice(&tx_hash);
     replay.extend_from_slice(&[0x73; 32]);
     replay.extend_from_slice(&[0x74; 32]);
-    let canonical_bytes = encode(&decode(&replay).expect("receipt")).expect("canonical receipt");
+    let canonical_bytes = encode(&decode(&replay).or_fail("receipt")).or_fail("canonical receipt");
     ReceiptMaterial {
         receipt_hash: Sha256::digest(&canonical_bytes).into(),
         signed_receipt: canonical_bytes.clone(),
@@ -71,7 +71,7 @@ fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
     let mut responses = valid
         .iter()
         .map(|(answer, _)| {
-            let bytes = answer.encode().expect("shared answer");
+            let bytes = answer.encode().or_fail("shared answer");
             if let ReceiptLookupAnswer::Found(frame) = answer {
                 if frame.verification_level == VerificationLevel::COMMITTED {
                     assert_eq!(bytes[1 + 4 + frame.canonical_bytes.len() + 5 * 32], 6);
@@ -113,12 +113,10 @@ fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
         responses.push(
             ReceiptLookupAnswer::Found(frame)
                 .encode()
-                .expect("malformed evidence answer"),
+                .or_fail("malformed evidence answer"),
         );
     }
-    let mut trailing = good.clone();
-    trailing.push(0);
-    responses.push(trailing);
+    responses.push([good.as_slice(), &[0]].concat());
     responses.push(vec![3]);
     let mut invalid_level = good.clone();
     invalid_level[1 + 4 + receipted.canonical_bytes.len() + 5 * 32] = 0;
@@ -131,7 +129,7 @@ fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
         .map(|response| (rungs::request(4, &coordinates), rungs::answer(&response)))
         .collect();
     let (peer, mut runtime) = rungs::Peer::serve(exchanges);
-    let _trace = TraceContext::enter(rungs::TRACE).expect("trace");
+    let _trace = TraceContext::enter(rungs::TRACE).or_fail("trace");
     for (_, expected) in valid {
         assert_eq!(
             runtime.receipt_by_idempotency_key([0x64; 32], receipted.tx_hash),
@@ -145,4 +143,10 @@ fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
         );
     }
     peer.finish();
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

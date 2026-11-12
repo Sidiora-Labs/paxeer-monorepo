@@ -291,6 +291,8 @@ impl ObservedStateBuilder {
 
     /// Starts a current route from authenticated service identity. No retired
     /// custody accounts or joined wallet record are needed for a ledger route.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn for_route(
         scope: &crate::store::PrincipalScope<'_>,
         identity: &MovementExecutionIdentity,
@@ -341,6 +343,8 @@ impl ObservedStateBuilder {
 
     /// Reads the canonical bank balance and verifies the route's pending nonce
     /// on both sides of the read. An RPC absence or malformed word is unknown.
+    /// # Errors
+    /// Returns an error if the requested data cannot be read or validated.
     pub fn read_pending_bank_balance(
         mut self,
         endpoint: &layerx_client::sequencer::SequencerEndpoint,
@@ -789,7 +793,7 @@ mod tests {
             "115792089237316195423570985008687907853269984665640564039457584007913129639935",
         ] {
             let quantity = layerx_network_gateway::quantity(&serde_json::json!(amount))
-                .expect("valid uint256 balance");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "valid uint256 balance"));
             let observation = network(vec![
                 row("uusdc", 7),
                 AssetBalance {
@@ -798,7 +802,13 @@ mod tests {
                 },
             ]);
             assert_eq!(observation.balance("upax"), Some(quantity));
-            assert_eq!(observation.balance("upax").unwrap().to_string(), amount);
+            assert_eq!(
+                observation
+                    .balance("upax")
+                    .unwrap_or_else(|| panic!("missing value"))
+                    .to_string(),
+                amount
+            );
             assert_eq!(observation.balance("uusdc"), Some(7.into()));
             assert_eq!(observation.balance("unobserved"), None);
             assert_eq!(

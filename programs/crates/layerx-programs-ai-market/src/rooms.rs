@@ -3,11 +3,17 @@ use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self, Reader, ValidatedEnvelope, Writer},
     dispatch,
-    errors::*,
+    errors::{
+        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, F02_CAPABILITY_MISMATCH,
+        F11_ASK_UNFUNDED, F11_BID_BELOW_FLOOR, F11_BOND_INSUFFICIENT, F11_ROOM_CLOSED,
+        F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED,
+        UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE,
+        WRONG_PROGRAM,
+    },
     evaluators::authority::split_identity_section,
-    policy::{ROOM_PROFILE_BYTES, RoomProfile},
+    policy::{RoomProfile, ROOM_PROFILE_BYTES},
     registry::market_clock,
-    registry_ops::{ACTIVE, CallContext, PolicySection, REGISTERED},
+    registry_ops::{CallContext, PolicySection, ACTIVE, REGISTERED},
     reputation_transition::split_joint,
     roster::roster_digest,
     state::{self, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section},
@@ -112,6 +118,8 @@ pub struct RoomRecord {
 }
 impl RoomRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..ROOM_RECORD_BYTES).ok_or(CAPACITY)?);
@@ -128,6 +136,8 @@ impl RoomRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -157,6 +167,8 @@ pub struct AskRecord {
 }
 impl AskRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.maximum_price_per_thousand_tokens == 0 {
             return Err(NON_CANONICAL);
@@ -175,6 +187,8 @@ impl AskRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -216,6 +230,8 @@ impl BidRecord {
         Ok(())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out.get_mut(..BID_RECORD_BYTES).ok_or(CAPACITY)?);
@@ -231,6 +247,8 @@ impl BidRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -321,6 +339,8 @@ impl DealRecord {
         Ok(count)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let count = self.peer_count()?;
         self.encode_with_count(count, out)
@@ -348,6 +368,8 @@ impl DealRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let (request, count) = RecordDealRequest::read_header(&mut r)?;
@@ -375,6 +397,8 @@ pub struct OpenRoomRequest {
 }
 impl OpenRoomRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..OPEN_ROOM_REQUEST_BYTES).ok_or(CAPACITY)?);
@@ -397,6 +421,8 @@ pub struct PostAskRequest {
 }
 impl PostAskRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.maximum_price_per_thousand_tokens == 0 {
             return Err(NON_CANONICAL);
@@ -423,6 +449,8 @@ pub struct PostBidRequest {
 }
 impl PostBidRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.minimum_price_per_thousand_tokens == 0
             || self.bond_amount == 0
@@ -465,6 +493,8 @@ impl RecordDealRequest {
         }
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let count = self.record().peer_count()?;
         let mut w = Writer::new(out.get_mut(..145 + 36 * count).ok_or(CAPACITY)?);
@@ -516,7 +546,7 @@ impl RecordDealRequest {
             u128: price;
             id32: roster.as_bytes();
         )?;
-        w.u8(count as u8)
+        w.u8(u8::try_from(count).map_err(|_| crate::errors::CAPACITY)?)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(input: &[u8]) -> CodecResult<Self> {
@@ -640,6 +670,8 @@ impl<'a> RoomBook<'a> {
         Ok((book, r.offset()))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error for an invalid room book.
     pub fn decode(input: &'a [u8]) -> CodecResult<Self> {
         #[cfg(target_arch = "wasm32")]
         {
@@ -798,21 +830,30 @@ impl<'a> RoomBook<'a> {
         ))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn room(&self, id: Digest32) -> CodecResult<Option<RoomRecord>> {
         self.get(0, id).map(RoomRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn ask(&self, id: Digest32) -> CodecResult<Option<AskRecord>> {
         self.get(1, id).map(AskRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn bid(&self, id: Digest32) -> CodecResult<Option<BidRecord>> {
         self.get(2, id).map(BidRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn deal(&self, id: Digest32) -> CodecResult<Option<DealRecord>> {
         self.get(3, id).map(DealRecord::decode).transpose()
     }
+    #[must_use]
     pub fn counts(&self) -> [usize; 4] {
         [
             *self.counts.guest_index(0),
@@ -822,7 +863,7 @@ impl<'a> RoomBook<'a> {
         ]
     }
     pub(crate) fn table(&self, index: usize) -> &'a [u8] {
-        *self.tables.guest_index(index)
+        self.tables.guest_index(index)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn bond(
@@ -1034,11 +1075,11 @@ impl<'a> RoomBook<'a> {
         w.put(b"F11B")?;
         w.u16(ROOM_BOOK_VERSION)?;
         for count in counts {
-            w.u16(count as u16)?;
+            w.u16(u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?)?;
         }
         for (i, width) in WIDTHS.iter().enumerate() {
             let Some(&(_, id, record, replace)) = edits.iter().find(|edit| edit.0 == i) else {
-                w.put(*self.tables.guest_index(i))?;
+                w.put(self.tables.guest_index(i))?;
                 continue;
             };
             let offset = if i == 0 || i >= 5 { 0 } else { 32 };
@@ -1106,6 +1147,12 @@ fn worker_for(
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The public deal operation accepts separate admission and worker views."
+)]
 pub fn apply_record_deal(
     book: &RoomBook<'_>,
     request: &RecordDealRequest,
@@ -1202,6 +1249,8 @@ pub fn apply_record_deal(
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1232,6 +1281,284 @@ pub fn apply(
     op.validate_payload_length(e.payload.len())?;
     let state = state::decode_shared_state(current)?;
 
+    let (policy, epoch) = room_policy(ctx, e, &state)?;
+    let header = &policy.header;
+
+    let workers = if matches!(op, dispatch::PostBid | dispatch::RecordDeal)
+        || op != dispatch::PostAsk && ctx.principal != header.owner_principal
+    {
+        Some(WorkerTable::decode(
+            split_identity_section(state.section(Section::IdentityRoster)?)?.0,
+        )?)
+    } else {
+        None
+    };
+
+    let book_bytes = state.room_market()?.1;
+    let book = if matches!(op, dispatch::PostBid | dispatch::RecordDeal) {
+        RoomBook::committed(book_bytes)?
+    } else {
+        RoomBook::decode(book_bytes)?
+    };
+
+    let (room_id, bid_worker) = room_subject(ctx, e, workers.as_ref())?;
+    let replay = if op == dispatch::PostAsk {
+        None
+    } else {
+        let slot = room_actor_slot(
+            bid_worker.as_ref(),
+            workers.as_ref(),
+            ctx.principal,
+            header.owner_principal,
+        )?;
+        let authority = state.control.replay.actor(slot).ok_or(UNAUTHORIZED)?;
+        let request = ReplayRequest::from_envelope(slot, authority.authority_version, envelope)?;
+        if let ReplayDecision::AlreadyApplied(retained) =
+            state.control.replay.check(&request, ctx.height)?
+        {
+            return Ok(Outcome::Retained(retained));
+        }
+        Some(request)
+    };
+    if !matches!(header.lifecycle, REGISTERED | ACTIVE) {
+        return Err(WRONG_PHASE);
+    }
+    let (first, rest) = scratch
+        .split_at_mut_checked(BOOK_MAX_BYTES)
+        .ok_or(CAPACITY)?;
+    let (settlement, rest) = rest
+        .split_at_mut_checked(Section::SettlementClaims.payload_cap())
+        .ok_or(CAPACITY)?;
+    let (policy_out, control) = rest
+        .split_at_mut_checked(Section::PolicyLifecycle.payload_cap())
+        .ok_or(CAPACITY)?;
+    let update = RoomMutation {
+        ctx,
+        envelope,
+        current,
+        state: &state,
+        workers: workers.as_ref(),
+        book: &book,
+        epoch,
+        room_id,
+    };
+    let (book_bytes, subject) = match update.write(first)? {
+        BookUpdate::Written { len, subject } => (first.guest_index(..len), subject),
+        BookUpdate::AlreadyApplied(subject) => return Ok(Outcome::AlreadyApplied(subject)),
+    };
+
+    let settlement_len = state.encode_room_market(book_bytes, settlement)?;
+
+    let outcome = crate::rewards::finish_room_transition(
+        ctx.height,
+        envelope,
+        state,
+        &policy,
+        settlement.guest_index(..settlement_len),
+        (subject.as_bytes(), replay.as_ref()),
+        (policy_out, control, next, event),
+    )?;
+
+    Ok(outcome)
+}
+
+enum BookUpdate {
+    Written { len: usize, subject: Digest32 },
+    AlreadyApplied(Digest32),
+}
+
+struct RoomMutation<'a, 'b> {
+    ctx: &'a CallContext,
+    envelope: &'a ValidatedEnvelope<'b>,
+    current: &'a [u8],
+    state: &'a state::SharedState<'b>,
+    workers: Option<&'a WorkerTable>,
+    book: &'a RoomBook<'b>,
+    epoch: u64,
+    room_id: Digest32,
+}
+
+impl RoomMutation<'_, '_> {
+    fn write(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        match self.envelope.envelope.operation {
+            dispatch::OpenRoom => self.open_room(first),
+            dispatch::PostAsk => self.post_ask(first),
+            dispatch::PostBid => self.post_bid(first),
+            dispatch::RecordDeal => self.record_deal(first),
+            dispatch::CloseRoom => self.close_room(first),
+            _ => Err(UNKNOWN_OPERATION),
+        }
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn open_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let book = self.book;
+        let epoch = self.epoch;
+        let room_id = self.room_id;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let room = RoomRecord {
+            room_id,
+            host_key: ctx.principal,
+            model_digest: r.digest32()?,
+            runtime_digest: r.digest32()?,
+            profile: r.room_profile()?,
+            state: RoomState::Open,
+            opened_at_epoch: epoch,
+            closed_height: 0,
+        };
+        r.finish()?;
+        let mut bytes = [0; ROOM_RECORD_BYTES];
+        room.encode(&mut bytes)?;
+        let n = book.write(0, room_id, &bytes, false, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: room_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn post_ask(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let envelope = self.envelope;
+        let book = self.book;
+        let room_id = self.room_id;
+        let room = book.open_room(room_id)?;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let ask = AskRecord {
+            room_id,
+            ask_id: r.digest32()?,
+            asker_key: ctx.principal,
+            model_digest: r.digest32()?,
+            maximum_price_per_thousand_tokens: r.u128()?,
+            stream_id: r.u128()?,
+            state: AskState::Open,
+            posted_request: envelope.request_digest()?,
+        };
+        r.finish()?;
+        if ask.model_digest != room.model_digest {
+            return Err(CONFLICT);
+        }
+        if let Some(previous) = book.ask(ask.ask_id)? {
+            if previous.posted_request == ask.posted_request {
+                return Ok(BookUpdate::AlreadyApplied(ask.ask_id));
+            }
+            return Err(CONFLICT);
+        }
+        let mut bytes = [0; ASK_RECORD_BYTES];
+        ask.encode(&mut bytes)?;
+        let n = book.write(1, ask.ask_id, &bytes, false, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: ask.ask_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn post_bid(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let envelope = self.envelope;
+        let current = self.current;
+        let book = self.book;
+        let room_id = self.room_id;
+        let room = book.open_room(room_id)?;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let bid = BidRecord {
+            room_id,
+            bid_id: r.digest32()?,
+            peer_key: ctx.principal,
+            capability_digest: r.digest32()?,
+            minimum_price_per_thousand_tokens: r.u128()?,
+            bond_amount: r.u128()?,
+            layer_capacity: r.u16()?,
+        };
+        r.finish()?;
+        if bid.bond_amount < room.profile.minimum_bond {
+            return Err(F11_BOND_INSUFFICIENT);
+        }
+        let mut bytes = [0; BID_RECORD_BYTES];
+        bid.encode(&mut bytes)?;
+        // The final placement scan validates this bid in the committed book.
+        // A staging scan here would traverse the full book a second time.
+        crate::rewards::bonds::check_bid(ctx, envelope, current)?;
+        let n = book.post_bond(&bid, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: bid.bid_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn record_deal(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let state = self.state;
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let workers = self.workers;
+        let book = self.book;
+        let epoch = self.epoch;
+        let request = RecordDealRequest::decode(e.payload)?;
+        if e.roster != Presence::Present(request.roster_digest) {
+            return Err(F11_ROSTER_DIGEST_MISMATCH);
+        }
+        let admission_bytes = split_joint(state.section(Section::ReputationAdmission)?)?.1;
+        let n = AdmissionTable::with_decoded(admission_bytes, |admission| {
+            apply_record_deal(
+                book,
+                &request,
+                ctx.principal,
+                admission,
+                workers.as_ref().ok_or(UNAUTHORIZED)?,
+                epoch,
+                ctx.height,
+                first,
+            )
+        })?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: request.deal_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn close_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let ctx = self.ctx;
+        let book = self.book;
+        let room_id = self.room_id;
+        let mut room = book.open_room(room_id)?;
+        if room.host_key != ctx.principal {
+            return Err(UNAUTHORIZED);
+        }
+        for bytes in book
+            .tables
+            .guest_index(3)
+            .as_chunks::<{ DEAL_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(<[u8; 1298]>::as_slice)
+        {
+            let deal = DealRecord::decode(bytes)?;
+            if deal.room_id == room_id && deal.state == DealState::Open {
+                return Err(WRONG_PHASE);
+            }
+        }
+        room.state = RoomState::Closed;
+        room.closed_height = ctx.height;
+        let mut bytes = [0; ROOM_RECORD_BYTES];
+        room.encode(&mut bytes)?;
+        let n = book.write(0, room_id, &bytes, true, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: room_id,
+        })
+    }
+}
+
+fn room_policy<'a>(
+    ctx: &CallContext,
+    e: &crate::codec::Envelope<'_>,
+    state: &state::SharedState<'a>,
+) -> CodecResult<(PolicySection<'a>, u64)> {
     let policy = PolicySection::decode(state.section(Section::PolicyLifecycle)?)?;
     let header = &policy.header;
     if header.state_revision != state.revision {
@@ -1254,214 +1581,52 @@ pub fn apply(
         return Err(WRONG_CONFIG);
     }
 
-    let workers = if matches!(op, dispatch::PostBid | dispatch::RecordDeal)
-        || op != dispatch::PostAsk && ctx.principal != header.owner_principal
-    {
-        Some(WorkerTable::decode(
-            split_identity_section(state.section(Section::IdentityRoster)?)?.0,
-        )?)
-    } else {
-        None
-    };
+    Ok((policy, epoch))
+}
 
-    let book_bytes = state.room_market()?.1;
-    let book = if matches!(op, dispatch::PostBid | dispatch::RecordDeal) {
-        RoomBook::committed(book_bytes)?
+fn room_actor_slot(
+    bid_worker: Option<&crate::workers::WorkerCurrent>,
+    workers: Option<&WorkerTable>,
+    principal: PrincipalId,
+    owner: PrincipalId,
+) -> CodecResult<ActorSlot> {
+    let slot = if let Some(worker) = bid_worker {
+        ActorSlot::worker(usize::from(worker.slot))?
+    } else if principal == owner {
+        ActorSlot::OWNER
     } else {
-        RoomBook::decode(book_bytes)?
+        ActorSlot::worker(usize::from(
+            workers
+                .ok_or(UNAUTHORIZED)?
+                .iter()
+                .find(|w| {
+                    w.owner == principal
+                        && matches!(w.state, WorkerState::Enrolled | WorkerState::Available)
+                })
+                .ok_or(UNAUTHORIZED)?
+                .slot,
+        ))?
     };
+    Ok(slot)
+}
 
+fn room_subject(
+    ctx: &CallContext,
+    e: &crate::codec::Envelope<'_>,
+    workers: Option<&WorkerTable>,
+) -> CodecResult<(Digest32, Option<crate::workers::WorkerCurrent>)> {
+    let op = e.operation;
     let mut r = Reader::new(e.payload);
     let room_id = r.digest32()?;
     let mut bid_worker = None;
     if op == dispatch::PostBid {
         let _bid = r.digest32()?;
         bid_worker = Some(worker_for(
-            workers.as_ref().ok_or(UNAUTHORIZED)?,
+            workers.ok_or(UNAUTHORIZED)?,
             ctx.principal,
             r.digest32()?,
             ctx.height,
         )?);
     }
-    let replay = if op == dispatch::PostAsk {
-        None
-    } else {
-        let slot = if let Some(worker) = bid_worker {
-            ActorSlot::worker(usize::from(worker.slot))?
-        } else if ctx.principal == header.owner_principal {
-            ActorSlot::OWNER
-        } else {
-            ActorSlot::worker(usize::from(
-                workers
-                    .as_ref()
-                    .ok_or(UNAUTHORIZED)?
-                    .iter()
-                    .find(|w| {
-                        w.owner == ctx.principal
-                            && matches!(w.state, WorkerState::Enrolled | WorkerState::Available)
-                    })
-                    .ok_or(UNAUTHORIZED)?
-                    .slot,
-            ))?
-        };
-        let authority = state.control.replay.actor(slot).ok_or(UNAUTHORIZED)?;
-        let request = ReplayRequest::from_envelope(slot, authority.authority_version, envelope)?;
-        if let ReplayDecision::AlreadyApplied(retained) =
-            state.control.replay.check(&request, ctx.height)?
-        {
-            return Ok(Outcome::Retained(retained));
-        }
-        Some(request)
-    };
-    if !matches!(header.lifecycle, REGISTERED | ACTIVE) {
-        return Err(WRONG_PHASE);
-    }
-    let (first, rest) = scratch
-        .split_at_mut_checked(BOOK_MAX_BYTES)
-        .ok_or(CAPACITY)?;
-    let (settlement, rest) = rest
-        .split_at_mut_checked(Section::SettlementClaims.payload_cap())
-        .ok_or(CAPACITY)?;
-    let (policy_out, control) = rest
-        .split_at_mut_checked(Section::PolicyLifecycle.payload_cap())
-        .ok_or(CAPACITY)?;
-    let (book_bytes, subject): (&[u8], Digest32) = match op {
-        dispatch::OpenRoom => {
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let room = RoomRecord {
-                room_id,
-                host_key: ctx.principal,
-                model_digest: r.digest32()?,
-                runtime_digest: r.digest32()?,
-                profile: r.room_profile()?,
-                state: RoomState::Open,
-                opened_at_epoch: epoch,
-                closed_height: 0,
-            };
-            r.finish()?;
-            let mut bytes = [0; ROOM_RECORD_BYTES];
-            room.encode(&mut bytes)?;
-            let n = book.write(0, room_id, &bytes, false, first)?;
-            (first.guest_index(..n), room_id)
-        }
-        dispatch::PostAsk => {
-            let room = book.open_room(room_id)?;
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let ask = AskRecord {
-                room_id,
-                ask_id: r.digest32()?,
-                asker_key: ctx.principal,
-                model_digest: r.digest32()?,
-                maximum_price_per_thousand_tokens: r.u128()?,
-                stream_id: r.u128()?,
-                state: AskState::Open,
-                posted_request: envelope.request_digest()?,
-            };
-            r.finish()?;
-            if ask.model_digest != room.model_digest {
-                return Err(CONFLICT);
-            }
-            if let Some(previous) = book.ask(ask.ask_id)? {
-                if previous.posted_request == ask.posted_request {
-                    return Ok(Outcome::AlreadyApplied(ask.ask_id));
-                }
-                return Err(CONFLICT);
-            }
-            let mut bytes = [0; ASK_RECORD_BYTES];
-            ask.encode(&mut bytes)?;
-            let n = book.write(1, ask.ask_id, &bytes, false, first)?;
-            (first.guest_index(..n), ask.ask_id)
-        }
-        dispatch::PostBid => {
-            let room = book.open_room(room_id)?;
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let bid = BidRecord {
-                room_id,
-                bid_id: r.digest32()?,
-                peer_key: ctx.principal,
-                capability_digest: r.digest32()?,
-                minimum_price_per_thousand_tokens: r.u128()?,
-                bond_amount: r.u128()?,
-                layer_capacity: r.u16()?,
-            };
-            r.finish()?;
-            if bid.bond_amount < room.profile.minimum_bond {
-                return Err(F11_BOND_INSUFFICIENT);
-            }
-            let mut bytes = [0; BID_RECORD_BYTES];
-            bid.encode(&mut bytes)?;
-            // The final placement scan validates this bid in the committed book.
-            // A staging scan here would traverse the full book a second time.
-            crate::rewards::bonds::check_bid(ctx, envelope, current)?;
-            let n = book.post_bond(&bid, first)?;
-            (first.guest_index(..n), bid.bid_id)
-        }
-        dispatch::RecordDeal => {
-            let request = RecordDealRequest::decode(e.payload)?;
-            if e.roster != Presence::Present(request.roster_digest) {
-                return Err(F11_ROSTER_DIGEST_MISMATCH);
-            }
-            let admission_bytes = split_joint(state.section(Section::ReputationAdmission)?)?.1;
-            let n = AdmissionTable::with_decoded(admission_bytes, |admission| {
-                apply_record_deal(
-                    &book,
-                    &request,
-                    ctx.principal,
-                    admission,
-                    workers.as_ref().ok_or(UNAUTHORIZED)?,
-                    epoch,
-                    ctx.height,
-                    first,
-                )
-            })?;
-            (first.guest_index(..n), request.deal_id)
-        }
-        dispatch::CloseRoom => {
-            let mut room = book.open_room(room_id)?;
-            if room.host_key != ctx.principal {
-                return Err(UNAUTHORIZED);
-            }
-            for bytes in book
-                .tables
-                .guest_index(3)
-                .as_chunks::<{ DEAL_RECORD_BYTES }>()
-                .0
-                .iter()
-                .map(|chunk| chunk.as_slice())
-            {
-                let deal = DealRecord::decode(bytes)?;
-                if deal.room_id == room_id && deal.state == DealState::Open {
-                    return Err(WRONG_PHASE);
-                }
-            }
-            room.state = RoomState::Closed;
-            room.closed_height = ctx.height;
-            let mut bytes = [0; ROOM_RECORD_BYTES];
-            room.encode(&mut bytes)?;
-            let n = book.write(0, room_id, &bytes, true, first)?;
-            (first.guest_index(..n), room_id)
-        }
-        _ => return Err(UNKNOWN_OPERATION),
-    };
-
-    let settlement_len = state.encode_room_market(book_bytes, settlement)?;
-
-    let outcome = crate::rewards::finish_room_transition(
-        ctx.height,
-        envelope,
-        state,
-        policy,
-        settlement.guest_index(..settlement_len),
-        subject.as_bytes(),
-        replay.as_ref(),
-        policy_out,
-        control,
-        next,
-        event,
-    )?;
-
-    Ok(outcome)
+    Ok((room_id, bid_worker))
 }

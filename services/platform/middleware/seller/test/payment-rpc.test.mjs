@@ -195,12 +195,12 @@ async function paymentRpcSeparatesNodeAndHostedOrigins(context) {
   const { rpc, requests, endpoint } = await loopbackRpc(context, [{ result: payment.receiptJson.txHash }]);
   const hostedPeer = await loopbackRpc(context, [{ result: { account: "agent:merchant:main" } }]);
   // The peer's endpoint is exported by the fixture; each origin has an independent request id.
-  const gateway = new HostedGatewayRpc(`${hostedPeer.endpoint}rpc`, { authorization: "Bearer hosted-fixture" });
+  const gateway = new HostedGatewayRpc(hostedPeer.endpoint, { authorization: "Bearer hosted-fixture" });
   assert.equal(await rpc.send(payment.rawTransaction), payment.receiptJson.txHash);
   assert.deepEqual(await gateway.call("px_resolveAccount", ["merchant"]), { account: "agent:merchant:main" });
   assert.notEqual(new URL(hostedPeer.endpoint).origin, new URL(endpoint).origin);
   assert.equal(requests[0].url, "/");
-  assert.equal(hostedPeer.requests[0].url, "/rpc");
+  assert.equal(hostedPeer.requests[0].url, "/");
   assert.equal(hostedPeer.requests[0].headers.authorization, "Bearer hosted-fixture");
   assert.deepEqual(hostedPeer.requests[0].body, { jsonrpc: "2.0", id: 1, method: "px_resolveAccount", params: ["merchant"] });
   assert.throws(() => rpc.call("px_resolveAccount", []), /invalid-node-method/u);
@@ -214,7 +214,7 @@ async function paymentRpcRetainsEndpointAndBodyBounds(context) {
     "https://example.test/#fragment", "http://example.test/"]) {
     assert.throws(() => new PaymentRpc(endpoint), /invalid-rpc-endpoint/u);
   }
-  for (const endpoint of ["https://example.test/", "http://example.test/rpc", "https://example.test/rpc?query=1",
+  for (const endpoint of ["https://example.test/rpc", "http://example.test/rpc", "https://example.test/rpc?query=1",
     "https://user:secret@example.test/rpc", "https://example.test/rpc#fragment"]) {
     assert.throws(() => new HostedGatewayRpc(endpoint), /invalid-rpc-endpoint/u);
   }

@@ -1,5 +1,7 @@
 //! KMS-backed custody for human and managed-agent signing keys.
 
+use std::os::unix::fs::MetadataExt as _;
+
 mod evm;
 mod export;
 mod gateway;
@@ -1205,6 +1207,8 @@ impl Keystore {
         ))
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn binding(
         &self,
         principal: &PrincipalId,
@@ -1348,7 +1352,6 @@ impl Keystore {
                 let temp_path = temporary.path();
                 let (bytes, metadata) = read_protected_record(&temp_path, true)?;
                 let final_path = self.key_path(&principal, &key);
-                use std::os::unix::fs::MetadataExt as _;
                 if let Ok(committed) = fs::symlink_metadata(&final_path) {
                     if metadata.dev() == committed.dev() && metadata.ino() == committed.ino() {
                         let record = decode_record(&bytes)?;
@@ -1371,14 +1374,11 @@ impl Keystore {
                 if metadata.nlink() != 1 {
                     return Err(CustodyError::CorruptRecord("linked temporary record"));
                 }
-                let record = match decode_record(&bytes) {
-                    Ok(record) => record,
-                    Err(_) => {
-                        // A crash during the bounded write left no publishable record.
-                        remove_verified_temp(&temp_path, &metadata)?;
-                        fs::File::open(entry.path())?.sync_all()?;
-                        continue;
-                    }
+                let Ok(record) = decode_record(&bytes) else {
+                    // A crash during the bounded write left no publishable record.
+                    remove_verified_temp(&temp_path, &metadata)?;
+                    fs::File::open(entry.path())?.sync_all()?;
+                    continue;
                 };
                 let binding = self.binding(&principal, &key, record.class)?;
                 Self::require_record_binding(&binding, &record)?;

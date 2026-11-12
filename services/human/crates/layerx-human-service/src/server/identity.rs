@@ -15,6 +15,8 @@ use super::backend::{ApiFailure, BackendResponse, SessionSecrets};
 pub struct IdentityProjector;
 
 impl IdentityProjector {
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_passkey(value: &PasskeyRecord) -> Result<Value, ApiFailure> {
         let mut result = json!({"passkey_id":value.passkey_id(),"label":value.label(),
             "created_at":super::projection::unix_time(value.created_at())?});
@@ -24,12 +26,16 @@ impl IdentityProjector {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_passkeys(values: &[PasskeyRecord]) -> Result<Value, ApiFailure> {
         Ok(
             json!({"passkeys":values.iter().map(Self::checked_passkey).collect::<Result<Vec<_>, _>>()?}),
         )
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_session(session: &SessionView) -> Result<Value, ApiFailure> {
         let mut result = Self::session(session);
         result["opened_at"] = json!(super::projection::unix_time(session.opened_at)?);
@@ -37,11 +43,15 @@ impl IdentityProjector {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_revocation(value: &SessionRevocation) -> Result<Value, ApiFailure> {
         Ok(json!({"revoked_session_ids": value.revoked_session_ids,
             "revoked_at": super::projection::unix_time(value.revoked_at)?}))
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_registration_challenge(
         value: &RegistrationChallenge,
     ) -> Result<Value, ApiFailure> {
@@ -51,6 +61,8 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_assertion_challenge(value: &AssertionChallenge) -> Result<Value, ApiFailure> {
         Ok(
             json!({"assertion_id":value.assertion_id,"ceremony":value.ceremony,
@@ -58,6 +70,8 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_assertion(value: &AssertionProof) -> Result<Value, ApiFailure> {
         Ok(
             json!({"assertion_id":value.assertion_id,"passkey_id":value.passkey_id,
@@ -66,6 +80,8 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_step_up_challenge(value: &StepUpChallenge) -> Result<Value, ApiFailure> {
         crate::auth::validate_step_up_challenge_id(&value.challenge_id)
             .map_err(|_| ApiFailure::upstream_degraded())?;
@@ -73,6 +89,8 @@ impl IdentityProjector {
             .map_err(|_| ApiFailure::upstream_degraded())
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn checked_step_up(value: &StepUpEvidence) -> Result<Value, ApiFailure> {
         crate::auth::validate_step_up_challenge_id(value.challenge_id())
             .map_err(|_| ApiFailure::upstream_degraded())?;
@@ -80,6 +98,8 @@ impl IdentityProjector {
             .map_err(|_| ApiFailure::upstream_degraded())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn onboarding(
         scope: &PrincipalScope<'_>,
         value: &OnboardingStatus,
@@ -88,6 +108,8 @@ impl IdentityProjector {
             .map_err(|_| ApiFailure::upstream_degraded())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn authenticator_setup(
         value: &crate::security::AuthenticatorSetupChallenge,
     ) -> Result<Value, ApiFailure> {
@@ -97,12 +119,16 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn backup_codes(value: &crate::security::BackupCodeSet) -> Result<Value, ApiFailure> {
         Ok(
             json!({"codes":value.expose(),"remask_at":super::projection::unix_time(value.remask_at())?,"copyable":true}),
         )
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn key_export_challenge(
         value: &crate::security::KeyExportChallenge,
     ) -> Result<Value, ApiFailure> {
@@ -112,6 +138,8 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn exported_key(value: &crate::security::ExportedKey) -> Result<Value, ApiFailure> {
         Ok(
             json!({"public_key":value.public_key,"secret":Self::timed_secret(&value.secret)?,
@@ -119,6 +147,8 @@ impl IdentityProjector {
         )
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn authenticator_method(
         value: &crate::security::AuthenticatorMethod,
     ) -> Result<Value, ApiFailure> {
@@ -130,6 +160,8 @@ impl IdentityProjector {
         Ok(result)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn timed_secret(value: &crate::security::TimedSecret) -> Result<Value, ApiFailure> {
         Ok(
             json!({"value":value.expose(),"remask_at":super::projection::unix_time(value.remask_at())?,"copyable":value.copyable()}),

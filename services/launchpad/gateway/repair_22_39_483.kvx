@@ -1,0 +1,61 @@
+[coverage]
+module = "gateway"
+threshold_percent = 85.0
+before_percent = 54.9
+after_percent = 86.0
+
+[package.mediagatewayd]
+before_percent = 0.0
+after_percent = 0.0
+
+[package.app]
+before_percent = 28.1
+after_percent = 83.6
+
+[package.auth]
+before_percent = 70.8
+after_percent = 85.3
+
+[package.cache]
+before_percent = 81.8
+after_percent = 90.9
+
+[package.cleanup]
+before_percent = 0.0
+after_percent = 100.0
+
+[package.common]
+before_percent = 100.0
+after_percent = 100.0
+
+[package.config]
+before_percent = 35.7
+after_percent = 93.8
+
+[package.devidentity]
+before_percent = 0.0
+after_percent = 90.3
+
+[package.image]
+before_percent = 100.0
+after_percent = 100.0
+
+[package.internaltest]
+before_percent = 0.0
+after_percent = 84.6
+
+[package.proxy]
+before_percent = 79.3
+after_percent = 87.5
+
+[package.serve]
+before_percent = 75.2
+after_percent = 90.9
+
+[package.storage]
+before_percent = 33.2
+after_percent = 85.0
+
+[package.upload]
+before_percent = 74.1
+after_percent = 89.8

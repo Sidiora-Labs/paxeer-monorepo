@@ -1,13 +1,13 @@
 //! Repair record 22.31.152, audit 22.30.103, acceptance 22998.1.
-//! funding-authorization-refused: funding_authorization_round_trips_and_recovers.
-//! export-key-loss: export_delivery_recovers_lost_reply_and_failed_marker.
-//! remote-native-signature-gap: remote_native_admission_refuses_before_discovery; attestor_native_consent_still_signs.
+//! funding-authorization-refused: `funding_authorization_round_trips_and_recovers`.
+//! export-key-loss: `export_delivery_recovers_lost_reply_and_failed_marker`.
+//! remote-native-signature-gap: `remote_native_admission_refuses_before_discovery`; `attestor_native_consent_still_signs`.
 //! Baseline not run: the ordered implementation/build/hf-done instructions prohibit a pre-implementation verification.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/server/agent_creation_native.rs must replace authorize_send and its 64-byte journal with CustodySigner::authorize_send_transaction and persist SignedBankTransfer raw bytes, hash and full 65-byte signature before submission; the legacy refusal stays until migration.
-//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/security.rs must bind ExportCeremony to authenticated owner/recipient, return export_primary_envelope on retries despite audit failure, and call acknowledge_primary_export only after recipient decryption and durable retention.
+//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/server/agent_creation_native.rs must replace `authorize_send` and its 64-byte journal with `CustodySigner::authorize_send_transaction` and persist `SignedBankTransfer` raw bytes, hash and full 65-byte signature before submission; the legacy refusal stays until migration.
+//! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/security.rs must bind `ExportCeremony` to authenticated owner/recipient, return `export_primary_envelope` on retries despite audit failure, and call `acknowledge_primary_export` only after recipient decryption and durable retention.
 //! Wiring request (Human KMS domain 10): services/human/crates/layerx-human-kms/src/store.rs must defer managed-signing retirement to acknowledgement if signing during pending encrypted delivery is required; its existing v8 durable delivery survives retirement before acknowledgement.
 //! Wiring request (Human domain 10): services/human/crates/layerx-human-service/src/server/production_components.rs must propagate kms-unsupported-native-consent instead of replacing the startup refusal with a generic message; operation discovery must stay behind successful startup.
-//! Gotcha: NativeSendPurposeV1 is already explicitly retired by layerx-agent-api; the retained working attestor proof uses the valid preparation-purpose producer, without changing that external interface.
+//! Gotcha: `NativeSendPurposeV1` is already explicitly retired by layerx-agent-api; the retained working attestor proof uses the valid preparation-purpose producer, without changing that external interface.
 //! Scope forbids spec/GOTCHA edits; finding/test mapping, baseline limitation and wiring are retained here. Gate evidence is retained by hf-build/hf-done at the candidate revision.
 
 #[allow(dead_code)]
@@ -31,7 +31,7 @@ mod cluster {
                     "key_id": key, "owner": owner, "tenant": owner,
                     "agent_did": "did:layerx:alice", "owner_public_key": hex(public),
                     "operations": ["preparation-purpose"], "capabilities": [hex(&[0x22;32])],
-                    "maximum_validity_ms": 600000, "rate_per_minute": 1000
+                    "maximum_validity_ms": 600_000, "rate_per_minute": 1000
                 }]
             }))?,
         )?;
@@ -66,11 +66,12 @@ use layerx_agent_api::identity::{
 };
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use layerx_human_kms::export::ExportRecipient;
+use layerx_human_kms::export::{ExportCeremony, ExportRecipient};
 use layerx_human_service::custody::{
     CustodyError, CustodySigner, EnvelopeKms, EvmPlanAuthorization, EvmTransaction, KeyClass,
     KeyEntropy, KeyId, Keystore, KmsError, KmsProvider, NativeConsent, NativeConsentRequest,
-    Operation, RemoteKmsProvider, SignAuthorization, SigningLimits,
+    Operation, PrincipalKeyBinding, ProviderKeyReference, RemoteKmsProvider, SignAuthorization,
+    SigningLimits,
 };
 use layerx_human_service::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls};
 use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
@@ -145,6 +146,71 @@ fn service(keystore: Keystore, store: PrincipalStore) -> Result<CustodySigner> {
     ))
 }
 
+fn assert_send_authorization_refusals(
+    signer: &CustodySigner,
+    principal: &layerx_human_service::store::PrincipalId,
+    key: &KeyId,
+    authorization: &EvmPlanAuthorization,
+    recipient: [u8; 20],
+    amount: [u8; 32],
+) {
+    assert!(signer
+        .authorize_send_transaction(
+            principal,
+            key,
+            authorization,
+            [0x56; 20],
+            "alxp".into(),
+            amount
+        )
+        .is_err());
+    let mut wrong = authorization.clone();
+    wrong.wallet = [0x57; 20];
+    assert!(signer
+        .authorize_send_transaction(principal, key, &wrong, recipient, "alxp".into(), amount)
+        .is_err());
+    let mut wrong = authorization.clone();
+    wrong.transaction.nonce += 1;
+    wrong.transaction.calldata[16] ^= 1;
+    assert!(signer
+        .authorize_send_transaction(principal, key, &wrong, recipient, "alxp".into(), amount)
+        .is_err());
+    let mut conflict = authorization.clone();
+    conflict.action_key = [3; 32];
+    assert!(matches!(
+        signer.authorize_send_transaction(
+            principal,
+            key,
+            &conflict,
+            recipient,
+            "alxp".into(),
+            amount
+        ),
+        Err(CustodyError::Kms(KmsError::Conflict))
+    ));
+}
+
+fn bank_send_transaction(
+    wallet: [u8; 20],
+    recipient: [u8; 20],
+    amount: [u8; 32],
+) -> Result<EvmTransaction> {
+    let mut bank = [0; 20];
+    bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+    EvmTransaction {
+        chain_id: 125,
+        nonce: 7,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to: bank,
+        value: [0; 32],
+        calldata: Vec::new(),
+    }
+    .with_bank_transfer(wallet, recipient, "alxp", amount)
+    .map_err(Into::into)
+}
+
 #[test]
 fn funding_authorization_round_trips_and_recovers() -> Result<()> {
     let _serial = SERIAL.lock().map_err(|_| "serialization poisoned")?;
@@ -166,20 +232,8 @@ fn funding_authorization_round_trips_and_recovers() -> Result<()> {
     let recipient = [0x55; 20];
     let mut amount = [0; 32];
     amount[31] = 42;
-    let mut bank = [0; 20];
-    bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
     let now = clock.now()?;
-    let transaction = EvmTransaction {
-        chain_id: 125,
-        nonce: 7,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100000,
-        to: bank,
-        value: [0; 32],
-        calldata: Vec::new(),
-    }
-    .with_bank_transfer(wallet, recipient, "alxp", amount)?;
+    let transaction = bank_send_transaction(wallet, recipient, amount)?;
     let authorization = EvmPlanAuthorization {
         plan_id: [1; 32],
         action_key: [2; 32],
@@ -197,7 +251,7 @@ fn funding_authorization_round_trips_and_recovers() -> Result<()> {
         retention_uniform(1000),
     );
     let signer = service(keystore, store)?;
-    let signed = signer.authorize_send_transaction(
+    let authorized_send = signer.authorize_send_transaction(
         &principal,
         &key,
         &authorization,
@@ -205,17 +259,17 @@ fn funding_authorization_round_trips_and_recovers() -> Result<()> {
         "alxp".into(),
         amount,
     )?;
-    let (call, signature) = checked(decode_signed(signed.raw_transaction()))?;
-    assert_eq!(signature.as_bytes(), signed.signature());
-    assert!(matches!(signed.signature()[64], 27 | 28));
+    let (call, signature) = checked(decode_signed(authorized_send.raw_transaction()))?;
+    assert_eq!(signature.as_bytes(), authorized_send.signature());
+    assert!(matches!(authorized_send.signature()[64], 27 | 28));
     assert_eq!(checked(recover_sender(&call, &signature))?, wallet);
-    assert_eq!(signed.sender(), wallet);
+    assert_eq!(authorized_send.sender(), wallet);
     assert_eq!(call.nonce, 7);
     assert_eq!(call.chain_id, 125);
     assert_eq!(call.data, authorization.transaction.calldata);
     assert_eq!(
-        transaction_hash(signed.raw_transaction()),
-        signed.transaction_hash()
+        transaction_hash(authorized_send.raw_transaction()),
+        authorized_send.transaction_hash()
     );
     assert_eq!(
         checked(checked(bind_call(&call, wallet))?.construct_method())?,
@@ -226,40 +280,14 @@ fn funding_authorization_round_trips_and_recovers() -> Result<()> {
             amount
         })
     );
-    assert!(signer
-        .authorize_send_transaction(
-            &principal,
-            &key,
-            &authorization,
-            [0x56; 20],
-            "alxp".into(),
-            amount
-        )
-        .is_err());
-    let mut wrong = authorization.clone();
-    wrong.wallet = [0x57; 20];
-    assert!(signer
-        .authorize_send_transaction(&principal, &key, &wrong, recipient, "alxp".into(), amount)
-        .is_err());
-    let mut wrong = authorization.clone();
-    wrong.transaction.nonce += 1;
-    wrong.transaction.calldata[16] ^= 1;
-    assert!(signer
-        .authorize_send_transaction(&principal, &key, &wrong, recipient, "alxp".into(), amount)
-        .is_err());
-    let mut conflict = authorization.clone();
-    conflict.action_key = [3; 32];
-    assert!(matches!(
-        signer.authorize_send_transaction(
-            &principal,
-            &key,
-            &conflict,
-            recipient,
-            "alxp".into(),
-            amount
-        ),
-        Err(CustodyError::Kms(KmsError::Conflict))
-    ));
+    assert_send_authorization_refusals(
+        &signer,
+        &principal,
+        &key,
+        &authorization,
+        recipient,
+        amount,
+    );
     drop(signer);
     let keystore = envelope(&root)?;
     let store = PrincipalStore::open(root.0.join("store"), retention_uniform(1000), digest)?;
@@ -272,7 +300,7 @@ fn funding_authorization_round_trips_and_recovers() -> Result<()> {
         "alxp".into(),
         amount,
     )?;
-    assert_eq!(recovered, signed);
+    assert_eq!(recovered, authorized_send);
     Ok(())
 }
 
@@ -289,6 +317,12 @@ impl Drop for KmsHost {
     }
 }
 impl KmsHost {
+    fn delivery_path(&self) -> PathBuf {
+        self.root
+            .0
+            .join("custody/exports/alice/primary/delivery.json")
+    }
+
     fn new() -> Result<Self> {
         let _ = rustls::crypto::ring::default_provider().install_default();
         let root = Root(scratch("export-22-31-152")?);
@@ -387,7 +421,7 @@ impl KmsHost {
             PrivateKeyDer::try_from(fs::read(self.pki.path("client.pk8"))?)?,
         ))
     }
-    fn limits(&self) -> Limits {
+    fn limits() -> Limits {
         Limits {
             maximum_frame_bytes: MAX,
             maximum_connections: 4,
@@ -402,7 +436,7 @@ impl KmsHost {
             self.address,
             "127.0.0.1",
             self.tls()?,
-            self.limits(),
+            Self::limits(),
             self.clock.clone(),
         )?)
     }
@@ -424,6 +458,33 @@ fn kms_producer_process() -> Result<()> {
     layerx_human_kms::run_from_environment(&clock).map_err(Into::into)
 }
 
+fn public_from_secret(secret: &[u8; 32]) -> [u8; 32] {
+    ed25519_dalek::SigningKey::from_bytes(secret)
+        .verifying_key()
+        .to_bytes()
+}
+
+fn drop_export_reply(
+    host: &KmsHost,
+    remote: &RemoteKmsProvider,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    ceremony: &ExportCeremony,
+) -> Result<()> {
+    let frame = remote.encode_export_request(binding, reference, ceremony)?;
+    let gate = ConnectionGate::new(1);
+    let mut transport = checked(Tls::connect(
+        host.address,
+        "127.0.0.1".try_into()?,
+        &host.tls()?,
+        &gate,
+        KmsHost::limits(),
+    ))?;
+    checked(transport.send(&frame))?;
+    drop(transport);
+    Ok(())
+}
+
 #[test]
 fn export_delivery_recovers_lost_reply_and_failed_marker() -> Result<()> {
     let _serial = SERIAL.lock().map_err(|_| "serialization poisoned")?;
@@ -442,27 +503,14 @@ fn export_delivery_recovers_lost_reply_and_failed_marker() -> Result<()> {
     assert!(custody
         .export_primary_envelope(&principal, &key, &ceremony)
         .is_err());
-    let path = host
-        .root
-        .0
-        .join("custody/exports/alice/primary/delivery.json");
+    let path = host.delivery_path();
     let pending: serde_json::Value = serde_json::from_slice(&fs::read(&path)?)?;
     assert_eq!(pending["ceremony"], serde_json::to_value(&ceremony)?);
     assert!(pending["envelope"].is_null());
     host.start()?;
     // Send the actual producer frame, then close before reading its reply.
     let remote = host.remote()?;
-    let frame = remote.encode_export_request(&binding, &reference, &ceremony)?;
-    let gate = ConnectionGate::new(1);
-    let mut transport = checked(Tls::connect(
-        host.address,
-        "127.0.0.1".try_into()?,
-        &host.tls()?,
-        &gate,
-        host.limits(),
-    ))?;
-    checked(transport.send(&frame))?;
-    drop(transport);
+    drop_export_reply(&host, &remote, &binding, &reference, &ceremony)?;
     let produced = remote.export_envelope(&binding, &reference, &ceremony)?;
     drop(custody);
     host.stop();
@@ -484,11 +532,9 @@ fn export_delivery_recovers_lost_reply_and_failed_marker() -> Result<()> {
         .is_err());
     let (secret, acknowledgement) =
         recipient.open(PROVIDER, binding.digest(), reference.as_bytes(), &recovered)?;
-    let actual = ed25519_dalek::SigningKey::from_bytes(&secret)
-        .verifying_key()
-        .to_bytes();
-    assert_eq!(actual, public);
-    assert!(!fs::read(&path)?
+    assert_eq!(public_from_secret(&secret), public);
+    let delivery_bytes = fs::read(&path)?;
+    assert!(!delivery_bytes
         .windows(32)
         .any(|bytes| bytes == secret.as_slice()));
     let mut bad = acknowledgement.clone();
@@ -545,8 +591,9 @@ fn remote_native_admission_refuses_before_discovery() -> Result<()> {
     host.remote()?.probe()?;
     let result =
         Keystore::open_production(host.root.0.join("refused-service"), 125, host.remote()?);
-    let error =
-        result.expect_err("a remote-only provider must not expose native access operations");
+    let error = result.err().unwrap_or_else(|| {
+        panic!("a remote-only provider must not expose native access operations")
+    });
     assert_eq!(error.refusal_code(), "kms-unsupported-native-consent");
     assert!(matches!(
         error,
@@ -609,7 +656,7 @@ fn attestor_native_consent_still_signs() -> Result<()> {
             agent_did: checked(AgentDid::new("did:layerx:alice"))?,
             session_id: checked(SessionId::new(hex(&[0x11; 32])))?,
             generation: 1,
-            expires_at_ms: now * 1000 + 300000,
+            expires_at_ms: now * 1000 + 300_000,
             capability_id: checked(CapabilityId::new(hex(&[0x22; 32])))?,
             preparation_id: [0x33; 32],
             canonical_digest: [0x44; 32],
@@ -631,7 +678,7 @@ fn attestor_native_consent_still_signs() -> Result<()> {
     );
     let mut store = shared.lock().map_err(|_| "store poisoned")?;
     let mut scope = store.principal(&principal)?;
-    let signed = ready(signer.sign_native_consent_in_scope(
+    let signed_consent = ready(signer.sign_native_consent_in_scope(
         &mut scope,
         NativeConsentRequest::new(
             &principal,
@@ -645,10 +692,10 @@ fn attestor_native_consent_still_signs() -> Result<()> {
     let expected: [u8; 32] = Sha256::digest(checked(purpose.canonical_bytes())?).into();
     checked(layerx_crypto::ed25519::verify_digest(
         &public,
-        signed.signature(),
+        signed_consent.signature(),
         &expected,
     ))?;
-    assert_eq!(signed.signer_public_key(), public);
+    assert_eq!(signed_consent.signer_public_key(), public);
     assert!(!scope.audit_keys().is_empty());
     Ok(())
 }

@@ -21,6 +21,7 @@ pub mod evaluators {
     pub mod codec;
     pub mod model;
 }
+
 #[cfg(target_arch = "wasm32")]
 mod guest_cell;
 pub mod host_adapter;
@@ -44,6 +45,7 @@ pub mod types;
 pub mod value_adapter;
 pub mod workers;
 
+#[must_use]
 pub fn merged_chain_domain(chain_id: u64) -> [u8; 32] {
     let mut hash = codec::Sha256State::new();
     hash.update(b"PAXAI/chain-domain/v1");
@@ -58,6 +60,8 @@ pub const MERGED_CHAIN_DOMAIN: [u8; 32] = [
     0x03, 0x8b, 0xe4, 0x9a, 0x25, 0x24, 0xb1, 0xc0, 0x71, 0xd7, 0x5d, 0x0a, 0x4e, 0xed, 0x71, 0xf6,
 ];
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn deployment_chain_domain() -> CodecResult<ChainDomain> {
     deployment_chain_domain_from_setting(option_env!("PAXAI_CHAIN_DOMAIN"))
 }
@@ -71,7 +75,7 @@ pub fn deployment_chain_domain_from_setting(setting: Option<&str>) -> CodecResul
 }
 
 mod deployment {
-    use crate::{ChainDomain, CodecResult, errors::WRONG_DOMAIN};
+    use crate::{errors::WRONG_DOMAIN, ChainDomain, CodecResult};
 
     const fn nibble(byte: u8) -> Option<u8> {
         match byte {
@@ -96,7 +100,11 @@ mod deployment {
             nonzero = nonzero || out[i] != 0;
             i += 1;
         }
-        if nonzero { Some(out) } else { None }
+        if nonzero {
+            Some(out)
+        } else {
+            None
+        }
     }
 
     fn checked_domain(bytes: Option<[u8; 32]>) -> CodecResult<ChainDomain> {
@@ -118,11 +126,11 @@ mod deployment {
     mod tests {
         use super::{chain_domain, checked_domain, parse_domain};
         use crate::{
-            Authentication, ChainDomain, CodecResult, MAX_ENVELOPE_BYTES, MAX_STATE_BYTES,
-            Presence, PrincipalId, ProgramId, RequestId, RosterDigest,
-            codec::{Envelope, decode_envelope, derive_market, encode_envelope},
+            codec::{decode_envelope, derive_market, encode_envelope, Envelope},
             dispatch::BeginAggregation,
             errors::{CAPACITY, WRONG_DOMAIN},
+            Authentication, ChainDomain, CodecResult, Presence, PrincipalId, ProgramId, RequestId,
+            RosterDigest, MAX_ENVELOPE_BYTES, MAX_STATE_BYTES,
         };
 
         #[test]
@@ -221,7 +229,7 @@ mod deployment {
 mod guest {
     // Deployment qualification must build with release opt-level z and measure the
     // packaged Wasm plus its 104-byte envelope against the 524288-byte ceiling.
-    use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
+    use crate::dispatch::{Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
     use crate::types::{GuestIndex as _, Presence};
@@ -535,165 +543,52 @@ pub const MAX_CHUNK_BYTES: usize = 8_192;
 extern crate self as layerx_programs_ai_market;
 #[cfg(test)]
 #[path = "../tests/support/repair_478_fixture.rs"]
+#[allow(dead_code)]
 mod repair_478_fixture;
 
 #[cfg(test)]
 mod repair478_fund_tests {
+    use super::*;
     use crate::{
-        MAX_STATE_BYTES,
-        codec::{self, Envelope},
+        admission::AdmissionTable,
+        aggregation_codec::{EpochAggregation, QualityStatus, WorkerAggregate},
+        registry::market_clock,
+        registry_ops::PolicySection,
+        reputation_transition,
+        reward_math::allocate,
+        types::{PublicKey32, RequestId},
+    };
+
+    use crate::{
+        codec::Envelope,
         errors::{WRONG_EPOCH, WRONG_ROSTER},
         registry_ops::CallContext,
         rewards::*,
-        state::{ActorSlot, Section, decode_shared_state, encode_shared_state},
-        types::*,
+        state::{decode_shared_state, encode_shared_state, ActorSlot, Section},
     };
     #[test]
-    fn repair478_fund_head_carries_populated_regions_and_epoch_binding() {
-        use super::*;
-        use crate::{
-            admission::AdmissionTable,
-            aggregation_codec::{EpochAggregation, QualityStatus, WorkerAggregate},
-            registry::market_clock,
-            registry_ops::PolicySection,
-            reputation_transition,
-            reward_math::allocate,
-            types::{PublicKey32, RequestId},
-        };
-        let f = crate::repair_478_fixture::fixture([12; 32], [13; 32]).unwrap();
-        let mut state = decode_shared_state(&f.next).unwrap();
-        let source = state.room_market().unwrap().0;
-        let rewards = decode_reward_state(source).unwrap();
-        let mut refunded = vec![0; REWARD_STATE_BYTES];
-        rewards
-            .refund_free(
-                FundingPhase::Closing,
-                &RefundRequest {
-                    expected_refunded: 0,
-                    amount: 10,
-                    recipient: rewards.ledger().unwrap().refund_recipient,
-                },
-                RequestDigest::new([21; 32]).unwrap(),
-                ResultDigest::new([22; 32]).unwrap(),
-                &mut refunded,
-            )
-            .unwrap();
-        let worker = WorkerRosterEntry {
-            worker: WorkerId::new([23; 32]).unwrap(),
-            owner: PrincipalId::new([12; 32]).unwrap(),
-            recipient: AccountId::new([24; 32]).unwrap(),
-            generation: Version::new(1).unwrap(),
-            key_version: Version::new(1).unwrap(),
-            public_key: PublicKey32([25; 32]),
-            metadata: crate::types::MetadataDigest::new([26; 32]).unwrap(),
-        };
-        let roster = RosterDigest::new([27; 32]).unwrap();
-        let header =
-            PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])
-                .unwrap()
-                .header;
-        let epoch = 7;
-        let opening_height = header.origin_height + epoch * 128;
-        let height = opening_height + 127;
-        assert_eq!(
-            market_clock(header.origin_height, height).unwrap().epoch,
-            epoch
-        );
-        let mut reserved = vec![0; REWARD_STATE_BYTES];
-        decode_reward_state(&refunded)
-            .unwrap()
-            .reserve_epoch(epoch, 40, roster, &[worker], opening_height, &mut reserved)
-            .unwrap();
-        let binding = FrozenBinding {
-            chain: header.deployment_chain_domain,
-            program: header.program_id,
-            market: header.market_id,
-            epoch,
-            config: Version::new(header.active_config_version).unwrap(),
-            roster,
-        };
-        let output = WorkerAggregate::new(
-            worker.worker,
-            worker.generation,
-            3,
-            QualityStatus::ScoredPositive,
-            1,
-            1,
-        )
-        .unwrap();
-        let outputs = [output];
-        let aggregation = EpochAggregation::structural(
-            binding,
-            Digest32::new([29; 32]).unwrap(),
-            &[worker],
-            &outputs,
-        )
-        .unwrap();
-        let allocation = allocate(40, &[output]).unwrap();
-        let mut settled = vec![0; REWARD_STATE_BYTES];
-        decode_reward_state(&reserved)
-            .unwrap()
-            .terminalize(
-                &binding,
-                aggregation.root(),
-                &allocation,
-                &[worker],
-                height,
-                &mut settled,
-            )
-            .unwrap();
-        // The real F06 producers retain a populated dictionary, terminal row
-        // and refund cursor; the strict decoder proves all of their bindings.
-        let strict = decode_reward_state(&settled).unwrap();
-        assert_eq!(strict.ledger().unwrap().retained_epochs, 1);
-        assert!(!strict.ledger().unwrap().active_reserve);
-        assert_eq!(strict.row(epoch).unwrap().status, EpochStatus::Terminal);
-        assert_eq!(strict.dictionary().occupied(), 1);
-        assert_eq!(strict.row(7).unwrap().roster, roster);
-        assert!(strict.last_refund().unwrap().is_some());
-        let mut table = AdmissionTable::new();
-        table.begin_epoch(epoch);
-        let mut table_bytes = vec![0; 1024];
-        let n = table.encode(&mut table_bytes).unwrap();
-        let (region, _) = reputation_transition::split_joint(
-            state.feature_sections[Section::ReputationAdmission.index()],
-        )
-        .unwrap();
-        let mut joint = vec![0; Section::ReputationAdmission.payload_cap()];
-        let n =
-            reputation_transition::encode_joint(&region.unwrap(), &table_bytes[..n], &mut joint)
-                .unwrap();
-        state.feature_sections[Section::ReputationAdmission.index()] = &joint[..n];
-        state.feature_sections[Section::SettlementClaims.index()] = &settled;
-        let mut current = vec![0; MAX_STATE_BYTES];
-        let mut control = vec![0; Section::Control.payload_cap()];
-        let n = encode_shared_state(&state, &mut current, &mut control).unwrap();
-        current.truncate(n);
-        let committed = decode_shared_state(&current).unwrap();
-        let (_, admission) = reputation_transition::split_joint(
-            committed.feature_sections[Section::ReputationAdmission.index()],
-        )
-        .unwrap();
-        assert_eq!(
-            AdmissionTable::decode(admission).unwrap().current_epoch(),
-            Some(epoch)
-        );
-        let decoded = codec::decode_envelope(&f.fund).unwrap();
+    fn repair478_fund_head_carries_populated_regions_and_epoch_binding() -> CodecResult<()> {
+        let f = crate::repair_478_fixture::fixture([12; 32], [13; 32])?;
+        let (settled, height, epoch) = settled_funding_state(&f)?;
+        let current = funding_shared_state(&f, &settled, epoch)?;
+        let state = decode_shared_state(&current)?;
+        let roster = RosterDigest::new([27; 32])?;
+        let strict = decode_reward_state(&settled)?;
+        let decoded = codec::decode_envelope(&f.fund)?;
         let mut payload = vec![0; FUND_PAYLOAD_BYTES];
         FundRequest {
             amount: 25,
-            refund_recipient: strict.ledger().unwrap().refund_recipient,
+            refund_recipient: strict.ledger()?.refund_recipient,
             policy_version: FUNDING_POLICY_VERSION,
             consent: true,
         }
-        .encode(&mut payload)
-        .unwrap();
+        .encode(&mut payload)?;
         let envelope = Envelope {
             epoch,
             expiry: height + 1000,
             roster: Presence::Present(roster),
             sequence: 3,
-            request: RequestId::new([28; 32]).unwrap(),
+            request: RequestId::new([28; 32])?,
             payload: &payload,
             ..decoded.envelope
         };
@@ -704,7 +599,7 @@ mod repair478_fund_tests {
             height,
         };
         let mut call = vec![0; crate::MAX_ENVELOPE_BYTES];
-        let n = codec::encode_envelope(&envelope, &mut call).unwrap();
+        let n = codec::encode_envelope(&envelope, &mut call)?;
         call.truncate(n);
         let mut next = vec![0xa5; MAX_STATE_BYTES];
         let mut scratch = vec![0; SCRATCH_BYTES];
@@ -716,20 +611,19 @@ mod repair478_fund_tests {
             ..
         } = apply(
             &ctx,
-            &codec::decode_envelope(&call).unwrap(),
+            &codec::decode_envelope(&call)?,
             &current,
             &mut next,
             &mut scratch,
             &mut event,
-        )
-        .unwrap()
+        )?
         else {
             panic!("populated Fund must apply");
         };
-        assert_eq!(after, before.deposit(25).unwrap());
-        let produced = decode_shared_state(&next[..state_len]).unwrap();
-        let funded = decode_reward_state(produced.room_market().unwrap().0).unwrap();
-        assert_eq!(funded.ledger().unwrap(), after);
+        assert_eq!(after, before.deposit(25)?);
+        let produced = decode_shared_state(&next[..state_len])?;
+        let funded = decode_reward_state(produced.room_market()?.0)?;
+        assert_eq!(funded.ledger()?, after);
         assert_eq!(&funded.bytes()[LEDGER_BYTES..], &settled[LEDGER_BYTES..]);
         for section in [
             Section::IdentityRoster,
@@ -747,36 +641,174 @@ mod repair478_fund_tests {
                 .control
                 .replay
                 .actor(ActorSlot::OWNER)
-                .unwrap()
+                .unwrap_or_else(|| panic!("expected present actor"))
                 .last
-                .unwrap()
+                .unwrap_or_else(|| panic!("expected present actor record"))
                 .sequence,
             3
         );
+        assert_funding_binding_refusals(
+            &ctx,
+            &envelope,
+            &current,
+            &mut call,
+            (&mut next, &mut scratch, &mut event),
+        )?;
+        Ok(())
+    }
+    fn settled_funding_state(
+        f: &crate::repair_478_fixture::Fixture,
+    ) -> CodecResult<(Vec<u8>, u64, u64)> {
+        let state = decode_shared_state(&f.next)?;
+        let source = state.room_market()?.0;
+        let rewards = decode_reward_state(source)?;
+        let mut refunded = vec![0; REWARD_STATE_BYTES];
+        rewards.refund_free(
+            FundingPhase::Closing,
+            &RefundRequest {
+                expected_refunded: 0,
+                amount: 10,
+                recipient: rewards.ledger()?.refund_recipient,
+            },
+            RequestDigest::new([21; 32])?,
+            ResultDigest::new([22; 32])?,
+            &mut refunded,
+        )?;
+        let worker = WorkerRosterEntry {
+            worker: WorkerId::new([23; 32])?,
+            owner: PrincipalId::new([12; 32])?,
+            recipient: AccountId::new([24; 32])?,
+            generation: Version::new(1)?,
+            key_version: Version::new(1)?,
+            public_key: PublicKey32([25; 32]),
+            metadata: crate::types::MetadataDigest::new([26; 32])?,
+        };
+        let roster = RosterDigest::new([27; 32])?;
+        let header =
+            PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?.header;
+        let epoch = 7;
+        let opening_height = header.origin_height + epoch * 128;
+        let height = opening_height + 127;
+        assert_eq!(market_clock(header.origin_height, height)?.epoch, epoch);
+        let mut reserved = vec![0; REWARD_STATE_BYTES];
+        decode_reward_state(&refunded)?.reserve_epoch(
+            epoch,
+            40,
+            roster,
+            &[worker],
+            opening_height,
+            &mut reserved,
+        )?;
+        let binding = FrozenBinding {
+            chain: header.deployment_chain_domain,
+            program: header.program_id,
+            market: header.market_id,
+            epoch,
+            config: Version::new(header.active_config_version)?,
+            roster,
+        };
+        let output = WorkerAggregate::new(
+            worker.worker,
+            worker.generation,
+            3,
+            QualityStatus::ScoredPositive,
+            1,
+            1,
+        )?;
+        let outputs = [output];
+        let aggregation =
+            EpochAggregation::structural(binding, Digest32::new([29; 32])?, &[worker], &outputs)?;
+        let allocation = allocate(40, &[output])?;
+        let mut settled = vec![0; REWARD_STATE_BYTES];
+        decode_reward_state(&reserved)?.terminalize(
+            &binding,
+            aggregation.root(),
+            &allocation,
+            &[worker],
+            height,
+            &mut settled,
+        )?;
+        Ok((settled, height, epoch))
+    }
+
+    fn funding_shared_state(
+        f: &crate::repair_478_fixture::Fixture,
+        settled: &[u8],
+        epoch: u64,
+    ) -> CodecResult<Vec<u8>> {
+        let mut state = decode_shared_state(&f.next)?;
+        let roster = RosterDigest::new([27; 32])?;
+        // The real F06 producers retain a populated dictionary, terminal row
+        // and refund cursor; the strict decoder proves all of their bindings.
+        let strict = decode_reward_state(settled)?;
+        assert_eq!(strict.ledger()?.retained_epochs, 1);
+        assert!(!strict.ledger()?.active_reserve);
+        assert_eq!(strict.row(epoch)?.status, EpochStatus::Terminal);
+        assert_eq!(strict.dictionary().occupied(), 1);
+        assert_eq!(strict.row(7)?.roster, roster);
+        assert!(strict.last_refund()?.is_some());
+        let mut table = AdmissionTable::new();
+        table.begin_epoch(epoch);
+        let mut table_bytes = vec![0; 1024];
+        let n = table.encode(&mut table_bytes)?;
+        let (region, _) = reputation_transition::split_joint(
+            state.feature_sections[Section::ReputationAdmission.index()],
+        )?;
+        let mut joint = vec![0; Section::ReputationAdmission.payload_cap()];
+        let n = reputation_transition::encode_joint(
+            &region.unwrap_or_else(|| panic!("expected present region")),
+            &table_bytes[..n],
+            &mut joint,
+        )?;
+        state.feature_sections[Section::ReputationAdmission.index()] = &joint[..n];
+        state.feature_sections[Section::SettlementClaims.index()] = settled;
+        let mut current = vec![0; MAX_STATE_BYTES];
+        let mut control = vec![0; Section::Control.payload_cap()];
+        let n = encode_shared_state(&state, &mut current, &mut control)?;
+        current.truncate(n);
+        let committed = decode_shared_state(&current)?;
+        let (_, admission) = reputation_transition::split_joint(
+            committed.feature_sections[Section::ReputationAdmission.index()],
+        )?;
+        assert_eq!(
+            AdmissionTable::decode(admission)?.current_epoch(),
+            Some(epoch)
+        );
+        Ok(current)
+    }
+    fn assert_funding_binding_refusals(
+        ctx: &CallContext,
+        envelope: &Envelope<'_>,
+        current: &[u8],
+        call: &mut [u8],
+        buffers: (&mut [u8], &mut [u8], &mut [u8]),
+    ) -> CodecResult<()> {
+        let (next, scratch, event) = buffers;
+        let roster = RosterDigest::new([27; 32])?;
         // The binding checks still reject the wrong epoch or roster before any write.
         for (epoch, binding, error) in [
             (6, Presence::Present(roster), WRONG_EPOCH),
             (
                 7,
-                Presence::Present(RosterDigest::new([30; 32]).unwrap()),
+                Presence::Present(RosterDigest::new([30; 32])?),
                 WRONG_ROSTER,
             ),
         ] {
             let bad = Envelope {
                 epoch,
                 roster: binding,
-                ..envelope
+                ..*envelope
             };
-            let n = codec::encode_envelope(&bad, &mut call).unwrap();
+            let n = codec::encode_envelope(&bad, call)?;
             next.fill(0xa5);
             assert_eq!(
                 apply(
-                    &ctx,
-                    &codec::decode_envelope(&call[..n]).unwrap(),
-                    &current,
-                    &mut next,
-                    &mut scratch,
-                    &mut event
+                    ctx,
+                    &codec::decode_envelope(&call[..n])?,
+                    current,
+                    next,
+                    scratch,
+                    event
                 ),
                 Err(error)
             );
@@ -784,11 +816,12 @@ mod repair478_fund_tests {
         }
         let missing_roster = Envelope {
             roster: Presence::Absent,
-            ..envelope
+            ..*envelope
         };
         assert_eq!(
-            codec::encode_envelope(&missing_roster, &mut call),
+            codec::encode_envelope(&missing_roster, call),
             Err(WRONG_ROSTER)
         );
+        Ok(())
     }
 }

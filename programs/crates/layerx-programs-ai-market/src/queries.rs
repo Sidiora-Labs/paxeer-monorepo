@@ -7,11 +7,10 @@ pub mod placement;
 #[cfg(target_arch = "wasm32")]
 use crate::codec::Sha256State as Sha256;
 use crate::{
-    MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
     codec::{self, ChunkResponse, ReadHeader, Reader, RosterView, Writer},
     dispatch,
     errors::{
-        ARITHMETIC, ApplicationError, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, NON_CANONICAL,
+        ApplicationError, CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, NON_CANONICAL,
         NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
     evaluators::authority::split_identity_section,
@@ -22,6 +21,7 @@ use crate::{
         PrincipalId, ProgramId, RequestDigest, RosterDigest, StateDigest, Version,
     },
     workers::{WorkerState, WorkerTable},
+    MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
@@ -46,6 +46,8 @@ const BINDING_PREFIX_MAX_BYTES: usize = 2 + 3 * 32 + 8 + 8 + 32 + 32 + 8 + 32 + 
 pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32 + 1 + 8 + 8;
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn answer_book_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     let mut reader = Reader::new(payload);
     let model = reader.digest32()?;
@@ -93,6 +95,8 @@ fn read_order_ids<const N: usize>(r: &mut Reader<'_>) -> CodecResult<[Option<Dig
 }
 impl RoomView {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = Self {
@@ -119,6 +123,8 @@ pub struct DealView {
     pub settled_amount_owed: u128,
 }
 impl DealView {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let value = Self {
@@ -151,6 +157,8 @@ pub struct PeerView {
 }
 impl PeerView {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         let peer_key = r.principal_id()?;
@@ -220,6 +228,8 @@ pub struct ReceiptBatchView {
     pub batch: crate::laps::ReceiptBatch,
 }
 impl ReceiptBatchView {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         Ok(Self {
             batch: crate::laps::ReceiptBatch::decode(bytes)?,
@@ -232,6 +242,8 @@ pub struct ViewRequest<'a> {
     unsigned: &'a [u8],
 }
 impl ViewRequest<'_> {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn request_digest(&self) -> CodecResult<RequestDigest> {
         RequestDigest::new(codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
     }
@@ -258,10 +270,14 @@ fn validate_view_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
     }
     r.finish()
 }
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn encode_view_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_view_envelope(e)?;
     codec::encode_envelope_fields(e, out)
 }
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn decode_view_envelope(input: &[u8]) -> CodecResult<ViewRequest<'_>> {
     let (envelope, unsigned) = codec::decode_envelope_fields(input, false)?;
     validate_view_envelope(&envelope)?;
@@ -269,8 +285,13 @@ pub fn decode_view_envelope(input: &[u8]) -> CodecResult<ViewRequest<'_>> {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
-    use crate::rooms::*;
+    use crate::rooms::{
+        AskRecord, AskState, BidRecord, DealRecord, RoomBook, RoomState, ASK_CAPACITY,
+        ASK_RECORD_BYTES, BID_CAPACITY, BID_RECORD_BYTES, DEAL_RECORD_BYTES, ROOM_RECORD_BYTES,
+    };
     let mut r = Reader::new(payload);
     let id = r.digest32()?;
     r.finish()?;
@@ -286,14 +307,14 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
         .as_chunks::<{ DEAL_RECORD_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 1298]>::as_slice)
     {
         for split in DealRecord::decode(row)?.layers.iter().flatten() {
             let index = bids
                 .as_chunks::<{ BID_RECORD_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; 162]>::as_slice)
                 .position(|b| b.guest_index(32..64) == split.bid_id.as_bytes())
                 .ok_or(NON_CANONICAL)?;
             *consumed.guest_index_mut(index) = true;
@@ -307,7 +328,7 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
         .as_chunks::<{ ASK_RECORD_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 193]>::as_slice)
     {
         let ask = AskRecord::decode(row)?;
         if room.state == RoomState::Open && ask.room_id == id && ask.state == AskState::Open {
@@ -323,7 +344,7 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
         .as_chunks::<{ BID_RECORD_BYTES }>()
         .0
         .iter()
-        .map(|chunk| chunk.as_slice())
+        .map(<[u8; 162]>::as_slice)
         .enumerate()
     {
         let bid = BidRecord::decode(row)?;
@@ -339,6 +360,8 @@ pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn answer_deal_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     let mut r = Reader::new(payload);
     let id = r.digest32()?;
@@ -357,6 +380,8 @@ pub fn answer_deal_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn answer_peer_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     let mut r = Reader::new(payload);
     let key = r.principal_id()?;
@@ -412,6 +437,8 @@ pub fn answer_peer_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn answer_receipt_batch_view(
     state_bytes: &[u8],
     payload: &[u8],
@@ -555,23 +582,20 @@ pub(crate) fn stored_header(
         return Err(WRONG_ROSTER);
     }
     let settlement = state::room_market_parts(frame.sections[Section::SettlementClaims.index()])?.0;
-    let roster = match epoch {
-        Some(epoch) => {
-            Presence::Present(crate::rewards::committed_row(settlement, epoch)?.row.roster)
-        }
-        None => {
-            if !settlement.is_empty() {
-                let ledger = crate::rewards::decode_ledger(
-                    settlement
-                        .get(..crate::rewards::LEDGER_BYTES)
-                        .ok_or(NON_CANONICAL)?,
-                )?;
-                if ledger.retained_epochs != 0 {
-                    return Err(WRONG_ROSTER);
-                }
+    let roster = if let Some(epoch) = epoch {
+        Presence::Present(crate::rewards::committed_row(settlement, epoch)?.row.roster)
+    } else {
+        if !settlement.is_empty() {
+            let ledger = crate::rewards::decode_ledger(
+                settlement
+                    .get(..crate::rewards::LEDGER_BYTES)
+                    .ok_or(NON_CANONICAL)?,
+            )?;
+            if ledger.retained_epochs != 0 {
+                return Err(WRONG_ROSTER);
             }
-            Presence::Absent
         }
+        Presence::Absent
     };
     Ok(ReadHeader {
         revision: frame.revision,
@@ -944,7 +968,7 @@ impl SnapshotBinding {
             epoch: input.presence(Reader::u64)?,
             config: input.version()?,
             policy: input.policy_digest()?,
-            roster: input.presence(|reader| reader.roster_digest())?,
+            roster: input.presence(super::codec::Reader::roster_digest)?,
             block_height: input.u64()?,
             block_hash: input.digest32()?,
             app_hash: input.digest32()?,
@@ -1082,6 +1106,8 @@ pub enum Availability {
 /// Availability of content actually decoded from the exact capture, in F01..F11 order.
 /// Unknown codec versions and malformed content remain explicit to consumers.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> {
     fn decoded<T>(bytes: &[u8], decode: impl FnOnce() -> CodecResult<T>) -> Availability {
         if bytes.is_empty() {
@@ -1356,6 +1382,8 @@ impl ParticipantRow {
 /// Complete projection from the captured F02/F03/F05/F06/F07/F08 producers.
 /// An optional transported roster must bind exactly to the persisted opening.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn participant_rows(
     state_bytes: &[u8],
     supplied: Option<&RosterView<'_>>,
@@ -1364,18 +1392,7 @@ pub fn participant_rows(
     let shared = state::decode_shared_state(state_bytes)?;
     let policy = policy_of(&shared)?;
     let opened = crate::epoch::captured_roster(&shared)?;
-    if let Some(view) = supplied {
-        if view.market != policy.header.market_id {
-            return Err(WRONG_MARKET);
-        }
-        let captured = opened.as_ref().ok_or(WRONG_ROSTER)?;
-        if view.epoch != captured.binding.epoch
-            || view.config != captured.binding.config
-            || view.digest()? != captured.binding.roster
-        {
-            return Err(WRONG_ROSTER);
-        }
-    }
+    check_participant_roster(supplied, &policy, opened.as_ref())?;
     let workers = worker_table(&shared)?;
     let evaluators =
         crate::evaluators::authority::evaluator_region(shared.section(Section::IdentityRoster)?)?;
@@ -1403,55 +1420,13 @@ pub fn participant_rows(
         let frozen = opened
             .as_ref()
             .and_then(|r| r.workers().iter().find(|w| w.worker == record.worker));
-        let epoch = opened
-            .as_ref()
-            .map_or(Presence::Absent, |r| Presence::Present(r.binding.epoch));
-        let mut score = ScoreField::absent(epoch, ScoreStatus::NotProduced)?;
-        if let (Some(roster), Some(aggregate)) = (&opened, &aggregate) {
-            if aggregate.phase() == crate::aggregation_codec::AggregationPhase::Terminal {
-                for i in 0..aggregate.output_count() {
-                    let output = aggregate.output(i)?;
-                    if output.worker() == record.worker {
-                        score = match output.quality() {
-                            Presence::Present(value) => {
-                                ScoreField::present(roster.binding.epoch, value.get())?
-                            }
-                            Presence::Absent => {
-                                ScoreField::absent(epoch, ScoreStatus::InsufficientCoverage)?
-                            }
-                        };
-                    }
-                }
-            }
-        }
-        let mut reward = RewardField::unavailable(Availability::NotYetProduced)?;
-        if let (Some(roster), Some(rewards)) = (&opened, &rewards) {
-            let row = rewards.row(roster.binding.epoch)?;
-            if matches!(
-                row.status,
-                crate::rewards::EpochStatus::Terminal | crate::rewards::EpochStatus::Expired
-            ) {
-                if row.outcome == crate::rewards::RewardOutcome::NoEligibleScore && frozen.is_some()
-                {
-                    reward = RewardField::entitlement(rewards.ledger()?.asset, 0, 0)?;
-                }
-                let dictionary = rewards.dictionary();
-                for entry in row.entries() {
-                    if dictionary.slot(entry.slot)?.worker == record.worker {
-                        let claimed = if entry.disposition == crate::rewards::Disposition::Claimed {
-                            entry.entitlement
-                        } else {
-                            0
-                        };
-                        reward = RewardField::entitlement(
-                            rewards.ledger()?.asset,
-                            entry.entitlement,
-                            claimed,
-                        )?;
-                    }
-                }
-            }
-        }
+        let score = participant_score(record.worker, opened.as_ref(), aggregate.as_ref())?;
+        let reward = participant_reward(
+            record.worker,
+            opened.as_ref(),
+            rewards.as_ref(),
+            frozen.is_some(),
+        )?;
         let standing = history
             .as_ref()
             .and_then(|region| region.state.records().find(|r| r.worker == record.worker));
@@ -1512,6 +1487,8 @@ pub fn participant_rows(
 /// The indexer's complete projection, pinned to the transported captured binding.
 /// Used both when observing content and when serving a reopened persisted capture.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn project_capture(
     state_bytes: &[u8],
     binding: &SnapshotBinding,
@@ -1583,12 +1560,10 @@ fn hex_decode(text: &[u8], out: &mut [u8]) -> CodecResult<()> {
     if text.len() != out.len() * 2 {
         return Err(NON_CANONICAL);
     }
-    for (o, pair) in out.iter_mut().zip(
-        text.as_chunks::<{ 2 }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice()),
-    ) {
+    for (o, pair) in out
+        .iter_mut()
+        .zip(text.as_chunks::<2>().0.iter().map(<[u8; 2]>::as_slice))
+    {
         *o = (nibble(*pair.guest_index(0))? << 4) | nibble(*pair.guest_index(1))?;
     }
     Ok(())
@@ -1634,12 +1609,12 @@ fn hmac(secret: &[u8; 32], payload: &[u8]) -> [u8; 32] {
         *o ^= k;
     }
     let mut inner = Sha256::new();
-    inner.update(&ipad);
+    inner.update(ipad);
     inner.update(payload);
     let inner = inner.finalize();
     let mut outer = Sha256::new();
-    outer.update(&opad);
-    outer.update(&inner);
+    outer.update(opad);
+    outer.update(inner);
     outer.finalize().into()
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
@@ -1683,10 +1658,10 @@ pub fn issue_cursor<'o>(
     let payload = cursor_payload(key, scope, next_ordinal, expiry)?;
     let tag = hmac(key.secret, &payload);
     for (pair, b) in out
-        .as_chunks_mut::<{ 2 }>()
+        .as_chunks_mut::<2>()
         .0
         .iter_mut()
-        .map(|chunk| chunk.as_mut_slice())
+        .map(<[u8; 2]>::as_mut_slice)
         .zip(payload.iter().chain(&tag))
     {
         *pair.guest_index_mut(0) = *HEX.guest_index(usize::from(b >> 4));
@@ -1821,4 +1796,89 @@ pub fn encode_page(
         }
     }
     bound_response(w.len())
+}
+
+fn participant_score(
+    worker: crate::types::WorkerId,
+    opened: Option<&crate::epoch::CapturedRoster>,
+    aggregate: Option<&crate::aggregation_codec::DecodedCurrent>,
+) -> CodecResult<ScoreField> {
+    let epoch = opened
+        .as_ref()
+        .map_or(Presence::Absent, |r| Presence::Present(r.binding.epoch));
+    let mut score = ScoreField::absent(epoch, ScoreStatus::NotProduced)?;
+    if let (Some(roster), Some(aggregate)) = (&opened, &aggregate) {
+        if aggregate.phase() == crate::aggregation_codec::AggregationPhase::Terminal {
+            for i in 0..aggregate.output_count() {
+                let output = aggregate.output(i)?;
+                if output.worker() == worker {
+                    score = match output.quality() {
+                        Presence::Present(value) => {
+                            ScoreField::present(roster.binding.epoch, value.get())?
+                        }
+                        Presence::Absent => {
+                            ScoreField::absent(epoch, ScoreStatus::InsufficientCoverage)?
+                        }
+                    };
+                }
+            }
+        }
+    }
+    Ok(score)
+}
+
+fn participant_reward(
+    worker: crate::types::WorkerId,
+    opened: Option<&crate::epoch::CapturedRoster>,
+    rewards: Option<&crate::rewards::RewardState<'_>>,
+    frozen_member: bool,
+) -> CodecResult<RewardField> {
+    let mut reward = RewardField::unavailable(Availability::NotYetProduced)?;
+    if let (Some(roster), Some(rewards)) = (&opened, &rewards) {
+        let row = rewards.row(roster.binding.epoch)?;
+        if matches!(
+            row.status,
+            crate::rewards::EpochStatus::Terminal | crate::rewards::EpochStatus::Expired
+        ) {
+            if row.outcome == crate::rewards::RewardOutcome::NoEligibleScore && frozen_member {
+                reward = RewardField::entitlement(rewards.ledger()?.asset, 0, 0)?;
+            }
+            let dictionary = rewards.dictionary();
+            for entry in row.entries() {
+                if dictionary.slot(entry.slot)?.worker == worker {
+                    let claimed = if entry.disposition == crate::rewards::Disposition::Claimed {
+                        entry.entitlement
+                    } else {
+                        0
+                    };
+                    reward = RewardField::entitlement(
+                        rewards.ledger()?.asset,
+                        entry.entitlement,
+                        claimed,
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(reward)
+}
+
+fn check_participant_roster(
+    supplied: Option<&RosterView<'_>>,
+    policy: &PolicySection<'_>,
+    opened: Option<&crate::epoch::CapturedRoster>,
+) -> CodecResult<()> {
+    if let Some(view) = supplied {
+        if view.market != policy.header.market_id {
+            return Err(WRONG_MARKET);
+        }
+        let captured = opened.ok_or(WRONG_ROSTER)?;
+        if view.epoch != captured.binding.epoch
+            || view.config != captured.binding.config
+            || view.digest()? != captured.binding.roster
+        {
+            return Err(WRONG_ROSTER);
+        }
+    }
+    Ok(())
 }

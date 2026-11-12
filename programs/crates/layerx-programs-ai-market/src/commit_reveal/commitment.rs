@@ -2,16 +2,14 @@
 use crate::types::AttestationDigest;
 use crate::types::GuestIndex as _;
 use crate::{
-    MAX_WORKERS, codec,
+    codec,
     errors::{
-        ARITHMETIC, ApplicationError, CAPACITY, CodecResult, F03_NO_SCORES, F03_UNKNOWN_WORKER,
+        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, F03_NO_SCORES, F03_UNKNOWN_WORKER,
         F04_COMMIT_MISMATCH, F04_NO_SCORES, KEY_MISMATCH, NON_CANONICAL, UNAUTHORIZED,
         WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
-    types::{
-        ChainDomain, CommitmentDigest, EvaluatorBinding, EvaluatorId, FrozenBinding, MarketId,
-        ProgramId, ReportDigest, RosterDigest, Salt32, Signature64, Version, WorkerId,
-    },
+    types::{CommitmentDigest, EvaluatorBinding, ReportDigest, Salt32, Signature64, WorkerId},
+    MAX_WORKERS,
 };
 
 pub const BINDING_BYTES: usize = 192;
@@ -273,7 +271,7 @@ pub enum CryptoError {
 
 #[cfg(target_arch = "wasm32")]
 fn sdk_sha256(bytes: &[u8]) -> Result<[u8; 32], CryptoError> {
-    use layerx_program_sdk::crypto::{HashAlgorithm, HashInput, hash};
+    use layerx_program_sdk::crypto::{hash, HashAlgorithm, HashInput};
     let input = HashInput::new(bytes).map_err(CryptoError::Sdk)?;
     hash(HashAlgorithm::Sha256, input).map_err(CryptoError::Sdk)
 }

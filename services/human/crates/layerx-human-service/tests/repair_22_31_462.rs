@@ -1,8 +1,8 @@
-//! Repair 22.31.462: persist one Rung::wire_rank byte and restore its level floor.
+//! Repair 22.31.462: persist one `Rung::wire_rank` byte and restore its level floor.
 //! No finer level byte is needed: the budget observation conveys rung achievement,
 //! and restarting must not infer evidence beyond the stored rung.
-//! Files: agentd/src/{human_runtime.rs,managed_agent.rs}, Human src/agents/{mod.rs,recovery.rs}, this test.
-//! Live consumers: Human src/server/agent_runtime.rs uses the same rung decoder.
+//! Files: `agentd/src/{human_runtime.rs,managed_agent.rs`}, Human src/agents/{mod.rs,recovery.rs}, this test.
+//! Live consumers: Human `src/server/agent_runtime.rs` uses the same rung decoder.
 //! Qualification: hf-build, then hf-done; exact revision and logs are retained by those gates.
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -73,9 +73,9 @@ fn transport(bytes: Vec<u8>) -> Vec<u8> {
     checked(receiver.set_read_timeout(Some(Duration::from_secs(5))));
     checked(sender.set_write_timeout(Some(Duration::from_secs(5))));
     let writer = thread::spawn(move || checked(write_frame(&mut sender, &bytes, MAX_FRAME)));
-    let received = checked(read_frame(&mut receiver, MAX_FRAME));
+    let frame = checked(read_frame(&mut receiver, MAX_FRAME));
     checked(writer.join());
-    received
+    frame
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn daemon_budget_states_cross_transport_and_reopen_at_the_expected_rung_floor() 
         let record = checked(key(tenant.clone(), ObjectKind::Configuration, object));
         let persisted = reopened
             .get(&record)
-            .expect("durable daemon budget observation");
+            .or_fail("durable daemon budget observation");
         assert_eq!(persisted.bytes(), encoded.bytes());
         let (budget, restored) = checked(CoreBudgetState::decode_snapshot(persisted.bytes()));
         assert_eq!(restored, expected);
@@ -307,6 +307,77 @@ fn live_human_budget_boundary_accepts_the_daemon_committed_snapshot() {
     );
 }
 
+fn produce_rank_responses(listener: &UnixListener, store_path: PathBuf) {
+    let tenant = checked(TenantId::new("budget-wire-owner"));
+    let mut store = checked(Store::open(store_path));
+    for rank in 0..=u8::MAX {
+        let level = match rank {
+            0 => VerificationLevel::UNVERIFIED,
+            1 => VerificationLevel::BATCH_INCLUDED,
+            _ => VerificationLevel::COMMITTED,
+        };
+        let mut evidence_digest = [0x41; 32];
+        evidence_digest[0] = rank;
+        let mut observation = state(level, 1);
+        observation.evidence_digest = evidence_digest;
+        let response = checked(record_budget_snapshot(
+            &mut store,
+            &tenant,
+            BUDGET,
+            &observation,
+        ));
+        let mut bytes = response.bytes().to_vec();
+        if rank > Rung::Committed.wire_rank() {
+            bytes[48] = rank;
+        }
+        assert_eq!(bytes[48], rank);
+        let (mut stream, _) = checked(listener.accept());
+        checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
+        checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
+        assert!(matches!(
+            checked(decode_request(checked(read_frame(&mut stream, MAX_FRAME)))),
+            HumanRequest::AgentBudgetState { active_budget_id } if active_budget_id == BUDGET
+        ));
+        checked(write_frame(
+            &mut stream,
+            &encode_response(Ok(checked(HumanResponse::new(bytes)))),
+            MAX_FRAME,
+        ));
+
+        let (mut stream, _) = checked(listener.accept());
+        checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
+        checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
+        assert!(matches!(
+            checked(decode_request(checked(read_frame(&mut stream, MAX_FRAME)))),
+            HumanRequest::AgentKeyPolicy { agent_did, recovery }
+                if agent_did == "did:layerx:budget-owner" && !recovery
+        ));
+        let response = checked(record_key_policy_snapshot(
+            &mut store,
+            &tenant,
+            "did:layerx:budget-owner",
+            false,
+            &CoreKeyPolicy {
+                policy_revision: 1,
+                required_delay_seconds: 10,
+                maximum_delay_seconds: 20,
+                effective_sequence: 11,
+                observed_head_sequence: 13,
+                verification: rank,
+                evidence_digest,
+                checkpoint_digest: [0x43; 32],
+                age_sequences: 1,
+                maximum_age_sequences: 10,
+            },
+        ));
+        checked(write_frame(
+            &mut stream,
+            &encode_response(Ok(response)),
+            MAX_FRAME,
+        ));
+    }
+}
+
 #[test]
 fn live_human_rank_checks_accept_exactly_the_shared_budget_contract() {
     let root = Directory::new();
@@ -314,76 +385,7 @@ fn live_human_rank_checks_accept_exactly_the_shared_budget_contract() {
     let socket = root.0.join("agent.sock");
     let listener = checked(UnixListener::bind(&socket));
     let store_path = root.0.join("store");
-    let producer = thread::spawn(move || {
-        let tenant = checked(TenantId::new("budget-wire-owner"));
-        let mut store = checked(Store::open(store_path));
-        for rank in 0..=u8::MAX {
-            let level = match rank {
-                0 => VerificationLevel::UNVERIFIED,
-                1 => VerificationLevel::BATCH_INCLUDED,
-                _ => VerificationLevel::COMMITTED,
-            };
-            let mut evidence_digest = [0x41; 32];
-            evidence_digest[0] = rank;
-            let mut observation = state(level, 1);
-            observation.evidence_digest = evidence_digest;
-            let response = checked(record_budget_snapshot(
-                &mut store,
-                &tenant,
-                BUDGET,
-                &observation,
-            ));
-            let mut bytes = response.bytes().to_vec();
-            if rank > Rung::Committed.wire_rank() {
-                bytes[48] = rank;
-            }
-            assert_eq!(bytes[48], rank);
-            let (mut stream, _) = checked(listener.accept());
-            checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
-            checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
-            assert!(matches!(
-                checked(decode_request(checked(read_frame(&mut stream, MAX_FRAME)))),
-                HumanRequest::AgentBudgetState { active_budget_id } if active_budget_id == BUDGET
-            ));
-            checked(write_frame(
-                &mut stream,
-                &encode_response(Ok(checked(HumanResponse::new(bytes)))),
-                MAX_FRAME,
-            ));
-
-            let (mut stream, _) = checked(listener.accept());
-            checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
-            checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
-            assert!(matches!(
-                checked(decode_request(checked(read_frame(&mut stream, MAX_FRAME)))),
-                HumanRequest::AgentKeyPolicy { agent_did, recovery }
-                    if agent_did == "did:layerx:budget-owner" && !recovery
-            ));
-            let response = checked(record_key_policy_snapshot(
-                &mut store,
-                &tenant,
-                "did:layerx:budget-owner",
-                false,
-                &CoreKeyPolicy {
-                    policy_revision: 1,
-                    required_delay_seconds: 10,
-                    maximum_delay_seconds: 20,
-                    effective_sequence: 11,
-                    observed_head_sequence: 13,
-                    verification: rank,
-                    evidence_digest,
-                    checkpoint_digest: [0x43; 32],
-                    age_sequences: 1,
-                    maximum_age_sequences: 10,
-                },
-            ));
-            checked(write_frame(
-                &mut stream,
-                &encode_response(Ok(response)),
-                MAX_FRAME,
-            ));
-        }
-    });
+    let producer = thread::spawn(move || produce_rank_responses(&listener, store_path));
     let mut runtime = checked(AgentRuntime::new_with_clock(
         &socket,
         Limits {
@@ -414,4 +416,10 @@ fn live_human_rank_checks_accept_exactly_the_shared_budget_contract() {
         }
     }
     checked(producer.join());
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -28,6 +28,8 @@ struct Delivery {
 impl Keystore {
     /// Publishes or recovers the same encrypted delivery until owner acknowledgement.
     /// The recipient must retain its ceremony identifier and decryption key.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn export_primary_envelope(
         &self,
         principal: &PrincipalId,
@@ -40,26 +42,23 @@ impl Keystore {
         let (directory, _lock) = self.delivery_lock(principal, key)?;
         let (record, binding) = self.export_binding(principal, key)?;
         let previous = read_delivery(&directory)?;
-        let mut delivery = match previous {
-            Some(delivery) => {
-                validate_delivery(&delivery, &record, &binding, ceremony)?;
-                delivery
+        let mut delivery = if let Some(delivery) = previous {
+            validate_delivery(&delivery, &record, &binding, ceremony)?;
+            delivery
+        } else {
+            if record.self_custodied {
+                return Err(CustodyError::SelfCustodied);
             }
-            None => {
-                if record.self_custodied {
-                    return Err(CustodyError::SelfCustodied);
-                }
-                let delivery = Delivery {
-                    binding: binding.digest(),
-                    reference_digest: Sha256::digest(record.provider_reference.as_bytes()).into(),
-                    public_key: record.public_key,
-                    ceremony: ceremony.clone(),
-                    envelope: None,
-                    acknowledged: false,
-                };
-                persist_delivery(&directory, &delivery, true)?;
-                delivery
-            }
+            let delivery = Delivery {
+                binding: binding.digest(),
+                reference_digest: Sha256::digest(record.provider_reference.as_bytes()).into(),
+                public_key: record.public_key,
+                ceremony: ceremony.clone(),
+                envelope: None,
+                acknowledged: false,
+            };
+            persist_delivery(&directory, &delivery, true)?;
+            delivery
         };
         if delivery.acknowledged {
             return Err(CustodyError::SelfCustodied);
@@ -80,6 +79,8 @@ impl Keystore {
 
     /// Accepts the recipient's decryption proof and durably retires local signing.
     /// An uncertain provider reply or local write failure can be retried after restart.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn acknowledge_primary_export(
         &self,
         principal: &PrincipalId,

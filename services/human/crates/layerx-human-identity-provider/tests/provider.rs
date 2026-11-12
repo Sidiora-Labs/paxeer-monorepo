@@ -478,27 +478,26 @@ fn binary_sigterm_and_crash_restart() -> Result {
         .open(&policy_file)?
         .write_all(&serde_json::to_vec(&policy())?)?;
     let clock_command = support::command()?;
-    let command = || {
-        let mut command =
-            std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
-        command
-            .envs(
-                clock_command
-                    .get_envs()
-                    .map(|(key, value)| (key, value.expect("clock binding value"))),
-            )
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", &root)
-            .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", &socket)
-            .env(
-                "LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE",
-                &policy_file,
-            )
-            .env(
-                "LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID",
-                rustix::process::geteuid().as_raw().to_string(),
-            );
-        command
-    };
+    let command =
+        || {
+            let mut command =
+                std::process::Command::new(env!("CARGO_BIN_EXE_layerx-human-identity-provider"));
+            command
+                .envs(clock_command.get_envs().map(|(key, value)| {
+                    (key, value.unwrap_or_else(|| panic!("clock binding value")))
+                }))
+                .env("LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT", &root)
+                .env("LAYERX_HUMAN_IDENTITY_PROVIDER_SOCKET", &socket)
+                .env(
+                    "LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE",
+                    &policy_file,
+                )
+                .env(
+                    "LAYERX_HUMAN_IDENTITY_PROVIDER_ALLOWED_UID",
+                    rustix::process::geteuid().as_raw().to_string(),
+                );
+            command
+        };
     let mut child = OwnedChild(command().spawn()?);
     wait_ready(&socket, &mut child.0)?;
     let fields = [
