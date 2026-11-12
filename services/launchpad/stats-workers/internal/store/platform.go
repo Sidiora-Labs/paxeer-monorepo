@@ -227,10 +227,10 @@ func (s *Store) platformFees(ctx context.Context, start, end int64) ([]PlatformA
 		computed, err := accounting.FillDigest(fill)
 		out := fill.USDLAmountRaw
 		asset := fill.Token
-		if fill.Side == "buy" {
+		if fill.Side == valueBuy {
 			out, asset = fill.TokenAmountRaw, fill.Settlement
 		}
-		if err != nil || string(computed) != *digest || pool != fill.PoolAddress || isBuy != (fill.Side == "buy") ||
+		if err != nil || string(computed) != *digest || pool != fill.PoolAddress || isBuy != (fill.Side == valueBuy) ||
 			input != fill.PaidInputRaw || output != out || fee != fill.FeeRaw ||
 			strconv.FormatInt(timestamp, 10) != fill.BlockTimestampSeconds {
 			return nil, fmt.Errorf("store: canonical fee evidence mismatch for %s", id)
