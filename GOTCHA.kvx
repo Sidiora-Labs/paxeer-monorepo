@@ -21495,3 +21495,8 @@ fix = "The client is regenerated with the generator target of the Makefile after
 title = "The lint recipe of the agent workspace bounds a function at seven inputs"
 symptom = "The recipe counts the receiver with the inputs. A function of the agent daemon that needs more values takes them one by one only up to that bound."
 fix = "A function with more values takes one parameter structure."
+
+[gotcha.4335]
+title = "The source capacity measurement bounds the round trip of its database clock sample"
+symptom = "RunSourceCapacity of services/launchpad/indexer/internal/source/capacity.go reads the database clock between two readings of the local clock and accepts the sample only when the two local readings lie within five milliseconds. The measurement takes one sample at each of its two points."
+fix = "The measurement takes up to three samples at each point and uses the first one within the bound."
