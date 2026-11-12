@@ -13372,6 +13372,18 @@ value = "Task 22.39.404 carries services/interop/Cargo.lock beside the members u
 basis = "Gotcha 4293."
 affects = ["22.39.404"]
 
+[decision.3377]
+title = "Tasks 22.38.37 and 22.38.38 start beside the room proof"
+value = "Tasks 22.38.37 and 22.38.38 no longer require task 22.38.36. Each writes its proof mode as additions to the driver of the room proof and runs its build and its verification on a base that holds task 22.38.36. The time limit of each is 420 minutes."
+basis = "Gotcha 4294."
+affects = ["22.38.37", "22.38.38"]
+
+[decision.3378]
+title = "Task 22.39.182 runs beside the inference market series"
+value = "Task 22.39.182 no longer requires task 22.38.39."
+basis = "Gotcha 4295."
+affects = ["22.39.182"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -188574,7 +188586,7 @@ title = "Prove ask to stream to lap settlement to claim"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.36", "22.31.620", "22.39.388"]
+requires = ["22.31.620", "22.39.388"]
 reqs = ["22380.6"]
 capabilities = ["22.38.38"]
 interfaces = []
@@ -188592,19 +188604,20 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 150
+time_limit_minutes = 420
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_2 = "do_2 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first CLAIM of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
 do_3 = "do_3 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_2 orders for that case. Take the two fields of every value operation, the CLAIM among them, from the function market_value_call_terms of the client library with a ProgramSpend grant; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
+do_4 = "do_4 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The settlement mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
 
 [task.22.38.37]
 title = "Prove that a canary failure slashes the faulty peer bond"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["22.38.36", "22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388"]
+requires = ["22.38.28", "22.38.7", "22.31.620", "22.39.370", "22.39.388"]
 reqs = ["22380.6"]
 capabilities = ["22.38.37"]
 interfaces = []
@@ -188622,13 +188635,14 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 150
+time_limit_minutes = 420
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_2 = "do_2 Decisions 3271 and 3272, gotcha 4200: the task now requires task 22.39.370. In the canary proof the peers enrol through the route POST /enrol_peer of the host with the enrolment function of the peer package and an enrolment document that the driver prepares and signs for each peer; the driver submits no enrolment record of a peer itself in this proof. The room proof keeps its own writes (decision 3259). The driver starts the source process, the indexer and the gateway as the room proof does."
 do_3 = "do_3 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first value operation of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
 do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_3 orders for that case. Take the two fields of every value operation from the function market_value_call_terms of the client library; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
+do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
@@ -232432,7 +232446,7 @@ title = "Write the 7.0.0 candidate release report at one revision and tick the r
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["22.38.39", "22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395"]
+requires = ["22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395"]
 reqs = ["22998.1"]
 capabilities = ["22.39.182"]
 interfaces = []

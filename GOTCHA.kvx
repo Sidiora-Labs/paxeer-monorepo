@@ -21290,3 +21290,13 @@ fix = "A task that passes the recipe holds every member at zero findings."
 title = "The lock file of the interop workspace lists the dependencies of each member"
 symptom = "The manifest services/interop/Cargo.toml builds its members with one lock file, services/interop/Cargo.lock, and that file names the dependencies of every member package."
 fix = "A task that changes a dependency of a member under services/interop/crates carries services/interop/Cargo.lock in the same commit."
+
+[gotcha.4294]
+title = "The canary proof and the settlement proof are modes of the room driver"
+symptom = "The proofs --proof canary and --proof settlement extend tools/qualification/paxeer-x/inference_market_room.py, the driver that the room proof of task 22.38.36 adds."
+fix = "The two tasks write their modes as additions to that driver and run their build and verification on a base that holds task 22.38.36."
+
+[gotcha.4295]
+title = "The consensus commit gate watches no path of the inference market proofs"
+symptom = "The candidate report of task 22.39.182 runs the nine release tests, the retired-caller scan, the rehearsal test and the consensus commit gate, and the path list of tools/ci/consensus_commit_gate.py holds no path that tasks 22.38.13, 22.38.36, 22.38.37, 22.38.38 and 22.38.39 change."
+fix = "The report task runs beside the inference market series."
