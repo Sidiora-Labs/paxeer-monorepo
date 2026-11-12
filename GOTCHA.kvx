@@ -21500,3 +21500,8 @@ fix = "A function with more values takes one parameter structure."
 title = "The source capacity measurement bounds the round trip of its database clock sample"
 symptom = "RunSourceCapacity of services/launchpad/indexer/internal/source/capacity.go reads the database clock between two readings of the local clock and accepts the sample only when the two local readings lie within five milliseconds. The measurement takes one sample at each of its two points."
 fix = "The measurement takes up to three samples at each point and uses the first one within the bound."
+
+[gotcha.4336]
+title = "The answer context of a canary carries the roster of the frozen binding and the deal carries the admission roster"
+symptom = "The host builds the answer context of a canary in services/agent/crates/layerx-agentd/src/inference_market/canary.rs from the frozen binding of the epoch, whose roster field is the digest of the captured roster. The deal frame carries the admission roster digest of the current epoch (decision 3169). The check of apps/inference-peer/src/canary.mjs compares the first 184 bytes of the context with the fields of its deal, and the cases of apps/inference-peer/test/canary.test.mjs build the context and the deal from one roster value."
+fix = "Decision 3417: the peer compares the fields of the context that its deal states, and its cases take the two roster values as two values."

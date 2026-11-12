@@ -13612,6 +13612,12 @@ value = "At each of the two points where the source capacity measurement of serv
 basis = "Gotcha 4335. Decision 3414."
 affects = []
 
+[decision.3417]
+title = "The canary check of the peer compares the fields of the answer context that its deal states"
+value = "The answer context of a canary stays as the host builds it: the frozen binding of the epoch, the deal, the lap, the participant and the prompt digest. The check of apps/inference-peer/src/canary.mjs compares the chain, the program, the market, the epoch and the configuration of the binding and the deal and the lap index of the context with the values of its deal and of the plan. The roster field of the binding is not part of that comparison: the binding carries the digest of the captured roster, the deal carries the admission roster digest of the current epoch (decision 3169), and the challenge operations of the program are bound to the frozen binding. The refusal answer_context_mismatch and every other check of the peer stay as they are. The cases of apps/inference-peer/test/canary.test.mjs take the two roster values as two different values, in the form the host produces them (decision 3046). The paths of task 22.38.37 gain apps/inference-peer/src/canary.mjs, apps/inference-peer/test/canary.test.mjs, apps/inference-peer/test/fixtures/host-canary-frames.json and services/agent/crates/layerx-agentd/src/inference_market/canary.rs. A difference between the host and the peer that the canary proof shows is settled in these files, and nothing under programs changes."
+basis = "Gotcha 4336. Decisions 3046 and 3169."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -189087,7 +189093,7 @@ capabilities = ["22.38.37"]
 interfaces = []
 do_1 = "do_1 Add the --proof canary mode to inference_market_room.py: the second peer is started with a fault flag that perturbs one logit, the host injects a canary, and the driver asserts the ChallengeLap, RevealScore and ResolveChallenge writes, the SlashBond write, and that the slashed fraction reached the reward ledger of the honest peer."
 symbols = ["proof_canary_slash"]
-touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs", "apps/inference-peer/test/fixtures/host-canary-frames.json", "services/agent/crates/layerx-agentd/src/inference_market/canary.rs"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
@@ -189107,6 +189113,7 @@ do_2 = "do_2 Decisions 3271 and 3272, gotcha 4200: the task now requires task 22
 do_3 = "do_3 Decision 3309, gotcha 4238: the task now requires task 22.39.388, which proves at the host level which receipt admits a value operation after a block-end transition. Read its record rpc/repair_22_39_388.kvx before the first value operation of this proof. Take the call terms of every operation without a value action from the function market_call_terms of the client library (decision 3307). Place no anchor by hand between the block-end transition and a call and write nothing into the store; when the record states that no receipt that a sender can know admits a value operation, record the step that needs one and stop."
 do_4 = "do_4 Decisions 3311 and 3312, gotcha 4241: the record rpc/repair_22_39_388.kvx states that no receipt a sender can know admits a balance sight, and the program no longer reads the sight once task 22.39.389 has landed, which this task reaches through task 22.38.36. This replaces the stop that do_3 orders for that case. Take the two fields of every value operation from the function market_value_call_terms of the client library; a value operation carries no BalanceView grant and no receipt authority, and no anchor is placed for it."
 do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.36. The canary mode is written as additions to the driver that the room proof adds, and the build and the verification of this task run on a base that holds task 22.38.36, so the commit of this task changes only its own paths."
+do_6 = "do_6 Decision 3417, gotcha 4336. In apps/inference-peer/src/canary.mjs compare the answer context of a canary with the chain, the program, the market, the epoch and the configuration of the deal and with the deal and the lap index of the plan, and leave the roster field of the binding out of the comparison. In apps/inference-peer/test/canary.test.mjs give the binding and the deal two different roster values and assert by value that the answer is accepted and that a change of each compared field gives answer_context_mismatch. Run npm --prefix apps/inference-peer test. When the canary proof shows a further difference between the host and the peer, settle it in the paths of decision 3417 and add a case for it; a difference that needs a change under programs is recorded and the task stops there. The driver keeps the modes room, canary and settlement side by side with one argument for the mode."
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
