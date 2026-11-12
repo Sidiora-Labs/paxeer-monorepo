@@ -20,6 +20,7 @@ const (
 )
 
 func (p *Executor) openAskStream(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, id [32]byte, evm *vm.EVM) ([]byte, error) {
+	clear(id[:16])
 	askRef := args[0].([32]byte)
 	if err := p.keeper.StreamOpenForAsk(ctx, caller, id, askRef, args[1].(common.Address), args[2].(*big.Int), args[3].(uint8), args[4].(*big.Int), args[5].([32]byte)); err != nil {
 		return nil, err

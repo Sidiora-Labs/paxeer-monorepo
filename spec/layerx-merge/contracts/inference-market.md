@@ -132,6 +132,26 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 | interface.22.pc-0x101b-askstreamof | precompile_method | precompiles/layerxpay/stream.go (planned) | askStreamOf(bytes32) view returns (bytes32) (planned) | 22.38.9 | new |
 | interface.22.pc-0x101b-evt-askstreamopened | precompile_event | precompiles/layerxpay/events.go (planned) | AskStreamOpened(bytes32 indexed,bytes32 indexed,address) (planned) | 22.38.9 | new |
 
+The bytes32 identifier returned by `streamOpenForAsk` and `askStreamOf` is the call idempotency key with its first sixteen bytes set to zero, so it fits the ask record’s u128 stream field. The assignment is in `precompiles/layerxpay/stream.go:22`; `node/app.go:3860` configures inference reads from `evm.px_inference_program` and `evm.px_inference_reader`; `services/agent/crates/layerx-agentd/src/main.rs:2130` uses `LAYERX_AGENT_CONSENSUS_ENDPOINT` for consensus reads, with the node endpoint as its default. The committed source retries historical proof rate limits at most eight times, 250 ms apart, with a one-second node request timeout and a two-second socket I/O timeout.
+
+Inference reads in `rpc/px_account.go` use the quoted call fee; `rpc/simulate.go` evaluates their private native simulation in batch H+1 over the store pinned at committed height H. `rpc/px_inference.go` decodes the version-2 room profile and closed height.
+
+The daemon's native historical reads retry a proof rate limit at most eight times, 250 ms apart; each native RPC request retains its thirty-second timeout.
+
+The daemon verifies each deployment admission and replays its journal by program identifier and version.
+
+The inference book uses the node's committed header below its latest height and authenticates the preceding store height through the configured consensus endpoint, with unprefixed hexadecimal store keys and at most eight retries of a historical proof rate limit, 250 ms apart.
+
+Availability checks independently verify the node header at the gateway publication's height under the configured freshness bound; readiness requires that publication's exact height and block hash.
+
+The committed-header RPC validates the chain identifier from the initialized node context on each request.
+
+The signalling client uses node RPC independently of the gateway snapshot client. Its header, room and peer reads use the verified availability height; `px_getInferenceRoomAt` and `px_getInferencePeerAt` accept a positive committed height and apply the same program and peer-binding decoders as current-height reads. Native peers retry `chain_unavailable` admission responses at most seven times, 250 ms apart, within a twenty-second admission deadline.
+
+Human-session node readiness uses the consensus chain identifier of the configured trust root and separately requires EVM chain 125.
+
+CPU layer planning uses the manifest's system memory; accelerator layer planning uses its accelerator memory. Deal and lap envelopes derive their protocol principal from the signer's DID; a room host's DID must bind the signer's Ed25519 public key, and evidence envelopes use their own signer's DID.
+
 ## attestation-0x0907
 
 **Peer attestation binding (0x0907).** A verified attestation envelope is bound to a peer key, a model digest and a runtime digest; only the development envelope family is accepted today.

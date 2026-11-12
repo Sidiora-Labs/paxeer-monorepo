@@ -575,6 +575,12 @@ fn all_acknowledge(engine: &mut DealEngine, peers: &mut [WirePeer], now: u64) ->
     assert_eq!(engine.ready_to_record(), Some(&frame));
     frame
 }
+pub(crate) fn host_evm_address() -> [u8; 20] {
+    LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)))
+        .evm_address()
+        .unwrap_or_else(|| panic!("host EVM signing address"))
+}
+
 fn sign_record(engine: &DealEngine) -> OperationRecord {
     let envelope = must(engine.envelope(350));
     let env = must(codec::decode_envelope(&envelope)).envelope;
@@ -626,12 +632,22 @@ fn crossing_pair_becomes_recorded_only_after_acknowledgements_and_finality() {
     let journal_path = directory.0.join("operations");
     let journal = must(OperationJournal::open(&journal_path));
     let mut record = sign_record(&engine);
+    assert!(record_deal(
+        &mut engine,
+        &journal,
+        &server.endpoint,
+        &mut record,
+        [0x99; 20],
+    )
+    .is_err());
+    assert_eq!(must(server.node.lock()).submissions, 0);
     assert_eq!(
         must(record_deal(
             &mut engine,
             &journal,
             &server.endpoint,
-            &mut record
+            &mut record,
+            host_evm_address(),
         )),
         OperationState::Pending
     );
@@ -788,6 +804,7 @@ fn missing_acknowledgement_drops_the_peer_and_replans_with_fresh_signatures() {
         &journal,
         &server.endpoint,
         &mut record,
+        host_evm_address(),
     ));
     must(server.node.lock()).commit_pending();
     must(engine.poll(server.snapshot(), now + 5002));
@@ -839,6 +856,7 @@ fn roster_digest_matches_the_finalized_chain_value_and_includes_admitted_evaluat
         &journal,
         &server.endpoint,
         &mut record,
+        host_evm_address(),
     ));
     must(server.node.lock()).commit_pending();
     let snapshot = server.snapshot();
