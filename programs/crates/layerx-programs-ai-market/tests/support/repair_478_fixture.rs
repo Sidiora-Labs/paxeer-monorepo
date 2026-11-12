@@ -1,13 +1,13 @@
 use layerx_programs_ai_market::{
-    codec::{self, Envelope},
-    dispatch::{self, Buffers, Routed},
-    policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
-    registry::derive_rewards_account,
-    registry_ops::CallContext,
-    rewards::{FundRequest, FUNDING_POLICY_VERSION},
-    types::*,
     CodecResult, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
     MERGED_CHAIN_DOMAIN,
+    codec::{self, Envelope},
+    dispatch::{self, Buffers, Routed},
+    policy::{PolicyCommitments, TASK_POLICY_BYTES, TaskPolicyV1},
+    registry::derive_rewards_account,
+    registry_ops::CallContext,
+    rewards::{FUNDING_POLICY_VERSION, FundRequest},
+    types::*,
 };
 
 pub const HEIGHT: u64 = 1002;
@@ -135,6 +135,9 @@ pub fn fixture(owner: [u8; 32], asset: [u8; 32]) -> CodecResult<Fixture> {
         return Err(layerx_programs_ai_market::errors::NON_CANONICAL);
     };
     next.truncate(state_len);
+    if current == next {
+        return Err(layerx_programs_ai_market::errors::NON_CANONICAL);
+    }
     event.truncate(event_len);
     result.truncate(result_len);
     Ok(Fixture {
@@ -154,7 +157,7 @@ pub fn decode_kernel_terminal(
     kind: u8,
     bytes: &[u8],
 ) -> Result<layerx_programs_runtime::terminal::DecodedTerminal, String> {
-    use layerx_programs_runtime::terminal::{decode_terminal_payload, PRE_RUNTIME_FAILURE};
+    use layerx_programs_runtime::terminal::{PRE_RUNTIME_FAILURE, decode_terminal_payload};
     let detail = if bytes.starts_with(PRE_RUNTIME_FAILURE) {
         bytes
     } else {

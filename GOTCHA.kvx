@@ -21385,3 +21385,8 @@ fix = "The page reads the explorer API when no statistics service address is set
 title = "The scan script of the Next integration example names a directory the example does not hold"
 symptom = "The scan script in sdk/integrations/next/example/package.json names the directories dist/static and public, the tree holds no public directory in that example, and the middleware part of the platform test recipe runs that script."
 fix = "The example names only directories it holds."
+
+[gotcha.4313]
+title = "The Chainflow price feed gives the market figures of a coin in the CoinGecko format and takes a key header on every route"
+symptom = "The feed answers api/v3/coins/ followed by a coin id with price, market value, day volume, circulating supply and total supply in the CoinGecko format, and every route of the feed takes the key in the X-API-Key header."
+fix = "The Chainflow market source of the explorer backend sends the key and reads those routes."

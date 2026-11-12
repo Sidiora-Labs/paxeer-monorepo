@@ -1,10 +1,10 @@
-use super::{Draft, RewardEffect, RewardLedger, RewardState, REWARD_STATE_BYTES};
+use super::{Draft, REWARD_STATE_BYTES, RewardEffect, RewardLedger, RewardState};
 use crate::types::GuestIndex as _;
 use crate::{
     codec::{self, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::*,
-    registry_ops::{CallContext, ACTIVE, REGISTERED},
+    registry_ops::{ACTIVE, CallContext, REGISTERED},
     rooms::{self, DealRecord, DealState, RoomBook, RoomState},
     state::{self, ActorSlot, ReplayDecision, ReplayRequest, Section, SharedState},
     types::{AccountId, Digest32, Presence, PrincipalId, WorkerId},
@@ -130,8 +130,8 @@ pub fn check_bid(
     current: &[u8],
 ) -> CodecResult<()> {
     let state = state::decode_shared_state(current)?;
-    crate::canary::check_call(ctx, &envelope.envelope, &state)?;
-    let request = role_request(&state, envelope, false)?;
+    let policy = crate::canary::check_call(ctx, &envelope.envelope, &state)?;
+    let request = role_request(&state, envelope, false, policy.header.owner_principal)?;
     if let ReplayDecision::AlreadyApplied(_) = state.control.replay.check(&request, ctx.height)? {
         return Ok(());
     }
@@ -139,7 +139,7 @@ pub fn check_bid(
     let (room, bid) = read_pair(&mut r)?;
     r.take(48)?;
     let amount = r.u128()?;
-    let book = RoomBook::decode(state.room_market()?.1)?;
+    let book = RoomBook::committed(state.room_market()?.1)?;
     let record = book.bond(bid)?.ok_or(F11_BOND_INSUFFICIENT)?;
     let profile = book.room(room)?.ok_or(F11_ROOM_UNKNOWN)?.profile;
     if record.owner != ctx.principal
@@ -203,10 +203,9 @@ fn role_request(
     state: &SharedState<'_>,
     envelope: &ValidatedEnvelope<'_>,
     host: bool,
+    owner: PrincipalId,
 ) -> CodecResult<ReplayRequest> {
-    let policy =
-        crate::registry_ops::PolicySection::decode(state.section(Section::PolicyLifecycle)?)?;
-    let slot = if host && envelope.envelope.actor == policy.header.owner_principal {
+    let slot = if host && envelope.envelope.actor == owner {
         ActorSlot::OWNER
     } else {
         ActorSlot::worker(usize::from(worker(state, envelope.envelope.actor)?.slot))?
@@ -255,11 +254,6 @@ fn check_roster(shared: &SharedState<'_>, e: &codec::Envelope<'_>) -> CodecResul
     }
     Ok(())
 }
-#[cfg_attr(target_arch = "wasm32", inline(never))]
-fn rewards<'a>(state: &SharedState<'a>) -> CodecResult<RewardState<'a>> {
-    state::settlement_rewards(state, None)
-}
-
 #[cfg_attr(target_arch = "wasm32", inline(always))]
 pub fn apply_lock_bond(
     ctx: &CallContext,
@@ -323,7 +317,7 @@ fn apply(
         return Err(WRONG_PHASE);
     }
     let (prefix, book_bytes) = shared.room_market()?;
-    let book = RoomBook::decode(book_bytes)?;
+    let book = RoomBook::committed(book_bytes)?;
     let request = BondRequest::decode(e.operation, e.payload)?;
     let object = request.object;
     let bid = request.bid;
@@ -333,7 +327,7 @@ fn apply(
         {
             return Err(WRONG_EPOCH);
         }
-        let request = role_request(&shared, envelope, false)?;
+        let request = role_request(&shared, envelope, false, policy.header.owner_principal)?;
         if let ReplayDecision::AlreadyApplied(retained) =
             shared.control.replay.check(&request, ctx.height)?
         {
@@ -361,7 +355,9 @@ fn apply(
         )?;
         RewardState::init(&ledger, settlement.guest_index_mut(..REWARD_STATE_BYTES))?
     } else {
-        rewards(&shared)?
+        // The current cell is committed. Bond transitions read their ledger
+        // and the reward rows they change from that section.
+        super::committed_state(prefix.get(..REWARD_STATE_BYTES).ok_or(WRONG_EPOCH)?)?
     };
     let before = reward.ledger()?;
     super::check_bindings(&before, &policy.header)?;
@@ -421,7 +417,7 @@ fn apply(
         if bond.refunded {
             return Err(F11_BOND_LOCKED);
         }
-        let settled = crate::laps::settlement_from_state(current, object)?.ok_or(NOT_FOUND)?;
+        let settled = crate::laps::settlement_from_shared(&shared, object)?.ok_or(NOT_FOUND)?;
         if settled.epoch != e.epoch {
             return Err(WRONG_EPOCH);
         }
@@ -431,7 +427,7 @@ fn apply(
         if settled.roster != deal.roster_digest {
             return Err(WRONG_ROSTER);
         }
-        let reward_epoch = reward.row(e.epoch)?;
+        let reward_roster = super::committed_epoch_header(prefix, e.epoch)?.1;
         let peer_index = deal
             .layers
             .iter()
@@ -451,7 +447,7 @@ fn apply(
                 || record.task.profile.room != room.profile
                 || record.epoch != e.epoch
                 || record.config != e.config
-                || record.roster != reward_epoch.roster
+                || record.roster != reward_roster
             {
                 return Err(UNAUTHORIZED);
             }
@@ -483,6 +479,9 @@ fn apply(
         .0
         .min(bond.remaining()?);
         for layer in deal.layers.iter().flatten() {
+            if layer.bid_id == bid {
+                continue;
+            }
             let peer = book.bond(layer.bid_id)?.ok_or(F11_BOND_INSUFFICIENT)?;
             if peer.owner == bond.owner {
                 continue;
@@ -496,10 +495,23 @@ fn apply(
         if recipient_count == 0 {
             return Err(UNAUTHORIZED);
         }
-        crate::codec::sort_by(
-            slash_recipients.guest_index_mut(..recipient_count),
-            |a, b| a.0.cmp(&b.0),
-        );
+        let mut gap = recipient_count / 2;
+        while gap != 0 {
+            for i in gap..recipient_count {
+                let mut j = i;
+                while j >= gap
+                    && crate::types::identity_order(
+                        slash_recipients.guest_index(j).0.as_bytes(),
+                        slash_recipients.guest_index(j - gap).0.as_bytes(),
+                    )
+                    .is_lt()
+                {
+                    slash_recipients.guest_swap(j, j - gap);
+                    j -= gap;
+                }
+            }
+            gap /= 2;
+        }
         bond.slashed = bond.slashed.checked_add(slash_amount).ok_or(ARITHMETIC)?;
         feature_len = Some(crate::laps::record_slash(
             &shared, settled, peer_index, lap, features,
@@ -543,7 +555,7 @@ fn apply(
                     < crate::canary::challenge_window(policy.header.origin_height, &challenge)?.end
                     || challenge.status == crate::canary::ChallengeStatus::Open
                     || challenge.peer_at_fault()
-                        && !crate::laps::settlement_from_state(current, deal.deal_id)?.is_some_and(
+                        && !crate::laps::settlement_from_shared(&shared, deal.deal_id)?.is_some_and(
                             |settled| {
                                 deal.layers
                                     .iter()
@@ -577,7 +589,7 @@ fn apply(
                 }
                 let closed = closed_room.closed_height;
                 let profile = closed_room.profile;
-                let settled = crate::laps::settlement_from_state(current, deal.deal_id)?
+                let settled = crate::laps::settlement_from_shared(&shared, deal.deal_id)?
                     .ok_or(F11_BOND_LOCKED)?;
                 let challenge_end = crate::commit_reveal::canary_window(
                     policy.header.origin_height,
@@ -608,13 +620,18 @@ fn apply(
     } else if e.operation != dispatch::LockBond {
         return Err(UNKNOWN_OPERATION);
     }
-    let held_before = book.held()?;
+    let held_before = book.held_committed()?;
     let held_after = match effect {
         RewardEffect::Deposit { amount, .. } => {
             held_before.checked_add(amount).ok_or(ARITHMETIC)?
         }
         RewardEffect::Payout { amount, .. } => held_before.checked_sub(amount).ok_or(ARITHMETIC)?,
         _ => held_before.checked_sub(slash_amount).ok_or(ARITHMETIC)?,
+    };
+    let reward_len = if prefix.is_empty() && e.operation == dispatch::LockBond {
+        0
+    } else {
+        REWARD_STATE_BYTES
     };
     let n = book.write_bond(&bond, bond_out)?;
     let mut draft = Draft::start(&reward, reward_out)?;
@@ -623,12 +640,17 @@ fn apply(
         let allocation = Digest32::new(envelope.request_digest()?.bytes())?;
         let (equal_share, remainder) =
             crate::reward_math::mul_div_rem(slash_amount, 1, recipient_count as u64)?;
+        let mut distributed = 0u128;
         for i in 0..recipient_count {
             let (w, recipient) = *slash_recipients.guest_index(i);
             let share = equal_share + u128::from((i as u64) < remainder);
+            distributed = distributed.checked_add(share).ok_or(ARITHMETIC)?;
             reward.credit_payout(
-                &mut draft, e.epoch, w, recipient, share, allocation, ctx.height,
+                &mut draft, None, e.epoch, w, recipient, share, allocation, ctx.height,
             )?;
+        }
+        if distributed != slash_amount {
+            return Err(ARITHMETIC);
         }
         draft.ledger.tracked_deposits = draft
             .ledger
@@ -653,13 +675,20 @@ fn apply(
             .checked_add(amount)
             .ok_or(ARITHMETIC)?;
     }
-    let (after, _) = draft.commit(effect)?;
-    let ledger_after = after.ledger()?;
-    let reward_len = if prefix.is_empty() && e.operation == dispatch::LockBond {
-        0
+    let reward_effect = if e.operation == dispatch::RefundBond {
+        // A bond refund changes only the ledger: equal deposits and claims
+        // preserve the liabilities, epoch rows and recipient bindings.
+        // Its transfer is staged against the combined bond and reward ledger.
+        RewardEffect::NoTransfer
     } else {
-        REWARD_STATE_BYTES
+        effect
     };
+    let after = if e.operation == dispatch::LockBond {
+        draft.carry_unchanged()
+    } else {
+        draft.commit(reward_effect)?.0
+    };
+    let ledger_after = after.ledger()?;
     let len = state::encode_room_market_parts(
         after.bytes().guest_index(..reward_len),
         bond_out.guest_index(..n),
@@ -705,7 +734,7 @@ pub fn apply_close_room(
     let room_id = r.digest32()?;
     r.finish()?;
     let (prefix, book_bytes) = shared.room_market()?;
-    let book = RoomBook::decode(book_bytes)?;
+    let book = RoomBook::committed(book_bytes)?;
     let room = book.room(room_id)?.ok_or(F11_ROOM_UNKNOWN)?;
     if room.host_key != ctx.principal {
         return Err(UNAUTHORIZED);
@@ -728,7 +757,7 @@ pub fn apply_close_room(
     if !matches!(policy.header.lifecycle, REGISTERED | ACTIVE) {
         return Err(WRONG_PHASE);
     }
-    let request = role_request(&shared, envelope, true)?;
+    let request = role_request(&shared, envelope, true, policy.header.owner_principal)?;
     if let ReplayDecision::AlreadyApplied(retained) =
         shared.control.replay.check(&request, ctx.height)?
     {
@@ -751,7 +780,7 @@ pub fn apply_close_room(
         + *counts.guest_index(0) * rooms::ROOM_RECORD_BYTES
         + *counts.guest_index(1) * rooms::ASK_RECORD_BYTES
         + *counts.guest_index(2) * rooms::BID_RECORD_BYTES;
-    let reward = rewards(&shared)?;
+    let reward = super::committed_state(prefix.get(..REWARD_STATE_BYTES).ok_or(WRONG_EPOCH)?)?;
     for i in 0..*counts.guest_index(3) {
         let at = deal_at + i * rooms::DEAL_RECORD_BYTES;
         let mut deal =
@@ -760,7 +789,7 @@ pub fn apply_close_room(
             continue;
         }
         let settled =
-            crate::laps::settlement_from_state(current, deal.deal_id)?.ok_or(F11_BOND_LOCKED)?;
+            crate::laps::settlement_from_shared(&shared, deal.deal_id)?.ok_or(F11_BOND_LOCKED)?;
         if !super::payout_is_complete(&reward, &settled)? {
             return Err(F11_BOND_LOCKED);
         }

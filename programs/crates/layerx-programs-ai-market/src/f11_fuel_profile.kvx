@@ -1,0 +1,39 @@
+[profile]
+family = "F11"
+execution = "Native CALL and in-process execution produce equal results, state and events."
+cpu_fuel_limit = 1000000
+guest_byte_limit = 524184
+guest_bytes = 523970
+
+[batch.full_book]
+room_capacity = 16
+ask_capacity = 64
+bid_capacity = 128
+deal_peers = 32
+lap_batch = 64
+payload = "Maximum operation payload, including sixteen artifact parents for settlement."
+operations = ["OpenRoom", "PostAsk", "PostBid", "RecordDeal", "SettleLaps", "ChallengeLap", "ResolveChallenge", "LockBond", "SlashBond", "RefundBond", "CloseRoom", "RoomView", "DealView", "ReceiptBatchView", "BookView", "PeerView"]
+
+[batch.payout]
+rooms = 1
+asks = 1
+bids = 10
+deal_peers = 10
+lap_batch = 64
+peer_credits = 10
+host_credits = 1
+protocol_credits = 1
+producer = "RecordDeal and SettleLaps"
+operations = ["SplitPayout"]
+
+[replay]
+plain_call_record_bytes = 0
+whole_record_boundaries = 4096
+whole_record_byte_limit = 1048576
+full_book_open_room = "Capture witness bytes exceed the record profile; state is unchanged."
+refused_receipt_fee = 0
+refused_receipt_cpu_fuel = 0
+short_call_boundaries = 256
+
+[fund]
+cpu_fuel = 747220

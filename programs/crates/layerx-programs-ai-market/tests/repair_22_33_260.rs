@@ -35,10 +35,11 @@
 #![allow(dead_code)]
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
+    MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
     admission::{AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant},
     aggregation::{self, Progress},
     aggregation_codec::AggregationPhase,
-    codec::{self, decode_envelope, decode_result, encode_envelope, Envelope, ResultStatus},
+    codec::{self, Envelope, ResultStatus, decode_envelope, decode_result, encode_envelope},
     dispatch::{self, Buffers, Operation, Routed},
     epoch::{self, Frozen},
     errors::{CodecResult, NON_CANONICAL, NOT_FOUND},
@@ -47,16 +48,15 @@ use layerx_programs_ai_market::{
         codec::encode_grant,
         model::{EvaluatorGrant, GrantTerms},
     },
-    policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
-    registry::{derive_rewards_account, MarketHeader},
+    policy::{PolicyCommitments, TASK_POLICY_BYTES, TaskPolicyV1},
+    registry::{MarketHeader, derive_rewards_account},
     registry_ops::{CallContext, PolicySection},
     reputation_transition::split_joint,
-    rewards::{decode_reward_state, REWARD_STATE_BYTES},
-    state::{decode_shared_state, ActorSlot, Section},
+    rewards::{REWARD_STATE_BYTES, decode_reward_state},
+    state::{ActorSlot, Section, decode_shared_state},
     tasks::{self, SetBinding, TaskSet},
     types::*,
     workers::{self, WorkerTable},
-    MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
 };
 
 /// Keep the original application error while identifying the refusing fixture boundary.
@@ -614,6 +614,7 @@ pub fn refresh_workers_with(
         },
     )
 }
+// F11 callers use the roster published after the last opening participant chunk.
 pub fn open(bytes: &mut Vec<u8>, at: u64) -> CodecResult<Frozen> {
     fixture_step(
         "open",
@@ -1415,12 +1416,12 @@ fn admit_reply(
     write_budget: u64,
 ) -> Result<layerx_programs_runtime::Storage, layerx_programs_runtime::abi::AbiError> {
     use layerx_programs_runtime::{
+        PrincipalId as HostPrincipal, ProgramId as HostProgram,
         abi::{
             Abi, AuthorizationContext, Capability, CapabilitySet, StorageSelector,
             UnavailableReceiptOracle,
         },
         meter::{FeeSchedule, Meter, ResourceBudget},
-        PrincipalId as HostPrincipal, ProgramId as HostProgram,
     };
     let auth = AuthorizationContext::new(
         HostPrincipal::new([0x7f; 32]).unwrap(),
@@ -1589,10 +1590,12 @@ pub fn reputation_storage_refusal_and_reopen() -> CodecResult<()> {
             decode_shared_state(&bytes)?.feature_sections[section.index()]
         );
     }
-    assert!(store
-        .protocol_state_value(host_namespace(), b"fixture/event-journal")
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .protocol_state_value(host_namespace(), b"fixture/event-journal")
+            .unwrap()
+            .is_none()
+    );
     let store = admit_reply(store, &reply, 1_048_576).unwrap();
     let snapshot = store.replay_state_bytes(4 * 1024 * 1024).unwrap();
     let unique = std::time::SystemTime::now()

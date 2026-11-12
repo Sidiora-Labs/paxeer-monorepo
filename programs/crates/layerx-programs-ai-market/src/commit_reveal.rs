@@ -21,33 +21,33 @@ use crate::types::GuestIndex as _;
 pub mod commitment;
 
 use crate::{
+    MAX_EVALUATORS,
     admission::AdmissionTable,
     codec::{self, CommitAccepted, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, EXPIRED,
+        ARITHMETIC, ApplicationError, CAPACITY, CONFLICT, CodecResult, EXPIRED,
         F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT, F08_MARKET_PAUSED,
         KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED, UNKNOWN_OPERATION,
         WRONG_EPOCH,
     },
     evaluators::{
         admission::{
-            admit_report_in_state, Admission, AdmissionReceipt, ReportRegion, RevealAdmission,
+            Admission, AdmissionReceipt, ReportRegion, RevealAdmission, admit_report_in_state,
         },
-        authority::{evaluator_region, FrozenEvaluator},
+        authority::{FrozenEvaluator, evaluator_region},
         codec::verify_digest,
         model::{SignedReport, VerificationError},
     },
     registry_ops::{CallContext, PolicySection, SUSPENDED},
     state::{
-        decode_shared_state, settlement_rewards, ActorSlot, HeightWindow, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        ActorSlot, HeightWindow, ReplayDecision, ReplayRequest, RetainedResult, Section,
+        SharedState, decode_shared_state, settlement_rewards,
     },
     types::{
         Authentication, CommitmentDigest, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence,
         PrincipalId, ResultDigest, Version,
     },
-    MAX_EVALUATORS,
 };
 
 /// One stored commit record.
@@ -246,7 +246,7 @@ impl<'a> CommitRegion<'a> {
                 core::cmp::Ordering::Less => left = mid + 1,
                 core::cmp::Ordering::Greater => right = mid,
                 core::cmp::Ordering::Equal => {
-                    return CommitRecord::read(&mut Reader::new(bytes)).map(Some)
+                    return CommitRecord::read(&mut Reader::new(bytes)).map(Some);
                 }
             }
         }

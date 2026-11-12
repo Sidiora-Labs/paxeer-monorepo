@@ -23,41 +23,41 @@
 use crate::codec::Sha256State as Sha256;
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_EVALUATORS,
     admission::{AdmissionTable, Participant},
     codec::{self as wire, EventCommon, ReportBody, ValidatedEnvelope},
     commit_reveal::{COMMIT_CLOSES, COMMIT_OPENS},
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EVIDENCE_BINDING, EXPIRED,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, EVIDENCE_BINDING, EXPIRED,
         F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT,
         F09_EVIDENCE_SEAL_CONFLICT, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED,
         UNKNOWN_OPERATION, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::{
-        authority::{evaluator_region, FrozenEvaluator},
+        authority::{FrozenEvaluator, evaluator_region},
         model::{GrantStatus, RegisteredEvidence},
     },
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     rewards::RewardState,
     state::{
-        decode_shared_state, encode_shared_state, ActorSlot, HeightWindow, ReplayDecision,
-        ReplayRequest, RetainedResult, Section, SharedState,
+        ActorSlot, HeightWindow, ReplayDecision, ReplayRequest, RetainedResult, Section,
+        SharedState, decode_shared_state, encode_shared_state,
     },
     tasks,
     types::{Authentication, EvaluatorId, FrozenBinding, Presence, ResultDigest},
-    MAX_EVALUATORS,
 };
 use crate::{
-    codec::{domain_hash, Reader, Writer},
-    commit_reveal::commitment::{decode_binding, encode_binding, BINDING_BYTES},
-    errors::{offchain_error, ApplicationError, OffchainSpace},
+    MAX_TASKS, MAX_WORKERS,
+    codec::{Reader, Writer, domain_hash},
+    commit_reveal::commitment::{BINDING_BYTES, decode_binding, encode_binding},
+    errors::{ApplicationError, OffchainSpace, offchain_error},
     evaluators::{codec::verify_digest, model::VerificationError},
     types::{
         ChainDomain, Digest32, EvaluatorBinding, EvidenceRoot, MarketId, PolicyDigest, PrincipalId,
         ProgramId, PublicKey32, RubricDigest, Score, Signature64, TaskId, Version, WorkerId,
     },
-    MAX_TASKS, MAX_WORKERS,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
@@ -1803,6 +1803,11 @@ pub struct SealRegion<'a> {
     rest: &'a [u8],
 }
 impl<'a> SealRegion<'a> {
+    /// Reads the framing of a seal region already validated in committed state.
+    pub(crate) fn committed(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, false)
+    }
+
     /// Strictly decodes the region prefix of `feature_bytes`.
     ///
     /// # Errors
@@ -1810,6 +1815,11 @@ impl<'a> SealRegion<'a> {
     /// invalid record, or an empty region with nothing after it.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(feature_bytes: &'a [u8]) -> CodecResult<Self> {
+        Self::read(feature_bytes, true)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read(feature_bytes: &'a [u8], validate: bool) -> CodecResult<Self> {
         if feature_bytes.is_empty() {
             return Ok(Self {
                 epoch: 0,
@@ -1826,23 +1836,29 @@ impl<'a> SealRegion<'a> {
         }
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
-        let lap_len = crate::laps::region_length(rest)?;
+        let lap_len = if validate {
+            crate::laps::region_length(rest)?
+        } else {
+            crate::laps::committed_region_length(rest)?
+        };
         let (laps, rest) = rest.guest_split_at(lap_len);
         if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
-        let mut previous = None;
-        for record in records
-            .as_chunks::<{ SEAL_RECORD_BYTES }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice())
-        {
-            let evaluator = EvidenceSeal::decode(record)?.evaluator;
-            if previous.is_some_and(|p| p >= evaluator) {
-                return Err(NON_CANONICAL);
+        if validate {
+            let mut previous = None;
+            for record in records
+                .as_chunks::<{ SEAL_RECORD_BYTES }>()
+                .0
+                .iter()
+                .map(|chunk| chunk.as_slice())
+            {
+                let evaluator = EvidenceSeal::decode(record)?.evaluator;
+                if previous.is_some_and(|p| p >= evaluator) {
+                    return Err(NON_CANONICAL);
+                }
+                previous = Some(evaluator);
             }
-            previous = Some(evaluator);
         }
         Ok(Self {
             epoch,

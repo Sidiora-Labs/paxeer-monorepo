@@ -2,9 +2,11 @@
 //! Caller-provided output buffers are transport scratch, never authoritative state.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES, MAX_RESULT_BYTES,
+    MAX_RESULT_PAYLOAD_BYTES, MAX_STATE_BYTES, MAX_WORKERS, SCHEMA_VERSION,
     dispatch::{CallBoundary, Operation, SequencePolicy},
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EXPIRED,
+        ARITHMETIC, ApplicationError, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, EXPIRED,
         F03_NO_SCORES, NON_CANONICAL, UNAUTHORIZED, UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_DOMAIN,
         WRONG_EPOCH, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
@@ -15,8 +17,6 @@ use crate::{
         ReportDigest, RequestDigest, RequestId, ResultDigest, RosterDigest, RubricDigest, Salt32,
         Score, ScoreEntry, Signature64, StateDigest, TaskId, Version, WorkerId, WorkerRosterEntry,
     },
-    MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES, MAX_RESULT_BYTES,
-    MAX_RESULT_PAYLOAD_BYTES, MAX_STATE_BYTES, MAX_WORKERS, SCHEMA_VERSION,
 };
 #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
 use sha2::{Digest, Sha256};
@@ -28,7 +28,7 @@ pub fn encode_manifest_v2(
     manifest: &crate::workers::ManifestV2<'_>,
     out: &mut [u8],
 ) -> CodecResult<usize> {
-    use crate::workers::{decode_manifest, CapabilityFields, MAX_MANIFEST_BYTES};
+    use crate::workers::{CapabilityFields, MAX_MANIFEST_BYTES, decode_manifest};
 
     if decode_manifest(manifest.manifest_v1)?.version != 1 {
         return Err(BAD_VERSION);
@@ -1110,7 +1110,7 @@ fn sha256_parts<'p>(parts: &mut dyn Iterator<Item = &'p [u8]>) -> CodecResult<[u
                 .guest_copy_from_slice(part);
             length = end;
         }
-        use layerx_program_sdk::crypto::{hash, HashAlgorithm, HashInput};
+        use layerx_program_sdk::crypto::{HashAlgorithm, HashInput, hash};
         return HashInput::new(preimage.guest_index(..length))
             .and_then(|input| hash(HashAlgorithm::Sha256, input))
             .map_err(|_| crate::errors::HOST_CAPABILITY);
