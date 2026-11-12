@@ -13570,6 +13570,12 @@ value = "The rules of the wallet attestor policy gain the field program_calls, a
 basis = "Gotcha 4325. Decision 3046."
 affects = []
 
+[decision.3410]
+title = "The unsafe rule of the programs workspace names the files of the native boundary"
+value = "The unsafe rule of scripts/programs/dependency-policy.sh keeps one list of excepted files. The list names single files, never a directory or a pattern over a member, and every entry carries one line that states why the file needs the keyword: a foreign function declaration or export, a guest cell of the single threaded guest, or a counting allocator or a foreign function link of a test. The list holds the files of the present native boundary. Every other Rust file under programs/crates stays under the rule, and the rule keeps refusing with the present message. No code moves between files for this."
+basis = "Gotcha 4326. Decisions 3401 and 3407."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -290678,6 +290684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4318, decision 3401. Repair the findings clippy reports in the lines the project added to programs/vendor/wasmi-0.31.2, such as the two closures in src/engine/executor.rs that only observe an error and the missing errors section of execute_step in src/engine/mod.rs. Use the form clippy proposes, change no behaviour, add no allow attribute and note each repair in PATCHES.md of that directory. Run the cases of the interpreter member by hand and confirm the vectors and fixtures are unchanged before the counted runs. Change no other file under programs/vendor."
 do_5 = "do_5 Decision 3407, gotcha 4323. Change the Ed25519 dependency declaration of services/interop/crates/layerx-committed-proof/Cargo.toml so that it takes no default features and keeps alloc, fast and zeroize, with the matching line of services/interop/Cargo.toml where the declaration is inherited from there. The dependency policy of the programs workspace then passes. The members of services/interop compile and the tests of the proof crate pass with the change. Note the change in programs/repair_22_39_454.kvx."
+do_6 = "do_6 Decision 3410, gotcha 4326. Give the unsafe rule of scripts/programs/dependency-policy.sh one list of excepted files with a reason line for every entry, the same list for both search tools of the script. The list names the files of the present native boundary one by one: the foreign function files and the native contract file of the runtime member, the guest cell file of the market program, the host boundary files and the library file of the isolation member, and the test files that declare a foreign function or a counting allocator. Read every finding the rule prints before adding its file and add no file whose use is not one of the three kinds of decision 3410. Change no Rust file for this rule. Add a case to the self-test of the script, or one next to it under scripts/programs, that asserts a file outside the list is still refused. Note the list in programs/repair_22_39_454.kvx."
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"

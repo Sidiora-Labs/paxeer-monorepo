@@ -21450,3 +21450,8 @@ fix = "The source reads the circulating supply from the coin reply when it build
 title = "The construct inspection of the wallet attestor signs only the calls whose owner debit it reads from the call"
 symptom = "The inspection of services/wallet/attestor/internal/policy/construct.go passes constant methods, a list of methods without an owner debit and a list of methods whose source, asset and amount it reads from the arguments. Every other method of a native precompile is answered selector_not_allowed, also where the selectors rule of the policy lists it. The program call of layerxprograms and the stream metering method of layerxpay belong to neither list."
 fix = "A program call is signed where the rules of the account name the program and the entry point, and the stream metering method is inspected with the methods of its kind."
+
+[gotcha.4326]
+title = "The unsafe rule of the programs dependency policy excepts files by name"
+symptom = "The rule of scripts/programs/dependency-policy.sh reads every Rust file under programs/crates and excepts the foreign function files of the runtime member and one host boundary file of the isolation member by their file names. The native contract file of the runtime member, the guest cell file of the market program, the host boundary directory of the isolation member and the test files that declare a foreign function or a counting allocator carry other names."
+fix = "The rule names every file of the native boundary, one line each with its reason."
