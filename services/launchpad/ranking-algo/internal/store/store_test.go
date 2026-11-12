@@ -13,6 +13,28 @@ import (
 
 func now() int64 { return time.Now().Unix() }
 
+func TestRankingCandidateReadsHonorCancellation(t *testing.T) {
+	pool := internaltest.NewPostgres(t)
+	st := store.New(pool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, query := range []struct {
+		name string
+		read func() error
+	}{
+		{"trending", func() error { _, err := st.TrendingCandidates(ctx, now()-86400); return err }},
+		{"breakout", func() error { _, err := st.BreakoutCandidates(ctx, now()-3600); return err }},
+		{"movers", func() error { _, err := st.MoversCandidates(ctx, now()-86400); return err }},
+		{"unusual", func() error { _, err := st.UnusualCandidates(ctx, now()-86400); return err }},
+		{"volume", func() error { _, err := st.TopVolume(ctx, now()-86400, 100); return err }},
+		{"new", func() error { _, err := st.NewPools(ctx, 100); return err }},
+	} {
+		if err := query.read(); err == nil {
+			t.Fatalf("%s read ignored cancellation", query.name)
+		}
+	}
+}
+
 type statRow struct {
 	addr      string
 	vol24h    string
