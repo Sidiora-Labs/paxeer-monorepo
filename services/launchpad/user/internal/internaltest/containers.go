@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -240,13 +241,21 @@ func NewClamd(t *testing.T) (string, int) {
 	if addr == "" {
 		return "", 0
 	}
-	host, port, err := net.SplitHostPort(addr)
+	host, port, err := parseClamdAddress(addr)
 	if err != nil {
 		t.Fatalf("USER_TEST_CLAMAV_ADDR: %v", err)
 	}
+	return host, port
+}
+
+func parseClamdAddress(addr string) (string, int, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", 0, err
+	}
 	n, err := strconv.Atoi(port)
 	if err != nil || n < 1 || n > 65535 {
-		t.Fatalf("USER_TEST_CLAMAV_ADDR: invalid port %q", port)
+		return "", 0, fmt.Errorf("invalid port %q", port)
 	}
-	return host, n
+	return host, n, nil
 }
