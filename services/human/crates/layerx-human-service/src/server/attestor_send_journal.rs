@@ -41,6 +41,8 @@ pub struct AttestorSendJournal {
 }
 
 impl AttestorSendJournal {
+    /// # Errors
+    /// Returns an error if the requested data cannot be read or validated.
     pub fn open(root: impl AsRef<Path>, key: [u8; 32]) -> Result<Self, KmsError> {
         if key == [0; 32] || !root.as_ref().is_absolute() {
             return Err(KmsError::InvalidConfiguration);
@@ -61,7 +63,9 @@ impl AttestorSendJournal {
             .create(true)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .custom_flags(i32::from_ne_bytes(
+                rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+            ))
             .open(root.join("attestor-sends.lock"))
             .map_err(|_| KmsError::Unavailable)?;
         rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)
@@ -70,7 +74,9 @@ impl AttestorSendJournal {
         let state = if path.exists() {
             let file = OpenOptions::new()
                 .read(true)
-                .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+                .custom_flags(i32::from_ne_bytes(
+                    rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+                ))
                 .open(path)
                 .map_err(|_| KmsError::Integrity)?;
             let metadata = file.metadata().map_err(|_| KmsError::Integrity)?;
@@ -122,6 +128,8 @@ impl AttestorSendJournal {
     }
 
     /// Looks up a completed exact request without reserving unauthenticated work.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn replay(&self, payload: &[u8], now: u64) -> Result<Option<Vec<u8>>, KmsError> {
         let request: AttestorSendAuthorization =
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
@@ -139,6 +147,8 @@ impl AttestorSendJournal {
     }
 
     /// Returns an exact signed replay or durably reserves the request before signing.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn reserve(&mut self, payload: &[u8], now: u64) -> Result<Option<Vec<u8>>, KmsError> {
         let request: AttestorSendAuthorization =
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
@@ -191,6 +201,8 @@ impl AttestorSendJournal {
     }
 
     /// Completes only an existing exact reservation with the matching signed transaction.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn complete(&mut self, payload: &[u8], raw: Vec<u8>) -> Result<Vec<u8>, KmsError> {
         let request: AttestorSendAuthorization =
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
@@ -228,6 +240,7 @@ impl AttestorSendJournal {
         Ok(raw)
     }
 
+    #[must_use]
     pub fn retained_requests(&self) -> usize {
         self.state.sends.len()
     }
@@ -266,23 +279,13 @@ impl AttestorSendJournal {
 }
 
 fn action_key(request: &AttestorSendAuthorization) -> String {
-    request
-        .authorization
-        .action_key
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    crate::hex::lower(&request.authorization.action_key)
 }
 fn wallet_key(request: &AttestorSendAuthorization) -> String {
     format!(
         "{}:{}",
         request.authorization.transaction.chain_id,
-        request
-            .authorization
-            .wallet
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
+        crate::hex::lower(&request.authorization.wallet)
     )
 }
 fn reconcile(state: &mut State, now: u64) -> Result<(), KmsError> {

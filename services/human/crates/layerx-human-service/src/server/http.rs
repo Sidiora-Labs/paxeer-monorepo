@@ -32,6 +32,16 @@ const PREFLIGHT_MAX_AGE: &str = "600";
 const EXPOSED_HEADERS: &str = "X-LayerX-Trace";
 const STREAM_EXPOSED_HEADERS: &str = "X-LayerX-Trace, X-LayerX-Stream-Profile";
 
+struct StreamDispatch<'a> {
+    request: &'a HttpRequest,
+    trace: &'a TraceId,
+    stream: &'a mut dyn Write,
+    streamed: &'a mut Option<std::io::Result<()>>,
+    cancelled: &'a dyn Fn() -> bool,
+    watch: Option<&'a super::StreamCancellation>,
+    scoped: ScopedRequest<'a>,
+}
+
 /// Finite HTTP parsing and browser-origin policy; `allowed_origin` lists one or
 /// more comma-separated HTTPS origins.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -235,87 +245,27 @@ impl<B: HumanApiComponents> Router<B> {
         {
             return error_response(&trace, &ApiFailure::forbidden());
         }
-        let idempotency_key = match idempotency_key(operation, request.header("idempotency-key")) {
-            Ok(key) => key,
-            Err(failure) => return error_response(&trace, &failure),
-        };
-        let body = match request.json_body(operation.request != "Empty") {
-            Ok(body) => body,
-            Err(failure) => return error_response(&trace, &failure),
-        };
-        let body = match self.schema.decode_request(operation, body) {
-            Ok(body) => body,
-            Err(error) => {
-                let field = error
-                    .detail()
-                    .split_whitespace()
-                    .next()
-                    .filter(|value| value.starts_with("request."));
-                return error_response(&trace, &ApiFailure::invalid_request(field));
-            }
-        };
-        let disclosure_digest = match json_digest(&body) {
-            Ok(digest) => digest,
-            Err(failure) => return error_response(&trace, &failure),
-        };
-        let request_digest = match authorized_request_digest(
+        let (body, idempotency_key, principal) = match self.decode_and_authorize(
+            &mut request,
             operation,
-            &request.path,
             &matched.path_parameters,
-            &body,
-            idempotency_key.as_deref(),
-            trace.as_str(),
-        ) {
-            Ok(digest) => digest,
-            Err(failure) => return error_response(&trace, &failure),
-        };
-        let principal = match self.authorize_request(HttpAuthorization {
-            request: &request,
-            operation,
-            path_parameters: &matched.path_parameters,
-            body: &body,
-            idempotency_key: idempotency_key.as_deref(),
-            request_digest,
-            disclosure_digest,
-            trace: &trace,
+            &trace,
             public_rate_key,
-        }) {
-            Ok(principal) => principal,
+        ) {
+            Ok(value) => value,
             Err(failure) => return error_response(&trace, &failure),
         };
         let wants_stream = request.header("x-layerx-stream-profile") == Some("2")
             && request.header("accept") == Some("text/event-stream");
         if wants_stream && operation.name == "stream.next" {
-            let context = match principal.as_ref() {
-                Some(context) => context,
-                None => return error_response(&trace, &ApiFailure::unauthenticated()),
-            };
-            let now = match self.clock.sample(Duration::from_secs(1)) {
-                Ok(now) => Duration::from_millis(now.unix_milliseconds),
-                Err(_) => return error_response(&trace, &ApiFailure::unavailable()),
-            };
-            let remaining = match Duration::from_secs(context.expires_at())
-                .checked_sub(now)
-                .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
-            {
-                Some(remaining) => remaining,
-                None => return error_response(&trace, &ApiFailure::session_expired()),
-            };
-            if let Some(watch) = watch {
-                let deadline = match Deadline::start(self.clock.as_ref(), remaining) {
-                    Ok(deadline) => deadline,
-                    Err(_) => return error_response(&trace, &ApiFailure::unavailable()),
-                };
-                if watch.set_deadline(deadline).is_err() {
-                    return error_response(&trace, &ApiFailure::unavailable());
-                }
-            }
-            *streamed = Some(self.serve_stream(
+            return self.stream_response(StreamDispatch {
+                request: &request,
+                trace: &trace,
                 stream,
-                operation,
-                &trace,
-                &request,
-                ScopedRequest {
+                streamed,
+                cancelled,
+                watch,
+                scoped: ScopedRequest {
                     operation,
                     principal,
                     path_parameters: matched.path_parameters,
@@ -323,9 +273,7 @@ impl<B: HumanApiComponents> Router<B> {
                     idempotency_key,
                     trace: trace.as_str().to_owned(),
                 },
-                cancelled,
-            ));
-            return success_response(200, &trace, Value::Null, Vec::new());
+            });
         }
         let introspection_principal = introspection
             .then(|| {
@@ -355,6 +303,93 @@ impl<B: HumanApiComponents> Router<B> {
             clear_session,
             response,
         )
+    }
+
+    fn decode_and_authorize(
+        &self,
+        request: &mut HttpRequest,
+        operation: &Operation,
+        path_parameters: &BTreeMap<String, String>,
+        trace: &TraceId,
+        public_rate_key: &str,
+    ) -> Result<(Value, Option<String>, Option<PrincipalContext>), ApiFailure> {
+        let idempotency_key = idempotency_key(operation, request.header("idempotency-key"))?;
+        let body = self.decode_request_body(request, operation)?;
+        let disclosure_digest = json_digest(&body)?;
+        let request_digest = authorized_request_digest(
+            operation,
+            &request.path,
+            path_parameters,
+            &body,
+            idempotency_key.as_deref(),
+            trace.as_str(),
+        )?;
+        let principal = self.authorize_request(HttpAuthorization {
+            request,
+            operation,
+            path_parameters,
+            body: &body,
+            idempotency_key: idempotency_key.as_deref(),
+            request_digest,
+            disclosure_digest,
+            trace,
+            public_rate_key,
+        })?;
+        Ok((body, idempotency_key, principal))
+    }
+
+    fn decode_request_body(
+        &self,
+        request: &mut HttpRequest,
+        operation: &Operation,
+    ) -> Result<Value, ApiFailure> {
+        let body = request.json_body(operation.request != "Empty")?;
+        self.schema
+            .decode_request(operation, body)
+            .map_err(|error| {
+                let field = error
+                    .detail()
+                    .split_whitespace()
+                    .next()
+                    .filter(|value| value.starts_with("request."));
+                ApiFailure::invalid_request(field)
+            })
+    }
+
+    fn stream_response(&self, dispatch: StreamDispatch<'_>) -> HttpResponse {
+        let StreamDispatch {
+            request,
+            trace,
+            stream,
+            streamed,
+            cancelled,
+            watch,
+            scoped,
+        } = dispatch;
+        let Some(context) = scoped.principal.as_ref() else {
+            return error_response(trace, &ApiFailure::unauthenticated());
+        };
+        let Ok(now) = self.clock.sample(Duration::from_secs(1)) else {
+            return error_response(trace, &ApiFailure::unavailable());
+        };
+        let now = Duration::from_millis(now.unix_milliseconds);
+        let Some(remaining) = Duration::from_secs(context.expires_at())
+            .checked_sub(now)
+            .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
+        else {
+            return error_response(trace, &ApiFailure::session_expired());
+        };
+        if let Some(watch) = watch {
+            let Ok(deadline) = Deadline::start(self.clock.as_ref(), remaining) else {
+                return error_response(trace, &ApiFailure::unavailable());
+            };
+            if watch.set_deadline(deadline).is_err() {
+                return error_response(trace, &ApiFailure::unavailable());
+            }
+        }
+        let operation = scoped.operation;
+        *streamed = Some(self.serve_stream(stream, operation, trace, request, scoped, cancelled));
+        success_response(200, trace, Value::Null, Vec::new())
     }
 
     fn serve_stream(

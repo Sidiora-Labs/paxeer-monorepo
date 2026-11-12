@@ -66,35 +66,8 @@ pub fn fixture(owner: [u8; 32], asset: [u8; 32]) -> CodecResult<Fixture> {
     }
     .encode(&mut fund_payload)?;
     fund_payload.truncate(n);
-    let envelope = |operation, sequence, payload: &[u8]| -> CodecResult<Vec<u8>> {
-        let mut encoded = vec![0; MAX_ENVELOPE_BYTES];
-        let n = codec::encode_envelope(
-            &Envelope {
-                operation,
-                chain: ctx.chain,
-                program: ctx.program,
-                market: codec::derive_market(ctx.chain, ctx.program)?,
-                actor: ctx.principal,
-                epoch: 0,
-                config: 1,
-                roster: Presence::Absent,
-                sequence,
-                expiry: HEIGHT + 1000,
-                request: RequestId::new(
-                    [u8::try_from(sequence)
-                        .map_err(|_| layerx_programs_ai_market::errors::ARITHMETIC)?;
-                        32],
-                )?,
-                payload,
-                authentication: Authentication::Native,
-            },
-            &mut encoded,
-        )?;
-        encoded.truncate(n);
-        Ok(encoded)
-    };
-    let create = envelope(dispatch::CREATE, 1, &create_payload)?;
-    let fund = envelope(dispatch::FUND, 2, &fund_payload)?;
+    let create = funding_envelope(&ctx, dispatch::CREATE, 1, &create_payload)?;
+    let fund = funding_envelope(&ctx, dispatch::FUND, 2, &fund_payload)?;
     let mut current = vec![0; MAX_STATE_BYTES];
     let mut next = vec![0; MAX_STATE_BYTES];
     let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
@@ -146,4 +119,36 @@ pub fn fixture(owner: [u8; 32], asset: [u8; 32]) -> CodecResult<Fixture> {
         result,
         rewards: rewards.bytes(),
     })
+}
+fn funding_envelope(
+    ctx: &CallContext,
+    operation: dispatch::Operation,
+    sequence: u64,
+    payload: &[u8],
+) -> CodecResult<Vec<u8>> {
+    let mut encoded = vec![0; MAX_ENVELOPE_BYTES];
+    let n = codec::encode_envelope(
+        &Envelope {
+            operation,
+            chain: ctx.chain,
+            program: ctx.program,
+            market: codec::derive_market(ctx.chain, ctx.program)?,
+            actor: ctx.principal,
+            epoch: 0,
+            config: 1,
+            roster: Presence::Absent,
+            sequence,
+            expiry: HEIGHT + 1000,
+            request: RequestId::new(
+                [u8::try_from(sequence)
+                    .map_err(|_| layerx_programs_ai_market::errors::ARITHMETIC)?;
+                    32],
+            )?,
+            payload,
+            authentication: Authentication::Native,
+        },
+        &mut encoded,
+    )?;
+    encoded.truncate(n);
+    Ok(encoded)
 }

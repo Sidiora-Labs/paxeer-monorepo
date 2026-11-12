@@ -1,11 +1,16 @@
 import type { LineChartSection, LineChartInfo } from '@blockscout/stats-types';
 import { Resolution } from '@blockscout/stats-types';
-import type { ChartMarketItem, ChartTransactionItem } from 'types/api/charts';
 
-export interface ExplorerChart extends LineChartInfo {
-  resource: 'general:stats_charts_txs' | 'general:stats_charts_market' | 'general:stats_charts_secondary_coin_price';
-  field: 'transactions_count' | 'closing_price' | 'market_cap';
-}
+import type { GeneralApiChartResourceName, GeneralApiMiscResourcePayload } from 'lib/api/services/general/misc';
+
+export type ExplorerChart = LineChartInfo & {
+  [R in GeneralApiChartResourceName]: {
+    resource: R;
+    field: Exclude<keyof GeneralApiMiscResourcePayload<R>['chart_data'][number], 'date' | 'tvl'>;
+  }
+}[GeneralApiChartResourceName];
+
+export type ExplorerChartItem = GeneralApiMiscResourcePayload<ExplorerChart['resource']>['chart_data'][number];
 
 export const EXPLORER_CHARTS: Array<ExplorerChart> = [
   {
@@ -22,11 +27,11 @@ export const EXPLORER_CHARTS: Array<ExplorerChart> = [
   },
   {
     id: 'secondaryCoinPrice', title: 'SID price', description: 'Daily SID closing price', units: 'USD',
-    resource: 'general:stats_charts_secondary_coin_price', field: 'closing_price', resolutions: [ Resolution.DAY ],
+    resource: 'general:stats_charts_secondary_coin_market', field: 'closing_price', resolutions: [ Resolution.DAY ],
   },
   {
     id: 'secondaryCoinMarketCap', title: 'SID market value', description: 'Daily SID market capitalization', units: 'USD',
-    resource: 'general:stats_charts_secondary_coin_price', field: 'market_cap', resolutions: [ Resolution.DAY ],
+    resource: 'general:stats_charts_secondary_coin_market', field: 'market_cap', resolutions: [ Resolution.DAY ],
   },
 ];
 
@@ -43,7 +48,7 @@ export function explorerNumber(value: string | number | null | undefined): numbe
   return Number.isFinite(number) ? number : undefined;
 }
 
-export function explorerChartValue(item: ChartMarketItem | ChartTransactionItem, field: ExplorerChart['field']): number | undefined {
+export function explorerChartValue(item: ExplorerChartItem, field: ExplorerChart['field']): number | undefined {
   if (field === 'transactions_count') {
     return explorerNumber('transactions_count' in item ? item.transactions_count : undefined);
   }

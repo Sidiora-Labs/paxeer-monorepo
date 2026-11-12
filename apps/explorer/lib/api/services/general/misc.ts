@@ -279,6 +279,8 @@ export const GENERAL_API_MISC_RESOURCES = {
 
 export type GeneralApiMiscResourceName = `general:${ keyof typeof GENERAL_API_MISC_RESOURCES }`;
 
+export type GeneralApiChartResourceName = Extract<GeneralApiMiscResourceName, `general:stats_charts_${ string }`>;
+
 /* eslint-disable @stylistic/indent */
 export type GeneralApiMiscResourcePayload<R extends GeneralApiMiscResourceName> =
 R extends 'general:stats' ? ExplorerStats :

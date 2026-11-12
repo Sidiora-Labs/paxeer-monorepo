@@ -21400,3 +21400,58 @@ fix = "The paths of task 22.39.430 name the lock file of the workspace."
 title = "Two lints of the ai-market member can only be met by changing a public signature"
 symptom = "In programs/crates/layerx-programs-ai-market the function apply_record_deal of src/rooms.rs takes eight arguments and the type Outcome of src/canary.rs holds a large variant, and task 22.39.445 keeps every public name and signature of the member."
 fix = "Such an item carries an allow attribute with a reason."
+
+[gotcha.4316]
+title = "A test dependency of the ai-market member changes the lock file of the programs workspace"
+symptom = "The member programs/crates/layerx-programs-ai-market that gains a local test dependency changes programs/Cargo.lock, and the paths of task 22.39.445 name only the directory of the member."
+fix = "The paths of task 22.39.445 name the lock file of the workspace."
+
+[gotcha.4317]
+title = "The boundary check of the human workspace reads test files as well as source files"
+symptom = "The boundary check reads every Rust file under services/human/crates, test files included, and reports a file that reads the clock or the random source directly. The recipe human-lint runs the check, and the paths of task 22.39.441 name only the tools of the workspace and apps/web."
+fix = "A reported file is repaired in its member: a wait is bounded by a count of steps or by the clock the member injects, and a random value comes from the source the member injects."
+
+[gotcha.4318]
+title = "The lint recipe of the programs workspace also lints the vendored interpreter"
+symptom = "The recipe programs-lint runs clippy over the workspace with warnings denied, and clippy also lints a dependency taken by path, so the lines the project added to programs/vendor/wasmi-0.31.2 are linted like a member. Task 22.39.454 leaves every file under programs/vendor unchanged."
+fix = "A finding in a line the project added to the vendored interpreter is repaired in that line and noted in the patch record of the directory."
+
+[gotcha.4319]
+title = "Two source files of the human workspace read the monotonic clock for a transport deadline"
+symptom = "services/human/crates/layerx-human-kms/src/server.rs bounds a transport exchange by a deadline of its own and services/human/crates/layerx-network-gateway/src/lib.rs takes a deadline of the monotonic clock in a public function. The boundary check reports both files, and a repair would change the transport behaviour or a public signature."
+fix = "The boundary check names the two files with a reason and accepts the monotonic clock read in them."
+
+[gotcha.4320]
+title = "The dependency policy of apps/web records the wallet package under its earlier licence field"
+symptom = "Decision 2775 set the licence field of sdk/wallet/package.json to Apache-2.0. The policy check of apps/web still expects the earlier field for the local package @paxeer/wallet, so the lint script of apps/web stops at the policy step."
+fix = "The policy and its record state Apache-2.0 for the package and keep the checks of its name, path and version."
+
+[gotcha.4321]
+title = "The SID chart route of the explorer API is registered under one resource name in the explorer frontend"
+symptom = "The general services list of apps/explorer/lib/api/services/general/misc.ts registers the route api/v2/stats/charts/secondary-coin-market under the key stats_charts_secondary_coin_market, and a chart definition that names another key does not type check."
+fix = "Chart definitions name the registered key, and the type check of a frontend task covers the whole project."
+
+[gotcha.4322]
+title = "The Chainflow price feed carries the price of SID and no supply or market value for it"
+symptom = "For the coin id sidiora the reply of api/v3/coins/ carries current_price.usd, while market_cap.usd, circulating_supply and total_supply are null."
+fix = "The explorer backend derives the circulating supply of SID itself and multiplies it with the price."
+
+[gotcha.4323]
+title = "The dependency policy of the programs workspace reads the features of a path dependency outside the workspace"
+symptom = "The programs workspace takes the proof crate services/interop/crates/layerx-committed-proof as a path dependency, and the default features of its Ed25519 dependency bring the standard library features of the signature crates into the metadata of the programs workspace."
+fix = "The Ed25519 declaration of the proof crate names the features it needs without the defaults."
+
+[gotcha.4324]
+title = "The price history of the Chainflow feed carries prices and no supply"
+symptom = "The history route of the feed answers times and candle prices. The market value of a PAX history point is the closing price times a circulating supply that the source has to bring itself, and the coin reply of api/v3/coins/ followed by the coin id carries that supply."
+fix = "The source reads the circulating supply from the coin reply when it builds the PAX history."
+
+[gotcha.4325]
+title = "The construct inspection of the wallet attestor signs only the calls whose owner debit it reads from the call"
+symptom = "The inspection of services/wallet/attestor/internal/policy/construct.go passes constant methods, a list of methods without an owner debit and a list of methods whose source, asset and amount it reads from the arguments. Every other method of a native precompile is answered selector_not_allowed, also where the selectors rule of the policy lists it. The program call of layerxprograms and the stream metering method of layerxpay belong to neither list."
+fix = "A program call is signed where the rules of the account name the program and the entry point, and the stream metering method is inspected with the methods of its kind."
+
+[gotcha.4326]
+title = "The unsafe rule of the programs dependency policy excepts files by name"
+symptom = "The rule of scripts/programs/dependency-policy.sh reads every Rust file under programs/crates and excepts the foreign function files of the runtime member and one host boundary file of the isolation member by their file names. The native contract file of the runtime member, the guest cell file of the market program, the host boundary directory of the isolation member and the test files that declare a foreign function or a counting allocator carry other names."
+fix = "The rule names every file of the native boundary, one line each with its reason."

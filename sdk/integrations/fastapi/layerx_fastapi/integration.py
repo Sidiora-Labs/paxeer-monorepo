@@ -199,7 +199,7 @@ def assert_receipt_backed(
         or decision.settlement.payer != decision.verification.receipt.from_account.hex()
         or decision.settlement.transaction != "0x" + decision.verification.receipt.activity_id.hex()
         or not constant_time_equal(signed_receipt, decision.verification.canonical_bytes)
-        or not constant_time_equal(receipt_digest, keccak256(decision.verification.canonical_bytes))
+        or not constant_time_equal(receipt_digest, decision.verification.receipt_digest)
         or not constant_time_equal(
             keccak256(parse_receipt_hex(evidence.raw_transaction)),
             decision.verification.receipt.activity_id,

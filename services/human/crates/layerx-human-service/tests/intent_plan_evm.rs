@@ -1,3 +1,7 @@
+#[path = "support/production_fixture_journey.rs"]
+mod fixture_journey;
+#[path = "support/production_fixture_plan.rs"]
+mod fixture_plan;
 #[path = "support/production_fixture.rs"]
 mod production_fixture;
 
@@ -30,9 +34,9 @@ fn intent_plan_answers_eip1559_legs() -> Result<()> {
     assert_eq!(<[u8; 32]>::from(Sha256::digest(b"alxp")), ASSET);
     let _guard = ENVIRONMENT
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let fixture = Fixture::open()?;
-    let plan = fixture.plan()?;
+    let plan = fixture_plan::plan(&fixture)?;
     let legs = plan["legs"].as_array().ok_or("legs")?;
     assert!(!legs.is_empty());
     let first = legs[0]["nonce"].as_u64().ok_or("pending nonce")?;
@@ -51,27 +55,75 @@ fn intent_plan_answers_eip1559_legs() -> Result<()> {
         assert!(priority <= maximum);
         assert!(leg.get("tx_hash").is_none());
     }
-    assert_eq!(plan, fixture.plan()?);
+    assert_eq!(plan, fixture_plan::plan(&fixture)?);
     Ok(())
 }
 
-#[test]
-fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
-    let _guard = ENVIRONMENT
+fn assert_recovered_journey(
+    fixture: &mut Fixture,
+    path: &str,
+    journey: &serde_json::Value,
+    submitted: &serde_json::Value,
+    body: &serde_json::Value,
+    legs_len: usize,
+) -> Result<()> {
+    let page = fixture.request("GET", "/v1/journeys", &json!({}), "intent-list-evm")?;
+    let listed = page["journeys"]
+        .as_array()
+        .ok_or("journey page")?
+        .iter()
+        .find(|entry| entry["journey_id"] == journey["journey_id"])
+        .ok_or("listed intent journey")?;
+    assert_eq!(listed, journey);
+    assert!(!serde_json::to_string(&page)?.contains("raw_transaction"));
+    let submitted_before_restart = fixture
+        .peer_state
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let mut fixture = Fixture::open()?;
-    let plan = fixture.plan()?;
-    let body = fixture.submission(&plan)?;
-    let submitted = fixture.request("POST", "/v1/intents/submit", &body, "intent-submit-evm")?;
-    assert_eq!(submitted["plan_digest"], plan["plan_digest"]);
-    let path = format!(
-        "/v1/journeys/{}",
-        submitted["journey_id"].as_str().ok_or("journey id")?
+        .map_err(|_| "peer state")?
+        .submitted
+        .clone();
+    assert_eq!(submitted_before_restart.len(), legs_len);
+    fixture.reopen()?;
+    let recovered = fixture.request("GET", path, &json!({}), "intent-recovered-evm")?;
+    let recovered_record = fixture_journey::journey_record(
+        fixture,
+        submitted["journey_id"].as_str().ok_or("journey id")?,
+    )?;
+    let before =
+        time::seconds_from_rfc3339(journey["updated_at"].as_str().ok_or("updated timestamp")?)
+            .ok_or("updated timestamp format")?;
+    let after = time::seconds_from_rfc3339(
+        recovered["updated_at"]
+            .as_str()
+            .ok_or("recovered timestamp")?,
+    )
+    .ok_or("recovered timestamp format")?;
+    assert!(after >= before);
+    assert_eq!(recovered["updated_at"], recovered_record["updated_at"]);
+    let mut expected_recovered = journey.clone();
+    expected_recovered["updated_at"] = recovered_record["updated_at"].clone();
+    assert_eq!(expected_recovered, recovered);
+    assert_eq!(
+        submitted,
+        &fixture.request("POST", "/v1/intents/submit", body, "intent-submit-evm")?
     );
-    let journey = fixture.request("GET", &path, &json!({}), "intent-get-evm")?;
-    let record = fixture.journey_record(submitted["journey_id"].as_str().ok_or("journey id")?)?;
-    let legs = journey["stages"].as_array().ok_or("journey stages")?;
+    assert_eq!(
+        fixture
+            .peer_state
+            .lock()
+            .map_err(|_| "peer state")?
+            .submitted,
+        submitted_before_restart
+    );
+    Ok(())
+}
+
+fn assert_journey_summary(
+    journey: &serde_json::Value,
+    record: &serde_json::Value,
+    plan: &serde_json::Value,
+    legs: &[serde_json::Value],
+) -> Result<()> {
     assert_eq!(journey["kind"], "move");
     assert_eq!(
         journey["state_copy_key"],
@@ -89,12 +141,49 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
         plan["legs"].as_array().ok_or("plan legs")?.len()
     );
     assert!(!legs.is_empty());
+    Ok(())
+}
+
+fn assert_node_receipt(fixture: &Fixture, hash: [u8; 32]) -> Result<()> {
     let node =
         layerx_agentd::node_rpc::NodeRpc::connect(&layerx_agentd::node_rpc::NodeRpcConfig {
             url: fixture.rpc_server.as_ref().ok_or("RPC peer")?.url.clone(),
             chain_id: 125,
             deadline: Duration::from_secs(5),
         })?;
+    let receipt = node
+        .sequencer_receipt(&hash)?
+        .ok_or("submitted transaction receipt")?;
+    let observed = match receipt {
+        layerx_client::sequencer::SequencerReceipt::Submitted { tx_hash, .. } => tx_hash,
+        layerx_client::sequencer::SequencerReceipt::Receipted(receipt)
+        | layerx_client::sequencer::SequencerReceipt::Committed { receipt, .. } => receipt.tx_hash,
+    };
+    assert_eq!(observed, hash);
+    Ok(())
+}
+
+#[test]
+fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
+    let _guard = ENVIRONMENT
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut fixture = Fixture::open()?;
+    let plan = fixture_plan::plan(&fixture)?;
+    let body = fixture_plan::submission(&fixture, &plan)?;
+    let submitted = fixture.request("POST", "/v1/intents/submit", &body, "intent-submit-evm")?;
+    assert_eq!(submitted["plan_digest"], plan["plan_digest"]);
+    let path = format!(
+        "/v1/journeys/{}",
+        submitted["journey_id"].as_str().ok_or("journey id")?
+    );
+    let journey = fixture.request("GET", &path, &json!({}), "intent-get-evm")?;
+    let record = fixture_journey::journey_record(
+        &mut fixture,
+        submitted["journey_id"].as_str().ok_or("journey id")?,
+    )?;
+    let legs = journey["stages"].as_array().ok_or("journey stages")?;
+    assert_journey_summary(&journey, &record, &plan, legs)?;
     let mut transaction_hashes = std::collections::BTreeSet::new();
     for (index, leg) in legs.iter().enumerate() {
         let hash = leg["tx_hash"].as_str().ok_or("transaction hash")?;
@@ -158,63 +247,12 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
         assert_eq!(peer.submitted.get(&hash), Some(&raw));
         drop(peer);
         assert_eq!(record["legs"][index]["submitted"], true);
-        let receipt = node
-            .sequencer_receipt(&hash)?
-            .ok_or("submitted transaction receipt")?;
-        let observed = match receipt {
-            layerx_client::sequencer::SequencerReceipt::Submitted { tx_hash, .. } => tx_hash,
-            layerx_client::sequencer::SequencerReceipt::Receipted(receipt)
-            | layerx_client::sequencer::SequencerReceipt::Committed { receipt, .. } => {
-                receipt.tx_hash
-            }
-        };
-        assert_eq!(observed, hash);
+        assert_node_receipt(&fixture, hash)?;
     }
-    let page = fixture.request("GET", "/v1/journeys", &json!({}), "intent-list-evm")?;
-    let listed = page["journeys"]
-        .as_array()
-        .ok_or("journey page")?
-        .iter()
-        .find(|entry| entry["journey_id"] == journey["journey_id"])
-        .ok_or("listed intent journey")?;
-    assert_eq!(listed, &journey);
-    assert!(!serde_json::to_string(&page)?.contains("raw_transaction"));
-    let submitted_before_restart = fixture
-        .peer_state
-        .lock()
-        .map_err(|_| "peer state")?
-        .submitted
-        .clone();
-    assert_eq!(submitted_before_restart.len(), legs.len());
-    fixture.reopen()?;
-    let recovered = fixture.request("GET", &path, &json!({}), "intent-recovered-evm")?;
-    let recovered_record =
-        fixture.journey_record(submitted["journey_id"].as_str().ok_or("journey id")?)?;
-    let before =
-        time::seconds_from_rfc3339(journey["updated_at"].as_str().ok_or("updated timestamp")?)
-            .ok_or("updated timestamp format")?;
-    let after = time::seconds_from_rfc3339(
-        recovered["updated_at"]
-            .as_str()
-            .ok_or("recovered timestamp")?,
-    )
-    .ok_or("recovered timestamp format")?;
-    assert!(after >= before);
-    assert_eq!(recovered["updated_at"], recovered_record["updated_at"]);
-    let mut expected_recovered = journey.clone();
-    expected_recovered["updated_at"] = recovered_record["updated_at"].clone();
-    assert_eq!(expected_recovered, recovered);
-    assert_eq!(
-        submitted,
-        fixture.request("POST", "/v1/intents/submit", &body, "intent-submit-evm")?
-    );
-    assert_eq!(
-        fixture
-            .peer_state
-            .lock()
-            .map_err(|_| "peer state")?
-            .submitted,
-        submitted_before_restart
-    );
+    assert_recovered_journey(&mut fixture, &path, &journey, &submitted, &body, legs.len())?;
     Ok(())
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

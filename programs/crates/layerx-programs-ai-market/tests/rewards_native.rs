@@ -7,6 +7,7 @@
 //! holds across the ledger and the account. The native part runs Fund through the registered
 //! Program activity, where the transfer, the next state and the replay record commit or
 //! refuse together.
+#[allow(dead_code)]
 #[path = "repair_22_33_261.rs"]
 mod repair_22_33_261;
 
@@ -780,7 +781,7 @@ impl World {
         self.owner_sequence = repair::next_sequence(&self.bytes, PrincipalId::new(OWNER)?)?;
         Ok(())
     }
-    /// Registered owner RequestClose, including the real revision and replay checks.
+    /// Registered owner `RequestClose`, including the real revision and replay checks.
     fn request_close(&mut self, at: u64) -> TestResult {
         let mut payload = self.revision()?.to_be_bytes().to_vec();
         payload.extend_from_slice(&[0x5e; 32]);
@@ -2112,15 +2113,9 @@ impl World {
         Ok(refused)
     }
     /// A call run with `next` and scratch buffers of the given sizes; it must refuse.
-    fn refused_sized(
-        &self,
-        call: &Req,
-        at: u64,
-        next: usize,
-        scratch: usize,
-    ) -> CodecResult<ApplicationError> {
+    fn refused_sized(&self, call: &Req, at: u64, next: usize, scratch: usize) -> ApplicationError {
         match self.run_sized(call, at, next, scratch) {
-            Err(error) => Ok(error),
+            Err(error) => error,
             Ok((outcome, _, _)) => panic!("expected a buffer refusal, got {outcome:?}"),
         }
     }
@@ -2439,7 +2434,7 @@ fn finality_recovery() -> QueryResult<()> {
         assert_eq!(value_adapter::transfer_refusal(error), expected);
     }
     assert_eq!(
-        w.refused_sized(&payout, 1112, next.len() - 1, rewards::SCRATCH_BYTES)?,
+        w.refused_sized(&payout, 1112, next.len() - 1, rewards::SCRATCH_BYTES),
         CAPACITY
     );
     assert_eq!(
@@ -2448,7 +2443,7 @@ fn finality_recovery() -> QueryResult<()> {
             1112,
             MAX_STATE_BYTES,
             Section::PolicyLifecycle.payload_cap()
-        )?,
+        ),
         CAPACITY
     );
     assert_eq!(w.bytes, unpaid);
@@ -2672,60 +2667,10 @@ fn reward_reopen_preserves_recipient_balances() -> Checked {
         let operation = decode_envelope(&produced.envelope)?.envelope.operation;
         let payout = operation == dispatch::CLAIM || operation == dispatch::REFUND_FREE;
         if !payout {
-            let line = n.submit(produced.actor, produced.height, &produced.envelope)?;
-            assert_eq!(
-                line.result_code,
-                0,
-                "{}: {:?}",
-                operation.metadata().name,
-                terminal(&line, n.program).err()
-            );
-            let Terminal::Success(body) = terminal(&line, n.program)? else {
-                return Err(harness(format!("{} refused", operation.metadata().name)));
-            };
-            assert_eq!(body, produced.result);
-            assert_eq!(line.state, produced.state);
-            let [event] = &line.events[..] else {
-                return Err(harness("one lifecycle event required"));
-            };
-            assert_eq!(event.data, produced.event);
-            if operation == dispatch::FUND {
-                assert_eq!(line.rewards_balance, 500);
-                assert_eq!(
-                    line.balance_after,
-                    line.balance_before - line.fee - line.occupancy_fee - 500
-                );
-            }
-            n.state = Some(line.state);
+            apply_reward_lifecycle(&mut n, &produced)?;
             continue;
         }
-        let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
-        native_replay::prepare_native_call(input, &mut n.output, produced.height)?;
-        writeln!(
-            input,
-            "prove_reward_replay {} {} {}",
-            produced.actor,
-            produced.height,
-            hex(&produced.envelope)
-        )?;
-        input.flush()?;
-        let mut read_call = || -> Checked<Line> {
-            let mut text = String::new();
-            if n.output.read_line(&mut text)? == 0 {
-                return Err(harness("reward replay proof stopped"));
-            }
-            let mut line = parse_line(&text)?;
-            line.occupancy_fee = native_replay::occupancy_fee(
-                line.kind,
-                line.abi,
-                &line.terminal,
-                principals[produced.actor].bytes(),
-                line.occupancy_fee,
-            )?;
-            Ok(line)
-        };
-        let first = read_call()?;
-        let replay = read_call()?;
+        let (first, replay) = read_reward_replay(&mut n, &produced)?;
         assert_eq!(
             (
                 first.status,
@@ -2770,30 +2715,7 @@ fn reward_reopen_preserves_recipient_balances() -> Checked {
                 line.balance_before - line.fee - line.occupancy_fee
             );
         }
-        let mut proof = String::new();
-        n.output.read_line(&mut proof)?;
-        let proof: Vec<_> = proof.split_whitespace().collect();
-        assert_eq!(proof.len(), 6);
-        assert_eq!(proof[0], "reward-replay");
-        let values: Vec<u64> = proof[1..]
-            .iter()
-            .map(|value| number(value))
-            .collect::<Checked<_>>()?;
-        let amount = if operation == dispatch::CLAIM {
-            100
-        } else {
-            400
-        };
-        assert_eq!(values[0], amount);
-        assert_eq!(values[2], values[1] + amount);
-        assert_eq!(values[4], values[3] - amount);
-        assert_eq!(values[4], first.rewards_balance);
-        let rewards = reward_view(&replay.state)?;
-        let row = rewards.row(1)?;
-        assert_eq!(row.paid_sum, 100);
-        assert_eq!(row.entries().len(), 1);
-        assert_eq!(row.entries()[0].disposition, Disposition::Claimed);
-        assert_eq!(rewards.ledger()?.total_claimed, 100);
+        let amount = verify_reward_replay_balances(&mut n, operation, &first, &replay)?;
         payouts.push(amount);
         n.state = Some(replay.state);
     }
@@ -2814,6 +2736,103 @@ fn reward_reopen_preserves_recipient_balances() -> Checked {
     );
     assert_eq!((ledger.free, ledger.reserved, ledger.liability), (0, 0, 0));
     n.finish()
+}
+fn verify_reward_replay_balances(
+    n: &mut Native,
+    operation: Operation,
+    first: &Line,
+    replay: &Line,
+) -> Checked<u64> {
+    let mut proof = String::new();
+    n.output.read_line(&mut proof)?;
+    let proof: Vec<_> = proof.split_whitespace().collect();
+    assert_eq!(proof.len(), 6);
+    assert_eq!(proof[0], "reward-replay");
+    let values: Vec<u64> = proof[1..]
+        .iter()
+        .map(|value| number(value))
+        .collect::<Checked<_>>()?;
+    let amount = if operation == dispatch::CLAIM {
+        100
+    } else {
+        400
+    };
+    assert_eq!(values[0], amount);
+    assert_eq!(values[2], values[1] + amount);
+    assert_eq!(values[4], values[3] - amount);
+    assert_eq!(values[4], first.rewards_balance);
+    let rewards = reward_view(&replay.state)?;
+    let row = rewards.row(1)?;
+    assert_eq!(row.paid_sum, 100);
+    assert_eq!(row.entries().len(), 1);
+    assert_eq!(row.entries()[0].disposition, Disposition::Claimed);
+    assert_eq!(rewards.ledger()?.total_claimed, 100);
+    Ok(amount)
+}
+
+fn apply_reward_lifecycle(n: &mut Native, produced: &repair_22_33_261::RewardCall) -> Checked {
+    let operation = decode_envelope(&produced.envelope)?.envelope.operation;
+
+    let line = n.submit(produced.actor, produced.height, &produced.envelope)?;
+    assert_eq!(
+        line.result_code,
+        0,
+        "{}: {:?}",
+        operation.metadata().name,
+        terminal(&line, n.program).err()
+    );
+    let Terminal::Success(body) = terminal(&line, n.program)? else {
+        return Err(harness(format!("{} refused", operation.metadata().name)));
+    };
+    assert_eq!(body, produced.result);
+    assert_eq!(line.state, produced.state);
+    let [event] = &line.events[..] else {
+        return Err(harness("one lifecycle event required"));
+    };
+    assert_eq!(event.data, produced.event);
+    if operation == dispatch::FUND {
+        assert_eq!(line.rewards_balance, 500);
+        assert_eq!(
+            line.balance_after,
+            line.balance_before - line.fee - line.occupancy_fee - 500
+        );
+    }
+    n.state = Some(line.state);
+    Ok(())
+}
+fn read_reward_replay(
+    n: &mut Native,
+    produced: &repair_22_33_261::RewardCall,
+) -> Checked<(Line, Line)> {
+    let principals = n.principals;
+    let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
+    native_replay::prepare_native_call(input, &mut n.output, produced.height)?;
+    writeln!(
+        input,
+        "prove_reward_replay {} {} {}",
+        produced.actor,
+        produced.height,
+        hex(&produced.envelope)
+    )?;
+    input.flush()?;
+    let mut read_call = || -> Checked<Line> {
+        let mut text = String::new();
+        if n.output.read_line(&mut text)? == 0 {
+            return Err(harness("reward replay proof stopped"));
+        }
+        let mut line = parse_line(&text)?;
+        line.occupancy_fee = native_replay::occupancy_fee(
+            line.kind,
+            line.abi,
+            &line.terminal,
+            principals[produced.actor].bytes(),
+            line.occupancy_fee,
+        )?;
+        Ok(line)
+    };
+    let first = read_call()?;
+    let replay = read_call()?;
+    Ok((first, replay))
 }
 
 /// A18 and A17 through the registered Program activity: a Fund whose response is lost is
@@ -3244,9 +3263,7 @@ impl Native {
     }
 
     fn settle_native_rewards(&mut self, worker: WorkerRosterEntry, start: u64) -> Checked {
-        use layerx_programs_ai_market::{
-            aggregation, aggregation_codec::AggregationPhase, tasks, types::*,
-        };
+        use layerx_programs_ai_market::{tasks, types::*};
         let current = self.state.as_deref().ok_or_else(|| harness("no market"))?;
         let shared = decode_shared_state(current)?;
         let captured = epoch::captured_roster(&shared)?.ok_or(NOT_FOUND)?;
@@ -3336,6 +3353,11 @@ impl Native {
         for (actor, payload) in reveals {
             self.routed(dispatch::RevealScore, actor, &payload, start + 80)?;
         }
+        self.finish_native_aggregation(start)?;
+        Ok(())
+    }
+    fn finish_native_aggregation(&mut self, start: u64) -> Checked {
+        use layerx_programs_ai_market::{aggregation, aggregation_codec::AggregationPhase};
         self.routed(dispatch::BeginAggregation, NATIVE_OUTSIDER, &[], start + 96)?;
         loop {
             let progress =
@@ -3392,7 +3414,7 @@ fn signed_activity_parts(bytes: &[u8]) -> Checked<SignedActivityParts> {
         assert_eq!(r.tag(12)?, 2);
         assert_eq!(r.u32()?, 7);
         assert_eq!(r.tag(12)?, 3);
-        assert_eq!(r.u32()?, 0x00090003);
+        assert_eq!(r.u32()?, 0x0009_0003);
         assert_eq!(r.tag(12)?, 4);
         let did_len = r.bytes(255)?.len();
         let did = r.offset() - did_len..r.offset();
@@ -3445,57 +3467,14 @@ fn signed_reward_recovery(
     recipient: usize,
     amount: u64,
 ) -> Checked {
-    use sha2::{Digest, Sha256};
+    let SignedRecovery {
+        activity,
+        parts,
+        inner,
+        after,
+        retained_identity,
+    } = commit_signed_reward(n, envelope, at, recipient, amount)?;
     let actor = NATIVE_OUTSIDER;
-    let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
-    native_replay::prepare_native_call(input, &mut n.output, at)?;
-    assert_eq!(n.exchange("anchor")?, "anchored\n");
-    let before = n.observe()?;
-    let activity = n.capture(actor, at, envelope)?;
-    assert_eq!(n.observe()?, before);
-    let parts = signed_activity_parts(&activity)?;
-    let positions: Vec<_> = activity
-        .windows(envelope.len())
-        .enumerate()
-        .filter_map(|(i, bytes)| (bytes == envelope).then_some(i))
-        .collect();
-    let [inner] = positions[..] else {
-        return Err(harness("signed CALL must contain its exact envelope once"));
-    };
-    assert!(parts.payload.contains(&inner));
-    let expected = repair::compose(&before.state, envelope, n.principals[actor], at)?;
-    assert!(matches!(expected.routed, dispatch::Routed::Applied { .. }));
-    let committed = n.submit_signed(actor, at, &activity)?;
-    assert_eq!((committed.status, committed.result_code), (0, 0));
-    let Terminal::Success(body) = terminal(&committed, n.program)? else {
-        return Err(harness("signed payout refused"));
-    };
-    assert_eq!(body, expected.result);
-    assert_eq!(committed.state, expected.state);
-    assert_eq!(committed.events.len(), 1);
-    assert_eq!(committed.events[0].data, expected.event);
-    assert_eq!(committed.rewards_balance, before.rewards - amount);
-    n.state = Some(committed.state.clone());
-    let paid = n.observe()?;
-    for i in 0..6 {
-        let payout = if i == recipient { amount } else { 0 };
-        let fee = if i == actor { committed.fee } else { 0 };
-        assert_eq!(
-            paid.balances[i],
-            before.balances[i] + payout - fee - committed.occupancy_fees[i]
-        );
-    }
-    let original = codec::decode_result(&body)?;
-    let retained_identity = if decode_envelope(envelope)?.envelope.operation == dispatch::CLAIM {
-        original.payload[..32].to_vec()
-    } else {
-        original.digest.bytes().to_vec()
-    };
-    drop(committed);
-    drop(body);
-    drop(expected);
-    let after = paid;
-
     let retry = n.capture(actor, at, envelope)?;
     assert_ne!(retry, activity);
     let retry_parts = signed_activity_parts(&retry)?;
@@ -3515,44 +3494,14 @@ fn signed_reward_recovery(
     assert_signed_unchanged(&stale, &after.state, after.rewards);
     assert_eq!(n.observe()?, after);
 
-    let mut changed_payload = retry.clone();
-    let changed = inner + envelope.len() - 1;
-    changed_payload[changed] ^= 1;
-    assert_eq!(
-        &changed_payload[retry_parts.signature.clone()],
-        &retry[retry_parts.signature.clone()]
-    );
-    let mut changed_signature = retry.clone();
-    changed_signature[retry_parts.signature.start] ^= 1;
-    let mut rebound_payload = changed_payload.clone();
-    let mut hash = Sha256::new();
-    hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
-    hash.update(&rebound_payload[retry_parts.payload.clone()]);
-    rebound_payload[retry_parts.hash.clone()].copy_from_slice(&hash.finalize());
-    let mut changed_principal = retry.clone();
-    assert_eq!(
-        &changed_principal[retry_parts.did.clone()],
-        b"did:lxp:paxai-outsider"
-    );
-    changed_principal[retry_parts.did.clone()].copy_from_slice(b"did:lxp:paxai-treasury");
-    for (label, bytes, refusal) in [
-        ("payload under original signature", changed_payload, -104),
-        (
-            "rehashed payload under original signature",
-            rebound_payload,
-            -201,
-        ),
-        ("changed signature", changed_signature, -201),
-        ("changed native principal", changed_principal, -201),
-    ] {
-        let refused = n.submit_signed(actor, at, &bytes)?;
-        assert_eq!(refused.status, refusal, "{label}");
-        assert_eq!((refused.kind, refused.abi), (0, 0), "{label}");
-        assert!(refused.terminal.is_empty(), "{label}");
-        assert_eq!((refused.fee, refused.occupancy_fee), (0, 0), "{label}");
-        assert_signed_unchanged(&refused, &after.state, after.rewards);
-        assert_eq!(n.observe()?, after, "{label}");
-    }
+    verify_signed_mutations(
+        n,
+        at,
+        &retry,
+        &retry_parts,
+        inner + envelope.len() - 1,
+        &after,
+    )?;
     let expected = repair::compose(&after.state, envelope, n.principals[actor], at)?;
     assert!(matches!(
         expected.routed,
@@ -3603,6 +3552,127 @@ fn signed_reward_recovery(
         assert_eq!(final_state.balances[i], recovered.balances[i] - fees);
     }
     Ok(())
+}
+fn verify_signed_mutations(
+    n: &mut Native,
+    at: u64,
+    retry: &[u8],
+    retry_parts: &SignedActivityParts,
+    changed: usize,
+    after: &NativeObservation,
+) -> Checked {
+    use sha2::{Digest, Sha256};
+    let actor = NATIVE_OUTSIDER;
+    let mut changed_payload = retry.to_vec();
+    changed_payload[changed] ^= 1;
+    assert_eq!(
+        &changed_payload[retry_parts.signature.clone()],
+        &retry[retry_parts.signature.clone()]
+    );
+    let mut changed_signature = retry.to_vec();
+    changed_signature[retry_parts.signature.start] ^= 1;
+    let mut rebound_payload = changed_payload.clone();
+    let mut hash = Sha256::new();
+    hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
+    hash.update(&rebound_payload[retry_parts.payload.clone()]);
+    rebound_payload[retry_parts.hash.clone()].copy_from_slice(&hash.finalize());
+    let mut changed_principal = retry.to_vec();
+    assert_eq!(
+        &changed_principal[retry_parts.did.clone()],
+        b"did:lxp:paxai-outsider"
+    );
+    changed_principal[retry_parts.did.clone()].copy_from_slice(b"did:lxp:paxai-treasury");
+    for (label, bytes, refusal) in [
+        ("payload under original signature", changed_payload, -104),
+        (
+            "rehashed payload under original signature",
+            rebound_payload,
+            -201,
+        ),
+        ("changed signature", changed_signature, -201),
+        ("changed native principal", changed_principal, -201),
+    ] {
+        let refused = n.submit_signed(actor, at, &bytes)?;
+        assert_eq!(refused.status, refusal, "{label}");
+        assert_eq!((refused.kind, refused.abi), (0, 0), "{label}");
+        assert!(refused.terminal.is_empty(), "{label}");
+        assert_eq!((refused.fee, refused.occupancy_fee), (0, 0), "{label}");
+        assert_signed_unchanged(&refused, &after.state, after.rewards);
+        assert_eq!(&n.observe()?, after, "{label}");
+    }
+    Ok(())
+}
+struct SignedRecovery {
+    activity: Vec<u8>,
+    parts: SignedActivityParts,
+    inner: usize,
+    after: NativeObservation,
+    retained_identity: Vec<u8>,
+}
+fn commit_signed_reward(
+    n: &mut Native,
+    envelope: &[u8],
+    at: u64,
+    recipient: usize,
+    amount: u64,
+) -> Checked<SignedRecovery> {
+    let actor = NATIVE_OUTSIDER;
+    let input = n.input.as_mut().ok_or_else(|| harness("closed"))?;
+    native_replay::prepare_native_call(input, &mut n.output, at)?;
+    assert_eq!(n.exchange("anchor")?, "anchored\n");
+    let before = n.observe()?;
+    let activity = n.capture(actor, at, envelope)?;
+    assert_eq!(n.observe()?, before);
+    let parts = signed_activity_parts(&activity)?;
+    let positions: Vec<_> = activity
+        .windows(envelope.len())
+        .enumerate()
+        .filter_map(|(i, bytes)| (bytes == envelope).then_some(i))
+        .collect();
+    let [inner] = positions[..] else {
+        return Err(harness("signed CALL must contain its exact envelope once"));
+    };
+    assert!(parts.payload.contains(&inner));
+    let expected = repair::compose(&before.state, envelope, n.principals[actor], at)?;
+    assert!(matches!(expected.routed, dispatch::Routed::Applied { .. }));
+    let committed = n.submit_signed(actor, at, &activity)?;
+    assert_eq!((committed.status, committed.result_code), (0, 0));
+    let Terminal::Success(body) = terminal(&committed, n.program)? else {
+        return Err(harness("signed payout refused"));
+    };
+    assert_eq!(body, expected.result);
+    assert_eq!(committed.state, expected.state);
+    assert_eq!(committed.events.len(), 1);
+    assert_eq!(committed.events[0].data, expected.event);
+    assert_eq!(committed.rewards_balance, before.rewards - amount);
+    n.state = Some(committed.state.clone());
+    let paid = n.observe()?;
+    for i in 0..6 {
+        let payout = if i == recipient { amount } else { 0 };
+        let fee = if i == actor { committed.fee } else { 0 };
+        assert_eq!(
+            paid.balances[i],
+            before.balances[i] + payout - fee - committed.occupancy_fees[i]
+        );
+    }
+    let original = codec::decode_result(&body)?;
+    let retained_identity = if decode_envelope(envelope)?.envelope.operation == dispatch::CLAIM {
+        original.payload[..32].to_vec()
+    } else {
+        original.digest.bytes().to_vec()
+    };
+    drop(committed);
+    drop(body);
+    drop(expected);
+    let after = paid;
+
+    Ok(SignedRecovery {
+        activity,
+        parts,
+        inner,
+        after,
+        retained_identity,
+    })
 }
 
 #[test]

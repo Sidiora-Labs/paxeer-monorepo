@@ -1,5 +1,6 @@
-#[path = "support/canonical_owner.rs"]
-mod canonical_owner;
+pub mod canonical_owner {
+    include!("support/canonical_owner.rs");
+}
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::agent_api_schema_v1;
@@ -12,7 +13,7 @@ use layerx_human_service::onboarding::{
     ProtocolStage, RecoveryPolicy,
 };
 use layerx_human_service::server::agent_runtime::AgentRuntime;
-use layerx_human_service::store::{PrincipalStore, TenancyDigest};
+use layerx_human_service::store::PrincipalStore;
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
 use layerx_intents::{canonical, NativeOwnerBootstrap};
@@ -36,7 +37,6 @@ const CORE_SEQUENCE: u64 = 7;
 struct Fixture {
     root: std::path::PathBuf,
     store: PrincipalStore,
-    digest: TenancyDigest,
     keystore: Keystore,
     agent: AgentClient,
     registry: ModuleRegistry,
@@ -53,7 +53,7 @@ impl Fixture {
         fs::write(&secret_path, [0x51_u8; 64])
             .unwrap_or_else(|error| panic!("KMS secret: {error}"));
         let map = tenancy(&[("alice", "tenant-alice")]);
-        let (store, digest) = install_and_open(&store_root, &map, retention_uniform(10));
+        let (store, _) = install_and_open(&store_root, &map, retention_uniform(10));
         let kms = EnvelopeKms::new("kms://onboarding-primary", secret_path.clone())
             .unwrap_or_else(|error| panic!("KMS: {error}"));
         let keystore = Keystore::open_development(&custody_root, NETWORK_ID, kms)
@@ -61,11 +61,13 @@ impl Fixture {
         keystore
             .generate(
                 &principal("alice"),
-                &KeyId::new("human-primary").unwrap(),
+                &KeyId::new("human-primary")
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
                 KeyClass::HumanPrimary,
-                KeyEntropy::new([0x68; 32], [0x31; 16], [0x41; 24]).unwrap(),
+                KeyEntropy::new([0x68; 32], [0x31; 16], [0x41; 24])
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         let did = ActivityType::new(ModuleId::Governance, 1)
             .unwrap_or_else(|error| panic!("DID activity: {error:?}"));
         let recovery = ActivityType::new(ModuleId::Governance, 3)
@@ -79,17 +81,11 @@ impl Fixture {
         Self {
             root,
             store,
-            digest,
             keystore,
             agent,
             registry,
             trace: TraceId::mint([0x31; 16]),
         }
-    }
-
-    fn reopen_store(&self) -> PrincipalStore {
-        PrincipalStore::open(self.root.join("store"), retention_uniform(10), self.digest)
-            .unwrap_or_else(|error| panic!("reopen store: {error}"))
     }
 }
 
@@ -210,7 +206,8 @@ fn setup_evidence(
     action_key: [u8; 32],
     registry: &ModuleRegistry,
 ) -> ProtocolEvidence {
-    let did = Did::new(b"did:layerx:owner-receipt-fixture").unwrap();
+    let did = Did::new(b"did:layerx:owner-receipt-fixture")
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let public_key = SigningKey::from_bytes(&[0x68; 32])
         .verifying_key()
         .to_bytes();
@@ -222,12 +219,15 @@ fn setup_evidence(
         ProtocolStage::RecoveryRegistration => NativeOwnerBootstrap::RecoveryPolicy {
             did,
             root: RecoveryRoot::new([0x43; 32]),
-            threshold: ApprovalThreshold::new(2).unwrap(),
+            threshold: ApprovalThreshold::new(2)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
             minimum_delay: CHALLENGE_DELAY,
             maximum_delay: CHALLENGE_DELAY,
         },
     };
-    let compiled = request.compile(registry).unwrap();
+    let compiled = request
+        .compile(registry)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let owner = canonical_owner::sign_transaction(
         compiled.payload(),
         action_key,
@@ -265,18 +265,24 @@ fn setup_evidence(
         block_height,
         rung: Rung::Committed,
     };
-    evidence.verify_outcome(compiled.activity_type()).unwrap();
+    evidence
+        .verify_outcome(compiled.activity_type())
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     evidence
 }
 
 #[test]
 fn native_onboarding_completes_only_at_committed() {
     let mut fixture = Fixture::new("native-onboarding-rungs");
-    let mut scope = fixture.store.principal(&principal("alice")).unwrap();
-    let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x21), 100).unwrap();
+    let mut scope = fixture
+        .store
+        .principal(&principal("alice"))
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x21), 100)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     journey
         .resume_local(&mut scope, &fixture.keystore, 101)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     for stage in [
         ProtocolStage::DidRegistration,
         ProtocolStage::RecoveryRegistration,
@@ -289,8 +295,8 @@ fn native_onboarding_completes_only_at_committed() {
                 &context(3, 1000),
                 102,
             )
-            .unwrap()
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .unwrap_or_else(|| panic!("missing value"));
         assert_eq!(action.stage(), stage);
         let mut evidence = setup_evidence(stage, action.action_key(), &fixture.registry);
         for rung in [Rung::Submitted, Rung::Receipted] {
@@ -307,7 +313,9 @@ fn native_onboarding_completes_only_at_committed() {
                 Err(OnboardingError::EvidenceConflict)
             ));
             assert_ne!(journey.status().state(), OnboardingState::Complete);
-            let retained = OnboardingJourney::load(&scope).unwrap().unwrap();
+            let retained = OnboardingJourney::load(&scope)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+                .unwrap_or_else(|| panic!("missing value"));
             assert_ne!(retained.status().state(), OnboardingState::Complete);
         }
         evidence.rung = Rung::Committed;
@@ -320,7 +328,7 @@ fn native_onboarding_completes_only_at_committed() {
                 &fixture.trace,
                 104,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         if stage == ProtocolStage::DidRegistration {
             assert_ne!(journey.status().state(), OnboardingState::Complete);
         }
@@ -328,19 +336,57 @@ fn native_onboarding_completes_only_at_committed() {
     assert_eq!(journey.status().state(), OnboardingState::Complete);
     assert_eq!(
         OnboardingJourney::load(&scope)
-            .unwrap()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .unwrap_or_else(|| panic!("missing value"))
             .status()
             .state(),
         OnboardingState::Complete
     );
 }
 
-#[test]
-fn native_onboarding_uses_the_pending_nonce() {
-    let mut fixture = Fixture::new("native-onboarding-pending-nonce");
-    let clock: Arc<dyn Clock> = Arc::new(support::StepClock::new(100_000));
-    let mut runtime = AgentRuntime::new_with_clock(
+fn serve_pending_nonce(
+    listener: UnixListener,
+    peer_clock: Arc<dyn Clock>,
+    nonce_request: Vec<u8>,
+    nonce_answer: Vec<u8>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        let mut deadline = Deadline::start(peer_clock.as_ref(), Duration::from_secs(5))
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        !deadline
+                            .remaining(peer_clock.as_ref())
+                            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+                            .is_zero(),
+                        "peer request deadline"
+                    );
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("peer accept: {error}"),
+            }
+        };
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        assert_eq!(
+            read_frame(&mut stream, 4096)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+            nonce_request
+        );
+        write_frame(&mut stream, &nonce_answer, 4096)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    })
+}
+
+fn unavailable_runtime(fixture: &Fixture, clock: &Arc<dyn Clock>) -> AgentRuntime {
+    AgentRuntime::new_with_clock(
         fixture.root.join("unavailable-agent.sock"),
         layerx_human_service::frame::Limits {
             maximum_frame_bytes: 65_536,
@@ -350,14 +396,25 @@ fn native_onboarding_uses_the_pending_nonce() {
             deadline: Duration::from_secs(1),
         },
         fixture.registry.clone(),
-        Arc::clone(&clock),
+        Arc::clone(clock),
     )
-    .unwrap();
-    let mut scope = fixture.store.principal(&principal("alice")).unwrap();
-    let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x22), 100).unwrap();
+    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+}
+
+#[test]
+fn native_onboarding_uses_the_pending_nonce() {
+    let mut fixture = Fixture::new("native-onboarding-pending-nonce");
+    let clock: Arc<dyn Clock> = Arc::new(support::StepClock::new(100_000));
+    let mut runtime = unavailable_runtime(&fixture, &clock);
+    let mut scope = fixture
+        .store
+        .principal(&principal("alice"))
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    let mut journey = OnboardingJourney::start(&mut scope, &start_request(0x22), 100)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     journey
         .resume_local(&mut scope, &fixture.keystore, 101)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert!(matches!(
         journey.prepare_native_agent_action(
             &mut scope,
@@ -379,33 +436,12 @@ fn native_onboarding_uses_the_pending_nonce() {
     nonce_answer.push(Rung::Receipted.wire_rank());
     let nonce_answer = frame(0, &nonce_answer);
     let socket = fixture.root.join("peer.sock");
-    let listener = UnixListener::bind(&socket).unwrap();
-    listener.set_nonblocking(true).unwrap();
-    let peer_clock = Arc::clone(&clock);
-    let server = thread::spawn(move || {
-        let mut deadline = Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)).unwrap();
-        let mut stream = loop {
-            match listener.accept() {
-                Ok((stream, _)) => break stream,
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(
-                        !deadline.remaining(peer_clock.as_ref()).unwrap().is_zero(),
-                        "peer request deadline"
-                    );
-                    thread::sleep(Duration::from_millis(1));
-                }
-                Err(error) => panic!("peer accept: {error}"),
-            }
-        };
-        stream
-            .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        stream
-            .set_write_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        assert_eq!(read_frame(&mut stream, 4096).unwrap(), nonce_request);
-        write_frame(&mut stream, &nonce_answer, 4096).unwrap();
-    });
+    let listener =
+        UnixListener::bind(&socket).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    let server = serve_pending_nonce(listener, Arc::clone(&clock), nonce_request, nonce_answer);
     let mut pending_runtime = AgentRuntime::new_with_clock(
         &socket,
         Limits {
@@ -418,7 +454,7 @@ fn native_onboarding_uses_the_pending_nonce() {
         fixture.registry.clone(),
         clock,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let action = journey
         .prepare_native_agent_action(
             &mut scope,
@@ -428,9 +464,11 @@ fn native_onboarding_uses_the_pending_nonce() {
             &context(stale_nonce, 1000),
             102,
         )
-        .unwrap()
-        .unwrap();
-    server.join().unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+        .unwrap_or_else(|| panic!("missing value"));
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(
         action.call().request().operation.account_sequence.0,
         pending_nonce
@@ -440,7 +478,9 @@ fn native_onboarding_uses_the_pending_nonce() {
         stale_nonce
     );
     drop(journey);
-    let mut journey = OnboardingJourney::load(&scope).unwrap().unwrap();
+    let mut journey = OnboardingJourney::load(&scope)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+        .unwrap_or_else(|| panic!("missing value"));
     let repeated = journey
         .prepare_native_agent_action(
             &mut scope,
@@ -450,11 +490,15 @@ fn native_onboarding_uses_the_pending_nonce() {
             &context(9, 1100),
             103,
         )
-        .unwrap()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+        .unwrap_or_else(|| panic!("missing value"));
     assert_eq!(
         repeated.call().request().operation.account_sequence.0,
         pending_nonce
     );
     assert_eq!(repeated.call(), action.call());
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

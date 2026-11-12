@@ -25,13 +25,12 @@ use crate::types::GuestIndex as _;
 use core::cmp::Ordering;
 
 use crate::{
-    MAX_TASKS,
     admission::{AdmissionTable, Participant},
     codec::ValidatedEnvelope,
-    codec::{self, Envelope, EventCommon, Reader, Writer, derive_market, domain_hash},
+    codec::{self, derive_market, domain_hash, Envelope, EventCommon, Reader, Writer},
     dispatch::{self, Operation},
     errors::{
-        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
+        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
         F01_POLICY_MISMATCH, F01_PRINCIPAL_MISMATCH, F01_STALE_REVISION, F01_TASK_ALREADY_ACCEPTED,
         F01_TASK_CONFLICT, F01_TASK_EXPIRED, F01_TASK_NOT_FOUND, F01_UNKNOWN_WORKER,
         F01_WRONG_LIFECYCLE, F01_WRONG_WORKER, F02_DELEGATE_REVOKED,
@@ -42,15 +41,15 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{MarketHeader, market_clock},
+    registry::{market_clock, MarketHeader},
     registry_ops::{
-        ACTIVE, CLOSED, CallContext, EMPTY_TASK_REGION, PolicySection, RECEIPT_MAX_BYTES,
+        CallContext, PolicySection, ACTIVE, CLOSED, EMPTY_TASK_REGION, RECEIPT_MAX_BYTES,
         WINDING_DOWN,
     },
     rewards::RewardState,
     state::{
-        ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
-        decode_shared_state, settlement_rewards,
+        decode_shared_state, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section,
+        SharedState,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -58,6 +57,7 @@ use crate::{
         TaskId, Version, WorkerId,
     },
     workers::{WorkerCurrent, WorkerState, WorkerTable},
+    MAX_TASKS,
 };
 
 /// Canonical `TaskBinding` length.
@@ -132,7 +132,11 @@ impl TaskBinding {
             TaskStatus::Accepted => self.acknowledgement.is_some() && self.result.is_none(),
             TaskStatus::ResultCommitted => self.acknowledgement.is_some() && self.result.is_some(),
         };
-        if valid { Ok(()) } else { Err(NON_CANONICAL) }
+        if valid {
+            Ok(())
+        } else {
+            Err(NON_CANONICAL)
+        }
     }
     /// Canonical 233 bytes.
     ///
@@ -287,7 +291,7 @@ impl<'a> TaskSet<'a> {
             .as_chunks::<{ TASK_BINDING_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 233]>::as_slice)
             .map(TaskBinding::decode)
     }
     /// Index of `task`, or of its ordered insertion point, and the record when present.
@@ -424,7 +428,7 @@ pub enum Outcome {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -624,8 +628,13 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     )?;
     let admission = AdmissionTable::decode(table)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
-        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
+        if e == NOT_FOUND {
+            WRONG_EPOCH
+        } else {
+            e
+        }
+    })?;
     let binding = SetBinding {
         market: section.header.market_id,
         epoch,
@@ -771,14 +780,12 @@ fn finish(
     let receipt = Receipt::new(&opened.binding, revision, e.request, e.operation)?;
     let (_, state_len) = crate::rewards::finish_feature_transition(
         opened.state.clone(),
-        section,
+        &section,
         replay,
         call.ctx.height,
         receipt.digest,
         NON_CANONICAL,
-        policy,
-        control,
-        next,
+        (policy, control, next),
     )?;
     let event_len = codec::encode_event_frame(
         e.operation,
@@ -847,7 +854,7 @@ fn check_frozen_worker(opened: &Opened<'_>, body: &AdmitBody, height: u64) -> Co
         &opened.admission,
         &opened.section,
         &region,
-        opened.row.row,
+        &opened.row.row,
         opened.row.dictionary,
     )?;
     if captured.binding.epoch != binding.epoch

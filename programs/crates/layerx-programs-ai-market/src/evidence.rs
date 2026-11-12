@@ -23,41 +23,41 @@
 use crate::codec::Sha256State as Sha256;
 use crate::types::GuestIndex as _;
 use crate::{
-    MAX_EVALUATORS,
     admission::{AdmissionTable, Participant},
     codec::{self as wire, EventCommon, ReportBody, ValidatedEnvelope},
     commit_reveal::{COMMIT_CLOSES, COMMIT_OPENS},
     dispatch,
     errors::{
-        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, EVIDENCE_BINDING, EXPIRED,
+        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EVIDENCE_BINDING, EXPIRED,
         F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT,
         F09_EVIDENCE_SEAL_CONFLICT, KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED,
         UNKNOWN_OPERATION, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::{
-        authority::{FrozenEvaluator, evaluator_region},
+        authority::{evaluator_region, FrozenEvaluator},
         model::{GrantStatus, RegisteredEvidence},
     },
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     rewards::RewardState,
     state::{
-        ActorSlot, HeightWindow, ReplayDecision, ReplayRequest, RetainedResult, Section,
-        SharedState, decode_shared_state, encode_shared_state,
+        decode_shared_state, encode_shared_state, ActorSlot, HeightWindow, ReplayDecision,
+        ReplayRequest, RetainedResult, Section, SharedState,
     },
     tasks,
     types::{Authentication, EvaluatorId, FrozenBinding, Presence, ResultDigest},
+    MAX_EVALUATORS,
 };
 use crate::{
-    MAX_TASKS, MAX_WORKERS,
-    codec::{Reader, Writer, domain_hash},
-    commit_reveal::commitment::{BINDING_BYTES, decode_binding, encode_binding},
-    errors::{ApplicationError, OffchainSpace, offchain_error},
+    codec::{domain_hash, Reader, Writer},
+    commit_reveal::commitment::{decode_binding, encode_binding, BINDING_BYTES},
+    errors::{offchain_error, ApplicationError, OffchainSpace},
     evaluators::{codec::verify_digest, model::VerificationError},
     types::{
         ChainDomain, Digest32, EvaluatorBinding, EvidenceRoot, MarketId, PolicyDigest, PrincipalId,
         ProgramId, PublicKey32, RubricDigest, Score, Signature64, TaskId, Version, WorkerId,
     },
+    MAX_TASKS, MAX_WORKERS,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
@@ -1851,7 +1851,7 @@ impl<'a> SealRegion<'a> {
                 .as_chunks::<{ SEAL_RECORD_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; SEAL_RECORD_BYTES]>::as_slice)
             {
                 let evaluator = EvidenceSeal::decode(record)?.evaluator;
                 if previous.is_some_and(|p| p >= evaluator) {
@@ -1874,7 +1874,7 @@ impl<'a> SealRegion<'a> {
         let mut w = Writer::new(out);
         crate::codec::write_fields!(w;
             u64: self.epoch;
-            u8: (self.records.len() / SEAL_RECORD_BYTES) as u8;
+            u8: u8::try_from(self.records.len() / SEAL_RECORD_BYTES).map_err(|_| crate::errors::CAPACITY)?;
             put: self.records;
         )?;
         Ok(w.len())
@@ -1892,7 +1892,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .map(EvidenceSeal::decode)
     }
     /// The seal of `evaluator` in `epoch`.
@@ -1926,7 +1926,7 @@ impl<'a> SealRegion<'a> {
             .as_chunks::<{ SEAL_RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 185]>::as_slice)
             .enumerate()
         {
             if EvidenceSeal::decode(record)?.evaluator > seal.evaluator {
@@ -1952,7 +1952,7 @@ impl<'a> SealRegion<'a> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -1971,7 +1971,7 @@ fn frozen_binding<'a>(
     _known: Option<RewardState<'a>>,
 ) -> CodecResult<FrozenBinding> {
     let admission = AdmissionTable::decode(crate::reputation_transition::framed_admission_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
@@ -2162,8 +2162,7 @@ impl Call<'_> {
             &region,
             &frozen,
             self.opened.frozen.epoch,
-            *self
-                .opened
+            self.opened
                 .state
                 .feature_sections
                 .guest_index(Section::ReputationAdmission.index()),
@@ -2618,6 +2617,8 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn require_sealed_artifact_chunk_root(
     state: &SharedState<'_>,
     epoch: u64,
