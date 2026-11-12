@@ -197014,7 +197014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.495]
 title = "Bring the retired caller scan to exit 0 on the attestor source of the key management member"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
