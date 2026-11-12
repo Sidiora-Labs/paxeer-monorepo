@@ -86,26 +86,40 @@ defmodule Explorer.Market.Source.Chainflow do
   end
 
   defp fetch_coin(symbol, supply) do
-    with {:ok, price} <- request(symbol, "price"),
-         {:ok, stats} <- request(symbol, "stats"),
-         true <-
-           is_map(price) and is_map(stats) and not Map.has_key?(price, "error") and
-             not Map.has_key?(stats, "error") do
-      fiat_value = Source.to_decimal(price["price"])
+    with coin_id when is_binary(coin_id) and coin_id != "" <- coin_id_for_symbol(symbol),
+         {:ok, %{"market_data" => market_data} = data} when is_map(market_data) <-
+           Source.http_request(
+             String.trim_trailing(config(:base_url), "/") <>
+               "/api/v3/coins/" <> URI.encode(coin_id, &URI.char_unreserved?/1),
+             headers()
+           ),
+         false <- Map.has_key?(data, "error") do
+      fiat_value = Source.to_decimal(get_in(market_data, ["current_price", "usd"]))
 
       {:ok,
        %Token{
          Token.null()
-         | symbol: symbol,
+         | name: data["name"],
+           symbol: if(is_binary(data["symbol"]), do: String.upcase(data["symbol"])),
+           image_url: Source.handle_image_url(get_in(data, ["image", "small"]) || get_in(data, ["image", "thumb"])),
            fiat_value: fiat_value,
-           available_supply: supply,
-           market_cap: multiply(fiat_value, supply),
-           volume_24h: Source.to_decimal(stats["volume_24h"]),
-           last_updated: Source.maybe_get_date(price["timestamp"])
+           available_supply: Source.to_decimal(market_data["circulating_supply"]),
+           total_supply: Source.to_decimal(market_data["total_supply"]),
+           market_cap: Source.to_decimal(get_in(market_data, ["market_cap", "usd"])) || multiply(fiat_value, supply),
+           volume_24h: Source.to_decimal(get_in(market_data, ["total_volume", "usd"])),
+           last_updated: Source.maybe_get_date(market_data["last_updated"])
        }}
     else
       {:error, _} = error -> error
-      _ -> {:error, "Invalid Chainflow quote response"}
+      _ -> {:error, "Invalid Chainflow quote response or coin ID"}
+    end
+  end
+
+  defp coin_id_for_symbol(symbol) do
+    cond do
+      symbol == config(:coin_symbol) -> config(:coin_id)
+      symbol == config(:secondary_coin_symbol) -> config(:secondary_coin_id)
+      true -> nil
     end
   end
 
@@ -192,10 +206,15 @@ defmodule Explorer.Market.Source.Chainflow do
         String.trim_trailing(config(:base_url), "/") <>
           "/api/" <> URI.encode(market, &URI.char_unreserved?/1) <> "/" <> route
 
-      Source.http_request(if(query == %{}, do: url, else: url <> "?" <> URI.encode_query(query)), [])
+      Source.http_request(if(query == %{}, do: url, else: url <> "?" <> URI.encode_query(query)), headers())
     else
       {:error, "Chainflow symbol not specified"}
     end
+  end
+
+  defp headers do
+    key = config(:api_key)
+    if present?(key), do: [{"X-API-Key", key}], else: []
   end
 
   defp present?(value), do: is_binary(value) and value != ""
