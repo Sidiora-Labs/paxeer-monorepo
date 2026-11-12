@@ -21285,3 +21285,8 @@ fix = "The written form of that literal is an input of the build script."
 title = "The recipe platform-lint covers every member of the platform workspace"
 symptom = "The recipe runs the lint with warnings denied over the three platform manifests, and the workspace manifest of the platform lists 22 members."
 fix = "A task that passes the recipe holds every member at zero findings."
+
+[gotcha.4293]
+title = "The lock file of the interop workspace lists the dependencies of each member"
+symptom = "The manifest services/interop/Cargo.toml builds its members with one lock file, services/interop/Cargo.lock, and that file names the dependencies of every member package."
+fix = "A task that changes a dependency of a member under services/interop/crates carries services/interop/Cargo.lock in the same commit."

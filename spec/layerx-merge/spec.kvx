@@ -13366,6 +13366,12 @@ value = "Task 22.39.403 brings the webhooks member, the dashboard member, the fa
 basis = "Gotcha 4292."
 affects = ["22.39.403"]
 
+[decision.3376]
+title = "The interop lint task carries the lock file of the interop workspace"
+value = "Task 22.39.404 carries services/interop/Cargo.lock beside the members under services/interop/crates."
+basis = "Gotcha 4293."
+affects = ["22.39.404"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -198107,7 +198113,7 @@ do_1 = "do_1 The recipe interop-lint of the Makefile runs clippy with warnings d
 do_2 = "do_2 Run the command again until it exits 0 and repair each further finding under services/interop/crates in the code. Add no allow attribute and change no lint level. No value, no wire format and no public name changes. The tests of each crate that changes pass unchanged."
 do_3 = "do_3 Record in services/interop/repair_22_39_404.kvx as product facts: each file that changed and the lint it now passes. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates"]
+touches = ["services/interop/crates", "services/interop/Cargo.lock"]
 tests = []
 planned_paths = ["services/interop/repair_22_39_404.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
