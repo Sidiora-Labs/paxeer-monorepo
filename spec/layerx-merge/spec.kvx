@@ -13480,6 +13480,12 @@ value = "Without a statistics service address the statistics page builds its cou
 basis = "Gotcha 4311 and decision 2587."
 affects = ["22.35.15"]
 
+[decision.3395]
+title = "Task 22.39.429 may change the Next integration example"
+value = "The paths of task 22.39.429 gain sdk/integrations/next. The task has the scan script of the example name only directories the example holds, or has the example hold the public directory with one tracked file. The scanner keeps refusing an explicitly named directory that is absent."
+basis = "Gotcha 4312."
+affects = ["22.39.429"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -230156,7 +230162,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.481]
 title = "Pass the race and coverage stages of the launchpad Makefile in the statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.465", "22.39.458"]
@@ -290597,7 +290603,7 @@ do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dep
 do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
 do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi", "sdk/integrations/next"]
 tests = []
 planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
 build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"
@@ -290614,6 +290620,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4312, decision 3395. The scan script of sdk/integrations/next/example names the directory public, which the example does not hold. Have the script name only directories the example holds, or have the example hold the public directory with one tracked file, whichever is the smaller change. Do not change the scanner under sdk/integrations/next/bin. Then bring the remaining parts of the recipe through and record the change in services/platform/middleware/repair_22_39_429.kvx."
 
 [task.22.39.427]
 title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"

@@ -18,7 +18,6 @@ import type {
 } from 'types/api/optimisticL2';
 import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { SearchRedirectResult, SearchResult, SearchResultFilters, SearchResultItem } from 'types/api/search';
-import type { HomeStats } from 'types/api/stats';
 import type {
   Transaction,
 } from 'types/api/transaction';
@@ -39,6 +38,8 @@ import type { WithdrawalsResponse, WithdrawalsCounters } from 'types/api/withdra
 import type {
   ZkEvmL2TxnBatchesItem,
 } from 'types/api/zkEvmL2';
+
+import type { ExplorerStats } from './stats';
 
 export const GENERAL_API_MISC_RESOURCES = {
   // WITHDRAWALS
@@ -280,7 +281,7 @@ export type GeneralApiMiscResourceName = `general:${ keyof typeof GENERAL_API_MI
 
 /* eslint-disable @stylistic/indent */
 export type GeneralApiMiscResourcePayload<R extends GeneralApiMiscResourceName> =
-R extends 'general:stats' ? HomeStats :
+R extends 'general:stats' ? ExplorerStats :
 R extends 'general:stats_charts_txs' ? ChartTransactionResponse :
 R extends 'general:stats_charts_market' ? ChartMarketResponse :
 R extends 'general:stats_charts_secondary_coin_market' ? ChartSecondaryCoinMarketResponse :
