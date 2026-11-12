@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -157,19 +159,67 @@ func TestRealMTLSServiceRequestAssertion(t *testing.T) {
 		t.Fatal(err)
 	}
 	verifier := ServiceRequestVerifier{Issuer: "social", Audience: "identity", Key: public, PeerCertSHA256: pin, Transport: signer.Transport}
+	identity := IdentityPrincipal{AccountID: uuid.NewString(), SessionID: uuid.NewString(), Wallet: strings.ToLower(goldenAddr), AuthEpoch: 2, ProofAt: time.Now().Add(-time.Second).UTC(), AccessExpiresAt: time.Now().Add(time.Hour).UTC()}
+	principal := identity.StreamPrincipal()
+	binding := StreamTicketBinding{SchemaMajor: 2, Topics: []string{"market.rankings.trending"}, Origin: "https://app.example", Endpoint: "/v2/stream"}
+	binding.FilterDigest = StreamFilterDigest(binding.Topics)
+	chatBinding := StreamTicketBinding{SchemaMajor: 2, Topics: []string{"private.chat." + principal.Wallet}, Origin: "https://app.example", Endpoint: "/v2/stream"}
+	chatBinding.FilterDigest = StreamFilterDigest(chatBinding.Topics)
 	server := &http.Server{ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(io.LimitReader(r.Body, (1<<20)+1))
 		if err != nil || verifier.Authenticate(r, body) != nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		switch r.URL.Path {
+		case "/internal/v2/identity/request:authenticate":
+			var request IdentityAuthenticationRequest
+			if json.Unmarshal(body, &request) != nil || request.Authorization != "Bearer access-token" || request.Method != http.MethodGet {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(identity)
+		case "/internal/v2/identity/ticket:consume":
+			var request struct {
+				Ticket  string              `json:"ticket"`
+				Binding StreamTicketBinding `json:"binding"`
+			}
+			if json.Unmarshal(body, &request) != nil || request.Ticket != strings.Repeat("a", 64) || ValidateStreamBinding(principal, request.Binding) != nil {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(principal)
+		case "/internal/v2/identity/chat-ticket:consume":
+			var request struct {
+				Ticket  string              `json:"ticket"`
+				Binding StreamTicketBinding `json:"binding"`
+			}
+			if json.Unmarshal(body, &request) != nil || request.Ticket != strings.Repeat("ab", 32) || ValidateChatStreamBinding(principal, request.Binding) != nil {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(principal)
+		case "/internal/v2/identity/session:check":
+			if string(body) == "[]" {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			var got StreamPrincipal
+			if json.Unmarshal(body, &got) != nil || got != principal {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
 	})}
 	go server.Serve(listener)
 	defer server.Close()
 	endpoint := "https://" + listener.Addr().String()
 	client := &http.Client{Transport: transport, Timeout: 2 * time.Second}
-	if _, err = NewMTLSIdentityAuthority(endpoint, pin, client, signer); err != nil {
+	authority, err := NewMTLSIdentityAuthority(endpoint, pin, client, signer)
+	if err != nil {
 		t.Fatal(err)
 	}
 	signedBody := []byte(`{"action":"verify_service_request"}`)
@@ -205,5 +255,67 @@ func TestRealMTLSServiceRequestAssertion(t *testing.T) {
 				t.Fatal(response.StatusCode, c.status)
 			}
 		})
+	}
+	if err := authority.Probe(context.Background()); err != nil {
+		t.Fatalf("authenticated identity channel: %v", err)
+	}
+	request, err := http.NewRequest(http.MethodGet, "https://app.example/v2/profile", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer access-token")
+	gotIdentity, err := authority.AuthenticateRequest(context.Background(), request)
+	if err != nil || gotIdentity != identity {
+		t.Fatalf("authenticated identity = %+v, %v", gotIdentity, err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*http.Request)
+	}{
+		{"query credential", func(r *http.Request) { r.URL.RawQuery = "accessToken=secret" }},
+		{"malformed query", func(r *http.Request) { r.URL.RawQuery = "%ZZ" }},
+		{"duplicate authorization", func(r *http.Request) { r.Header.Add("Authorization", "Bearer another") }},
+		{"duplicate cookie", func(r *http.Request) {
+			r.AddCookie(&http.Cookie{Name: "__Host-kindle_access", Value: "first"})
+			r.AddCookie(&http.Cookie{Name: "__Host-kindle_access", Value: "second"})
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := request.Clone(context.Background())
+			tc.edit(candidate)
+			if _, err := authority.AuthenticateRequest(context.Background(), candidate); !errors.Is(err, ErrScopeDenied) {
+				t.Fatalf("request scope: %v", err)
+			}
+		})
+	}
+	stream, err := authority.AuthenticateStreamHTTP(context.Background(), "access-token")
+	if err != nil || stream != principal {
+		t.Fatalf("authenticated stream = %+v, %v", stream, err)
+	}
+	consumed, err := authority.ConsumeStreamTicket(context.Background(), strings.Repeat("a", 64), binding)
+	if err != nil || consumed != principal {
+		t.Fatalf("bound ticket = %+v, %v", consumed, err)
+	}
+	for _, malformed := range []string{"", strings.Repeat("A", 64), strings.Repeat("z", 64)} {
+		if _, err := authority.ConsumeStreamTicket(context.Background(), malformed, binding); !errors.Is(err, ErrScopeDenied) {
+			t.Fatalf("malformed stream ticket %q: %v", malformed, err)
+		}
+	}
+	if err := authority.CheckStreamSession(context.Background(), principal); err != nil {
+		t.Fatalf("active stream session: %v", err)
+	}
+	invalidPrincipal := principal
+	invalidPrincipal.AccountID = "invalid"
+	if err := authority.CheckStreamSession(context.Background(), invalidPrincipal); !errors.Is(err, ErrScopeDenied) {
+		t.Fatalf("invalid stream account: %v", err)
+	}
+	chat, err := authority.ConsumeChatStreamTicket(context.Background(), strings.Repeat("ab", 32), chatBinding)
+	if err != nil || chat != principal {
+		t.Fatalf("bound chat ticket = %+v, %v", chat, err)
+	}
+	for _, malformed := range []string{"", strings.Repeat("AB", 32), strings.Repeat("zz", 32)} {
+		if _, err := authority.ConsumeChatStreamTicket(context.Background(), malformed, chatBinding); !errors.Is(err, ErrScopeDenied) {
+			t.Fatalf("malformed chat ticket %q: %v", malformed, err)
+		}
 	}
 }

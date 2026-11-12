@@ -48,7 +48,7 @@ func realBrokerProcess(t *testing.T) (*nats.Conn, jetstream.JetStream, *exec.Cmd
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
-	config := fmt.Sprintf("host: 127.0.0.1\nport: %d\njetstream { store_dir: %q }\nauthorization { users: [{ user: adapter, password: adapter-test-secret }] }\n", port, filepath.Join(directory, "store"))
+	config := fmt.Sprintf("host: 127.0.0.1\nport: %d\nmax_payload: 2097152\njetstream { store_dir: %q }\nauthorization { users: [{ user: adapter, password: adapter-test-secret }] }\n", port, filepath.Join(directory, "store"))
 	configPath := filepath.Join(directory, "server.conf")
 	if err = os.WriteFile(configPath, []byte(config), 0600); err != nil {
 		t.Fatal(err)
