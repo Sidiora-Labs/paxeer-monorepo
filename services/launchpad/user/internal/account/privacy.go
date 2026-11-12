@@ -11,13 +11,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
+	"strconv"
+	"time"
+
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"io"
-	"strconv"
-	"time"
 )
 
 // EndpointProofVerifier verifies a fresh provider challenge bound to account and token.
@@ -64,7 +65,7 @@ func fingerprint(key []byte, token string) []byte {
 	return m.Sum(nil)
 }
 func (s Store) BindEndpoint(ctx context.Context, p Principal, token, platform, proof string, key []byte, verify EndpointProofVerifier) error {
-	if p.AccountID == uuid.Nil || len(token) < 1 || len(token) > 4096 || len(proof) < 1 || len(proof) > 4096 || len(key) != 32 || (platform != "ios" && platform != "android" && platform != "web") {
+	if p.AccountID == uuid.Nil || len(token) < 1 || len(token) > 4096 || len(proof) < 1 || len(proof) > 4096 || len(key) != 32 || (platform != platformIOS && platform != platformAndroid && platform != platformWeb) {
 		return ErrInvalid
 	}
 	if verify == nil {
@@ -112,7 +113,7 @@ type Job struct {
 type RevokeSessions func(context.Context, pgx.Tx, uuid.UUID) error
 
 func (s Store) RequestDeletion(ctx context.Context, p Principal, expected string, revoke RevokeSessions) (Job, error) {
-	j := Job{uuid.New(), p.AccountID, "deletion", "processing", s.now()}
+	j := Job{uuid.New(), p.AccountID, kindDeletion, stateProcessing, s.now()}
 	if e := p.Fresh(s.now()); e != nil {
 		return Job{}, e
 	}
@@ -135,7 +136,7 @@ func (s Store) deletionMutation(ctx context.Context, p Principal, j Job, revoke 
 				return e
 			}
 		}
-		b, _ := json.Marshal(map[string]any{"requiredOwners": []string{"user", "sessions", "images", "notifications"}, "acks": []string{"user", "sessions"}, "deadline": s.now().Add(30 * 24 * time.Hour)})
+		b, _ := json.Marshal(map[string]any{"requiredOwners": []string{domainUser, domainSessions, domainImages, domainNotifications}, "acks": []string{domainUser, domainSessions}, "deadline": s.now().Add(30 * 24 * time.Hour)})
 		_, e := tx.Exec(ctx, `INSERT INTO account_job(job_id,account_id,kind,state,requested_at,payload) VALUES($1,$2,'deletion','processing',$3,$4)`, j.ID, p.AccountID, s.now(), b)
 		if e != nil {
 			return e
@@ -197,7 +198,7 @@ func (s Store) RequestDeletionOperation(ctx context.Context, p Principal, ledger
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
-		j := Job{uuid.New(), p.AccountID, "deletion", "processing", s.now()}
+		j := Job{uuid.New(), p.AccountID, kindDeletion, stateProcessing, s.now()}
 		revoke := func(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 			_, err := tx.Exec(ctx, `SELECT users.revoke_account_sessions($1)`, id)
 			return deletionGuardError(err)
@@ -227,7 +228,7 @@ func (s Store) RequestExport(ctx context.Context, p Principal) (Job, error) {
 	if e := p.Fresh(s.now()); e != nil {
 		return Job{}, e
 	}
-	j := Job{uuid.New(), p.AccountID, "export", "requested", s.now()}
+	j := Job{uuid.New(), p.AccountID, kindExport, "requested", s.now()}
 	e := s.mutate(ctx, p, p.AccountID, "", "account.export.requested", func(tx pgx.Tx, a *state) error {
 		_, e := tx.Exec(ctx, `INSERT INTO account_job(job_id,account_id,kind,state,requested_at,payload) VALUES($1,$2,'export','requested',$3,'{}')`, j.ID, p.AccountID, s.now())
 		return e
@@ -244,7 +245,7 @@ func (s Store) ExportSnapshot(ctx context.Context, p Principal) (json.RawMessage
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	a, e := load(ctx, tx, p.AccountID)
 	if e != nil {
 		return nil, e
@@ -284,7 +285,7 @@ func (s Store) ExportSnapshot(ctx context.Context, p Principal) (json.RawMessage
 			consentRows.Close()
 			return nil, e
 		}
-		consents = append(consents, map[string]any{"category": category, "channel": channel, "enabled": enabled, "source": source, "policyVersion": policy, "revision": revision, "revokeRevision": revoke, "changedAt": at.UTC()})
+		consents = append(consents, map[string]any{"category": category, "channel": channel, "enabled": enabled, "source": source, "policyVersion": policy, fieldRevision: revision, "revokeRevision": revoke, "changedAt": at.UTC()})
 	}
 	e = consentRows.Err()
 	consentRows.Close()
@@ -295,7 +296,7 @@ func (s Store) ExportSnapshot(ctx context.Context, p Principal) (json.RawMessage
 }
 
 func exportSnapshotDocument(profile Profile, preferences Preferences, watchlist []WatchEntry, consents []map[string]any) (json.RawMessage, error) {
-	return json.Marshal(map[string]any{"profile": profile, "preferences": preferences, "watchlist": watchlist, "consents": consents})
+	return json.Marshal(map[string]any{fieldProfile: profile, fieldPreferences: preferences, fieldWatchlist: watchlist, "consents": consents})
 }
 
 // ReadyExport requires encrypted object storage supplied by the integration worker.
@@ -345,7 +346,7 @@ func (db postgresExportDownloadRecords) update(ctx context.Context, job, account
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	var record exportDownloadRecord
 	e = tx.QueryRow(ctx, `SELECT j.payload,j.expires_at,j.download_hash,j.consumed_at,j.lease_owner,j.lease_until,j.fence,j.state,a.deleted FROM account_job j JOIN account_state a ON a.account_id=j.account_id WHERE j.job_id=$1 AND j.account_id=$2 AND j.kind='export' FOR UPDATE OF a,j`, job, account).Scan(&record.Payload, &record.ExpiresAt, &record.Hash, &record.ConsumedAt, &record.Owner, &record.Until, &record.Fence, &record.State, &record.Deleted)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -407,7 +408,7 @@ func (d exportDownloads) claim(ctx context.Context, p Principal, job uuid.UUID, 
 }
 
 func (r exportDownloadRecord) available(now time.Time) bool {
-	return !r.Deleted && r.State == "ready" && r.ConsumedAt == nil && r.ExpiresAt != nil && r.ExpiresAt.After(now)
+	return !r.Deleted && r.State == stateReady && r.ConsumedAt == nil && r.ExpiresAt != nil && r.ExpiresAt.After(now)
 }
 
 func (d exportDownloads) consume(ctx context.Context, claim exportDownloadClaim) error {
@@ -442,14 +443,14 @@ func (s Store) ConsumeExport(ctx context.Context, p Principal, id uuid.UUID, tok
 	return claim.Payload, nil
 }
 func (s Store) AckDeletion(ctx context.Context, id uuid.UUID, owner string) error {
-	if owner != "user" && owner != "sessions" && owner != "images" && owner != "notifications" {
+	if owner != domainUser && owner != domainSessions && owner != domainImages && owner != domainNotifications {
 		return ErrInvalid
 	}
 	tx, e := s.DB.Begin(ctx)
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	var b []byte
 	e = tx.QueryRow(ctx, `SELECT payload FROM account_job WHERE job_id=$1 AND kind='deletion' AND state='processing' FOR UPDATE`, id).Scan(&b)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -478,9 +479,9 @@ func (s Store) AckDeletion(ctx context.Context, id uuid.UUID, owner string) erro
 	for _, s := range v.Required {
 		complete = complete && seen[s]
 	}
-	st := "processing"
+	st := stateProcessing
 	if complete {
-		st = "completed"
+		st = stateCompleted
 	}
 	b, _ = json.Marshal(v)
 	_, e = tx.Exec(ctx, `UPDATE account_job SET state=$2,payload=$3 WHERE job_id=$1`, id, st, b)
@@ -503,7 +504,7 @@ func (s Store) Backfill(ctx context.Context, source string, id uuid.UUID, wallet
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	_, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "l35-source:"+source)
 	if e != nil {
 		return e
@@ -519,7 +520,7 @@ func (s Store) Backfill(ctx context.Context, source string, id uuid.UUID, wallet
 	}
 	st, reason := "linked", ""
 	if e == nil && existing != id {
-		st, reason = "quarantined", "historical identity conflict"
+		st, reason = stateQuarantined, "historical identity conflict"
 	}
 	var old []byte
 	var oldID *uuid.UUID
@@ -528,11 +529,11 @@ func (s Store) Backfill(ctx context.Context, source string, id uuid.UUID, wallet
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		return e
 	}
-	if oldState == "quarantined" {
-		st, reason = "quarantined", "review required for quarantined source"
+	if oldState == stateQuarantined {
+		st, reason = stateQuarantined, "review required for quarantined source"
 	}
 	if e == nil && (string(old) != string(digest) || oldID == nil || *oldID != id) {
-		st, reason = "quarantined", "source changed or ownership conflict"
+		st, reason = stateQuarantined, "source changed or ownership conflict"
 	}
 	if st == "linked" {
 		pr, _ := json.Marshal(Profile{PublicProfile: PublicProfile{Wallet: w, Revision: "0"}, SchemaVersion: 1})
@@ -546,7 +547,7 @@ func (s Store) Backfill(ctx context.Context, source string, id uuid.UUID, wallet
 			return e
 		}
 		if actual != w {
-			st, reason = "quarantined", "account wallet conflict"
+			st, reason = stateQuarantined, "account wallet conflict"
 		}
 	}
 	_, e = tx.Exec(ctx, `INSERT INTO account_backfill VALUES($1,$2,$3,$4,$5) ON CONFLICT(source_key) DO UPDATE SET state=CASE WHEN account_backfill.state='quarantined' THEN 'quarantined' ELSE EXCLUDED.state END,reason=EXCLUDED.reason`, source, digest, id, st, reason)
