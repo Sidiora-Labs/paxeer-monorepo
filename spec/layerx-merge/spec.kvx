@@ -13360,6 +13360,12 @@ value = "Task 22.39.492 has the build script accept the literal with or without 
 basis = "Gotcha 4291 and decision 3046."
 affects = ["22.39.492"]
 
+[decision.3375]
+title = "The platform lint task carries the webhooks, dashboard, faucet and runtime clock members"
+value = "Task 22.39.403 brings the webhooks member, the dashboard member, the faucet member and the runtime clock member through the recipe platform-lint beside the internal, identity and paxeer members."
+basis = "Gotcha 4292."
+affects = ["22.39.403"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -198131,7 +198137,7 @@ do_1 = "do_1 The recipe platform-lint of services/platform/Makefile.inc runs cli
 do_2 = "do_2 Run the recipe again until it exits 0 and treat each further finding under services/platform/hosted/internal/src the same way: change the code, not the lint. A finding in a file outside that directory is named in the closing report with its file and lint and is not changed here. The tests of the crate pass unchanged."
 do_3 = "do_3 Record in services/platform/hosted/internal/repair_22_39_403.kvx as product facts: each function that changed and the steps it now has. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/hosted/internal", "services/platform/hosted/identity", "services/platform/hosted/paxeer"]
+touches = ["services/platform/hosted/internal", "services/platform/hosted/identity", "services/platform/hosted/paxeer", "services/platform/hosted/webhooks", "services/platform/hosted/dashboard", "services/platform/hosted/faucet", "services/platform/hosted/runtime-clock"]
 tests = []
 planned_paths = ["services/platform/hosted/internal/repair_22_39_403.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --workspace --all-targets"
@@ -198150,6 +198156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "do_4 Decision 3339, gotcha 4263. The task now also owns services/platform/hosted/identity/src and services/platform/hosted/paxeer/src. Run the first clippy command of the recipe by hand with the option --keep-going so that every member is linted in one run. Treat each finding in the three owned directories as in do_1: change the code, add the documentation a lint asks for where it states a fact about the function, add no allow attribute, and keep every public name and every answer. The tests of the three members pass unchanged. Name each member outside the three in the closing report with its lints and their counts, and do not change it."
 do_5 = "do_5 Decision 3340, gotcha 4264. The task now owns the whole directories of the members internal, identity and paxeer under services/platform/hosted, their tests included, and requires tasks 22.39.412 to 22.39.424, which bring the other members and the two other manifests through the same lint. After them run the whole recipe platform-lint. A step after the clippy steps that stops is named in the closing report with its file and its message."
 do_6 = "do_6 Decision 3345. The task now requires task 22.39.425, which brings the member cli of the platform tools through the lint."
+do_7 = "do_7 Gotcha 4292, decision 3375. This task brings the webhooks member, the dashboard member, the faucet member and the runtime clock member of the platform workspace through the recipe platform-lint as well. Each finding is repaired in code. An allow attribute stays only where the repair would change a public name, a signature or a wire value, and then carries its reason. Record the findings repaired per member in services/platform/hosted/internal/repair_22_39_403.kvx."
 
 [task.22.39.398]
 title = "Bring the runtime module boundary check and the host modules of the runtime into agreement"

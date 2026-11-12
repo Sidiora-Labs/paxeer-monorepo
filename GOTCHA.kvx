@@ -21280,3 +21280,8 @@ fix = "A generator that derives the web helper carries both fields through."
 title = "The build script of the human network gateway member reads a source file of the platform gateway member"
 symptom = "The build script services/human/crates/layerx-network-gateway/build.rs reads services/platform/hosted/gateway/src/evm.rs and looks for one quantity literal and one fixture path in it."
 fix = "The written form of that literal is an input of the build script."
+
+[gotcha.4292]
+title = "The recipe platform-lint covers every member of the platform workspace"
+symptom = "The recipe runs the lint with warnings denied over the three platform manifests, and the workspace manifest of the platform lists 22 members."
+fix = "A task that passes the recipe holds every member at zero findings."
