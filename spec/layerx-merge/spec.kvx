@@ -164349,7 +164349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.15]
 title = "Show every explorer statistic on the statistics page from the explorer API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164408,7 +164408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.13]
 title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
