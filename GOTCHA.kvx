@@ -21305,3 +21305,8 @@ fix = "The report task runs beside the inference market series."
 title = "The agent middleware member of the platform reads the agents integration package"
 symptom = "The cases of services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs load the sources under sdk/integrations/agents/src and call the tracking tool and the receipt binding through them."
 fix = "A task that brings the middleware part of the platform test recipe through carries sdk/integrations/agents."
+
+[gotcha.4297]
+title = "The recipe platform-lint reads the workspace test file and the registry event producer"
+symptom = "The recipe platform-lint lints services/platform/tests/repair_22_33_1366.rs and services/platform/hosted/registry/src/event_producer.rs together with the members of the platform workspace."
+fix = "A task that passes the recipe carries both files."
