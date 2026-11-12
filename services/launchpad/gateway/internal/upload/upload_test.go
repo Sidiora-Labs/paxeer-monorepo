@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -205,5 +206,67 @@ func TestUpload_RejectsOversize(t *testing.T) {
 	}
 	if e.Code != "FIELD_INVALID" || e.Retryable || len(e.FieldErrors) != 1 || e.FieldErrors[0].Rule != sharedhttp.RuleMaxBytes {
 		t.Fatalf("413 envelope = %+v", e)
+	}
+}
+
+func TestUploadRejectsInvalidMultipartFields(t *testing.T) {
+	textFields := map[string]string{}
+	for i := 0; i < 17; i++ {
+		textFields[strconv.Itoa(i)] = "value"
+	}
+	for _, tc := range []struct {
+		name, field, filename, mime, message string
+		fields                               map[string]string
+	}{
+		{"unknown image", "avatar", "avatar.png", "image/png", "unexpected or duplicate image field", nil},
+		{"too many values", "", "", "", "too many fields", textFields},
+		{"long text name", "", "", "", "invalid text field", map[string]string{strings.Repeat("n", 65): "value"}},
+		{"long text value", "", "", "", "invalid text field", map[string]string{"description": strings.Repeat("v", 8193)}},
+		{"long filename", "logo", strings.Repeat("n", 129) + ".png", "image/png", "invalid image filename", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var upstream metaUpstream
+			server := newMetaUpstream(t, &upstream)
+			h := New(Deps{MetadataBaseURL: server.URL, MaxBytes: 6 << 20, Scan: cleanScan})
+			body, contentType := buildUpload(t, tc.fields, tc.field, tc.filename, tc.mime, []byte("image bytes"))
+			response := serve(t, h, testAddr, body, contentType)
+			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), tc.message) || upstream.called {
+				t.Fatalf("multipart response=%d body=%s forwarded=%v", response.Code, response.Body.String(), upstream.called)
+			}
+		})
+	}
+}
+
+func TestUploadForwardBoundsMetadataResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		want   int
+	}{
+		{"redirect", http.StatusFound, "redirect", http.StatusBadGateway},
+		{"oversized response", http.StatusOK, strings.Repeat("x", (1<<20)+1), http.StatusBadGateway},
+		{"accepted response", http.StatusAccepted, `{"state":"queued"}`, http.StatusAccepted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/metadata/"+testAddr {
+					t.Errorf("forwarded path=%s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			t.Cleanup(server.Close)
+			h := New(Deps{MetadataBaseURL: server.URL, MaxBytes: 6 << 20, Scan: cleanScan})
+			body, contentType := buildUpload(t, map[string]string{"wallet": testAddr}, "", "", "", nil)
+			response := serve(t, h, testAddr, body, contentType)
+			if response.Code != tc.want || response.Header().Get("Content-Type") != "application/json" {
+				t.Fatalf("forwarded response=%d headers=%v body=%s", response.Code, response.Header(), response.Body.String())
+			}
+			if tc.want == http.StatusAccepted && response.Body.String() != tc.body {
+				t.Fatalf("accepted response body=%s", response.Body.String())
+			}
+		})
 	}
 }
