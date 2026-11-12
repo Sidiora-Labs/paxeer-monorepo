@@ -35,7 +35,7 @@ const ChainIndicatorItem = ({ indicator, isSelected, onClick, isLoading }: Props
       return null;
     }
 
-    const diffColor = indicator.valueDiff >= 0 ? 'green.500' : 'red.500';
+    const diffColor = indicator.valueDiff >= 0 ? 'positive' : 'negative';
 
     return (
       <Skeleton loading={ isLoading } ml={ 1 } display="flex" alignItems="center" color={ diffColor }>

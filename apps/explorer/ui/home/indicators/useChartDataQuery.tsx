@@ -58,7 +58,7 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
     },
   });
 
-  const secondaryCoinPriceQuery = useApiQuery('general:stats_charts_secondary_coin_price', {
+  const secondaryCoinPriceQuery = useApiQuery('general:stats_charts_secondary_coin_market', {
     queryOptions: {
       refetchOnMount: false,
       enabled: indicatorId === 'secondary_coin_price',
@@ -75,6 +75,14 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
           date: new Date(item.date),
           value: item.market_cap ?? null,
         })),
+    },
+  });
+
+  const secondaryCoinMarketCapQuery = useApiQuery('general:stats_charts_secondary_coin_market', {
+    queryOptions: {
+      refetchOnMount: false,
+      enabled: indicatorId === 'secondary_coin_market_cap',
+      select: (data) => data.chart_data.map((item) => ({ date: new Date(item.date), value: item.market_cap ?? null })),
     },
   });
 
@@ -125,6 +133,13 @@ export default function useChartDataQuery(indicatorId: ChainIndicatorId, calenda
         data: getChartData(indicatorId, marketCapQuery.data || [], calendarWindowDays),
         isError: marketCapQuery.isError,
         isPending: marketCapQuery.isPending,
+      };
+    }
+    case 'secondary_coin_market_cap': {
+      return {
+        data: getChartData(indicatorId, secondaryCoinMarketCapQuery.data || [], calendarWindowDays),
+        isError: secondaryCoinMarketCapQuery.isError,
+        isPending: secondaryCoinMarketCapQuery.isPending,
       };
     }
     case 'tvl': {
