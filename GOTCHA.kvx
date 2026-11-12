@@ -21260,3 +21260,8 @@ fix = "The build of a launchpad web flow task reads the finding lines of the typ
 title = "The security linter reports a file opened on a path held in a variable"
 symptom = "gosec reports each call that opens or creates a file on a path held in a variable, also where the path comes from the configuration of the command."
 fix = "Decision 3369."
+
+[gotcha.4288]
+title = "The security linter reports a conversion between integer types of different sign or width"
+symptom = "gosec reports each conversion between integer types of different sign or width, also where the code bounds the value before the conversion."
+fix = "Decision 3370."
