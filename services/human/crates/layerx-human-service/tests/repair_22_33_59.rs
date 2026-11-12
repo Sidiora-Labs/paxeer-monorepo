@@ -40,7 +40,7 @@ fn notification_rows(scope: &PrincipalScope<'_>) -> Vec<(String, u64, Vec<u8>)> 
                 || key.as_str().starts_with("notify_batch_")
         })
         .map(|key| {
-            let row = scope.get(Table::Notifications, &key).expect("listed row");
+            let row = scope.get(Table::Notifications, &key).or_fail("listed row");
             (
                 key.as_str().to_owned(),
                 row.written_at(),
@@ -89,11 +89,11 @@ fn notification_read_state_survives_sweep_and_reopen_without_changing_evidence()
             assert_eq!(inventory.unread_count(), 1);
             assert!(inventory
                 .notification(&read_id)
-                .expect("read notification")
+                .or_fail("read notification")
                 .read());
             assert!(!inventory
                 .notification(&unread_id)
-                .expect("unread notification")
+                .or_fail("unread notification")
                 .read());
             assert!(DeepLinks::mark_read(&mut scope, now, &read_id)?.read());
             assert_eq!(AuditChain::open(&scope)?.export(&scope)?, evidence);
@@ -258,7 +258,7 @@ fn legacy_notification_state_migrates_on_dispatch_before_sweep_and_reopen() -> T
         assert_eq!(inventory.unread_count(), 0);
         assert!(inventory
             .notification(&id)
-            .expect("legacy notification")
+            .or_fail("legacy notification")
             .read());
         assert_eq!(AuditChain::open(&scope)?.export(&scope)?, evidence);
     }
@@ -311,4 +311,10 @@ fn legacy_migration_refuses_corruption_without_partially_saving_choices() -> Tes
     drop(store);
     fs::remove_dir_all(root)?;
     Ok(())
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

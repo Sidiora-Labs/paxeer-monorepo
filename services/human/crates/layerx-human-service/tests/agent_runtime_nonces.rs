@@ -41,7 +41,7 @@ impl Peer {
         let socket = directory.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
-        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100_000));
         let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             for (expected, response) in exchanges {

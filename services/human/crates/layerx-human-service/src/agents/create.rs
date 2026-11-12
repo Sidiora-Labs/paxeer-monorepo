@@ -127,13 +127,15 @@ impl CreateAgentRequest {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn with_activity_types(
         mut self,
         activity_types: Vec<ActivityType>,
     ) -> Result<Self, AgentCreationError> {
         let activity_types = activity_types
-            .iter()
-            .map(|value| value.value())
+            .into_iter()
+            .map(ActivityType::value)
             .collect::<Vec<_>>();
         validate_activity_types(&activity_types)?;
         self.activity_types = activity_types;
@@ -258,6 +260,8 @@ impl PurposePresetCatalog {
             .collect()
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn activity_types(&self, id: &str) -> Result<Vec<ActivityType>, AgentCreationError> {
         let preset = self.preset(id).ok_or(AgentCreationError::UnknownPurpose)?;
         if preset.call_selectors.is_empty() {
@@ -603,12 +607,28 @@ impl ProtocolEvidence {
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction signature"))?;
         let disclosure = layerx_crypto::payments::bind_call(&call, sender)
             .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction disclosure"))?;
+        self.validate_lifecycle_binding(&call, &disclosure, sender, expected)?;
+        let (payload, protocol_version) = self.bound_payload(&disclosure)?;
+        Ok(BoundLifecycleCall {
+            call,
+            sender,
+            disclosure,
+            payload,
+            protocol_version,
+        })
+    }
+    fn validate_lifecycle_binding(
+        &self,
+        call: &Eip1559Call,
+        disclosure: &Disclosure,
+        sender: [u8; 20],
+        expected: ActivityType,
+    ) -> Result<(), AgentFailure> {
         let mut authority = [0; 32];
         authority[12..].copy_from_slice(&sender);
         let transaction_hash =
             layerx_crypto::evm_transaction::transaction_hash(&self.signed_activity);
-        let expected_idempotency_key =
-            Self::creation_idempotency_key(&disclosure, self.action_key)?;
+        let expected_idempotency_key = Self::creation_idempotency_key(disclosure, self.action_key)?;
         for (differs, binding) in [
             (
                 disclosure.activity_type != expected,
@@ -647,145 +667,151 @@ impl ProtocolEvidence {
                 return Err(AgentFailure::Refused(binding));
             }
         }
-        let (payload, protocol_version) = match disclosure
-            .construct_method()
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
-        {
-            Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) => {
-                let scope = payload
-                    .get(
-                        payload
-                            .len()
-                            .checked_sub(6)
-                            .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?..,
+        Ok(())
+    }
+
+    fn native_budget_payload(
+        budget: &layerx_crypto::disclosure::DisclosedNativeBudgetCreate,
+    ) -> Vec<u8> {
+        let mut payload = Vec::with_capacity(251);
+        payload.extend_from_slice(&budget.encoding_version.to_be_bytes());
+        for value in [
+            budget.budget_id,
+            budget.budget_account,
+            budget.asset,
+            budget.purpose,
+        ] {
+            payload.extend_from_slice(&value);
+        }
+        for value in [
+            budget.per_period_limit,
+            budget.carry_cap,
+            budget.initial_amount,
+        ] {
+            payload.extend_from_slice(&value.to_be_bytes());
+        }
+        for value in [
+            budget.period_length_ms,
+            budget.period_start_ms,
+            budget.expiry_ms,
+            budget.revocation_sequence,
+        ] {
+            payload.extend_from_slice(&value.to_be_bytes());
+        }
+        payload.push(budget.rollover);
+        payload.extend_from_slice(&budget.source_account);
+        payload.extend_from_slice(&budget.source_sequence.to_be_bytes());
+        payload
+    }
+
+    fn ledger_payload(&self, payload: Vec<u8>) -> Result<(Vec<u8>, u16), AgentFailure> {
+        let scope = payload
+            .get(
+                payload
+                    .len()
+                    .checked_sub(6)
+                    .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?..,
+            )
+            .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?;
+        if scope[..4] != self.network_id.to_be_bytes() {
+            return Err(AgentFailure::Refused("lifecycle payload network differs"));
+        }
+        let version = u16::from_be_bytes([scope[4], scope[5]]);
+        if !layerx_wire::limits::protocol_version_supported(version) {
+            return Err(AgentFailure::Refused("invalid lifecycle payload protocol"));
+        }
+        Ok((payload, version))
+    }
+
+    fn bound_payload(&self, disclosure: &Disclosure) -> Result<(Vec<u8>, u16), AgentFailure> {
+        Ok(
+            match disclosure
+                .construct_method()
+                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) => {
+                    self.ledger_payload(payload)?
+                }
+                Some(
+                    layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }
+                    | layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle {
+                        payload, ..
+                    },
+                ) => (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                ),
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                    budget,
+                }) => (
+                    Self::native_budget_payload(&budget),
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                ),
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                    budget,
+                    amount,
+                }) => {
+                    if amount == 0 {
+                        return Err(AgentFailure::Refused(
+                            "lifecycle budget funding amount is zero",
+                        ));
+                    }
+                    let mut payload = Vec::with_capacity(50);
+                    payload.extend_from_slice(&1_u16.to_be_bytes());
+                    payload.extend_from_slice(&budget);
+                    payload.extend_from_slice(&amount.to_be_bytes());
+                    (
+                        payload,
+                        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                     )
-                    .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?;
-                if scope[..4] != self.network_id.to_be_bytes() {
-                    return Err(AgentFailure::Refused("lifecycle payload network differs"));
                 }
-                let version = u16::from_be_bytes([scope[4], scope[5]]);
-                if !layerx_wire::limits::protocol_version_supported(version) {
-                    return Err(AgentFailure::Refused("invalid lifecycle payload protocol"));
-                }
-                (payload, version)
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }) => {
-                (
-                    payload,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::AuthSession {
+                    grant,
+                    ..
+                }) => (
+                    grant.registration_payload,
                     layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-                )
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
-                budget,
-            }) => {
-                let mut payload = Vec::with_capacity(251);
-                payload.extend_from_slice(&budget.encoding_version.to_be_bytes());
-                for value in [
-                    budget.budget_id,
-                    budget.budget_account,
-                    budget.asset,
-                    budget.purpose,
-                ] {
-                    payload.extend_from_slice(&value);
-                }
-                for value in [
-                    budget.per_period_limit,
-                    budget.carry_cap,
-                    budget.initial_amount,
-                ] {
-                    payload.extend_from_slice(&value.to_be_bytes());
-                }
-                for value in [
-                    budget.period_length_ms,
-                    budget.period_start_ms,
-                    budget.expiry_ms,
-                    budget.revocation_sequence,
-                ] {
-                    payload.extend_from_slice(&value.to_be_bytes());
-                }
-                payload.push(budget.rollover);
-                payload.extend_from_slice(&budget.source_account);
-                payload.extend_from_slice(&budget.source_sequence.to_be_bytes());
-                (
-                    payload,
-                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-                )
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
-                budget,
-                amount,
-            }) => {
-                if amount == 0 {
+                ),
+                Some(
+                    layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::ProgramDeploy { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::ProgramUpgrade { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::ProgramWindDown { .. },
+                ) => {
                     return Err(AgentFailure::Refused(
-                        "lifecycle budget funding amount is zero",
-                    ));
+                        "invalid lifecycle transaction method",
+                    ))
                 }
-                let mut payload = Vec::with_capacity(50);
-                payload.extend_from_slice(&1_u16.to_be_bytes());
-                payload.extend_from_slice(&budget);
-                payload.extend_from_slice(&amount.to_be_bytes());
-                (
-                    payload,
-                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-                )
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle {
-                payload,
-                ..
-            }) => (
-                payload,
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-            ),
-            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthSession {
-                grant, ..
-            }) => (
-                grant.registration_payload,
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-            ),
-            Some(
-                layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::ProgramDeploy { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::ProgramUpgrade { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::ProgramWindDown { .. },
-            ) => {
-                return Err(AgentFailure::Refused(
-                    "invalid lifecycle transaction method",
-                ))
-            }
-            Some(
-                layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerMint { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerBurn { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerIssueGrant { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRevokeGrant { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
-                | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
-            ) => (disclosure.canonical_payload().to_vec(), 3),
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
-                return Err(AgentFailure::Refused(
-                    "lifecycle transaction is a pointer transfer",
-                ))
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
-                return Err(AgentFailure::Refused(
-                    "lifecycle transaction is a bind registration",
-                ))
-            }
-            None => {
-                return Err(AgentFailure::Refused(
-                    "missing lifecycle transaction method",
-                ))
-            }
-        };
-        Ok(BoundLifecycleCall {
-            call,
-            sender,
-            disclosure,
-            payload,
-            protocol_version,
-        })
+                Some(
+                    layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerMint { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerBurn { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerIssueGrant { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::LedgerRevokeGrant { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
+                    | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
+                ) => (disclosure.canonical_payload().to_vec(), 3),
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer {
+                    ..
+                }) => {
+                    return Err(AgentFailure::Refused(
+                        "lifecycle transaction is a pointer transfer",
+                    ))
+                }
+                Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
+                    return Err(AgentFailure::Refused(
+                        "lifecycle transaction is a bind registration",
+                    ))
+                }
+                None => {
+                    return Err(AgentFailure::Refused(
+                        "missing lifecycle transaction method",
+                    ))
+                }
+            },
+        )
     }
 }
 
@@ -1492,7 +1518,7 @@ impl CreationJourney {
                 .iter()
                 .map(|value| {
                     ActivityType::from_u32(*value)
-                        .map(|value| value.ordinal())
+                        .map(layerx_types::payload::ActivityType::ordinal)
                         .map_err(|_| AgentCreationError::CorruptJourney)
                 })
                 .collect::<Result<_, _>>()?,
