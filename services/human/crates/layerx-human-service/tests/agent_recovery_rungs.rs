@@ -23,7 +23,11 @@ fn did(bytes: &[u8]) -> Did {
 }
 
 fn hash_bytes(digest: &mut Sha256, bytes: &[u8]) {
-    digest.update(u64::try_from(bytes.len()).unwrap().to_be_bytes());
+    digest.update(
+        u64::try_from(bytes.len())
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .to_be_bytes(),
+    );
     digest.update(bytes);
 }
 
@@ -98,9 +102,10 @@ fn persist(scope: &mut PrincipalScope<'_>, record: &Value) {
             Table::Journeys,
             row_key(&key),
             160,
-            serde_json::to_vec(record).unwrap(),
+            serde_json::to_vec(record)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
 }
 
 #[test]
@@ -109,7 +114,9 @@ fn key_change_is_effective_only_at_committed() {
     let map = tenancy(&[("alice", "tenant-a")]);
     let (mut store, _) = install_and_open(&root, &map, retention_uniform(1_000));
     let principal = principal("alice");
-    let mut scope = store.principal(&principal).unwrap();
+    let mut scope = store
+        .principal(&principal)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     scope
         .put(
             Table::Journeys,
@@ -117,13 +124,13 @@ fn key_change_is_effective_only_at_committed() {
             90,
             PREVIOUS_KEY.to_vec(),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let evidence = evidence();
     let mut record = record(&evidence);
     persist(&mut scope, &record);
     let pending = AgentKeyChallenge::load(&scope, IDEMPOTENCY_KEY)
-        .unwrap()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+        .unwrap_or_else(|| panic!("missing value"));
     assert_eq!(pending.stage(), AgentKeyChangeStage::ChallengeOpen);
     assert_eq!(pending.rung(), Rung::Receipted);
     assert_eq!(pending.tx_hash(), TX_HASH);
@@ -142,8 +149,8 @@ fn key_change_is_effective_only_at_committed() {
     persist(&mut scope, &record);
     assert_eq!(
         AgentKeyChallenge::load(&scope, IDEMPOTENCY_KEY)
-            .unwrap()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .unwrap_or_else(|| panic!("missing value"))
             .stage(),
         AgentKeyChangeStage::ReadyToCommit
     );
@@ -181,8 +188,8 @@ fn key_change_is_effective_only_at_committed() {
     record["rung_rank"] = json!(observation.rung.wire_rank());
     persist(&mut scope, &record);
     let effective = AgentKeyChallenge::load(&scope, IDEMPOTENCY_KEY)
-        .unwrap()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+        .unwrap_or_else(|| panic!("missing value"));
     assert_eq!(effective.stage(), AgentKeyChangeStage::Effective);
     assert_eq!(effective.rung(), Rung::Committed);
     assert_eq!(effective.tx_hash(), observation.tx_hash);
@@ -199,7 +206,7 @@ fn key_change_is_effective_only_at_committed() {
     assert_ne!(changed_evidence.expected_digest(), evidence.receipt_digest);
     drop(scope);
     drop(store);
-    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
 }
 
 #[test]
@@ -208,7 +215,9 @@ fn key_change_observation_rank_above_two_is_refused() {
     let map = tenancy(&[("alice", "tenant-a")]);
     let (mut store, _) = install_and_open(&root, &map, retention_uniform(1_000));
     let principal = principal("alice");
-    let mut scope = store.principal(&principal).unwrap();
+    let mut scope = store
+        .principal(&principal)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let mut record = record(&evidence());
     for rank in [1, 2] {
         record["rung_rank"] = json!(rank);
@@ -228,5 +237,5 @@ fn key_change_observation_rank_above_two_is_refused() {
     }
     drop(scope);
     drop(store);
-    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
 }

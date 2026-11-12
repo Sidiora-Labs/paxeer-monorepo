@@ -5,6 +5,8 @@ mod retired_crypto_codec_2;
 #[path = "../../layerx-human-kms/tests/support/attestor_cluster.rs"]
 mod cluster;
 
+// The included runtime-clock/src/server.rs is shared with another test module.
+#[allow(clippy::duplicate_mod)]
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
@@ -53,7 +55,7 @@ fn start_kernel_journey(
     plan: &UnifiedPlan,
     request: &SubmitPlanRequest,
     expectation: &BindingExpectation,
-    journey_id: JourneyId,
+    journey_id: &JourneyId,
     signed: &[EvmAction],
 ) -> Result<IntentSubmission, SubmitRefusal> {
     let result = layerx_human_service::journeys::start_kernel_journey(
@@ -64,7 +66,7 @@ fn start_kernel_journey(
         journey_id.clone(),
         signed,
     )?;
-    assert_eq!(result.journey_id(), &journey_id);
+    assert_eq!(result.journey_id(), journey_id);
     assert_eq!(result.state(), "processing");
     let key = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
         .unwrap_or_else(|error| panic!("journey key: {error}"));
@@ -222,7 +224,7 @@ fn binding_document(plan: &UnifiedPlan, index: usize, sequence: u64, window: (u6
     })
 }
 
-fn submission_body(plan: &UnifiedPlan, digest: [u8; 32], bindings: Vec<Value>) -> Value {
+fn submission_body(plan: &UnifiedPlan, digest: [u8; 32], bindings: &[Value]) -> Value {
     json!({
         "plan_digest": hex(&plan.digest()),
         "signed_digest": hex(&digest),
@@ -231,10 +233,10 @@ fn submission_body(plan: &UnifiedPlan, digest: [u8; 32], bindings: Vec<Value>) -
 }
 
 fn valid_request(plan: &UnifiedPlan, window: (u64, u64)) -> SubmitPlanRequest {
-    let bindings = (0..plan.legs().len())
+    let bindings: Vec<_> = (0..plan.legs().len())
         .map(|index| binding_document(plan, index, SEQUENCE, window))
         .collect();
-    SubmitPlanRequest::from_json(&submission_body(plan, plan.digest(), bindings))
+    SubmitPlanRequest::from_json(&submission_body(plan, plan.digest(), &bindings))
         .unwrap_or_else(|error| panic!("submission: {error}"))
 }
 
@@ -273,7 +275,7 @@ struct Fixture {
     keystore: Keystore,
     kms: AttestorKms,
     config: AttestorCustodyConfig,
-    _cluster: cluster::Cluster,
+    cluster: cluster::Cluster,
     _clock: SigningClock,
     _environment: MutexGuard<'static, ()>,
     now: u64,
@@ -281,9 +283,10 @@ struct Fixture {
 
 impl Fixture {
     fn new(label: &str) -> Self {
+        use layerx_types::clock::Clock as _;
         let environment = SIGNING_ENVIRONMENT
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let root = directory(label);
         fs::create_dir_all(&root).unwrap_or_else(|error| panic!("fixture root: {error}"));
         let clock = SigningClock::start(&root);
@@ -347,7 +350,6 @@ impl Fixture {
             .unwrap_or_else(|error| panic!("identity assertion: {error}"));
         kms.admit_assertion(owner, &assertion)
             .unwrap_or_else(|error| panic!("admit assertion: {error}"));
-        use layerx_types::clock::Clock as _;
         let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
             .unwrap_or_else(|error| panic!("runtime clock: {error:?}"))
             .sample(Duration::from_secs(1))
@@ -361,7 +363,7 @@ impl Fixture {
             keystore,
             kms,
             config,
-            _cluster: cluster,
+            cluster,
             _clock: clock,
             _environment: environment,
             now,
@@ -385,20 +387,24 @@ impl Fixture {
                 .unwrap_or_else(|error| panic!("reopen keystore: {error}"));
     }
 
-    fn authorize_send_transaction(
-        &self,
-        scope: &PrincipalScope<'_>,
-        plan: &UnifiedPlan,
-        request: &SubmitPlanRequest,
-    ) -> Vec<EvmAction> {
+    fn admit_owner_assertion(&self) {
         let assertion = self
-            ._cluster
+            .cluster
             .tokens
             .mint("intent-owner")
             .unwrap_or_else(|error| panic!("identity assertion: {error}"));
         self.kms
             .admit_assertion("intent-owner", &assertion)
             .unwrap_or_else(|error| panic!("admit assertion: {error}"));
+    }
+
+    fn authorize_send_transaction(
+        &self,
+        scope: &PrincipalScope<'_>,
+        plan: &UnifiedPlan,
+        request: &SubmitPlanRequest,
+    ) -> Vec<EvmAction> {
+        self.admit_owner_assertion();
         let wallet = self
             .keystore
             .evm_wallet(&self.principal, &custody_key())
@@ -407,28 +413,19 @@ impl Fixture {
             .iter()
             .zip(&request.bindings)
             .map(|(leg, binding)| {
-                let recipient = evm_address(
-                    &EvmSigningKey::from_slice(&[0x6b; 32])
-                        .unwrap_or_else(|error| panic!("recipient key: {error}")),
-                )
-                .bytes();
+                let recipient = recipient_address();
                 let mut source = [0; 32];
                 source[12..].copy_from_slice(&wallet);
                 let mut destination = [0; 32];
                 destination[12..].copy_from_slice(&recipient);
-                let word = |amount: u128| {
-                    let mut bytes = [0; 32];
-                    bytes[16..].copy_from_slice(&amount.to_be_bytes());
-                    bytes
-                };
                 let denom = "LXP";
                 let mut data = [
                     vec![0x5c, 0x05, 0x96, 0x1b],
                     source.to_vec(),
                     destination.to_vec(),
-                    word(128).to_vec(),
-                    word(leg.amount().value()).to_vec(),
-                    word(denom.len() as u128).to_vec(),
+                    amount_word(128).to_vec(),
+                    amount_word(leg.amount().value()).to_vec(),
+                    amount_word(denom.len() as u128).to_vec(),
                     denom.as_bytes().to_vec(),
                 ]
                 .concat();
@@ -476,7 +473,7 @@ impl Fixture {
                         &authorization,
                         recipient,
                         denom.to_owned(),
-                        word(leg.amount().value()),
+                        amount_word(leg.amount().value()),
                     )
                     .unwrap_or_else(|error| {
                         panic!(
@@ -495,6 +492,18 @@ impl Fixture {
             })
             .collect()
     }
+}
+
+fn amount_word(amount: u128) -> [u8; 32] {
+    let mut bytes = [0; 32];
+    bytes[16..].copy_from_slice(&amount.to_be_bytes());
+    bytes
+}
+
+fn recipient_address() -> [u8; 20] {
+    let key = EvmSigningKey::from_slice(&[0x6b; 32])
+        .unwrap_or_else(|error| panic!("recipient key: {error}"));
+    evm_address(&key).bytes()
 }
 
 impl Drop for Fixture {
@@ -572,6 +581,71 @@ fn custody_key() -> KeyId {
     KeyId::new("human-primary").unwrap_or_else(|error| panic!("key: {error}"))
 }
 
+fn assert_processing_record(
+    scope: &PrincipalScope<'_>,
+    key: &RowKey,
+    journey_id: &JourneyId,
+    plan: &UnifiedPlan,
+    actions: &[EvmAction],
+) -> Value {
+    let record: Value = serde_json::from_slice(
+        scope
+            .get(Table::Journeys, key)
+            .unwrap_or_else(|| panic!("persisted kernel journey missing"))
+            .bytes(),
+    )
+    .unwrap_or_else(|error| panic!("journey record: {error}"));
+    assert_eq!(record["journey_id"], journey_id.as_str());
+    assert_eq!(record["plan_digest"], hex(&plan.digest()));
+    assert_eq!(record["state"], "processing");
+    assert_eq!(record["state_copy_key"], "journey.state.processing");
+    let legs = record["legs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("persisted journey legs missing"));
+    assert_eq!(legs.len(), actions.len());
+    for (index, (leg, action)) in legs.iter().zip(actions).enumerate() {
+        assert_eq!(leg["index"], json!(index));
+        assert_eq!(leg["nonce"], action.authorization.transaction.nonce);
+        assert_eq!(
+            leg["tx_hash"],
+            format!(
+                "0x{}",
+                hex(&action
+                    .transaction_hash
+                    .unwrap_or_else(|| panic!("signed transaction hash missing")))
+            )
+        );
+        assert_eq!(leg["action_key"], hex(&action.authorization.action_key));
+        assert_eq!(leg["raw_transaction"], json!(action.raw_transaction));
+    }
+
+    record
+}
+
+fn assert_wrong_signer_refused(
+    scope: &mut PrincipalScope<'_>,
+    plan: &UnifiedPlan,
+    request: &SubmitPlanRequest,
+    expectation: &BindingExpectation,
+    journey_id: &JourneyId,
+    actions: &[EvmAction],
+) {
+    let mut wrong_signer = actions.to_vec();
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(&actions[0].raw_transaction)
+        .unwrap_or_else(|error| panic!("signed call: {error:?}"));
+    wrong_signer[0].raw_transaction = raw_transaction(&call, actions[0].authorization.wallet);
+    wrong_signer[0].transaction_hash = Some(layerx_crypto::evm_transaction::transaction_hash(
+        &wrong_signer[0].raw_transaction,
+    ));
+    assert_eq!(
+        start_kernel_journey(scope, plan, request, expectation, journey_id, &wrong_signer).err(),
+        Some(SubmitRefusal::LegMismatch { index: 0 })
+    );
+    let absent = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
+        .unwrap_or_else(|error| panic!("journey key: {error}"));
+    assert!(scope.get(Table::Journeys, &absent).is_none());
+}
+
 #[test]
 fn intent_submit_kernel_send_persists_a_processing_record_with_each_leg_hash() {
     let mut fixture = Fixture::new("intent-submit-kernel");
@@ -592,34 +666,20 @@ fn intent_submit_kernel_send_persists_a_processing_record_with_each_leg_hash() {
         .principal(&fixture.principal)
         .unwrap_or_else(|error| panic!("scope: {error}"));
     let actions = fixture.authorize_send_transaction(&scope, &plan, &request);
-    let mut wrong_signer = actions.clone();
-    let (call, _) = layerx_crypto::evm_transaction::decode_signed(&actions[0].raw_transaction)
-        .unwrap_or_else(|error| panic!("signed call: {error:?}"));
-    wrong_signer[0].raw_transaction = raw_transaction(&call, actions[0].authorization.wallet);
-    wrong_signer[0].transaction_hash = Some(layerx_crypto::evm_transaction::transaction_hash(
-        &wrong_signer[0].raw_transaction,
-    ));
-    assert_eq!(
-        start_kernel_journey(
-            &mut scope,
-            &plan,
-            &request,
-            &expectation,
-            journey_id.clone(),
-            &wrong_signer
-        )
-        .err(),
-        Some(SubmitRefusal::LegMismatch { index: 0 })
+    assert_wrong_signer_refused(
+        &mut scope,
+        &plan,
+        &request,
+        &expectation,
+        &journey_id,
+        &actions,
     );
-    let absent = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
-        .unwrap_or_else(|error| panic!("journey key: {error}"));
-    assert!(scope.get(Table::Journeys, &absent).is_none());
     let initial = start_kernel_journey(
         &mut scope,
         &plan,
         &request,
         &expectation,
-        journey_id.clone(),
+        &journey_id,
         &actions,
     )
     .unwrap_or_else(|error| panic!("start: {error}"));
@@ -627,37 +687,7 @@ fn intent_submit_kernel_send_persists_a_processing_record_with_each_leg_hash() {
     assert_eq!(initial.journey_id(), &journey_id);
     let key = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
         .unwrap_or_else(|error| panic!("journey key: {error}"));
-    let record: Value = serde_json::from_slice(
-        scope
-            .get(Table::Journeys, &key)
-            .unwrap_or_else(|| panic!("persisted kernel journey missing"))
-            .bytes(),
-    )
-    .unwrap_or_else(|error| panic!("journey record: {error}"));
-    assert_eq!(record["journey_id"], journey_id.as_str());
-    assert_eq!(record["plan_digest"], hex(&plan.digest()));
-    assert_eq!(record["state"], "processing");
-    assert_eq!(record["state_copy_key"], "journey.state.processing");
-    let legs = record["legs"]
-        .as_array()
-        .unwrap_or_else(|| panic!("persisted journey legs missing"));
-    assert_eq!(legs.len(), actions.len());
-    for (index, (leg, action)) in legs.iter().zip(&actions).enumerate() {
-        assert_eq!(leg["index"], json!(index));
-        assert_eq!(leg["nonce"], action.authorization.transaction.nonce);
-        assert_eq!(
-            leg["tx_hash"],
-            format!(
-                "0x{}",
-                hex(&action
-                    .transaction_hash
-                    .unwrap_or_else(|| panic!("signed transaction hash missing")))
-            )
-        );
-        assert_eq!(leg["action_key"], hex(&action.authorization.action_key));
-        assert_eq!(leg["raw_transaction"], json!(action.raw_transaction));
-    }
-
+    let record = assert_processing_record(&scope, &key, &journey_id, &plan, &actions);
     // Task 14.0.6: removed the kernel-native journey drive, which production does not use.
     drop(scope);
     drop(store);
@@ -670,7 +700,7 @@ fn intent_submit_kernel_send_persists_a_processing_record_with_each_leg_hash() {
         &plan,
         &request,
         &expectation,
-        journey_id.clone(),
+        &journey_id,
         &actions,
     )
     .unwrap_or_else(|error| panic!("repeat: {error}"));
@@ -694,7 +724,7 @@ fn intent_submit_kernel_send_persists_a_processing_record_with_each_leg_hash() {
             &plan,
             &conflicting_request,
             &conflicting_expectation,
-            journey_id.clone(),
+            &journey_id,
             &conflicting_actions,
         )
         .err(),
@@ -718,7 +748,7 @@ fn intent_submit_refuses_a_stale_digest_with_a_typed_forbidden_code() {
     let mut stale = plan.digest();
     stale[0] ^= 0x01;
     let bindings = vec![binding_document(&plan, 0, SEQUENCE, (now - 5, now + 200))];
-    let request = SubmitPlanRequest::from_json(&submission_body(&plan, stale, bindings))
+    let request = SubmitPlanRequest::from_json(&submission_body(&plan, stale, &bindings))
         .unwrap_or_else(|error| panic!("submission: {error}"));
     let refusal = verify_bindings(&plan, &request, &expectation(now))
         .err()
@@ -736,7 +766,7 @@ fn intent_submit_refuses_a_stale_digest_with_a_typed_forbidden_code() {
             &plan,
             &request,
             &expectation(now),
-            journey_id.clone(),
+            &journey_id,
             &actions
         )
         .err(),
@@ -754,7 +784,7 @@ fn intent_submit_refuses_a_stale_digest_with_a_typed_forbidden_code() {
     let mut body = submission_body(
         &plan,
         plan.digest(),
-        vec![binding_document(&plan, 0, SEQUENCE, (now - 5, now + 200))],
+        &[binding_document(&plan, 0, SEQUENCE, (now - 5, now + 200))],
     );
     body["plan_digest"] = json!(hex(&stale));
     let request =
@@ -776,7 +806,7 @@ fn intent_submit_refuses_a_wrong_account_sequence_with_a_typed_conflict() {
         SEQUENCE + 1,
         (now - 5, now + 200),
     )];
-    let request = SubmitPlanRequest::from_json(&submission_body(&plan, plan.digest(), bindings))
+    let request = SubmitPlanRequest::from_json(&submission_body(&plan, plan.digest(), &bindings))
         .unwrap_or_else(|error| panic!("submission: {error}"));
     let refusal = verify_bindings(&plan, &request, &expectation(now))
         .err()
@@ -799,7 +829,7 @@ fn intent_submit_refuses_a_wrong_account_sequence_with_a_typed_conflict() {
             &plan,
             &request,
             &expectation(now),
-            journey_id.clone(),
+            &journey_id,
             &actions,
         )
         .err(),
@@ -832,7 +862,7 @@ fn intent_submit_refuses_an_expired_validity_window_with_a_typed_quote_expiry() 
             &plan,
             &request,
             &expectation(now + 201),
-            journey_id.clone(),
+            &journey_id,
             &actions
         )
         .err(),
@@ -890,7 +920,7 @@ fn intent_submit_response_matches_the_golden_field_set() {
         &plan,
         &request,
         &expectation(now),
-        journey_id.clone(),
+        &journey_id,
         &actions,
     )
     .unwrap_or_else(|error| panic!("start: {error}"));

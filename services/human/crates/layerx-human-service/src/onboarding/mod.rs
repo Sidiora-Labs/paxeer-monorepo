@@ -3,8 +3,7 @@
 pub mod gas_station;
 mod native;
 
-pub(crate) use native::{NativePlan, NativeSponsor};
-
+pub(crate) use native::NativeSponsor;
 use std::fmt::{Display, Formatter};
 
 use layerx_agent_api::error::RequestId;
@@ -1237,7 +1236,7 @@ fn validate_protocol_record(record: &ProtocolRecord) -> Result<(), OnboardingErr
         || record.state == ProtocolState::Verified && record.refusal_code.is_some()
         || record.state == ProtocolState::Refused
             && record.receipt_digest.is_some()
-            && !record.refusal_code.is_some_and(|code| code != 0)
+            && record.refusal_code.is_none_or(|code| code == 0)
         || record
             .submission_ref
             .as_ref()
