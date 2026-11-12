@@ -229883,7 +229883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.484]
 title = "Pass the race and coverage stages of the launchpad Makefile in the livestream module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.468", "22.39.458"]
@@ -232557,7 +232557,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.182]
 title = "Write the 7.0.0 candidate release report at one revision and tick the release check items it proves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["22.39.181", "22.39.177", "22.39.183", "22.40.18", "22.39.394", "22.39.395", "22.39.493", "22.39.494", "22.39.495"]
