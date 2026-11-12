@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -129,11 +131,11 @@ type IngestTopologyEvidence struct {
 
 func readTopology(path, digest string) (IngestTopologyEvidence, []byte, error) {
 	var evidence IngestTopologyEvidence
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return evidence, nil, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return evidence, nil, err
@@ -167,7 +169,7 @@ func openMeasurementCapture(path string, maxBytes int64) (*measurementCapture, e
 	if maxBytes < 1 {
 		return nil, errors.New("explicit capture storage budget required")
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +296,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 	if err != nil {
 		return report, err
 	}
-	defer capture.file.Close()
+	defer checked.Close(capture.file)
 	var observed, scheduled, commit measurementHistogram
 	var finalRange *store.CanonicalRangeDigest
 	defer func() {
@@ -346,7 +348,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if report.SQLTrace.CopyCalls == 0 {
 			report.Violations = append(report.Violations, "actual ingest executed no COPY staging")
 		}
-		if report.SQLTrace.RawScalarInsertQueries >= uint64(report.CommittedRaw) && report.CommittedRaw > 0 {
+		if report.SQLTrace.RawScalarInsertQueries >= uint64(report.CommittedRaw) && report.CommittedRaw > 0 { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			report.Violations = append(report.Violations, "actual ingest used one scalar raw insert per event")
 		}
 		if report.SQLTrace.MaxCopyRows > 5000 || report.MaxRawBatchBytes > 8<<20 || report.MaxRawBatchRows > 5000 {
@@ -427,7 +429,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 	}()
 	report.StartedAt = time.Now().UTC()
 	deadline := report.StartedAt.Add(spec.Duration)
-	firstObserved := report.StartedAt
+	var firstObserved time.Time
 	initialHead, err := h.Processor.deps.Head.Head(ctx)
 	if err != nil {
 		return report, err
@@ -495,7 +497,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			to = observedHead
 		}
 		readCtx, readCancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to))
+		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		readCancel()
 		if err != nil {
 			return report, err
@@ -579,7 +581,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			matched := false
 			for _, observation := range observations {
 				if observation.Height >= block.Height {
-					weight := uint64(block.RawCount)
+					weight := uint64(block.RawCount) //nolint:gosec // nonnegative count uses the existing unsigned counter field
 					if weight == 0 {
 						weight = 1
 					}
@@ -727,11 +729,11 @@ func (h *IngestMeasurementHarness) CaptureRestoreCheckpoint(ctx context.Context,
 	if err != nil {
 		return checkpoint, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return checkpoint, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	if _, err = file.Write(body); err != nil {
 		return checkpoint, err
 	}
@@ -756,11 +758,11 @@ type IngestReconstructionReport struct {
 
 func loadRestoreCheckpoint(path, digest string) (IngestRestoreCheckpoint, error) {
 	var checkpoint IngestRestoreCheckpoint
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return checkpoint, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return checkpoint, err
@@ -798,7 +800,7 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	if err := store.ValidateReplayRequest(spec.DuplicateRequest); err != nil {
 		return report, err
 	}
-	if spec.Request.Mode != "reconstruct" || spec.DuplicateRequest.Mode != "reconstruct" || spec.Request.JobID == spec.DuplicateRequest.JobID {
+	if spec.Request.Mode != valueReconstruct || spec.DuplicateRequest.Mode != valueReconstruct || spec.Request.JobID == spec.DuplicateRequest.JobID {
 		return report, errors.New("two distinct authorized archive reconstruction jobs required")
 	}
 	a, b := spec.Request, spec.DuplicateRequest
@@ -822,7 +824,7 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	if err != nil {
 		return report, err
 	}
-	defer capture.file.Close()
+	defer checked.Close(capture.file)
 	defer func() {
 		report.FinishedAt = time.Now().UTC()
 		if err := capture.write("reconstruction-report", report); err != nil {
@@ -971,7 +973,7 @@ func (h *IngestMeasurementHarness) reconstructionEffects(ctx context.Context, r 
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(digest, "%d:%s:%d:%s:%d:%s:%d:", len(effect), effect, len(raw), raw, height, kind, len(payload))
+		checked.Write(fmt.Fprintf(digest, "%d:%s:%d:%s:%d:%s:%d:", len(effect), effect, len(raw), raw, height, kind, len(payload)))
 		digest.Write(payload)
 	}
 	if err = rows.Err(); err != nil {
@@ -1005,7 +1007,7 @@ func (t *IngestSQLMeasurementTracer) TraceCopyFromEnd(_ context.Context, _ *pgx.
 		t.failures.Add(1)
 		return
 	}
-	rows := uint64(data.CommandTag.RowsAffected())
+	rows := uint64(data.CommandTag.RowsAffected()) //nolint:gosec // database affected-row count is nonnegative
 	t.copyRows.Add(rows)
 	for {
 		old := t.maxCopyRows.Load()
@@ -1035,11 +1037,11 @@ func (h *IngestMeasurementHarness) ObserveInfrastructureFailure(ctx context.Cont
 	if err := validateMeasurementSource(spec); err != nil {
 		return observation, err
 	}
-	file, err := os.Open(failureEvidencePath)
+	file, err := os.Open(failureEvidencePath) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return observation, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return observation, err
@@ -1078,7 +1080,7 @@ func (h *IngestMeasurementHarness) verifyReconstructionOutbox(ctx context.Contex
 	table := pgx.Identifier{h.Replay.DeliverySchema, "delivery_outbox"}.Sanitize()
 	for _, event := range segment.Events {
 		effect := ReplayEffectIdentity(r, event)
-		wrapper := ReplayEnvelopeV2{Version: "indexer-replay-v2", Mode: "historical", Target: r.Target, Generation: r.Generation, ProjectionRevision: r.ProjectionRevision, SourceStream: r.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
+		wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: r.Target, Generation: r.Generation, ProjectionRevision: r.ProjectionRevision, SourceStream: r.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 		expected, err := canonicalReplayPayload(wrapper)
 		if err != nil {
 			return err
@@ -1164,7 +1166,7 @@ func validateCandidateFiles(files map[string]string, candidateDigest string) err
 		if !info.Mode().IsRegular() || info.Size() > 64<<20 {
 			return errors.New("bounded actual source file required")
 		}
-		f, err := os.Open(path)
+		f, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return err
 		}
@@ -1181,7 +1183,7 @@ func validateCandidateFiles(files map[string]string, candidateDigest string) err
 		if digest != files[path] {
 			return fmt.Errorf("candidate source digest changed: %s", path)
 		}
-		fmt.Fprintf(candidate, "%d:%s:%s\n", len(path), path, digest)
+		checked.Write(fmt.Fprintf(candidate, "%d:%s:%s\n", len(path), path, digest))
 	}
 	if hex.EncodeToString(candidate.Sum(nil)) != candidateDigest {
 		return errors.New("candidate digest does not bind actual measurement sources")

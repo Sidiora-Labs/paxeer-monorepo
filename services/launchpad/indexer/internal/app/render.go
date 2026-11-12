@@ -70,7 +70,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 	if err != nil {
 		return nil, err
 	}
-	receiptDoc := receiptRuntimeDocument{Realm: "production", Production: authority}
+	receiptDoc := receiptRuntimeDocument{Realm: valueProduction, Production: authority}
 	deliveryDoc := deliveryRuntimeDocument{
 		MaxDeliveryLagMS: p.MaxDeliveryLagMS, DeadLetters: p.DeadLetters,
 		Schema: "indexer", Owner: p.Owner, Epoch: p.Epoch, Region: p.Region, Stream: p.Stream,
@@ -97,7 +97,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 		Webhooks:                 lifecycleWebhookDocument{Targets: []delivery.WebhookTarget{}},
 		ReplayBatchSize:          32, WorkConcurrency: 4, WorkBurst: 32, EventsPerSecond: 200,
 		ReplayRequests: []store.ReplayRequest{}, Rebuilds: []lifecycleRebuildDocument{}, Operations: map[string]store.OperationScope{},
-		InitialCheckpointHeight: int64(in.Anchor.Height), InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()),
+		InitialCheckpointHeight: int64(in.Anchor.Height), InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()), //nolint:gosec // anchor height uses the existing signed runtime document field
 	}
 	if err = bindRuntimeAnchor(&lifecycleDoc, authority); err != nil {
 		return nil, err

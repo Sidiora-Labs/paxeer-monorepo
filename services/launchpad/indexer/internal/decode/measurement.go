@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
@@ -233,11 +235,11 @@ func measurementJSON(path, expected string, target any) ([]byte, error) {
 	if !digest(expected) {
 		return nil, ErrMeasurementInputs
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, maxMeasurementInputBytes+1))
 	if err != nil || len(body) > maxMeasurementInputBytes {
 		return nil, fmt.Errorf("%w: bounded JSON required", ErrMeasurementInputs)
@@ -289,7 +291,7 @@ func DecoderCandidateSourceDigest(root string) (string, error) {
 	sort.Strings(files)
 	hash := sha256.New()
 	for _, relative := range files {
-		body, err := os.ReadFile(filepath.Join(root, relative))
+		body, err := os.ReadFile(filepath.Join(root, relative)) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return "", err
 		}
@@ -316,7 +318,7 @@ func checkedCatalogArtifacts(body []byte, root string) error {
 				return ErrMeasurementInputs
 			}
 		}
-		artifact, err := os.ReadFile(filepath.Join(root, contract.ArtifactPath))
+		artifact, err := os.ReadFile(filepath.Join(root, contract.ArtifactPath)) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return err
 		}
@@ -341,7 +343,7 @@ func checkedCatalogArtifacts(body []byte, root string) error {
 		if !bytes.Equal(activeABI.Bytes(), artifactABI.Bytes()) || generated.ContractName != contract.Name || generated.SourceName != contract.SourceName {
 			return fmt.Errorf("active ABI disagrees with current artifact: %s", contract.Name)
 		}
-		source, err := os.ReadFile(filepath.Join(root, contract.SourceName))
+		source, err := os.ReadFile(filepath.Join(root, contract.SourceName)) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return err
 		}
@@ -352,7 +354,7 @@ func checkedCatalogArtifacts(body []byte, root string) error {
 		var debug struct {
 			BuildInfo string `json:"buildInfo"`
 		}
-		if data, err := os.ReadFile(filepath.Join(root, strings.TrimSuffix(contract.ArtifactPath, ".json")+".dbg.json")); err != nil {
+		if data, err := os.ReadFile(filepath.Join(root, strings.TrimSuffix(contract.ArtifactPath, ".json")+".dbg.json")); err != nil { //nolint:gosec // caller selects this path for a bounded evidence file
 			return err
 		} else if err = json.Unmarshal(data, &debug); err != nil {
 			return err
@@ -362,7 +364,7 @@ func checkedCatalogArtifacts(body []byte, root string) error {
 		if err != nil || strings.HasPrefix(relativeBuild, "..") || filepath.IsAbs(relativeBuild) {
 			return ErrMeasurementInputs
 		}
-		build, err := os.ReadFile(buildPath)
+		build, err := os.ReadFile(buildPath) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return err
 		}
@@ -393,7 +395,7 @@ func checkedCatalogArtifacts(body []byte, root string) error {
 			if !strings.HasPrefix(name, "contracts/") {
 				continue
 			}
-			current, err := os.ReadFile(filepath.Join(root, name))
+			current, err := os.ReadFile(filepath.Join(root, name)) //nolint:gosec // caller selects this path for a bounded evidence file
 			if err != nil {
 				return err
 			}
@@ -415,15 +417,15 @@ func releaseCoverage(r *Registry, at Order) []DecoderCoverageRow {
 		for _, epoch := range epochs {
 			d := epoch.deployment
 			for _, event := range epoch.events {
-				state := "required"
+				state := valueRequired
 				if d.Optional {
-					state = "optional_deployed"
+					state = valueOptionalDeployed
 					if !d.Enabled {
-						state = "unsupported"
+						state = valueUnsupported
 					}
 				}
-				if declaredOnly(d.Role, event.Name) || d.Role == "EventEmitter" && optionalEvent(event.Name) && !optionalEnabled(d, event.Name) {
-					state = "unsupported"
+				if declaredOnly(d.Role, event.Name) || d.Role == valueEventEmitter && optionalEvent(event.Name) && !optionalEnabled(d, event.Name) {
+					state = valueUnsupported
 				}
 				out = append(out, DecoderCoverageRow{Emitter: strings.ToLower(address.Hex()), From: d.From, Until: d.Until, Role: d.Role, ABIRevision: d.ABIRevision, Signature: event.Sig, EventName: event.Name, Family: eventFamily(d.Role, event.Name), Authority: authority(d.Role, event.Name), State: state, Current: !at.less(d.From) && (d.Until == nil || at.less(*d.Until))})
 			}
@@ -435,7 +437,7 @@ func releaseCoverage(r *Registry, at Order) []DecoderCoverageRow {
 	}
 	for _, row := range r.Coverage() {
 		if !deployed[row.Role+"/"+row.ABIRevision] {
-			out = append(out, DecoderCoverageRow{Role: row.Role, ABIRevision: row.ABIRevision, Signature: row.Signature, EventName: row.EventName, Family: row.ProcessorRoute, Authority: row.Authority, State: "unsupported", Gap: "deployment_not_attested"})
+			out = append(out, DecoderCoverageRow{Role: row.Role, ABIRevision: row.ABIRevision, Signature: row.Signature, EventName: row.EventName, Family: row.ProcessorRoute, Authority: row.Authority, State: valueUnsupported, Gap: "deployment_not_attested"})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -593,7 +595,7 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 			return report, fmt.Errorf("restart envelope drift")
 		}
 		envelopes[i] = envelope
-		if envelope.Status == "quarantined" {
+		if envelope.Status == valueQuarantined {
 			if envelope.FailureReason == "bounds" {
 				if len(record.Log.Data)+32*len(record.Log.Topics) > MaxEnvelopeBytes {
 					overEnvelope = true
@@ -601,7 +603,7 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 					overField = true
 				}
 			}
-			if envelope.FailureReason == "arity" {
+			if envelope.FailureReason == valueArity {
 				malformedArity = true
 			}
 		}
@@ -630,10 +632,10 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 				}
 			}
 		}
-		if previous != nil && previous.EventName == "Upgraded" && previous.Raw.Emitter == envelope.Raw.Emitter && previous.Raw.Order.Block == envelope.Raw.Order.Block && previous.Raw.Order.less(envelope.Raw.Order) && previous.ABIRevision != envelope.ABIRevision && envelope.Event != nil && envelope.Status == "decoded" {
+		if previous != nil && previous.EventName == valueUpgraded && previous.Raw.Emitter == envelope.Raw.Emitter && previous.Raw.Order.Block == envelope.Raw.Order.Block && previous.Raw.Order.less(envelope.Raw.Order) && previous.ABIRevision != envelope.ABIRevision && envelope.Event != nil && envelope.Status == valueDecoded {
 			sameBlock = true
 		}
-		if envelope.EventName == "Upgraded" {
+		if envelope.EventName == valueUpgraded {
 			previous = envelope
 		}
 	}
@@ -641,7 +643,7 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 	report.ArchivedIdentitySHA256 = hex.EncodeToString(identities.Sum(nil))
 	report.RestartParity = true
 	for i, row := range report.Coverage {
-		if row.State == "unsupported" {
+		if row.State == valueUnsupported {
 			continue
 		}
 		if row.Family == "" {
@@ -670,14 +672,14 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 	}
 	noOracle := make([]Deployment, 0, len(deployment.Deployments))
 	for _, d := range deployment.Deployments {
-		if optionalFamily(d.Role, "") == "oracle" {
+		if optionalFamily(d.Role, "") == valueOracle {
 			report.Compatibility.OracleRemovedDeployments++
 			continue
 		}
 		copy := d
 		copy.EnabledOptionalEvents = nil
 		for _, name := range d.EnabledOptionalEvents {
-			if optionalFamily("EventEmitter", name) != "oracle" {
+			if optionalFamily(valueEventEmitter, name) != valueOracle {
 				copy.EnabledOptionalEvents = append(copy.EnabledOptionalEvents, name)
 			}
 		}
@@ -731,7 +733,7 @@ func RunDecoderMeasurement(ctx context.Context, input DecoderMeasurementInput) (
 	}
 	optionalEnabledCount := 0
 	for _, d := range deployment.Deployments {
-		if d.Optional && d.Enabled && optionalFamily(d.Role, "") != "oracle" {
+		if d.Optional && d.Enabled && optionalFamily(d.Role, "") != valueOracle {
 			optionalEnabledCount++
 		}
 	}
@@ -836,7 +838,7 @@ func measureDecoderBurst(ctx context.Context, r *Registry, records []ArchivedDec
 					started := time.Now()
 					event, err := r.Decode(records[job.record].Log)
 					decodedAt := time.Now()
-					if event == nil || event.Raw.Identity != expected[job.record].Raw.Identity || event.Status != expected[job.record].Status || event.ABIRevision != expected[job.record].ABIRevision || event.EventName != expected[job.record].EventName || (err != nil && event.Status != "quarantined") {
+					if event == nil || event.Raw.Identity != expected[job.record].Raw.Identity || event.Status != expected[job.record].Status || event.ABIRevision != expected[job.record].ABIRevision || event.EventName != expected[job.record].EventName || (err != nil && event.Status != valueQuarantined) {
 						identityFailures.Add(1)
 						continue
 					}
@@ -847,11 +849,12 @@ func measureDecoderBurst(ctx context.Context, r *Registry, records []ArchivedDec
 					}
 					decodeLatency[job.id] = decodedAt.Sub(started).Nanoseconds()
 					endLatency[job.id] = decodedAt.Sub(job.scheduled).Nanoseconds()
-					if event.Status == "decoded" {
+					switch event.Status {
+					case valueDecoded:
 						typed.Add(1)
-					} else if event.Status == "quarantined" {
+					case valueQuarantined:
 						quarantined.Add(1)
-					} else {
+					default:
 						opaque.Add(1)
 					}
 					if decodedAt.After(windowEnd) {
@@ -986,7 +989,7 @@ dispatchLoop:
 	used := 0
 	largest := 0
 	for i, record := range records {
-		if expected[i].Status == "decoded" && len(record.Log.Data) > largest {
+		if expected[i].Status == valueDecoded && len(record.Log.Data) > largest {
 			largest = len(record.Log.Data)
 		}
 	}
@@ -1005,7 +1008,7 @@ dispatchLoop:
 		}
 		_, _ = observedHash.Write(deliveryID[:])
 		_, _ = observedHash.Write(identities[id%len(records)])
-		if expected[id%len(records)].Status == "decoded" && len(records[id%len(records)].Log.Data) == largest {
+		if expected[id%len(records)].Status == valueDecoded && len(records[id%len(records)].Log.Data) == largest {
 			largestDecode = append(largestDecode, decodeLatency[id])
 			largestEnd = append(largestEnd, endLatency[id])
 			report.LargestPayloadDeliveries++
@@ -1020,7 +1023,7 @@ dispatchLoop:
 	report.LargestPayloadEndToEndP99Nanoseconds = measurementPercentile(largestEnd)
 	report.DecodeP99Nanoseconds = measurementPercentile(decodeLatency[:used])
 	report.EndToEndP99Nanoseconds = measurementPercentile(endLatency[:used])
-	report.DispatchP99Nanoseconds = measurementPercentile(dispatchLatency[:int(report.Scheduled)])
+	report.DispatchP99Nanoseconds = measurementPercentile(dispatchLatency[:int(report.Scheduled)]) //nolint:gosec // bounded chain count is used for slice indexing
 	if schedulingError != nil {
 		return report, schedulingError
 	}
@@ -1041,7 +1044,7 @@ func WriteDecoderMeasurement(path string, report *DecoderMeasurementReport) erro
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return err
 	}
@@ -1240,11 +1243,11 @@ func overSizedValue(value reflect.Value) bool {
 }
 
 func unchangedMeasurementFile(path, expected string) error {
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	hash := sha256.New()
 	count, err := io.Copy(hash, io.LimitReader(file, maxMeasurementInputBytes+1))
 	if err != nil {

@@ -48,13 +48,13 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 		}
 		decoded, decodeErr := policy.Registry.Decode(log)
 		code := ""
-		abi := "unavailable"
+		abi := valueUnavailable
 		required := true
 		requirement := "D02_021"
 		if decoded != nil {
 			abi = decoded.ABIRevision
 			if abi == "" {
-				abi = "unavailable"
+				abi = valueUnavailable
 			}
 			code = decoded.FailureReason
 		}
@@ -72,7 +72,7 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 			if optional, ok := policy.OptionalEmitterTopics[key]; ok && optional.ABIRevision != "" && optional.Requirement != "" {
 				required = false
 				requirement = optional.Requirement
-				if abi != "unavailable" && abi != optional.ABIRevision {
+				if abi != valueUnavailable && abi != optional.ABIRevision {
 					return errors.New("optional classification ABI policy mismatch")
 				}
 				abi = optional.ABIRevision
