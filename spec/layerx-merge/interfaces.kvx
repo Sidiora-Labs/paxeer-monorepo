@@ -775104,122 +775104,122 @@ notes = "programme kvx reader with the grammar of CONTRACT section 1; refuses du
 [interface.22.inference-f11-operation-table]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
-line = 0
-signature = "pub const OpenRoom: Operation = Operation(0x0B01) through CloseRoom = Operation(0x0B0C) and the reads RoomView = Operation(0x0B10) through BookView = Operation(0x0B14)"
-callers = []
-status = "new"
+line = 194
+signature = "pub const OpenRoom: Operation = Operation(0x0B01);"
+callers = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "F11 exposes twelve room-market writes and five reads, from OpenRoom through BookView."
 
 [interface.22.inference-f11-errors]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/errors.rs"
-line = 0
-signature = "pub const F11_ROOM_UNKNOWN and the other F11 error codes"
-callers = []
-status = "new"
+line = 244
+signature = "pub const F11_ROOM_UNKNOWN: ApplicationError = application_error(0x0B01);"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "F11 error codes cover room, ask, bid, roster, batch, challenge, bond and payout conditions."
 
 [interface.22.inference-f11-availability]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 0
+line = 1084
 signature = "pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]>"
-callers = []
-status = "new"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Availability decodes the captured state in F01 through F11 order."
 
 [interface.22.inference-room-profile]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/policy.rs"
-line = 0
-signature = "room profile fields of the market policy (host share, protocol share, bond, lap size, challenge window, maximum tokens)"
-callers = []
-status = "new"
+line = 430
+signature = "pub struct RoomProfile"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Room policy includes bond, canary, lap, challenge, payout, token, queue and peer deadline fields."
 
 [interface.22.inference-manifest-v2]
 kind = "file_format"
 path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
-line = 0
-signature = "ManifestV2: v1 fields then runtime digest, model digest, device class, memory bytes, bandwidth class, price quote; domain PARTICIPANT_METADATA_DOMAIN_V2"
-callers = []
-status = "new"
+line = 756
+signature = "pub struct ManifestV2<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
+status = "served"
 contract = "contracts/inference-market.md#manifest-v2"
-notes = "planned by task 22.38.2 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Manifest v2 carries the v1 bytes and inference capability fields under PARTICIPANT_METADATA_DOMAIN_V2."
 
 [interface.22.inference-room-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rooms.rs"
-line = 0
-signature = "pub struct RoomRecord, AskRecord, BidRecord, DealRecord and pub fn apply_record_deal"
-callers = []
-status = "new"
+line = 103
+signature = "pub struct RoomRecord"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+status = "served"
 contract = "contracts/inference-market.md#room-records"
-notes = "planned by task 22.38.3 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "RoomRecord, AskRecord, BidRecord and DealRecord encode the room market; apply_record_deal binds its roster and layer plan."
 
 [interface.22.inference-lap-receipt]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/laps.rs"
-line = 0
-signature = "pub struct LapReceipt, ReceiptBatch and pub fn apply_settle_laps"
-callers = []
-status = "new"
+line = 25
+signature = "pub struct LapReceipt<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/src/laps.rs", "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
+status = "served"
 contract = "contracts/inference-market.md#lap-receipts"
-notes = "planned by task 22.38.4 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "LapReceipt and ReceiptBatch carry countersigned lap evidence; apply_settle_laps records cumulative tokens."
 
 [interface.22.inference-canary-commitment]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/canary.rs"
-line = 0
-signature = "pub struct CanaryCommitment, pub fn apply_challenge_lap, apply_resolve_challenge, relative_tolerance_hit"
-callers = []
-status = "new"
+line = 228
+signature = "pub struct CanaryCommitment"
+callers = ["programs/crates/layerx-programs-ai-market/src/commit_reveal.rs", "programs/crates/layerx-programs-ai-market/src/canary.rs"]
+status = "served"
 contract = "contracts/inference-market.md#canary"
-notes = "planned by task 22.38.5 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "CanaryCommitment binds commit-reveal evidence used by apply_challenge_lap, apply_resolve_challenge and relative_tolerance_hit."
 
 [interface.22.inference-payout-split]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
-line = 0
-signature = "pub fn apply_split_payout and pub struct PayoutShares"
-callers = []
-status = "new"
+line = 3646
+signature = "pub fn apply_split_payout( ctx: &CallContext, envelope: &ValidatedEnvelope<'_>, current: &[u8], next: &mut [u8], scratch: &mut [u8], event: &mut [u8], ) -> CodecResult<crate::rooms::Outcome>"
+callers = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+status = "served"
 contract = "contracts/inference-market.md#payout-split"
-notes = "planned by task 22.38.6 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "PayoutShares allocates settled rewards among peers, the host and the protocol."
 
 [interface.22.inference-bond-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
-line = 0
-signature = "pub struct BondRecord, pub fn apply_lock_bond, apply_slash_bond, apply_refund_bond"
-callers = []
-status = "new"
+line = 21
+signature = "pub struct BondRecord"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
+status = "served"
 contract = "contracts/inference-market.md#bonds"
-notes = "planned by task 22.38.7 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "BondRecord supports apply_lock_bond, apply_slash_bond and apply_refund_bond."
 
 [interface.22.inference-f11-views]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 0
-signature = "pub struct RoomView, DealView, PeerView, ReceiptBatchView and pub fn answer_room_view"
-callers = []
-status = "new"
+line = 67
+signature = "pub struct RoomView"
+callers = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
+status = "served"
 contract = "contracts/inference-market.md#views"
-notes = "planned by task 22.38.8 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "RoomView, DealView, PeerView and ReceiptBatchView decode the fixed-width F11 reads."
 
 [interface.22.inference-placement-book]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/placement.rs"
-line = 0
-signature = "pub struct PlacementBook, BookView and pub fn crossing_pairs"
-callers = []
-status = "new"
+line = 74
+signature = "pub struct PlacementBook<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+status = "served"
 contract = "contracts/inference-market.md#placement-book"
-notes = "planned by task 22.38.11 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "PlacementBook groups open asks and bids by model; BookView exposes crossing_pairs."
 
 [interface.22.pc-0x101b-streamopenforask]
 kind = "precompile_method"
@@ -775346,12 +775346,12 @@ notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-mode-inference-market]
 kind = "rust_pub_item"
 path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
-line = 0
-signature = "Mode::InferenceMarket parsed from the mode value inference-market"
-callers = []
-status = "new"
+line = 4
+signature = "pub enum Mode"
+callers = ["services/agent/crates/layerx-agentd/src/main.rs"]
+status = "served"
 contract = "contracts/inference-market.md#daemon-profile"
-notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Mode::InferenceMarket is selected by the inference-market mode value and runs the off-chain profile."
 
 [interface.22.env-layerx-agent-inference-signal-listen]
 kind = "env_var"
@@ -775406,12 +775406,12 @@ notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-signal-hello-frame]
 kind = "file_format"
 path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
-line = 0
-signature = "hello frame (peer key, signature over room id and nonce, v2 manifest) answered by the room offer (room id, model digest, runtime digest, layer plan, price); frames at most 65536 bytes"
-callers = []
-status = "new"
+line = 25
+signature = "pub struct HelloFrame"
+callers = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
+status = "served"
 contract = "contracts/inference-market.md#signalling"
-notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "HelloFrame binds room, peer key, nonce, signature and manifest; RoomOffer answers admitted peers with a chain-anchored plan."
 
 [interface.22.ws-inference-signal]
 kind = "ws_route"
@@ -775446,12 +775446,12 @@ notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-peer-wire-frame]
 kind = "file_format"
 path = "apps/inference-peer/src/wire.mjs"
-line = 0
-signature = "room wire frame encoded by encodeFrame and decoded by decodeFrame (kind, room id, sequence, payload)"
-callers = []
-status = "new"
+line = 45
+signature = "export function encodeFrame({ kind, roomId, sequence, payload })"
+callers = ["apps/inference-peer/src/transport.mjs", "apps/inference-peer/test/wire.test.mjs"]
+status = "served"
 contract = "contracts/inference-market.md#peer-wire"
-notes = "planned by task 22.38.24 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "encodeFrame and decodeFrame exchange bounded room frames with kind, room ID, sequence and payload."
 
 [interface.22.cli-inference-peer-join]
 kind = "cli_command"
