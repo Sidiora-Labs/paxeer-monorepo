@@ -21310,3 +21310,43 @@ fix = "A task that brings the middleware part of the platform test recipe throug
 title = "The recipe platform-lint reads the workspace test file and the registry event producer"
 symptom = "The recipe platform-lint lints services/platform/tests/repair_22_33_1366.rs and services/platform/hosted/registry/src/event_producer.rs together with the members of the platform workspace."
 fix = "A task that passes the recipe carries both files."
+
+[gotcha.4298]
+title = "The closure of the inference market series reads the interface rows, the documents and the test files of the series"
+symptom = "The test of task 22.38.39 asserts the served interface rows, the operations that the protocol document names, the test files of tasks 22.38.31 to 22.38.34 and the record of the task, and reads no value of the fuel table of task 22.38.13."
+fix = "The closure task runs beside the fuel task and lists in its record the tasks of the series that are qualified at its revision."
+
+[gotcha.4299]
+title = "The merge rehearsal test of the node runs the block-end occupancy transition of Programs at the merge height"
+symptom = "The test TestMergeRehearsalFirstSequencedBlock of node/merge_rehearsal_test.go finalises the block at the merge height. The node calls the block-end occupancy transition of Programs in every block in which the schedules of Programs are present, the merge height included."
+fix = "A change to the block-end occupancy transition or to the state that the merge upgrade installs runs that test."
+
+[gotcha.4300]
+title = "The launchpad golden file of ABI identifiers holds the role ChainLaunch"
+symptom = "The file precompiles/launchpad/testdata/abi_golden.txt holds thirteen lines of the role ChainLaunch. The release test tools/release/tests/test_programme.py compares the roles of that file with the role list LAUNCHPAD_ABI_ROLES of tools/release/rehearsal/programme.py."
+fix = "A role that enters the golden file enters the role list of the release programme."
+
+[gotcha.4301]
+title = "The retired caller scan reads the attestor source of the key management member of the human service"
+symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py matches the symbols of the component envelope-signing of tools/paxeer-x/retired_callers.json in services/human/crates/layerx-human-kms/src/attestor.rs and applies the allowances of that component to each matching line."
+fix = "A task that changes a matching line of that file runs the scan."
+
+[gotcha.4302]
+title = "The recipe platform-lint ends with the advisory and ban checks of the three platform manifests"
+symptom = "The recipe platform-lint of services/platform/Makefile.inc runs the lint of the three manifests, the workspace check, the lint of the marketplace example and the dependency policy script, and then the advisory, ban and source checks of each manifest lock file."
+fix = "The lint steps and the lock file checks are verified by separate commands."
+
+[gotcha.4303]
+title = "The AI market program keeps its state in one value of its shared namespace"
+symptom = "The adapter programs/crates/layerx-programs-ai-market/src/host_adapter.rs writes the encoded state of the market under one key of the shared namespace of the program at the end of every operation that changes state. Participants and askers call the program with their own principals. The function settle_call_occupancy of programs/crates/layerx-programs-runtime/src/ffi_call.rs compares the payer of a call with the owner of the program when the size of a shared namespace changes."
+fix = "A change to the occupancy rule of shared namespaces is run against a call of a principal that is not the owner of the program."
+
+[gotcha.4304]
+title = "The recipe platform-test-middleware runs the tests of two integrations under sdk/integrations"
+symptom = "The recipe platform-test-middleware of services/platform/Makefile.inc runs pytest over sdk/integrations/fastapi, and the verification of the middleware tests reaches the test files of sdk/integrations/express/example."
+fix = "A task that verifies with that recipe carries both directories."
+
+[gotcha.4305]
+title = "The payout split operation of the AI market writes one credit per participant of the batch"
+symptom = "The operation writes one credit for each participant of the lap batch, one for the host and one for the protocol. Its CPU fuel grows with the number of credits of the batch."
+fix = "The fuel table states the batch at which it measures the operation."

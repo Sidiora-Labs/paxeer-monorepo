@@ -1,0 +1,18 @@
+[meta]
+subject = "Calls within standing namespace occupancy responsibility"
+
+[rule]
+admission = "A changed namespace within a non-migrating standing byte limit admits any call payer when the standing payer is the namespace principal or shared program owner."
+responsibility = "Covered calls add no responsibility and retain the standing payer, activity binding, mandate, byte limit and price limit."
+refusal = "Another payer cannot create responsibility, exceed its byte limit, use a migration position or rely on a standing payer other than the namespace authority; the result is unauthorized debit (-207)."
+layout = "Stored occupancy layouts are unchanged."
+
+[files]
+runtime = ["src/call_occupancy.rs", "src/ffi_call.rs", "src/occupancy.rs", "src/lib.rs", "src/storage/mod.rs"]
+kernel = ["src/modules/programs/occupancy_evidence.c", "src/modules/programs/occupancy.c", "src/modules/programs/call.c", "include/layerx/programs.h"]
+host = ["modules/lxphost/host.go", "node/programs_occupancy_call_test.go"]
+
+[cases]
+runtime = ["occupancy_call_by_another_payer_within_owner_responsibility_commits", "occupancy_call_by_another_payer_past_owner_byte_limit_is_unauthorized", "occupancy_call_by_another_payer_without_responsibility_is_unauthorized", "occupancy_call_by_another_payer_cannot_use_a_migration_position", "occupancy_call_by_another_payer_requires_the_authorized_standing_payer"]
+node = "TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits establishes owner responsibility, commits another principal's shared write, applies following blocks and checks that their occupancy charges debit the owner alone."
+existing = "The quoted-fee, largest-budget, insufficient-responsibility, other-owner refusal and restart cases retain their assertions."

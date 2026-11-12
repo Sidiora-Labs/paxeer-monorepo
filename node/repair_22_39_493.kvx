@@ -1,0 +1,5 @@
+[repair.22.39.493]
+task = "22.39.493"
+cause = "The merge installs the Programs fee schedule in its activation block. Its first block-end occupancy transition compares that block height with the fee record's last completed occupancy batch."
+resolution = "The installed fee history and active rows begin at the merge height, with the preceding height as their last completed occupancy batch; the merge block advances both the occupancy state and the host sequence."
+changed_files = ["modules/lxphost/programs_schedules.go", "node/merge_rehearsal_test.go", "node/repair_22_39_493.kvx"]

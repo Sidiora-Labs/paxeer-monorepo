@@ -4,6 +4,7 @@ use paxeer_native::{
     account_identity, BootstrapRequest, ImmutableInputs, NativeEvidence, TenantAccount,
 };
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::os::unix::fs::{symlink, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -12,6 +13,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[path = "support/native_peer.rs"]
 mod native_peer;
 use native_peer::{transcript, NativePeer};
+
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+impl<T, E: std::fmt::Debug> Checked<T> for Result<T, E> {
+    fn checked(self) -> T {
+        self.unwrap_or_else(|error| panic!("{error:?}"))
+    }
+}
+impl<T> Checked<T> for Option<T> {
+    fn checked(self) -> T {
+        self.unwrap_or_else(|| panic!("expected a value"))
+    }
+}
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Directory(PathBuf);
@@ -22,54 +37,54 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)
         ));
-        fs::create_dir(&path).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::create_dir(&path).checked();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).checked();
         Self(path)
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).checked();
     }
 }
 
 fn write_private(path: &Path, bytes: &[u8]) {
-    fs::write(path, bytes).unwrap();
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(path, bytes).checked();
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).checked();
 }
 
 fn node_fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../node/tests/fixtures/repair_22_31_355")
 }
 fn node_configuration() -> Value {
-    serde_json::from_slice(&fs::read(node_fixture().join("native_configuration.json")).unwrap())
-        .unwrap()
+    serde_json::from_slice(&fs::read(node_fixture().join("native_configuration.json")).checked())
+        .checked()
 }
 
 fn request(root: &Path) -> BootstrapRequest {
     let source = root.join("inputs");
-    fs::create_dir(&source).unwrap();
+    fs::create_dir(&source).checked();
     for name in ["genesis.json", "config.toml", "app.toml"] {
-        fs::copy(node_fixture().join(name), source.join(name)).unwrap();
+        fs::copy(node_fixture().join(name), source.join(name)).checked();
     }
     let fixture = node_configuration();
     write_private(
         &source.join("priv_validator_key.json"),
-        &serde_json::to_vec(&fixture["validator_key"]).unwrap(),
+        &serde_json::to_vec(&fixture["validator_key"]).checked(),
     );
     // The guard treats certificate bytes as immutable; the native bootstrap owns X.509 validation.
     fs::copy(
         node_fixture().join("tls-certificate.pem.txt"),
         source.join("rpc-ca.der"),
     )
-    .unwrap();
+    .checked();
     write_private(
         &root.join("receipt.key"),
-        fixture["receipt_seed"].as_str().unwrap().as_bytes(),
+        fixture["receipt_seed"].as_str().checked().as_bytes(),
     );
     write_private(
         &root.join("funding.key"),
-        fixture["funding_scalar"].as_str().unwrap().as_bytes(),
+        fixture["funding_scalar"].as_str().checked().as_bytes(),
     );
     let pairs = [
         ("data-dir", root.join("data").display().to_string()),
@@ -77,7 +92,7 @@ fn request(root: &Path) -> BootstrapRequest {
         ("chain-id", "hyperpax_125-1".into()),
         ("network-id", "402".into()),
         ("evm-chain-id", "125".into()),
-        ("asset", fixture["asset"].as_str().unwrap().into()),
+        ("asset", fixture["asset"].as_str().checked().into()),
         ("gateway-endpoint", "https://localhost:9443".into()),
         (
             "receipt-key-file",
@@ -93,12 +108,12 @@ fn request(root: &Path) -> BootstrapRequest {
         .into_iter()
         .flat_map(|(key, value)| [format!("--{key}"), value])
         .collect::<Vec<_>>();
-    BootstrapRequest::parse(&arguments).unwrap()
+    BootstrapRequest::parse(&arguments).checked()
 }
 
 fn publish_generation(request: &BootstrapRequest) {
     // Committed generation peer: exact native bootstrap copy and publication layout.
-    fs::create_dir_all(request.data.join("config")).unwrap();
+    fs::create_dir_all(request.data.join("config")).checked();
     for name in [
         "genesis.json",
         "config.toml",
@@ -107,14 +122,14 @@ fn publish_generation(request: &BootstrapRequest) {
     ] {
         write_private(
             &request.data.join("config").join(name),
-            &fs::read(request.source.join(name)).unwrap(),
+            &fs::read(request.source.join(name)).checked(),
         );
     }
     fs::copy(
         request.source.join("rpc-ca.der"),
         request.data.join("rpc-ca.der"),
     )
-    .unwrap();
+    .checked();
     for name in ["node.env", "core.env"] {
         fs::copy(
             Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -122,10 +137,9 @@ fn publish_generation(request: &BootstrapRequest) {
                 .join(name),
             request.data.join(name),
         )
-        .unwrap();
+        .checked();
     }
     let mut binding = serde_json::Map::new();
-    use sha2::{Digest, Sha256};
     for name in [
         "config/genesis.json",
         "config/config.toml",
@@ -137,13 +151,13 @@ fn publish_generation(request: &BootstrapRequest) {
         binding.insert(
             name.into(),
             Value::String(paxeer_native::hex(&Sha256::digest(
-                fs::read(request.data.join(name)).unwrap(),
+                fs::read(request.data.join(name)).checked(),
             ))),
         );
     }
     write_private(
         &request.data.join(".native-prepared.json"),
-        &serde_json::to_vec(&binding).unwrap(),
+        &serde_json::to_vec(&binding).checked(),
     );
 }
 
@@ -151,29 +165,29 @@ fn publish_generation(request: &BootstrapRequest) {
 fn TestRepairM_1321_InitializationRestartDrift() {
     let root = Directory::new();
     let request = request(&root.0);
-    let inputs = ImmutableInputs::capture(&request.source, &request.options).unwrap();
-    let mut guard = request.open().unwrap();
+    let inputs = ImmutableInputs::capture(&request.source, &request.options).checked();
+    let mut guard = request.open().checked();
     assert!(!guard.initialized());
     assert!(request
         .open()
         .err()
-        .unwrap()
+        .checked()
         .to_string()
         .contains("already owned"));
     publish_generation(&request);
-    guard.complete(&inputs).unwrap();
+    guard.complete(&inputs).checked();
     drop(guard);
-    let guard = request.open().unwrap();
+    let guard = request.open().checked();
     assert!(guard.initialized());
     drop(guard);
     let marker = root.0.join(".data.native-initialization/initialized.json");
-    let original_marker = fs::read(&marker).unwrap();
+    let original_marker = fs::read(&marker).checked();
     let genesis = request.source.join("genesis.json");
-    let original = fs::read(&genesis).unwrap();
-    let value: Value = serde_json::from_slice(&original).unwrap();
-    fs::write(&genesis, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+    let original = fs::read(&genesis).checked();
+    let value: Value = serde_json::from_slice(&original).checked();
+    fs::write(&genesis, serde_json::to_vec_pretty(&value).checked()).checked();
     assert!(
-        request.open().unwrap().initialized(),
+        request.open().checked().initialized(),
         "JSON whitespace is not drift"
     );
     for (pointer, changed, diagnostic) in [
@@ -194,38 +208,38 @@ fn TestRepairM_1321_InitializationRestartDrift() {
         ),
     ] {
         let mut changed_value = value.clone();
-        *changed_value.pointer_mut(pointer).unwrap() = changed;
-        fs::write(&genesis, serde_json::to_vec(&changed_value).unwrap()).unwrap();
-        let error = request.open().err().unwrap().to_string();
+        *changed_value.pointer_mut(pointer).checked() = changed;
+        fs::write(&genesis, serde_json::to_vec(&changed_value).checked()).checked();
+        let error = request.open().err().checked().to_string();
         assert!(
             error.contains("immutable native input drift") && error.contains(diagnostic),
             "{error}"
         );
         assert_eq!(
-            fs::read(&marker).unwrap(),
+            fs::read(&marker).checked(),
             original_marker,
             "refusal cannot overwrite the binding"
         );
     }
-    fs::write(&genesis, original).unwrap();
-    assert!(request.open().unwrap().initialized());
+    fs::write(&genesis, original).checked();
+    assert!(request.open().checked().initialized());
     let output = request.data.join("config/genesis.json");
-    let original = fs::read(&output).unwrap();
-    fs::write(&output, b"{}").unwrap();
+    let original = fs::read(&output).checked();
+    fs::write(&output, b"{}").checked();
     assert!(request
         .open()
         .err()
-        .unwrap()
+        .checked()
         .to_string()
         .contains("generation has changed"));
-    fs::write(output, original).unwrap();
-    assert!(request.open().unwrap().initialized());
-    let marker_text = String::from_utf8(original_marker).unwrap();
-    assert!(!marker_text.contains(node_configuration()["receipt_seed"].as_str().unwrap()));
+    fs::write(output, original).checked();
+    assert!(request.open().checked().initialized());
+    let marker_text = String::from_utf8(original_marker).checked();
+    assert!(!marker_text.contains(node_configuration()["receipt_seed"].as_str().checked()));
     assert!(!marker_text.contains(
         node_configuration()["validator_key"]["priv_key"]["value"]
             .as_str()
-            .unwrap()
+            .checked()
     ));
 }
 
@@ -233,34 +247,36 @@ fn TestRepairM_1321_InitializationRestartDrift() {
 fn TestRepairM_1321_InitializationPublicationRefusals() {
     let root = Directory::new();
     let request = request(&root.0);
-    let mut guard = request.open().unwrap();
+    let mut guard = request.open().checked();
     publish_generation(&request);
     let source = request.source.join("app.toml");
-    let original = fs::read(&source).unwrap();
-    fs::write(&source, b"changed immutable application configuration").unwrap();
-    let changed = ImmutableInputs::capture(&request.source, &request.options).unwrap();
+    let original = fs::read(&source).checked();
+    fs::write(&source, b"changed immutable application configuration").checked();
+    let changed = ImmutableInputs::capture(&request.source, &request.options).checked();
     assert!(guard
         .complete(&changed)
-        .unwrap_err()
+        .err()
+        .checked()
         .to_string()
         .contains("app.toml"));
     assert!(!root
         .0
         .join(".data.native-initialization/initialized.json")
         .exists());
-    fs::write(&source, original).unwrap();
-    let inputs = ImmutableInputs::capture(&request.source, &request.options).unwrap();
-    fs::write(request.data.join("config/genesis.json"), b"{}").unwrap();
+    fs::write(&source, original).checked();
+    let inputs = ImmutableInputs::capture(&request.source, &request.options).checked();
+    fs::write(request.data.join("config/genesis.json"), b"{}").checked();
     assert!(guard
         .complete(&inputs)
-        .unwrap_err()
+        .err()
+        .checked()
         .to_string()
         .contains("output differs"));
     drop(guard);
     assert!(request
         .open()
         .err()
-        .unwrap()
+        .checked()
         .to_string()
         .contains("unbound native generation"));
 }
@@ -270,12 +286,12 @@ fn account_config(root: &Path, peer: &NativePeer, tenant: &str) -> PathBuf {
         &root.join("account.key"),
         node_configuration()["funding_scalar"]
             .as_str()
-            .unwrap()
+            .checked()
             .as_bytes(),
     );
     let config = root.join(format!("{tenant}.json"));
     fs::write(&config, serde_json::to_vec(&json!({"schema":"paxeer/native-tenant-account/1", "tenant":tenant,
-        "key_file":root.join("account.key"), "chain_rpc":peer.url, "consensus_rpc":peer.url, "minimum_balance":"0x3e8"})).unwrap()).unwrap();
+        "key_file":root.join("account.key"), "chain_rpc":peer.url, "consensus_rpc":peer.url, "minimum_balance":"0x3e8"})).checked()).checked();
     config
 }
 
@@ -283,7 +299,7 @@ fn account_config(root: &Path, peer: &NativePeer, tenant: &str) -> PathBuf {
 fn TestRepairM_1321_PreparationKeyArgv() {
     let mut one = [0; 32];
     one[31] = 1;
-    let identity = account_identity(&one).unwrap();
+    let identity = account_identity(&one).checked();
     assert_eq!(
         identity.address,
         "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"
@@ -294,7 +310,7 @@ fn TestRepairM_1321_PreparationKeyArgv() {
     );
     one[31] = 2;
     assert_eq!(
-        account_identity(&one).unwrap().address,
+        account_identity(&one).checked().address,
         "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF"
     );
     assert!(account_identity(&[0; 32]).is_err());
@@ -307,27 +323,27 @@ fn TestRepairM_1321_PreparationKeyArgv() {
         &["account".into(), config.display().to_string()],
         &mut output,
     )
-    .unwrap();
-    let funded: Value = serde_json::from_slice(&output).unwrap();
+    .checked();
+    let funded: Value = serde_json::from_slice(&output).checked();
     assert_eq!(
         funded["identity"]["address"],
         node_configuration()["funding"]["sender"]
     );
     assert_eq!(funded["balance"], "0x1388");
-    assert_eq!(funded["evidence"]["height"], 23869863);
+    assert_eq!(funded["evidence"]["height"], 23_869_863);
     let secret = node_configuration()["funding_scalar"]
         .as_str()
-        .unwrap()
+        .checked()
         .to_owned();
-    assert!(!String::from_utf8(output).unwrap().contains(&secret));
-    assert!(!serde_json::to_string(&*peer.requests.lock().unwrap())
-        .unwrap()
+    assert!(!String::from_utf8(output).checked().contains(&secret));
+    assert!(!serde_json::to_string(&*peer.requests.lock().checked())
+        .checked()
         .contains(&secret));
     let bootstrap = request(&root.0);
     let command = bootstrap.command(Path::new("/maintained/node/bootstrap.sh"));
     let argv: Vec<_> = command
         .get_args()
-        .map(|arg| arg.to_str().unwrap())
+        .map(|arg| arg.to_str().checked())
         .collect();
     assert_eq!(
         argv,
@@ -340,21 +356,22 @@ fn TestRepairM_1321_PreparationKeyArgv() {
     assert!(!argv
         .iter()
         .any(|argument| argument.contains(&secret) || *argument == "--private-key"));
-    assert!(argv.contains(&root.0.join("funding.key").to_str().unwrap()));
+    assert!(argv.contains(&root.0.join("funding.key").to_str().checked()));
     fs::set_permissions(
         root.0.join("account.key"),
         fs::Permissions::from_mode(0o644),
     )
-    .unwrap();
+    .checked();
     assert!(paxeer_native::run_read_command(
         &["account".into(), config.display().to_string()],
         &mut Vec::new()
     )
-    .unwrap_err()
+    .err()
+    .checked()
     .to_string()
     .contains("unsafe native input"));
-    fs::remove_file(root.0.join("account.key")).unwrap();
-    symlink(root.0.join("funding.key"), root.0.join("account.key")).unwrap();
+    fs::remove_file(root.0.join("account.key")).checked();
+    symlink(root.0.join("funding.key"), root.0.join("account.key")).checked();
     assert!(paxeer_native::run_read_command(
         &["account".into(), config.display().to_string()],
         &mut Vec::new()
@@ -376,8 +393,8 @@ fn TestRepairM_1321_RelayRetirement13() {
             &["account".into(), config.display().to_string()],
             &mut output,
         )
-        .unwrap();
-        let value: Value = serde_json::from_slice(&output).unwrap();
+        .checked();
+        let value: Value = serde_json::from_slice(&output).checked();
         assert_eq!(value["tenant"], tenant);
         assert_eq!(value["evidence"]["chain_id"], 125);
         for retired in [
@@ -389,17 +406,17 @@ fn TestRepairM_1321_RelayRetirement13() {
         ] {
             assert!(value.get(retired).is_none());
         }
-        let mut invalid: Value = serde_json::from_slice(&fs::read(&config).unwrap()).unwrap();
+        let mut invalid: Value = serde_json::from_slice(&fs::read(&config).checked()).checked();
         invalid["guarantor_set"] = json!([]);
         assert!(serde_json::from_value::<TenantAccount>(invalid).is_err());
     }
     let mut unfunded = transcript();
     unfunded["rpc_exchanges"]
         .as_array_mut()
-        .unwrap()
+        .checked()
         .iter_mut()
         .find(|v| v["method"] == "eth_getBalance")
-        .unwrap()["result"] = json!("0x0");
+        .checked()["result"] = json!("0x0");
     let peer = NativePeer::start(unfunded);
     let config = account_config(&root.0, &peer, "unfunded");
     let mut output = Vec::new();
@@ -407,7 +424,8 @@ fn TestRepairM_1321_RelayRetirement13() {
         &["account".into(), config.display().to_string()],
         &mut output
     )
-    .unwrap_err()
+    .err()
+    .checked()
     .to_string()
     .contains("committed-chain funding"));
     assert!(output.is_empty());
@@ -440,20 +458,20 @@ fn TestRepairM_1321_RelayRetirement14() {
         &["evidence".into(), peer.url.clone(), peer.url.clone()],
         &mut output,
     )
-    .unwrap();
-    let evidence: NativeEvidence = serde_json::from_slice(&output).unwrap();
+    .checked();
+    let evidence: NativeEvidence = serde_json::from_slice(&output).checked();
     assert_eq!(evidence.chain_id, 125);
-    assert_eq!(evidence.height, 23869863);
+    assert_eq!(evidence.height, 23_869_863);
     assert_eq!(evidence.consensus_chain_id, "hyperpax_125-1");
     assert_eq!(
         evidence.validators[0]["address"],
         node_configuration()["validator_key"]["address"]
     );
-    let requests = peer.requests.lock().unwrap();
+    let requests = peer.requests.lock().checked();
     assert_eq!(
         requests
             .iter()
-            .map(|v| v["method"].as_str().unwrap())
+            .map(|v| v["method"].as_str().checked())
             .collect::<Vec<_>>(),
         [
             "eth_chainId",
@@ -466,12 +484,12 @@ fn TestRepairM_1321_RelayRetirement14() {
     let validators = requests
         .iter()
         .find(|v| v["method"] == "validators")
-        .unwrap();
+        .checked();
     assert_eq!(
         validators["params"],
-        json!({"height":"23869863", "page":"1", "per_page":"100"})
+        json!({"height":"23_869_863", "page":"1", "per_page":"100"})
     );
-    assert!(!String::from_utf8(output).unwrap().contains("guarantor"));
+    assert!(!String::from_utf8(output).checked().contains("guarantor"));
 }
 
 #[test]
@@ -489,14 +507,14 @@ fn TestRepairM_1321_CommittedEvidenceRefusals() {
         let mut fixture = transcript();
         let reply = &mut fixture["rpc_exchanges"]
             .as_array_mut()
-            .unwrap()
+            .checked()
             .iter_mut()
             .find(|v| v["method"] == method)
-            .unwrap()["result"];
+            .checked()["result"];
         if pointer.is_empty() {
             *reply = changed;
         } else {
-            *reply.pointer_mut(pointer).unwrap() = changed;
+            *reply.pointer_mut(pointer).checked() = changed;
         }
         let peer = NativePeer::start(fixture);
         assert!(

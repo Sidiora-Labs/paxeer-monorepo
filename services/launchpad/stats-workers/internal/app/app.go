@@ -84,6 +84,12 @@ type App struct {
 
 // New runs migrations and builds every component.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	return newWithRuntimePool(ctx, cfg, logger, func(ctx context.Context, c *config.Config, options shareddb.PoolOptions) (*pgxpool.Pool, error) {
+		return c.OpenRuntimePool(ctx, "statsd", options)
+	})
+}
+
+func newWithRuntimePool(ctx context.Context, cfg config.Config, logger *slog.Logger, openPool func(context.Context, *config.Config, shareddb.PoolOptions) (*pgxpool.Pool, error)) (*App, error) {
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -114,7 +120,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}
 
-	pool, err := cfg.OpenRuntimePool(ctx, "statsd", shareddb.PoolOptions{
+	pool, err := openPool(ctx, &cfg, shareddb.PoolOptions{
 		MaxConns:         30,
 		MaxConnIdleTime:  10 * time.Second,
 		ConnectTimeout:   3 * time.Second,
@@ -585,6 +591,12 @@ func Run(parent context.Context) error {
 	}
 	defer app.Close()
 
+	return runInitializedApp(ctx, cfg, logger, app)
+}
+
+func runInitializedApp(parent context.Context, cfg config.Config, logger *slog.Logger, app *App) error {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
 	workerErrors := make(chan error, len(app.jobs)+1)
 	if len(app.jobs) > 0 {
 		releases := make([]func(), 0, len(app.jobs))

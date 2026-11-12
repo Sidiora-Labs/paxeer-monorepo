@@ -1,3 +1,7 @@
+#[allow(
+    dead_code,
+    reason = "The binary entrypoint retains its published command signature."
+)]
 #[path = "support/genesis_transport.rs"]
 mod node_transport;
 
