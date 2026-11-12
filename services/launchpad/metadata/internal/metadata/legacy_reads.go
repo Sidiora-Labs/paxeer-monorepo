@@ -219,7 +219,7 @@ func (l *ProductionLegacyReads) fill(ctx context.Context, tx pgx.Tx, identity V2
 		updated := data.UpdatedAt.UnixMilli()
 		record.UpdatedAt = &updated
 	}
-	if data.ModerationStatus != "allowed" {
+	if data.ModerationStatus != metadataVisibilityAllowed {
 		return nil
 	}
 	if data.Display.Name != nil {
@@ -235,7 +235,7 @@ func (l *ProductionLegacyReads) fill(ctx context.Context, tx pgx.Tx, identity V2
 	record.Tags = append([]string{}, data.Display.Tags...)
 	for _, link := range data.Display.Socials {
 		value := link.URL
-		target := map[string]**string{"website": &record.Socials.Website, "twitter": &record.Socials.Twitter, "telegram": &record.Socials.Telegram, "discord": &record.Socials.Discord}[legacySocialColumn(link.URL)]
+		target := map[string]**string{metadataSocialWebsite: &record.Socials.Website, metadataSocialTwitter: &record.Socials.Twitter, metadataSocialTelegram: &record.Socials.Telegram, metadataSocialDiscord: &record.Socials.Discord}[legacySocialColumn(link.URL)]
 		if *target == nil {
 			*target = &value
 		}
@@ -254,7 +254,7 @@ func (l *ProductionLegacyReads) fill(ctx context.Context, tx pgx.Tx, identity V2
 // logoKey returns the approved 512 px variant key of the document's logo.
 func (l *ProductionLegacyReads) logoKey(ctx context.Context, tx pgx.Tx, data V2Data) (string, error) {
 	store := l.Media.Metadata.Store
-	if data.LogoAssetID == nil || data.ModerationStatus != "allowed" {
+	if data.LogoAssetID == nil || data.ModerationStatus != metadataVisibilityAllowed {
 		return "", ErrMissing
 	}
 	var hash string
@@ -330,7 +330,7 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
 		return
 	}
-	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Type", metadataMimePNG)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(http.StatusOK)

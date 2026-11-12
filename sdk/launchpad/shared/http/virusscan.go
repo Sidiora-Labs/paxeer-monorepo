@@ -7,8 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"regexp"
@@ -85,8 +87,16 @@ func ScanBuffer(ctx context.Context, data []byte, opts ScanOptions) ScanResult {
 	if err != nil {
 		return fail(ScanUnavailable, "clamav-unreachable")
 	}
-	defer conn.Close()
-	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	defer func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	}()
+	stop := context.AfterFunc(ctx, func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	})
 	defer stop()
 	deadline, _ := ctx.Deadline()
 	if conn.SetDeadline(deadline) != nil {
@@ -173,8 +183,16 @@ func ScannerVersion(ctx context.Context, opts ScanOptions) (ScanOptions, error) 
 	if e != nil {
 		return opts, fmt.Errorf("scanner unavailable")
 	}
-	defer conn.Close()
-	stop := context.AfterFunc(bounded, func() { conn.Close() })
+	defer func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	}()
+	stop := context.AfterFunc(bounded, func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	})
 	defer stop()
 	deadline, _ := bounded.Deadline()
 	if conn.SetDeadline(deadline) != nil {

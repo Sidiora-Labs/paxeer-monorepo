@@ -43,6 +43,10 @@ pub struct ChainHeader {
 }
 
 impl ChainHeader {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainProofError> {
         let fields = read_fields::<14>(bytes)?;
         let version = read_fields::<2>(bytes_value(fields[0])?)?;
@@ -83,6 +87,10 @@ impl ChainHeader {
         Ok(header)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn hash(&self) -> Result<[u8; 32], ChainProofError> {
         self.validate()?;
         let mut version = Vec::new();

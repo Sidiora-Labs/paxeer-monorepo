@@ -4,6 +4,7 @@ use chain_proof::{
 };
 use layerx_programs::chain_proof;
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/vote.rs"]
 mod vote;
 
@@ -12,30 +13,7 @@ use vote::{
     SIGNED_MSG_TYPE_PRECOMMIT,
 };
 
-#[test]
-fn chain_vote_sign_bytes_are_length_prefixed_canonical_vote() -> Result<(), ChainProofError> {
-    let block_id = BlockId {
-        hash: (0..32).collect(),
-        part_set_header: PartSetHeader {
-            total: 100,
-            hash: (32..64).collect(),
-        },
-    };
-    let timestamp = Timestamp {
-        seconds: 1,
-        nanos: 2,
-    };
-    let bytes = vote_sign_bytes("chain", 300, 7, Some(&block_id), timestamp)?;
-    let expected = [
-        0x6b, 0x08, 0x02, 0x11, 0x2c, 0x01, 0, 0, 0, 0, 0, 0, 0x19, 0x07, 0, 0, 0, 0, 0, 0, 0,
-        0x22, 0x48, 0x0a, 0x20, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-        19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 0x12, 0x24, 0x08, 0x64, 0x12, 0x20, 32,
-        33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
-        56, 57, 58, 59, 60, 61, 62, 63, 0x2a, 0x04, 0x08, 0x01, 0x10, 0x02, 0x32, 0x05, b'c', b'h',
-        b'a', b'i', b'n',
-    ];
-    assert_eq!(bytes, expected);
-    assert_eq!(usize::from(bytes[0]), bytes.len() - 1);
+fn verify_canonical_fields(bytes: &[u8], block_id: &BlockId) -> Result<(), ChainProofError> {
     let mut reader = ProtoReader::new(&bytes[1..]);
     assert_eq!(
         reader.next_field()?,
@@ -116,30 +94,10 @@ fn chain_vote_sign_bytes_are_length_prefixed_canonical_vote() -> Result<(), Chai
     assert_eq!(reader.next_field()?, None);
     reader.finish()?;
 
-    let long_chain = "c".repeat(128);
-    let long = vote_sign_bytes(&long_chain, 300, 7, Some(&block_id), timestamp)?;
-    assert_eq!(&long[..2], &[0xe7, 0x01]);
-    assert_eq!(long.len() - 2, 231);
-    assert_eq!(&long[102..105], &[0x32, 0x80, 0x01]);
-    assert_eq!(&long[105..], long_chain.as_bytes());
+    Ok(())
+}
 
-    let signed = vote_sign_bytes(
-        "",
-        -1,
-        -2,
-        None,
-        Timestamp {
-            seconds: -1,
-            nanos: 0,
-        },
-    )?;
-    assert_eq!(&signed[4..12], &(-1_i64).to_le_bytes());
-    assert_eq!(&signed[13..21], &(-2_i64).to_le_bytes());
-    assert_eq!(
-        &signed[21..],
-        &[0x2a, 11, 0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 1]
-    );
-
+fn verify_signature_and_invalid_cases(timestamp: Timestamp) -> Result<(), ChainProofError> {
     for flag in [BlockIdFlag::Commit, BlockIdFlag::Nil] {
         let mut encoded = vec![0x08, flag as u8, 0x12, 20];
         encoded.extend_from_slice(&[0x11; 20]);
@@ -198,6 +156,60 @@ fn chain_vote_sign_bytes_are_length_prefixed_canonical_vote() -> Result<(), Chai
             Err(ChainProofError::NonCanonical)
         );
     }
+    Ok(())
+}
+
+#[test]
+fn chain_vote_sign_bytes_are_length_prefixed_canonical_vote() -> Result<(), ChainProofError> {
+    let block_id = BlockId {
+        hash: (0..32).collect(),
+        part_set_header: PartSetHeader {
+            total: 100,
+            hash: (32..64).collect(),
+        },
+    };
+    let timestamp = Timestamp {
+        seconds: 1,
+        nanos: 2,
+    };
+    let bytes = vote_sign_bytes("chain", 300, 7, Some(&block_id), timestamp)?;
+    let expected = [
+        0x6b, 0x08, 0x02, 0x11, 0x2c, 0x01, 0, 0, 0, 0, 0, 0, 0x19, 0x07, 0, 0, 0, 0, 0, 0, 0,
+        0x22, 0x48, 0x0a, 0x20, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 0x12, 0x24, 0x08, 0x64, 0x12, 0x20, 32,
+        33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55,
+        56, 57, 58, 59, 60, 61, 62, 63, 0x2a, 0x04, 0x08, 0x01, 0x10, 0x02, 0x32, 0x05, b'c', b'h',
+        b'a', b'i', b'n',
+    ];
+    assert_eq!(bytes, expected);
+    assert_eq!(usize::from(bytes[0]), bytes.len() - 1);
+    verify_canonical_fields(&bytes, &block_id)?;
+
+    let long_chain = "c".repeat(128);
+    let long = vote_sign_bytes(&long_chain, 300, 7, Some(&block_id), timestamp)?;
+    assert_eq!(&long[..2], &[0xe7, 0x01]);
+    assert_eq!(long.len() - 2, 231);
+    assert_eq!(&long[102..105], &[0x32, 0x80, 0x01]);
+    assert_eq!(&long[105..], long_chain.as_bytes());
+
+    let signed = vote_sign_bytes(
+        "",
+        -1,
+        -2,
+        None,
+        Timestamp {
+            seconds: -1,
+            nanos: 0,
+        },
+    )?;
+    assert_eq!(&signed[4..12], &(-1_i64).to_le_bytes());
+    assert_eq!(&signed[13..21], &(-2_i64).to_le_bytes());
+    assert_eq!(
+        &signed[21..],
+        &[0x2a, 11, 0x08, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 1]
+    );
+
+    verify_signature_and_invalid_cases(timestamp)?;
     Ok(())
 }
 

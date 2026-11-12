@@ -1,6 +1,7 @@
 use layerx_programs::chain_proof::ChainProofError;
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/merkle.rs"]
 mod merkle;
 
@@ -149,6 +150,15 @@ fn chain_merkle_proof_refuses_wrong_index_and_depth() -> Result<(), ChainProofEr
         );
     }
 
+    verify_edge_shapes(&items, &leaves, root)?;
+    Ok(())
+}
+
+fn verify_edge_shapes(
+    items: &[&[u8]; 5],
+    leaves: &[[u8; 32]; 5],
+    root: [u8; 32],
+) -> Result<(), ChainProofError> {
     let mut singleton = SimpleProof {
         total: 1,
         index: 0,

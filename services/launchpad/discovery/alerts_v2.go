@@ -26,7 +26,7 @@ func RuleFromV2AlertCreate(raw []byte, ownerAccountID string) (AlertRule, error)
 	body.Threshold = normalizePrice(body.Threshold)
 	rule := AlertRule{
 		ID: uuid.NewString(), OwnerAccountID: ownerAccountID,
-		PoolAddress: strings.ToLower(body.PoolAddress), Metric: "price", Direction: body.Direction,
+		PoolAddress: strings.ToLower(body.PoolAddress), Metric: metricPrice, Direction: body.Direction,
 		Price:      &body.Threshold,
 		Threshold:  string(body.Threshold.Numerator) + "/" + string(body.Threshold.Denominator),
 		Hysteresis: "0", Cooldown: time.Duration(body.CooldownSeconds) * time.Second,
@@ -44,7 +44,7 @@ func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, 
 	if err := rule.Validate(); err != nil {
 		return v2.AlertCreateResponse{}, err
 	}
-	if generatedAt.IsZero() || rule.Metric != "price" || rule.Cooldown%time.Second != 0 {
+	if generatedAt.IsZero() || rule.Metric != metricPrice || rule.Cooldown%time.Second != 0 {
 		return v2.AlertCreateResponse{}, ErrInvalid
 	}
 	if rule.Price == nil || validatePrice(threshold, rule.Threshold) != nil || !reflect.DeepEqual(normalizePrice(threshold), normalizePrice(*rule.Price)) {
@@ -76,7 +76,7 @@ func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, 
 	revision := v2.PositiveUInt256(strconv.FormatUint(rule.Revision, 10))
 	response := v2.AlertCreateResponse{
 		RequestId: requestID, GeneratedAt: generatedAt.UTC().Format("2006-01-02T15:04:05.000Z"),
-		Quality: "complete", Revision: &revision,
+		Quality: qualityComplete, Revision: &revision,
 		Data: v2.AlertCreateData{Alert: v2.Alert{
 			AlertId: rule.ID, Wallet: wallet, PoolAddress: rule.PoolAddress,
 			Direction: rule.Direction, Threshold: price,

@@ -1,5 +1,7 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
+#[allow(dead_code)]
 #[path = "../src/chain_evidence/verify_program.rs"]
 mod verify_program;
 
@@ -57,12 +59,18 @@ fn proofs(
     ChainLifecycleProof,
     ChainWindDownProof,
 ) {
-    let record_ops = fixture.prove(&key(b"program\0", program)).unwrap();
+    let record_ops = fixture
+        .prove(&key(b"program\0", program))
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let status_key = key(b"wind-down\0s", program);
     let status_ops = if status.is_some() {
-        fixture.prove(&status_key).unwrap()
+        fixture
+            .prove(&status_key)
+            .unwrap_or_else(|error| panic!("{error:?}"))
     } else {
-        fixture.prove_absent(&status_key).unwrap()
+        fixture
+            .prove_absent(&status_key)
+            .unwrap_or_else(|error| panic!("{error:?}"))
     };
     (
         ChainProgramStateProof {
@@ -84,11 +92,136 @@ fn proofs(
     )
 }
 
+type ProgramProofs = (
+    ChainProgramStateProof,
+    ChainLifecycleProof,
+    ChainWindDownProof,
+);
+
+fn verify(
+    head: &chain_proof::VerifiedChainHead,
+    proofs: &ProgramProofs,
+    program: ProgramId,
+    now: u64,
+    max_age: u64,
+) -> Result<verify_program::VerifiedProgramHead, ProtocolEvidenceError> {
+    current_program_at(head, &proofs.0, &proofs.1, &proofs.2, program, now, max_age)
+}
+
+fn verify_invalid_and_mixed_proofs(
+    head: &chain_proof::VerifiedChainHead,
+    active_proofs: &ProgramProofs,
+    deprecated_proofs: &ProgramProofs,
+    active_record: Vec<u8>,
+) {
+    let active = ProgramId::new([0x11; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let deprecated = ProgramId::new([0x22; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let time_ms = 1_700_000_000_123;
+    let max_age_ms = 5_000;
+    let mut wrong_lifecycle = active_proofs.clone();
+    wrong_lifecycle.1 = deprecated_proofs.1.clone();
+    let mut wrong_status = active_proofs.clone();
+    wrong_status.2 = deprecated_proofs.2.clone();
+    for invalid in [wrong_lifecycle, wrong_status] {
+        assert_eq!(
+            verify(head, &invalid, active, time_ms, max_age_ms),
+            Err(ProtocolEvidenceError::LifecycleProof)
+        );
+    }
+
+    let mut damaged_record = active_proofs.clone();
+    damaged_record.0.ops.clear();
+    let mut damaged_lifecycle = active_proofs.clone();
+    damaged_lifecycle.1.record_ops.clear();
+    let mut damaged_status = active_proofs.clone();
+    damaged_status.2.ops.clear();
+    let mut hidden_status = deprecated_proofs.clone();
+    hidden_status.2.value = None;
+    for (invalid, program) in [
+        (damaged_record, active),
+        (damaged_lifecycle, active),
+        (damaged_status, active),
+        (hidden_status, deprecated),
+    ] {
+        assert_eq!(
+            verify(head, &invalid, program, time_ms, max_age_ms),
+            Err(ProtocolEvidenceError::StateProof)
+        );
+    }
+
+    let other = ChainFixture::new(
+        "paxeer-current-program",
+        &[[1; 32], [2; 32], [3; 32], [4; 32]],
+        vec![
+            (key(b"program\0", active), active_record.clone()),
+            (key(b"wind-down\0s", active), status(active, 2)),
+        ],
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let other_head = other
+        .verifier
+        .verify_head(&other.header, &other.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_ne!(other_head.app_hash(), head.app_hash());
+    assert_eq!(
+        verify(&other_head, active_proofs, active, time_ms, max_age_ms),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    let other_proofs = proofs(&other, active, active_record, Some(status(active, 2)));
+    for mixed in [
+        (
+            other_proofs.0.clone(),
+            active_proofs.1.clone(),
+            active_proofs.2.clone(),
+        ),
+        (
+            active_proofs.0.clone(),
+            other_proofs.1.clone(),
+            active_proofs.2.clone(),
+        ),
+        (
+            active_proofs.0.clone(),
+            active_proofs.1.clone(),
+            other_proofs.2.clone(),
+        ),
+    ] {
+        assert_eq!(
+            verify(head, &mixed, active, time_ms, max_age_ms),
+            Err(ProtocolEvidenceError::StateProof)
+        );
+    }
+}
+
+fn verify_freshness_limits(
+    head: &chain_proof::VerifiedChainHead,
+    active_proofs: &ProgramProofs,
+    active: ProgramId,
+    time_ms: u64,
+    max_age_ms: u64,
+) {
+    for (now, max_age) in [
+        (time_ms + max_age_ms + 1, max_age_ms),
+        (time_ms - 1_001, max_age_ms),
+        (time_ms, u64::MAX),
+    ] {
+        assert_eq!(
+            verify(head, active_proofs, active, now, max_age),
+            Err(ProtocolEvidenceError::Stale)
+        );
+    }
+    assert_eq!(
+        verify(head, active_proofs, active, time_ms, 0)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .valid_until_ms(),
+        time_ms
+    );
+}
+
 #[test]
 fn chain_program_head_reads_record_lifecycle_and_wind_down() {
-    let active = ProgramId::new([0x11; 32]).unwrap();
-    let deprecated = ProgramId::new([0x22; 32]).unwrap();
-    let tombstoned = ProgramId::new([0x33; 32]).unwrap();
+    let active = ProgramId::new([0x11; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let deprecated = ProgramId::new([0x22; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let tombstoned = ProgramId::new([0x33; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     let active_record = record(UpgradePolicy::Immutable, [0x41; 32], 7);
     let policy = UpgradePolicy::Authority([0x51; 32]);
     let deprecated_record = record(policy, [0x42; 32], 8);
@@ -105,11 +238,11 @@ fn chain_program_head_reads_record_lifecycle_and_wind_down() {
             (key(b"wind-down\0s", tombstoned), tombstoned_status.clone()),
         ],
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let time_ms = 1_700_000_000_123;
     let max_age_ms = 5_000;
     let active_proofs = proofs(&fixture, active, active_record.clone(), None);
@@ -125,18 +258,6 @@ fn chain_program_head_reads_record_lifecycle_and_wind_down() {
         active_record.clone(),
         Some(tombstoned_status),
     );
-    let verify = |head: &chain_proof::VerifiedChainHead,
-                  proofs: &(
-        ChainProgramStateProof,
-        ChainLifecycleProof,
-        ChainWindDownProof,
-    ),
-                  program,
-                  now,
-                  max_age| {
-        current_program_at(head, &proofs.0, &proofs.1, &proofs.2, program, now, max_age)
-    };
-
     for (program, proofs, version, code_hash, policy, lifecycle, status) in [
         (
             active,
@@ -154,11 +275,16 @@ fn chain_program_head_reads_record_lifecycle_and_wind_down() {
             [0x42; 32],
             policy,
             ProgramLifecycle::Deprecated,
-            Some(deprecated_status.try_into().unwrap()),
+            Some(
+                deprecated_status
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            ),
         ),
     ] {
         for now in [time_ms - 1_000, time_ms, time_ms + max_age_ms] {
-            let verified = verify(&head, proofs, program, now, max_age_ms).unwrap();
+            let verified = verify(&head, proofs, program, now, max_age_ms)
+                .unwrap_or_else(|error| panic!("{error:?}"));
             assert_eq!(verified.program(), program);
             assert_eq!(verified.version(), version);
             assert_eq!(verified.code_hash(), code_hash);
@@ -185,93 +311,7 @@ fn chain_program_head_reads_record_lifecycle_and_wind_down() {
         verify(&head, &active_proofs, deprecated, time_ms, max_age_ms),
         Err(ProtocolEvidenceError::ProgramRecord)
     );
-    for (now, max_age) in [
-        (time_ms + max_age_ms + 1, max_age_ms),
-        (time_ms - 1_001, max_age_ms),
-        (time_ms, u64::MAX),
-    ] {
-        assert_eq!(
-            verify(&head, &active_proofs, active, now, max_age),
-            Err(ProtocolEvidenceError::Stale)
-        );
-    }
-    assert_eq!(
-        verify(&head, &active_proofs, active, time_ms, 0)
-            .unwrap()
-            .valid_until_ms(),
-        time_ms
-    );
+    verify_freshness_limits(&head, &active_proofs, active, time_ms, max_age_ms);
 
-    let mut wrong_lifecycle = active_proofs.clone();
-    wrong_lifecycle.1 = deprecated_proofs.1.clone();
-    let mut wrong_status = active_proofs.clone();
-    wrong_status.2 = deprecated_proofs.2.clone();
-    for invalid in [wrong_lifecycle, wrong_status] {
-        assert_eq!(
-            verify(&head, &invalid, active, time_ms, max_age_ms),
-            Err(ProtocolEvidenceError::LifecycleProof)
-        );
-    }
-
-    let mut damaged_record = active_proofs.clone();
-    damaged_record.0.ops.clear();
-    let mut damaged_lifecycle = active_proofs.clone();
-    damaged_lifecycle.1.record_ops.clear();
-    let mut damaged_status = active_proofs.clone();
-    damaged_status.2.ops.clear();
-    let mut hidden_status = deprecated_proofs.clone();
-    hidden_status.2.value = None;
-    for (invalid, program) in [
-        (damaged_record, active),
-        (damaged_lifecycle, active),
-        (damaged_status, active),
-        (hidden_status, deprecated),
-    ] {
-        assert_eq!(
-            verify(&head, &invalid, program, time_ms, max_age_ms),
-            Err(ProtocolEvidenceError::StateProof)
-        );
-    }
-
-    let other = ChainFixture::new(
-        "paxeer-current-program",
-        &[[1; 32], [2; 32], [3; 32], [4; 32]],
-        vec![
-            (key(b"program\0", active), active_record.clone()),
-            (key(b"wind-down\0s", active), status(active, 2)),
-        ],
-    )
-    .unwrap();
-    let other_head = other
-        .verifier
-        .verify_head(&other.header, &other.commit)
-        .unwrap();
-    assert_ne!(other_head.app_hash(), head.app_hash());
-    assert_eq!(
-        verify(&other_head, &active_proofs, active, time_ms, max_age_ms),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-    let other_proofs = proofs(&other, active, active_record, Some(status(active, 2)));
-    for mixed in [
-        (
-            other_proofs.0.clone(),
-            active_proofs.1.clone(),
-            active_proofs.2.clone(),
-        ),
-        (
-            active_proofs.0.clone(),
-            other_proofs.1.clone(),
-            active_proofs.2.clone(),
-        ),
-        (
-            active_proofs.0.clone(),
-            active_proofs.1.clone(),
-            other_proofs.2.clone(),
-        ),
-    ] {
-        assert_eq!(
-            verify(&head, &mixed, active, time_ms, max_age_ms),
-            Err(ProtocolEvidenceError::StateProof)
-        );
-    }
+    verify_invalid_and_mixed_proofs(&head, &active_proofs, &deprecated_proofs, active_record);
 }

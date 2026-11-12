@@ -13,7 +13,7 @@ import (
 )
 
 func PublicTopics(topics []string) bool {
-	return sharedauth.ValidateStreamBinding(sharedauth.StreamPrincipal{}, sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: "https://anonymous.invalid", Endpoint: "/v2/stream"}) == nil
+	return sharedauth.ValidateStreamBinding(sharedauth.StreamPrincipal{}, sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: literalHttpsAnonymousInvalid, Endpoint: literalV2Stream}) == nil
 }
 
 func CanonicalTopics(topics []string) ([]string, error) {

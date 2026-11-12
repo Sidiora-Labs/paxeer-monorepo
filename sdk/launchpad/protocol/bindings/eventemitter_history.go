@@ -2,6 +2,7 @@ package bindings
 
 import (
 	_ "embed"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
 

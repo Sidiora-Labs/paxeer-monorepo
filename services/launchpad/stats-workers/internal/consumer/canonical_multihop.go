@@ -197,7 +197,7 @@ func (b *CanonicalLegacyBridge) projectMultihop(ctx context.Context, r canonical
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	var complete bool
 	height, _ := strconv.ParseInt(r.position.Height, 10, 64)
@@ -216,7 +216,7 @@ func (b *CanonicalLegacyBridge) projectMultihop(ctx context.Context, r canonical
 		return false, false, ErrLegacyBridgeIntegrity
 	}
 	in, out := legs[0], legs[1]
-	if in.fill.Side != "sell" || out.fill.Side != "buy" || in.fill.Token.Address != ev.TokenIn || out.fill.Token.Address != ev.TokenOut || in.fill.PoolAddress == out.fill.PoolAddress || in.fill.TokenAmountRaw != ev.AmountIn || in.fill.USDLAmountRaw != ev.IntermediateUsdl || out.fill.USDLAmountRaw != ev.IntermediateUsdl || out.fill.TokenAmountRaw != ev.AmountOut || in.fill.Settlement != out.fill.Settlement || in.fill.Provenance.DeploymentID != out.fill.Provenance.DeploymentID || in.fill.Provenance.ReceiptSHA256 != out.fill.Provenance.ReceiptSHA256 || in.fill.Provenance.HeaderSHA256 != out.fill.Provenance.HeaderSHA256 || in.swap.Sender != ev.Sender || out.swap.Sender != ev.Sender || in.swap.BlockTimestamp != out.swap.BlockTimestamp {
+	if in.fill.Side != "sell" || out.fill.Side != valueBuy || in.fill.Token.Address != ev.TokenIn || out.fill.Token.Address != ev.TokenOut || in.fill.PoolAddress == out.fill.PoolAddress || in.fill.TokenAmountRaw != ev.AmountIn || in.fill.USDLAmountRaw != ev.IntermediateUsdl || out.fill.USDLAmountRaw != ev.IntermediateUsdl || out.fill.TokenAmountRaw != ev.AmountOut || in.fill.Settlement != out.fill.Settlement || in.fill.Provenance.DeploymentID != out.fill.Provenance.DeploymentID || in.fill.Provenance.ReceiptSHA256 != out.fill.Provenance.ReceiptSHA256 || in.fill.Provenance.HeaderSHA256 != out.fill.Provenance.HeaderSHA256 || in.swap.Sender != ev.Sender || out.swap.Sender != ev.Sender || in.swap.BlockTimestamp != out.swap.BlockTimestamp {
 		return false, false, ErrLegacyBridgeIntegrity
 	}
 	// Resolve associations from canonical creations, not current mutable metadata.

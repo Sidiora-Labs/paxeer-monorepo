@@ -3,6 +3,8 @@ package internaltest
 import (
 	"net"
 	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
 )
 
 // FreePorts chooses distinct loopback ports while holding every listener open.
@@ -14,7 +16,7 @@ func FreePorts(t *testing.T, count int) []int {
 		if err != nil {
 			t.Fatalf("reserve loopback port: %v", err)
 		}
-		defer listener.Close()
+		defer cleanup.Close(listener)
 		listeners[i] = listener
 	}
 	ports := make([]int, count)

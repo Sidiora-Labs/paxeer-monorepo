@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/go-chi/chi/v5"
 
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
@@ -27,6 +29,12 @@ import (
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cache"
 	gatewaystorage "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
+)
+
+const (
+	webpContentType = "image/webp"
+	pngContentType  = "image/png"
+	jpegContentType = "image/jpeg"
 )
 
 // immutableCacheControl is sent for served objects. Media keys are
@@ -162,7 +170,11 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 		sharedhttp.WriteError(w, 502, "Bad Gateway", "invalid origin object")
 		return
 	}
-	defer obj.Body.Close()
+	defer func() {
+		if closeErr := obj.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	if obj.Size < 0 || obj.Size > 32<<20 || !safeHeaders(obj.ContentType, obj.ETag) {
 		sharedhttp.WriteError(w, 502, "Bad Gateway", "invalid origin size")
 		return
@@ -199,10 +211,10 @@ func (h *Handler) serve(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) write(w http.ResponseWriter, r *http.Request, contentType, etag string, body *bytes.Reader, _ int64) {
 	if value := r.Header.Get("Range"); value != "" && (r.Header.Get("If-Range") == "" || r.Header.Get("If-Range") == quoteETag(etag)) {
 		_, _, ok := boundedRange(value, int64(body.Len()))
-		if !ok || (contentType != "image/png" && contentType != "image/jpeg" && contentType != "image/webp") {
+		if !ok || (contentType != pngContentType && contentType != jpegContentType && contentType != webpContentType) {
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Del("CDN-Cache-Control")
-			http.Error(w, "invalid range", 416)
+			http.Error(w, "invalid range", http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 	}
@@ -231,10 +243,10 @@ func (h *Handler) stream(w http.ResponseWriter, r *http.Request, contentType, et
 	}
 	start, end, status := int64(0), size-1, http.StatusOK
 	if value := r.Header.Get("Range"); value != "" && (r.Header.Get("If-Range") == "" || r.Header.Get("If-Range") == quoteETag(etag)) {
-		if contentType != "image/png" && contentType != "image/jpeg" && contentType != "image/webp" {
+		if contentType != pngContentType && contentType != jpegContentType && contentType != webpContentType {
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Del("CDN-Cache-Control")
-			http.Error(w, "range unavailable", 416)
+			http.Error(w, "range unavailable", http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 		var ok bool
@@ -243,7 +255,7 @@ func (h *Handler) stream(w http.ResponseWriter, r *http.Request, contentType, et
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Del("CDN-Cache-Control")
 			w.Header().Set("Content-Range", "bytes */"+strconv.FormatInt(size, 10))
-			http.Error(w, "invalid range", 416)
+			http.Error(w, "invalid range", http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 		status = http.StatusPartialContent
@@ -378,5 +390,5 @@ func (h *Handler) logErr(op string, err error) {
 }
 
 func safeHeaders(ct, etag string) bool {
-	return len(ct) <= 128 && len(etag) <= 128 && !strings.ContainsAny(ct+etag, "\r\n") && (ct == "image/png" || ct == "image/jpeg" || ct == "image/webp" || ct == "application/octet-stream")
+	return len(ct) <= 128 && len(etag) <= 128 && !strings.ContainsAny(ct+etag, "\r\n") && (ct == pngContentType || ct == jpegContentType || ct == webpContentType || ct == "application/octet-stream")
 }

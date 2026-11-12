@@ -159,7 +159,7 @@ func NewDeterministicReader(pool *pgxpool.Pool, keys *CursorKeys, schema string)
 		return nil, errors.New("invalid read model configuration")
 	}
 	for _, c := range schema {
-		if !(c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
+		if c != '_' && (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 			return nil, errors.New("invalid schema")
 		}
 	}
@@ -196,7 +196,7 @@ func (r *DeterministicReader) read(ctx context.Context, pool string, revision UI
 	var blockHash *string
 	var observedAt *time.Time
 	s.Watermark.ChainID = "125"
-	s.Watermark.Integrity = "healthy"
+	s.Watermark.Integrity = literalHealthy
 	e = tx.QueryRow(ctx, fmt.Sprintf(`SELECT base,revision::text,applied_event::text,chain_height::text,block_hash,observed_at FROM %s AS s WHERE chain_id='125' AND pool_address=$1 AND ($2::numeric=0 OR revision=$2::numeric) ORDER BY s.revision DESC LIMIT 1`, r.snapshots), pool, string(revision)).Scan(&s.Base, &s.Watermark.ProjectionRevision, &s.Watermark.AppliedEvent, &s.Watermark.Height, &blockHash, &observedAt)
 	if errors.Is(e, pgx.ErrNoRows) {
 		return ErrPoolNotFound
@@ -322,7 +322,7 @@ func validBlockHash(hash string) bool {
 		return false
 	}
 	for _, c := range hash[2:] {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}

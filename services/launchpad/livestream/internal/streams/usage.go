@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"math/big"
 	"net/http"
@@ -18,6 +16,9 @@ import (
 	"regexp"
 	"sync/atomic"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
+	"github.com/jackc/pgx/v5"
 )
 
 // Persisted amounts use at most 78 integer and 18 fractional decimal digits.
@@ -330,7 +331,7 @@ func (w *VendorUsageWorker) DeliverAlert(ctx context.Context) error {
 		return ErrUnavailable
 	}
 	endpoint, err := url.Parse(w.AlertEndpoint)
-	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
+	if err != nil || endpoint.Scheme != httpsScheme || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return ErrUnavailable
 	}
 	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -361,7 +362,7 @@ func (w *VendorUsageWorker) DeliverAlert(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", jsonMediaType)
 	req.Header.Set("Idempotency-Key", eventID)
 	req.Header.Set("X-Kindle-Alert-Signature", hex.EncodeToString(mac.Sum(nil)))
 	client := http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -369,8 +370,8 @@ func (w *VendorUsageWorker) DeliverAlert(ctx context.Context) error {
 	accepted := false
 	if sendErr == nil {
 		raw, readErr := io.ReadAll(io.LimitReader(response.Body, 4097))
-		response.Body.Close()
-		if readErr == nil && len(raw) <= 4096 && response.StatusCode >= 200 && response.StatusCode < 300 {
+		closeErr := response.Body.Close()
+		if readErr == nil && closeErr == nil && len(raw) <= 4096 && response.StatusCode >= 200 && response.StatusCode < 300 {
 			var ack struct {
 				EventID  string `json:"eventId"`
 				Accepted bool   `json:"accepted"`

@@ -603,12 +603,14 @@ $(BUILDDIR):
 # Note we need to check for both in-package tests (.TestGoFiles) and
 # out-of-package tests (.XTestGoFiles).
 $(BUILDDIR)/packages.txt:$(GO_TEST_FILES) $(BUILDDIR)
-	go list -f "{{ if (or .TestGoFiles .XTestGoFiles) }}{{ .ImportPath }}{{ end }}" ./... | sort > $@
+	go list -e -f '{{.ImportPath}}' ./... | grep -v '^github.com/Sidiora-Labs/Paxeer-X-Network/tools/hyperfide/' | xargs -r go list -f '{{ if (or .TestGoFiles .XTestGoFiles) }}{{ .ImportPath }}{{ end }}' > $@.unsorted
+	sed '/^$$/d' $@.unsorted | sort > $@
+	test -s $@ && rm $@.unsorted
 
 TARGET_PACKAGE := github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ
 
 split-test-packages:$(BUILDDIR)/packages.txt
-	split -d -n l/$(NUM_SPLIT) $< $<.
+	split -d -a 1 -n l/$(NUM_SPLIT) $< $<.
 test-group-%:split-test-packages paxd-native-libs
 	@echo "🔍 Checking for special package: $(TARGET_PACKAGE)"
 	@if grep -q "$(TARGET_PACKAGE)" $(BUILDDIR)/packages.txt.$*; then \

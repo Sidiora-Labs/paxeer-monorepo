@@ -1,6 +1,12 @@
-#[path = "support/chain.rs"]
-mod chain;
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
+
+use support::chain;
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 mod support;
+#[allow(dead_code)]
 #[path = "../src/chain_evidence/verify_bundle.rs"]
 mod verify_bundle;
 
@@ -29,7 +35,7 @@ fn status_key(program: ProgramId) -> Vec<u8> {
 fn bundle_fixture(
     status: Option<[u8; 54]>,
 ) -> (ChainFixture, ProgramStateBundle, ProgramInterface) {
-    let program = ProgramId::new([0x31; 32]).expect("program");
+    let program = ProgramId::new([0x31; 32]).or_panic("program");
     let interface = ProgramInterface::bind(
         support::WASM_V1,
         1,
@@ -43,7 +49,7 @@ fn bundle_fixture(
             failures: Vec::new(),
         }],
     )
-    .expect("interface bound to the executable module");
+    .or_panic("interface bound to the executable module");
     let program_key = program_key(program);
     let interface_key = chain_evidence::programs_state_key(&interface_state_key(program));
     let mut record = vec![0; 33];
@@ -54,7 +60,7 @@ fn bundle_fixture(
         (program_key.clone(), record),
         (
             interface_key.clone(),
-            interface_state_value(program, 7, &interface).expect("interface value"),
+            interface_state_value(program, 7, &interface).or_panic("interface value"),
         ),
     ];
     if let Some(status) = status {
@@ -65,40 +71,52 @@ fn bundle_fixture(
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
         pairs,
     )
-    .expect("signed header and real IAVL and multistore proofs");
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "signed header and real IAVL and multistore proofs"
+        )
+    });
     let bundle = ProgramStateBundle {
         commitment: chain_proof::decode::decode_commitment_proof(
-            &fixture.encode_key(&program_key).expect("commitment bytes"),
+            &fixture
+                .encode_key(&program_key)
+                .or_panic("commitment bytes"),
         )
-        .expect("commitment"),
+        .or_panic("commitment"),
         program,
-        program_record_ops: fixture.prove(&program_key).expect("program proof"),
-        interface_ops: fixture.prove(&interface_key).expect("interface proof"),
+        program_record_ops: fixture.prove(&program_key).or_panic("program proof"),
+        interface_ops: fixture.prove(&interface_key).or_panic("interface proof"),
         wind_down: Some(ChainWindDownProof {
             program,
             value: status.map(|value| value.to_vec()),
             ops: if status.is_some() {
                 fixture
                     .prove(&status_key(program))
-                    .expect("status membership")
+                    .or_panic("status membership")
             } else {
                 fixture
                     .prove_absent(&status_key(program))
-                    .expect("status absence")
+                    .or_panic("status absence")
             },
         }),
     };
     (fixture, bundle, interface)
 }
 
-#[test]
-fn chain_bundle_v2_round_trips_and_verifies() {
+fn deprecated_status() -> [u8; 54] {
     let mut status = [0; 54];
     status[0] = 1;
     status[1] = 2;
     status[2..34].fill(0x31);
     status[34..42].copy_from_slice(&1_800_000_000_u64.to_be_bytes());
     status[42..50].copy_from_slice(&72_u64.to_be_bytes());
+    status
+}
+
+#[test]
+fn chain_bundle_v2_round_trips_and_verifies() {
+    let status = deprecated_status();
     for status in [None, Some(status)] {
         let (fixture, bundle, interface) = bundle_fixture(status);
         for with_wind_down in [true, false] {
@@ -106,17 +124,19 @@ fn chain_bundle_v2_round_trips_and_verifies() {
             if !with_wind_down {
                 bundle.wind_down = None;
             }
-            let bytes = bundle.canonical_encoding().expect("encode version two");
+            let bytes = bundle.canonical_encoding().or_panic("encode version two");
             assert_eq!(&bytes[..5], b"LXPB\x02");
-            let decoded = ProgramStateBundle::decode(&bytes).expect("decode version two");
+            let decoded = ProgramStateBundle::decode(&bytes).or_panic("decode version two");
             assert_eq!(decoded, bundle);
-            assert_eq!(decoded.canonical_encoding().expect("re-encode"), bytes);
+            assert_eq!(decoded.canonical_encoding().or_panic("re-encode"), bytes);
             let verified = program_bundle_at(&fixture.verifier, &decoded, bundle.program)
-                .expect("bundle verified at one commitment");
+                .unwrap_or_else(|error| {
+                    panic!("{}: {error:?}", "bundle verified at one commitment")
+                });
             let head = fixture
                 .verifier
                 .verify_head(&fixture.header, &fixture.commit)
-                .expect("independently verify chain head");
+                .or_panic("independently verify chain head");
             assert_eq!(verified.chain_head(), &head);
             assert_eq!(verified.program_head().program(), bundle.program);
             assert_eq!(verified.program_head().version(), 7);
@@ -173,7 +193,7 @@ fn chain_bundle_v2_round_trips_and_verifies() {
         program_bundle_at(
             &fixture.verifier,
             &bundle,
-            ProgramId::new([0x32; 32]).unwrap()
+            ProgramId::new([0x32; 32]).unwrap_or_else(|error| panic!("{error:?}"))
         ),
         Err(ProgramBundleError::ProgramMismatch)
     );
@@ -188,14 +208,18 @@ fn chain_bundle_v2_round_trips_and_verifies() {
     };
     assert!(program_bundle_at(&foreign_trust, &bundle, bundle.program).is_err());
     let mut changed = bundle.clone();
-    changed.commitment.value.as_mut().unwrap()[33] ^= 1;
+    changed
+        .commitment
+        .value
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected value"))[33] ^= 1;
     assert!(program_bundle_at(&fixture.verifier, &changed, bundle.program).is_err());
 }
 
 #[test]
 fn chain_bundle_refuses_version_1_and_trailing_bytes() {
     let (_, bundle, _) = bundle_fixture(None);
-    let canonical = bundle.canonical_encoding().expect("version two bytes");
+    let canonical = bundle.canonical_encoding().or_panic("version two bytes");
     assert!(ProgramStateBundle::decode(&canonical).is_ok());
     let refusal = Err(ProgramBundleError::Evidence(
         ProtocolEvidenceError::Encoding,
@@ -224,7 +248,7 @@ fn chain_bundle_refuses_version_1_and_trailing_bytes() {
     without_wind_down.wind_down = None;
     let option_offset = without_wind_down
         .canonical_encoding()
-        .expect("option location")
+        .or_panic("option location")
         .len()
         - 1;
     let mut bad_option = canonical.clone();
@@ -232,7 +256,9 @@ fn chain_bundle_refuses_version_1_and_trailing_bytes() {
     assert_eq!(ProgramStateBundle::decode(&bad_option), refusal);
     let mut bad_option = without_wind_down
         .canonical_encoding()
-        .expect("optional status omitted");
-    *bad_option.last_mut().unwrap() = 2;
+        .or_panic("optional status omitted");
+    *bad_option
+        .last_mut()
+        .unwrap_or_else(|| panic!("expected value")) = 2;
     assert_eq!(ProgramStateBundle::decode(&bad_option), refusal);
 }

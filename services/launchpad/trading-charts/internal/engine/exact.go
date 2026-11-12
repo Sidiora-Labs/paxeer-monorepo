@@ -132,7 +132,7 @@ type Fill struct {
 }
 
 func (f Fill) Price() (Rational, error) {
-	if f.ChainID != "125" || !f.TimestampAuthenticated || f.BlockTimestamp < 0 || f.TokenDecimals < 0 || f.TokenDecimals > 255 || f.UsdlDecimals != 6 || (f.Side != "buy" && f.Side != "sell") {
+	if f.ChainID != "125" || !f.TimestampAuthenticated || f.BlockTimestamp < 0 || f.TokenDecimals < 0 || f.TokenDecimals > 255 || f.UsdlDecimals != 6 || (f.Side != sideBuy && f.Side != "sell") {
 		return Rational{}, ErrInvalidFill
 	}
 	token, e := RawUint256(f.TokenAmountRaw)
@@ -153,7 +153,7 @@ func (f Fill) Price() (Rational, error) {
 	}
 	input := token
 	disposition := "retained_token_reserve"
-	if f.Side == "buy" {
+	if f.Side == sideBuy {
 		input = usdl
 		disposition = "distributed_usdl"
 	}
@@ -191,7 +191,7 @@ func (f Fill) FeeExclusivePrice() (*Rational, error) {
 	a, _ := RawUint256(*f.AmmInputAfterFeeRaw)
 	token, _ := RawUint256(f.TokenAmountRaw)
 	usdl, _ := RawUint256(f.UsdlAmountRaw)
-	if f.Side == "buy" {
+	if f.Side == sideBuy {
 		usdl = a
 	} else {
 		token = a
@@ -203,13 +203,13 @@ func (f Fill) FeeExclusivePrice() (*Rational, error) {
 	return &r, nil
 }
 
-var ExactIntervals = [...]string{"1m", "5m", "15m", "1h", "4h", "1d", "1w"}
+var ExactIntervals = [...]string{"1m", "5m", intervalFifteenMinutes, "1h", "4h", "1d", "1w"}
 
 func BucketStart(timestamp int64, interval string) (int64, error) {
 	if timestamp < 0 {
 		return 0, ErrInvalidFill
 	}
-	durations := map[string]int64{"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+	durations := map[string]int64{"1m": 60, "5m": 300, intervalFifteenMinutes: 900, "1h": 3600, "4h": 14400, "1d": 86400}
 	if d, ok := durations[interval]; ok {
 		return timestamp / d * d, nil
 	}
@@ -303,7 +303,7 @@ func FoldExact(c *ExactCandle, f Fill, interval string, newTrader bool) (ExactCa
 	}
 	out.VolumeUsdlRaw = add(out.VolumeUsdlRaw, f.UsdlAmountRaw)
 	out.VolumeTokenRaw = add(out.VolumeTokenRaw, f.TokenAmountRaw)
-	if f.Side == "buy" {
+	if f.Side == sideBuy {
 		out.BuyVolumeUsdlRaw = add(out.BuyVolumeUsdlRaw, f.UsdlAmountRaw)
 	} else {
 		out.SellVolumeUsdlRaw = add(out.SellVolumeUsdlRaw, f.UsdlAmountRaw)

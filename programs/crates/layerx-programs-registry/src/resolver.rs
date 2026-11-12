@@ -182,14 +182,12 @@ impl VerifiedProgramCatalog {
                 .map_err(ExecutableAdmissionError::AbiVersion)?;
         }
         if let Some(interface) = evidence.interface() {
-            interface.require_module(evidence.module(), evidence.abi_version())
+            interface
+                .require_module(evidence.module(), evidence.abi_version())
                 .map_err(ExecutableAdmissionError::Interface)?;
         }
-        let module = validate_deployment_module(
-            &self.engine,
-            evidence.module(),
-            evidence.abi_version(),
-        )?;
+        let module =
+            validate_deployment_module(&self.engine, evidence.module(), evidence.abi_version())?;
         let receipt_digest = evidence.receipt_digest();
         let freshness = evidence.freshness();
         let record = evidence.into_record();
@@ -207,12 +205,18 @@ impl VerifiedProgramCatalog {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn admit_typed(
         &mut self,
         evidence: VerifiedDeploymentEvidence,
     ) -> Result<(), ExecutableAdmissionError> {
         if !evidence.interface_present() {
-            return Err(ExecutableAdmissionError::Interface(crate::InterfaceRefusal::InterfaceAbsent));
+            return Err(ExecutableAdmissionError::Interface(
+                crate::InterfaceRefusal::InterfaceAbsent,
+            ));
         }
         self.admit(evidence)
     }
@@ -341,7 +345,8 @@ pub(crate) fn validate_deployment_module(
 ) -> Result<ValidatedModule, ExecutableAdmissionError> {
     let expected_revision = layerx_programs_runtime::abi_policy::abi_revision(abi_version)
         .map_err(ExecutableAdmissionError::AbiVersion)?;
-    let module = engine.validate_versioned(abi_version, wasm)
+    let module = engine
+        .validate_versioned(abi_version, wasm)
         .map_err(ExecutableAdmissionError::Validation)?;
     if module.abi_revision() != expected_revision {
         return Err(ExecutableAdmissionError::RevisionMismatch {

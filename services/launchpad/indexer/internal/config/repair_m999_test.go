@@ -116,10 +116,14 @@ func repairM999AssertManifest(t *testing.T, options receipt.RPCOptions) {
 			t.Fatalf("recorded role %s must retain the current address and kind", name)
 		}
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		recorded.Roles[name] = role
 	}
 	for name, role := range currentRoles {
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		current.Roles[name] = role
 	}
 	if !reflect.DeepEqual(recorded, current) {
@@ -250,7 +254,9 @@ func repairM999Documents(t *testing.T, packet repairM999Packet) map[string]app.R
 	if len(in.ERC20RuntimeCode) == 0 {
 		t.Fatal("producer transcript lacks reviewed ERC20 runtime")
 	}
-	docs, err := app.RenderRuntimeDocuments(in, app.DefaultDeliveryParameters())
+	parameters := app.DefaultDeliveryParameters()
+	parameters.MaxDeliveryLagMS = 60000
+	docs, err := app.RenderRuntimeDocuments(in, parameters)
 	if err != nil {
 		t.Fatal(err)
 	}

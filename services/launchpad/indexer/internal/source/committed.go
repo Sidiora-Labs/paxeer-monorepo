@@ -19,6 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
@@ -93,7 +95,7 @@ type CommittedOptions struct {
 	GenesisHash         common.Hash       `json:",omitempty"`
 	// Anchor replaces GenesisHash on pruned chains; exactly one is configured.
 	Anchor *CommittedAnchor `json:",omitempty"`
-	// BlockIdentity is "keccak" (default) or "reported": on a CometBFT-backed
+	// BlockIdentity is "keccak" (default) or valueReported: on a CometBFT-backed
 	// EVM the receiptsRoot is not an Ethereum receipt trie, so the receipt
 	// fallback binds receipts by block hash and log bloom instead.
 	BlockIdentity string `json:",omitempty"`
@@ -162,7 +164,7 @@ var historicalPermits = make(chan struct{}, 16)
 func NewCommittedSource(ctx context.Context, o CommittedOptions) (*CommittedSource, error) {
 	pinned := o.GenesisHash != (common.Hash{})
 	anchored := o.Anchor != nil && o.Anchor.Hash != (common.Hash{})
-	if len(o.Endpoints) == 0 || len(o.Endpoints)+len(o.HistoricalEndpoints) > 64 || pinned == anchored || o.Anchor != nil && !anchored || o.ManifestDigest == "" || (o.BlockIdentity != "" && o.BlockIdentity != "keccak" && o.BlockIdentity != "reported") {
+	if len(o.Endpoints) == 0 || len(o.Endpoints)+len(o.HistoricalEndpoints) > 64 || pinned == anchored || o.Anchor != nil && !anchored || o.ManifestDigest == "" || (o.BlockIdentity != "" && o.BlockIdentity != "keccak" && o.BlockIdentity != valueReported) {
 		return nil, sourceError(IdentityError, "config", nil)
 	}
 	if o.LiveDeadline <= 0 {
@@ -505,7 +507,7 @@ func (s *CommittedSource) rpcOnce(ctx context.Context, e *committedEndpoint, bul
 		s.transport.retries.Add(1)
 	}
 	id := s.ids.Add(1)
-	body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+	body, _ := json.Marshal(map[string]any{"jsonrpc": valueVersion20, "id": id, "method": method, "params": params})
 	req, err := http.NewRequestWithContext(ctx, "POST", e.url, bytes.NewReader(body))
 	if err != nil {
 		return sourceError(InvalidError, e.id, err)
@@ -515,7 +517,7 @@ func (s *CommittedSource) rpcOnce(ctx context.Context, e *committedEndpoint, bul
 	if err != nil {
 		return sourceError(TimeoutError, e.id, err)
 	}
-	defer resp.Body.Close()
+	defer func() { checked.Report(resp.Body.Close()) }()
 	if resp.StatusCode == 429 {
 		s.transport.throttles.Add(1)
 		wait := (100 * time.Millisecond) << attempt
@@ -574,7 +576,7 @@ func (s *CommittedSource) rpcOnce(ctx context.Context, e *committedEndpoint, bul
 			Message string
 		} `json:"error"`
 	}
-	if err := json.Unmarshal(b, &envelope); err != nil || envelope.ID != id || envelope.JSONRPC != "2.0" {
+	if err := json.Unmarshal(b, &envelope); err != nil || envelope.ID != id || envelope.JSONRPC != valueVersion20 {
 		return sourceError(InvalidError, e.id, err)
 	}
 	if envelope.Error != nil {
@@ -880,7 +882,7 @@ func (s *CommittedSource) PollHeads(ctx context.Context, durable func() uint64, 
 }
 func (s *CommittedSource) Head(ctx context.Context) (int64, error) {
 	h, e := s.ObserveHead(ctx, 0)
-	return int64(h.Height), e
+	return int64(h.Height), e //nolint:gosec // head height uses the existing signed head interface
 }
 
 // FetchCommitted accepts only coordinator-approved discoveries, supplied as
@@ -928,7 +930,7 @@ func (s *CommittedSource) FetchCommitted(ctx context.Context, o FetchOptions, hi
 		cancel()
 		if err == nil {
 			s.mu.Lock()
-			err = s.fenceLocked(uint64(o.ToBlock))
+			err = s.fenceLocked(uint64(o.ToBlock)) //nolint:gosec // validated fetch range uses unsigned chain heights
 			s.mu.Unlock()
 			if err != nil {
 				return FetchResult{}, err
@@ -960,7 +962,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	seen := map[string]bool{}
 	for _, ep := range epochs {
 		a := strings.ToLower(ep.Address)
-		if !seen[a] && ep.ActivationHeight <= uint64(o.ToBlock) && (ep.RetirementHeight == nil || *ep.RetirementHeight > uint64(o.FromBlock)) {
+		if !seen[a] && ep.ActivationHeight <= uint64(o.ToBlock) && (ep.RetirementHeight == nil || *ep.RetirementHeight > uint64(o.FromBlock)) { //nolint:gosec // validated fetch range uses unsigned chain heights
 			seen[a] = true
 			addresses = append(addresses, a)
 		}
@@ -973,7 +975,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	prefetchDone := make(chan struct{})
 	var prefetchErr error
 	if e.historical {
-		s.dropAheadBelow(uint64(o.FromBlock))
+		s.dropAheadBelow(uint64(o.FromBlock)) //nolint:gosec // validated fetch range uses unsigned chain heights
 	}
 	go func() {
 		prefetchErr = s.prefetchBlocks(ctx, e, o.FromBlock, o.ToBlock, bulk, prefetched)
@@ -1034,21 +1036,21 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	}
 	for offset := int64(0); offset <= o.ToBlock-o.FromBlock; offset++ {
 		n := o.FromBlock + offset
-		b, record, err := s.batchBlock(ctx, e, uint64(n), bulk, batch)
+		b, record, err := s.batchBlock(ctx, e, uint64(n), bulk, batch) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		if err != nil {
 			return FetchResult{}, err
 		}
-		if record.Height != uint64(n) {
+		if record.Height != uint64(n) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 		}
-		if n > o.FromBlock && record.ParentHash != r.Blocks[uint64(n-1)].Hash {
+		if n > o.FromBlock && record.ParentHash != r.Blocks[uint64(n-1)].Hash { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 		}
-		r.Blocks[uint64(n)] = record
-		r.BlockTimestamps[uint64(n)] = record.TimestampSeconds
+		r.Blocks[uint64(n)] = record                           //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		r.BlockTimestamps[uint64(n)] = record.TimestampSeconds //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		for i := range r.Logs {
 			l := &r.Logs[i]
-			if l.BlockNumber != uint64(n) {
+			if l.BlockNumber != uint64(n) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 				continue
 			}
 			if l.BlockHash != record.Hash || int(l.TxIndex) >= len(b.Transactions) || !strings.EqualFold(b.Transactions[l.TxIndex].Hash, l.TxHash.Hex()) {
@@ -1065,7 +1067,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 	}
 	identities := map[string]bool{}
 	for _, l := range r.Logs {
-		if l.BlockNumber < uint64(o.FromBlock) || l.BlockNumber > uint64(o.ToBlock) || l.Removed {
+		if l.BlockNumber < uint64(o.FromBlock) || l.BlockNumber > uint64(o.ToBlock) || l.Removed { //nolint:gosec // validated fetch range uses unsigned chain heights
 			return FetchResult{}, sourceError(IntegrityError, e.id, nil)
 		}
 		active := false
@@ -1099,7 +1101,7 @@ func (s *CommittedSource) fetch(ctx context.Context, e *committedEndpoint, o Fet
 		s.metrics.emptyRanges.Add(1)
 	}
 	r.Complete = true
-	r.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}}
+	r.CoveredRanges = []CoveredRange{{uint64(o.FromBlock), uint64(o.ToBlock)}} //nolint:gosec // validated fetch range uses unsigned chain heights
 	return r, nil
 }
 
@@ -1138,7 +1140,7 @@ func (s *CommittedSource) prefetchBlocks(ctx context.Context, e *committedEndpoi
 			s.metrics.headerFetches.Add(1)
 			wire, record, err := s.block(ctx, e, fmtHeight(height), bulk)
 			results <- result{height, batchBlock{wire, record}, err}
-		}(uint64(n))
+		}(uint64(n)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 	}
 	wg.Wait()
 	close(results)
@@ -1209,7 +1211,7 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 			}
 			// Full canonical transaction list bounds fallback work. No receipt
 			// can be omitted while claiming complete single-block coverage.
-			b, record, berr := s.batchBlock(ctx, e, uint64(from), bulk, batch)
+			b, record, berr := s.batchBlock(ctx, e, uint64(from), bulk, batch) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			if berr != nil {
 				return nil, berr
 			}
@@ -1236,12 +1238,12 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 				if err := s.rpc(ctx, e, bulk, "eth_getTransactionReceipt", []any{tx.Hash}, &receipt); err != nil {
 					return nil, err
 				}
-				if receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != uint64(from) || receipt.TransactionIndex != uint(i) || receipt.TxHash != common.HexToHash(tx.Hash) {
+				if receipt.BlockHash != record.Hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockNumber.Uint64() != uint64(from) || receipt.TransactionIndex != uint(i) || receipt.TxHash != common.HexToHash(tx.Hash) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 					return nil, sourceError(IntegrityError, e.id, nil)
 				}
 				receipts = append(receipts, &receipt)
 				for _, l := range receipt.Logs {
-					if l != nil && (l.BlockHash != record.Hash || l.BlockNumber != uint64(from) || l.TxHash != receipt.TxHash || l.TxIndex != uint(i) || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10) {
+					if l != nil && (l.BlockHash != record.Hash || l.BlockNumber != uint64(from) || l.TxHash != receipt.TxHash || l.TxIndex != uint(i) || l.Index != nextIndex || l.Removed || len(l.Topics) > 4 || len(l.Data) > 64<<10) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 						return nil, sourceError(IntegrityError, e.id, nil)
 					}
 					if l != nil {
@@ -1259,7 +1261,7 @@ func (s *CommittedSource) logs(ctx context.Context, e *committedEndpoint, from, 
 					}
 				}
 			}
-			if s.opts.BlockIdentity == "reported" {
+			if s.opts.BlockIdentity == valueReported {
 				// The receiptsRoot of a CometBFT-backed EVM is not an Ethereum
 				// receipt trie; every receipt is bound above to this block's
 				// reported hash and transaction, and the merged log bloom must
@@ -1424,7 +1426,7 @@ func (s *CommittedSource) ApplySourceSelection(ctx context.Context, authorizatio
 	}
 	for _, endpoint := range s.endpoints {
 		if endpoint.id == sourceID {
-			if endpoint.quarantined || (endpoint.health.FirstFailureAt.IsZero() == false && endpoint.health.RecoveryChecks != 128) {
+			if endpoint.quarantined || (!endpoint.health.FirstFailureAt.IsZero() && endpoint.health.RecoveryChecks != 128) {
 				return sourceError(IntegrityError, sourceID, nil)
 			}
 			copy := authorization

@@ -4,7 +4,7 @@ include!("../src/main.rs");
 mod openrpc_methods;
 
 #[path = "support/repair_22_31_202.rs"]
-mod schema_support;
+pub mod schema_support;
 
 use layerx_platform_gateway::evm;
 use layerx_platform_internal::http as internal_http;
@@ -34,15 +34,11 @@ impl RedisProcess {
         let unique = format!(
             "layerx-one-source-redis-{}-{}-{}",
             std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos(),
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos(),
             REDIS_DIRECTORY_COUNTER.fetch_add(1, Ordering::Relaxed)
         );
         let directory = std::env::temp_dir().join(unique);
-        fs::create_dir(&directory)
-            .unwrap_or_else(|error| panic!("test Redis directory must be created: {error}"));
+        fs::create_dir(&directory).unwrap_or_else(|error| panic!("test Redis directory must be created: {error}"));
         let certificate_pem = directory.join("server.pem");
         let certificate_der = directory.join("server.der");
         let private_key = directory.join("server.key");
@@ -66,25 +62,10 @@ impl RedisProcess {
                 "subjectAltName=DNS:localhost",
             ],
         );
-        command(
-            "openssl",
-            &[
-                "x509",
-                "-in",
-                path(&certificate_pem),
-                "-outform",
-                "DER",
-                "-out",
-                path(&certificate_der),
-            ],
-        );
+        command("openssl", &["x509", "-in", path(&certificate_pem), "-outform", "DER", "-out", path(&certificate_der)]);
         let port = free_port();
         let acl = directory.join("users.acl");
-        fs::write(
-            &acl,
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
-        )
-        .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(&acl, "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,
@@ -98,26 +79,10 @@ impl RedisProcess {
             ),
         )
         .unwrap_or_else(|error| panic!("test Redis config must be written: {error}"));
-        let endpoint = RedisEndpoint::parse(&format!("rediss://localhost:{port}"))
-            .unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}"));
-        let certificate = Certificate::from_der(
-            &fs::read(&certificate_der)
-                .unwrap_or_else(|error| panic!("test certificate must be read: {error}")),
-        )
-        .unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
-        let child = Command::new("redis-server")
-            .arg(&config)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
-        let process = Self {
-            child,
-            directory,
-            endpoint,
-            certificate,
-            port,
-        };
+        let endpoint = RedisEndpoint::parse(&format!("rediss://localhost:{port}")).unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}"));
+        let certificate = Certificate::from_der(&fs::read(&certificate_der).unwrap_or_else(|error| panic!("test certificate must be read: {error}"))).unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
+        let child = Command::new("redis-server").arg(&config).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
+        let process = Self { child, directory, endpoint, certificate, port };
         for _ in 0..100 {
             if TcpStream::connect(("127.0.0.1", port)).is_ok() {
                 return process;
@@ -128,12 +93,7 @@ impl RedisProcess {
     }
 
     fn store(&self) -> RedisStore {
-        RedisStore::new(
-            self.endpoint.clone(),
-            self.certificate.clone(),
-            Zeroizing::new("gateway".to_owned()),
-            Zeroizing::new("gateway-secret".to_owned()),
-        )
+        RedisStore::new(self.endpoint.clone(), self.certificate.clone(), Zeroizing::new("gateway".to_owned()), Zeroizing::new("gateway-secret".to_owned()))
     }
 }
 
@@ -160,61 +120,34 @@ impl Drop for Gateway {
 impl Gateway {
     fn rpc(&self, method: &str, params: &Value) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
-        assert_eq!(
-            self.client
-                .post("/rpc", request.to_string().as_bytes())
-                .expect("retired RPC refusal")
-                .status,
-            404
-        );
-        let answer = self
-            .client
-            .post("/", request.to_string().as_bytes())
-            .unwrap_or_else(|error| panic!("{method} must be answered: {error:?}"));
+        assert_eq!(self.client.post("/rpc", request.to_string().as_bytes()).unwrap_or_else(|error| panic!("{}: {error:?}", "retired RPC refusal")).status, 404);
+        let answer = self.client.post("/", request.to_string().as_bytes()).unwrap_or_else(|error| panic!("{method} must be answered: {error:?}"));
         assert_eq!(answer.status, 200, "{method}");
-        let document: Value = serde_json::from_slice(&answer.body)
-            .unwrap_or_else(|error| panic!("{method} answer must be JSON: {error}"));
+        let document: Value = serde_json::from_slice(&answer.body).unwrap_or_else(|error| panic!("{method} answer must be JSON: {error}"));
         assert_eq!(document["jsonrpc"], "2.0");
         assert_eq!(document["id"], 7);
         document
     }
 
     fn get(&self, path: &str) -> (u16, Value) {
-        let answer = self
-            .client
-            .get(path)
-            .unwrap_or_else(|error| panic!("{path} must be answered: {error:?}"));
-        let document = serde_json::from_slice(&answer.body)
-            .unwrap_or_else(|error| panic!("{path} answer must be JSON: {error}"));
+        let answer = self.client.get(path).unwrap_or_else(|error| panic!("{path} must be answered: {error:?}"));
+        let document = serde_json::from_slice(&answer.body).unwrap_or_else(|error| panic!("{path} answer must be JSON: {error}"));
         (answer.status, document)
     }
 }
 
 fn command(program: &str, arguments: &[&str]) {
-    let output = Command::new(program)
-        .args(arguments)
-        .output()
-        .unwrap_or_else(|error| panic!("{program} must run: {error}"));
-    assert!(
-        output.status.success(),
-        "{program} failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let output = Command::new(program).args(arguments).output().unwrap_or_else(|error| panic!("{program} must run: {error}"));
+    assert!(output.status.success(), "{program} failed: {}", String::from_utf8_lossy(&output.stderr));
 }
 
 fn path(value: &Path) -> &str {
-    value
-        .to_str()
-        .unwrap_or_else(|| panic!("test path must be UTF-8"))
+    value.to_str().unwrap_or_else(|| panic!("test path must be UTF-8"))
 }
 
 fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"));
-    listener
-        .local_addr()
-        .unwrap_or_else(|error| panic!("test port must resolve: {error}"))
-        .port()
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("test port must be allocated: {error}"));
+    listener.local_addr().unwrap_or_else(|error| panic!("test port must resolve: {error}")).port()
 }
 
 fn secret(directory: &Path, name: &str, value: &str) -> String {
@@ -223,66 +156,28 @@ fn secret(directory: &Path, name: &str, value: &str) -> String {
     path(&file).to_owned()
 }
 
-fn chain_only_environment(
-    redis: &RedisProcess,
-    chain_port: u16,
-    listen: u16,
-) -> Vec<(String, String)> {
+fn chain_only_environment(redis: &RedisProcess, chain_port: u16, listen: u16) -> Vec<(String, String)> {
     let directory = &redis.directory;
     let unused = free_port();
     let ca = path(&directory.join("server.der")).to_owned();
     vec![
-        (
-            "LAYERX_GATEWAY_LISTEN".to_owned(),
-            format!("127.0.0.1:{listen}"),
-        ),
+        ("LAYERX_GATEWAY_LISTEN".to_owned(), format!("127.0.0.1:{listen}")),
         ("LAYERX_GATEWAY_TLS_CERT_DER".to_owned(), ca.clone()),
-        (
-            "LAYERX_GATEWAY_TLS_KEY_DER".to_owned(),
-            path(&directory.join("server-key.der")).to_owned(),
-        ),
+        ("LAYERX_GATEWAY_TLS_KEY_DER".to_owned(), path(&directory.join("server-key.der")).to_owned()),
         ("LAYERX_GATEWAY_OUTBOUND_CA_DER".to_owned(), ca.clone()),
-        (
-            "LAYERX_GATEWAY_NETWORK_ID".to_owned(),
-            "paxeer-degraded".to_owned(),
-        ),
-        (
-            "LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(),
-            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
-        ),
-        (
-            "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(),
-            "7".to_owned(),
-        ),
-        (
-            "LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(),
-            json!([
-                format!("https://localhost:{chain_port}"),
-                format!("https://localhost:{unused}")
-            ])
-            .to_string(),
-        ),
-        (
-            "LAYERX_GATEWAY_REDIS_URL".to_owned(),
-            format!("rediss://localhost:{}", redis.port),
-        ),
-        (
-            "LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(),
-            secret(directory, "redis-username", "gateway"),
-        ),
-        (
-            "LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(),
-            secret(directory, "redis-password", "gateway-secret"),
-        ),
+        ("LAYERX_GATEWAY_NETWORK_ID".to_owned(), "paxeer-degraded".to_owned()),
+        ("LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(), layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()),
+        ("LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(), "7".to_owned()),
+        ("LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(), json!([format!("https://localhost:{chain_port}"), format!("https://localhost:{unused}")]).to_string()),
+        ("LAYERX_GATEWAY_REDIS_URL".to_owned(), format!("rediss://localhost:{}", redis.port)),
+        ("LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(), secret(directory, "redis-username", "gateway")),
+        ("LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(), secret(directory, "redis-password", "gateway-secret")),
     ]
 }
 
 fn gateway_command(environment: &[(String, String)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
-    command
-        .env_clear()
-        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
-        .envs(environment.iter().map(|(name, value)| (name, value)));
+    command.env_clear().env("PATH", std::env::var_os("PATH").unwrap_or_default()).envs(environment.iter().map(|(name, value)| (name, value)));
     command
 }
 
@@ -290,63 +185,30 @@ fn start_gateway(redis: &RedisProcess, chain_port: u16) -> Gateway {
     start_gateway_with_indexer(redis, chain_port, None)
 }
 
-fn start_gateway_with_indexer(
-    redis: &RedisProcess,
-    chain_port: u16,
-    indexer_port: Option<u16>,
-) -> Gateway {
+fn start_gateway_with_indexer(redis: &RedisProcess, chain_port: u16, indexer_port: Option<u16>) -> Gateway {
     start_gateway_with_consensus(redis, chain_port, indexer_port, None)
 }
 
-fn start_gateway_with_consensus(
-    redis: &RedisProcess,
-    chain_port: u16,
-    indexer_port: Option<u16>,
-    consensus_url: Option<&str>,
-) -> Gateway {
+fn start_gateway_with_consensus(redis: &RedisProcess, chain_port: u16, indexer_port: Option<u16>, consensus_url: Option<&str>) -> Gateway {
     let listen = free_port();
     let mut environment = chain_only_environment(redis, chain_port, listen);
     if let Some(url) = consensus_url {
-        environment.push((
-            "LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(),
-            url.to_owned(),
-        ));
+        environment.push(("LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(), url.to_owned()));
     }
     if let Some(port) = indexer_port {
-        environment.push((
-            "LAYERX_GATEWAY_INDEXER_URL".to_owned(),
-            format!("http://127.0.0.1:{port}"),
-        ));
+        environment.push(("LAYERX_GATEWAY_INDEXER_URL".to_owned(), format!("http://127.0.0.1:{port}")));
     }
-    assert!(environment.iter().all(|(name, _)| {
-        name != "LAYERX_GATEWAY_COMPONENT_URL"
-            && name != "LAYERX_GATEWAY_PUBLIC_CORE_URL"
-            && !name.starts_with("LAYERX_EVENTS_")
-    }));
-    let child = gateway_command(&environment)
-        .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .unwrap_or_else(|error| panic!("gateway must start: {error}"));
+    assert!(environment.iter().all(|(name, _)| { name != "LAYERX_GATEWAY_COMPONENT_URL" && name != "LAYERX_GATEWAY_PUBLIC_CORE_URL" && !name.starts_with("LAYERX_EVENTS_") }));
+    let child = gateway_command(&environment).stdout(Stdio::null()).stderr(Stdio::inherit()).spawn().unwrap_or_else(|error| panic!("gateway must start: {error}"));
     let mut gateway = Gateway {
         child,
-        client: Upstream::new(
-            Origin::parse(&format!("https://localhost:{listen}"))
-                .unwrap_or_else(|error| panic!("{error}")),
-            redis.certificate.clone(),
-            None,
-            None,
-        ),
+        client: Upstream::new(Origin::parse(&format!("https://localhost:{listen}")).unwrap_or_else(|error| panic!("{error}")), redis.certificate.clone(), None, None),
     };
     for _ in 0..200 {
         if let Ok(Some(status)) = gateway.child.try_wait() {
             panic!("gateway refused start-up without the kernel: {status}");
         }
-        if gateway
-            .client
-            .get("/livez")
-            .is_ok_and(|answer| answer.status == 200)
-        {
+        if gateway.client.get("/livez").is_ok_and(|answer| answer.status == 200) {
             return gateway;
         }
         thread::sleep(Duration::from_millis(50));
@@ -355,30 +217,10 @@ fn start_gateway_with_consensus(
 }
 
 fn tls(redis: &RedisProcess) -> Arc<ServerConfig> {
-    command(
-        "openssl",
-        &[
-            "pkcs8",
-            "-topk8",
-            "-nocrypt",
-            "-in",
-            path(&redis.directory.join("server.key")),
-            "-outform",
-            "DER",
-            "-out",
-            path(&redis.directory.join("server-key.der")),
-        ],
-    );
-    let certificate = CertificateDer::from(fs::read(redis.directory.join("server.der")).unwrap());
-    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
-        fs::read(redis.directory.join("server-key.der")).unwrap(),
-    ));
-    Arc::new(
-        ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(vec![certificate], key)
-            .unwrap(),
-    )
+    command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&redis.directory.join("server.key")), "-outform", "DER", "-out", path(&redis.directory.join("server-key.der"))]);
+    let certificate = CertificateDer::from(fs::read(redis.directory.join("server.der")).unwrap_or_else(|error| panic!("value required: {error:?}")));
+    let key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(redis.directory.join("server-key.der")).unwrap_or_else(|error| panic!("value required: {error:?}"))));
+    Arc::new(ServerConfig::builder().with_no_client_auth().with_single_cert(vec![certificate], key).unwrap_or_else(|error| panic!("value required: {error:?}")))
 }
 
 struct ChainListener {
@@ -389,18 +231,18 @@ struct ChainListener {
 
 impl ChainListener {
     fn start(tls: Arc<ServerConfig>, state: Arc<Mutex<ChainState>>) -> Self {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let port = listener.local_addr().unwrap().port();
-        listener.set_nonblocking(true).unwrap();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap_or_else(|error| panic!("value required: {error:?}"));
+        let port = listener.local_addr().unwrap_or_else(|error| panic!("value required: {error:?}")).port();
+        listener.set_nonblocking(true).unwrap_or_else(|error| panic!("value required: {error:?}"));
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
         let join = thread::spawn(move || {
             while !stopped.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((tcp, _)) => {
-                        tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
-                        tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
-                        let connection = ServerConnection::new(Arc::clone(&tls)).unwrap();
+                        tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("value required: {error:?}"));
+                        tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("value required: {error:?}"));
+                        let connection = ServerConnection::new(Arc::clone(&tls)).unwrap_or_else(|error| panic!("value required: {error:?}"));
                         let mut stream = StreamOwned::new(connection, tcp);
                         if let Ok(request) = internal_http::parse_client_request(&mut stream) {
                             let answer = chain_answer(&state, &request);
@@ -414,37 +256,26 @@ impl ChainListener {
                 }
             }
         });
-        Self {
-            port,
-            stop,
-            join: Some(join),
-        }
+        Self { port, stop, join: Some(join) }
     }
 }
 
 impl Drop for ChainListener {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        assert!(self.join.take().unwrap().join().is_ok());
+        assert!(self.join.take().unwrap_or_else(|| panic!("value required")).join().is_ok());
     }
 }
 
 fn vector(name: &str) -> Value {
-    let vectors: Value =
-        serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json")).unwrap();
-    vectors["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["name"] == name)
-        .unwrap()
-        .clone()
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json")).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    vectors["cases"].as_array().unwrap_or_else(|| panic!("value required")).iter().find(|case| case["name"] == name).unwrap_or_else(|| panic!("value required")).clone()
 }
 
 fn main_account() -> String {
     let name = format!("agent:did:layerx:{}:main", "61".repeat(32));
-    let account = layerx_types::account::AccountId::parse(&name).unwrap();
-    hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap())
+    let account = layerx_types::account::AccountId::parse(&name).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap_or_else(|error| panic!("value required: {error:?}")))
 }
 
 fn account_document() -> Value {
@@ -468,10 +299,7 @@ impl ChainState {
     fn new() -> Self {
         Self {
             calls: Vec::new(),
-            bank_answer: format!(
-                "0x{}",
-                vector("bank.all_balances")["result"].as_str().unwrap()
-            ),
+            bank_answer: format!("0x{}", vector("bank.all_balances")["result"].as_str().unwrap_or_else(|| panic!("value required"))),
             bank_refused: false,
             asset_reads: false,
         }
@@ -482,63 +310,35 @@ impl ChainState {
     }
 }
 
-fn chain_answer(
-    state: &Mutex<ChainState>,
-    request: &internal_http::Request,
-) -> internal_http::Response {
+fn chain_answer(state: &Mutex<ChainState>, request: &internal_http::Request) -> internal_http::Response {
     assert_eq!(request.path, "/");
-    let call: Value = serde_json::from_slice(&request.body).unwrap();
-    let mut state = state.lock().unwrap();
+    let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let mut state = state.lock().unwrap_or_else(|error| panic!("value required: {error:?}"));
     state.calls.push(call.clone());
-    let result = match call["method"].as_str().unwrap() {
+    let result = match call["method"].as_str().unwrap_or_else(|| panic!("value required")) {
         "eth_chainId" => Some(json!(CHAIN_ID)),
         "eth_blockNumber" => {
-            let count = state
-                .calls
-                .iter()
-                .filter(|call| call["method"] == "eth_blockNumber")
-                .count();
+            let count = state.calls.iter().filter(|call| call["method"] == "eth_blockNumber").count();
             Some(json!(format!("0x{:x}", 0x0f + count)))
         }
         "eth_getBalance" => Some(json!("0x123456789abcdef")),
         "eth_getTransactionCount" => Some(json!("0x2a")),
         "eth_call" => {
-            let data = call["params"][0]["data"].as_str().unwrap();
-            let to = call["params"][0]["to"].as_str().unwrap();
+            let data = call["params"][0]["data"].as_str().unwrap_or_else(|| panic!("value required"));
+            let to = call["params"][0]["to"].as_str().unwrap_or_else(|| panic!("value required"));
             if state.asset_reads {
                 return asset_chain_answer(&call);
             }
             let unified = vector("addr.getUnifiedAccount");
             let reverse = vector("addr.getEvmAddrByLayerX");
             let bank = vector("bank.all_balances");
-            if to == evm::address_hex(&evm::ADDR_PRECOMPILE)
-                && data == format!("0x{}", unified["calldata"].as_str().unwrap())
-            {
-                Some(json!(format!(
-                    "0x{}",
-                    unified["result"]
-                        .as_str()
-                        .unwrap()
-                        .replace(&"7c".repeat(32), &main_account())
-                )))
-            } else if to == evm::address_hex(&evm::ADDR_PRECOMPILE)
-                && data == format!("0x{}", reverse["calldata"].as_str().unwrap())
-            {
-                Some(json!(format!("0x{}", reverse["result"].as_str().unwrap())))
-            } else if to == evm::address_hex(&evm::ADDR_PRECOMPILE)
-                && data
-                    == format!(
-                        "0x{}",
-                        hex(&evm::calldata_word(
-                            evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
-                            &[0x62; 32]
-                        ))
-                    )
-            {
+            if to == evm::address_hex(&evm::ADDR_PRECOMPILE) && data == format!("0x{}", unified["calldata"].as_str().unwrap_or_else(|| panic!("value required"))) {
+                Some(json!(format!("0x{}", unified["result"].as_str().unwrap_or_else(|| panic!("value required")).replace(&"7c".repeat(32), &main_account()))))
+            } else if to == evm::address_hex(&evm::ADDR_PRECOMPILE) && data == format!("0x{}", reverse["calldata"].as_str().unwrap_or_else(|| panic!("value required"))) {
+                Some(json!(format!("0x{}", reverse["result"].as_str().unwrap_or_else(|| panic!("value required")))))
+            } else if to == evm::address_hex(&evm::ADDR_PRECOMPILE) && data == format!("0x{}", hex(&evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, &[0x62; 32]))) {
                 Some(json!(format!("0x{}", "00".repeat(32))))
-            } else if to == evm::address_hex(&evm::BANK_PRECOMPILE)
-                && data == format!("0x{}", bank["calldata"].as_str().unwrap())
-            {
+            } else if to == evm::address_hex(&evm::BANK_PRECOMPILE) && data == format!("0x{}", bank["calldata"].as_str().unwrap_or_else(|| panic!("value required"))) {
                 if state.bank_refused {
                     None
                 } else {
@@ -550,26 +350,16 @@ fn chain_answer(
         }
         _ => panic!("unexpected chain request: {call}"),
     };
-    internal_http::json(200, &result.map_or_else(
-        || json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000,"message":"execution reverted"}}),
-        |result| json!({"jsonrpc":"2.0", "id":call["id"], "result":result}),
-    ))
+    internal_http::json(
+        200,
+        &result.map_or_else(|| json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000,"message":"execution reverted"}}), |result| json!({"jsonrpc":"2.0", "id":call["id"], "result":result})),
+    )
 }
 
 fn assert_snapshot(calls: &[Value], bank_calls: usize, quantity_reads: usize) {
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|call| call["method"] == "eth_blockNumber")
-            .count(),
-        1,
-        "{calls:?}"
-    );
-    let reads: Vec<_> = calls
-        .iter()
-        .filter(|call| call["method"] != "eth_chainId")
-        .collect();
-    assert_eq!(reads.first().unwrap()["method"], "eth_blockNumber");
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_blockNumber").count(), 1, "{calls:?}");
+    let reads: Vec<_> = calls.iter().filter(|call| call["method"] != "eth_chainId").collect();
+    assert_eq!(reads.first().unwrap_or_else(|| panic!("value required"))["method"], "eth_blockNumber");
     let mut bank_count = 0;
     let mut quantity_count = 0;
     for call in reads.into_iter().skip(1) {
@@ -577,27 +367,12 @@ fn assert_snapshot(calls: &[Value], bank_calls: usize, quantity_reads: usize) {
         if call["method"] == "eth_call" {
             if call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE) {
                 bank_count += 1;
-                assert_eq!(
-                    call["params"][0]["data"],
-                    format!(
-                        "0x{}",
-                        vector("bank.all_balances")["calldata"].as_str().unwrap()
-                    )
-                );
+                assert_eq!(call["params"][0]["data"], format!("0x{}", vector("bank.all_balances")["calldata"].as_str().unwrap_or_else(|| panic!("value required"))));
             } else {
-                assert_eq!(
-                    call["params"][0]["to"],
-                    evm::address_hex(&evm::ADDR_PRECOMPILE)
-                );
+                assert_eq!(call["params"][0]["to"], evm::address_hex(&evm::ADDR_PRECOMPILE));
             }
         } else {
-            assert!(
-                matches!(
-                    call["method"].as_str(),
-                    Some("eth_getBalance" | "eth_getTransactionCount")
-                ),
-                "{call}"
-            );
+            assert!(matches!(call["method"].as_str(), Some("eth_getBalance" | "eth_getTransactionCount")), "{call}");
             assert_eq!(call["params"][0], ACCOUNT);
             quantity_count += 1;
         }
@@ -616,37 +391,28 @@ fn px_get_balances_reads_bank_all_balances_at_one_height() {
     let gateway = start_gateway(&redis, chain.port);
     let expected = json!({"account":account_document(), "height":16,
         "balances":vector("bank.all_balances")["out"]["response"]});
-    for selector in [
-        ACCOUNT.to_owned(),
-        format!("did:layerx:{}", "61".repeat(32)),
-    ] {
+    for selector in [ACCOUNT.to_owned(), format!("did:layerx:{}", "61".repeat(32))] {
         let answer = gateway.rpc("px_getBalances", &json!([selector]));
         assert_eq!(answer["result"], expected, "{answer}");
         assert!(answer.get("error").is_none(), "{answer}");
-        assert_snapshot(&state.lock().unwrap().take_calls(), 1, 0);
+        assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 1, 0);
     }
-    state.lock().unwrap().bank_answer = format!("0x{:064x}{:064x}", 32, 0);
+    state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).bank_answer = format!("0x{:064x}{:064x}", 32, 0);
     let empty = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
-    assert_eq!(
-        empty["result"],
-        json!({"account":account_document(), "height":16, "balances":[]})
-    );
-    assert_snapshot(&state.lock().unwrap().take_calls(), 1, 0);
+    assert_eq!(empty["result"], json!({"account":account_document(), "height":16, "balances":[]}));
+    assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 1, 0);
 
-    state.lock().unwrap().bank_answer = "0x00".to_owned();
+    state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).bank_answer = "0x00".to_owned();
     let malformed = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
     assert!(malformed.get("result").is_none(), "{malformed}");
-    assert_eq!(
-        malformed["error"]["data"]["code"],
-        "invalid_paxeer_response"
-    );
-    assert_snapshot(&state.lock().unwrap().take_calls(), 1, 0);
+    assert_eq!(malformed["error"]["data"]["code"], "invalid_paxeer_response");
+    assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 1, 0);
 
-    state.lock().unwrap().bank_refused = true;
+    state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).bank_refused = true;
     let refused = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
     assert!(refused.get("result").is_none(), "{refused}");
     assert_eq!(refused["error"]["data"]["code"], "paxeer_call_refused");
-    assert_snapshot(&state.lock().unwrap().take_calls(), 1, 0);
+    assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 1, 0);
 }
 
 #[test]
@@ -657,10 +423,7 @@ fn px_get_account_reads_no_kernel_backend() {
     let state = Arc::new(Mutex::new(ChainState::new()));
     let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
     let gateway = start_gateway(&redis, chain.port);
-    for selector in [
-        ACCOUNT.to_owned(),
-        format!("did:layerx:{}", "61".repeat(32)),
-    ] {
+    for selector in [ACCOUNT.to_owned(), format!("did:layerx:{}", "61".repeat(32))] {
         let answer = gateway.rpc("px_getAccount", &json!([selector]));
         assert_eq!(
             answer["result"],
@@ -671,91 +434,48 @@ fn px_get_account_reads_no_kernel_backend() {
             "{answer}"
         );
         assert!(answer["result"].get("layerx").is_none(), "{answer}");
-        assert_snapshot(&state.lock().unwrap().take_calls(), 0, 2);
+        assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 0, 2);
     }
-    let unbound = gateway.rpc(
-        "px_getAccount",
-        &json!([format!("did:layerx:{}", "62".repeat(32))]),
-    );
+    let unbound = gateway.rpc("px_getAccount", &json!([format!("did:layerx:{}", "62".repeat(32))]));
     assert!(unbound.get("error").is_none(), "{unbound}");
     assert_eq!(unbound["result"]["paxeer"], Value::Null, "{unbound}");
     assert_eq!(unbound["result"]["account"]["evm_address"], Value::Null);
     assert_eq!(unbound["result"]["account"]["bound"], false);
-    assert_eq!(
-        unbound["result"]["account"]["layerx_did"],
-        format!("did:layerx:{}", "62".repeat(32))
-    );
+    assert_eq!(unbound["result"]["account"]["layerx_did"], format!("did:layerx:{}", "62".repeat(32)));
     assert!(unbound["result"].get("layerx").is_none(), "{unbound}");
-    let calls = state.lock().unwrap().take_calls();
+    let calls = state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls();
     assert_snapshot(&calls, 0, 0);
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|call| call["method"] == "eth_call")
-            .count(),
-        1
-    );
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_call").count(), 1);
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
     assert_eq!(readiness["status"], "ready", "{readiness}");
-    for kernel in [
-        "core_agent_boundary",
-        "public_core",
-        "independent_receipt_authority",
-        "identity",
-        "program_registry",
-    ] {
+    for kernel in ["core_agent_boundary", "public_core", "independent_receipt_authority", "identity", "program_registry"] {
         assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
     }
-    assert_eq!(
-        readiness["components"],
-        json!({"durable_store": "ready"}),
-        "{readiness}"
-    );
+    assert_eq!(readiness["components"], json!({"durable_store": "ready"}), "{readiness}");
     for name in ["consensus", "indexer"] {
-        assert_eq!(
-            readiness["backends"][name],
-            json!({"state":"unavailable", "reason":"not_configured"})
-        );
+        assert_eq!(readiness["backends"][name], json!({"state":"unavailable", "reason":"not_configured"}));
     }
     let (status, schema) = gateway.get("/openrpc.json");
     assert_eq!(status, 200);
-    let methods = schema["methods"].as_array().unwrap();
+    let methods = schema["methods"].as_array().unwrap_or_else(|| panic!("value required"));
     assert_eq!(methods.len(), layerx_platform_gateway::ROUTER_METHODS.len());
     for name in layerx_platform_gateway::ROUTER_METHODS {
-        assert_eq!(
-            methods
-                .iter()
-                .filter(|method| method["name"] == name)
-                .count(),
-            1
-        );
+        assert_eq!(methods.iter().filter(|method| method["name"] == name).count(), 1);
     }
-    for name in [
-        "px_getInferenceRooms",
-        "px_getInferenceRoom",
-        "px_getInferenceDeal",
-        "px_getInferencePeer",
-        "px_getInferenceReceipts",
-    ] {
+    for name in ["px_getInferenceRooms", "px_getInferenceRoom", "px_getInferenceDeal", "px_getInferencePeer", "px_getInferenceReceipts"] {
         assert!(!methods.iter().any(|method| method["name"] == name));
         assert_eq!(gateway.rpc(name, &json!([]))["error"]["code"], -32601);
     }
     let unused = free_port();
     let consensus_url = format!("https://localhost:{unused}");
-    for (indexer, consensus, backend) in [
-        (Some(unused), None, "indexer"),
-        (None, Some(consensus_url.as_str()), "consensus"),
-    ] {
+    for (indexer, consensus, backend) in [(Some(unused), None, "indexer"), (None, Some(consensus_url.as_str()), "consensus")] {
         let degraded = start_gateway_with_consensus(&redis, chain.port, indexer, consensus);
         let (status, readiness) = degraded.get("/readyz");
         assert_eq!(status, 503, "{readiness}");
         assert_eq!(readiness["status"], "degraded");
         assert_eq!(readiness["backends"]["paxeer_chain"]["state"], "ready");
-        assert_eq!(
-            readiness["backends"][backend],
-            json!({"state":"unavailable", "reason":"unreachable"})
-        );
+        assert_eq!(readiness["backends"][backend], json!({"state":"unavailable", "reason":"unreachable"}));
     }
 }
 
@@ -795,30 +515,12 @@ fn full_page_bank_answer(data: &str) -> Option<Vec<u8>> {
     for number in 0..16 {
         let denom = format!("ufull{number:02}");
         for (selector, answer) in [
-            (
-                "5b43bc99",
-                [
-                    abi_word(32),
-                    abi_bytes(format!("Bank Asset {number:02}").as_bytes()),
-                ]
-                .concat(),
-            ),
-            (
-                "41bb0559",
-                [
-                    abi_word(32),
-                    abi_bytes(format!("BANK{number:02}").as_bytes()),
-                ]
-                .concat(),
-            ),
+            ("5b43bc99", [abi_word(32), abi_bytes(format!("Bank Asset {number:02}").as_bytes())].concat()),
+            ("41bb0559", [abi_word(32), abi_bytes(format!("BANK{number:02}").as_bytes())].concat()),
             ("3b2b3204", abi_word(6)),
             ("6923a1fd", abi_word(1000 + number)),
         ] {
-            let calldata = format!(
-                "0x{selector}{}{}",
-                hex(&abi_word(32)),
-                hex(&abi_bytes(denom.as_bytes()))
-            );
+            let calldata = format!("0x{selector}{}{}", hex(&abi_word(32)), hex(&abi_bytes(denom.as_bytes())));
             if data == calldata {
                 return Some(answer);
             }
@@ -828,8 +530,8 @@ fn full_page_bank_answer(data: &str) -> Option<Vec<u8>> {
 }
 
 fn asset_chain_answer(call: &Value) -> internal_http::Response {
-    let to = call["params"][0]["to"].as_str().unwrap();
-    let data = call["params"][0]["data"].as_str().unwrap();
+    let to = call["params"][0]["to"].as_str().unwrap_or_else(|| panic!("value required"));
+    let data = call["params"][0]["data"].as_str().unwrap_or_else(|| panic!("value required"));
     assert_eq!(call["params"][1], LATEST_BLOCK);
     let answer = if to == evm::address_hex(&evm::LEDGER_PRECOMPILE) {
         let calldata = |byte| format!("0x2cc3ce80{}", hex(&[byte; 32]));
@@ -847,13 +549,7 @@ fn asset_chain_answer(call: &Value) -> internal_http::Response {
     } else {
         assert_eq!(to, evm::address_hex(&evm::BANK_PRECOMPILE));
         // Independent ABI calldata for a single dynamic string argument.
-        let calldata = |selector: &str, denom: &[u8]| {
-            format!(
-                "0x{selector}{}{}",
-                hex(&abi_word(32)),
-                hex(&abi_bytes(denom))
-            )
-        };
+        let calldata = |selector: &str, denom: &[u8]| format!("0x{selector}{}{}", hex(&abi_word(32)), hex(&abi_bytes(denom)));
         if data == calldata("5b43bc99", b"ubroken") {
             None
         } else if data == calldata("5b43bc99", b"ubank") {
@@ -888,7 +584,7 @@ fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
     use layerx_indexer::store::{AssetRow, Store};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let store = Store::open_in_memory().unwrap();
+    let store = Store::open_in_memory().unwrap_or_else(|error| panic!("value required: {error:?}"));
     let rows: Vec<_> = (0..16)
         .map(|number| {
             let denom = format!("ufull{number:02}");
@@ -902,15 +598,15 @@ fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
             }
         })
         .collect();
-    store.register_assets(&rows).unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let indexer_address = listener.local_addr().unwrap();
+    store.register_assets(&rows).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let indexer_address = listener.local_addr().unwrap_or_else(|error| panic!("value required: {error:?}"));
     let store = Arc::new(store);
     thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
     let redis = RedisProcess::start();
     assert!(redis.store().ready());
     let state = Arc::new(Mutex::new(ChainState::new()));
-    state.lock().unwrap().asset_reads = true;
+    state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).asset_reads = true;
     let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
     let gateway = start_gateway_with_indexer(&redis, chain.port, Some(indexer_address.port()));
 
@@ -920,7 +616,7 @@ fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
     assert_eq!(answer["result"]["joined_limit"], 16, "{answer}");
     assert_eq!(answer["result"]["next_cursor"], Value::Null, "{answer}");
     assert_eq!(answer["result"]["order"], "registration", "{answer}");
-    let assets = answer["result"]["assets"].as_array().unwrap();
+    let assets = answer["result"]["assets"].as_array().unwrap_or_else(|| panic!("value required"));
     assert_eq!(assets.len(), 16, "{answer}");
     for (number, asset) in assets.iter().enumerate() {
         for field in ["name", "symbol", "decimals", "supply"] {
@@ -936,72 +632,31 @@ fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
             })
         );
     }
-    let calls = state.lock().unwrap().take_calls();
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|call| call["method"] == "eth_blockNumber")
-            .count(),
-        1
-    );
-    let bank_calls: Vec<_> = calls
-        .iter()
-        .filter(|call| {
-            call["method"] == "eth_call"
-                && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE)
-        })
-        .collect();
+    let calls = state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_blockNumber").count(), 1);
+    let bank_calls: Vec<_> = calls.iter().filter(|call| call["method"] == "eth_call" && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE)).collect();
     assert_eq!(bank_calls.len(), 64);
     for call in bank_calls {
         assert_eq!(call["params"][1], LATEST_BLOCK);
     }
 }
 
-#[test]
-fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
-    use layerx_indexer::store::{AssetRow, Store};
-
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    let abi: Value = serde_json::from_str(include_str!(
-        "../../../../../precompiles/layerxledger/abi.json"
-    ))
-    .unwrap();
-    let get_asset = abi
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|entry| entry["name"] == "getAsset")
-        .unwrap();
-    let outputs: Vec<_> = get_asset["outputs"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|output| output["type"].as_str().unwrap())
-        .collect();
-    assert_eq!(
-        outputs,
-        [
-            "bytes32", "string", "string", "uint8", "uint128", "bytes32", "bytes32", "uint8",
-            "uint8", "bytes", "bool", "uint128"
-        ]
-    );
-    assert_eq!(
-        evm::SELECTOR_GET_ASSET,
-        layerx_indexer::abi::keccak(b"getAsset(bytes32)")[..4]
-    );
+fn assert_asset_abi_decoding() {
+    let abi: Value = serde_json::from_str(include_str!("../../../../../precompiles/layerxledger/abi.json")).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let get_asset = abi.as_array().unwrap_or_else(|| panic!("value required")).iter().find(|entry| entry["name"] == "getAsset").unwrap_or_else(|| panic!("value required"));
+    let outputs: Vec<_> = get_asset["outputs"].as_array().unwrap_or_else(|| panic!("value required")).iter().map(|output| output["type"].as_str().unwrap_or_else(|| panic!("value required"))).collect();
+    assert_eq!(outputs, ["bytes32", "string", "string", "uint8", "uint128", "bytes32", "bytes32", "uint8", "uint8", "bytes", "bool", "uint128"]);
+    assert_eq!(evm::SELECTOR_GET_ASSET, layerx_indexer::abi::keccak(b"getAsset(bytes32)")[..4]);
     for (signature, selector) in [
         ("name(string)", evm::SELECTOR_BANK_NAME),
         ("symbol(string)", evm::SELECTOR_BANK_SYMBOL),
         ("decimals(string)", evm::SELECTOR_BANK_DECIMALS),
         ("supply(string)", evm::SELECTOR_BANK_SUPPLY),
     ] {
-        assert_eq!(
-            selector,
-            layerx_indexer::abi::keccak(signature.as_bytes())[..4]
-        );
+        assert_eq!(selector, layerx_indexer::abi::keccak(signature.as_bytes())[..4]);
     }
     let bytes = ledger_asset_answer();
-    let decoded = evm::decode_ledger_asset(&bytes).unwrap();
+    let decoded = evm::decode_ledger_asset(&bytes).unwrap_or_else(|error| panic!("value required: {error:?}"));
     assert_eq!(decoded.asset_id, [0x11; 32]);
     assert_eq!(decoded.name, "Ledger Asset");
     assert_eq!(decoded.symbol, "LED");
@@ -1009,39 +664,39 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
     assert_eq!(decoded.supply_cap, u128::MAX);
     assert_eq!(decoded.total_units, u128::MAX - 1);
     assert_eq!(decoded.custody_reference, [0xff, 0x00, 0x81]);
-    for (offset, value) in [
-        (3 * 32, 1),
-        (4 * 32, 1),
-        (7 * 32, 1),
-        (8 * 32, 1),
-        (10 * 32 + 31, 2),
-        (11 * 32, 1),
-    ] {
+    for (offset, value) in [(3 * 32, 1), (4 * 32, 1), (7 * 32, 1), (8 * 32, 1), (10 * 32 + 31, 2), (11 * 32, 1)] {
         let mut malformed = bytes.clone();
         malformed[offset] = value;
-        assert_eq!(
-            evm::decode_ledger_asset(&malformed),
-            Err(evm::AbiError::Width)
-        );
+        assert_eq!(evm::decode_ledger_asset(&malformed), Err(evm::AbiError::Width));
     }
     let mut malformed = bytes.clone();
     malformed[63] = 32;
     malformed[62] = 0;
-    assert_eq!(
-        evm::decode_ledger_asset(&malformed),
-        Err(evm::AbiError::Offset)
-    );
+    assert_eq!(evm::decode_ledger_asset(&malformed), Err(evm::AbiError::Offset));
     assert!(evm::decode_ledger_asset(&bytes[..383]).is_err());
     assert!(evm::decode_ledger_asset(&bytes[..bytes.len() - 1]).is_err());
+}
 
-    let store = Store::open_in_memory().unwrap();
+#[test]
+fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
+    use layerx_indexer::store::{AssetRow, Store};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    assert_asset_abi_decoding();
+
+    let store = Store::open_in_memory().unwrap_or_else(|error| panic!("value required: {error:?}"));
     let mut rows = Vec::new();
     let mut expected = Vec::new();
     for byte in [0x44, 0x33, 0x22, 0x11] {
         let asset_id = hex(&[byte; 32]);
-        rows.push(AssetRow { asset:asset_id.clone(), chain:"paxeer".to_owned(),
-            kind:"layerx".to_owned(), address:None, denom:None,
-            metadata:json!({"name":"stale indexer name", "symbol":"STALE", "decimals":2,"supply":"7"}) });
+        rows.push(AssetRow {
+            asset: asset_id.clone(),
+            chain: "paxeer".to_owned(),
+            kind: "layerx".to_owned(),
+            address: None,
+            denom: None,
+            metadata: json!({"name":"stale indexer name", "symbol":"STALE", "decimals":2,"supply":"7"}),
+        });
         expected.push(if byte == 0x11 {
             json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":"Ledger Asset","symbol":"LED","decimals":18,"supply":(u128::MAX - 1).to_string(),"paused":false,"verification":"authenticated_committed_snapshot"})
         } else {
@@ -1077,34 +732,23 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
             expected.push(json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null}));
         }
     }
-    store.register_assets(&rows).unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let indexer_address = listener.local_addr().unwrap();
+    store.register_assets(&rows).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let indexer_address = listener.local_addr().unwrap_or_else(|error| panic!("value required: {error:?}"));
     let store = Arc::new(store);
     thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
     let redis = RedisProcess::start();
     assert!(redis.store().ready());
     let state = Arc::new(Mutex::new(ChainState::new()));
-    state.lock().unwrap().asset_reads = true;
+    state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).asset_reads = true;
     let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
     let gateway = start_gateway_with_indexer(&redis, chain.port, Some(indexer_address.port()));
     let answer = gateway.rpc("px_listAssets", &json!([]));
     assert!(answer.get("error").is_none(), "{answer}");
-    assert_eq!(
-        answer["result"],
-        json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"16","order":"registration"})
-    );
-    let schema: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap();
-    let schema = &schema["methods"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|method| method["name"] == "px_listAssets")
-        .unwrap()["result"]["schema"];
-    assert!(
-        schema_support::matches_schema(&answer["result"], schema),
-        "served asset rows must satisfy the published schema: {answer}"
-    );
+    assert_eq!(answer["result"], json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"16","order":"registration"}));
+    let schema: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let schema = &schema["methods"].as_array().unwrap_or_else(|| panic!("value required")).iter().find(|method| method["name"] == "px_listAssets").unwrap_or_else(|| panic!("value required"))["result"]["schema"];
+    assert!(schema_support::matches_schema(&answer["result"], schema), "served asset rows must satisfy the published schema: {answer}");
     for (field, value) in [
         ("unexpected_metadata", json!(true)),
         ("paused", json!("false")),
@@ -1116,54 +760,27 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
     ] {
         let mut invalid = answer["result"].clone();
         invalid["assets"][0][field] = value;
-        assert!(
-            !schema_support::matches_schema(&invalid, schema),
-            "schema must reject invalid {field}: {invalid}"
-        );
+        assert!(!schema_support::matches_schema(&invalid, schema), "schema must reject invalid {field}: {invalid}");
     }
-    let calls = state.lock().unwrap().take_calls();
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|call| call["method"] == "eth_blockNumber")
-            .count(),
-        1
-    );
-    let asset_calls: Vec<_> = calls
-        .iter()
-        .filter(|call| call["method"] == "eth_call")
-        .collect();
+    let calls = state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls();
+    assert_eq!(calls.iter().filter(|call| call["method"] == "eth_blockNumber").count(), 1);
+    let asset_calls: Vec<_> = calls.iter().filter(|call| call["method"] == "eth_call").collect();
     assert_eq!(asset_calls.len(), 9);
     for call in asset_calls {
         assert_eq!(call["params"][1], LATEST_BLOCK);
-        assert!(
-            matches!(
-                call["params"][0]["to"].as_str(),
-                Some(
-                    "0x0000000000000000000000000000000000001001"
-                        | "0x000000000000000000000000000000000000101a"
-                )
-            ),
-            "{call}"
-        );
+        assert!(matches!(call["params"][0]["to"].as_str(), Some("0x0000000000000000000000000000000000001001" | "0x000000000000000000000000000000000000101a")), "{call}");
     }
     let invalid = gateway.rpc("px_listAssets", &json!(["unexpected"]));
     assert_eq!(invalid["error"]["code"], -32602);
-    assert!(state.lock().unwrap().take_calls().is_empty());
+    assert!(state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls().is_empty());
     let continued = gateway.rpc("px_listAssets", &json!([answer["result"]["next_cursor"]]));
-    let expected: Vec<_> = (475..491).rev().map(|number| {
-        json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null})
-    }).collect();
-    assert_eq!(
-        continued["result"],
-        json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"32","order":"registration"})
-    );
+    let expected: Vec<_> = (475..491).rev().map(|number| json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null})).collect();
+    assert_eq!(continued["result"], json!({"height":16,"assets":expected,"joined_limit":16,"next_cursor":"32","order":"registration"}));
     assert!(schema_support::matches_schema(&continued["result"], schema));
-    assert_snapshot(&state.lock().unwrap().take_calls(), 0, 0);
+    assert_snapshot(&state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls(), 0, 0);
 }
 
-#[test]
-fn px_get_network_reports_the_consensus_head() {
+fn assert_consensus_head_decoding() {
     let block_hash = "A1".repeat(32);
     let app_hash = "B2".repeat(32);
     for (height, catching_up) in [("34742403", false), ("9007199254740993", true)] {
@@ -1176,8 +793,7 @@ fn px_get_network_reports_the_consensus_head() {
                 "earliest_block_height": "1"
             }
         });
-        let head = chain_reads::ConsensusHead::from_status(&status)
-            .expect("the consensus status sync_info must decode");
+        let head = chain_reads::ConsensusHead::from_status(&status).unwrap_or_else(|| panic!("{}", "the consensus status sync_info must decode"));
         let result = paxeer::network_result("paxeer-degraded", CHAIN_ID, LATEST_BLOCK, Some(head));
         assert_eq!(
             result,
@@ -1205,41 +821,32 @@ fn px_get_network_reports_the_consensus_head() {
         ] {
             let mut malformed = status.clone();
             malformed["sync_info"][field] = invalid;
-            assert!(
-                chain_reads::ConsensusHead::from_status(&malformed).is_none(),
-                "{malformed}"
-            );
+            assert!(chain_reads::ConsensusHead::from_status(&malformed).is_none(), "{malformed}");
         }
-        for field in [
-            "latest_block_height",
-            "latest_block_hash",
-            "latest_app_hash",
-            "catching_up",
-        ] {
+        for field in ["latest_block_height", "latest_block_hash", "latest_app_hash", "catching_up"] {
             let mut incomplete = status.clone();
-            incomplete["sync_info"]
-                .as_object_mut()
-                .unwrap()
-                .remove(field);
-            assert!(
-                chain_reads::ConsensusHead::from_status(&incomplete).is_none(),
-                "{incomplete}"
-            );
+            incomplete["sync_info"].as_object_mut().unwrap_or_else(|| panic!("value required")).remove(field);
+            assert!(chain_reads::ConsensusHead::from_status(&incomplete).is_none(), "{incomplete}");
         }
     }
+}
+
+#[test]
+fn px_get_network_reports_the_consensus_head() {
+    assert_consensus_head_decoding();
 
     let _ = rustls::crypto::ring::default_provider().install_default();
     let redis = RedisProcess::start();
     assert!(redis.store().ready());
     let state = Arc::new(Mutex::new(ChainState::new()));
     let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
-    let unavailable_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let unavailable_port = unavailable_listener.local_addr().unwrap().port();
+    let unavailable_listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let unavailable_port = unavailable_listener.local_addr().unwrap_or_else(|error| panic!("value required: {error:?}")).port();
     drop(unavailable_listener);
     let unavailable_url = format!("https://localhost:{unavailable_port}/consensus");
     for consensus_url in [None, Some(unavailable_url.as_str())] {
         let gateway = start_gateway_with_consensus(&redis, chain.port, None, consensus_url);
-        state.lock().unwrap().take_calls();
+        state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls();
         let answer = gateway.rpc("px_getNetwork", &json!([]));
         assert!(answer.get("error").is_none(), "{answer}");
         assert_eq!(
@@ -1251,48 +858,35 @@ fn px_get_network_reports_the_consensus_head() {
                 "reason": "consensus_unavailable"
             })
         );
-        let calls = state.lock().unwrap().take_calls();
+        let calls = state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls();
         let mut exchanges = calls.chunks_exact(2);
         let methods: Vec<_> = exchanges
             .by_ref()
             .map(|exchange| {
-                assert_eq!(exchange[0], json!({
-                    "jsonrpc": "2.0", "id": "route-network", "method": "eth_chainId", "params": []
-                }));
+                assert_eq!(
+                    exchange[0],
+                    json!({
+                        "jsonrpc": "2.0", "id": "route-network", "method": "eth_chainId", "params": []
+                    })
+                );
                 assert_eq!(exchange[1]["id"], "px-read");
                 assert_eq!(exchange[1]["params"], json!([]));
-                exchange[1]["method"].as_str().unwrap()
+                exchange[1]["method"].as_str().unwrap_or_else(|| panic!("value required"))
             })
             .collect();
         assert!(exchanges.remainder().is_empty());
         assert_eq!(methods, ["eth_chainId", "eth_blockNumber"]);
         let invalid = gateway.rpc("px_getNetwork", &json!(["unexpected"]));
         assert_eq!(invalid["error"]["code"], -32602);
-        assert!(state.lock().unwrap().take_calls().is_empty());
+        assert!(state.lock().unwrap_or_else(|error| panic!("value required: {error:?}")).take_calls().is_empty());
     }
 
-    let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap();
-    let method = document["methods"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|method| method["name"] == "px_getNetwork")
-        .unwrap();
+    let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap_or_else(|error| panic!("value required: {error:?}"));
+    let method = document["methods"].as_array().unwrap_or_else(|| panic!("value required")).iter().find(|method| method["name"] == "px_getNetwork").unwrap_or_else(|| panic!("value required"));
     let schema = &method["result"]["schema"];
     assert_eq!(schema["additionalProperties"], false);
-    assert_eq!(
-        schema["required"],
-        json!(["network_id", "paxeer", "consensus"])
-    );
-    assert_eq!(
-        schema["properties"]["consensus"]["required"],
-        json!([
-            "latest_height",
-            "latest_block_hash",
-            "latest_app_hash",
-            "catching_up"
-        ])
-    );
+    assert_eq!(schema["required"], json!(["network_id", "paxeer", "consensus"]));
+    assert_eq!(schema["properties"]["consensus"]["required"], json!(["latest_height", "latest_block_hash", "latest_app_hash", "catching_up"]));
     for member in ["anchor", "kernel", "layerx"] {
         assert!(schema["properties"].get(member).is_none());
     }

@@ -18,9 +18,9 @@ import (
 // from committed tables (no stream projection carries them). Every body is
 // validated against the frozen contract before a byte leaves the handler.
 func writeComputedEnvelope(w http.ResponseWriter, r *http.Request, name string, data any, watermark store.ChainWatermark, revision, quality string, next any) {
-	body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "revision": revision, "watermark": watermark, "quality": quality, "nextCursor": next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+	body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalRevision: revision, literalWatermark: watermark, literalQuality: quality, literalNextCursor: next, literalGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -34,9 +34,9 @@ func writeComputedReadError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, ErrDependencyNotConfigured):
 		WriteV2NotConfiguredError(w, r)
 	case errors.Is(err, store.ErrDataIntegrity), errors.Is(err, store.ErrWatermarkQuarantined):
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 	default:
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 	}
 }
 
@@ -79,40 +79,40 @@ func leaderboards(model *store.AccountingReadModel) http.HandlerFunc {
 // dependency this deployment does not configure (non-retryable 503).
 func leaderboardsFrom(load func(ctx context.Context, category, window string, windowEnd int64) (*store.LeaderboardSnapshot, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		category := chi.URLParam(r, "category")
-		if category != "trader" && category != "creator" && category != "volume" {
-			WriteV2APIError(w, r, 404, "NOT_FOUND")
+		category := chi.URLParam(r, literalCategory)
+		if category != "trader" && category != literalCreator && category != literalVolume {
+			WriteV2APIError(w, r, 404, literalNOTFOUND)
 			return
 		}
 		q := r.URL.Query()
 		for key, values := range q {
-			if (key != "window" && key != "cursor" && key != "limit") || len(values) != 1 {
+			if (key != literalWindow && key != literalCursor && key != literalLimit) || len(values) != 1 {
 				WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 				return
 			}
 		}
-		limit, err := boundedInteger(q.Get("limit"), 50, 1, 100)
+		limit, err := boundedInteger(q.Get(literalLimit), 50, 1, 100)
 		if err != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
-		window := q.Get("window")
+		window := q.Get(literalWindow)
 		if _, ok := store.LeaderboardWindowSeconds(window); !ok {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
-		shape := map[string]any{"category": category, "window": window, "limit": limit}
-		token, hasCursor := q["cursor"]
+		shape := map[string]any{literalCategory: category, literalWindow: window, literalLimit: limit}
+		token, hasCursor := q[literalCursor]
 		if hasCursor {
 			if token[0] == "" {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
-			shape["cursor"] = token[0]
+			shape[literalCursor] = token[0]
 		}
 		raw, _ := json.Marshal(shape)
 		if interfaces.ValidateJSON("LeaderboardsRequest", raw) != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
 		if load == nil {
@@ -122,7 +122,7 @@ func leaderboardsFrom(load func(ctx context.Context, category, window string, wi
 		var cursor leaderboardCursor
 		if hasCursor {
 			if cursor, err = decodeLeaderboardCursor(token[0]); err != nil {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 		}
@@ -138,7 +138,7 @@ func leaderboardsFrom(load func(ctx context.Context, category, window string, wi
 				return
 			}
 			if cursor.Offset > len(snapshot.Entries) {
-				WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+				WriteV2APIError(w, r, 400, literalCURSORINVALID)
 				return
 			}
 			offset = cursor.Offset
@@ -155,7 +155,7 @@ func leaderboardsFrom(load func(ctx context.Context, category, window string, wi
 		if end < len(snapshot.Entries) {
 			next = encodeLeaderboardCursor(leaderboardCursor{SnapshotID: snapshot.SnapshotID, Offset: end, WindowEnd: snapshot.WindowEnd})
 		}
-		data := map[string]any{"snapshot": map[string]any{"snapshotId": snapshot.SnapshotID, "category": snapshot.Category, "methodologyVersion": snapshot.MethodologyVersion, "window": snapshot.Window, "entries": entries, "watermark": snapshot.Watermark}}
+		data := map[string]any{literalSnapshot: map[string]any{literalSnapshotId: snapshot.SnapshotID, literalCategory: snapshot.Category, "methodologyVersion": snapshot.MethodologyVersion, literalWindow: snapshot.Window, "entries": entries, literalWatermark: snapshot.Watermark}}
 		writeComputedEnvelope(w, r, "LeaderboardsResponse", data, snapshot.Watermark, snapshot.Revision, snapshot.Quality, next)
 	}
 }

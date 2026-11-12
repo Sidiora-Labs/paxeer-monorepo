@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"strings"
 
@@ -209,7 +210,11 @@ func (c *Client) GetBytes(ctx context.Context, key string, maxBytes int64) (cont
 }
 
 func readBufferedObject(key string, obj *Object, maxBytes int64) ([]byte, string, error) {
-	defer obj.Body.Close()
+	defer func() {
+		if cleanupErr := obj.Body.Close(); cleanupErr != nil {
+			log.Printf("cleanup obj.Body.Close: %v", cleanupErr)
+		}
+	}()
 	if obj.Size > maxBytes {
 		return nil, "", fmt.Errorf("storage: read %q (limit %d bytes): %w", key, maxBytes, ErrObjectTooLarge)
 	}

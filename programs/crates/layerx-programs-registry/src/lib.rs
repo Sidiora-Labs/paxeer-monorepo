@@ -54,6 +54,7 @@ pub use interface::{
     ProgramInterface, SchemaVariant, TypedFailure, ValueSchema, ValueType, VerifiedInterfaceRead,
 };
 pub use pipeline::{BuildAttempt, BuildPlan, BuildRefusal, BuildRunner, SourceVerifier};
+pub use protocol_evidence::{head_helpers, program_helpers};
 pub use protocol_evidence::{
     DeploymentExecutionProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
     ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
@@ -267,6 +268,10 @@ pub struct VerifiedProgramAccountProfile2 {
 }
 
 impl VerifiedProgramAccountProfile2 {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn verify(
         program: ProgramId,
         owner: [u8; 32],
@@ -493,6 +498,10 @@ impl Registry {
         )
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn record_verified_upgrade(
         &mut self,
         predecessor: &VerifiedDeploymentEvidence,
@@ -792,6 +801,10 @@ impl Registry {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn record_value_account_profile2(
         &mut self,
         binding: ProgramValueAccountBinding,
@@ -985,6 +998,10 @@ impl Registry {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn replay_protocol_state_profile2(
         &mut self,
         program: ProgramId,
@@ -1112,6 +1129,10 @@ impl Registry {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn read_value_accounts_profile2(
         &self,
         program: ProgramId,
@@ -1139,6 +1160,10 @@ impl Registry {
     }
 
     /// Reads the complete chain primary range and standalone host accounts.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when input is invalid.
     pub fn read_value_accounts_chain(
         &self,
         program: ProgramId,

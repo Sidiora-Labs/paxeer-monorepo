@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+#[cfg(test)]
 use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_mcp::catalogue;
 use layerx_mcp::server::{DeploymentMode, ToolDefinition, ToolKind, FAUCET_REQUEST};
@@ -7,9 +8,14 @@ use serde_json::{json, Value};
 
 use crate::config::Configuration;
 use crate::credential;
-use crate::encoding::{fixed_hex, hex_decode, hex_encode};
-use crate::http::{validate_resource_id, Client};
+use crate::encoding::fixed_hex;
+#[cfg(test)]
+use crate::encoding::{hex_decode, hex_encode};
+#[cfg(test)]
+use crate::http::validate_resource_id;
+use crate::http::Client;
 
+#[cfg(test)]
 const MAX_ARGUMENT_BYTES: usize = 256;
 const SERVED: [ToolDefinition; 3] = [
     ToolDefinition {
@@ -32,9 +38,13 @@ const SERVED: [ToolDefinition; 3] = [
 ];
 
 pub struct Runtime {
+    #[cfg(test)]
     client: Client,
+    #[cfg(test)]
     network_id: u32,
+    #[cfg(test)]
     environment: String,
+    #[cfg(test)]
     endpoint: String,
 }
 
@@ -58,6 +68,8 @@ impl Runtime {
         mode: DeploymentMode,
     ) -> Result<Self, String> {
         let (environment_name, environment) = configuration.active_environment()?;
+        #[cfg(not(test))]
+        let _ = environment_name;
         let (_, path) = layerx_platform_cli::rpc::endpoint_parts(&environment.endpoint)?;
         if path != "/" {
             return Err("node RPC URL must name the root endpoint".into());
@@ -93,10 +105,17 @@ impl Runtime {
             .get(key)
             .ok_or_else(|| format!("key {key} does not exist"))?;
         fixed_hex::<32>("public key", &metadata.public_key)?;
+        let client = Client::new_gateway(&environment.endpoint, credential)?;
+        #[cfg(not(test))]
+        let _ = (&client, environment.network_id);
         Ok(Self {
-            client: Client::new_gateway(&environment.endpoint, credential)?,
+            #[cfg(test)]
+            client,
+            #[cfg(test)]
             network_id: environment.network_id,
+            #[cfg(test)]
             environment: environment_name.to_owned(),
+            #[cfg(test)]
             endpoint: environment.endpoint.clone(),
         })
     }
@@ -213,6 +232,7 @@ pub fn schema(name: &str) -> Value {
     }
 }
 
+#[cfg(test)]
 pub fn invoke(runtime: &Runtime, tool: ToolDefinition, arguments: &Value) -> Result<Value, String> {
     match tool.name {
         "receipt.get" => {
@@ -238,6 +258,7 @@ pub fn invoke(runtime: &Runtime, tool: ToolDefinition, arguments: &Value) -> Res
     }
 }
 
+#[cfg(test)]
 pub fn invoke_task(
     runtime: &Runtime,
     tool: ToolDefinition,
@@ -250,6 +271,7 @@ pub fn invoke_task(
     }
 }
 
+#[cfg(test)]
 fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     let did = text(arguments, "did")?;
     if did
@@ -276,6 +298,7 @@ fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
 }
 
 /// Claim through an explicitly configured hosted faucet service with a bearer session.
+#[cfg(test)]
 pub fn claim_faucet_at(
     endpoint: &str,
     session: zeroize::Zeroizing<String>,
@@ -295,12 +318,15 @@ pub fn claim_faucet_at(
     }))
 }
 
+#[cfg(test)]
 pub use layerx_platform_cli::rpc::SubmissionFailure as SubmitFailure;
 
+#[cfg(test)]
 fn submit(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     submit_classified(runtime, arguments).map_err(|failure| failure.to_string())
 }
 
+#[cfg(test)]
 fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, SubmitFailure> {
     let object = arguments
         .as_object()
@@ -330,6 +356,7 @@ fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, Subm
     prepared.resolve(response)
 }
 
+#[cfg(test)]
 fn submission_result(raw: &[u8], response: &Value) -> Result<Value, String> {
     let hash = layerx_platform_cli::rpc::decode_response("eth_sendRawTransaction", response)?;
     let expected = format!("0x{}", hex_encode(&transaction_hash(raw)));
@@ -341,6 +368,7 @@ fn submission_result(raw: &[u8], response: &Value) -> Result<Value, String> {
     Ok(json!({"txHash": hash, "rung": "submitted"}))
 }
 
+#[cfg(test)]
 fn text(arguments: &Value, field: &str) -> Result<String, String> {
     let value = arguments
         .get(field)
@@ -354,6 +382,7 @@ fn text(arguments: &Value, field: &str) -> Result<String, String> {
     Ok(value.to_owned())
 }
 
+#[cfg(test)]
 fn validate_hex32(value: &str, name: &str) -> Result<(), String> {
     validate_resource_id(value, name)?;
     fixed_hex::<32>(name, value).map(|_| ())
@@ -363,13 +392,21 @@ fn validate_hex32(value: &str, name: &str) -> Result<(), String> {
 #[test]
 fn submission_rejects_wrong_chain_before_transport() {
     use layerx_crypto::evm_transaction::Eip1559Call;
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("node listener");
-    listener.set_nonblocking(true).expect("bounded listener");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "node listener"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "bounded listener"));
     let runtime = Runtime::loopback(
-        &format!("http://{}", listener.local_addr().expect("node origin")),
+        &format!(
+            "http://{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "node origin"))
+        ),
         125,
     )
-    .expect("root node runtime");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "root node runtime"));
     let raw = Eip1559Call {
         chain_id: 126,
         nonce: 0,
@@ -380,7 +417,7 @@ fn submission_rejects_wrong_chain_before_transport() {
         data: vec![],
     }
     .sign(&[1; 32])
-    .expect("signed EIP-1559 transaction");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "signed EIP-1559 transaction"));
     let result = submit_classified(
         &runtime,
         &json!({"raw_transaction": format!("0x{}", hex_encode(&raw))}),

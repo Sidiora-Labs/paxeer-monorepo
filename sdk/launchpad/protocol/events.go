@@ -30,16 +30,16 @@ var abiSources = []struct {
 	Name string
 	Meta *bind.MetaData
 }{
-	{"EventEmitter", bindings.EventEmitterMetaData},
-	{"PoolRegistry", bindings.PoolRegistryMetaData},
-	{"SidioraFactory", bindings.SidioraFactoryMetaData},
-	{"Router", bindings.RouterMetaData},
-	{"Quoter", bindings.QuoterMetaData},
-	{"ProtocolConfig", bindings.ProtocolConfigMetaData},
-	{"FeeAccumulator", bindings.FeeAccumulatorMetaData},
-	{"SidioraNFT", bindings.SidioraNFTMetaData},
-	{"FeesRouter", bindings.FeesRouterMetaData},
-	{"PoolBeacon", bindings.PoolBeaconMetaData},
+	{roleEventEmitter, bindings.EventEmitterMetaData},
+	{rolePoolRegistry, bindings.PoolRegistryMetaData},
+	{roleSidioraFactory, bindings.SidioraFactoryMetaData},
+	{roleRouter, bindings.RouterMetaData},
+	{roleQuoter, bindings.QuoterMetaData},
+	{roleProtocolConfig, bindings.ProtocolConfigMetaData},
+	{roleFeeAccumulator, bindings.FeeAccumulatorMetaData},
+	{roleSidioraNFT, bindings.SidioraNFTMetaData},
+	{roleFeesRouter, bindings.FeesRouterMetaData},
+	{rolePoolBeacon, bindings.PoolBeaconMetaData},
 }
 
 // eventRegistry maps topic0 -> event definition, built once at package init from

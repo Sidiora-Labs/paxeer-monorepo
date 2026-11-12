@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -83,7 +84,11 @@ func (a *Archive) read(ctx context.Context, kind, digest string, max int64) ([]b
 	if err != nil {
 		return nil, errors.New("delivery: archive object unavailable")
 	}
-	defer obj.Body.Close()
+	defer func() {
+		if cleanupErr := obj.Body.Close(); cleanupErr != nil {
+			log.Printf("cleanup obj.Body.Close: %v", cleanupErr)
+		}
+	}()
 	if obj.Size > max {
 		return nil, ErrIntegrity
 	}

@@ -9,6 +9,20 @@ package protocol
 
 import "github.com/ethereum/go-ethereum/common"
 
+// Contract role names used by address and event registries.
+const (
+	roleEventEmitter   = "EventEmitter"
+	roleFeeAccumulator = "FeeAccumulator"
+	roleFeesRouter     = "FeesRouter"
+	rolePoolBeacon     = "PoolBeacon"
+	rolePoolRegistry   = "PoolRegistry"
+	roleProtocolConfig = "ProtocolConfig"
+	roleQuoter         = "Quoter"
+	roleRouter         = "Router"
+	roleSidioraFactory = "SidioraFactory"
+	roleSidioraNFT     = "SidioraNFT"
+)
+
 // ChainID is the Paxeer Network EVM chain id.
 const ChainID int64 = 125
 
@@ -118,19 +132,19 @@ var PaxeerMainnet = Deployment{
 	BuybackBurnOptical: common.HexToAddress("0x14ebb4F1e32070085a138296970aB90a4B5E3940"),
 
 	Impl: map[string]common.Address{
-		"EventEmitter":     common.HexToAddress("0x72CFc8f07b5Db8EE7bAcE7e8e8E8659D516cdA3E"),
-		"ProtocolConfig":   common.HexToAddress("0xc9278B9673a222Cffae29b7Da8e4cff83272c51C"),
+		roleEventEmitter:   common.HexToAddress("0x72CFc8f07b5Db8EE7bAcE7e8e8E8659D516cdA3E"),
+		roleProtocolConfig: common.HexToAddress("0xc9278B9673a222Cffae29b7Da8e4cff83272c51C"),
 		"Treasury":         common.HexToAddress("0xcdBB7923e9BE9255717704cf85Ee1B7fA201b52b"),
 		"GovernanceModule": common.HexToAddress("0xbBC3C83579F0016caAE99bd6d5E04918213750eD"),
-		"PoolRegistry":     common.HexToAddress("0x6Fdecd4361927c7DB86BCc01E3121649A38BF8A3"),
-		"FeeAccumulator":   common.HexToAddress("0xf0643BbFA8554A29F5261f5e2f158f966EaA11e8"),
+		rolePoolRegistry:   common.HexToAddress("0x6Fdecd4361927c7DB86BCc01E3121649A38BF8A3"),
+		roleFeeAccumulator: common.HexToAddress("0xf0643BbFA8554A29F5261f5e2f158f966EaA11e8"),
 		"SidioraPool":      common.HexToAddress("0x04E36690793056363EfcB0A62D753a63D92de0C1"),
-		"SidioraNFT":       common.HexToAddress("0x287891497B60e72E5EED1BDfE71195B12b615B3b"),
-		"SidioraFactory":   common.HexToAddress("0xFEed19980287B08930F1f1E00f6d89a3B9ef517d"),
+		roleSidioraNFT:     common.HexToAddress("0x287891497B60e72E5EED1BDfE71195B12b615B3b"),
+		roleSidioraFactory: common.HexToAddress("0xFEed19980287B08930F1f1E00f6d89a3B9ef517d"),
 		"OpticalRegistry":  common.HexToAddress("0x63683eE5Fde3C3B66102bC4Faf3782fbF8b7Faf6"),
-		"Router":           common.HexToAddress("0x4A867a10770e8fD601C72301aAc1C511099E30EF"),
-		"Quoter":           common.HexToAddress("0x42D0B5737203ba77125d46106690e188B321393F"),
-		"FeesRouter":       common.HexToAddress("0xD8a058199DDf1B7443420735252187add41b6135"),
+		roleRouter:         common.HexToAddress("0x4A867a10770e8fD601C72301aAc1C511099E30EF"),
+		roleQuoter:         common.HexToAddress("0x42D0B5737203ba77125d46106690e188B321393F"),
+		roleFeesRouter:     common.HexToAddress("0xD8a058199DDf1B7443420735252187add41b6135"),
 	},
 
 	USDL:     common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479"),
@@ -168,19 +182,19 @@ var ActiveAddresses = ActiveSet{
 	Router:     common.HexToAddress(LaunchpadPrecompileHex),
 
 	Roles: map[string]common.Address{
-		"EventEmitter":    common.HexToAddress("0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6"),
-		"ProtocolConfig":  common.HexToAddress("0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6"),
-		"Router":          common.HexToAddress("0x78FB06f525cD964388f2305A489035263E31C6e4"),
-		"Quoter":          common.HexToAddress("0x793006f4F321b8863F26DBD75b11bAa01DA181dc"),
-		"SidioraFactory":  common.HexToAddress("0x3993D004166738d1069B5C4e0a923f7B9D5D8830"),
-		"PoolRegistry":    common.HexToAddress("0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7"),
-		"FeeAccumulator":  common.HexToAddress("0x7b14808b72f61664cDb79D25E6d1587655571a66"),
-		"SidioraNFT":      common.HexToAddress("0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B"),
-		"FeesRouter":      common.HexToAddress("0x05681dA6f611C2dfFD3E92611F6dE2d247647927"),
-		"OpticalRegistry": common.HexToAddress("0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0"),
-		"PoolBeacon":      common.HexToAddress("0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE"),
-		"Treasury":        common.HexToAddress("0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723"),
-		"USDL":            common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479"),
+		roleEventEmitter:   common.HexToAddress("0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6"),
+		roleProtocolConfig: common.HexToAddress("0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6"),
+		roleRouter:         common.HexToAddress("0x78FB06f525cD964388f2305A489035263E31C6e4"),
+		roleQuoter:         common.HexToAddress("0x793006f4F321b8863F26DBD75b11bAa01DA181dc"),
+		roleSidioraFactory: common.HexToAddress("0x3993D004166738d1069B5C4e0a923f7B9D5D8830"),
+		rolePoolRegistry:   common.HexToAddress("0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7"),
+		roleFeeAccumulator: common.HexToAddress("0x7b14808b72f61664cDb79D25E6d1587655571a66"),
+		roleSidioraNFT:     common.HexToAddress("0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B"),
+		roleFeesRouter:     common.HexToAddress("0x05681dA6f611C2dfFD3E92611F6dE2d247647927"),
+		"OpticalRegistry":  common.HexToAddress("0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0"),
+		rolePoolBeacon:     common.HexToAddress("0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE"),
+		"Treasury":         common.HexToAddress("0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723"),
+		"USDL":             common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479"),
 	},
 }
 
@@ -188,16 +202,16 @@ var ActiveAddresses = ActiveSet{
 // binds, keyed by canonical name (matching the bindings type names).
 func (d *Deployment) BoundContracts() map[string]common.Address {
 	return map[string]common.Address{
-		"EventEmitter":   d.EventEmitter,
-		"PoolRegistry":   d.PoolRegistry,
-		"SidioraFactory": d.SidioraFactory,
-		"Router":         d.Router,
-		"Quoter":         d.Quoter,
-		"ProtocolConfig": d.ProtocolConfig,
-		"FeeAccumulator": d.FeeAccumulator,
-		"SidioraNFT":     d.SidioraNFT,
-		"FeesRouter":     d.FeesRouter,
-		"PoolBeacon":     d.PoolBeacon,
+		roleEventEmitter:   d.EventEmitter,
+		rolePoolRegistry:   d.PoolRegistry,
+		roleSidioraFactory: d.SidioraFactory,
+		roleRouter:         d.Router,
+		roleQuoter:         d.Quoter,
+		roleProtocolConfig: d.ProtocolConfig,
+		roleFeeAccumulator: d.FeeAccumulator,
+		roleSidioraNFT:     d.SidioraNFT,
+		roleFeesRouter:     d.FeesRouter,
+		rolePoolBeacon:     d.PoolBeacon,
 	}
 }
 

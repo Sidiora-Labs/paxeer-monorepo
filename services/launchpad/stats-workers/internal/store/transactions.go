@@ -70,9 +70,10 @@ func (s *Store) ListTransactions(ctx context.Context, poolAddress string, limit,
 		SELECT id, pool_address, sender, is_buy, amount_in, amount_out, price, fee, block_timestamp, tx_hash
 		FROM stats.pool_transactions
 		WHERE pool_address = $1`
-	args := []any{poolAddress}
+	args := make([]any, 0, 3)
+	args = append(args, poolAddress)
 	switch txType {
-	case "buy":
+	case valueBuy:
 		query += ` AND is_buy = true`
 	case "sell":
 		query += ` AND is_buy = false`

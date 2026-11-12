@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type SnapshotRead struct {
@@ -62,14 +63,14 @@ func (a ReactionAuthority) ReadReactions(ctx context.Context, pool string) (Publ
 	if err != nil {
 		return PublicReactions{}, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	p, err := a.table("reaction_pools")
 	if err != nil {
 		return PublicReactions{}, err
 	}
 	votes, _ := a.table("reaction_votes")
 	result := PublicReactions{Pool: pool, Revision: "0", Counts: map[string]int64{}}
-	for _, r := range []string{"bullish", "hot", "diamond", "bearish", "trash", "warning"} {
+	for _, r := range []string{valueBullish, "hot", "diamond", valueBearish, "trash", "warning"} {
 		result.Counts[r] = 0
 	}
 	err = tx.QueryRow(ctx, "SELECT revision::text FROM "+p+" WHERE pool=$1", pool).Scan(&result.Revision)

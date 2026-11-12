@@ -1,0 +1,4 @@
+title = "Chain test package groups read numbered package list parts"
+groups = ["test-group-0", "test-group-1", "test-group-2", "test-group-3"]
+parts = ["build/packages.txt.0", "build/packages.txt.1", "build/packages.txt.2", "build/packages.txt.3"]
+mapping = "Each test group reads the package list part with the same number."

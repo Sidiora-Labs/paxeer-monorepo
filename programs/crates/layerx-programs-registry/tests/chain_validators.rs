@@ -1,6 +1,7 @@
 use layerx_programs::chain_proof::ChainProofError;
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/validators.rs"]
 mod validators;
 
@@ -30,6 +31,85 @@ fn leaf(bytes: &[u8]) -> [u8; 32] {
 
 fn branch(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
     Sha256::digest([&[1][..], &left, &right].concat()).into()
+}
+
+fn verify_five_leaf_merkle() -> Result<(), ChainProofError> {
+    let five: Vec<_> = (1..=5)
+        .map(|seed| {
+            let key = ed25519_dalek::SigningKey::from_bytes(&[seed; 32])
+                .verifying_key()
+                .to_bytes();
+            TrustedValidator::new(key, 1)
+        })
+        .collect();
+    let five_leaves: Vec<_> = five
+        .iter()
+        .map(|validator| {
+            let mut bytes = vec![0x0a, 0x22, 0x0a, 0x20];
+            bytes.extend_from_slice(&validator.public_key);
+            bytes.extend_from_slice(&[0x10, 1]);
+            leaf(&bytes)
+        })
+        .collect();
+    assert_eq!(
+        ValidatorSet::new(five)?.hash(),
+        branch(
+            branch(
+                branch(five_leaves[0], five_leaves[1]),
+                branch(five_leaves[2], five_leaves[3])
+            ),
+            five_leaves[4]
+        )
+    );
+
+    Ok(())
+}
+
+fn verify_power_bounds(members: &[TrustedValidator]) -> Result<(), ChainProofError> {
+    assert_eq!(
+        ValidatorSet::new(vec![
+            members[0].clone(),
+            members[1].clone(),
+            members[0].clone()
+        ]),
+        Err(ChainProofError::NonCanonical)
+    );
+    let mut forged = members[0].clone();
+    forged.address[0] ^= 1;
+    assert_eq!(
+        ValidatorSet::new(vec![forged]),
+        Err(ChainProofError::NonCanonical)
+    );
+    assert_eq!(MAX_TOTAL_VOTING_POWER, (i64::MAX / 8) as u64);
+    for power in [MAX_TOTAL_VOTING_POWER + 1, i64::MAX as u64, u64::MAX] {
+        assert_eq!(
+            ValidatorSet::new(vec![TrustedValidator::new(PUBLIC_KEYS[0], power)]),
+            Err(ChainProofError::NonCanonical)
+        );
+    }
+    let at_limit = vec![
+        TrustedValidator::new(PUBLIC_KEYS[0], MAX_TOTAL_VOTING_POWER - 1),
+        TrustedValidator::new(PUBLIC_KEYS[1], 1),
+    ];
+    assert_eq!(
+        ValidatorSet::new(at_limit)?.total_power(),
+        MAX_TOTAL_VOTING_POWER
+    );
+    assert_eq!(
+        ValidatorSet::new(vec![
+            TrustedValidator::new(PUBLIC_KEYS[0], MAX_TOTAL_VOTING_POWER),
+            TrustedValidator::new(PUBLIC_KEYS[1], 1)
+        ]),
+        Err(ChainProofError::NonCanonical)
+    );
+    assert_eq!(
+        ValidatorSet::new(vec![
+            TrustedValidator::new(PUBLIC_KEYS[0], 1),
+            TrustedValidator::new(PUBLIC_KEYS[1], u64::MAX)
+        ]),
+        Err(ChainProofError::NonCanonical)
+    );
+    Ok(())
 }
 
 #[test]
@@ -105,77 +185,9 @@ fn chain_validator_set_hash_matches_simple_validator_merkle() -> Result<(), Chai
         assert_eq!(single.total_power(), power);
     }
 
-    let five: Vec<_> = (1..=5)
-        .map(|seed| {
-            let key = ed25519_dalek::SigningKey::from_bytes(&[seed; 32])
-                .verifying_key()
-                .to_bytes();
-            TrustedValidator::new(key, 1)
-        })
-        .collect();
-    let five_leaves: Vec<_> = five
-        .iter()
-        .map(|validator| {
-            let mut bytes = vec![0x0a, 0x22, 0x0a, 0x20];
-            bytes.extend_from_slice(&validator.public_key);
-            bytes.extend_from_slice(&[0x10, 1]);
-            leaf(&bytes)
-        })
-        .collect();
-    assert_eq!(
-        ValidatorSet::new(five)?.hash(),
-        branch(
-            branch(
-                branch(five_leaves[0], five_leaves[1]),
-                branch(five_leaves[2], five_leaves[3])
-            ),
-            five_leaves[4]
-        )
-    );
+    verify_five_leaf_merkle()?;
 
-    assert_eq!(
-        ValidatorSet::new(vec![
-            members[0].clone(),
-            members[1].clone(),
-            members[0].clone()
-        ]),
-        Err(ChainProofError::NonCanonical)
-    );
-    let mut forged = members[0].clone();
-    forged.address[0] ^= 1;
-    assert_eq!(
-        ValidatorSet::new(vec![forged]),
-        Err(ChainProofError::NonCanonical)
-    );
-    assert_eq!(MAX_TOTAL_VOTING_POWER, (i64::MAX / 8) as u64);
-    for power in [MAX_TOTAL_VOTING_POWER + 1, i64::MAX as u64, u64::MAX] {
-        assert_eq!(
-            ValidatorSet::new(vec![TrustedValidator::new(PUBLIC_KEYS[0], power)]),
-            Err(ChainProofError::NonCanonical)
-        );
-    }
-    let at_limit = vec![
-        TrustedValidator::new(PUBLIC_KEYS[0], MAX_TOTAL_VOTING_POWER - 1),
-        TrustedValidator::new(PUBLIC_KEYS[1], 1),
-    ];
-    assert_eq!(
-        ValidatorSet::new(at_limit)?.total_power(),
-        MAX_TOTAL_VOTING_POWER
-    );
-    assert_eq!(
-        ValidatorSet::new(vec![
-            TrustedValidator::new(PUBLIC_KEYS[0], MAX_TOTAL_VOTING_POWER),
-            TrustedValidator::new(PUBLIC_KEYS[1], 1)
-        ]),
-        Err(ChainProofError::NonCanonical)
-    );
-    assert_eq!(
-        ValidatorSet::new(vec![
-            TrustedValidator::new(PUBLIC_KEYS[0], 1),
-            TrustedValidator::new(PUBLIC_KEYS[1], u64::MAX)
-        ]),
-        Err(ChainProofError::NonCanonical)
-    );
+    verify_power_bounds(&members)?;
     Ok(())
 }
 

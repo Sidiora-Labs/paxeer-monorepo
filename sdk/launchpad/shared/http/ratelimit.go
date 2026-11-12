@@ -47,7 +47,7 @@ func RateLimit(opts RateLimitOptions) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if opts.RoutePrefix != "" && !(r.URL.Path == strings.TrimSuffix(opts.RoutePrefix, "/") || strings.HasPrefix(r.URL.Path, strings.TrimSuffix(opts.RoutePrefix, "/")+"/")) {
+			if opts.RoutePrefix != "" && r.URL.Path != strings.TrimSuffix(opts.RoutePrefix, "/") && !strings.HasPrefix(r.URL.Path, strings.TrimSuffix(opts.RoutePrefix, "/")+"/") {
 				next.ServeHTTP(w, r)
 				return
 			}

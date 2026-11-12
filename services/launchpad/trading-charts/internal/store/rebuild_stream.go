@@ -103,7 +103,7 @@ func rebuildCanonicalPayload(ctx context.Context, tx pgx.Tx, schema string, bar 
 	switch bar.CompletenessStatus {
 	case "complete_through_watermark":
 		coverage = "complete"
-	case "live_interval", "interval_elapsed", "backfill_incomplete":
+	case "live_interval", "interval_elapsed", statusBackfillIncomplete:
 	default:
 		return nil, ErrIntegrity
 	}
@@ -260,7 +260,7 @@ func (s *ExactStore) appendRebuildStreamsTx(ctx context.Context, tx pgx.Tx, id, 
 				return err
 			}
 			watermark = &interfaces.Watermark{ChainId: "125", Height: interfaces.UInt256(strconv.FormatUint(bar.SourceWatermarkHeight, 10)), BlockHash: blockHash, ProjectionRevision: interfaces.PositiveUInt256(strconv.FormatUint(bar.DisplayRevision, 10)), ObservedAt: observed, Integrity: "healthy"}
-		} else if bar.CompletenessStatus != "backfill_incomplete" {
+		} else if bar.CompletenessStatus != statusBackfillIncomplete {
 			return ErrIntegrity
 		}
 		watermarkWire, err := json.Marshal(watermark)

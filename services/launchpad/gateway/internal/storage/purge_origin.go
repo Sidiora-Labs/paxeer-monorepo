@@ -47,7 +47,7 @@ func (p *OriginCachePurgeProvider) Submit(ctx context.Context, id, hash string) 
 	if e := ctx.Err(); e != nil {
 		return PurgeReceipt{}, ErrUnavailable
 	}
-	return PurgeReceipt{OperationID: id, ProviderID: originProviderID(id), State: "accepted"}, nil
+	return PurgeReceipt{OperationID: id, ProviderID: originProviderID(id), State: acceptedState}, nil
 }
 
 func (p *OriginCachePurgeProvider) Status(ctx context.Context, id, providerID string) (PurgeReceipt, error) {
@@ -89,5 +89,5 @@ func (p *OriginCachePurgeProvider) Status(ctx context.Context, id, providerID st
 		}
 	}
 	proof := fmt.Sprintf("origin-cache:%d:%x", len(keys), sha256.Sum256([]byte(hash+"\n"+strings.Join(keys, "\n"))))
-	return PurgeReceipt{OperationID: id, ProviderID: providerID, State: "complete", CompletionProof: proof}, nil
+	return PurgeReceipt{OperationID: id, ProviderID: providerID, State: completeState, CompletionProof: proof}, nil
 }

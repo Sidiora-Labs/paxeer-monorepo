@@ -68,7 +68,7 @@ func LeaderboardWindowSeconds(window string) (int64, bool) {
 // a previously issued page boundary so cursors stay stable.
 func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window string, windowEnd int64) (*LeaderboardSnapshot, error) {
 	seconds, ok := leaderboardWindows[window]
-	if s == nil || s.pool == nil || !ok || (category != "trader" && category != "creator" && category != "volume") || windowEnd < 0 {
+	if s == nil || s.pool == nil || !ok || (category != literalTrader && category != literalCreator && category != literalVolume) || windowEnd < 0 {
 		return nil, ErrAccountingNotReady
 	}
 	ctx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
@@ -110,7 +110,7 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 	entries := []LeaderboardEntry{}
 	unknownBasis := 0
 	switch category {
-	case "trader":
+	case literalTrader:
 		fills, loadErr := traderRealizedRows(ctx, tx, commits, s.config.ProjectionVersion, from, windowEnd)
 		if loadErr != nil {
 			return nil, loadErr
@@ -118,9 +118,9 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 		if entries, unknownBasis, err = RealizedTraderPnL(fills, from, windowEnd); err != nil {
 			return nil, err
 		}
-	case "volume":
+	case literalVolume:
 		rows, err = tx.Query(ctx, `SELECT wallet, sum(usdl)::text, '0', bool_and(complete) FROM (SELECT COALESCE(fill->'attribution'->>'trader', fill->'attribution'->>'transactionSender') AS wallet, (fill->>'usdlAmountRaw')::numeric AS usdl, fill->'attribution'->>'quality' <> 'unavailable' AS complete FROM `+commits+` WHERE projection_version=$1 AND (fill->>'blockTimestampSeconds')::bigint > $2 AND (fill->>'blockTimestampSeconds')::bigint <= $3) f GROUP BY wallet`, s.config.ProjectionVersion, from, windowEnd)
-	case "creator":
+	case literalCreator:
 		rows, err = tx.Query(ctx, `SELECT c.creator, sum(CASE WHEN f.fill->>'side'='buy' THEN (f.fill->>'feeRaw')::numeric ELSE 0 END)::text, '0', bool_and(f.fill->'execution'->>'quality' <> 'unavailable' AND (f.fill->>'side'='buy' OR (f.fill->>'feeRaw')::numeric = 0)) FROM `+commits+` f JOIN indexer.indexer_canonical_creations_v1 c ON c.pool=f.pool WHERE f.projection_version=$1 AND (f.fill->>'blockTimestampSeconds')::bigint > $2 AND (f.fill->>'blockTimestampSeconds')::bigint <= $3 GROUP BY c.creator`, s.config.ProjectionVersion, from, windowEnd)
 	}
 	if err != nil {
@@ -145,9 +145,9 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 			return nil, ErrDataIntegrity
 		}
 		signed := new(big.Int).Sub(plus, minus)
-		entry := LeaderboardEntry{Wallet: normalized, MetricRaw: new(big.Int).Abs(signed).String(), Quality: "partial", signed: signed}
+		entry := LeaderboardEntry{Wallet: normalized, MetricRaw: new(big.Int).Abs(signed).String(), Quality: literalPartial, signed: signed}
 		if complete {
-			entry.Quality = "complete"
+			entry.Quality = literalComplete
 		}
 		if len(entry.MetricRaw) > 156 {
 			return nil, ErrDataIntegrity
@@ -163,7 +163,7 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	return traderLeaderboardSnapshot(category, window, windowEnd, entries, unknownBasis, ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: revision, ObservedAt: time.Unix(observedAt, 0).UTC().Format(watermarkTimeLayout), Integrity: "healthy"}), nil
+	return traderLeaderboardSnapshot(category, window, windowEnd, entries, unknownBasis, ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: revision, ObservedAt: time.Unix(observedAt, 0).UTC().Format(watermarkTimeLayout), Integrity: literalHealthy}), nil
 }
 
 func traderLeaderboardSnapshot(category, window string, windowEnd int64, entries []LeaderboardEntry, unknownBasis int, watermark ChainWatermark) *LeaderboardSnapshot {
@@ -173,15 +173,15 @@ func traderLeaderboardSnapshot(category, window string, windowEnd int64, entries
 		}
 		return entries[i].Wallet < entries[j].Wallet
 	})
-	quality := "complete"
+	quality := literalComplete
 	if unknownBasis > 0 {
-		quality = "partial"
+		quality = literalPartial
 	}
 	digest := sha256.New()
 	digest.Write([]byte(LeaderboardMethodologyVersion + "|" + category + "|" + window + "|" + strconv.FormatInt(windowEnd, 10) + "|" + watermark.Height + "|" + watermark.ProjectionRevision + realizedDigestSuffix(unknownBasis)))
 	for _, entry := range entries {
-		if entry.Quality != "complete" {
-			quality = "partial"
+		if entry.Quality != literalComplete {
+			quality = literalPartial
 		}
 		digest.Write([]byte("|" + entry.Wallet + ":" + entry.signed.String() + ":" + entry.Quality))
 	}
