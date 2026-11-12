@@ -313906,7 +313906,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.431]
 title = "Number the parts of the chain test package list as the test groups read them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -359675,7 +359675,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.40.18]
 title = "Close the chain launch series: interface rows served, documents cross-checked, reconcile clean"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17", "22.40.19", "22.40.20"]
