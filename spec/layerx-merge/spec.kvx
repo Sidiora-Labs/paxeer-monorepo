@@ -164454,7 +164454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.17]
 title = "Name the registered secondary coin chart resource in the statistics page charts of the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.13", "22.35.15"]
