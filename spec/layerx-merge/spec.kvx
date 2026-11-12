@@ -164233,7 +164233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.40.14]
 title = "Trade a chain market on its home chain and claim chain revenue in the launchpad web application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.10"]
