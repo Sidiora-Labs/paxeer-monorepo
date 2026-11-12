@@ -42,7 +42,7 @@ func NewPinnedRPCReader(client *rpc.Client) (*PinnedRPCReader, error) {
 // go-ethereum header hash matching the chain's consensus block hash.
 func (r *PinnedRPCReader) HeaderByReportedHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
 	if r == nil || r.rpc == nil || hash == (common.Hash{}) {
-		return nil, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	var raw json.RawMessage
 	if err := r.rpc.CallContext(ctx, &raw, "eth_getBlockByHash", hash, false); err != nil {
@@ -62,7 +62,7 @@ func (r *PinnedRPCReader) HeaderByReportedHash(ctx context.Context, hash common.
 		return nil, err
 	}
 	if reported.Hash == nil || *reported.Hash != hash || head.Number == nil {
-		return nil, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	return &head, nil
 }
@@ -72,7 +72,7 @@ func (r *PinnedRPCReader) HeaderByReportedHash(ctx context.Context, hash common.
 // CometBFT-derived block hash, not types.Header.Hash()).
 func (r *PinnedRPCReader) rawReportedBlock(ctx context.Context, method string, id any, full bool) (json.RawMessage, *types.Header, common.Hash, error) {
 	if r == nil || r.rpc == nil {
-		return nil, nil, common.Hash{}, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, nil, common.Hash{}, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	var raw json.RawMessage
 	if err := r.rpc.CallContext(ctx, &raw, method, id, full); err != nil {
@@ -92,7 +92,7 @@ func (r *PinnedRPCReader) rawReportedBlock(ctx context.Context, method string, i
 		return nil, nil, common.Hash{}, err
 	}
 	if reported.Hash == nil || *reported.Hash == (common.Hash{}) || head.Number == nil || !head.Number.IsUint64() {
-		return nil, nil, common.Hash{}, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, nil, common.Hash{}, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	return raw, &head, *reported.Hash, nil
 }
@@ -102,14 +102,14 @@ func (r *PinnedRPCReader) rawReportedBlock(ctx context.Context, method string, i
 // a node-reported hash is compared, never go-ethereum's recomputed hash.
 func (r *PinnedRPCReader) ReportedHeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, common.Hash, error) {
 	if number == nil || number.Sign() < 0 {
-		return nil, common.Hash{}, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, common.Hash{}, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	_, head, hash, err := r.rawReportedBlock(ctx, "eth_getBlockByNumber", hexutil.EncodeBig(number), false)
 	if err != nil {
 		return nil, common.Hash{}, err
 	}
 	if head.Number.Cmp(number) != 0 {
-		return nil, common.Hash{}, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, common.Hash{}, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	return head, hash, nil
 }
@@ -118,14 +118,14 @@ func (r *PinnedRPCReader) ReportedHeaderByNumber(ctx context.Context, number *bi
 // identifies by hash, verifying the node reports the same hash back.
 func (r *PinnedRPCReader) ReportedBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	if hash == (common.Hash{}) {
-		return nil, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	raw, head, reported, err := r.rawReportedBlock(ctx, "eth_getBlockByHash", hash, true)
 	if err != nil {
 		return nil, err
 	}
 	if reported != hash {
-		return nil, deployment.Issue{Code: "block_identity_unverified"}
+		return nil, deployment.Issue{Code: valueBlockIdentityUnverified}
 	}
 	var body struct {
 		Transactions []*types.Transaction `json:"transactions"`
@@ -135,7 +135,7 @@ func (r *PinnedRPCReader) ReportedBlockByHash(ctx context.Context, hash common.H
 	}
 	for _, tx := range body.Transactions {
 		if tx == nil {
-			return nil, deployment.Issue{Code: "block_identity_unverified"}
+			return nil, deployment.Issue{Code: valueBlockIdentityUnverified}
 		}
 	}
 	return types.NewBlockWithHeader(head).WithBody(types.Body{Transactions: body.Transactions}), nil
@@ -323,7 +323,7 @@ func (e *PreflightEngine) Revision() deployment.Revision { return e.revision }
 
 func (e *PreflightEngine) Capabilities(ctx context.Context, block common.Hash) (CapabilityPublication, error) {
 	if e == nil {
-		return CapabilityPublication{}, deployment.Issue{Code: "preflight_engine_missing"}
+		return CapabilityPublication{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
 	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
@@ -382,7 +382,7 @@ func (e *PreflightEngine) Handler(family Family) http.Handler {
 
 func (e *PreflightEngine) SerialExport(ctx context.Context, block common.Hash, endpoints deployment.PublicEndpoints, goAddresses, frontendAddresses map[string]string) (deployment.SerialExport, error) {
 	if e == nil {
-		return deployment.SerialExport{}, deployment.Issue{Code: "preflight_engine_missing"}
+		return deployment.SerialExport{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
 	attestation, err := deployment.Attest(ctx, e.reader, e.manifest, block, policy)
@@ -394,9 +394,9 @@ func (e *PreflightEngine) SerialExport(ctx context.Context, block common.Hash, e
 
 func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightRequest) (Preflight, error) {
 	if e == nil {
-		return Preflight{}, deployment.Issue{Code: "preflight_engine_missing"}
+		return Preflight{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
-	result := Preflight{SchemaVersion: 2, Revision: e.revision, Family: request.Family, BlockHash: request.BlockHash.Hex(), Trader: request.Trader.Hex(), Recipient: request.Recipient.Hex(), SimulationMode: "none"}
+	result := Preflight{SchemaVersion: 2, Revision: e.revision, Family: request.Family, BlockHash: request.BlockHash.Hex(), Trader: request.Trader.Hex(), Recipient: request.Recipient.Hex(), SimulationMode: valueNone}
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		return result, err
@@ -433,7 +433,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	}
 	switch request.Family {
 	case Creation:
-		if request.CreationStage != "" && request.CreationStage != "creation" && request.CreationStage != "approval" {
+		if request.CreationStage != "" && request.CreationStage != "creation" && request.CreationStage != valueApproval {
 			return result, refuse("creation_stage_invalid", "")
 		}
 		result.CreationStage = request.CreationStage
@@ -448,7 +448,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 			}
 			return result, err
 		}
-		if request.CreationStage == "approval" {
+		if request.CreationStage == valueApproval {
 			result.SimulationMode = "usdl_approval"
 		} else {
 			result.SimulationMode = "create_market"
@@ -459,7 +459,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 			return result, err
 		}
 		if native {
-			if err := attestation.ValidateFamilyFor(e.manifest, policy, []string{"SidioraFactory", "FeeAccumulator", "EventEmitter", deployment.LaunchpadPrecompileRole}, false); err != nil {
+			if err := attestation.ValidateFamilyFor(e.manifest, policy, []string{valueSidioraFactory, valueFeeAccumulator, valueEventEmitter, deployment.LaunchpadPrecompileRole}, false); err != nil {
 				return result, refuse("identity_unverified", "Pool")
 			}
 		}
@@ -497,7 +497,7 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 			result.ReasonCode = IdentityUnverified
 			return result, nil
 		}
-		quote, err := ReadPinnedQuote(ctx, e.reader, common.HexToAddress(e.manifest.Roles["Quoter"].Address), request.Pool, request.Trader, request.AmountIn, request.IsBuy, request.BlockHash)
+		quote, err := ReadPinnedQuote(ctx, e.reader, common.HexToAddress(e.manifest.Roles[valueQuoter].Address), request.Pool, request.Trader, request.AmountIn, request.IsBuy, request.BlockHash)
 		if err != nil {
 			var unavailable Unavailable
 			if errors.As(err, &unavailable) {
@@ -517,19 +517,19 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	case NFTFees:
 		id, err := raw(request.NFTID)
 		if err != nil {
-			return result, refuse("nft_id_invalid", "SidioraNFT")
+			return result, refuse("nft_id_invalid", valueSidioraNFT)
 		}
 		// ownerOf reverts for a token that does not exist: that, like another
 		// owner, is a deterministic refusal; only a failed read is retryable.
-		owner, ok, err := e.read(ctx, common.HexToAddress(e.manifest.Roles["SidioraNFT"].Address), "ownerOf(uint256)", request.BlockHash, id)
+		owner, ok, err := e.read(ctx, common.HexToAddress(e.manifest.Roles[valueSidioraNFT].Address), "ownerOf(uint256)", request.BlockHash, id)
 		if err != nil {
 			return result, err
 		}
 		if !ok || len(owner) != 32 || !bytes.Equal(owner[:12], make([]byte, 12)) || common.BytesToAddress(owner[12:]) != request.Trader {
-			return result, refuse("claim_owner_mismatch", "SidioraNFT")
+			return result, refuse("claim_owner_mismatch", valueSidioraNFT)
 		}
 	default:
-		return result, Unavailable{"core_market", UnknownCapability, string(request.Family)}
+		return result, Unavailable{valueCoreMarket, UnknownCapability, string(request.Family)}
 	}
 	result.Supported = true
 	result.ExecutionPermitted = result.Capability.ReleaseEnabled
@@ -541,17 +541,17 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 
 func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightRequest, a deployment.ActivationAttestation) (CreationCost, error) {
 	role := request.CreationPath
-	if role != "Router" && role != "SidioraFactory" {
+	if role != valueRouter && role != valueSidioraFactory {
 		return CreationCost{}, refuse("creation_path_invalid", "")
 	}
 	if len(request.Name) == 0 || len(request.Name) > 128 || len(request.Symbol) == 0 || len(request.Symbol) > 32 || request.FeeStrategy > 3 {
 		return CreationCost{}, refuse("creation_metadata_invalid", "")
 	}
 	if request.Optical != (common.Address{}) {
-		return CreationCost{}, Unavailable{"core_market", OpticalQuoteUnsupported, "optical_creation_preflight"}
+		return CreationCost{}, Unavailable{valueCoreMarket, OpticalQuoteUnsupported, "optical_creation_preflight"}
 	}
 	if a.CreationFeeRaw != deployment.CreationFeeRaw {
-		return CreationCost{}, refuse("creation_policy_mismatch", "ProtocolConfig")
+		return CreationCost{}, refuse("creation_policy_mismatch", valueProtocolConfig)
 	}
 	to := common.HexToAddress(e.manifest.Roles[role].Address)
 	spender := to
@@ -566,10 +566,10 @@ func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightReq
 		}
 		spender = common.HexToAddress(e.manifest.Roles[deployment.LaunchpadPrecompileRole].Address)
 	}
-	cost := CreationCost{ProtocolFeeAsset: "USDL", ProtocolFeeRaw: a.CreationFeeRaw, ProtocolFeeDisplay: "1.00 USDL", GasAsset: "PAX", BlockHash: a.BlockHash, ConfigRevision: e.revision.RevisionSHA256, Spender: spender.Hex()}
+	cost := CreationCost{ProtocolFeeAsset: valueUSDL, ProtocolFeeRaw: a.CreationFeeRaw, ProtocolFeeDisplay: "1.00 USDL", GasAsset: "PAX", BlockHash: a.BlockHash, ConfigRevision: e.revision.RevisionSHA256, Spender: spender.Hex()}
 	gas, ok := e.reader.(GasReader)
 	if !ok {
-		return cost, Unavailable{"core_market", ReasonCode("gas_estimate_unavailable"), "pinned_gas_provider"}
+		return cost, Unavailable{valueCoreMarket, ReasonCode("gas_estimate_unavailable"), "pinned_gas_provider"}
 	}
 	data, err := encodeCall("createMarket(string,string,uint8,address)", request.Name, request.Symbol, request.FeeStrategy, request.Optical)
 	if err != nil {
@@ -579,27 +579,27 @@ func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightReq
 		}
 		return CreationCost{}, err
 	}
-	if request.CreationStage == "approval" {
+	if request.CreationStage == valueApproval {
 		if request.Trader != request.Recipient {
-			return CreationCost{}, refuse("creation_approval_account_invalid", "USDL")
+			return CreationCost{}, refuse("creation_approval_account_invalid", valueUSDL)
 		}
-		to = common.HexToAddress(e.manifest.Roles["USDL"].Address)
+		to = common.HexToAddress(e.manifest.Roles[valueUSDL].Address)
 		data, err = encodeCall("approve(address,uint256)", spender, new(big.Int).SetUint64(1_000_000))
 		if err != nil {
 			return CreationCost{}, err
 		}
 		output, err := e.reader.CallContractAtHash(ctx, ethereum.CallMsg{From: request.Trader, To: &to, Data: data}, request.BlockHash)
 		if err != nil || len(output) != 32 || new(big.Int).SetBytes(output).Cmp(big.NewInt(1)) != 0 {
-			return cost, Unavailable{"core_market", ReasonCode("approval_simulation_unavailable"), "USDL"}
+			return cost, Unavailable{valueCoreMarket, ReasonCode("approval_simulation_unavailable"), valueUSDL}
 		}
 	}
 	price, err := gas.SuggestGasPrice(ctx)
 	if err != nil || price == nil || price.Sign() < 0 || price.BitLen() > 256 {
-		return cost, Unavailable{"core_market", ReasonCode("gas_estimate_unavailable"), "gas_price"}
+		return cost, Unavailable{valueCoreMarket, ReasonCode("gas_estimate_unavailable"), "gas_price"}
 	}
 	units, err := gas.EstimateGasAtHash(ctx, ethereum.CallMsg{From: request.Trader, To: &to, Data: data, Value: big.NewInt(0), GasPrice: price}, request.BlockHash)
 	if err != nil || units == 0 {
-		return cost, Unavailable{"core_market", ReasonCode("gas_estimate_unavailable"), "transaction_simulation"}
+		return cost, Unavailable{valueCoreMarket, ReasonCode("gas_estimate_unavailable"), "transaction_simulation"}
 	}
 	fee := new(big.Int).Mul(new(big.Int).SetUint64(units), price)
 	if fee.BitLen() > 256 {
@@ -642,7 +642,7 @@ func (e *PreflightEngine) call(ctx context.Context, address common.Address, sign
 	}
 	output, err := e.reader.CallContractAtHash(ctx, ethereum.CallMsg{To: &address, Data: data}, block)
 	if err != nil || len(output) > 4096 {
-		return nil, deployment.Issue{Code: "preflight_read_failed"}
+		return nil, deployment.Issue{Code: valuePreflightReadFailed}
 	}
 	return output, nil
 }
@@ -661,10 +661,10 @@ func (e *PreflightEngine) read(ctx context.Context, address common.Address, sign
 		if reverted(err) {
 			return nil, false, nil
 		}
-		return nil, false, deployment.Issue{Code: "preflight_read_failed"}
+		return nil, false, deployment.Issue{Code: valuePreflightReadFailed}
 	}
 	if len(output) > 4096 {
-		return nil, false, deployment.Issue{Code: "preflight_read_failed"}
+		return nil, false, deployment.Issue{Code: valuePreflightReadFailed}
 	}
 	return output, true, nil
 }
@@ -725,12 +725,12 @@ func (e *PreflightEngine) Outcome(ctx context.Context, request PreflightRequest)
 	}
 	if result.Capability.Family == "" {
 		roles := familyRoles[request.Family]
-		result.Capability = FamilyCapability{CapabilityID: "core_market", Family: request.Family, DeploymentVersion: e.manifest.DeploymentVersion, ReasonCode: reason, DependencyIDs: append([]string{}, roles...), EventCoverage: []string{}}
+		result.Capability = FamilyCapability{CapabilityID: valueCoreMarket, Family: request.Family, DeploymentVersion: e.manifest.DeploymentVersion, ReasonCode: reason, DependencyIDs: append([]string{}, roles...), EventCoverage: []string{}}
 	}
 	result.Supported = false
 	result.ExecutionPermitted = false
 	result.ReasonCode = reason
-	result.SimulationMode = "none"
+	result.SimulationMode = valueNone
 	result.Quote = nil
 	result.CreationCost = nil
 	if issue != nil {
@@ -750,15 +750,15 @@ func (e *PreflightEngine) registeredPool(ctx context.Context, a deployment.Activ
 	if pool == (common.Address{}) {
 		return PoolUnknown, nil
 	}
-	if err := a.ValidateFamilyFor(e.manifest, p, []string{"PoolRegistry"}, false); err != nil {
+	if err := a.ValidateFamilyFor(e.manifest, p, []string{valuePoolRegistry}, false); err != nil {
 		return IdentityUnverified, nil
 	}
-	registered, err := e.call(ctx, common.HexToAddress(e.manifest.Roles["PoolRegistry"].Address), "isRegisteredPool(address)", block, pool)
+	registered, err := e.call(ctx, common.HexToAddress(e.manifest.Roles[valuePoolRegistry].Address), "isRegisteredPool(address)", block, pool)
 	if err != nil {
-		return "", deployment.Issue{Code: "pool_registry_read_failed", Role: "PoolRegistry"}
+		return "", deployment.Issue{Code: "pool_registry_read_failed", Role: valuePoolRegistry}
 	}
 	if len(registered) != 32 || new(big.Int).SetBytes(registered).Cmp(big.NewInt(1)) > 0 {
-		return "", deployment.Issue{Code: "pool_registry_read_malformed", Role: "PoolRegistry"}
+		return "", deployment.Issue{Code: "pool_registry_read_malformed", Role: valuePoolRegistry}
 	}
 	if registered[31] == 0 {
 		return PoolUnknown, nil
@@ -767,21 +767,21 @@ func (e *PreflightEngine) registeredPool(ctx context.Context, a deployment.Activ
 }
 
 func (e *PreflightEngine) nativeDeployment() (bool, error) {
-	if e.manifest.Roles["SidioraFactory"].Kind == "erc1967" {
+	if e.manifest.Roles[valueSidioraFactory].Kind == "erc1967" {
 		return false, nil
 	}
 	approved, ok := deployment.Approved(e.manifest.ActivationHeight)
 	if !ok || approved.DeploymentVersion != e.manifest.DeploymentVersion || approved.SourceManifestSHA256 != e.manifest.SourceManifestSHA256 {
-		return false, refuse("identity_unverified", "SidioraFactory")
+		return false, refuse("identity_unverified", valueSidioraFactory)
 	}
-	for _, name := range []string{"SidioraFactory", "Router", "Quoter", "PoolRegistry", "ProtocolConfig", "FeeAccumulator", "EventEmitter", "USDL", deployment.LaunchpadPrecompileRole} {
+	for _, name := range []string{valueSidioraFactory, valueRouter, valueQuoter, valuePoolRegistry, valueProtocolConfig, valueFeeAccumulator, valueEventEmitter, valueUSDL, deployment.LaunchpadPrecompileRole} {
 		role, exists := e.manifest.Roles[name]
 		if !exists || !role.MatchesApproved(approved.Roles[name]) {
 			return false, refuse("identity_unverified", name)
 		}
 	}
 	authority := approved.Roles[deployment.LaunchpadPrecompileRole]
-	if approved.Roles["SidioraFactory"].Kind != "surface" || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
+	if approved.Roles[valueSidioraFactory].Kind != "surface" || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
 		return false, refuse("identity_unverified", deployment.LaunchpadPrecompileRole)
 	}
 	return true, nil
@@ -806,9 +806,9 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if err != nil {
 		return PoolState{}, err
 	}
-	version := e.manifest.Roles["PoolBeacon"].ImplementationHash
+	version := e.manifest.Roles[valuePoolBeacon].ImplementationHash
 	if native {
-		if !e.manifest.Roles["SidioraFactory"].AcceptsRuntimeHash(e.poolRuntime.Hex()) {
+		if !e.manifest.Roles[valueSidioraFactory].AcceptsRuntimeHash(e.poolRuntime.Hex()) {
 			return PoolState{}, bad
 		}
 		version = e.manifest.DeploymentVersion + "/Pool/" + e.poolRuntime.Hex()
@@ -817,7 +817,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 		if err != nil {
 			return PoolState{}, failed
 		}
-		if len(slot) != 32 || !bytes.Equal(slot[:12], make([]byte, 12)) || common.BytesToAddress(slot[12:]) != common.HexToAddress(e.manifest.Roles["PoolBeacon"].Address) {
+		if len(slot) != 32 || !bytes.Equal(slot[:12], make([]byte, 12)) || common.BytesToAddress(slot[12:]) != common.HexToAddress(e.manifest.Roles[valuePoolBeacon].Address) {
 			return PoolState{}, bad
 		}
 	}
@@ -831,9 +831,9 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 		}
 		return value, nil
 	}
-	wiring := map[string]string{"protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL", "eventEmitter()": "EventEmitter", "factory()": "SidioraFactory"}
+	wiring := map[string]string{valueProtocolConfigCall: valueProtocolConfig, valueUsdlAddress: valueUSDL, valueEventEmitterCall: valueEventEmitter, "factory()": valueSidioraFactory}
 	if native {
-		wiring["feeAccumulator()"] = "FeeAccumulator"
+		wiring["feeAccumulator()"] = valueFeeAccumulator
 	}
 	for signature, role := range wiring {
 		value, err := word(signature)
@@ -866,7 +866,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 		if len(token) != 32 || !bytes.Equal(token[:12], make([]byte, 12)) || common.BytesToAddress(token) == (common.Address{}) {
 			return PoolState{}, bad
 		}
-		registry := common.HexToAddress(e.manifest.Roles["PoolRegistry"].Address)
+		registry := common.HexToAddress(e.manifest.Roles[valuePoolRegistry].Address)
 		registered, err := e.call(ctx, registry, "isRegisteredPool(address)", block, pool)
 		if err != nil {
 			return PoolState{}, err
@@ -932,30 +932,30 @@ func ReadPinnedQuote(ctx context.Context, reader deployment.Reader, quoter, pool
 				if decodeErr == nil && len(revert) == 4 {
 					for signature, reason := range map[string]ReasonCode{"OpticalQuoteUnsupported()": OpticalQuoteUnsupported, "UnexecutableQuote()": UnexecutableQuote} {
 						if bytes.Equal(revert, crypto.Keccak256([]byte(signature))[:4]) {
-							return ContractQuote{}, Unavailable{"core_market", reason, "Quoter"}
+							return ContractQuote{}, Unavailable{valueCoreMarket, reason, valueQuoter}
 						}
 					}
 				}
 			}
 		}
 		if reverted(err) {
-			return ContractQuote{}, refuse("quote_reverted", "Quoter")
+			return ContractQuote{}, refuse("quote_reverted", valueQuoter)
 		}
-		return ContractQuote{}, deployment.Issue{Code: "quote_read_failed", Role: "Quoter"}
+		return ContractQuote{}, deployment.Issue{Code: "quote_read_failed", Role: valueQuoter}
 	}
 	if len(output) != 96 {
-		return ContractQuote{}, deployment.Issue{Code: "quote_tuple_malformed", Role: "Quoter"}
+		return ContractQuote{}, deployment.Issue{Code: "quote_tuple_malformed", Role: valueQuoter}
 	}
 	quote := ContractQuote{AmountOut: new(big.Int).SetBytes(output[:32]).String(), FeeAmount: new(big.Int).SetBytes(output[32:64]).String(), PriceImpactBPS: new(big.Int).SetBytes(output[64:]).String()}
 	if quote.AmountOut == "0" {
-		return ContractQuote{}, Unavailable{"core_market", UnexecutableQuote, "Quoter"}
+		return ContractQuote{}, Unavailable{valueCoreMarket, UnexecutableQuote, valueQuoter}
 	}
 	return quote, nil
 }
 
 func (e *PreflightEngine) Revalidate(ctx context.Context, previous Preflight, request PreflightRequest) (Preflight, error) {
 	if e == nil {
-		return Preflight{}, deployment.Issue{Code: "preflight_engine_missing"}
+		return Preflight{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	encoded, err := json.Marshal(request)
 	if err != nil {
@@ -963,27 +963,27 @@ func (e *PreflightEngine) Revalidate(ctx context.Context, previous Preflight, re
 	}
 	hash := sha256.Sum256(encoded)
 	if previous.RequestSHA256 != hex.EncodeToString(hash[:]) {
-		return Preflight{}, Unavailable{"core_market", RevisionMismatch, "preflight_request"}
+		return Preflight{}, Unavailable{valueCoreMarket, RevisionMismatch, "preflight_request"}
 	}
 	if previous.Revision != e.revision || previous.BlockHash != request.BlockHash.Hex() || previous.Family != request.Family || previous.Trader != request.Trader.Hex() || previous.Recipient != request.Recipient.Hex() {
-		return Preflight{}, Unavailable{"core_market", RevisionMismatch, "preflight_context"}
+		return Preflight{}, Unavailable{valueCoreMarket, RevisionMismatch, "preflight_context"}
 	}
 	current, err := e.Preflight(ctx, request)
 	if err != nil {
 		return current, err
 	}
 	if previous.ObservedRevisionSHA256 == "" || previous.ObservedRevisionSHA256 != current.ObservedRevisionSHA256 {
-		return current, Unavailable{"core_market", RevisionMismatch, "observed_contract_state"}
+		return current, Unavailable{valueCoreMarket, RevisionMismatch, "observed_contract_state"}
 	}
 	if previous.CreationCost != nil && (current.CreationCost == nil || previous.CreationCost.ProtocolFeeRaw != current.CreationCost.ProtocolFeeRaw || previous.CreationCost.Spender != current.CreationCost.Spender) {
-		return current, deployment.Issue{Code: "creation_fee_disclosure_invalidated", Role: "ProtocolConfig"}
+		return current, deployment.Issue{Code: "creation_fee_disclosure_invalidated", Role: valueProtocolConfig}
 	}
 	return current, nil
 }
 
 func (e *PreflightEngine) RevalidateAt(ctx context.Context, previous Preflight, request PreflightRequest) (Preflight, error) {
 	if e == nil {
-		return Preflight{}, deployment.Issue{Code: "preflight_engine_missing"}
+		return Preflight{}, deployment.Issue{Code: valuePreflightEngineMissing}
 	}
 	original := request
 	original.BlockHash = common.HexToHash(previous.BlockHash)
@@ -993,14 +993,14 @@ func (e *PreflightEngine) RevalidateAt(ctx context.Context, previous Preflight, 
 	}
 	hash := sha256.Sum256(encoded)
 	if previous.RequestSHA256 != hex.EncodeToString(hash[:]) || previous.Revision != e.revision || previous.Family != request.Family || previous.Trader != request.Trader.Hex() || previous.Recipient != request.Recipient.Hex() || request.BlockHash == (common.Hash{}) {
-		return Preflight{}, Unavailable{"core_market", RevisionMismatch, "preflight_context"}
+		return Preflight{}, Unavailable{valueCoreMarket, RevisionMismatch, "preflight_context"}
 	}
 	current, err := e.Preflight(ctx, request)
 	if err != nil {
 		return current, err
 	}
 	if current.BlockNumber < previous.BlockNumber || previous.ObservedRevisionSHA256 == "" || current.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 || previous.Supported != current.Supported {
-		return current, Unavailable{"core_market", RevisionMismatch, "observed_contract_state"}
+		return current, Unavailable{valueCoreMarket, RevisionMismatch, "observed_contract_state"}
 	}
 	return current, nil
 }
@@ -1029,7 +1029,7 @@ type CreationReceiptReader interface {
 	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
 }
 
-var errUnpinnedBlock = deployment.Issue{Code: "block_identity_unverified"}
+var errUnpinnedBlock = deployment.Issue{Code: valueBlockIdentityUnverified}
 
 // reportedPinnedReader serves deployment.Reader for an exact set of blocks
 // named by their node-reported hashes and executes every state read by the
@@ -1158,7 +1158,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		return CreationFeeReconciliation{}, bad
 	}
 	path := ""
-	for _, name := range []string{"Router", "SidioraFactory"} {
+	for _, name := range []string{valueRouter, valueSidioraFactory} {
 		if *transaction.To() == common.HexToAddress(e.manifest.Roles[name].Address) {
 			path = name
 		}
@@ -1175,7 +1175,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 	if err != nil || attestation.ValidateFamilyFor(e.manifest, policy, familyRoles[Creation], true) != nil {
 		return CreationFeeReconciliation{}, bad
 	}
-	factory := common.HexToAddress(e.manifest.Roles["SidioraFactory"].Address)
+	factory := common.HexToAddress(e.manifest.Roles[valueSidioraFactory].Address)
 	word, err := pinned.call(ctx, factory, "treasury()", blockHash)
 	if err != nil || len(word) != 32 || !bytes.Equal(word[:12], make([]byte, 12)) || len(treasuryIdentity.Address) != 42 || !common.IsHexAddress(treasuryIdentity.Address) || common.BytesToAddress(word[12:]) != common.HexToAddress(treasuryIdentity.Address) {
 		return CreationFeeReconciliation{}, bad
@@ -1200,7 +1200,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != "surface") || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
 		return CreationFeeReconciliation{}, bad
 	}
-	usdl := common.HexToAddress(e.manifest.Roles["USDL"].Address)
+	usdl := common.HexToAddress(e.manifest.Roles[valueUSDL].Address)
 	transfer := crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
 	count := 0
 	for _, log := range receipt.Logs {
@@ -1256,7 +1256,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 	if debit.String() != deployment.CreationFeeRaw || credit.String() != deployment.CreationFeeRaw || ledger.String() != deployment.CreationFeeRaw {
 		return CreationFeeReconciliation{}, bad
 	}
-	return CreationFeeReconciliation{TransactionHash: hash.Hex(), BlockHash: blockHash.Hex(), ParentBlockHash: parentHash.Hex(), Path: path, Payer: payer.Hex(), Treasury: treasury.Hex(), FeeAsset: "USDL", FeeRaw: deployment.CreationFeeRaw, PayerDebitRaw: debit.String(), TreasuryCreditRaw: credit.String(), TreasuryLedgerCreditRaw: ledger.String()}, nil
+	return CreationFeeReconciliation{TransactionHash: hash.Hex(), BlockHash: blockHash.Hex(), ParentBlockHash: parentHash.Hex(), Path: path, Payer: payer.Hex(), Treasury: treasury.Hex(), FeeAsset: valueUSDL, FeeRaw: deployment.CreationFeeRaw, PayerDebitRaw: debit.String(), TreasuryCreditRaw: credit.String(), TreasuryLedgerCreditRaw: ledger.String()}, nil
 }
 
 func uniquePreflightRequest(data []byte) bool {

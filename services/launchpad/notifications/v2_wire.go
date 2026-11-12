@@ -47,7 +47,7 @@ func AdaptV2Notifications(requestID string, page V2NotificationsPage, generatedA
 			readAt = &value
 		}
 		kind := item.Category
-		if kind == "watchlist" {
+		if kind == categoryWatchlist {
 			kind = "price_alert"
 		}
 		items[i] = v2NotificationItem{

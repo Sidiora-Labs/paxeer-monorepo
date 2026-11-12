@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/jackc/pgx/v5"
 )
@@ -102,7 +104,7 @@ func (s *Store) RetainPoison(ctx context.Context, p PoisonRecord) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if err = stageImmutableRaw(ctx, tx, p.ChainID, p.Raw); err != nil {
 		return err
 	}
@@ -151,7 +153,7 @@ func (s *Store) WaivePoison(ctx context.Context, scope OperationScope, rawDigest
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -189,7 +191,7 @@ func (s *Store) ResolvePoison(ctx context.Context, scope OperationScope, digest,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}
@@ -241,7 +243,7 @@ func (s *Store) RetainCommittedHead(ctx context.Context, stream string, height i
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var healthy bool
 	err = tx.QueryRow(ctx, `INSERT INTO indexer.indexer_committed_heads(chain_id,stream_id,height,block_hash,integrity,source_id) VALUES(125,$1,$2,$3,'healthy',$4) ON CONFLICT(chain_id,stream_id,height) DO UPDATE SET integrity=CASE WHEN indexer_committed_heads.block_hash=EXCLUDED.block_hash THEN indexer_committed_heads.integrity ELSE 'quarantined' END,observed_at=clock_timestamp() RETURNING integrity='healthy'`, stream, height, hash, sourceID).Scan(&healthy)
 	if err != nil {
@@ -267,7 +269,7 @@ func (s *Store) QuarantineCommittedHead(ctx context.Context, stream string) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	_, err = tx.Exec(ctx, `UPDATE indexer.indexer_committed_heads SET integrity='quarantined',observed_at=clock_timestamp() WHERE chain_id=125 AND stream_id=$1 AND height=(SELECT max(height) FROM indexer.indexer_committed_heads WHERE chain_id=125 AND stream_id=$1)`, stream)
 	if err != nil {
 		return err
@@ -287,7 +289,7 @@ func (s *Store) CheckOperationAuthorization(ctx context.Context, scope Operation
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	if _, err = authorizeOperation(ctx, tx, scope); err != nil {
 		return err
 	}

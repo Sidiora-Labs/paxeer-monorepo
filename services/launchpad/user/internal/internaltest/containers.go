@@ -61,7 +61,11 @@ func throwawayDatabase(t *testing.T, admin string) string {
 	if err != nil {
 		t.Fatalf("connect USER_TEST_POSTGRES_DSN: %v", err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if err := conn.Close(ctx); err != nil {
+			t.Errorf("close database connection: %v", err)
+		}
+	}()
 	suffix := make([]byte, 6)
 	if _, err = rand.Read(suffix); err != nil {
 		t.Fatal(err)
@@ -76,7 +80,11 @@ func throwawayDatabase(t *testing.T, admin string) string {
 			t.Logf("drop database %s: %v", name, e)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if err := c.Close(context.Background()); err != nil {
+				t.Errorf("close cleanup connection: %v", err)
+			}
+		}()
 		if _, e = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); e != nil {
 			t.Logf("drop database %s: %v", name, e)
 		}
@@ -151,7 +159,11 @@ func NewRedisURL(t *testing.T) string {
 		t.Fatalf("USER_TEST_REDIS_URL: %v", err)
 	}
 	rdb := goredis.NewClient(opts)
-	defer rdb.Close()
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			t.Errorf("close Redis client: %v", err)
+		}
+	}()
 	if err = rdb.FlushDB(ctx).Err(); err != nil {
 		t.Fatalf("flush USER_TEST_REDIS_URL: %v", err)
 	}

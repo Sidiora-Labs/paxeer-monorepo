@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -169,7 +170,7 @@ func (a *CanonicalAuthority) VerifyAward(ctx context.Context, award Award) error
 	}
 	expected := ""
 	switch award.Kind {
-	case "referral":
+	case sourceReferral:
 		if actor != award.Referred || award.Referred == award.Beneficiary {
 			return ErrUnauthorized
 		}
@@ -186,7 +187,7 @@ func (a *CanonicalAuthority) VerifyAward(ctx context.Context, award Award) error
 		if !currentConsent {
 			return ErrUnauthorized
 		}
-		if referrer != award.Beneficiary || version != p.Version || attribution != "referred" || seconds < consent {
+		if referrer != award.Beneficiary || version != p.Version || attribution != statusReferred || seconds < consent {
 			return ErrUnauthorized
 		}
 		expected = p.ReferralRaw
@@ -239,14 +240,14 @@ func (a *CanonicalAuthority) verifyPayoutDeployment(ctx context.Context, p Progr
 		return fmt.Errorf("%w: no admitted funded payout deployment", ErrUnavailable)
 	}
 	var code hexutil.Bytes
-	if e = a.creator.rpc.CallContext(ctx, &code, "eth_getCode", custody, map[string]any{"blockHash": b.Hash, "requireCanonical": true}); e != nil {
+	if e = a.creator.rpc.CallContext(ctx, &code, "eth_getCode", custody, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
 		return e
 	}
 	if len(code) == 0 || strings.ToLower(crypto.Keccak256Hash(code).Hex()) != p.AdapterCodeHash {
 		return ErrUnavailable
 	}
 	var slot hexutil.Bytes
-	if e = a.creator.rpc.CallContext(ctx, &slot, "eth_getStorageAt", custody, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", map[string]any{"blockHash": b.Hash, "requireCanonical": true}); e != nil {
+	if e = a.creator.rpc.CallContext(ctx, &slot, "eth_getStorageAt", custody, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
 		return e
 	}
 	if len(slot) != 32 {
@@ -347,7 +348,10 @@ func (c *Creator) tokenTransfer(ctx context.Context, txHash, from, to string) (T
 			return out, ErrConflict
 		}
 		found = true
-		out = TransferEvidence{fmt.Sprintf("125:%s:%d", txHash, log.Index), txHash, Checkpoint{uint64(r.Number), r.BlockHash}, uint64(log.Index), new(big.Int).SetBytes(log.Data).String(), from, to, int64(header.Timestamp)}
+		if uint64(header.Timestamp) > uint64(math.MaxInt64) {
+			return out, ErrConflict
+		}
+		out = TransferEvidence{fmt.Sprintf("125:%s:%d", txHash, log.Index), txHash, Checkpoint{uint64(r.Number), r.BlockHash}, uint64(log.Index), new(big.Int).SetBytes(log.Data).String(), from, to, int64(header.Timestamp)} //nolint:gosec // The chain timestamp is bounded above before retaining its signed time value.
 	}
 	if !found {
 		return out, ErrUnavailable
@@ -435,7 +439,7 @@ func (a *Attribution) command(ctx context.Context, actor, request, operation str
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "referral-request:"+who+":"+request); e != nil {
 		return nil, e
 	}
@@ -600,7 +604,7 @@ func (a *Attribution) Dashboard(ctx context.Context, actor string) (ReferralDash
 	if e != nil {
 		return ReferralDashboard{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	out := ReferralDashboard{Campaign: a.campaign, PolicyVersion: a.version, AttributionWindowSeconds: int64(AttributionWindow.Seconds()), Asset: USDL, Settlement: RewardSettlementCapability()}
 	var code string
 	e = tx.QueryRow(ctx, `SELECT short_code FROM l18_referral_codes WHERE campaign=$1 AND beneficiary=$2`, a.campaign, who).Scan(&code)
@@ -708,7 +712,7 @@ func (a *Attribution) BindIssued(ctx context.Context, actor, request string, con
 		}
 		out := Binding{Campaign: a.campaign, Beneficiary: who, PolicyVersion: a.version, Attribution: "organic", ConsentAt: now}
 		if first != nil {
-			out.Referrer, out.IssuedAt, out.Nonce, out.Attribution = first.Referrer, first.IssuedAt, first.Nonce, "referred"
+			out.Referrer, out.IssuedAt, out.Nonce, out.Attribution = first.Referrer, first.IssuedAt, first.Nonce, statusReferred
 		}
 		if err = a.recordConsent(ctx, tx, who, "bind:"+strings.ToLower(request), true); err != nil {
 			return nil, err

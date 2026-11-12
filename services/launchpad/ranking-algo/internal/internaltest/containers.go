@@ -96,7 +96,11 @@ func NewExternalDatabase(t *testing.T, admin string) string {
 	if err != nil {
 		t.Fatalf("connect %s: %v", PostgresDSNEnv, err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if closeErr := conn.Close(ctx); closeErr != nil {
+			t.Errorf("close admin connection: %v", closeErr)
+		}
+	}()
 	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("create test database: %v", err)
 	}
@@ -106,7 +110,11 @@ func NewExternalDatabase(t *testing.T, admin string) string {
 			t.Logf("drop test database: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if closeErr := c.Close(context.Background()); closeErr != nil {
+				t.Errorf("close cleanup connection: %v", closeErr)
+			}
+		}()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database: %v", err)
 		}

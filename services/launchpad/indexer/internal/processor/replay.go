@@ -114,7 +114,7 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 			if event == nil {
 				return segment, store.ErrIntegrity
 			}
-			if event.EventName == "Swap" || event.EventName == "MarketCreated" {
+			if event.EventName == valueSwap || event.EventName == valueMarketCreated {
 				continue
 			}
 			record, ok := raw[event.TxHash+":"+strconv.FormatUint(uint64(event.LogIndex), 10)]
@@ -135,7 +135,7 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 	return segment, store.ValidateReplaySegment(segment)
 }
 func (r *ReplayRunner) fetch(ctx context.Context, request store.ReplayRequest, from, to int64) (store.ReplaySegment, error) {
-	batch, receipts, err := r.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to))
+	batch, receipts, err := r.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 	if err != nil {
 		return store.ReplaySegment{}, err
 	}
@@ -192,7 +192,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 		}
 		readCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		var segment store.ReplaySegment
-		if request.Mode == "reconstruct" {
+		if request.Mode == valueReconstruct {
 			if r.Archive == nil {
 				cancel()
 				return r.pauseOwned(ctx, job, errors.New("archive provider unavailable"), from, to)
@@ -210,7 +210,7 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 			return err
 		}
 		err = r.Store.CommitReplaySegment(ctx, job, segment, func(ctx context.Context, tx pgx.Tx, event store.ReplayEvent) (string, error) {
-			wrapper := ReplayEnvelopeV2{Version: "indexer-replay-v2", Mode: "historical", Target: request.Target, Generation: request.Generation, ProjectionRevision: request.ProjectionRevision, SourceStream: request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
+			wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: request.Target, Generation: request.Generation, ProjectionRevision: request.ProjectionRevision, SourceStream: request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 			payload, err := canonicalReplayPayload(wrapper)
 			if err != nil {
 				return "", err
@@ -267,7 +267,7 @@ func NewGenerationReplayProjection(runner *ReplayRunner, request store.ReplayReq
 	if err := store.ValidateReplayRequest(request); err != nil {
 		return nil, err
 	}
-	if request.Mode != "reconstruct" {
+	if request.Mode != valueReconstruct {
 		return nil, errors.New("isolated reconstruction request required")
 	}
 	return &GenerationReplayProjection{Runner: runner, Request: request}, nil
@@ -327,7 +327,7 @@ func (p *GenerationReplayProjection) ApplyRawTx(ctx context.Context, tx pgx.Tx, 
 		return store.ErrIntegrity
 	}
 	for _, event := range found.Events {
-		wrapper := ReplayEnvelopeV2{Version: "indexer-replay-v2", Mode: "historical", Target: p.Request.Target, Generation: generation, ProjectionRevision: p.Request.ProjectionRevision, SourceStream: p.Request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
+		wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: p.Request.Target, Generation: generation, ProjectionRevision: p.Request.ProjectionRevision, SourceStream: p.Request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 		payload, err := canonicalReplayPayload(wrapper)
 		if err != nil {
 			return err
@@ -390,7 +390,7 @@ func (p *GenerationReplayProjection) ProjectionDigestTx(ctx context.Context, tx 
 	for _, fact := range facts {
 		for _, event := range fact.Events {
 			expectedCount++
-			wrapper := ReplayEnvelopeV2{Version: "indexer-replay-v2", Mode: "historical", Target: p.Request.Target, Generation: generation, ProjectionRevision: p.Request.ProjectionRevision, SourceStream: p.Request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
+			wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: p.Request.Target, Generation: generation, ProjectionRevision: p.Request.ProjectionRevision, SourceStream: p.Request.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 			payload, err := canonicalReplayPayload(wrapper)
 			if err != nil {
 				return "", err

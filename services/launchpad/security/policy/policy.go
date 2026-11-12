@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"io"
 	"net"
 	"net/http"
@@ -22,6 +21,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var ErrDenied = errors.New("policy: denied")
@@ -50,14 +51,16 @@ func Authorize(v Verifier, j Journal, audience, scope, version string, next http
 }
 func MeasuredAuthorize(v Verifier, j Journal, audience, scope, version string, next http.Handler, capture *MiddlewareCapture) http.Handler {
 	if capture == nil {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "capture_unavailable", 503) })
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
+		})
 	}
 	return authorizeCaptured(v, j, audience, scope, version, next, capture)
 }
 func authorizeCaptured(v Verifier, j Journal, audience, scope, version string, next http.Handler, capture *MiddlewareCapture) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if v == nil || j == nil || audience == "" || scope == "" || version == "" {
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		started := time.Now()
@@ -71,18 +74,18 @@ func authorizeCaptured(v Verifier, j Journal, audience, scope, version string, n
 				if capture != nil {
 					_ = capture.Record(r, "authorization", started, false, true)
 				}
-				http.Error(w, "unavailable", 503)
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			if capture != nil && capture.Record(r, "authorization", started, false, false) != nil {
-				http.Error(w, "capture_unavailable", 503)
+				http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
 				return
 			}
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		now := time.Now()
-		allowed := id.Actor != "" && id.Audience == audience && id.Kind == "operator" && id.MFA && !id.Issued.After(now) && id.Expires.After(now) && id.Expires.Sub(id.Issued) <= 15*time.Minute && id.Scopes[scope]
+		allowed := id.Actor != "" && id.Audience == audience && id.Kind == identityOperator && id.MFA && !id.Issued.After(now) && id.Expires.After(now) && id.Expires.Sub(id.Issued) <= 15*time.Minute && id.Scopes[scope]
 		d := Decision{id.Actor, scope, r.Header.Get("X-Request-ID"), version, allowed}
 		if len(d.RequestID) > 128 {
 			d.RequestID = ""
@@ -91,15 +94,15 @@ func authorizeCaptured(v Verifier, j Journal, audience, scope, version string, n
 			if capture != nil {
 				_ = capture.Record(r, "authorization", started, false, true)
 			}
-			http.Error(w, "unavailable", 503)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if capture != nil && capture.Record(r, "authorization", started, allowed, false) != nil {
-			http.Error(w, "capture_unavailable", 503)
+			http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if !allowed {
-			http.Error(w, "forbidden", 403)
+			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -121,7 +124,7 @@ func validRouteMethod(method string) bool {
 }
 func validRouteClass(class string) bool {
 	_, ok := frozenBudget(class)
-	return ok || class == "operator"
+	return ok || class == identityOperator
 }
 func ValidateRoutes(routes []Route) error {
 	if len(routes) == 0 || len(routes) > 10000 {
@@ -130,7 +133,7 @@ func ValidateRoutes(routes []Route) error {
 	seen := map[string]bool{}
 	for _, r := range routes {
 		k := r.Method + " " + r.Path
-		if seen[k] || !validRouteMethod(r.Method) || !strings.HasPrefix(r.Path, "/") || strings.ContainsAny(r.Path, "?\r\n\x00") || !validRouteClass(r.Class) || r.BodyLimit < 0 || r.BodyLimit > 8<<20 || r.Public && (r.Method != "GET" && r.Method != "HEAD" || r.Class != "public-read") || (!r.Public && (r.Audience == "" || r.Scope == "")) {
+		if seen[k] || !validRouteMethod(r.Method) || !strings.HasPrefix(r.Path, "/") || strings.ContainsAny(r.Path, "?\r\n\x00") || !validRouteClass(r.Class) || r.BodyLimit < 0 || r.BodyLimit > 8<<20 || r.Public && (r.Method != "GET" && r.Method != "HEAD" || r.Class != classPublicRead) || (!r.Public && (r.Audience == "" || r.Scope == "")) {
 			return ErrDenied
 		}
 		seen[k] = true
@@ -177,7 +180,8 @@ func walk(d *json.Decoder, depth int) error {
 	if !ok {
 		return nil
 	}
-	if c == '{' {
+	switch c {
+	case '{':
 		seen := map[string]bool{}
 		for d.More() {
 			k, e := d.Token()
@@ -196,7 +200,7 @@ func walk(d *json.Decoder, depth int) error {
 				return e
 			}
 		}
-	} else if c == '[' {
+	case '[':
 		n := 0
 		for d.More() {
 			n++
@@ -207,7 +211,7 @@ func walk(d *json.Decoder, depth int) error {
 				return e
 			}
 		}
-	} else {
+	default:
 		return ErrDenied
 	}
 	_, e = d.Token()
@@ -425,17 +429,17 @@ func canonicalMutationFields(value any, destination reflect.Type) error {
 
 type Budget struct{ PerMinute, Burst int64 }
 
-var Defaults = map[string]Budget{"public-read": {120, 30}, "account-read": {600, 100}, "quote": {120, 20}, "account-write": {60, 10}}
+var Defaults = map[string]Budget{classPublicRead: {120, 30}, classAccountRead: {600, 100}, classQuote: {120, 20}, classAccountWrite: {60, 10}}
 
 func frozenBudget(class string) (Budget, bool) {
 	switch class {
-	case "public-read":
+	case classPublicRead:
 		return Budget{120, 30}, true
-	case "account-read":
+	case classAccountRead:
 		return Budget{600, 100}, true
-	case "quote":
+	case classQuote:
 		return Budget{120, 20}, true
-	case "account-write":
+	case classAccountWrite:
 		return Budget{60, 10}, true
 	default:
 		return Budget{}, false

@@ -20,11 +20,11 @@ func DecodeIdentityRequest(r io.Reader, dest any) error {
 	var required []string
 	switch dest.(type) {
 	case *ChallengeRequest:
-		required = []string{"wallet", "origin"}
+		required = []string{walletField, "origin"}
 	case *LoginRequest:
 		required = []string{"challengeId", "proof", "deviceLabel"}
 	case *WalletLinkChallengeRequest:
-		required = []string{"wallet", "chainId", "visibility"}
+		required = []string{walletField, "chainId", "visibility"}
 	case *WalletLinkVerifyRequest:
 		required = []string{"linkId", "challengeId", "proof"}
 	case *WalletLinkRemoveRequest:
@@ -62,11 +62,11 @@ func DecodeIdentityRequest(r io.Reader, dest any) error {
 			return invalid()
 		}
 		for k := range proof {
-			if k != "kind" && k != "wallet" && k != "signature" {
+			if k != "kind" && k != walletField && k != "signature" {
 				return identityError("FIELD_UNKNOWN", 422)
 			}
 		}
-		for _, k := range []string{"kind", "wallet", "signature"} {
+		for _, k := range []string{"kind", walletField, "signature"} {
 			v, ok := proof[k]
 			if !ok || bytes.Equal(v, []byte("null")) {
 				return invalid()
@@ -91,7 +91,7 @@ func DecodeIdentityRequest(r io.Reader, dest any) error {
 			return e
 		}
 		u, e := url.Parse(v.Origin)
-		if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || len(v.Origin) > 2048 {
+		if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || len(v.Origin) > 2048 {
 			return invalid()
 		}
 	case *LoginRequest:
@@ -103,7 +103,7 @@ func DecodeIdentityRequest(r io.Reader, dest any) error {
 		if _, e := normalizeWallet(v.Wallet); e != nil {
 			return e
 		}
-		if v.ChainID != "125" || (v.Visibility != "private" && v.Visibility != "public_optin") {
+		if v.ChainID != "125" || (v.Visibility != privateVisibility && v.Visibility != publicOptInVisibility) {
 			return invalid()
 		}
 	case *WalletLinkVerifyRequest:
@@ -129,7 +129,7 @@ func validateWalletProof(p WalletProof) error {
 		return invalid()
 	}
 	switch p.Kind {
-	case "eoa_eip191":
+	case eoaEIP191Method:
 		if len(p.Signature) != 132 {
 			return invalid()
 		}

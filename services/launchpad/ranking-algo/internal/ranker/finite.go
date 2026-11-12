@@ -39,11 +39,11 @@ func finiteScore(category string, p PoolStat) (float64, error) {
 		return math.Max(signedChange, 0), nil
 	case "losers":
 		return math.Max(-signedChange, 0), nil
-	case "trending":
+	case categoryTrending:
 		return math.Min(velocity, 10)/10*.4 + math.Min(float64(p.UniqueTraders24h)/50, 1)*.25 + math.Min(price/100, 1)*.2 + math.Min(trades/240, 1)*.15, nil
 	case "breakout":
 		return price / 100 * math.Log2(1+velocity) * math.Log2(math.Max(float64(p.HolderCount), 1)), nil
-	case "movers":
+	case categoryMovers:
 		cap, e := Decimal(p.MarketCap, false)
 		if e != nil || cap.Sign() == 0 {
 			return 0, fmt.Errorf("input-invalid: market-cap")
@@ -75,7 +75,7 @@ func finiteScore(category string, p PoolStat) (float64, error) {
 		return math.Min(short*12, 20)/20*.35 + math.Min(velocity, 10)/10*.25 + imbalance*.2 + math.Min(concentration/10, 1)*.2, nil
 	case "volume":
 		return BoundedRatio(p.Volume24h, "1", 1e12)
-	case "new":
+	case categoryNew:
 		return 0, nil
 	}
 	return 0, fmt.Errorf("input-invalid: category")

@@ -102,6 +102,13 @@ impl CommittedTrace {
 pub trait StepJudge {
     fn trace(&self) -> TraceCommitment;
     fn step_holds(&self, pre: &BoundaryProof, post: &BoundaryProof) -> bool;
+    fn initial_state_holds(&self, proof: &BoundaryProof) -> bool {
+        let trace = self.trace();
+        trace.open_leaf(proof).is_some_and(|leaf| {
+            ArbitrationStepCommitment::from_state(&leaf.arbitration)
+                .is_ok_and(|commitment| commitment.digest == trace.initial_state_root)
+        })
+    }
 }
 
 impl StepJudge for VerifiedMarketSandbox {
@@ -145,12 +152,23 @@ impl StepJudge for SandboxStepJudge<'_> {
     fn trace(&self) -> TraceCommitment {
         self.trace
     }
+    fn initial_state_holds(&self, proof: &BoundaryProof) -> bool {
+        let (Some(mut leaf), Ok(initial_memory)) = (
+            self.trace.open_leaf(proof),
+            self.module.initial_replay_memory(),
+        ) else {
+            return false;
+        };
+        leaf.rebuild_memory(&initial_memory).is_ok()
+            && ArbitrationStepCommitment::from_state(&leaf.arbitration)
+                .is_ok_and(|commitment| commitment.digest == self.trace.initial_state_root)
+    }
     fn step_holds(&self, pre: &BoundaryProof, post: &BoundaryProof) -> bool {
         let final_trap = pre == post && pre.index.checked_add(1) == Some(self.trace.boundary_count);
         if !final_trap && pre.index.checked_add(1) != Some(post.index) {
             return false;
         }
-        let (Some(before), Some(mut after)) =
+        let (Some(mut before), Some(mut after)) =
             (self.trace.open_leaf(pre), self.trace.open_leaf(post))
         else {
             return false;
@@ -169,6 +187,12 @@ impl StepJudge for SandboxStepJudge<'_> {
             return false;
         }
         if final_trap != before.trap.is_some() {
+            return false;
+        }
+        let Ok(initial_memory) = self.module.initial_replay_memory() else {
+            return false;
+        };
+        if before.rebuild_memory(&initial_memory).is_err() {
             return false;
         }
         let maximum = self.trace.maximum_bytes as usize;
@@ -379,7 +403,7 @@ impl<J: StepJudge> BisectionGame<J> {
         if proof.index != position {
             return Err(GameError::Proof);
         }
-        let leaf = self.trace.open_leaf(&proof).ok_or(GameError::Proof)?;
+        self.trace.open_leaf(&proof).ok_or(GameError::Proof)?;
         self.push(
             height,
             Party::Defender,
@@ -389,9 +413,7 @@ impl<J: StepJudge> BisectionGame<J> {
         );
         self.revealed.insert(position, proof);
         if position == 0 {
-            let initial = ArbitrationStepCommitment::from_state(&leaf.arbitration)
-                .map(|commitment| commitment.digest);
-            if initial != Ok(self.trace.initial_state_root) {
+            if !self.judge.initial_state_holds(&self.revealed[&position]) {
                 self.settle(height, ArbiterVerdict::Challenger, Reason::InitialState);
                 return Ok(());
             }
@@ -891,23 +913,67 @@ mod tests {
     fn dispute_over_host_call_isolates_the_storage_write_step() {
         let execution = Execution::run(&storage_guest(), "run");
         assert_eq!(execution.terminal_status, 0);
-        let call = execution
+        let changes: Vec<_> = execution
             .truth
             .windows(2)
-            .position(|pair| {
-                pair[0].arbitration.host_state_root != pair[1].arbitration.host_state_root
+            .enumerate()
+            .filter_map(|(index, pair)| {
+                (pair[1].arbitration.legacy.metered_usage.storage_write_bytes
+                    > pair[0].arbitration.legacy.metered_usage.storage_write_bytes)
+                    .then_some(index + 1)
             })
-            .expect("storage write host call changes host state")
-            + 1;
+            .collect();
+        assert_eq!(changes.len(), 1, "one metered storage write");
+        let call = changes[0];
         let honest = execution
             .commit(execution.leaves.clone())
             .expect("honest trace");
         let pre = honest.proof(call as u32 - 1).expect("host call pre");
         let post = honest.proof(call as u32).expect("host call post");
         let mut game = execution.game(&honest);
+        let mut before = game.trace().open_leaf(&pre).expect("opened host call pre");
+        let after = game
+            .trace()
+            .open_leaf(&post)
+            .expect("opened host call post");
+        assert_ne!(
+            before.arbitration.host_state_root,
+            after.arbitration.host_state_root
+        );
+        assert!(
+            after.arbitration.legacy.metered_usage.storage_write_bytes
+                > before.arbitration.legacy.metered_usage.storage_write_bytes
+        );
+        assert_eq!(before.header, after.header);
+        let initial_memory = execution
+            .module
+            .initial_replay_memory()
+            .expect("initial memory");
+        before
+            .rebuild_memory(&initial_memory)
+            .expect("opened storage write memory");
+        let observed = observe_market_sandbox_step(
+            &execution.module,
+            &before,
+            &execution.authority,
+            MAX_BYTES as usize,
+        )
+        .expect("replayed storage write step");
+        assert_eq!(
+            observed
+                .reencode_untrusted(MAX_BYTES as usize)
+                .expect("replayed storage write boundary"),
+            after
+                .reencode_untrusted(MAX_BYTES as usize)
+                .expect("committed storage write boundary")
+        );
         assert!(game.judge.step_holds(&pre, &post));
         let settlement = play(&mut game, &honest, |position, _| position < call as u32);
-        assert_eq!(settlement.verdict, ArbiterVerdict::Provider);
+        assert_eq!(
+            settlement.verdict,
+            ArbiterVerdict::Provider,
+            "{settlement:?}"
+        );
         assert_eq!(settlement.reason, Reason::Step);
         assert_eq!(
             (settlement.lo, settlement.hi),

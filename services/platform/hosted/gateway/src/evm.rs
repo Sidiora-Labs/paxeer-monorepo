@@ -14,7 +14,16 @@ pub const EVM_NAMESPACES: [&str; 3] = ["eth_", "net_", "web3_"];
 /// Node-side signing and account methods the public endpoint never relays.
 /// A hosted node holds no caller keys, so answering these would either lie or
 /// expose the operator's accounts.
-pub const NODE_SIGNING_METHODS: [&str; 8] = ["eth_accounts", "eth_coinbase", "eth_sendTransaction", "eth_sign", "eth_signTransaction", "eth_signTypedData", "eth_signTypedData_v4", "eth_mining"];
+pub const NODE_SIGNING_METHODS: [&str; 8] = [
+    "eth_accounts",
+    "eth_coinbase",
+    "eth_sendTransaction",
+    "eth_sign",
+    "eth_signTransaction",
+    "eth_signTypedData",
+    "eth_signTypedData_v4",
+    "eth_mining",
+];
 
 /// Subscription methods that need a live upstream socket rather than the
 /// request/response relay.
@@ -76,7 +85,9 @@ pub const MAX_ABI_STRING_BYTES: usize = 4096;
 /// the endpoint is willing to relay it.
 #[must_use]
 pub fn is_evm_namespace(method: &str) -> bool {
-    EVM_NAMESPACES.iter().any(|namespace| method.starts_with(namespace))
+    EVM_NAMESPACES
+        .iter()
+        .any(|namespace| method.starts_with(namespace))
 }
 
 /// True when the unified endpoint forwards the method to the Paxeer node.
@@ -84,7 +95,13 @@ pub fn is_evm_namespace(method: &str) -> bool {
 /// here rather than at the node.
 #[must_use]
 pub fn relayable_method(method: &str) -> bool {
-    if method.len() > MAX_METHOD_BYTES || !method.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_') || NODE_SIGNING_METHODS.contains(&method) || SUBSCRIPTION_METHODS.contains(&method) {
+    if method.len() > MAX_METHOD_BYTES
+        || !method
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        || NODE_SIGNING_METHODS.contains(&method)
+        || SUBSCRIPTION_METHODS.contains(&method)
+    {
         return false;
     }
     is_evm_namespace(method) || SEQUENCER_METHODS.contains(&method)
@@ -299,17 +316,24 @@ impl<'a> Answer<'a> {
         if start % 32 != 0 {
             return Err(AbiError::Offset);
         }
-        let length = usize::try_from(Self::new(self.bytes.get(start..).ok_or(AbiError::Offset)?).u64(0)?).map_err(|_| AbiError::Offset)?;
+        let length =
+            usize::try_from(Self::new(self.bytes.get(start..).ok_or(AbiError::Offset)?).u64(0)?)
+                .map_err(|_| AbiError::Offset)?;
         if length > MAX_ABI_STRING_BYTES {
             return Err(AbiError::Text);
         }
         let text_start = start.checked_add(32).ok_or(AbiError::Offset)?;
         let text_end = text_start.checked_add(length).ok_or(AbiError::Offset)?;
-        let padded = text_end.checked_add((32 - length % 32) % 32).ok_or(AbiError::Offset)?;
+        let padded = text_end
+            .checked_add((32 - length % 32) % 32)
+            .ok_or(AbiError::Offset)?;
         if self.bytes.len() < padded {
             return Err(AbiError::Truncated);
         }
-        let text = self.bytes.get(text_start..text_end).ok_or(AbiError::Truncated)?;
+        let text = self
+            .bytes
+            .get(text_start..text_end)
+            .ok_or(AbiError::Truncated)?;
         Ok(text.to_vec())
     }
 }
@@ -512,18 +536,34 @@ mod tests {
     use serde_json::Value;
 
     fn vectors() -> Value {
-        serde_json::from_slice(include_bytes!("../tests/fixtures/paxeer-abi-vectors.json")).unwrap_or_else(|error| panic!("{error}"))
+        serde_json::from_slice(include_bytes!("../tests/fixtures/paxeer-abi-vectors.json"))
+            .unwrap_or_else(|error| panic!("{error}"))
     }
 
     fn bytes(text: &str) -> Vec<u8> {
-        (0..text.len() / 2).map(|index| u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).unwrap_or_else(|error| panic!("{error}"))).collect()
+        (0..text.len() / 2)
+            .map(|index| {
+                u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                    .unwrap_or_else(|error| panic!("{error}"))
+            })
+            .collect()
     }
 
     fn case(name: &str) -> (Vec<u8>, Vec<u8>, Value) {
         let document = vectors();
-        let cases = document["cases"].as_array().unwrap_or_else(|| panic!("cases missing")).clone();
-        let found = cases.into_iter().find(|case| case["name"] == name).unwrap_or_else(|| panic!("{name} missing"));
-        (bytes(found["calldata"].as_str().unwrap_or_default()), bytes(found["result"].as_str().unwrap_or_default()), found["out"].clone())
+        let cases = document["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("cases missing"))
+            .clone();
+        let found = cases
+            .into_iter()
+            .find(|case| case["name"] == name)
+            .unwrap_or_else(|| panic!("{name} missing"));
+        (
+            bytes(found["calldata"].as_str().unwrap_or_default()),
+            bytes(found["result"].as_str().unwrap_or_default()),
+            found["out"].clone(),
+        )
     }
 
     fn word32(text: &str) -> [u8; 32] {
@@ -535,10 +575,19 @@ mod tests {
     #[test]
     fn merged_construct_addresses_are_exact() {
         for (address, expected) in [
-            (LEDGER_PRECOMPILE, "0x000000000000000000000000000000000000101a"),
+            (
+                LEDGER_PRECOMPILE,
+                "0x000000000000000000000000000000000000101a",
+            ),
             (PAY_PRECOMPILE, "0x000000000000000000000000000000000000101b"),
-            (AUTH_PRECOMPILE, "0x000000000000000000000000000000000000101c"),
-            (PROGRAMS_PRECOMPILE, "0x000000000000000000000000000000000000101d"),
+            (
+                AUTH_PRECOMPILE,
+                "0x000000000000000000000000000000000000101c",
+            ),
+            (
+                PROGRAMS_PRECOMPILE,
+                "0x000000000000000000000000000000000000101d",
+            ),
         ] {
             assert_eq!(address_hex(&address), expected);
         }
@@ -547,10 +596,16 @@ mod tests {
     #[test]
     fn all_balances_answer_decodes_exactly() {
         let (calldata, result, out) = case("bank.all_balances");
-        let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b").unwrap_or_else(|| panic!("address"));
-        assert_eq!(calldata_address(SELECTOR_BANK_ALL_BALANCES, &account), calldata);
+        let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
+            .unwrap_or_else(|| panic!("address"));
+        assert_eq!(
+            calldata_address(SELECTOR_BANK_ALL_BALANCES, &account),
+            calldata
+        );
         let coins = decode_coins(&result).unwrap_or_else(|error| panic!("{error:?}"));
-        let expected = out["response"].as_array().unwrap_or_else(|| panic!("coins"));
+        let expected = out["response"]
+            .as_array()
+            .unwrap_or_else(|| panic!("coins"));
         assert_eq!(expected.len(), 2);
         assert_eq!(coins.len(), expected.len());
         for ((denom, amount), expected) in coins.iter().zip(expected) {
@@ -589,7 +644,9 @@ mod tests {
     #[test]
     fn precompile_addresses_and_selectors_match_the_generated_vectors() {
         let document = vectors();
-        let precompiles = document["precompiles"].as_object().unwrap_or_else(|| panic!("precompiles missing"));
+        let precompiles = document["precompiles"]
+            .as_object()
+            .unwrap_or_else(|| panic!("precompiles missing"));
         for retired in ["custody", "anchor"] {
             assert!(!precompiles.contains_key(retired), "{retired}");
         }
@@ -608,11 +665,17 @@ mod tests {
         for (name, address) in addresses {
             assert_eq!(precompiles[name], address_hex(&address), "{name}");
         }
-        let cases = document["cases"].as_array().unwrap_or_else(|| panic!("cases missing"));
+        let cases = document["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("cases missing"));
         assert_eq!(cases.len(), 6);
         for vector in cases {
-            let contract = vector["contract"].as_str().unwrap_or_else(|| panic!("contract missing"));
-            let name = vector["name"].as_str().unwrap_or_else(|| panic!("name missing"));
+            let contract = vector["contract"]
+                .as_str()
+                .unwrap_or_else(|| panic!("contract missing"));
+            let name = vector["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("name missing"));
             assert!(matches!(contract, "addr" | "bank"), "{contract}");
             assert!(name.starts_with(&format!("{contract}.")), "{name}");
         }
@@ -626,12 +689,20 @@ mod tests {
         ] {
             let (calldata, _, _) = case(name);
             assert_eq!(calldata.get(..4), Some(selector.as_slice()), "{name}");
-            let vector = cases.iter().find(|vector| vector["name"] == name).unwrap_or_else(|| panic!("{name} missing"));
+            let vector = cases
+                .iter()
+                .find(|vector| vector["name"] == name)
+                .unwrap_or_else(|| panic!("{name} missing"));
             assert_eq!(vector["selector"], hex_lower(&selector), "{name}");
         }
-        let selectors = document["selectors"].as_object().unwrap_or_else(|| panic!("selectors missing"));
+        let selectors = document["selectors"]
+            .as_object()
+            .unwrap_or_else(|| panic!("selectors missing"));
         for name in selectors.keys() {
-            assert!(!name.starts_with("custody.") && !name.starts_with("anchor."), "{name}");
+            assert!(
+                !name.starts_with("custody.") && !name.starts_with("anchor."),
+                "{name}"
+            );
         }
         assert_eq!(selectors.len(), 5);
         for (name, selector) in [
@@ -647,15 +718,34 @@ mod tests {
 
     #[test]
     fn calldata_matches_the_go_ethereum_encoding() {
-        let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b").unwrap_or_else(|| panic!("address"));
+        let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
+            .unwrap_or_else(|| panic!("address"));
         let did = [0x61_u8; 32];
         for (name, calldata) in [
-            ("addr.getUnifiedAccount", calldata_address(SELECTOR_GET_UNIFIED_ACCOUNT, &account)),
-            ("addr.getLayerXDid", calldata_address(SELECTOR_GET_LAYERX_DID, &account)),
-            ("addr.getEvmAddrByLayerX", calldata_word(SELECTOR_GET_EVM_ADDR_BY_LAYERX, &did)),
-            ("addr.layerXBindNonce", calldata_address(SELECTOR_LAYERX_BIND_NONCE, &account)),
-            ("bank.balance", calldata_address_string(SELECTOR_BANK_BALANCE, &account, "ulxp")),
-            ("bank.all_balances", calldata_address(SELECTOR_BANK_ALL_BALANCES, &account)),
+            (
+                "addr.getUnifiedAccount",
+                calldata_address(SELECTOR_GET_UNIFIED_ACCOUNT, &account),
+            ),
+            (
+                "addr.getLayerXDid",
+                calldata_address(SELECTOR_GET_LAYERX_DID, &account),
+            ),
+            (
+                "addr.getEvmAddrByLayerX",
+                calldata_word(SELECTOR_GET_EVM_ADDR_BY_LAYERX, &did),
+            ),
+            (
+                "addr.layerXBindNonce",
+                calldata_address(SELECTOR_LAYERX_BIND_NONCE, &account),
+            ),
+            (
+                "bank.balance",
+                calldata_address_string(SELECTOR_BANK_BALANCE, &account, "ulxp"),
+            ),
+            (
+                "bank.all_balances",
+                calldata_address(SELECTOR_BANK_ALL_BALANCES, &account),
+            ),
         ] {
             let (expected, _, _) = case(name);
             assert_eq!(calldata, expected, "{name}");
@@ -668,8 +758,14 @@ mod tests {
         let account = decode_unified_account(&result).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(address_hex(&account.evm), out["evm"]);
         assert_eq!(Value::String(account.pax_address), out["paxAddr"]);
-        assert_eq!(Value::String(hex_lower(&account.did_public_key)), out["didPublicKey"]);
-        assert_eq!(Value::String(hex_lower(&account.layerx_main_account_id)), out["layerxMainAccountId"]);
+        assert_eq!(
+            Value::String(hex_lower(&account.did_public_key)),
+            out["didPublicKey"]
+        );
+        assert_eq!(
+            Value::String(hex_lower(&account.layerx_main_account_id)),
+            out["layerxMainAccountId"]
+        );
         let (_, result, out) = case("addr.getLayerXDid");
         let (key, did) = decode_layerx_did(&result).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(Value::String(hex_lower(&key)), out["didPublicKey"]);
@@ -703,7 +799,10 @@ mod tests {
         assert_eq!(uint256_decimal(&[0_u8; 32]), "0");
         assert_eq!(uint256_quantity(&[0_u8; 32]), "0x0");
         assert_eq!(uint256_decimal(&word32(&"ff".repeat(32))), u256_max());
-        assert_eq!(uint256_quantity(&word32(&"ff".repeat(32))), format!("0x{}", "ff".repeat(32)));
+        assert_eq!(
+            uint256_quantity(&word32(&"ff".repeat(32))),
+            format!("0x{}", "ff".repeat(32))
+        );
         let mut one = [0_u8; 32];
         one[31] = 1;
         assert_eq!(uint256_quantity(&one), "0x1");
@@ -711,7 +810,10 @@ mod tests {
         let mut sixteen = [0_u8; 32];
         sixteen[31] = 16;
         assert_eq!(uint256_quantity(&sixteen), "0x10");
-        assert_eq!(parse_address("0x00000000000000000000000000000000000000a1"), Some([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa1]));
+        assert_eq!(
+            parse_address("0x00000000000000000000000000000000000000a1"),
+            Some([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xa1])
+        );
         for invalid in ["0x", "0xzz", "00", &"ab".repeat(21)] {
             assert_eq!(parse_address(invalid), None);
         }
@@ -724,14 +826,27 @@ mod tests {
     #[test]
     fn sequencer_receipt_is_the_only_relayed_pax_name() {
         assert!(relayable_method("pax_sequencerReceipt"));
-        for method in ["pax_other", "pax_", "pax_sequencerReceipt_other", "pax_sequencerreceipt", "eth_sign"] {
+        for method in [
+            "pax_other",
+            "pax_",
+            "pax_sequencerReceipt_other",
+            "pax_sequencerreceipt",
+            "eth_sign",
+        ] {
             assert!(!relayable_method(method), "{method}");
         }
     }
 
     #[test]
     fn relayed_methods_exclude_node_signing_and_subscriptions() {
-        for method in ["eth_blockNumber", "eth_call", "eth_sendRawTransaction", "eth_getBalance", "net_version", "web3_clientVersion"] {
+        for method in [
+            "eth_blockNumber",
+            "eth_call",
+            "eth_sendRawTransaction",
+            "eth_getBalance",
+            "net_version",
+            "web3_clientVersion",
+        ] {
             assert!(relayable_method(method), "{method}");
         }
         for method in [
@@ -762,7 +877,10 @@ mod tests {
         assert_eq!(decode_u64(&[0_u8; 31]), Err(AbiError::Truncated));
         assert_eq!(decode_u64(&[0xff_u8; 32]), Err(AbiError::Width));
         assert_eq!(decode_address(&[0xff_u8; 32]), Err(AbiError::Width));
-        assert_eq!(decode_unified_account(&[0_u8; 32]), Err(AbiError::Truncated));
+        assert_eq!(
+            decode_unified_account(&[0_u8; 32]),
+            Err(AbiError::Truncated)
+        );
         let mut outside = [0_u8; 32];
         outside[31] = 64;
         assert_eq!(Answer::new(&outside).string(0, 0), Err(AbiError::Offset));
@@ -773,6 +891,9 @@ mod tests {
         non_boolean[63] = 2;
         assert_eq!(Answer::new(&non_boolean).bool(1), Err(AbiError::Width));
         let (_, result, _) = case("addr.getUnifiedAccount");
-        assert_eq!(decode_unified_account(&result[..result.len() - 32]), Err(AbiError::Truncated));
+        assert_eq!(
+            decode_unified_account(&result[..result.len() - 32]),
+            Err(AbiError::Truncated)
+        );
     }
 }

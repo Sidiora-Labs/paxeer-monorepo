@@ -59,9 +59,9 @@ func (h DevelopmentHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Re
 	}
 	mode := q.Get("mode")
 	if mode == "" {
-		mode = "price"
+		mode = modePrice
 	}
-	if len(q["mode"]) > 1 || (mode != "price" && mode != "total_supply_valuation") {
+	if len(q["mode"]) > 1 || (mode != modePrice && mode != modeTotalSupplyValuation) {
 		historyError(w, 422, "FIELD_INVALID", "unsupported chart mode", false)
 		return
 	}
@@ -117,7 +117,7 @@ func developmentSnapshotID(r HistoryRequest, rows []store.CandleRow) string {
 // developmentValuationHistory renders stored candles into the document
 // valuationHistory renders for a canonical page whose supply cannot be bound.
 func developmentValuationHistory(r HistoryRequest, rows []store.CandleRow, mode string) ([]byte, error) {
-	if mode != "price" && mode != "total_supply_valuation" {
+	if mode != modePrice && mode != modeTotalSupplyValuation {
 		return nil, errors.New("invalid valuation mode")
 	}
 	ordered := append([]store.CandleRow(nil), rows...)
@@ -144,11 +144,11 @@ func developmentValuationHistory(r HistoryRequest, rows []store.CandleRow, mode 
 			}
 			values[i] = append(values[i], v)
 		}
-		valuations = append(valuations, map[string]any{"available": false, "valuationBasis": "total_supply_valuation", "reason": developmentSupplyUnavailable})
+		valuations = append(valuations, map[string]any{fieldAvailable: false, fieldValuationBasis: modeTotalSupplyValuation, fieldReason: developmentSupplyUnavailable})
 	}
 	available := len(bars) == 0
-	body := map[string]any{"s": "ok", "t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3], "v": values[4], "mode": mode, "valuationBasis": "total_supply_valuation", "valuationAvailable": available, "valuations": valuations, "snapshotId": developmentSnapshotID(r, ordered), "algorithmVersion": DevelopmentSeriesModelVersion, "watermark": nil}
-	if mode == "total_supply_valuation" && available {
+	body := map[string]any{"s": "ok", "t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3], "v": values[4], "mode": mode, fieldValuationBasis: modeTotalSupplyValuation, "valuationAvailable": available, "valuations": valuations, "snapshotId": developmentSnapshotID(r, ordered), "algorithmVersion": DevelopmentSeriesModelVersion, "watermark": nil}
+	if mode == modeTotalSupplyValuation && available {
 		// Production substitutes the valued series, which are nil (JSON null)
 		// when there are no bars to value.
 		for _, key := range []string{"o", "h", "l", "c"} {
@@ -156,10 +156,10 @@ func developmentValuationHistory(r HistoryRequest, rows []store.CandleRow, mode 
 		}
 	}
 	if len(times) == 0 {
-		body["s"] = "no_data"
+		body["s"] = statusNoData
 	}
-	if mode == "total_supply_valuation" && !available {
-		body["s"] = "unavailable"
+	if mode == modeTotalSupplyValuation && !available {
+		body["s"] = statusUnavailable
 		body["priceHistory"] = map[string]any{"t": times, "o": values[0], "h": values[1], "l": values[2], "c": values[3]}
 		delete(body, "o")
 		delete(body, "h")

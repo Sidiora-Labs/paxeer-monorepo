@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -177,14 +179,14 @@ func RunMediaEnvelope(ctx context.Context, config EnvelopeConfig) (EnvelopeResul
 	if e != nil {
 		return EnvelopeResult{Scope: config.Scope, Blockers: []string{e.Error()}, SharedReleaseQualified: false}, e
 	}
-	defer r.root.Close()
-	defer r.raw.Close()
-	defer r.resources.Close()
-	defer r.events.Close()
+	defer cleanup.Close(r.root)
+	defer cleanup.Close(r.raw)
+	defer cleanup.Close(r.resources)
+	defer cleanup.Close(r.events)
 	defer r.client.CloseIdleConnections()
 	r.result.Started = time.Now().UTC()
-	r.event(map[string]any{"type": "unlicensed_fixture_rejected_before_requests", "at": r.result.Started, "fixtureSha256": config.Release.Fixtures[0].SHA256})
-	r.event(map[string]any{"type": "provider_quota_cost_retention_binding", "at": r.result.Started, "snapshotSha256": config.ProviderSnapshot.SHA256, "providerAccount": config.Release.ProviderAccount})
+	r.event(map[string]any{eventTypeField: "unlicensed_fixture_rejected_before_requests", "at": r.result.Started, "fixtureSha256": config.Release.Fixtures[0].SHA256})
+	r.event(map[string]any{eventTypeField: "provider_quota_cost_retention_binding", "at": r.result.Started, "snapshotSha256": config.ProviderSnapshot.SHA256, "providerAccount": config.Release.ProviderAccount})
 	runErr := r.run(ctx)
 	r.result.Ended = time.Now().UTC()
 	r.result.Distributions = r.aggregate.SnapshotDistributions()
@@ -223,20 +225,20 @@ func RunMediaEnvelope(ctx context.Context, config EnvelopeConfig) (EnvelopeResul
 	if r.writeError != nil {
 		r.result.Blockers = append(r.result.Blockers, "raw_capture_failed")
 	}
-	for _, name := range []string{"origin", "metadata", "cdn"} {
+	for _, name := range []string{originServiceName, metadataServiceName, cdnServiceName} {
 		d := r.result.Distributions[name]
 		if d.Count == 0 || d.Succeeded == 0 {
 			r.result.Blockers = append(r.result.Blockers, name+"_no_successful_samples")
 			continue
 		}
-		assigned := map[string]int{"origin": r.allocation.OriginRPS, "metadata": r.allocation.MetadataRPS, "cdn": r.allocation.CDNRPS}[name]
+		assigned := map[string]int{originServiceName: r.allocation.OriginRPS, metadataServiceName: r.allocation.MetadataRPS, cdnServiceName: r.allocation.CDNRPS}[name]
 		if r.result.SuccessfulRPS[name] < float64(assigned)*(1-config.MaxFailureRatio) {
 			r.result.Blockers = append(r.result.Blockers, name+"_assigned_throughput_unmet")
 		}
 		if float64(d.Failed)/float64(d.Count) > config.MaxFailureRatio {
 			r.result.Blockers = append(r.result.Blockers, name+"_failure_budget_exceeded")
 		}
-		if (name == "origin" && (d.P95UpperBoundMS > 150 || d.P99UpperBoundMS > 400)) || (name == "metadata" && d.P99UpperBoundMS > 400) {
+		if (name == originServiceName && (d.P95UpperBoundMS > 150 || d.P99UpperBoundMS > 400)) || (name == metadataServiceName && d.P99UpperBoundMS > 400) {
 			r.result.Blockers = append(r.result.Blockers, name+"_latency_bound_exceeded")
 		}
 	}
@@ -246,7 +248,7 @@ func RunMediaEnvelope(ctx context.Context, config EnvelopeConfig) (EnvelopeResul
 	if r.result.HeldUploadConnections != 200 {
 		r.result.Blockers = append(r.result.Blockers, "required_200_held_connections_unobserved")
 	}
-	if config.Scope == "shared-release" {
+	if config.Scope == sharedReleaseClass {
 		r.result.Blockers = append(r.result.Blockers, "shared_load_restore_and_cdn_viewer_authority_requires_serial_release_gate")
 	}
 	encoded, e := json.MarshalIndent(r.result, "", "  ")
@@ -275,13 +277,13 @@ func RunMediaEnvelope(ctx context.Context, config EnvelopeConfig) (EnvelopeResul
 }
 
 func prepareMediaEnvelope(c EnvelopeConfig) (*envelopeRunner, error) {
-	if c.Scope != "lane-measurement" && c.Scope != "shared-release" {
+	if c.Scope != "lane-measurement" && c.Scope != sharedReleaseClass {
 		return nil, errors.New("measurement_scope_required")
 	}
 	if !digest.MatchString(c.CandidateSHA256) || len(c.SourceFiles) == 0 || c.CandidateManifest.SHA256 != c.CandidateSHA256 || c.PlaybackSeconds < 1 || c.PlaybackSeconds > 60 || c.DurationSeconds < 30 || c.DurationSeconds > 7*86400 || c.ReadWorkers < 3 || c.ReadWorkers > 256 || c.MaxResidentBytes <= 0 || c.MaxGoroutines <= 0 || c.MaxFailureRatio < 0 || c.MaxFailureRatio > 0.001 || c.OutputDirectory == "" {
 		return nil, errors.New("measurement_budget_or_candidate_missing")
 	}
-	if c.Scope == "shared-release" && c.DurationSeconds < 24*3600 {
+	if c.Scope == sharedReleaseClass && c.DurationSeconds < 24*3600 {
 		return nil, errors.New("shared_profile_requires_24h")
 	}
 	if e := ValidateMediaReleaseInputs(c.Release, time.Now()); e != nil {
@@ -347,7 +349,7 @@ func prepareMediaEnvelope(c EnvelopeConfig) (*envelopeRunner, error) {
 		if target.ExpectedStatus != 200 {
 			return nil, errors.New("load_reads_must_expect_actual_success")
 		}
-		if target.Class != "origin" && target.Class != "metadata" && target.Class != "cdn" {
+		if target.Class != originServiceName && target.Class != metadataServiceName && target.Class != cdnServiceName {
 			return nil, errors.New("read_target_class_invalid")
 		}
 		if e = validateEnvelopeTarget(c, target); e != nil {
@@ -358,19 +360,19 @@ func prepareMediaEnvelope(c EnvelopeConfig) (*envelopeRunner, error) {
 		}
 		ids[target.ID] = true
 		classes[target.Class]++
-		if target.Class == "cdn" && target.ID == c.PlaybackTargetID && len(target.HeaderEnvironment) == 0 && len(target.Headers) == 0 {
+		if target.Class == cdnServiceName && target.ID == c.PlaybackTargetID && len(target.HeaderEnvironment) == 0 && len(target.Headers) == 0 {
 			playbackFound = true
 		}
 	}
 	if !playbackFound {
 		return nil, errors.New("licensed_public_cdn_playback_target_required")
 	}
-	if classes["origin"] == 0 || classes["metadata"] == 0 || classes["cdn"] == 0 || len(c.SlowUploads) != 200 {
+	if classes[originServiceName] == 0 || classes[metadataServiceName] == 0 || classes[cdnServiceName] == 0 || len(c.SlowUploads) != 200 {
 		return nil, errors.New("complete_media_target_topology_required")
 	}
 	wallets := map[string]int{}
 	for _, target := range c.SlowUploads {
-		if target.Class != "upload" || !regexpWallet(target.Wallet) {
+		if target.Class != uploadKind || !regexpWallet(target.Wallet) {
 			return nil, errors.New("authenticated_upload_wallet_required")
 		}
 		if e = validateEnvelopeTarget(c, target); e != nil {
@@ -418,7 +420,7 @@ func prepareMediaEnvelope(c EnvelopeConfig) (*envelopeRunner, error) {
 			if e = validateEnvelopeTarget(c, probe.Target); e != nil {
 				return nil, e
 			}
-			if probe.Method != "GET" && probe.Method != "HEAD" && probe.Method != "PUT" && probe.Method != "POST" {
+			if probe.Method != "GET" && probe.Method != "HEAD" && probe.Method != putMethod && probe.Method != "POST" {
 				return nil, ErrConflict
 			}
 		}
@@ -442,20 +444,20 @@ func prepareMediaEnvelope(c EnvelopeConfig) (*envelopeRunner, error) {
 	}
 	samples, e := root.OpenFile("requests.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if e != nil {
-		root.Close()
+		cleanup.Close(root)
 		return nil, e
 	}
 	resources, e := root.OpenFile("resources.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if e != nil {
-		samples.Close()
-		root.Close()
+		cleanup.Close(samples)
+		cleanup.Close(root)
 		return nil, e
 	}
 	events, e := root.OpenFile("events.jsonl", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if e != nil {
-		resources.Close()
-		samples.Close()
-		root.Close()
+		cleanup.Close(resources)
+		cleanup.Close(samples)
+		cleanup.Close(root)
 		return nil, e
 	}
 	return &envelopeRunner{config: c, allocation: allocation, client: client, tlsConfig: tlsConfig, aggregate: NewEnvelopeAccumulator(), raw: samples, resources: resources, events: events, root: root, result: EnvelopeResult{Scope: c.Scope, CandidateSHA256: c.CandidateSHA256, InterfaceSHA256: c.InterfaceManifest.SHA256, AllocationSHA256: c.Allocation.SHA256, ProviderAccount: c.Release.ProviderAccount, QuotaSHA256: c.Release.QuotaConfirmationSHA256, ProviderSnapshotSHA256: c.ProviderSnapshot.SHA256, SourceFiles: c.SourceFiles, FixtureProvenance: c.Release.Fixtures, ScenarioResults: map[int]string{8: "unlicensed_fixture_rejected_before_network_requests"}, Artifacts: map[string]string{}, Blockers: []string{}}}, nil
@@ -466,7 +468,7 @@ func regexpWallet(wallet string) bool {
 		return false
 	}
 	for _, c := range wallet[2:] {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -474,7 +476,7 @@ func regexpWallet(wallet string) bool {
 }
 func secureEnvelopeURL(value string) (*url.URL, error) {
 	u, e := url.Parse(value)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return nil, errors.New("explicit_https_target_required")
 	}
 	return u, nil
@@ -487,7 +489,7 @@ func readEnvelopeFile(file EnvelopeFile, limit int64) ([]byte, error) {
 	if e != nil {
 		return nil, errors.New("evidence_source_missing")
 	}
-	defer f.Close()
+	defer cleanup.Close(f)
 	info, e := f.Stat()
 	if e != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > limit {
 		return nil, errors.New("evidence_source_invalid")
@@ -520,12 +522,12 @@ func licensedEnvelopeBytes(c EnvelopeConfig, path string) ([]byte, error) {
 			if e != nil {
 				return nil, e
 			}
-			defer root.Close()
+			defer cleanup.Close(root)
 			file, e := root.Open(path)
 			if e != nil {
 				return nil, e
 			}
-			defer file.Close()
+			defer cleanup.Close(file)
 			raw, e := io.ReadAll(io.LimitReader(file, (64<<20)+1))
 			if e != nil || len(raw) > 64<<20 {
 				return nil, ErrConflict
@@ -556,7 +558,7 @@ func validateEnvelopeTarget(c EnvelopeConfig, t EnvelopeTarget) error {
 			return errors.New("inline_credentials_denied")
 		}
 	}
-	if t.ExpectedSHA256 != "" || t.Class == "origin" || t.Class == "cdn" {
+	if t.ExpectedSHA256 != "" || t.Class == originServiceName || t.Class == cdnServiceName {
 		if !digest.MatchString(t.ExpectedSHA256) {
 			return errors.New("approved_response_digest_missing")
 		}
@@ -598,15 +600,15 @@ func (r *envelopeRunner) capture(sample EnvelopeSample) {
 	if e := json.NewEncoder(r.raw).Encode(sample); e != nil && r.writeError == nil {
 		r.writeError = e
 	}
-	accepted := sample.Outcome == "accepted"
-	if sample.Class == "origin" || sample.Class == "metadata" || sample.Class == "cdn" || sample.Class == "upload" {
+	accepted := sample.Outcome == acceptedState
+	if sample.Class == originServiceName || sample.Class == metadataServiceName || sample.Class == cdnServiceName || sample.Class == uploadKind {
 		if e := r.aggregate.Observe(sample.Class, time.Duration(sample.LatencyNS), sample.Status, sample.Bytes, accepted); e != nil && r.writeError == nil {
 			r.writeError = e
 		}
 	}
 }
 func (r *envelopeRunner) request(ctx context.Context, target EnvelopeTarget, method string) ([]byte, http.Header, EnvelopeSample, error) {
-	sample := EnvelopeSample{ID: uuid.NewString(), TargetID: target.ID, Class: target.Class, Started: time.Now().UTC(), Outcome: "failed"}
+	sample := EnvelopeSample{ID: uuid.NewString(), TargetID: target.ID, Class: target.Class, Started: time.Now().UTC(), Outcome: failedState}
 	started := time.Now()
 	finish := func() {
 		sample.Ended = time.Now().UTC()
@@ -623,7 +625,7 @@ func (r *envelopeRunner) request(ctx context.Context, target EnvelopeTarget, met
 		}
 	}
 	timeout := 3 * time.Second
-	if method == "PUT" || method == "POST" {
+	if method == putMethod || method == "POST" {
 		timeout = 10 * time.Second
 	}
 	bounded, cancel := context.WithTimeout(ctx, timeout)
@@ -644,11 +646,15 @@ func (r *envelopeRunner) request(ctx context.Context, target EnvelopeTarget, met
 		finish()
 		return nil, nil, sample, errors.New("target_transport_failed")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	sample.Status = response.StatusCode
 	var raw []byte
 	hash := sha256.New()
-	if target.Class == "origin" || target.Class == "cdn" {
+	if target.Class == originServiceName || target.Class == cdnServiceName {
 		sample.Bytes, e = io.Copy(hash, io.LimitReader(response.Body, (64<<20)+1))
 	} else {
 		raw, e = io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
@@ -668,7 +674,7 @@ func (r *envelopeRunner) request(ctx context.Context, target EnvelopeTarget, met
 		return raw, response.Header, sample, errors.New("target_response_mismatch")
 	}
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
-		sample.Outcome = "accepted"
+		sample.Outcome = acceptedState
 	} else {
 		sample.Outcome = "expected_rejection"
 	}
@@ -724,7 +730,7 @@ func (r *envelopeRunner) run(ctx context.Context) error {
 	var group sync.WaitGroup
 	errs := make(chan error, 16)
 	slots := make(chan struct{}, r.config.ReadWorkers)
-	for class, rate := range map[string]int{"origin": r.allocation.OriginRPS, "metadata": r.allocation.MetadataRPS, "cdn": r.allocation.CDNRPS} {
+	for class, rate := range map[string]int{originServiceName: r.allocation.OriginRPS, metadataServiceName: r.allocation.MetadataRPS, cdnServiceName: r.allocation.CDNRPS} {
 		targets := []EnvelopeTarget{}
 		for _, target := range r.config.Targets {
 			if target.Class == class {
@@ -831,7 +837,7 @@ func (r *envelopeRunner) run(ctx context.Context) error {
 	var scenarioErrors error
 	for _, test := range r.config.Cases {
 		if e := r.runCase(ctx, test); e != nil {
-			r.result.ScenarioResults[test.ID] = "failed"
+			r.result.ScenarioResults[test.ID] = failedState
 			scenarioErrors = errors.Join(scenarioErrors, fmt.Errorf("scenario_%d_failed", test.ID))
 			if ctx.Err() != nil {
 				break
@@ -844,7 +850,7 @@ func (r *envelopeRunner) run(ctx context.Context) error {
 }
 
 func (r *envelopeRunner) slowUpload(ctx context.Context, target EnvelopeTarget, ready chan<- struct{}) error {
-	sample := EnvelopeSample{ID: uuid.NewString(), TargetID: target.ID, Class: "upload", Started: time.Now().UTC(), Outcome: "failed"}
+	sample := EnvelopeSample{ID: uuid.NewString(), TargetID: target.ID, Class: uploadKind, Started: time.Now().UTC(), Outcome: failedState}
 	start := time.Now()
 	defer func() {
 		sample.Ended = time.Now().UTC()
@@ -871,7 +877,7 @@ func (r *envelopeRunner) slowUpload(ctx context.Context, target EnvelopeTarget, 
 	if e != nil {
 		return errors.New("upload_tls_connection_failed")
 	}
-	defer conn.Close()
+	defer cleanup.Close(conn)
 	_ = conn.SetDeadline(time.Now().Add(35 * time.Second))
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
@@ -893,11 +899,15 @@ func (r *envelopeRunner) slowUpload(ctx context.Context, target EnvelopeTarget, 
 		return errors.New("upload_header_write_failed")
 	}
 	ready <- struct{}{}
-	response, e := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "PUT"})
+	response, e := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: putMethod})
 	if e != nil {
 		return errors.New("slow_upload_terminal_response_missing")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	sample.Status = response.StatusCode
 	raw, e := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
 	sample.Bytes = int64(len(raw))
@@ -940,7 +950,11 @@ func (r *envelopeRunner) sampleResources(ctx context.Context) error {
 	if e != nil {
 		return errors.New("resource_endpoint_unavailable")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	if response.StatusCode != 200 {
 		return errors.New("resource_endpoint_denied")
 	}
@@ -1068,7 +1082,7 @@ func (r *envelopeRunner) runCommand(ctx context.Context, command EnvelopeCommand
 	if e != nil {
 		return e
 	}
-	process := exec.CommandContext(bounded, program, command.Arguments...)
+	process := exec.CommandContext(bounded, program, command.Arguments...) //nolint:gosec // The executable is digest bound to the licensed fixture.
 	process.Stdout = io.Discard
 	process.Stderr = io.Discard
 	started := time.Now().UTC()
@@ -1080,7 +1094,7 @@ func (r *envelopeRunner) runCommand(ctx context.Context, command EnvelopeCommand
 			exit = exitError.ExitCode()
 		}
 	}
-	r.event(map[string]any{"type": "fixture_operation", "scenario": scenario, "sourceSha256": command.Source.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "exitCode": exit})
+	r.event(map[string]any{eventTypeField: "fixture_operation", scenarioField: scenario, "sourceSha256": command.Source.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "exitCode": exit})
 	if e != nil {
 		return errors.New("authorized_fixture_operation_failed")
 	}
@@ -1103,7 +1117,7 @@ func (r *envelopeRunner) runSQL(ctx context.Context, check EnvelopeSQLCheck, sce
 	if e != nil {
 		return errors.New("sql_observation_unavailable")
 	}
-	defer tx.Rollback(context.WithoutCancel(bounded))
+	defer cleanup.Rollback(context.WithoutCancel(bounded), tx)
 	if _, e = tx.Exec(bounded, "SET TRANSACTION READ ONLY"); e != nil {
 		return errors.New("sql_observation_unavailable")
 	}
@@ -1118,7 +1132,7 @@ func (r *envelopeRunner) runSQL(ctx context.Context, check EnvelopeSQLCheck, sce
 		return errors.New("sql_observation_not_bounded_safe_state")
 	}
 	queryHash := sha256.Sum256([]byte(check.Query))
-	r.event(map[string]any{"type": "persisted_state", "scenario": scenario, "querySha256": hex.EncodeToString(queryHash[:]), "observedAt": time.Now().UTC(), "state": json.RawMessage(observed)})
+	r.event(map[string]any{eventTypeField: "persisted_state", scenarioField: scenario, "querySha256": hex.EncodeToString(queryHash[:]), "observedAt": time.Now().UTC(), "state": json.RawMessage(observed)})
 	if !sameEnvelopeJSON(observed, check.ExpectedJSON) {
 		return errors.New("persisted_state_assertion_failed")
 	}
@@ -1154,7 +1168,7 @@ func validateEnvelopeCase(test EnvelopeCase) error {
 		return ErrConflict
 	}
 	for _, probe := range test.Probes {
-		if probe.Target.Class != "scenario" {
+		if probe.Target.Class != scenarioField {
 			return errors.New("scenario_probes_must_not_mix_with_load_metrics")
 		}
 	}
@@ -1208,7 +1222,7 @@ func validateEnvelopeCase(test EnvelopeCase) error {
 				return ErrConflict
 			}
 			var value string
-			if json.Unmarshal(state["state"], &value) != nil || (value != "requested" && value != "accepted") {
+			if json.Unmarshal(state["state"], &value) != nil || (value != requestedState && value != acceptedState) {
 				return errors.New("purge_timeout_must_preserve_pending_state")
 			}
 		}
@@ -1220,7 +1234,7 @@ func validateEnvelopeCase(test EnvelopeCase) error {
 				return ErrConflict
 			}
 			var value string
-			if json.Unmarshal(state["state"], &value) != nil || value != "deleted" {
+			if json.Unmarshal(state["state"], &value) != nil || value != deletedState {
 				return errors.New("restored_tombstone_must_remain_deleted")
 			}
 		}
@@ -1263,7 +1277,7 @@ func (r *envelopeRunner) playback(ctx context.Context) error {
 	}
 	bounded, cancel := context.WithTimeout(ctx, time.Duration(r.config.PlaybackSeconds+10)*time.Second)
 	defer cancel()
-	process := exec.CommandContext(bounded, program, "-nostdin", "-v", "error", "-tls_verify", "1", "-ca_file", r.config.TLSRootCA, "-rw_timeout", "3000000", "-i", target.URL, "-t", strconv.Itoa(r.config.PlaybackSeconds), "-f", "null", "-", "-progress", "pipe:1")
+	process := exec.CommandContext(bounded, program, "-nostdin", "-v", "error", "-tls_verify", "1", "-ca_file", r.config.TLSRootCA, "-rw_timeout", "3000000", "-i", target.URL, "-t", strconv.Itoa(r.config.PlaybackSeconds), "-f", "null", "-", "-progress", "pipe:1") //nolint:gosec // The player binary is digest bound to the configured fixture.
 	stdout, e := process.StdoutPipe()
 	if e != nil {
 		return errors.New("cdn_playback_pipe_failed")
@@ -1298,7 +1312,7 @@ func (r *envelopeRunner) playback(ctx context.Context) error {
 		}
 	}
 	e = process.Wait()
-	r.event(map[string]any{"type": "cdn_decoded_playback", "targetId": target.ID, "binarySha256": r.config.PlaybackBinary.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "frames": frames, "mediaMicros": mediaMicros, "cleanEnd": ended && e == nil})
+	r.event(map[string]any{eventTypeField: "cdn_decoded_playback", "targetId": target.ID, "binarySha256": r.config.PlaybackBinary.SHA256, "startedAt": started, "endedAt": time.Now().UTC(), "frames": frames, "mediaMicros": mediaMicros, "cleanEnd": ended && e == nil})
 	if e != nil || scanner.Err() != nil || !ended || frames < 1 || mediaMicros < int64(r.config.PlaybackSeconds)*1000000 {
 		return errors.New("cdn_decoded_playback_incomplete")
 	}
@@ -1314,12 +1328,12 @@ func licensedEnvelopePrefix(c EnvelopeConfig, path string) ([]byte, int64, error
 		if e != nil {
 			return nil, 0, e
 		}
-		defer root.Close()
+		defer cleanup.Close(root)
 		file, e := root.Open(path)
 		if e != nil {
 			return nil, 0, e
 		}
-		defer file.Close()
+		defer cleanup.Close(file)
 		info, e := file.Stat()
 		if e != nil || info.Size() != 6<<20 || !info.Mode().IsRegular() {
 			return nil, 0, ErrConflict

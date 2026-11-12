@@ -20,6 +20,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
@@ -138,7 +140,7 @@ type capacityCapture struct {
 }
 
 func newCapacityCapture(path string, maximum uint64) (*capacityCapture, error) {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +162,7 @@ func (c *capacityCapture) write(kind string, value any) error {
 		return sourceError(OversizeError, "capacity-capture", nil)
 	}
 	n, err := c.hash.Write(data)
-	c.used += uint64(n)
+	c.used += uint64(n) //nolint:gosec // successful write count is nonnegative
 	if err == nil && n != len(data) {
 		return io.ErrShortWrite
 	}
@@ -186,7 +188,7 @@ func capacityStreamID(value string) bool {
 		return false
 	}
 	for _, r := range value {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '.' || r == ':' || r == '-') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' && r != '.' && r != ':' && r != '-' {
 			return false
 		}
 	}
@@ -222,7 +224,7 @@ func verifyCapacityBinding(ctx context.Context, options CapacityOptions, p Capac
 	if len(b.Revision) != 40 && len(b.Revision) != 64 {
 		return sourceError(IdentityError, "capacity-revision", nil)
 	}
-	revision, err := exec.CommandContext(ctx, "git", "-C", options.SourceRoot, "rev-parse", "HEAD").Output()
+	revision, err := exec.CommandContext(ctx, "git", "-C", options.SourceRoot, "rev-parse", "HEAD").Output() //nolint:gosec // source root is passed as one git directory argument
 	if err != nil || strings.TrimSpace(string(revision)) != b.Revision {
 		return sourceError(IdentityError, "capacity-revision", nil)
 	}
@@ -366,7 +368,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 		defer cancelCleanup()
 		_ = tx.Rollback(cleanup)
 	}()
-	rows, err := tx.Query(read, `SELECT r.height,r.block_hash,r.transaction_hash,r.transaction_index,r.log_index,r.emitter,r.topics,r.data,pg_xact_commit_timestamp(c.xmin) FROM indexer.indexer_raw_logs r JOIN indexer.indexer_ingest_commits c ON c.chain_id=r.chain_id AND r.height>c.previous_height AND r.height<=c.last_complete_height WHERE r.chain_id=125 AND c.stream_id=$1 AND r.height BETWEEN $2 AND $3 ORDER BY r.height,r.transaction_index,r.log_index`, stream, int64(from), int64(to))
+	rows, err := tx.Query(read, `SELECT r.height,r.block_hash,r.transaction_hash,r.transaction_index,r.log_index,r.emitter,r.topics,r.data,pg_xact_commit_timestamp(c.xmin) FROM indexer.indexer_raw_logs r JOIN indexer.indexer_ingest_commits c ON c.chain_id=r.chain_id AND r.height>c.previous_height AND r.height<=c.last_complete_height WHERE r.chain_id=125 AND c.stream_id=$1 AND r.height BETWEEN $2 AND $3 ORDER BY r.height,r.transaction_index,r.log_index`, stream, int64(from), int64(to)) //nolint:gosec // chain value uses the existing signed storage representation
 	if err != nil {
 		return time.Time{}, 0, err
 	}
@@ -393,7 +395,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			rows.Close()
 			return latest, count, err
 		}
-		observed, observedOK := observations[uint64(height)]
+		observed, observedOK := observations[uint64(height)] //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		observedLower := observed.Add(time.Duration(clockOffsetLower))
 		if !observedOK || committed == nil || committed.Before(observedLower) || !validHash(block) || !validHash(transaction) || !common.IsHexAddress(emitter) || txIndex < 0 || logIndex < 0 || txIndex > math.MaxUint32 || logIndex > math.MaxUint32 {
 			rows.Close()
@@ -401,7 +403,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 		}
 		key := RawParityIdentity{125, common.HexToHash(block), common.HexToHash(transaction), uint(logIndex)}
 		log, ok := wanted[key]
-		if !ok || seen[key] || log.BlockNumber != uint64(height) || log.TxIndex != uint(txIndex) || log.Address != common.HexToAddress(emitter) || len(log.Topics) != len(topics) || !bytes.Equal(log.Data, data) {
+		if !ok || seen[key] || log.BlockNumber != uint64(height) || log.TxIndex != uint(txIndex) || log.Address != common.HexToAddress(emitter) || len(log.Topics) != len(topics) || !bytes.Equal(log.Data, data) { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			rows.Close()
 			return latest, count, sourceError(IntegrityError, "capacity-durable-identity", nil)
 		}
@@ -419,7 +421,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			Topics                  []string
 			Data                    []byte
 			ObservedAt, CommittedAt time.Time
-		}{key, uint64(height), uint(txIndex), strings.ToLower(emitter), topics, data, observed, committed.UTC()}); err != nil {
+		}{key, uint64(height), uint(txIndex), strings.ToLower(emitter), topics, data, observed, committed.UTC()}); err != nil { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			rows.Close()
 			return latest, count, err
 		}
@@ -439,7 +441,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 	if count != uint64(len(wanted)) {
 		return latest, count, sourceError(IncompleteError, "capacity-missing-identity", nil)
 	}
-	blockRows, err := tx.Query(read, `SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 ORDER BY height`, stream, int64(from), int64(to))
+	blockRows, err := tx.Query(read, `SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 ORDER BY height`, stream, int64(from), int64(to)) //nolint:gosec // chain value uses the existing signed storage representation
 	if err != nil {
 		return latest, count, err
 	}
@@ -457,8 +459,8 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			blockRows.Close()
 			return latest, count, err
 		}
-		record, ok := expected.Blocks[uint64(height)]
-		if !ok || height != int64(from+blocks) || !validHash(hash) || common.HexToHash(hash) != record.Hash || raw != rawCounts[uint64(height)] || !fetch || !decoded {
+		record, ok := expected.Blocks[uint64(height)]                                                                                                                   //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		if !ok || height != int64(from+blocks) || !validHash(hash) || common.HexToHash(hash) != record.Hash || raw != rawCounts[uint64(height)] || !fetch || !decoded { //nolint:gosec // chain value uses the existing signed storage representation
 			blockRows.Close()
 			return latest, count, sourceError(IntegrityError, "capacity-block-coverage", nil)
 		}
@@ -475,7 +477,7 @@ func capacityDurable(ctx context.Context, pool *pgxpool.Pool, stream string, fro
 			return latest, count, sourceError(IncompleteError, "capacity-empty-observation", nil)
 		}
 		var committed *time.Time
-		err = tx.QueryRow(read, `SELECT max(pg_xact_commit_timestamp(xmin)) FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$3`, stream, int64(from), int64(to)).Scan(&committed)
+		err = tx.QueryRow(read, `SELECT max(pg_xact_commit_timestamp(xmin)) FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height<$2 AND last_complete_height>=$3`, stream, int64(from), int64(to)).Scan(&committed) //nolint:gosec // chain value uses the existing signed storage representation
 		if err != nil || committed == nil || committed.Before(observed.Add(time.Duration(clockOffsetLower))) {
 			return latest, count, sourceError(IncompleteError, "capacity-empty-commit", err)
 		}
@@ -510,7 +512,7 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 			return sourceError(InvalidError, "capacity-workload", nil)
 		}
 	}
-	child := exec.CommandContext(ctx, command.Executable, command.Args...)
+	child := exec.CommandContext(ctx, command.Executable, command.Args...) //nolint:gosec // executable and arguments are supplied by the explicit workload configuration
 	child.Env = append([]string(nil), command.Environment...)
 	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	child.Cancel = func() error {
@@ -542,14 +544,14 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 		if err = json.Unmarshal(value, &record); err != nil || record.Kind == "" {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			<-stderrDone
+			checked.Report(<-stderrDone)
 			return sourceError(InvalidError, "capacity-workload-capture", nil)
 		}
 		if record.Kind == "fault" {
-			if record.Fault == nil || !validSourceID(record.Fault.SourceID) || record.Fault.ObservedAt.IsZero() || (record.Fault.Kind != "throttle" && record.Fault.Kind != "truncate" && record.Fault.Kind != "endpoint_loss" && record.Fault.Kind != "recovery") || (record.Fault.State != "injected" && record.Fault.State != "restored") {
+			if record.Fault == nil || !validSourceID(record.Fault.SourceID) || record.Fault.ObservedAt.IsZero() || (record.Fault.Kind != "throttle" && record.Fault.Kind != "truncate" && record.Fault.Kind != "endpoint_loss" && record.Fault.Kind != valueRecovery) || (record.Fault.State != "injected" && record.Fault.State != valueRestored) {
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				<-stderrDone
+				checked.Report(<-stderrDone)
 				return sourceError(InvalidError, "capacity-fault-capture", nil)
 			}
 			select {
@@ -557,14 +559,14 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 			case <-ctx.Done():
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				<-stderrDone
+				checked.Report(<-stderrDone)
 				return ctx.Err()
 			}
 		}
 		if err = capture.write("workload_provider", value); err != nil {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			<-stderrDone
+			checked.Report(<-stderrDone)
 			return err
 		}
 		lines++
@@ -591,11 +593,11 @@ func capacityParity(ctx context.Context, p CapacityProviders, options CapacityOp
 	right := FetchResult{ManifestDigest: p.Live.opts.ManifestDigest, Blocks: map[uint64]BlockRecord{}, BlockTimestamps: map[uint64]int64{}, TxFromMap: map[string]string{}}
 	for from := options.ParityFrom; from <= options.ParityTo; {
 		to := min(from+1999, options.ParityTo)
-		rpc, err := p.Live.FetchCommitted(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}, true, nil)
+		rpc, err := p.Live.FetchCommitted(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to)}, true, nil) //nolint:gosec // chain value uses the existing signed storage representation
 		if err != nil {
 			return ParityReport{}, err
 		}
-		explorer, err := p.Historical.Explorer.FetchParityLogs(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true})
+		explorer, err := p.Historical.Explorer.FetchParityLogs(ctx, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true}) //nolint:gosec // chain value uses the existing signed storage representation
 		if err != nil {
 			return ParityReport{}, err
 		}
@@ -612,7 +614,7 @@ func capacityParity(ctx context.Context, p CapacityProviders, options CapacityOp
 	}
 	left.Complete = true
 	right.Complete = true
-	return CompareParity(options.ParityFrom, options.ParityTo, ParityInput{SourceID: p.Live.Name(), TimestampUnit: "seconds", Result: left}, ParityInput{SourceID: p.Historical.Explorer.Name(), TimestampUnit: "seconds", Result: right})
+	return CompareParity(options.ParityFrom, options.ParityTo, ParityInput{SourceID: p.Live.Name(), TimestampUnit: valueSeconds, Result: left}, ParityInput{SourceID: p.Historical.Explorer.Name(), TimestampUnit: valueSeconds, Result: right})
 }
 func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityProviders) (report CapacityReport, result error) {
 	report = CapacityReport{Version: 1, Binding: options.Binding, Profile: options.Profile, RPCMetricScope: "committed_source_transport_including_observer_and_historical", TargetEventsPerSecond: options.TargetEventsPerSecond, Failures: []string{}}
@@ -620,7 +622,7 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 		return report, sourceError(IdentityError, "capacity-input", nil)
 	}
 	switch options.Profile {
-	case "harness":
+	case valueHarness:
 		if options.TargetEventsPerSecond == 0 {
 			return report, sourceError(InvalidError, "capacity-rate", nil)
 		}
@@ -728,7 +730,7 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 			report.Failures = append(report.Failures, result.Error())
 		}
 		report.HarnessPassed = result == nil
-		report.CapacityTargetQualified = report.HarnessPassed && options.Profile != "harness"
+		report.CapacityTargetQualified = report.HarnessPassed && options.Profile != valueHarness
 		report.SharedSoakQualified = false
 		identityReport := report
 		identityReport.ReportID = ""
@@ -740,7 +742,7 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 		}
 		path := filepath.Join(options.OutputDirectory, "source-capacity.report.json")
 		temporary := path + ".pending"
-		f, writeErr := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		f, writeErr := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 		if writeErr == nil {
 			_, writeErr = f.Write(append(data, '\n'))
 			writeErr = errors.Join(writeErr, f.Sync(), f.Close())
@@ -803,7 +805,7 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 		defer wg.Done()
 		for from := options.HistoricalFrom; run.Err() == nil; {
 			to := min(from+1999, options.HistoricalTo)
-			result, err := p.Historical.FetchHistorical(run, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true}, uint64(initial))
+			result, err := p.Historical.FetchHistorical(run, FetchOptions{FromBlock: int64(from), ToBlock: int64(to), Historical: true}, uint64(initial)) //nolint:gosec // chain value uses the existing signed storage representation
 			if err != nil {
 				if run.Err() != nil {
 					return
@@ -886,7 +888,7 @@ loop:
 			if !found || fault.ObservedAt.Before(report.StartedAt) || fault.ObservedAt.After(time.Now().Add(time.Second)) {
 				return report, sourceError(IdentityError, "capacity-fault-source", nil)
 			}
-			if fault.Kind == "recovery" && fault.State == "restored" {
+			if fault.Kind == valueRecovery && fault.State == valueRestored {
 				if err := p.Live.RejoinEndpoint(run, fault.SourceID); err != nil {
 					return report, err
 				}
@@ -920,7 +922,7 @@ loop:
 				return report, err
 			}
 			if head.Height > seenHead {
-				if head.Height-seenHead > uint64(65536-len(observations)) {
+				if head.Height-seenHead > uint64(65536-len(observations)) { //nolint:gosec // nonnegative count uses the existing unsigned counter field
 					return report, sourceError(OverloadError, "capacity-observation-backlog", nil)
 				}
 				for height := seenHead + 1; height <= head.Height; height++ {
@@ -933,7 +935,7 @@ loop:
 			}
 			to := min(cursor+64, head.Height)
 			observerBefore := p.Live.ids.Load()
-			expected, err := p.Live.FetchCommitted(run, FetchOptions{FromBlock: int64(cursor + 1), ToBlock: int64(to)}, false, nil)
+			expected, err := p.Live.FetchCommitted(run, FetchOptions{FromBlock: int64(cursor + 1), ToBlock: int64(to)}, false, nil) //nolint:gosec // chain value uses the existing signed storage representation
 			if err != nil {
 				return report, err
 			}
@@ -961,7 +963,7 @@ loop:
 			if err = capture.write("clock_sample", clockSample); err != nil {
 				return report, err
 			}
-			if err = p.Processor.ProcessBatch(run, int64(cursor+1), int64(to)); err != nil {
+			if err = p.Processor.ProcessBatch(run, int64(cursor+1), int64(to)); err != nil { //nolint:gosec // chain value uses the existing signed storage representation
 				report.FailedAttempts++
 				_ = capture.write("processor_failure", struct {
 					From, To uint64
@@ -1005,7 +1007,6 @@ loop:
 			if err != nil {
 				return report, err
 			}
-			workloadFinished = true
 		case <-time.After(20 * time.Second):
 			return report, sourceError(IncompleteError, "capacity-workload-unfinished", nil)
 		}
@@ -1036,7 +1037,7 @@ loop:
 	if report.InputEvents > ^uint64(0)/1000000000 || report.InputEvents*1000000000 < options.TargetEventsPerSecond*uint64(options.Duration) {
 		return report, sourceError(OverloadError, "capacity-input-rate", nil)
 	}
-	if options.Profile != "harness" {
+	if options.Profile != valueHarness {
 		for second := int64(0); second < int64(options.Duration/time.Second); second++ {
 			if inputSeconds[second] < options.TargetEventsPerSecond {
 				return report, sourceError(OverloadError, "capacity-second-input-rate", nil)
@@ -1051,9 +1052,9 @@ loop:
 		if fault.Kind == "endpoint_loss" {
 			lost[fault.SourceID] = fault.ObservedAt
 		}
-		if fault.Kind == "recovery" {
+		if fault.Kind == valueRecovery {
 			at, ok := lost[fault.SourceID]
-			if !ok || !fault.ObservedAt.After(at) || fault.State != "restored" {
+			if !ok || !fault.ObservedAt.After(at) || fault.State != valueRestored {
 				return report, sourceError(IntegrityError, "capacity-recovery-order", nil)
 			}
 			recovered[fault.SourceID] = true
@@ -1073,7 +1074,7 @@ loop:
 			return report, sourceError(IncompleteError, "capacity-recovery-checks", nil)
 		}
 	}
-	if !kinds["throttle"] || !kinds["truncate"] || !kinds["endpoint_loss"] || !kinds["recovery"] || p.Live.transport.throttles.Load() <= baseline.Throttles || p.Live.transport.invalidResponses.Load() <= baseline.InvalidResponses {
+	if !kinds["throttle"] || !kinds["truncate"] || !kinds["endpoint_loss"] || !kinds[valueRecovery] || p.Live.transport.throttles.Load() <= baseline.Throttles || p.Live.transport.invalidResponses.Load() <= baseline.InvalidResponses {
 		return report, sourceError(IncompleteError, "capacity-adversarial-inputs", nil)
 	}
 	parity, err := capacityParity(ctx, p, options)
@@ -1100,7 +1101,7 @@ func (s *CommittedSource) capacityLagSample(at time.Time, durable uint64) (Capac
 		return CapacityLagSample{}, sourceError(IncompleteError, "capacity-lag-provenance", nil)
 	}
 	difference := headRecord.TimestampSeconds - durableRecord.TimestampSeconds
-	if difference > int64((1<<63-1)/int64(time.Second)) {
+	if difference > (1<<63-1)/int64(time.Second) {
 		return CapacityLagSample{}, sourceError(InvalidError, "capacity-lag-provenance", nil)
 	}
 	s.backfill.mu.Lock()

@@ -87,7 +87,14 @@ type CategoryPolicy struct {
 	Description       string  `json:"description"`
 }
 
-var Categories = [...]string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual", "new"}
+const (
+	categoryTrending   = "trending"
+	categoryMovers     = "movers"
+	categoryNew        = "new"
+	reasonInputInvalid = "input-invalid"
+)
+
+var Categories = [...]string{categoryTrending, "breakout", "volume", "gainers", "losers", categoryMovers, "unusual", categoryNew}
 
 // Policies are returned by value, so callers cannot mutate the release policy.
 func Policy(category string) (CategoryPolicy, error) {
@@ -95,7 +102,7 @@ func Policy(category string) (CategoryPolicy, error) {
 		return CategoryPolicy{}, fmt.Errorf("input-invalid: category")
 	}
 	freshness, traders := int64(90), 1
-	if category == "new" {
+	if category == categoryNew {
 		freshness, traders = 30, 0
 	}
 	return CategoryPolicy{category, AlgorithmVersion + "/" + category, 0, "0", traders, freshness, 1e12, "Heuristic discovery score; not a safety rating or investment advice."}, nil
@@ -281,8 +288,8 @@ func buildFrozenSnapshot(frozen InputSnapshot, category string, trending *Snapsh
 	s := Snapshot{input: frozen, category: category, entries: []Scored{}, excluded: []Exclusion{}}
 	s.inputDigest = digest(frozen)
 	excludedTrending := map[string]bool{}
-	if category == "movers" {
-		if trending == nil || trending.category != "trending" || trending.inputDigest != s.inputDigest {
+	if category == categoryMovers {
+		if trending == nil || trending.category != categoryTrending || trending.inputDigest != s.inputDigest {
 			return Snapshot{}, fmt.Errorf("dependency-unavailable: trending")
 		}
 		for i, v := range trending.entries {
@@ -304,26 +311,26 @@ func buildFrozenSnapshot(frozen InputSnapshot, category string, trending *Snapsh
 		pool := c.Pool
 		switch {
 		case ValidatePool(pool) != nil:
-			reason = "input-invalid"
+			reason = reasonInputInvalid
 		case c.SourceRevision == "":
 			reason = "missing-source-revision"
 		case c.SourceObservedAt <= 0 || c.SourceObservedAt > in.CutoffTimeUTC || in.CutoffTimeUTC-c.SourceObservedAt > p.FreshnessSeconds:
 			reason = "source-stale"
 		case c.ModerationObservedAt <= 0 || c.ModerationObservedAt > in.CutoffTimeUTC || in.CutoffTimeUTC-c.ModerationObservedAt > 60:
 			reason = "moderation-stale"
-		case category == "new" && (c.CreationHeight == 0 || c.CreationHeight > in.CutoffHeight):
+		case category == categoryNew && (c.CreationHeight == 0 || c.CreationHeight > in.CutoffHeight):
 			reason = "creation-provenance-invalid"
 		case c.Suppressed:
 			reason = "suppressed"
 		case c.Paused:
 			reason = "paused"
-		case category == "new":
+		case category == categoryNew:
 			// "new" orders canonical creations; a pool is listed from its
 			// creation block, before its first trade.
 		case c.Pool.UniqueTraders24h < p.MinimumTraders:
 			reason = "minimum-traders"
 		}
-		if reason == "" && category == "new" {
+		if reason == "" && category == categoryNew {
 			s.entries = append(s.entries, Scored{addr, 0})
 			continue
 		}
@@ -341,7 +348,7 @@ func buildFrozenSnapshot(frozen InputSnapshot, category string, trending *Snapsh
 			adj, ae := Decimal(c.Activity.AdjustedVolume, false)
 			v, _ := Decimal(pool.Volume24h, false)
 			if err != nil || ae != nil || raw.Cmp(v) != 0 || adj.Cmp(raw) > 0 {
-				reason = "input-invalid"
+				reason = reasonInputInvalid
 			} else if adj.Sign() == 0 {
 				reason = "minimum-volume"
 			} else {
@@ -367,17 +374,17 @@ func buildFrozenSnapshot(frozen InputSnapshot, category string, trending *Snapsh
 			reason = "trending-top-50"
 		}
 		if reason == "" {
-			if category == "movers" && !c.SupplyVerified {
+			if category == categoryMovers && !c.SupplyVerified {
 				reason = "supply-unverified"
 			} else {
 				var scoreErr error
 				score, scoreErr = finiteScore(category, pool)
 				if scoreErr != nil {
-					reason = "input-invalid"
+					reason = reasonInputInvalid
 				}
 
 				if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 {
-					reason = "input-invalid"
+					reason = reasonInputInvalid
 				} else {
 					score = math.Min(score, p.MaxScore)
 				}
@@ -390,7 +397,7 @@ func buildFrozenSnapshot(frozen InputSnapshot, category string, trending *Snapsh
 		}
 	}
 	order(s.entries)
-	if category == "new" {
+	if category == categoryNew {
 		byAddress := map[string]Candidate{}
 		for _, c := range frozen.Candidates {
 			byAddress[c.Pool.PoolAddress] = c

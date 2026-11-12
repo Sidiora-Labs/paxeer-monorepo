@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+
 	"github.com/gofrs/flock"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -80,7 +82,7 @@ func NewDatabase(t *testing.T) string {
 			t.Errorf("drop %s: %v", name, err)
 			return
 		}
-		defer c.Close(cleanup)
+		defer chartcleanup.CloseContext(cleanup, c)
 		if _, err = c.Exec(cleanup, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
 			t.Errorf("drop %s: %v", name, err)
 		}
@@ -161,7 +163,7 @@ func newRedisURL(t *testing.T) string {
 	})
 	flush := func() {
 		client := goredis.NewClient(opt)
-		defer client.Close()
+		defer chartcleanup.Close(client)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := client.FlushDB(ctx).Err(); err != nil {

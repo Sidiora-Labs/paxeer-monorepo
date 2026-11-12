@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	gatewayauth "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
@@ -137,7 +139,7 @@ func (h *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	controller := http.NewResponseController(w)
 	_ = controller.SetReadDeadline(now.Add(5 * time.Second))
-	defer controller.SetReadDeadline(time.Time{})
+	defer func() { cleanup.Report("reset read deadline", controller.SetReadDeadline(time.Time{})) }()
 	r.Body = http.MaxBytesReader(w, &aggregateIngressReader{ReadCloser: &ingressReader{ReadCloser: r.Body, controller: controller, window: now, deadline: now.Add(30 * time.Second)}, ctx: ctx, db: h.admission.db, key: h.admission.ns + ":upload:bytes", limit: h.bytesPerSecond}, 6<<20)
 	response := &connectedUploadResponse{ResponseWriter: w}
 	h.upstream.ServeHTTP(response, r)

@@ -1,0 +1,43 @@
+[meta]
+scope = "Launchpad security policy and control"
+result = "Both Go modules satisfy the configured lint checks."
+
+[lint.errcheck]
+findings = 13
+behavior = "Transaction, file, request, and response cleanup errors are observed."
+
+[lint.goconst]
+findings = 91
+behavior = "Repeated policy classes, control states, and storage keys share private constants with their original values."
+
+[lint.goimports]
+findings = 7
+behavior = "Go imports use the module's standard grouping."
+
+[lint.gosec]
+findings = 4
+behavior = "S3 transport checksums and caller-selected local store paths preserve their configured contracts."
+
+[lint.staticcheck]
+findings = 20
+behavior = "HTTP responses retain their status codes and JSON parsing retains its delimiter checks."
+
+[comment.1]
+path = "services/launchpad/security/policy/export.go"
+line = 7
+reason = "S3 Object Lock uses an MD5 transport checksum."
+
+[comment.2]
+path = "services/launchpad/security/policy/export.go"
+line = 172
+reason = "S3 Object Lock uses an MD5 transport checksum."
+
+[comment.3]
+path = "services/launchpad/security/control/local.go"
+line = 39
+reason = "The caller selects the local store path."
+
+[comment.4]
+path = "services/launchpad/security/control/local.go"
+line = 47
+reason = "The caller selects the local store path."

@@ -90,7 +90,7 @@ func regexpToken(v string) bool {
 		return false
 	}
 	for _, c := range v {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '-' {
 			return false
 		}
 	}
@@ -101,7 +101,7 @@ func (c *AccountingConsumer) Bootstrap(ctx context.Context, in delivery.Bootstra
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}
-	if in.Lease.Key.ConsumerID != c.consumerID || in.Lease.Key.ProjectionGeneration != c.generation || in.Lease.Key.PartitionKind != "inventory" {
+	if in.Lease.Key.ConsumerID != c.consumerID || in.Lease.Key.ProjectionGeneration != c.generation || in.Lease.Key.PartitionKind != sourceInventory {
 		return delivery.ErrIntegrity
 	}
 	tx, err := c.pool.Begin(ctx)
@@ -161,7 +161,7 @@ func partitionHash(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -169,7 +169,7 @@ func partitionHash(s string) bool {
 }
 
 func InventoryLeg(fill accounting.FillV1, p accounting.PublicationV1) (Leg, error) {
-	if accounting.ValidateFillV1(fill) != nil || accounting.ValidatePublicationV1(p) != nil || p.Facet != "inventory" || p.Enrichment == nil || p.Enrichment.Attribution == nil {
+	if accounting.ValidateFillV1(fill) != nil || accounting.ValidatePublicationV1(p) != nil || p.Facet != sourceInventory || p.Enrichment == nil || p.Enrichment.Attribution == nil {
 		return Leg{}, delivery.ErrIntegrity
 	}
 	digest, err := accounting.FillDigest(fill)
@@ -225,8 +225,8 @@ func (c *AccountingConsumer) Consume(ctx context.Context, subject string, wire [
 	var lease delivery.PartitionLease
 	policy := delivery.Policy{Subjects: map[string]bool{accounting.InventorySubject: true}, EventTypes: map[string]bool{accounting.InventorySubject: true}}
 	if outer, decodeErr := delivery.Decode(wire, policy, subject); decodeErr == nil {
-		if publication, innerErr := accounting.DecodePublicationV1(outer.Payload); innerErr == nil && publication.Facet == "inventory" && publication.Enrichment != nil && publication.Positions[0].ProjectionVersion == c.projectionVersion {
-			key := delivery.ConsumerKey{ConsumerID: c.consumerID, ProjectionGeneration: c.generation, PartitionKind: "inventory", PartitionKey: publication.Positions[0].PartitionKey}
+		if publication, innerErr := accounting.DecodePublicationV1(outer.Payload); innerErr == nil && publication.Facet == sourceInventory && publication.Enrichment != nil && publication.Positions[0].ProjectionVersion == c.projectionVersion {
+			key := delivery.ConsumerKey{ConsumerID: c.consumerID, ProjectionGeneration: c.generation, PartitionKind: sourceInventory, PartitionKey: publication.Positions[0].PartitionKey}
 			var acquireErr error
 			lease, acquireErr = c.partitions.Acquire(ctx, key, c.owner, 30*time.Second)
 			if acquireErr != nil {
@@ -246,7 +246,7 @@ func (c *AccountingConsumer) Consume(ctx context.Context, subject string, wire [
 			if err != nil {
 				return zero, &delivery.IntegrityFailure{Class: delivery.InnerSchema, Cause: err}
 			}
-			if selected.Facet != "inventory" || selected.Enrichment == nil || selected.Positions[0].ProjectionVersion != c.projectionVersion {
+			if selected.Facet != sourceInventory || selected.Enrichment == nil || selected.Positions[0].ProjectionVersion != c.projectionVersion {
 				return zero, &delivery.IntegrityFailure{Class: delivery.PartitionBinding, Cause: delivery.ErrIntegrity}
 			}
 			position := selected.Positions[0]
@@ -341,7 +341,7 @@ func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject stri
 		return c.Consume(ctx, subject, wire, message)
 	}
 	publication, err := accounting.DecodePublicationV1(envelope.Payload)
-	if err != nil || publication.Facet != "inventory" {
+	if err != nil || publication.Facet != sourceInventory {
 		return c.Consume(ctx, subject, wire, message)
 	}
 	partition := publication.Positions[0].PartitionKey
@@ -368,7 +368,7 @@ func (c *AccountingConsumer) Run(ctx context.Context, transport *natsdriver.Cons
 }
 
 func (c *AccountingConsumer) WithFullPortfolio(repository l17.Repository, outbox *delivery.Store, subject string) (*AccountingConsumer, error) {
-	if c == nil || c.streamWriter == nil || repository.Pool != c.pool || outbox == nil || subject != "portfolio.snapshot.v2" {
+	if c == nil || c.streamWriter == nil || repository.Pool != c.pool || outbox == nil || subject != portfolioSnapshotV2 {
 		return nil, errors.New("full portfolio runtime binding required")
 	}
 	copy := *c

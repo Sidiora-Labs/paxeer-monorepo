@@ -4,8 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type Projection struct {
@@ -111,7 +112,8 @@ func (p *Projection) apply(e Effect) error {
 		if !fok || !tok || (from == zero && to == zero) {
 			return fmt.Errorf("native movement parties required")
 		}
-		if e.Role == "SidioraERC20" {
+		switch e.Role {
+		case roleSidioraERC20:
 			amount, err := unsigned(e.Fields["value"])
 			if err != nil {
 				return err
@@ -134,7 +136,7 @@ func (p *Projection) apply(e Effect) error {
 					return err
 				}
 			}
-		} else if e.Role == "SidioraNFT" {
+		case "SidioraNFT":
 			token, err := unsigned(e.Fields["tokenId"])
 			if err != nil {
 				return err
@@ -165,7 +167,7 @@ func (p *Projection) apply(e Effect) error {
 				if err = change(p.CreatorLiability, pool, amount); err != nil {
 					return err
 				}
-			case "FeesClaimed", "FeesBurned", "LpRewardsSent":
+			case eventFeesClaimed, "FeesBurned", "LpRewardsSent":
 				amount, err := unsigned(e.Fields["amount"])
 				if err != nil {
 					return err
@@ -173,7 +175,7 @@ func (p *Projection) apply(e Effect) error {
 				if err = change(p.CreatorLiability, pool, new(big.Int).Neg(amount)); err != nil {
 					return err
 				}
-				if e.Event == "FeesClaimed" {
+				if e.Event == eventFeesClaimed {
 					p.Claims = append(p.Claims, e)
 				}
 			case "OpticalSurplusRecorded":
@@ -224,9 +226,9 @@ func (p *Projection) apply(e Effect) error {
 			}
 		}
 	}
-	if e.Role == "PECORVault" && (e.Kind == "funding_movement" || e.Kind == "reserve_state") {
+	if e.Role == rolePECORVault && (e.Kind == effectFundingMovement || e.Kind == effectReserveState) {
 		token, _ := e.Fields["token"].(common.Address)
-		native := e.Event == "NativeDeposit" || e.Event == "NativeWithdrawal"
+		native := e.Event == eventNativeDeposit || e.Event == "NativeWithdrawal"
 		if !native && token == zero {
 			return fmt.Errorf("registered vault token required")
 		}
@@ -241,7 +243,7 @@ func (p *Projection) apply(e Effect) error {
 			}
 			p.Reserves[e.Identity.Emitter.Hex()+token.Hex()] = amount
 		}
-		if e.Kind == "funding_movement" {
+		if e.Kind == effectFundingMovement {
 			party, ok := e.Fields["depositor"].(common.Address)
 			if !ok {
 				party, ok = e.Fields["recipient"].(common.Address)
@@ -253,7 +255,7 @@ func (p *Projection) apply(e Effect) error {
 			if err != nil {
 				return err
 			}
-			if e.Event != "Deposit" && e.Event != "NativeDeposit" {
+			if e.Event != "Deposit" && e.Event != eventNativeDeposit {
 				amount.Neg(amount)
 			}
 			if err = change(p.Funding, e.Identity.Emitter.Hex()+token.Hex()+party.Hex(), amount); err != nil {

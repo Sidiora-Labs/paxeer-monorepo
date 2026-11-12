@@ -9,6 +9,7 @@ package internaltest
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -76,7 +77,11 @@ func DevelopmentPostgresDSN(t *testing.T, admin string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close(context.Background())
+	defer func() {
+		if err := conn.Close(context.Background()); err != nil {
+			t.Errorf("close development database: %v", err)
+		}
+	}()
 	if _, err = conn.Exec(context.Background(), "DROP SCHEMA chat CASCADE"); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +91,25 @@ func DevelopmentPostgresDSN(t *testing.T, admin string) string {
 func CoordinatorMigrationSQL(t *testing.T, schema string, version int) string {
 	t.Helper()
 	path := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations", fmt.Sprintf("%d.sql", version))
-	raw, err := os.ReadFile(path)
+	root, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := root.Close(); err != nil {
+			t.Errorf("close migration directory: %v", err)
+		}
+	}()
+	file, err := root.Open(filepath.Base(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("close migration file: %v", err)
+		}
+	}()
+	raw, err := io.ReadAll(file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +155,11 @@ func NewRedisURL(t *testing.T) string {
 	}
 	flush := func() {
 		client := goredis.NewClient(opt)
-		defer client.Close()
+		defer func() {
+			if err := client.Close(); err != nil {
+				t.Errorf("close redis client: %v", err)
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := client.FlushDB(ctx).Err(); err != nil {

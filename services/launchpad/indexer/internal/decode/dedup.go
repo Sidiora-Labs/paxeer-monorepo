@@ -2,8 +2,9 @@ package decode
 
 import (
 	"fmt"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"reflect"
+
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 const MaxRawBatchLogs = 4096

@@ -97,10 +97,10 @@ func (s Store) ActivateGeneration(ctx context.Context, proof GenerationProof) er
 	if err = tx.QueryRow(ctx, "SELECT state,source_watermark,source_observed_at,validated_at FROM stats_search.generations_v2 WHERE generation=$1 FOR UPDATE", proof.Generation).Scan(&state, &watermark, &observed, &validated); err != nil {
 		return err
 	}
-	if state != "building" && state != "retained" || watermark != proof.SourceWatermark || !observed.Equal(proof.SourceObservedAt.Truncate(time.Microsecond)) || observed.After(time.Now()) || state == "building" && time.Since(observed) > 5*time.Second || state == "retained" && validated == nil {
+	if state != valueBuilding && state != "retained" || watermark != proof.SourceWatermark || !observed.Equal(proof.SourceObservedAt.Truncate(time.Microsecond)) || observed.After(time.Now()) || state == valueBuilding && time.Since(observed) > 5*time.Second || state == "retained" && validated == nil {
 		return fmt.Errorf("%w: generation catch-up or authority boundary", ErrInvalid)
 	}
-	if state == "building" {
+	if state == valueBuilding {
 		var mismatch bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS((SELECT pool_address,payload FROM stats_search.documents_v2 WHERE generation=$1 EXCEPT SELECT pool_address,payload FROM stats_search.source_documents_v2) UNION ALL (SELECT pool_address,payload FROM stats_search.source_documents_v2 EXCEPT SELECT pool_address,payload FROM stats_search.documents_v2 WHERE generation=$1))`, proof.Generation).Scan(&mismatch); err != nil {
 			return err

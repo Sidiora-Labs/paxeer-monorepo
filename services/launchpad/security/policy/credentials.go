@@ -2,10 +2,11 @@ package policy
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Credential struct {

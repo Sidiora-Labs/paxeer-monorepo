@@ -68,7 +68,8 @@ func (e OperationEnvelope) Statement() (string, error) {
 	if err != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.RawPath != "" || !strings.HasPrefix(e.Path, "/") || path.Clean(e.Path) != e.Path {
 		return "", fmt.Errorf("noncanonical path")
 	}
-	if (e.Version != 1 && e.Version != 2) || e.ChainID != "125" || !tokenPattern.MatchString(e.Environment) || !tokenPattern.MatchString(e.Action) || e.Method != strings.ToUpper(e.Method) || !(e.Method == "POST" || e.Method == "PUT" || e.Method == "PATCH" || e.Method == "DELETE") || len(e.Nonce) != 64 || len(e.BodyHash) != 64 {
+	validMethod := e.Method == valuePOST || e.Method == valuePUT || e.Method == valuePATCH || e.Method == valueDELETE
+	if (e.Version != 1 && e.Version != 2) || e.ChainID != "125" || !tokenPattern.MatchString(e.Environment) || !tokenPattern.MatchString(e.Action) || e.Method != strings.ToUpper(e.Method) || !validMethod || len(e.Nonce) != 64 || len(e.BodyHash) != 64 {
 		return "", fmt.Errorf("invalid envelope")
 	}
 	for _, v := range []string{e.Nonce, e.BodyHash} {
@@ -96,7 +97,7 @@ func (e OperationEnvelope) Validate(now time.Time, environment, actor, action, m
 	}
 	digest, err := BodyDigest(body)
 	if e.Version == 2 {
-		if len(body) == 0 && e.Method != "DELETE" {
+		if len(body) == 0 && e.Method != valueDELETE {
 			return fmt.Errorf("empty body action")
 		}
 		digest, err = BodyDigestV2(body)
@@ -132,7 +133,7 @@ type PolicyRegistry struct {
 }
 
 func DefaultPolicies() PolicyRegistry {
-	return PolicyRegistry{Version: "1", Actions: map[string]Policy{"account.delete": {"owner", true, "/v1/me/deletion-requests"}, "profile.update": {"owner", true, "/v1/profiles/{wallet}"}, "preferences.update": {"owner", true, "/v1/me/preferences"}, "watchlist.update": {"owner", true, "/v1/me/watchlist/{poolAddress}"}, "wallet.link": {"owner", true, "/v1/me/wallet-links/{linkId}:verify"}}}
+	return PolicyRegistry{Version: "1", Actions: map[string]Policy{"account.delete": {valueOwner, true, "/v1/me/deletion-requests"}, valueProfileUpdate: {valueOwner, true, "/v1/profiles/{wallet}"}, valuePreferencesUpdate: {valueOwner, true, "/v1/me/preferences"}, "watchlist.update": {valueOwner, true, valueV1MeWatchlistPoolAddress}, "wallet.link": {valueOwner, true, "/v1/me/wallet-links/{linkId}:verify"}}}
 }
 func (r PolicyRegistry) Authorize(p Principal, action, target string) error {
 	policy, ok := r.Actions[action]
@@ -161,18 +162,18 @@ func AccountOwnerPoliciesV2() (PolicyRegistry, map[string]ActionRoute) {
 	policies := PolicyRegistry{Version: "2", Actions: map[string]Policy{}}
 	routes := map[string]ActionRoute{}
 	for _, route := range []ActionRoute{
-		{"profile.update", "PATCH", "/v1/profiles/{wallet}"},
-		{"preferences.update", "PATCH", "/v1/me/preferences"},
-		{"watchlist.update", "PUT", "/v1/me/watchlist/{poolAddress}"},
-		{"watchlist.remove", "DELETE", "/v1/me/watchlist/{poolAddress}"},
-		{"wallet.link", "POST", "/v1/me/wallet-links/{linkId}:verify"},
-		{"wallet.unlink", "DELETE", "/v1/me/wallet-links/{linkId}"},
-		{"account.export", "POST", "/v1/me/exports"},
-		{"account.delete", "POST", "/v1/me/deletion-requests"},
-		{"device.register", "PUT", "/v1/me/devices/{deviceId}"},
-		{"device.revoke", "DELETE", "/v1/me/devices/{deviceId}"},
+		{valueProfileUpdate, valuePATCH, "/v1/profiles/{wallet}"},
+		{valuePreferencesUpdate, valuePATCH, "/v1/me/preferences"},
+		{"watchlist.update", valuePUT, valueV1MeWatchlistPoolAddress},
+		{"watchlist.remove", valueDELETE, valueV1MeWatchlistPoolAddress},
+		{"wallet.link", valuePOST, "/v1/me/wallet-links/{linkId}:verify"},
+		{"wallet.unlink", valueDELETE, "/v1/me/wallet-links/{linkId}"},
+		{"account.export", valuePOST, "/v1/me/exports"},
+		{"account.delete", valuePOST, "/v1/me/deletion-requests"},
+		{"device.register", valuePUT, "/v1/me/devices/{deviceId}"},
+		{"device.revoke", valueDELETE, "/v1/me/devices/{deviceId}"},
 	} {
-		policies.Actions[route.Action] = Policy{Scope: "owner", OwnerRequired: true, RouteTemplate: route.Template}
+		policies.Actions[route.Action] = Policy{Scope: valueOwner, OwnerRequired: true, RouteTemplate: route.Template}
 		routes[route.Action] = route
 	}
 	return policies, routes
@@ -180,8 +181,8 @@ func AccountOwnerPoliciesV2() (PolicyRegistry, map[string]ActionRoute) {
 
 func AccountOwnerExtendedPoliciesV2() (PolicyRegistry, map[string]ActionRoute) {
 	policies, routes := AccountOwnerPoliciesV2()
-	for _, route := range []ActionRoute{{"profile.update", "PATCH", "/v2/profiles/{wallet}"}, {"preferences.update", "PATCH", "/v2/me/preferences"}} {
-		policies.Actions[route.Action] = Policy{Scope: "owner", OwnerRequired: true, RouteTemplate: route.Template}
+	for _, route := range []ActionRoute{{valueProfileUpdate, valuePATCH, "/v2/profiles/{wallet}"}, {valuePreferencesUpdate, valuePATCH, "/v2/me/preferences"}} {
+		policies.Actions[route.Action] = Policy{Scope: valueOwner, OwnerRequired: true, RouteTemplate: route.Template}
 		routes[route.Action] = route
 	}
 	return policies, routes

@@ -250,14 +250,14 @@ func (s *PostgresStream) PublicSnapshot(ctx context.Context, topics []string) (j
 	if !PublicTopics(topics) {
 		return nil, sharedauth.ErrScopeDenied
 	}
-	b := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: "https://anonymous.invalid", Endpoint: "/v2/stream"}
+	b := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: literalHttpsAnonymousInvalid, Endpoint: literalV2Stream}
 	return s.Snapshot(ctx, sharedauth.StreamPrincipal{}, b)
 }
 func (s *PostgresStream) PublicResume(ctx context.Context, topics []string, token string) (*PostgresReplay, error) {
 	if !PublicTopics(topics) {
 		return nil, sharedauth.ErrScopeDenied
 	}
-	b := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: "https://anonymous.invalid", Endpoint: "/v2/stream"}
+	b := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: literalHttpsAnonymousInvalid, Endpoint: literalV2Stream}
 	return s.Resume(ctx, sharedauth.StreamPrincipal{}, b, token)
 }
 
@@ -281,7 +281,7 @@ func (t *CheckpointTracker) Advance(raw []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(f.Watermark) > 0 && string(f.Watermark) != "null" {
+	if len(f.Watermark) > 0 && string(f.Watermark) != literalNull {
 		var w struct {
 			Height    string `json:"height"`
 			BlockHash string `json:"blockHash"`
@@ -587,7 +587,7 @@ func StreamFailure(err error) string {
 }
 
 func StreamControl(op string, subscriptionID, cursor, code string, topics []string, fields map[string]any) ([]byte, error) {
-	body := map[string]any{"op": op, "subscriptionId": nil, "cursor": nil, "code": nil, "snapshotUrl": nil, "watermark": nil}
+	body := map[string]any{"op": op, "subscriptionId": nil, "cursor": nil, "code": nil, "snapshotUrl": nil, literalWatermark: nil}
 	if subscriptionID != "" {
 		body["subscriptionId"] = subscriptionID
 	}

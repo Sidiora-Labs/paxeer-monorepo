@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/jackc/pgx/v5"
 	"math/big"
 	"sort"
 	"strconv"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/jackc/pgx/v5"
 )
 
 func boundedSum(a, b string) (string, error) {
@@ -67,7 +69,7 @@ func RollupQualified(children []QualifiedCandle, actors []string, interval strin
 	lineage := []string{}
 	seen := map[int64]bool{}
 	for _, child := range rows {
-		if child.Interval != "1m" || child.Trades == 0 || child.Start < start || child.Start >= start+duration || child.Start%60 != 0 || seen[child.Start] || child.PoolAddress != out.PoolAddress || child.Token != out.Token || child.Settlement != out.Settlement || child.ActorSemantics != "canonical_swap_actor_v1" {
+		if child.Interval != "1m" || child.Trades == 0 || child.Start < start || child.Start >= start+duration || child.Start%60 != 0 || seen[child.Start] || child.PoolAddress != out.PoolAddress || child.Token != out.Token || child.Settlement != out.Settlement || child.ActorSemantics != canonicalActorSemantics {
 			return out, "", ErrInvalidFill
 		}
 		seen[child.Start] = true
@@ -256,7 +258,7 @@ func RecomputeRollups(ctx context.Context, st *store.ExactStore, limit int) (int
 			}
 			return tx.Commit(ctx)
 		}()
-		tx.Rollback(ctx)
+		chartcleanup.Rollback(ctx, tx)
 		if err == pgx.ErrNoRows {
 			return completed, nil
 		}
@@ -273,7 +275,7 @@ func regexpActor(actor string) bool {
 		return false
 	}
 	for _, c := range actor[2:] {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}

@@ -38,6 +38,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
+
 	"github.com/jackc/pgx/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
@@ -139,7 +141,7 @@ func readBound(t testing.TB, root, relative, want string) []byte {
 			break
 		}
 	}
-	raw, err := os.ReadFile(filepath.Join(root, relative))
+	raw, err := util.ReadFilePath(filepath.Join(root, relative))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +230,7 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			byRuntime[m.RuntimeRole] = m
 		}
 	}
-	requested := []production.RoleManifest{}
+	requested := make([]production.RoleManifest, 0, len(runtimeRoles))
 	readSchemas := map[string]map[string]bool{} // runtime role -> schemas its readiness fingerprints
 	allRead := map[string]bool{}
 	for _, role := range runtimeRoles {
@@ -318,7 +320,11 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	if err != nil {
 		t.Fatalf("connect admin DSN: %v", err)
 	}
-	defer control.Close(ctx)
+	defer func() {
+		if cleanupErr := control.Close(ctx); cleanupErr != nil {
+			t.Errorf("cleanup control.Close: %v", cleanupErr)
+		}
+	}()
 	name := "coordinator" + tag
 	created := []string{}
 	// Registered first so it runs last: the database goes first, then every
@@ -329,7 +335,11 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 			t.Logf("cleanup: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if cleanupErr := c.Close(context.Background()); cleanupErr != nil {
+				t.Errorf("cleanup c.Close: %v", cleanupErr)
+			}
+		}()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database: %v", err)
 		}
@@ -352,7 +362,11 @@ func Bootstrap(t testing.TB, adminDSN string, runtimeRoles ...string) Database {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if cleanupErr := conn.Close(ctx); cleanupErr != nil {
+			t.Errorf("cleanup conn.Close: %v", cleanupErr)
+		}
+	}()
 	exec := func(step, sql string, args ...any) {
 		t.Helper()
 		if _, err := conn.Exec(ctx, sql, args...); err != nil {
