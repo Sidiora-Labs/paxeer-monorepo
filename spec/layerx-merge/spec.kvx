@@ -13348,6 +13348,12 @@ value = "Task 22.39.170 requires the lint, race and coverage tasks of the module
 basis = "Decisions 3364 and 3370."
 affects = ["22.39.170", "22.39.491"]
 
+[decision.3373]
+title = "The chart recovery task carries the staged identity fields through the web deployment generator"
+value = "Task 22.39.455 runs the whole web test recipe. The web deployment generator carries the staged runtime hash and the staged upgrade name of the reviewed record, and task 22.39.455 holds that change."
+basis = "Gotcha 4290 and decision 3352."
+affects = ["22.39.455"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -164117,7 +164123,7 @@ do_1 = "do_1 Decision 3352, gotcha 4271. The file apps/launchpad/web/src/widgets
 do_2 = "do_2 Where a case reads a joined service once and asserts on the answer, have it wait for the state it asserts with the waiting helper of the file, bounded by the timeout of the case. Where the environment script reports a service ready before the service answers the request the cases send, have the script wait for that answer. Every case and every assertion stays. No retry count is set on the test runner and no case is marked to be skipped."
 do_3 = "do_3 A cause that lies outside the declared paths is listed in the closing report with the path and the first message and is not repaired here. Record in apps/launchpad/web/repair_22_39_455.kvx the cases changed and what each now waits for. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts", "apps/launchpad/web/scripts/prepare-test-environment.py", "apps/launchpad/web/vitest.config.ts"]
+touches = ["apps/launchpad/web/src/widgets/trading/chart-datafeed-recovery.test.ts", "apps/launchpad/web/scripts/prepare-test-environment.py", "apps/launchpad/web/vitest.config.ts", "tools/launchpad/production/interfaces/contracts/client-deployment.cjs", "tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs", "apps/launchpad/web/src/core/network/deployment-generation.cjs", "apps/launchpad/web/src/core/network/repair-22-33-901.test.ts"]
 tests = []
 planned_paths = ["apps/launchpad/web/repair_22_39_455.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build"
@@ -164133,6 +164139,7 @@ time_limit_minutes = 360
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Gotcha 4290, decision 3373. The reviewed deployment record sdk/launchpad/shared/config/deployment/current.json carries a staged runtime hash and a staged upgrade name on each surface identity, and apps/launchpad/web/src/core/network/deployment.ts holds both. Have tools/launchpad/production/interfaces/contracts/client-deployment.cjs and apps/launchpad/web/src/core/network/deployment-generation.cjs carry both fields from the reviewed record into the derived deployment and the rendered helper, so that the rendered helper equals the committed file byte for byte. The committed file and the reviewed record are not changed. Add a case to tools/launchpad/production/interfaces/contracts/client-deployment.test.cjs that asserts both fields on a surface identity."
 
 [task.22.39.399]
 title = "Hold the type check of the launchpad web application at zero findings"
