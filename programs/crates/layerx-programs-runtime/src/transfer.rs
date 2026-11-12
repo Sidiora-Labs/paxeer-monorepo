@@ -2237,7 +2237,11 @@ mod tests {
     fn destination_bound_program_spend_consumes_the_bound_account_once() {
         let did = b"did:lxp:counter-recipient";
         let mut owner = b"LXP/v1/did-id\0".to_vec();
-        owner.extend_from_slice(&(did.len() as u16).to_be_bytes());
+        owner.extend_from_slice(
+            &u16::try_from(did.len())
+                .unwrap_or_else(|error| panic!("bounded DID length: {error}"))
+                .to_be_bytes(),
+        );
         owner.extend_from_slice(did);
         let destination =
             hash_bytes(HashAlgorithm::Sha256, &owner).unwrap_or_else(|error| panic!("{error:?}"));

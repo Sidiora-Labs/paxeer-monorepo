@@ -3,7 +3,7 @@
 use crate::call_occupancy::{settle_call_occupancy, CallOccupancySettlement};
 use crate::occupancy::{
     OccupancyAuthority, OccupancyDebitAuthority, OccupancyError, OccupancyLedger, OccupancyUsage,
-    MAX_OCCUPANCY_EVIDENCE_BYTES, MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
+    MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
 };
 use crate::validate::AbiRevision;
 use crate::{
@@ -442,8 +442,8 @@ impl ProgramResolver for CachedProgramResolver {
                 self.token,
                 program.bytes().as_ptr(),
                 hash.as_ptr(),
-                &mut wasm,
-                &mut length,
+                &raw mut wasm,
+                &raw mut length,
             )
         } != OK
             || unsafe {
@@ -3171,7 +3171,7 @@ pub extern "C" fn layerx_programs_call_begin(
                             settlement.transfer_root,
                         )?;
                     }
-                    record_call_event_logs(token, program, &effects)?;
+                    record_call_event_logs(token, program, effects)?;
                     return terminal(TerminalPublication {
                         token,
                         kind: SUCCESS,
@@ -3886,11 +3886,8 @@ mod occupancy_cases {
     }
 
     impl MarketBillingOccupancy {
-        fn new() -> Self {
-            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
-            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
-            let namespace = StorageNamespace::shared(program);
-            let profile = MarketSandboxProfile {
+        fn profile(program: ProgramId, provider: PrincipalId) -> MarketSandboxProfile {
+            MarketSandboxProfile {
                 network_id: 7,
                 market_program: program.bytes(),
                 sandbox_program: [0x77; 32],
@@ -3938,15 +3935,37 @@ mod occupancy_cases {
                 response_deadline: 21,
                 maximum_boundaries: 128,
                 maximum_bytes: 1_048_576,
-            };
-            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
-            let profile_length = profile
-                .encode(&mut profile_bytes)
-                .unwrap_or_else(|error| panic!("profile: {error:?}"));
-            let billing = MarketBillingCommitment {
+            }
+        }
+
+        fn claim(profile: &MarketSandboxProfile, billing: &MarketBillingCommitment) -> Vec<u8> {
+            let mut claim = vec![1, 1];
+            for value in [
+                profile.claim_id,
+                profile.lease_id,
+                profile.provider,
+                profile.attested_input_commitment,
+                billing.output_digest,
+                billing.final_execution_state_root,
+            ] {
+                claim.extend_from_slice(&value);
+            }
+            for value in billing.usage {
+                claim.extend_from_slice(&value.to_be_bytes());
+            }
+            claim.extend_from_slice(&billing.payable.to_be_bytes());
+            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
+            claim.extend_from_slice(&11_u64.to_be_bytes());
+            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
+            assert_eq!(claim.len(), 290);
+            claim
+        }
+
+        fn billing(profile_bytes: &[u8]) -> MarketBillingCommitment {
+            MarketBillingCommitment {
                 profile_digest: {
                     use sha2::Digest;
-                    sha2::Sha256::digest(&profile_bytes[..profile_length]).into()
+                    sha2::Sha256::digest(profile_bytes).into()
                 },
                 provider_trace_root: [13; 32],
                 final_execution_state_root: [14; 32],
@@ -3956,7 +3975,19 @@ mod occupancy_cases {
                 challenger_stake: 1,
                 challenge_window_batches: 10,
                 boundary_count: 4,
-            };
+            }
+        }
+
+        fn new() -> Self {
+            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let namespace = StorageNamespace::shared(program);
+            let profile = Self::profile(program, provider);
+            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
+            let profile_length = profile
+                .encode(&mut profile_bytes)
+                .unwrap_or_else(|error| panic!("profile: {error:?}"));
+            let billing = Self::billing(&profile_bytes[..profile_length]);
             let mut billing_bytes = [0; MARKET_SANDBOX_BILLING_CAPACITY];
             let billing_length = billing
                 .encode(&mut billing_bytes)
@@ -3978,7 +4009,7 @@ mod occupancy_cases {
                     &profile_bytes[..profile_length],
                 )
                 .unwrap_or_else(|error| panic!("profile write: {error}"));
-            transaction.commit();
+            let _ = transaction.commit();
             let initial_sizes = storage
                 .namespace_sizes()
                 .unwrap_or_else(|error| panic!("initial sizes: {error}"))
@@ -3990,25 +4021,7 @@ mod occupancy_cases {
                 .import_activation_positions(&storage, &owners)
                 .unwrap_or_else(|error| panic!("activation: {error}"));
 
-            let mut claim = vec![1, 1];
-            for value in [
-                profile.claim_id,
-                profile.lease_id,
-                profile.provider,
-                profile.attested_input_commitment,
-                billing.output_digest,
-                billing.final_execution_state_root,
-            ] {
-                claim.extend_from_slice(&value);
-            }
-            for value in billing.usage {
-                claim.extend_from_slice(&value.to_be_bytes());
-            }
-            claim.extend_from_slice(&billing.payable.to_be_bytes());
-            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
-            claim.extend_from_slice(&11_u64.to_be_bytes());
-            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
-            assert_eq!(claim.len(), 290);
+            let claim = Self::claim(&profile, &billing);
             let mut transaction = storage.transaction(namespace);
             for (key, value) in [
                 (key(b"lx.market.claim/", profile.lease_id), claim.as_slice()),
@@ -4025,7 +4038,7 @@ mod occupancy_cases {
                     .write(&key, value)
                     .unwrap_or_else(|error| panic!("billing write: {error}"));
             }
-            transaction.commit();
+            let _ = transaction.commit();
             let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
                 version: 1,
                 fee_units_per_cpu_fuel: 1,
@@ -4316,39 +4329,51 @@ pub enum NativeReceiptAuthority {
 }
 
 impl RawNativeReceiptAuthorityV2 {
+    #[must_use]
     pub const fn version(&self) -> u16 {
         self.version
     }
+    #[must_use]
     pub const fn network_id(&self) -> u32 {
         self.network_id
     }
+    #[must_use]
     pub const fn protocol_version(&self) -> u16 {
         self.protocol_version
     }
+    #[must_use]
     pub const fn module_id(&self) -> u16 {
         self.module_id
     }
+    #[must_use]
     pub const fn operation(&self) -> u8 {
         self.operation
     }
+    #[must_use]
     pub const fn result_code(&self) -> i32 {
         self.result_code
     }
+    #[must_use]
     pub const fn block_height(&self) -> u64 {
         self.block_height
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
     }
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.activity_id
     }
+    #[must_use]
     pub const fn previous_state_root(&self) -> [u8; 32] {
         self.previous_state_root
     }
+    #[must_use]
     pub const fn resulting_state_root(&self) -> [u8; 32] {
         self.resulting_state_root
     }
+    #[must_use]
     pub const fn canonical_bytes(&self) -> &[u8; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES] {
         &self.canonical_bytes
     }
@@ -4428,6 +4453,10 @@ extern "C" {
 ///
 /// # Safety
 /// The token must name a live, exclusively accessed native Programs CALL frame for the entire read.
+///
+/// # Errors
+/// Returns the native host refusal or an error for malformed or unsupported
+/// authority bytes, or a receipt digest or block height mismatch.
 pub unsafe fn read_native_receipt_authority(
     token: u64,
     digest: [u8; 32],
@@ -4446,16 +4475,17 @@ pub unsafe fn read_native_receipt_authority(
         _ => return Err(NON_CANONICAL),
     }
     let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES];
-    for (offset, byte) in bytes[..2].iter_mut().enumerate() {
-        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
+    for (offset, byte) in (0_u32..).zip(&mut bytes[..2]) {
+        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
     }
     let length = native_receipt_authority_length(u16::from_be_bytes([bytes[0], bytes[1]]))?;
-    for (offset, byte) in bytes[..length].iter_mut().enumerate().skip(2) {
-        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
+    for (offset, byte) in (0_u32..).zip(&mut bytes[..length]).skip(2) {
+        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
     }
-    let end = unsafe { layerx_programs_call_arbiter_authority_byte(token, length as u32) };
+    let length_u32 = u32::try_from(length).map_err(|_| NON_CANONICAL)?;
+    let end = unsafe { layerx_programs_call_arbiter_authority_byte(token, length_u32) };
     match end {
         -1 => {}
         status if status < 0 => return Err(status),
