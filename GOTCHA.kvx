@@ -21465,3 +21465,8 @@ fix = "The advisory settings carry one entry with its reason for the big integer
 title = "The payload rule of the human boundary check lets only the intents crate call the payload encoders"
 symptom = "The rule payload-encoding-entry-point of services/human/tools/boundary-check reports every file outside services/human/crates/layerx-intents that calls a payload encoding entry point. The production reads file of the service member and one of its tests build receipt payloads for fields that the intents crate offers no constructor for."
 fix = "The intents crate gains the constructors those two files need, and the files call them."
+
+[gotcha.4329]
+title = "The platform dependency inventory lists the resolved package files of the Swift samples"
+symptom = "The inventory check of scripts/workspace/check-platform-dependencies.sh compares the tracked manifests and resolved package files under services/platform with the rows of tools/workspace/platform-dependency-roots.txt. The Swift samples first-payment-swift and mobile-payment-ios each track a Package.resolved file next to their Package.swift."
+fix = "The inventory carries one row for every tracked Package.resolved file of the samples."
