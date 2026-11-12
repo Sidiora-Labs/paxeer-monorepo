@@ -1,18 +1,18 @@
 //! Allocation-free evaluator codecs and pure cryptographic statement checks.
 //! No state, event emission, grant activation, salt or public admission bypass.
 use super::model::{
-    nonzero_key, ConsentContext, EvaluatorAdmissionConsentV1, EvaluatorGrant, GrantStatus,
-    ReportContext, SignedEvaluatorConsent, SignedReport, VerificationError, CONSENT_BYTES,
-    GRANT_BYTES, SIGNED_CONSENT_BYTES, SIGNED_REPORT_MAX_BYTES,
+    CONSENT_BYTES, ConsentContext, EvaluatorAdmissionConsentV1, EvaluatorGrant, GRANT_BYTES,
+    GrantStatus, ReportContext, SIGNED_CONSENT_BYTES, SIGNED_REPORT_MAX_BYTES,
+    SignedEvaluatorConsent, SignedReport, VerificationError, nonzero_key,
 };
-pub use crate::codec::{decode_reveal_event, encode_reveal_event, RevealScoreEvent};
+pub use crate::codec::{RevealScoreEvent, decode_reveal_event, encode_reveal_event};
 use crate::types::GuestIndex as _;
 use crate::{
     codec::{self as common, Reader, ReportBody, ScoreVector, Writer},
     errors::{
-        CodecResult, ARITHMETIC, BAD_SIGNATURE, BAD_VERSION, CAPACITY, EVIDENCE_BINDING, EXPIRED,
+        ARITHMETIC, BAD_SIGNATURE, BAD_VERSION, CAPACITY, CodecResult, EVIDENCE_BINDING, EXPIRED,
         F03_EVIDENCE_NOT_SEALED, F03_EVIDENCE_ROOT_MISMATCH, F03_GRANT_VERSION_CONFLICT,
-        F03_KEY_VERSION_CONFLICT, F03_NONCANONICAL_VECTOR, F03_NO_GRANT, F03_NO_SCORES,
+        F03_KEY_VERSION_CONFLICT, F03_NO_GRANT, F03_NO_SCORES, F03_NONCANONICAL_VECTOR,
         F03_UNKNOWN_WORKER, F08_BAD_CONSENT, KEY_MISMATCH, NON_CANONICAL, REVOKED, ROLE_CONFLICT,
         WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_ROSTER,
     },
@@ -348,7 +348,7 @@ pub fn verify_digest(
     nonzero_key(key)?;
     #[cfg(target_arch = "wasm32")]
     {
-        use layerx_program_sdk::crypto::{ed25519_verify, Ed25519Message};
+        use layerx_program_sdk::crypto::{Ed25519Message, ed25519_verify};
         let message = Ed25519Message::new(&digest).map_err(VerificationError::Host)?;
         match ed25519_verify(message, &key.0, &signature.0) {
             Ok(()) => Ok(()),

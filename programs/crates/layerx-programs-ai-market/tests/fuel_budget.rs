@@ -6,34 +6,36 @@ mod guest;
 use ed25519_dalek::{Signer, SigningKey};
 use guest::CPU_FUEL as DEFAULT_CPU_FUEL;
 use layerx_programs_ai_market::{
+    MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES, SHARED_STATE_KEY,
     admission::{
-        admit_evaluator, Admission, AdmissionContext, AdmissionTable, ApprovalTerms,
-        EvaluatorConsent, Participant, TABLE_MAX_BYTES,
+        Admission, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant,
+        TABLE_MAX_BYTES, admit_evaluator,
     },
     aggregation_codec::{EpochAggregation, QualityStatus, WorkerAggregate},
     codec::{
-        self, decode_envelope, derive_evaluator, derive_market, derive_task, derive_worker,
-        encode_envelope, CommitScorePayload, Envelope, ReportBody, RevealScorePayload, ScoreVector,
+        self, CommitScorePayload, Envelope, ReportBody, RevealScorePayload, ScoreVector,
+        decode_envelope, derive_evaluator, derive_market, derive_task, derive_worker,
+        encode_envelope,
     },
     commit_reveal::commitment,
     dispatch::{self, Buffers, Operation, Routed},
     epoch::{self, Frozen, OPEN_SCRATCH_BYTES},
-    errors::{ApplicationError, CodecResult, ARITHMETIC, NOT_FOUND},
+    errors::{ARITHMETIC, ApplicationError, CodecResult, NOT_FOUND},
     evaluators::{
-        authority::{split_identity_section, EvaluatorRecord, EvaluatorRegion, LastRequest},
+        authority::{EvaluatorRecord, EvaluatorRegion, LastRequest, split_identity_section},
         model::{EvaluatorGrant, GrantTerms, SignedReport},
     },
-    policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
-    registry::{derive_rewards_account, MarketHeader},
-    registry_ops::{CallContext, PolicySection, PERMIT_METADATA, PERMIT_SUSPEND},
+    policy::{PolicyCommitments, TASK_POLICY_BYTES, TaskPolicyV1},
+    registry::{MarketHeader, derive_rewards_account},
+    registry_ops::{CallContext, PERMIT_METADATA, PERMIT_SUSPEND, PolicySection},
     reward_math::allocate,
     rewards::{
-        decode_reward_state, FundReplay, FundRequest, FundingAuthority, FundingPhase, RewardLedger,
-        RewardState, FUNDING_POLICY_VERSION, REWARD_STATE_BYTES,
+        FUNDING_POLICY_VERSION, FundReplay, FundRequest, FundingAuthority, FundingPhase,
+        REWARD_STATE_BYTES, RewardLedger, RewardState, decode_reward_state,
     },
     state::{
-        decode_shared_state, encode_shared_state, ActorSlot, Control, ReplayRequest, ReplayTable,
-        Section, SharedState,
+        ActorSlot, Control, ReplayRequest, ReplayTable, Section, SharedState, decode_shared_state,
+        encode_shared_state,
     },
     tasks::{self, SetBinding, TaskSet},
     types::{
@@ -43,10 +45,9 @@ use layerx_programs_ai_market::{
         RosterDigest, RubricDigest, Salt32, Signature64, Version, WorkerId, WorkerRosterEntry,
     },
     workers::{
-        consent_digest, decode_manifest, WorkerCurrent, WorkerState, WorkerTable,
-        WORKER_TABLE_MAX_BYTES,
+        WORKER_TABLE_MAX_BYTES, WorkerCurrent, WorkerState, WorkerTable, consent_digest,
+        decode_manifest,
     },
-    MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES, SHARED_STATE_KEY,
 };
 use layerx_programs_runtime::{self as rt, ValidatedModule};
 use std::fmt;
@@ -656,7 +657,16 @@ fn run_guest(
             }
         });
     }
-    let mut host = guest::Guest::new(module.clone(), PROGRAM, ASSET)
+    let asset = match current {
+        Some(bytes) => {
+            PolicySection::decode(decode_shared_state(bytes)?.section(Section::PolicyLifecycle)?)?
+                .header
+                .funding_asset
+                .bytes()
+        }
+        None => ASSET,
+    };
+    let mut host = guest::Guest::new(module.clone(), ctx.program.bytes(), asset)
         .map_err(|e| Failure::Guest(e.to_string()))?;
     host.ledger.balances.insert(ctx.principal.bytes(), 10_000);
     if let Some(bytes) = current {
@@ -1102,7 +1112,7 @@ impl Journey {
         )?;
         if let Some(original) = original {
             use layerx_programs_ai_market::reputation_transition::{
-                open_segments, prune_released, split_joint, SegmentBinding,
+                SegmentBinding, open_segments, prune_released, split_joint,
             };
             let binding = |state: &layerx_programs_ai_market::state::SharedState<'_>| -> CodecResult<SegmentBinding> {
                 let policy = PolicySection::decode(state.section(Section::PolicyLifecycle)?)?;
@@ -2016,11 +2026,10 @@ pub fn every_routed_operation_fits_the_protocol_cpu_fuel_cap() -> Checked {
 #[test]
 fn fund_joint_sections_match_the_carried_transition_and_replay() {
     use layerx_programs_ai_market::{
-        epoch, rewards,
-        state::{decode_shared_state, Section},
-        MERGED_CHAIN_DOMAIN,
+        MERGED_CHAIN_DOMAIN, epoch, rewards,
+        state::{Section, decode_shared_state},
     };
-    use repair_478_fixture::{fixture, HEIGHT, PROGRAM};
+    use repair_478_fixture::{HEIGHT, PROGRAM, fixture};
     let owner = [12; 32];
     let f = fixture(owner, [13; 32]).unwrap();
     let ctx = CallContext {
@@ -2125,10 +2134,12 @@ fn fund_joint_sections_match_the_carried_transition_and_replay() {
     let Routed::Refused { result_len } = refused else {
         panic!("Fund must validate the joint reputation region");
     };
-    assert!(codec::decode_result(&result[..result_len])
-        .unwrap()
-        .error
-        .is_some());
+    assert!(
+        codec::decode_result(&result[..result_len])
+            .unwrap()
+            .error
+            .is_some()
+    );
     assert!(next.iter().all(|byte| *byte == 0xa5));
 }
 
@@ -2138,7 +2149,7 @@ fn fund_entry_gas_for_committed_receipt_fixture_is_bounded() {
 }
 
 fn measured_fund_cpu_fuel() -> u64 {
-    use repair_478_fixture::{fixture, AMOUNT, HEIGHT, PROGRAM};
+    use repair_478_fixture::{AMOUNT, HEIGHT, PROGRAM, fixture};
     let f = fixture(OWNER, ASSET).unwrap();
     let mut host = guest::Guest::new(guest_module().unwrap(), PROGRAM, ASSET).unwrap();
     host.ledger.balances.insert(OWNER, AMOUNT);
@@ -2774,7 +2785,9 @@ fn maximum_journey_with_roster(
             fuel: Some(observed.fuel),
             verdict: Ok(()),
         });
-        println!("roster_sweep workers={worker_count} evaluators={evaluator_count} expected=READINESS_BLOCKED reveals=unreachable aggregation=unreachable");
+        println!(
+            "roster_sweep workers={worker_count} evaluators={evaluator_count} expected=READINESS_BLOCKED reveals=unreachable aggregation=unreachable"
+        );
         return Ok(j);
     }
     let frozen = j.open(1408)?;
@@ -2890,9 +2903,15 @@ fn participant_call_totals(rows: &[Row], sweep: &str, tasks: usize, workers: u8,
     }
     for ((selector, height), rows) in calls {
         let total: Option<u64> = rows.iter().map(|row| row.fuel).sum();
-        println!("participant_calls sweep={sweep} tasks={tasks} workers={workers} evaluators={evaluators} selector={selector:04x} height={height} calls={} total_fuel={total:?}", rows.len());
+        println!(
+            "participant_calls sweep={sweep} tasks={tasks} workers={workers} evaluators={evaluators} selector={selector:04x} height={height} calls={} total_fuel={total:?}",
+            rows.len()
+        );
         for (call, row) in rows.iter().enumerate() {
-            println!("participant_call sweep={sweep} tasks={tasks} workers={workers} evaluators={evaluators} selector={selector:04x} height={height} call={call} fuel={:?} verdict={:?}", row.fuel, row.verdict);
+            println!(
+                "participant_call sweep={sweep} tasks={tasks} workers={workers} evaluators={evaluators} selector={selector:04x} height={height} call={call} fuel={:?} verdict={:?}",
+                row.fuel, row.verdict
+            );
         }
     }
     if workers == 32 && evaluators == 8 {
@@ -2941,9 +2960,19 @@ fn maximum_state_fuel_scaling() -> Checked {
             ),
             None => (None, None),
         };
-        println!("sweep tasks={tasks} workers=32 evaluators=8 open_height=1408 open_fuel={:?} admit_height=1410 admit_fuel={:?} open_per_added_task={open_per_task:?} admit_per_added_task={admit_per_task:?}", opening.fuel, admission.fuel);
+        println!(
+            "sweep tasks={tasks} workers=32 evaluators=8 open_height=1408 open_fuel={:?} admit_height=1410 admit_fuel={:?} open_per_added_task={open_per_task:?} admit_per_added_task={admit_per_task:?}",
+            opening.fuel, admission.fuel
+        );
         for (index, row) in measured.rows.iter().enumerate() {
-            println!("sweep tasks={tasks} row={index} operation={} height={} state_bytes={} fuel={:?} verdict={:?}", row.operation.metadata().name, row.height, row.state, row.fuel, row.verdict);
+            println!(
+                "sweep tasks={tasks} row={index} operation={} height={} state_bytes={} fuel={:?} verdict={:?}",
+                row.operation.metadata().name,
+                row.height,
+                row.state,
+                row.fuel,
+                row.verdict
+            );
             if row
                 .fuel
                 .is_none_or(|fuel| fuel == 0 || fuel > DEFAULT_CPU_FUEL)
@@ -2984,7 +3013,13 @@ fn fixed_roster_task_fuel_scaling() -> Checked {
             .iter()
             .find(|row| row.operation == dispatch::OPEN_EPOCH)
             .expect("initial opening must execute");
-        println!("fixed_roster_opening_control tasks={tasks} workers=16 evaluators=4 admitted_tasks_at_opening=0 height={} state_bytes={} fuel={:?} verdict={:?}", initial_opening.height, initial_opening.state, initial_opening.fuel, initial_opening.verdict);
+        println!(
+            "fixed_roster_opening_control tasks={tasks} workers=16 evaluators=4 admitted_tasks_at_opening=0 height={} state_bytes={} fuel={:?} verdict={:?}",
+            initial_opening.height,
+            initial_opening.state,
+            initial_opening.fuel,
+            initial_opening.verdict
+        );
         // The first opening precedes admission. Open the following epoch so its
         // input actually contains the task rows produced by this journey.
         let opening_state = measured.bytes.len();
@@ -3009,7 +3044,14 @@ fn fixed_roster_task_fuel_scaling() -> Checked {
                         (fuel as f64 - old_fuel as f64) / (tasks - old_tasks) as f64
                     })
             });
-            println!("fixed_roster_task_sweep tasks={tasks} workers=16 evaluators=4 operation={} height={} state_bytes={} opening_input_bytes={opening_state} fuel={:?} fuel_per_added_task={slope:?} verdict={:?}", row.operation.metadata().name, row.height, row.state, row.fuel, row.verdict);
+            println!(
+                "fixed_roster_task_sweep tasks={tasks} workers=16 evaluators=4 operation={} height={} state_bytes={} opening_input_bytes={opening_state} fuel={:?} fuel_per_added_task={slope:?} verdict={:?}",
+                row.operation.metadata().name,
+                row.height,
+                row.state,
+                row.fuel,
+                row.verdict
+            );
             if row
                 .fuel
                 .is_none_or(|fuel| fuel == 0 || fuel > DEFAULT_CPU_FUEL)
@@ -3351,7 +3393,11 @@ fn roster_state_fuel_scaling() -> Checked {
             |(ctx, state, _)| (*ctx, state.as_slice()),
         );
         let read_fuel = state_decode_baseline(&module, &read_ctx, read_state)?;
-        println!("roster_state_decode_baseline workers={workers} evaluators={evaluators} height={} state_bytes={} fuel={read_fuel}", read_ctx.height, read_state.len());
+        println!(
+            "roster_state_decode_baseline workers={workers} evaluators={evaluators} height={} state_bytes={} fuel={read_fuel}",
+            read_ctx.height,
+            read_state.len()
+        );
         read_baselines.insert((workers, evaluators), read_fuel);
         if workers == 16 || workers == 32 {
             let (ctx, state, envelope) = inputs.first().expect("first aggregation chunk input");
@@ -3387,13 +3433,19 @@ fn roster_state_fuel_scaling() -> Checked {
                 .chunks_exact(8)
                 .map(|value| u64::from_be_bytes(value.try_into().unwrap()))
                 .collect();
-            println!("aggregation_passes workers={workers} evaluators={evaluators} frame_decode={} replay_decode_encode={} full_roster={} chunk_roster={} frame_copy={} control_compare={}",
-                values[0], values[1], values[2], values[3], values[4], values[5]);
-            println!("aggregation_phases workers={workers} evaluators={evaluators} envelope={} roster={} commitments={} votes={} median={} settlement={} commit={}",
-                phases[0], phases[1], phases[2], phases[3], phases[4], phases[5], phases[6]);
+            println!(
+                "aggregation_passes workers={workers} evaluators={evaluators} frame_decode={} replay_decode_encode={} full_roster={} chunk_roster={} frame_copy={} control_compare={}",
+                values[0], values[1], values[2], values[3], values[4], values[5]
+            );
+            println!(
+                "aggregation_phases workers={workers} evaluators={evaluators} envelope={} roster={} commitments={} votes={} median={} settlement={} commit={}",
+                phases[0], phases[1], phases[2], phases[3], phases[4], phases[5], phases[6]
+            );
             let index_fuel = u64::from_be_bytes(observed.response[136..144].try_into().unwrap());
             assert!(index_fuel > 0);
-            println!("aggregation_receipt_index workers={workers} evaluators={evaluators} fuel={index_fuel}");
+            println!(
+                "aggregation_receipt_index workers={workers} evaluators={evaluators} fuel={index_fuel}"
+            );
             pass_measurements.push((workers, values));
         }
         participant_call_totals(&measured.rows, "roster", 16, workers, evaluators);
@@ -3423,7 +3475,14 @@ fn roster_state_fuel_scaling() -> Checked {
                     }
                 }
             }
-            println!("roster_sweep tasks=16 workers={workers} evaluators={evaluators} row={index} operation={} height={} state_bytes={} fuel={:?} verdict={:?}", row.operation.metadata().name, row.height, row.state, row.fuel, row.verdict);
+            println!(
+                "roster_sweep tasks=16 workers={workers} evaluators={evaluators} row={index} operation={} height={} state_bytes={} fuel={:?} verdict={:?}",
+                row.operation.metadata().name,
+                row.height,
+                row.state,
+                row.fuel,
+                row.verdict
+            );
             if row
                 .fuel
                 .is_none_or(|fuel| fuel == 0 || fuel > DEFAULT_CPU_FUEL)
@@ -3498,7 +3557,9 @@ fn roster_state_fuel_scaling() -> Checked {
     let chunk_16_8 = *first_chunks.get(&(16, 8)).expect("16/8 first chunk");
     let chunk_32_4 = *first_chunks.get(&(32, 4)).expect("32/4 first chunk");
     let chunk_32_8 = *first_chunks.get(&(32, 8)).expect("32/8 first chunk");
-    println!("chunk_projection_pair workers16_evaluators4={chunk_16_4} workers16_evaluators8={chunk_16_8} workers32_evaluators4={chunk_32_4} workers32_evaluators8={chunk_32_8} read_baselines={read_baselines:?}");
+    println!(
+        "chunk_projection_pair workers16_evaluators4={chunk_16_4} workers16_evaluators8={chunk_16_8} workers32_evaluators4={chunk_32_4} workers32_evaluators8={chunk_32_8} read_baselines={read_baselines:?}"
+    );
     // The frozen roster digest is checked above, and every semantic comparison
     // and the ten-percent/900000 assertions below remain in force.
     assert_eq!(pass_measurements.len(), 4);
@@ -3512,9 +3573,13 @@ fn roster_state_fuel_scaling() -> Checked {
                 chunk = 0;
             }
             if let Some((old_workers, old_fuel)) = previous.insert(chunk, (workers, fuel)) {
-                println!("handler_slope selector={selector:04x} chunk={chunk} workers={workers} fuel={fuel} fuel_per_added_worker={} implied_32={}",
+                println!(
+                    "handler_slope selector={selector:04x} chunk={chunk} workers={workers} fuel={fuel} fuel_per_added_worker={} implied_32={}",
                     (fuel as f64 - old_fuel as f64) / f64::from(workers - old_workers),
-                    fuel as f64 + (fuel as f64 - old_fuel as f64) / f64::from(workers - old_workers) * f64::from(32 - workers));
+                    fuel as f64
+                        + (fuel as f64 - old_fuel as f64) / f64::from(workers - old_workers)
+                            * f64::from(32 - workers)
+                );
             }
             chunk += 1;
         }
@@ -3603,9 +3668,10 @@ fn opening_preserves_control_and_retires_only_departing_worker() -> Checked {
             row.operation.metadata().name,
             row.verdict
         );
-        assert!(row
-            .fuel
-            .is_some_and(|fuel| fuel > 0 && fuel <= DEFAULT_CPU_FUEL));
+        assert!(
+            row.fuel
+                .is_some_and(|fuel| fuel > 0 && fuel <= DEFAULT_CPU_FUEL)
+        );
     }
     Ok(())
 }
@@ -3613,9 +3679,9 @@ fn opening_preserves_control_and_retires_only_departing_worker() -> Checked {
 #[test]
 fn aggregation_seal_preserves_suspended_history_bytes() -> Checked {
     use layerx_programs_ai_market::{
-        reputation::{HistoryStatus, CURRENT_BYTES, HEADER_BYTES, HISTORY_BYTES},
-        reputation_transition::split_joint,
         Score,
+        reputation::{CURRENT_BYTES, HEADER_BYTES, HISTORY_BYTES, HistoryStatus},
+        reputation_transition::split_joint,
     };
     let mut j = Journey {
         module: guest_module()?,
@@ -3708,9 +3774,10 @@ fn aggregation_seal_preserves_suspended_history_bytes() -> Checked {
             row.operation.metadata().name,
             row.verdict
         );
-        assert!(row
-            .fuel
-            .is_some_and(|fuel| fuel > 0 && fuel <= DEFAULT_CPU_FUEL));
+        assert!(
+            row.fuel
+                .is_some_and(|fuel| fuel > 0 && fuel <= DEFAULT_CPU_FUEL)
+        );
     }
     Ok(())
 }
@@ -3777,4 +3844,1230 @@ fn resumable_participant_retry_inner() -> Checked {
 #[test]
 fn current_room_profile_uses_the_full_wire_capacity() {
     f11_journeys::room_profile_wire_round_trip();
+}
+
+#[path = "repair_22_33_260.rs"]
+mod f11_producers;
+
+#[test]
+fn f11_fuel_table() {
+    f11_budget::run();
+}
+
+mod f11_budget {
+    // OpenEpoch and FinalizeAggregation publish their participant tables when
+    // their returned cursors reach the count. Producers complete both through
+    // dispatch before using the captured roster.
+    // All selectors use 16 rooms, 64 asks and 128 bids at maximum payload;
+    // SettleLaps uses 64 laps and 32 peers. SplitPayout uses a separate deal
+    // settled through RecordDeal and SettleLaps: 64 laps and ten peer credits,
+    // plus the host and protocol credits, in one room with ten bids and one ask.
+    use super::{Expected, ValidatedModule, f11_producers as producers, run_guest};
+    use ed25519_dalek::{Signer, SigningKey};
+    use layerx_programs_ai_market::{
+        MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
+        MERGED_CHAIN_DOMAIN,
+        codec::{self, Envelope, ResultStatus},
+        dispatch::{self, Operation, Routed},
+        epoch,
+        errors::*,
+        evidence::*,
+        laps::*,
+        policy::{PolicyCommitments, RoomProfile, TASK_POLICY_BYTES, TaskPolicyV1},
+        queries,
+        registry::derive_rewards_account,
+        registry_ops::{CallContext, PolicySection},
+        rooms::*,
+        roster,
+        state::{Section, decode_shared_state},
+        types::*,
+        workers::{WorkerState, WorkerTable},
+    };
+    use std::sync::Arc;
+    use std::{
+        cell::Cell,
+        collections::BTreeSet,
+        io::{BufRead, BufReader, Write},
+        path::PathBuf,
+        process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    };
+    const ORIGIN: u64 = 128;
+    const EPOCH: u64 = 10;
+    const START: u64 = ORIGIN + EPOCH * 128;
+    const AT: u64 = START + 64;
+    thread_local! { static IDENTITIES: Cell<[[u8; 32]; 4]> = const { Cell::new([[0; 32]; 4]) }; }
+    fn owner() -> PrincipalId {
+        actor(12)
+    }
+    fn actor(n: u8) -> PrincipalId {
+        PrincipalId::new(IDENTITIES.with(|ids| match n {
+            12 | 121 | 127 => ids.get()[1],
+            32 => ids.get()[2],
+            33 | 30 | 120 => ids.get()[3],
+            _ => [n; 32],
+        }))
+        .unwrap()
+    }
+    fn digest(n: u8) -> Digest32 {
+        Digest32::new([n; 32]).unwrap()
+    }
+    fn encoded(size: usize, f: impl FnOnce(&mut [u8]) -> CodecResult<usize>) -> Vec<u8> {
+        let mut out = vec![0; size];
+        let n = f(&mut out).unwrap();
+        out.truncate(n);
+        out
+    }
+    fn open_epoch(bytes: &mut Vec<u8>, at: u64) {
+        producers::refresh_workers_with(bytes, at, |w| {
+            let n = (32..64).find(|n| actor(*n) == w.owner).unwrap();
+            SigningKey::from_bytes(&[0x90 + n; 32])
+        })
+        .unwrap();
+        let frozen = producers::open(bytes, at).unwrap();
+        let captured = epoch::captured_roster(&decode_shared_state(bytes).unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(captured.binding.epoch, frozen.epoch);
+        assert_eq!(captured.binding.roster, frozen.roster);
+    }
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|b| format!("{b:02x}")).collect()
+    }
+    fn unhex(s: &str) -> Vec<u8> {
+        if s == "-" {
+            return Vec::new();
+        }
+        assert!(s.len().is_multiple_of(2));
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+    struct Native {
+        module: Arc<ValidatedModule>,
+        child: Child,
+        input: Option<ChildStdin>,
+        output: BufReader<ChildStdout>,
+    }
+    impl Drop for Native {
+        fn drop(&mut self) {
+            if self.input.is_some() {
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+            }
+        }
+    }
+    impl Native {
+        fn start() -> Self {
+            let path = std::env::var_os("PAXAI_HOST_BOUNDARY_MANIFEST").map_or_else(
+                || {
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../../build/paxai-host-boundary/manifest")
+                },
+                PathBuf::from,
+            );
+            let manifest = std::fs::read_to_string(&path).unwrap();
+            let lines: Vec<_> = manifest.lines().collect();
+            let [wasm, binary, chain] = lines[..] else {
+                panic!("invalid native manifest");
+            };
+            assert_eq!(unhex(chain), MERGED_CHAIN_DOMAIN);
+            let resolve = |name: &str| {
+                let p = PathBuf::from(name);
+                if p.is_absolute() {
+                    p
+                } else {
+                    path.parent().unwrap().join(p)
+                }
+            };
+            let wasm_bytes = std::fs::read(resolve(wasm)).unwrap();
+            assert!(
+                wasm_bytes.len() + super::guest::DEPLOYMENT_ENVELOPE_BYTES
+                    <= super::guest::DEPLOYMENT_LIMIT
+            );
+            let module = Arc::new(
+                layerx_programs_runtime::WasmEngine::declared()
+                    .unwrap()
+                    .validate_versioned_metered(
+                        layerx_programs_runtime::ABI_V5_VERSION,
+                        &wasm_bytes,
+                        layerx_programs_runtime::FuelSchedule::WASMI_0_31_2,
+                    )
+                    .unwrap(),
+            );
+            let mut child = Command::new(resolve(binary))
+                .arg(resolve(wasm))
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .spawn()
+                .unwrap();
+            let input = child.stdin.take().unwrap();
+            let output = BufReader::new(child.stdout.take().unwrap());
+            let mut native = Self {
+                module,
+                child,
+                input: Some(input),
+                output,
+            };
+            let ready = native.line();
+            let tokens: Vec<_> = ready.split_whitespace().collect();
+            assert_eq!(tokens.len(), 9, "native bring-up: {ready}");
+            assert_eq!(tokens[0], "ready");
+            IDENTITIES.with(|ids| {
+                ids.set(std::array::from_fn(|i| {
+                    unhex(tokens[i + 1]).try_into().unwrap()
+                }))
+            });
+            native
+        }
+        fn line(&mut self) -> String {
+            let mut s = String::new();
+            assert!(
+                self.output.read_line(&mut s).unwrap() > 0,
+                "native harness closed stdout"
+            );
+            s
+        }
+        fn check(
+            &mut self,
+            before: &[u8],
+            envelope: &[u8],
+            who: PrincipalId,
+            at: u64,
+            expected: &producers::Reply,
+        ) {
+            use layerx_programs_runtime::terminal::{
+                CandidateTerminalOutcome, ExecutionTerminal, TerminalDetail,
+            };
+            let op = u16::from_be_bytes(envelope[8..10].try_into().unwrap());
+            let header = producers::header(before).unwrap();
+            let operation = Operation::decode(op).unwrap();
+            let mut topic = [0; 64];
+            let topic_len = if expected.event.is_empty() {
+                0
+            } else {
+                codec::event_topic(operation, &mut topic).unwrap()
+            };
+            let (in_process_fuel, verdict) = run_guest(
+                &self.module,
+                &CallContext {
+                    chain: header.deployment_chain_domain,
+                    program: header.program_id,
+                    principal: who,
+                    height: at,
+                },
+                Some(before),
+                envelope,
+                &Expected {
+                    state: if expected.state.is_empty() {
+                        before
+                    } else {
+                        &expected.state
+                    },
+                    topic: &topic[..topic_len],
+                    event: &expected.event,
+                    result: &expected.result,
+                },
+            )
+            .unwrap();
+            println!(
+                "F11 {op:#06x} state={} in_process_fuel={in_process_fuel:?} verdict={verdict:?}",
+                before.len()
+            );
+            let actor_index = (0..3)
+                .find(|i| IDENTITIES.with(|ids| ids.get()[i + 1] == who.bytes()))
+                .unwrap();
+            let refund_amount = if operation == dispatch::RefundBond {
+                let ledger = |bytes: &[u8]| {
+                    let shared = decode_shared_state(bytes).unwrap();
+                    layerx_programs_ai_market::rewards::decode_reward_state(
+                        &shared.room_market().unwrap().0
+                            [..layerx_programs_ai_market::rewards::REWARD_STATE_BYTES],
+                    )
+                    .unwrap()
+                    .ledger()
+                    .unwrap()
+                };
+                ledger(&expected.state)
+                    .total_claimed
+                    .checked_sub(ledger(before).total_claimed)
+                    .unwrap()
+            } else {
+                0
+            };
+            writeln!(
+                self.input.as_mut().unwrap(),
+                "f11 {actor_index} {at} {} {} {}",
+                hex(&refund_amount.to_be_bytes()),
+                hex(before),
+                hex(envelope)
+            )
+            .unwrap();
+            self.input.as_mut().unwrap().flush().unwrap();
+            let line = self.line();
+            let t: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(t[0], "call");
+            assert_eq!(t[1], "0", "selector {op:#06x}: {line}");
+            assert_eq!(t[2], "0", "selector {op:#06x}: {line}");
+            let effects = layerx_programs_runtime::abi::AbiEffects::decode_program_event_envelope(
+                &unhex(t[17]),
+            )
+            .unwrap();
+            assert_eq!(
+                effects.events.len(),
+                usize::from(!expected.event.is_empty())
+            );
+            if let Some(event) = effects.events.first() {
+                assert_eq!(event.program.bytes(), header.program_id.bytes());
+                assert_eq!(event.principal.bytes(), who.bytes());
+                assert_eq!(event.topic, topic[..topic_len]);
+                assert_eq!(event.data, expected.event);
+            }
+            let terminal = unhex(t[5]);
+            let detail = layerx_wire::receipt::decode_applied_terminal(&terminal)
+                .unwrap()
+                .0;
+            let decoded = layerx_programs_runtime::terminal::decode_terminal_payload(
+                t[3].parse().unwrap(),
+                t[4].parse().unwrap(),
+                detail,
+            )
+            .unwrap();
+            let TerminalDetail::Execution(ExecutionTerminal::CandidateV4 {
+                program,
+                outcome,
+                usage,
+                ..
+            }) = decoded.detail
+            else {
+                panic!("missing execution terminal");
+            };
+            assert_eq!(program, IDENTITIES.with(|ids| ids.get()[0]));
+            assert_eq!(
+                outcome,
+                CandidateTerminalOutcome::Success {
+                    code: 0,
+                    response: expected.result.clone()
+                }
+            );
+            assert_eq!(
+                unhex(t[6]),
+                if expected.state.is_empty() {
+                    before
+                } else {
+                    &expected.state
+                }
+            );
+            let metrics = self.line();
+            let m: Vec<_> = metrics.split_whitespace().collect();
+            assert_eq!(m.len(), 4);
+            assert_eq!(m[0], "f11");
+            let fuel: u64 = m[1].parse().unwrap();
+            let boundaries: u32 = m[2].parse().unwrap();
+            let bytes: usize = m[3].parse().unwrap();
+            assert_eq!(verdict, Ok(()), "in-process selector {op:#06x}");
+            let in_process_fuel = in_process_fuel.expect("measured in-process F11 fuel");
+            assert!(in_process_fuel > 0 && in_process_fuel < 1_000_000);
+            assert_eq!(fuel, usage.cpu_fuel);
+            assert!(fuel > 0 && fuel < 1_000_000);
+            assert_eq!(boundaries, 0, "plain F11 call has no replay record");
+            assert_eq!(bytes, 0, "plain F11 call has no replay witness");
+            assert_eq!(bytes, t[12].parse::<usize>().unwrap());
+            println!(
+                "F11 {op:#06x} state={} fuel={fuel} in_process_fuel={in_process_fuel} boundaries={boundaries} replay_bytes={bytes}",
+                before.len()
+            );
+        }
+        fn check_whole_record_refusal(
+            &mut self,
+            before: &[u8],
+            envelope: &[u8],
+            who: PrincipalId,
+            at: u64,
+        ) {
+            let actor_index = (0..3)
+                .find(|i| IDENTITIES.with(|ids| ids.get()[i + 1] == who.bytes()))
+                .unwrap();
+            writeln!(
+                self.input.as_mut().unwrap(),
+                "f11-record {actor_index} {at} {} {} {}",
+                hex(&0u128.to_be_bytes()),
+                hex(before),
+                hex(envelope)
+            )
+            .unwrap();
+            self.input.as_mut().unwrap().flush().unwrap();
+            let line = self.line();
+            let t: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(t[0], "call");
+            assert_eq!(t[1], "-3", "record bounds refusal: {line}");
+            assert_eq!(t[2], "0", "record bounds receipt: {line}");
+            assert_eq!(unhex(t[6]), before, "record refusal must retain state");
+            assert_eq!(t[12], "0", "record refusal has no witness");
+            let metrics = self.line();
+            let m: Vec<_> = metrics.split_whitespace().collect();
+            assert_eq!(m[0], "f11-refused");
+            assert_eq!(m[1], "0");
+            let fee: u64 = m[2].parse().unwrap();
+            let fuel: u64 = m[3].parse().unwrap();
+            assert_eq!(fee, t[15].parse::<u64>().unwrap());
+            assert_eq!(fee, 0, "a preexecution bounds refusal charges no fee");
+            assert_eq!(fuel, 0, "the refused call has no program outcome");
+            println!(
+                "F11 whole record refused state={} receipt_fee={fee} receipt_fuel={fuel}",
+                before.len()
+            );
+        }
+        fn finish(mut self) {
+            drop(self.input.take());
+            assert!(self.child.wait().unwrap().success());
+        }
+    }
+    struct Market {
+        bytes: Vec<u8>,
+        roster: RosterDigest,
+        native: Native,
+        measuring: bool,
+        measured: BTreeSet<u16>,
+    }
+    impl Market {
+        fn new() -> Self {
+            let native = Native::start();
+            let chain = ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap();
+            let program = ProgramId::new(IDENTITIES.with(|ids| ids.get()[0])).unwrap();
+            let mut asset_bytes = [0; 32];
+            asset_bytes[0] = 9;
+            let asset = AssetId::new(asset_bytes).unwrap();
+            let policy = TaskPolicyV1::bounded_default(
+                1,
+                1,
+                PolicyCommitments {
+                    model_artifact: digest(1),
+                    dataset_artifact: [2; 32],
+                    benchmark_suite: digest(3),
+                    rubric: RubricDigest::new([4; 32]).unwrap(),
+                    task_schema: digest(5),
+                    result_schema: digest(6),
+                    service_terms: digest(7),
+                },
+                1000,
+                1,
+            )
+            .unwrap();
+            let mut payload = owner().bytes().to_vec();
+            payload.extend_from_slice(asset.as_bytes());
+            payload.extend_from_slice(derive_rewards_account(program, asset).unwrap().as_bytes());
+            payload.extend_from_slice(&[14; 32]);
+            payload.push(1);
+            payload.extend_from_slice(actor(15).as_bytes());
+            payload.extend_from_slice(&encoded(TASK_POLICY_BYTES, |out| policy.encode(out)));
+            payload.extend_from_slice(&[16; 32]);
+            let envelope = encoded(MAX_ENVELOPE_BYTES, |out| {
+                codec::encode_envelope(
+                    &Envelope {
+                        operation: dispatch::CREATE,
+                        chain,
+                        program,
+                        market: codec::derive_market(chain, program)?,
+                        actor: owner(),
+                        epoch: 0,
+                        config: 1,
+                        roster: Presence::Absent,
+                        sequence: 1,
+                        expiry: u64::MAX,
+                        request: RequestId::new([1; 32])?,
+                        payload: &payload,
+                        authentication: Authentication::Native,
+                    },
+                    out,
+                )
+            });
+            let mut bytes = vec![0; MAX_STATE_BYTES];
+            let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
+            let mut event = vec![0; MAX_EVENT_BYTES];
+            let mut result = vec![0; MAX_RESULT_BYTES];
+            let routed = dispatch::route(
+                &CallContext {
+                    chain,
+                    program,
+                    principal: owner(),
+                    height: ORIGIN,
+                },
+                &envelope,
+                None,
+                dispatch::Buffers {
+                    next: &mut bytes,
+                    scratch: &mut scratch,
+                    event: &mut event,
+                    result: &mut result,
+                },
+            )
+            .unwrap();
+            let Routed::Applied { state_len, .. } = routed else {
+                panic!("Create refused");
+            };
+            bytes.truncate(state_len);
+            let mut sequence = 2;
+            producers::enroll(
+                &mut bytes,
+                &mut sequence,
+                actor(32),
+                32,
+                &SigningKey::from_bytes(&[0x90 + 32; 32]),
+                MetadataDigest::new([32; 32]).unwrap(),
+                ORIGIN + 2,
+            )
+            .unwrap();
+            for n in [2, 3, 4] {
+                producers::evaluator(
+                    &mut bytes,
+                    &mut sequence,
+                    actor(n),
+                    n,
+                    &SigningKey::from_bytes(&[n; 32]),
+                    ORIGIN + 2,
+                )
+                .unwrap();
+            }
+            let mut fund = 1_000_000u128.to_be_bytes().to_vec();
+            fund.extend_from_slice(&[14; 32]);
+            fund.extend_from_slice(&1u64.to_be_bytes());
+            fund.push(1);
+            producers::call(&mut bytes, dispatch::FUND, owner(), &fund, ORIGIN + 7).unwrap();
+            let pending: Vec<_> = (33u8..64).collect();
+            for epoch in 1..EPOCH {
+                let start = ORIGIN + epoch * 128;
+                open_epoch(&mut bytes, start);
+                producers::heartbeat(&mut bytes, start + 1).unwrap();
+                for &n in pending.iter().skip(((epoch - 1) * 4) as usize).take(4) {
+                    producers::enroll(
+                        &mut bytes,
+                        &mut sequence,
+                        actor(n),
+                        n,
+                        &SigningKey::from_bytes(&[0x90 + n; 32]),
+                        MetadataDigest::new([n; 32]).unwrap(),
+                        start + 2,
+                    )
+                    .unwrap();
+                }
+                producers::settle(&mut bytes, start + 96).unwrap();
+            }
+            let mut schedule = decode_shared_state(&bytes)
+                .unwrap()
+                .revision
+                .to_be_bytes()
+                .to_vec();
+            schedule.extend_from_slice(&EPOCH.to_be_bytes());
+            producers::call(
+                &mut bytes,
+                dispatch::SCHEDULE_ACTIVATION,
+                owner(),
+                &schedule,
+                START - 32,
+            )
+            .unwrap();
+            open_epoch(&mut bytes, START);
+            let mut advance = decode_shared_state(&bytes)
+                .unwrap()
+                .revision
+                .to_be_bytes()
+                .to_vec();
+            advance.extend_from_slice(&EPOCH.to_be_bytes());
+            producers::call(
+                &mut bytes,
+                dispatch::ADVANCE_ACTIVATION,
+                owner(),
+                &advance,
+                START + 1,
+            )
+            .unwrap();
+            let roster = RosterDigest::new(
+                roster::roster_digest(&producers::table(&bytes).unwrap(), EPOCH)
+                    .unwrap()
+                    .bytes(),
+            )
+            .unwrap();
+            assert_eq!(
+                epoch::captured_roster(&decode_shared_state(&bytes).unwrap())
+                    .unwrap()
+                    .unwrap()
+                    .workers()
+                    .len(),
+                32
+            );
+            Self {
+                bytes,
+                roster,
+                native,
+                measuring: false,
+                measured: BTreeSet::new(),
+            }
+        }
+        fn envelope(&self, op: Operation, who: PrincipalId, payload: &[u8]) -> Vec<u8> {
+            let sequence = if op.metadata().sequence == dispatch::SequencePolicy::ObjectLocal {
+                0
+            } else {
+                producers::next_sequence(&self.bytes, who).unwrap()
+            };
+            let bytes = producers::envelope(&self.bytes, op, who, payload, sequence).unwrap();
+            if op.metadata().feature != 11
+                || matches!(op, dispatch::ChallengeLap | dispatch::ResolveChallenge)
+            {
+                return bytes;
+            }
+            let mut e = codec::decode_envelope(&bytes).unwrap().envelope;
+            e.roster = Presence::Present(self.roster);
+            encoded(MAX_ENVELOPE_BYTES, |out| codec::encode_envelope(&e, out))
+        }
+        fn call(&mut self, op: Operation, who: PrincipalId, payload: &[u8], at: u64) -> Vec<u8> {
+            let e = self.envelope(op, who, payload);
+            let expected = producers::compose(&self.bytes, &e, who, at).unwrap();
+            assert!(
+                matches!(expected.routed, Routed::Applied { .. }),
+                "{op:?}: {:?}",
+                codec::decode_result(&expected.result).unwrap()
+            );
+            if self.measuring && op.metadata().feature == 11 {
+                if op != dispatch::SettleLaps {
+                    assert_eq!(payload.len(), op.metadata().payload_max);
+                }
+                self.native.check(&self.bytes, &e, who, at, &expected);
+                self.measured.insert(op.selector());
+            }
+            self.bytes = expected.state;
+            e
+        }
+        fn manifest(&self, batch: &ReceiptBatch) -> Vec<u8> {
+            let state = decode_shared_state(&self.bytes).unwrap();
+            let section =
+                PolicySection::decode(state.section(Section::PolicyLifecycle).unwrap()).unwrap();
+            let binding = epoch::captured_roster(&state).unwrap().unwrap().binding;
+            let mut parents: Vec<_> = (0..MAX_PARENTS - 1)
+                .map(|n| ParentRef {
+                    purpose: ParentPurpose::Execution,
+                    root: digest(150 + n as u8).bytes(),
+                })
+                .collect();
+            parents.push(ParentRef {
+                purpose: ParentPurpose::Execution,
+                root: batch.summary_digest().unwrap().bytes(),
+            });
+            parents.sort_by_key(|p| (p.purpose as u8, p.root));
+            encoded(MAX_MANIFEST_BYTES, |out| {
+                encode_manifest(
+                    &ArtifactManifest {
+                        kind: ArtifactKind::EvaluationEvidence,
+                        privacy: Privacy::Public,
+                        context: ArtifactContext {
+                            chain: binding.chain,
+                            program: binding.program,
+                            market: binding.market,
+                            policy: section.current.digest().unwrap(),
+                        },
+                        epoch: binding.epoch,
+                        publisher: owner(),
+                        subject: producers::sealed_task_set(&self.bytes, EPOCH)
+                            .unwrap()
+                            .bytes(),
+                        byte_length: 1,
+                        chunk_count: 1,
+                        content_root: content_root(1, 1, &batch.batch_digest.bytes()),
+                        parents: Items::Typed(&parents),
+                        declaration_root: [0; 32],
+                        reproduction_root: [0; 32],
+                        access_policy_root: [0; 32],
+                        not_after_height: u64::MAX,
+                    },
+                    out,
+                )
+                .map_err(|_| NON_CANONICAL)
+            })
+        }
+        fn seal(&mut self, manifest: &[u8], voter: u8) {
+            let state = decode_shared_state(&self.bytes).unwrap();
+            let policy = PolicySection::decode(state.section(Section::PolicyLifecycle).unwrap())
+                .unwrap()
+                .current;
+            let mut payload = 1u16.to_be_bytes().to_vec();
+            payload.extend_from_slice(&manifest_root(manifest).unwrap().bytes());
+            payload.extend_from_slice(policy.digest().unwrap().as_bytes());
+            payload.extend_from_slice(
+                producers::sealed_task_set(&self.bytes, EPOCH)
+                    .unwrap()
+                    .as_bytes(),
+            );
+            payload.extend_from_slice(policy.commitments.rubric.as_bytes());
+            payload.push(policy.assessment_mode);
+            self.call(dispatch::SealEvidence, actor(voter), &payload, AT);
+        }
+        fn settle_payload(&self, batch: ReceiptBatch, manifest: &[u8]) -> Vec<u8> {
+            encoded(5000, |out| {
+                SettleLapsRequest {
+                    batch,
+                    artifact_manifest: manifest,
+                }
+                .encode(out)
+            })
+        }
+    }
+    fn batch(first: u64, count: usize, peers: usize, bitmap: u32) -> ReceiptBatch {
+        let ranges: Vec<_> = (0..peers).map(|i| digest(80 + i as u8)).collect();
+        let key = SigningKey::from_bytes(&[12; 32]);
+        let receipts: Vec<_> = (0..count)
+            .map(|i| {
+                let mut receipt = LapReceipt {
+                    deal_id: digest(62),
+                    lap_index: first + i as u64,
+                    prompt_tokens: 10,
+                    generated_tokens: 90,
+                    cumulative_tokens: (first + i as u64 + 1) * 100,
+                    layer_range_digests: &ranges,
+                    host_signature: Signature64([1; 64]),
+                    peer_countersignatures: bitmap,
+                };
+                receipt.host_signature = Signature64(
+                    key.sign(receipt.signing_digest().unwrap().as_bytes())
+                        .to_bytes(),
+                );
+                receipt
+            })
+            .collect();
+        ReceiptBatch::from_receipts(&receipts).unwrap()
+    }
+
+    use layerx_programs_ai_market::{
+        bonds::{LockBondRequest, RefundBondRequest, SlashBondRequest},
+        canary::{
+            self, CanaryReveal, CanaryRoomProfile, CanaryTask, ChallengeLapPayload,
+            ResolveChallengePayload,
+        },
+        commit_reveal,
+        rewards::SplitPayoutRequest,
+    };
+
+    impl Market {
+        fn peer(&self, n: u8) -> WorkerRosterEntry {
+            let state = decode_shared_state(&self.bytes).unwrap();
+            *epoch::captured_roster(&state)
+                .unwrap()
+                .unwrap()
+                .workers()
+                .iter()
+                .find(|w| w.owner == actor(n))
+                .unwrap()
+        }
+        fn score_envelope(
+            &self,
+            operation: dispatch::Operation,
+            payload: &[u8],
+            binding: FrozenBinding,
+        ) -> Vec<u8> {
+            let sequence = producers::next_sequence(&self.bytes, owner()).unwrap();
+            let mut request = [0x77; 32];
+            request[..8].copy_from_slice(&sequence.to_be_bytes());
+            request[8..10].copy_from_slice(&operation.selector().to_be_bytes());
+            let e = Envelope {
+                operation,
+                chain: binding.chain,
+                program: binding.program,
+                market: binding.market,
+                actor: owner(),
+                epoch: binding.epoch,
+                config: binding.config.get(),
+                roster: Presence::Present(binding.roster),
+                sequence,
+                expiry: u64::MAX,
+                request: RequestId::new(request).unwrap(),
+                payload,
+                authentication: Authentication::Native,
+            };
+            encoded(MAX_ENVELOPE_BYTES, |out| {
+                commit_reveal::encode_canary_envelope(&e, out)
+            })
+        }
+        fn score(
+            &mut self,
+            operation: dispatch::Operation,
+            payload: &[u8],
+            binding: FrozenBinding,
+            height: u64,
+        ) {
+            let envelope = self.score_envelope(operation, payload, binding);
+            let reply = producers::compose(&self.bytes, &envelope, owner(), height).unwrap();
+            assert!(
+                matches!(reply.routed, Routed::Applied { .. }),
+                "{:?}",
+                codec::decode_result(&reply.result).unwrap()
+            );
+            self.bytes = reply.state;
+        }
+        fn canary(&mut self, lap: u64) -> (CanaryTask, Digest32) {
+            let binding = epoch::captured_roster(&decode_shared_state(&self.bytes).unwrap())
+                .unwrap()
+                .unwrap()
+                .binding;
+            let room = RoomBook::decode(
+                decode_shared_state(&self.bytes)
+                    .unwrap()
+                    .room_market()
+                    .unwrap()
+                    .1,
+            )
+            .unwrap()
+            .room(digest(60))
+            .unwrap()
+            .unwrap();
+            let answer = [200_000; 8];
+            let mut task = CanaryTask {
+                deal: digest(62),
+                lap,
+                peer: self.peer(32).worker,
+                prompt_digest: digest(90),
+                expected_logits_digest: canary::logits_digest(&[100_000; 8]).unwrap(),
+                answer_digest: canary::logits_digest(&answer).unwrap(),
+                profile: CanaryRoomProfile { room: room.profile },
+                peer_signature: Signature64([0; 64]),
+            };
+            task.peer_signature = Signature64(
+                SigningKey::from_bytes(&[0x90 + 32; 32])
+                    .sign(task.answer_attestation(&binding).unwrap().as_bytes())
+                    .to_bytes(),
+            );
+            let id = task.commitment(&binding, owner()).unwrap();
+            let payload = task.encode().unwrap();
+            self.score(dispatch::CommitScore, &payload, binding, AT);
+            self.call(
+                dispatch::ChallengeLap,
+                actor(120),
+                &ChallengeLapPayload {
+                    deal: task.deal,
+                    lap,
+                    commitment: id,
+                    deposit: room.profile.minimum_bond,
+                }
+                .encode()
+                .unwrap(),
+                AT + 1,
+            );
+            (task, id)
+        }
+        fn resolve_fault(&mut self, task: CanaryTask, id: Digest32) {
+            let binding = epoch::captured_roster(&decode_shared_state(&self.bytes).unwrap())
+                .unwrap()
+                .unwrap()
+                .binding;
+            let payload = CanaryReveal {
+                commitment: id,
+                prompt_digest: task.prompt_digest,
+                logits: [100_000; 8],
+            }
+            .encode()
+            .unwrap();
+            self.score(dispatch::RevealScore, &payload, binding, START + 80);
+            self.call(
+                dispatch::ResolveChallenge,
+                actor(121),
+                &ResolveChallengePayload {
+                    deal: task.deal,
+                    lap: task.lap,
+                    commitment: id,
+                    answer: [200_000; 8],
+                }
+                .encode()
+                .unwrap(),
+                START + 81,
+            );
+            assert!(
+                canary::commitment_from_state(&self.bytes, id)
+                    .unwrap()
+                    .peer_at_fault()
+            );
+        }
+    }
+
+    fn room_profile() -> RoomProfile {
+        RoomProfile {
+            minimum_bond: 100,
+            canary_ratio_bps: 250,
+            lap_size_tokens: 100,
+            challenge_window_blocks: 16,
+            slash_fraction_bps: 1000,
+            host_share_bps: 1000,
+            protocol_share_bps: 1000,
+            settlement_account: AccountId::new([80; 32]).unwrap(),
+            max_generated_tokens: 8192,
+            queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
+            liveness_timeout_ms: 30_000,
+            acknowledgement_window_ms: 5000,
+            canary_relative_tolerance_bps: 100,
+        }
+    }
+    impl Market {
+        fn add_room(&mut self, i: usize) {
+            self.call(
+                dispatch::OpenRoom,
+                owner(),
+                &encoded(OPEN_ROOM_REQUEST_BYTES, |out| {
+                    OpenRoomRequest {
+                        room_id: if i == 0 {
+                            digest(60)
+                        } else {
+                            digest(99 + i as u8)
+                        },
+                        model_digest: if i == 1 { digest(2) } else { digest(1) },
+                        runtime_digest: digest(51),
+                        profile: room_profile(),
+                    }
+                    .encode(out)
+                }),
+                START + 2,
+            );
+        }
+        fn add_ask(&mut self, i: usize) {
+            self.call(
+                dispatch::PostAsk,
+                actor(30),
+                &encoded(128, |out| {
+                    PostAskRequest {
+                        room_id: digest(60),
+                        ask_id: digest(1 + i as u8),
+                        model_digest: digest(1),
+                        maximum_price_per_thousand_tokens: 2000,
+                        stream_id: 1 + i as u128,
+                    }
+                    .encode(out)
+                }),
+                START + 2,
+            );
+        }
+        fn add_bid(&mut self, i: usize) {
+            let n = if i < 32 { 32 + i as u8 } else { 32 };
+            let who = actor(n);
+            let room = if i < 64 { digest(60) } else { digest(100) };
+            let bid = digest(1 + i as u8);
+            self.call(
+                dispatch::LockBond,
+                who,
+                &LockBondRequest {
+                    room,
+                    bid,
+                    amount: 100,
+                }
+                .encode()
+                .unwrap(),
+                START + 2,
+            );
+            let state = decode_shared_state(&self.bytes).unwrap();
+            let workers = WorkerTable::decode(
+                layerx_programs_ai_market::evaluators::authority::split_identity_section(
+                    state.section(Section::IdentityRoster).unwrap(),
+                )
+                .unwrap()
+                .0,
+            )
+            .unwrap();
+            let worker = workers.iter().find(|w| w.owner == who).unwrap();
+            assert!(matches!(
+                worker.state,
+                WorkerState::Available | WorkerState::Enrolled
+            ));
+            let payload = encoded(130, |out| {
+                PostBidRequest {
+                    room_id: room,
+                    bid_id: bid,
+                    capability_digest: Digest32::new(worker.metadata.bytes())?,
+                    minimum_price_per_thousand_tokens: 5,
+                    bond_amount: 100,
+                    layer_capacity: 16,
+                }
+                .encode(out)
+            });
+            self.call(dispatch::PostBid, who, &payload, START + 2);
+        }
+        fn full_book(&mut self) {
+            for i in 0..ROOM_CAPACITY - 1 {
+                self.add_room(i);
+            }
+            for i in 0..ASK_CAPACITY - 1 {
+                self.add_ask(i);
+            }
+            for i in 0..BID_CAPACITY - 1 {
+                self.add_bid(i);
+            }
+            let base = self.bytes.clone();
+            self.add_ask(ASK_CAPACITY - 1);
+            self.add_bid(BID_CAPACITY - 1);
+            self.measuring = true;
+            self.add_room(ROOM_CAPACITY - 1);
+            self.measuring = false;
+            self.bytes = base.clone();
+            self.add_room(ROOM_CAPACITY - 1);
+            self.add_bid(BID_CAPACITY - 1);
+            self.measuring = true;
+            self.add_ask(ASK_CAPACITY - 1);
+            self.measuring = false;
+            self.bytes = base;
+            self.add_room(ROOM_CAPACITY - 1);
+            self.add_ask(ASK_CAPACITY - 1);
+            self.measuring = true;
+            self.add_bid(BID_CAPACITY - 1);
+            assert_eq!(
+                RoomBook::decode(
+                    decode_shared_state(&self.bytes)
+                        .unwrap()
+                        .room_market()
+                        .unwrap()
+                        .1
+                )
+                .unwrap()
+                .counts(),
+                [16, 64, 128, 0]
+            );
+            assert!(self.bytes.len() <= MAX_STATE_BYTES);
+        }
+        fn read(&mut self, op: Operation, payload: &[u8], at: u64) {
+            assert_eq!(payload.len(), op.metadata().payload_max);
+            let h = producers::header(&self.bytes).unwrap();
+            let envelope = Envelope {
+                operation: op,
+                chain: h.deployment_chain_domain,
+                program: h.program_id,
+                market: h.market_id,
+                actor: owner(),
+                epoch: 0,
+                config: 0,
+                roster: Presence::Absent,
+                sequence: 0,
+                expiry: u64::MAX,
+                request: RequestId::new([99; 32]).unwrap(),
+                payload,
+                authentication: Authentication::Native,
+            };
+            let e = encoded(MAX_ENVELOPE_BYTES, |out| {
+                if op == dispatch::BookView {
+                    layerx_programs_ai_market::placement::encode_book_envelope(&envelope, out)
+                } else {
+                    queries::encode_view_envelope(&envelope, out)
+                }
+            });
+            let expected = producers::compose(&self.bytes, &e, owner(), at).unwrap();
+            assert!(matches!(expected.routed, Routed::Unchanged { .. }));
+            let result = codec::decode_result(&expected.result).unwrap();
+            assert_eq!(result.status, ResultStatus::Ok);
+            assert_eq!(result.error, None);
+            self.native.check(&self.bytes, &e, owner(), at, &expected);
+            self.measured.insert(op.selector());
+        }
+    }
+    pub(super) fn run() {
+        let mut m = Market::new();
+        let payout_base = m.bytes.clone();
+        m.full_book();
+        m.read(dispatch::RoomView, digest(60).as_bytes(), START + 2);
+        m.read(dispatch::BookView, digest(1).as_bytes(), START + 2);
+        let layers = std::array::from_fn(|i| {
+            Some(LayerSplit {
+                bid_id: digest(1 + i as u8),
+                first_layer: i as u16,
+                end_layer: (i + 1) as u16,
+            })
+        });
+        let deal = RecordDealRequest {
+            room_id: digest(60),
+            deal_id: digest(62),
+            ask_id: digest(61),
+            agreed_price_per_thousand_tokens: 1000,
+            roster_digest: m.roster,
+            layers,
+        };
+        let payload = encoded(1297, |out| deal.encode(out));
+        assert_eq!(payload.len(), dispatch::RecordDeal.metadata().payload_max);
+        m.call(dispatch::RecordDeal, owner(), &payload, START + 2);
+        producers::seal_tasks(&mut m.bytes, AT).unwrap();
+        let b = batch(0, LAP_BATCH_MAX, MAX_DEAL_PEERS, u32::MAX);
+        assert_eq!(b.last_lap_index, 63);
+        let manifest = m.manifest(&b);
+        assert_eq!(
+            manifest.len(),
+            MANIFEST_FIXED_BYTES + MAX_PARENTS * PARENT_BYTES
+        );
+        m.seal(&manifest, 2);
+        let payload = m.settle_payload(b, &manifest);
+        assert_eq!(
+            payload.len(),
+            SETTLE_FIXED_BYTES + MANIFEST_FIXED_BYTES + MAX_PARENTS * PARENT_BYTES
+        );
+        m.call(dispatch::SettleLaps, owner(), &payload, AT);
+        m.read(dispatch::DealView, digest(62).as_bytes(), AT);
+        let mut batch_key = [0; 64];
+        batch_key[..32].copy_from_slice(digest(62).as_bytes());
+        batch_key[32..].copy_from_slice(b.batch_digest.as_bytes());
+        m.read(dispatch::ReceiptBatchView, &batch_key, AT);
+        m.read(dispatch::PeerView, m.peer(32).owner.as_bytes(), AT);
+        let (task, id) = m.canary(0);
+        m.resolve_fault(task, id);
+        m.call(
+            dispatch::SlashBond,
+            actor(120),
+            &SlashBondRequest {
+                deal: digest(62),
+                bid: digest(1),
+                lap: 0,
+                evidence: id,
+            }
+            .encode()
+            .unwrap(),
+            START + 82,
+        );
+        m.measuring = false;
+        let settled = settlement_from_state(&m.bytes, digest(62))
+            .unwrap()
+            .unwrap();
+        m.call(
+            dispatch::SplitPayout,
+            owner(),
+            &SplitPayoutRequest {
+                deal: digest(62),
+                batch: settled.batch.batch_digest,
+                amount: settled.settled_amount_owed,
+            }
+            .encode()
+            .unwrap(),
+            START + 82,
+        );
+        m.measuring = true;
+        m.call(
+            dispatch::CloseRoom,
+            owner(),
+            digest(60).as_bytes(),
+            START + 83,
+        );
+        m.call(
+            dispatch::RefundBond,
+            actor(32),
+            &RefundBondRequest {
+                room: digest(60),
+                bid: digest(1),
+            }
+            .encode()
+            .unwrap(),
+            START + 112,
+        );
+        m.measuring = false;
+        m.bytes = payout_base;
+        m.add_room(0);
+        m.add_ask(60);
+        const PAYOUT_PEERS: usize = 10;
+        for i in 0..PAYOUT_PEERS {
+            m.add_bid(i);
+        }
+        let payout_deal = RecordDealRequest {
+            layers: std::array::from_fn(|i| {
+                (i < PAYOUT_PEERS).then(|| LayerSplit {
+                    bid_id: digest(1 + i as u8),
+                    first_layer: i as u16,
+                    end_layer: (i + 1) as u16,
+                })
+            }),
+            ..deal
+        };
+        m.call(
+            dispatch::RecordDeal,
+            owner(),
+            &encoded(1297, |out| payout_deal.encode(out)),
+            START + 2,
+        );
+        producers::seal_tasks(&mut m.bytes, AT).unwrap();
+        let payout_batch = batch(0, LAP_BATCH_MAX, PAYOUT_PEERS, (1 << PAYOUT_PEERS) - 1);
+        assert_eq!(
+            payout_batch.last_lap_index - payout_batch.first_lap_index + 1,
+            64
+        );
+        let manifest = m.manifest(&payout_batch);
+        m.seal(&manifest, 2);
+        m.call(
+            dispatch::SettleLaps,
+            owner(),
+            &m.settle_payload(payout_batch, &manifest),
+            AT,
+        );
+        let state = decode_shared_state(&m.bytes).unwrap();
+        let book = RoomBook::decode(state.room_market().unwrap().1).unwrap();
+        assert_eq!(book.counts(), [1, 1, 10, 1]);
+        assert_eq!(
+            book.deal(digest(62))
+                .unwrap()
+                .unwrap()
+                .layers
+                .iter()
+                .flatten()
+                .count(),
+            PAYOUT_PEERS
+        );
+        m.measuring = true;
+        let settled = settlement_from_state(&m.bytes, digest(62))
+            .unwrap()
+            .unwrap();
+        m.call(
+            dispatch::SplitPayout,
+            owner(),
+            &SplitPayoutRequest {
+                deal: digest(62),
+                batch: settled.batch.batch_digest,
+                amount: settled.settled_amount_owed,
+            }
+            .encode()
+            .unwrap(),
+            START + 82,
+        );
+        let state = decode_shared_state(&m.bytes).unwrap();
+        let rewards = layerx_programs_ai_market::rewards::decode_reward_state(
+            &state.room_market().unwrap().0
+                [..layerx_programs_ai_market::rewards::REWARD_STATE_BYTES],
+        )
+        .unwrap();
+        let credited = (32..64)
+            .filter(|&n| rewards.payout_balance(EPOCH, m.peer(n).worker).unwrap() > 0)
+            .count();
+        assert_eq!(credited, PAYOUT_PEERS);
+        let expected: BTreeSet<_> = (0x0b01..=0x0b0c).chain(0x0b10..=0x0b14).collect();
+        assert_eq!(m.measured, expected);
+        m.native.finish();
+    }
+
+    pub(super) fn whole_record_refusal() {
+        let mut m = Market::new();
+        for i in 0..ROOM_CAPACITY - 1 {
+            m.add_room(i);
+        }
+        for i in 0..ASK_CAPACITY {
+            m.add_ask(i);
+        }
+        for i in 0..BID_CAPACITY {
+            m.add_bid(i);
+        }
+        let payload = encoded(OPEN_ROOM_REQUEST_BYTES, |out| {
+            OpenRoomRequest {
+                room_id: digest(99 + (ROOM_CAPACITY - 1) as u8),
+                model_digest: digest(1),
+                runtime_digest: digest(51),
+                profile: room_profile(),
+            }
+            .encode(out)
+        });
+        assert_eq!(payload.len(), dispatch::OpenRoom.metadata().payload_max);
+        let envelope = m.envelope(dispatch::OpenRoom, owner(), &payload);
+        let expected = producers::compose(&m.bytes, &envelope, owner(), START + 2).unwrap();
+        assert!(matches!(expected.routed, Routed::Applied { .. }));
+        m.native
+            .check_whole_record_refusal(&m.bytes, &envelope, owner(), START + 2);
+        m.native.finish();
+    }
+}
+
+#[test]
+fn f11_whole_record_is_refused_on_the_full_state() {
+    f11_budget::whole_record_refusal();
 }

@@ -1,14 +1,14 @@
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_STATE_BYTES, SCHEMA_VERSION,
     codec::{self, Reader, StateFrame, Writer},
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EXPIRED, NON_CANONICAL,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, EXPIRED, NON_CANONICAL,
         NOT_FOUND, REPLAY_CONFLICT, SEQUENCE_CONSUMED, SEQUENCE_GAP, UNAUTHORIZED, WRONG_EPOCH,
         WRONG_PHASE,
     },
-    rewards::{decode_reward_state, RewardState, REWARD_STATE_BYTES},
+    rewards::{REWARD_STATE_BYTES, RewardState, decode_reward_state},
     types::{PrincipalId, RequestDigest, RequestId, ResultDigest, Version},
-    MAX_STATE_BYTES, SCHEMA_VERSION,
 };
 
 /// Room-book length (u32) and the PAXAI/F11 suffix.
@@ -605,6 +605,7 @@ pub(crate) fn encode_room_market_parts(
     w.put(b"PAXAI/F11")?;
     Ok(w.len())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn room_market_parts(bytes: &[u8]) -> CodecResult<(&[u8], &[u8])> {
     if !bytes.ends_with(b"PAXAI/F11") {
         return Ok((bytes, &[]));
@@ -709,6 +710,7 @@ impl<'s> SharedState<'s> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for `Section::Control`, which is not a feature section.
+    #[inline(always)]
     pub fn section(&self, section: Section) -> CodecResult<&'s [u8]> {
         self.feature_sections
             .get(section.index())

@@ -24,22 +24,22 @@ use crate::types::GuestIndex as _;
 use crate::{
     admission::{AdmissionTable, Participant},
     aggregation_codec::{
-        decode_current, decode_history, encode_current, encode_history, input_digest,
         AggregationInputView, AggregationPhase, CheckedCurrent, CurrentAggregation, DecodedCurrent,
-        DecodedHistory, EpochAggregation, HistorySummary, QualityStatus, ReportCommitment,
-        WorkerAggregate, WorkerVotes, MAX_TOTAL_WEIGHT, WORKER_AGGREGATE_BYTES,
+        DecodedHistory, EpochAggregation, HistorySummary, MAX_TOTAL_WEIGHT, QualityStatus,
+        ReportCommitment, WORKER_AGGREGATE_BYTES, WorkerAggregate, WorkerVotes, decode_current,
+        decode_history, encode_current, encode_history, input_digest,
     },
     codec::{self, EventCommon, Reader, ReportBody, Roster, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F05_REPORT_INVARIANT, NON_CANONICAL,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F05_REPORT_INVARIANT, NON_CANONICAL,
         NOT_FOUND, STALE_CURSOR, UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET,
         WRONG_PHASE, WRONG_ROSTER,
     },
     evaluators::{authority::evaluator_region, model::GrantStatus},
     registry_ops::{CallContext, PolicySection},
     reward_math::allocate_aggregation,
-    rewards::{EpochStatus, RewardEffect, RewardEpoch, RewardState, REWARD_STATE_BYTES},
+    rewards::{EpochStatus, REWARD_STATE_BYTES, RewardEffect, RewardEpoch, RewardState},
     state::{Section, SectionReader},
     types::{
         Digest32, EpochWindows, EvaluatorId, EvaluatorRosterEntry, FrozenBinding, Presence,
@@ -69,7 +69,7 @@ fn probe_mark(index: usize) {
     let _ = index;
 }
 pub const WORKERS_PER_CHUNK: usize = 8;
-pub use crate::reputation::{participant_chunk_size, PARTICIPANTS_PER_CHUNK};
+pub use crate::reputation::{PARTICIPANTS_PER_CHUNK, participant_chunk_size};
 /// Insertion sort over at most eight scores: n(n-1)/2 <= 28 comparisons.
 pub const MAX_COMPARISONS_PER_WORKER: u32 = 28;
 pub const DISPLAY_SCALE_PPM: u64 = 1_000_000;
@@ -560,13 +560,8 @@ fn view(frame: codec::StateFrame<'_>, chunk: bool) -> CodecResult<View<'_>> {
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
     let (status, roster, worker_count, budget) =
-        crate::rewards::committed_epoch_header(settlement, epoch).map_err(|e| {
-            if e == NOT_FOUND {
-                WRONG_EPOCH
-            } else {
-                e
-            }
-        })?;
+        crate::rewards::committed_epoch_header(settlement, epoch)
+            .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
     let header = &section.header;
     let frozen = FrozenBinding {
         chain: header.deployment_chain_domain,

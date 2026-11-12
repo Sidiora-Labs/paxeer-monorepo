@@ -11,8 +11,8 @@ use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::GuestIndex as _;
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
-    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
+    MAX_STATE_BYTES, admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps,
+    queries, rewards, rooms, tasks, value_adapter, workers,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]

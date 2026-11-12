@@ -2,10 +2,11 @@
 //! Membership is permission to participate only; it never carries quality or rewards.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_EVALUATORS, MAX_WORKERS,
     codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult,
         F08_ADMINISTRATOR_APPROVAL_REQUIRED, F08_ADMISSION_WINDOW_FULL, F08_BAD_CONSENT,
         F08_CANDIDATE_CHANGED, F08_CAPACITY_EXCEEDED, F08_DELEGATE_REVOKED, F08_DUPLICATE_IDENTITY,
         F08_IDEMPOTENCY_CONFLICT, F08_MARKET_PAUSED, F08_NO_PRUNABLE_MEMBER,
@@ -18,11 +19,11 @@ use crate::{
         authority::{evaluator_region, split_identity_section},
         codec::{encode_grant, verify_digest},
         model::{
-            EvaluatorGrant, GrantStatus, VerificationError, CONSENT_BYTES, GRANT_BYTES,
-            SIGNED_CONSENT_BYTES,
+            CONSENT_BYTES, EvaluatorGrant, GRANT_BYTES, GrantStatus, SIGNED_CONSENT_BYTES,
+            VerificationError,
         },
     },
-    registry::{market_clock, MarketHeader},
+    registry::{MarketHeader, market_clock},
     registry_ops::{CallContext, PolicySection},
     reputation_transition::split_joint,
     state::{
@@ -35,7 +36,6 @@ use crate::{
         WorkerId,
     },
     workers::{WorkerState, WorkerTable},
-    MAX_EVALUATORS, MAX_WORKERS,
 };
 
 pub const FLAG_ADMITTED: u8 = 1;

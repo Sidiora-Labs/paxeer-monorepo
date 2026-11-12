@@ -5,8 +5,8 @@ use crate::{
     errors::*,
     evidence::{self, SealRegion},
     registry::market_clock,
-    registry_ops::{CallContext, ACTIVE},
-    rooms::{RoomBook, RoomState, DEAL_CAPACITY, MAX_DEAL_PEERS},
+    registry_ops::{ACTIVE, CallContext},
+    rooms::{DEAL_CAPACITY, MAX_DEAL_PEERS, RoomBook, RoomState},
     state::{self, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section},
     types::{Digest32, Presence, RosterDigest, Signature64, Version},
 };
@@ -273,16 +273,11 @@ impl LapSettlement {
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
-    if !bytes.starts_with(REGION_MAGIC) {
+    let length = committed_region_length(bytes)?;
+    if length == 0 {
         return Ok(0);
     }
-    let mut r = Reader::new(bytes);
-    r.take(8)?;
-    let count = usize::from(r.u8()?);
-    if count == 0 || count > DEAL_CAPACITY {
-        return Err(NON_CANONICAL);
-    }
-    let rows = r.take(count * SETTLEMENT_BYTES)?;
+    let rows = bytes.get(9..length).ok_or(NON_CANONICAL)?;
     let mut previous = None;
     for row in rows
         .as_chunks::<{ SETTLEMENT_BYTES }>()
@@ -296,8 +291,23 @@ pub(crate) fn region_length(bytes: &[u8]) -> CodecResult<usize> {
         }
         previous = Some(record.batch.deal_id);
     }
-    Ok(r.offset())
+    Ok(length)
 }
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn committed_region_length(bytes: &[u8]) -> CodecResult<usize> {
+    if !bytes.starts_with(REGION_MAGIC) {
+        return Ok(0);
+    }
+    let count = usize::from(*bytes.get(8).ok_or(NON_CANONICAL)?);
+    if count == 0 || count > DEAL_CAPACITY {
+        return Err(NON_CANONICAL);
+    }
+    let length = 9 + count * SETTLEMENT_BYTES;
+    bytes.get(..length).ok_or(NON_CANONICAL)?;
+    Ok(length)
+}
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn rows(bytes: &[u8]) -> CodecResult<&[u8]> {
     let n = region_length(bytes)?;
@@ -327,8 +337,16 @@ fn get(bytes: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn settlement_from_state(current: &[u8], deal: Digest32) -> CodecResult<Option<LapSettlement>> {
     let state = state::decode_shared_state(current)?;
+    settlement_from_shared(&state, deal)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn settlement_from_shared(
+    state: &state::SharedState<'_>,
+    deal: Digest32,
+) -> CodecResult<Option<LapSettlement>> {
     get(
-        SealRegion::decode(state.control.feature_bytes)?.lap_settlements(),
+        SealRegion::committed(state.control.feature_bytes)?.lap_settlements(),
         deal,
     )
 }
@@ -402,7 +420,7 @@ pub fn apply_settle_laps(
     let manifest_len = usize::from(r.u16()?);
     let manifest = r.take(manifest_len)?;
     r.finish()?;
-    let book = RoomBook::decode(state.room_market()?.1)?;
+    let book = RoomBook::committed(state.room_market()?.1)?;
     let deal = book.deal(batch.deal_id)?.ok_or(NOT_FOUND)?;
     let room = book.room(deal.room_id)?.ok_or(F11_ROOM_UNKNOWN)?;
     if room.state != RoomState::Open {
@@ -542,14 +560,26 @@ pub(crate) fn record_slash(
         return Err(CONFLICT);
     }
     *record.slashed_laps.guest_index_mut(peer) |= 1u64 << offset;
-    let region = SealRegion::decode(state.control.feature_bytes)?;
-    let prefix = region.write_lap_prefix(out)?;
-    let n = write_region(
-        region.lap_settlements(),
-        &record,
-        out.guest_index_mut(prefix..),
-    )?;
-    let mut w = Writer::new(out.guest_index_mut(prefix + n..));
-    w.put(region.rest())?;
-    Ok(prefix + n + w.len())
+    let source = state.control.feature_bytes;
+    let region = SealRegion::committed(source)?;
+    let laps = region.lap_settlements();
+    let prefix = source.len() - laps.len() - region.rest().len();
+    let row = laps
+        .get(9..)
+        .ok_or(NON_CANONICAL)?
+        .chunks_exact(SETTLEMENT_BYTES)
+        .position(|bytes| {
+            bytes
+                .get(..32)
+                .is_some_and(|id| id == record.batch.deal_id.as_bytes())
+        })
+        .ok_or(NOT_FOUND)?;
+    let at = prefix + 9 + row * SETTLEMENT_BYTES;
+    out.get_mut(..source.len())
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(source);
+    out.get_mut(at..at + SETTLEMENT_BYTES)
+        .ok_or(CAPACITY)?
+        .guest_copy_from_slice(&record.encode()?);
+    Ok(source.len())
 }

@@ -1,8 +1,8 @@
 use crate::types::GuestIndex as _;
 use crate::{
-    codec::{domain_hash, Reader, Writer},
+    codec::{Reader, Writer, domain_hash},
     errors::{
-        CodecResult, BAD_VERSION, CAPACITY, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY,
+        BAD_VERSION, CAPACITY, CodecResult, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY,
         F01_POLICY_MISMATCH, F01_VERSION_MISMATCH, NON_CANONICAL,
     },
     types::{AccountId, Digest32, PolicyDigest, Presence, PrincipalId, RubricDigest, Version},
