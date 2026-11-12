@@ -32,7 +32,7 @@ import {
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
 const originalFetch = globalThis.fetch;
-let browser: JSDOM;
+let browser: JSDOM | undefined;
 beforeAll(() => {
   const file = process.env.L27_AUTHORITY_PROFILE;
   if (!file) throw new Error('Owned creation authority profile is required');

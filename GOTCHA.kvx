@@ -21335,3 +21335,23 @@ fix = "A task that changes a matching line of that file runs the scan."
 title = "The recipe platform-lint ends with the advisory and ban checks of the three platform manifests"
 symptom = "The recipe platform-lint of services/platform/Makefile.inc runs the lint of the three manifests, the workspace check, the lint of the marketplace example and the dependency policy script, and then the advisory, ban and source checks of each manifest lock file."
 fix = "The lint steps and the lock file checks are verified by separate commands."
+
+[gotcha.4303]
+title = "The AI market program keeps its state in one value of its shared namespace"
+symptom = "The adapter programs/crates/layerx-programs-ai-market/src/host_adapter.rs writes the encoded state of the market under one key of the shared namespace of the program at the end of every operation that changes state. Participants and askers call the program with their own principals. The function settle_call_occupancy of programs/crates/layerx-programs-runtime/src/ffi_call.rs compares the payer of a call with the owner of the program when the size of a shared namespace changes."
+fix = "A change to the occupancy rule of shared namespaces is run against a call of a principal that is not the owner of the program."
+
+[gotcha.4304]
+title = "The recipe platform-test-middleware runs the tests of two integrations under sdk/integrations"
+symptom = "The recipe platform-test-middleware of services/platform/Makefile.inc runs pytest over sdk/integrations/fastapi, and the verification of the middleware tests reaches the test files of sdk/integrations/express/example."
+fix = "A task that verifies with that recipe carries both directories."
+
+[gotcha.4305]
+title = "The payout split operation of the AI market writes one credit per participant of the batch"
+symptom = "The operation writes one credit for each participant of the lap batch, one for the host and one for the protocol. Its CPU fuel grows with the number of credits of the batch."
+fix = "The fuel table states the batch at which it measures the operation."
+
+[gotcha.4306]
+title = "The interface rows of the inference series name no file of the proof tasks"
+symptom = "The fifteen interface rows of the inference series name symbols of the AI market program, of the agent daemon and of the peer package. No row names a file that task 22.38.36, 22.38.37 or 22.38.38 adds."
+fix = "The closing task of the series reconciles the rows without the proof tasks."

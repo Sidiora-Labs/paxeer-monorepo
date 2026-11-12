@@ -10,7 +10,7 @@ use crate::error::WebhookError;
 
 type Result<T> = std::result::Result<T, WebhookError>;
 
-/// Receipt versions published by node/sequencer/receipt.go and rpc/sequencer_receipt.go.
+/// Receipt versions published by `node/sequencer/receipt.go` and `rpc/sequencer_receipt.go`.
 pub const NODE_RECEIPT_PROTOCOL_VERSION: u16 = 2;
 pub const NODE_RECEIPT_LAYOUT_VERSION: u32 = 1;
 pub const NODE_RECEIPT_PARAMETER_VERSION: u32 = 0;
@@ -27,10 +27,10 @@ fn rejected<T>() -> Result<T> {
 
 pub fn varint(mut n: u64, out: &mut Vec<u8>) {
     while n >= 128 {
-        out.push(n as u8 | 128);
+        out.push(n.to_le_bytes()[0] | 128);
         n >>= 7;
     }
-    out.push(n as u8);
+    out.push(n.to_le_bytes()[0]);
 }
 pub fn bytes(field: u8, value: &[u8], out: &mut Vec<u8>) {
     out.push(field << 3 | 2);
@@ -124,6 +124,7 @@ fn one_number(input: &[u8], n: u64) -> Result<u64> {
     }
 }
 
+#[must_use]
 pub fn merkle(items: &[Vec<u8>]) -> [u8; 32] {
     match items.len() {
         0 => digest(&[]),
@@ -148,6 +149,9 @@ pub struct ChainPolicy {
     pub validators: Vec<ValidatorPin>,
 }
 impl ChainPolicy {
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn from_native(authority: &FinalityAuthority) -> Result<Self> {
         Ok(Self {
             chain_id: authority.chain_id.clone(),
@@ -164,6 +168,9 @@ impl ChainPolicy {
                 .collect::<Result<_>>()?,
         })
     }
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn validate(&self) -> Result<()> {
         if self.chain_id.is_empty()
             || self.chain_id.len() > 50
@@ -227,6 +234,9 @@ pub struct CommitVote {
 }
 impl CommitCertificate {
     /// Encodes an actual producer commit; no asserted finality flag is transported.
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn from_proof(proof: &BlockCommitProof<'_>) -> Result<Self> {
         let h = proof.header;
         if !(-62_135_596_800..=253_402_300_799).contains(&h.time.seconds)
@@ -244,7 +254,11 @@ impl CommitCertificate {
             &mut height,
         );
         let mut time = Vec::new();
-        number(1, h.time.seconds as u64, &mut time);
+        number(
+            1,
+            u64::from_ne_bytes(h.time.seconds.to_ne_bytes()),
+            &mut time,
+        );
         number(2, u64::from(h.time.nanos), &mut time);
         let mut parts = Vec::new();
         number(
@@ -260,7 +274,10 @@ impl CommitCertificate {
             bytes(1, &h.last_block_id.hash, &mut last);
         }
         bytes(2, &parts, &mut last);
-        if proof.commit.height != h.height as u64 || proof.commit.block_id.hash != h.hash() {
+        if proof.commit.height
+            != u64::try_from(h.height).map_err(|_| WebhookError::VerificationRequired)?
+            || proof.commit.block_id.hash != h.hash()
+        {
             return rejected();
         }
         Ok(Self {
@@ -315,6 +332,9 @@ impl CommitCertificate {
         }
         Ok(height)
     }
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn verify(&self, policy: &ChainPolicy, store_proof: &[u8]) -> Result<VerifiedCommit> {
         policy.validate()?;
         if self.header_fields.len() != 14
@@ -377,7 +397,7 @@ impl CommitCertificate {
                 bytes(4, &block, &mut message);
             }
             let mut time = Vec::new();
-            number(1, vote.seconds as u64, &mut time);
+            number(1, u64::from_ne_bytes(vote.seconds.to_ne_bytes()), &mut time);
             number(2, vote.nanos.into(), &mut time);
             bytes(5, &time, &mut message);
             bytes(6, policy.chain_id.as_bytes(), &mut message);
@@ -441,7 +461,10 @@ fn leaf_prefix(input: &[u8]) -> Result<&[u8]> {
             return rejected();
         }
         match (n, v) {
-            (1..=4, Value::Number(value)) => ops[n as usize - 1] = value,
+            (1..=4, Value::Number(value)) => {
+                ops[usize::try_from(n).map_err(|_| WebhookError::VerificationRequired)? - 1] =
+                    value;
+            }
             (5, Value::Bytes(value)) => prefix = Some(value),
             _ => return rejected(),
         }
@@ -532,6 +555,9 @@ pub struct Membership {
     pub multistore: Vec<u8>,
 }
 impl Membership {
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn verify(&self, app_hash: [u8; 32], store: &[u8], key: &[u8], value: &[u8]) -> Result<()> {
         let proof = existence(&self.proof)?;
         if proof.key != key || proof.value != value {
@@ -544,6 +570,9 @@ impl Membership {
         }
         Ok(())
     }
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn value(&self) -> Result<&[u8]> {
         Ok(existence(&self.proof)?.value)
     }
@@ -557,6 +586,9 @@ pub struct ProgramStateProof {
     pub manifest: Vec<u8>,
 }
 impl ProgramStateProof {
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn verify(&self, app_hash: [u8; 32], program: &[u8; 32], state: &[u8]) -> Result<()> {
         let mut key = b"\x01\x00\x09progstor".to_vec();
         key.extend(program);
@@ -631,6 +663,9 @@ pub struct NodeReceiptEvidence {
     pub activity_ids: Vec<[u8; 32]>,
 }
 impl NodeReceiptEvidence {
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn verify(
         &self,
         policy: &ChainPolicy,
@@ -742,7 +777,9 @@ impl NodeReceiptEvidence {
             || self.activity_ids.len() as u64 != to - from + 1
             || sequence < from
             || sequence > to
-            || self.activity_ids[(sequence - from) as usize] != activity
+            || self.activity_ids[usize::try_from(sequence - from)
+                .map_err(|_| WebhookError::VerificationRequired)?]
+                != activity
         {
             return rejected();
         }
@@ -793,7 +830,10 @@ impl NodeReceiptEvidence {
 }
 
 impl CommitCertificate {
-    /// Decodes the CometBFT `commit` RPC result without trusting its block ID.
+    /// Decodes the `CometBFT` `commit` RPC result without trusting its block ID.
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn from_comet(result: &serde_json::Value) -> Result<Self> {
         let signed = &result["signed_header"];
         let h = &signed["header"];
@@ -831,7 +871,7 @@ impl CommitCertificate {
         number(1, height, &mut height_bytes);
         let (seconds, nanos) = timestamp(&text(&h["time"])?)?;
         let mut time = Vec::new();
-        number(1, seconds as u64, &mut time);
+        number(1, u64::from_ne_bytes(seconds.to_ne_bytes()), &mut time);
         number(2, nanos.into(), &mut time);
         let encode_block = |v: &serde_json::Value| -> Result<Vec<u8>> {
             let mut parts = Vec::new();
@@ -871,34 +911,7 @@ impl CommitCertificate {
         if hex(&c["block_id"]["hash"])? != merkle(&header_fields) {
             return rejected();
         }
-        let votes = c["signatures"]
-            .as_array()
-            .ok_or(WebhookError::VerificationRequired)?;
-        if votes.len() > 256 {
-            return rejected();
-        }
-        let votes = votes
-            .iter()
-            .map(|v| {
-                let flag = integer(&v["block_id_flag"])?;
-                let (seconds, nanos) = timestamp(&text(&v["timestamp"])?)?;
-                Ok(CommitVote {
-                    flag: u8::try_from(
-                        flag.checked_sub(1)
-                            .ok_or(WebhookError::VerificationRequired)?,
-                    )
-                    .map_err(|_| WebhookError::VerificationRequired)?,
-                    address: hex(&v["validator_address"])?,
-                    seconds,
-                    nanos,
-                    signature: if v["signature"].is_null() {
-                        Vec::new()
-                    } else {
-                        crate::encoding::base64_decode(&text(&v["signature"])?)?
-                    },
-                })
-            })
-            .collect::<Result<_>>()?;
+        let votes = decode_comet_votes(c)?;
         Ok(Self {
             header_fields,
             round: i32::try_from(integer(&c["round"])?)
@@ -912,6 +925,52 @@ impl CommitCertificate {
         })
     }
 }
+fn decode_comet_votes(c: &serde_json::Value) -> Result<Vec<CommitVote>> {
+    let text = |v: &serde_json::Value| -> Result<String> {
+        v.as_str()
+            .map(str::to_owned)
+            .ok_or(WebhookError::VerificationRequired)
+    };
+    let integer = |v: &serde_json::Value| -> Result<u64> {
+        if let Some(n) = v.as_u64() {
+            Ok(n)
+        } else {
+            text(v)?
+                .parse()
+                .map_err(|_| WebhookError::VerificationRequired)
+        }
+    };
+    let hex = |v: &serde_json::Value| -> Result<Vec<u8>> { crate::encoding::hex_decode(&text(v)?) };
+    let votes = c["signatures"]
+        .as_array()
+        .ok_or(WebhookError::VerificationRequired)?;
+    if votes.len() > 256 {
+        return rejected();
+    }
+    votes
+        .iter()
+        .map(|v| {
+            let flag = integer(&v["block_id_flag"])?;
+            let (seconds, nanos) = timestamp(&text(&v["timestamp"])?)?;
+            Ok(CommitVote {
+                flag: u8::try_from(
+                    flag.checked_sub(1)
+                        .ok_or(WebhookError::VerificationRequired)?,
+                )
+                .map_err(|_| WebhookError::VerificationRequired)?,
+                address: hex(&v["validator_address"])?,
+                seconds,
+                nanos,
+                signature: if v["signature"].is_null() {
+                    Vec::new()
+                } else {
+                    crate::encoding::base64_decode(&text(&v["signature"])?)?
+                },
+            })
+        })
+        .collect::<Result<_>>()
+}
+
 fn timestamp(input: &str) -> Result<(i64, u32)> {
     let s = input
         .strip_suffix('Z')
@@ -955,7 +1014,7 @@ fn timestamp(input: &str) -> Result<(i64, u32)> {
     if !(1..=9999).contains(&year)
         || !(1..=12).contains(&month)
         || day < 1
-        || day > days[(month - 1) as usize]
+        || day > days[usize::try_from(month - 1).map_err(|_| WebhookError::VerificationRequired)?]
         || !(0..24).contains(&hour)
         || !(0..60).contains(&minute)
         || !(0..60).contains(&second)
@@ -966,7 +1025,7 @@ fn timestamp(input: &str) -> Result<(i64, u32)> {
     let era = y / 400;
     let yoe = y - era * 400;
     let doy = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
-    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+    let days = era * 146_097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719_468;
     let nanos = if s.len() == 19 {
         0
     } else {
@@ -982,13 +1041,19 @@ fn timestamp(input: &str) -> Result<(i64, u32)> {
         fraction
             .parse::<u32>()
             .map_err(|_| WebhookError::VerificationRequired)?
-            * 10u32.pow(9 - fraction.len() as u32)
+            * 10u32.pow(
+                9 - u32::try_from(fraction.len())
+                    .map_err(|_| WebhookError::VerificationRequired)?,
+            )
     };
     Ok((days * 86400 + hour * 3600 + minute * 60 + second, nanos))
 }
 
 impl Membership {
     /// Decodes an actual ABCI proof-ops answer; commitment wrappers stay strict.
+    ///
+    /// # Errors
+    /// Returns an error when chain evidence is malformed or fails verification.
     pub fn from_abci(response: &serde_json::Value) -> Result<Self> {
         match response.get("code") {
             None => {}

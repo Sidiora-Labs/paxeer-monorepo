@@ -97,7 +97,7 @@ fn validate(body: &[u8]) -> Result<Validated, Response> {
     }
     let invalid = || rpc_error(&id, -32602, "invalid Comet parameters");
     if !request.params.get().starts_with('{')
-        && !(request.method == "status" && request.params.get() == "null")
+        && (request.method != "status" || request.params.get() != "null")
     {
         return Err(invalid());
     }
@@ -429,11 +429,13 @@ mod tests {
             let request = validate(body.as_bytes()).unwrap_or_else(|_| panic!("status refused"));
             assert_eq!(request.method, Method::Status);
             assert_eq!(request.id, 1);
-            let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            let upstream: serde_json::Value =
+                serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
             assert_eq!(upstream["method"], "status");
             assert_eq!(
                 upstream["params"],
-                serde_json::from_str::<serde_json::Value>(params).unwrap()
+                serde_json::from_str::<serde_json::Value>(params)
+                    .unwrap_or_else(|error| panic!("{error}"))
             );
         }
         for data in [
@@ -445,7 +447,8 @@ mod tests {
             let request = validate(body.as_bytes()).unwrap_or_else(|_| panic!("EVM proof refused"));
             assert_eq!(request.method, Method::Query(17));
             assert_eq!(request.id, 1);
-            let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            let upstream: serde_json::Value =
+                serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
             assert_eq!(
                 upstream,
                 serde_json::json!({"jsonrpc":"2.0","id":1,"method":"abci_query","params":{"path":"/store/evm/key","data":&data[2..],"height":"17","prove":true}})
@@ -464,7 +467,8 @@ mod tests {
             let request =
                 validate(body.as_bytes()).unwrap_or_else(|_| panic!("native proof refused"));
             assert_eq!(request.method, Method::Query(8));
-            let upstream: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            let upstream: serde_json::Value =
+                serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
             assert_eq!(upstream["params"]["data"], &data[2..]);
             assert_eq!(upstream["params"]["path"], "/store/lxphost/key");
             assert_eq!(upstream["params"]["prove"], true);
@@ -519,7 +523,8 @@ mod tests {
             let response = validate(body.as_bytes())
                 .err()
                 .unwrap_or_else(|| panic!("custody query admitted: {data}"));
-            let error: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+            let error: serde_json::Value =
+                serde_json::from_slice(&response.body).unwrap_or_else(|error| panic!("{error}"));
             assert_eq!(error["id"], 1);
             assert_eq!(error["error"]["code"], -32602);
         }
