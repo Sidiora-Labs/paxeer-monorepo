@@ -109,7 +109,7 @@ fn validators() -> Vec<Validator> {
 fn commit_header(chain_id: &str, observed: u64, app_hash: [u8; 32]) -> Header {
     Header {
         chain_id: chain_id.to_owned(),
-        height: (observed + 100) as i64,
+        height: ok(i64::try_from(observed + 100), "observed height"),
         app_hash: app_hash.to_vec(),
         version: ConsensusVersion { block: 11, app: 1 },
         time: Timestamp {
@@ -135,7 +135,7 @@ fn store_proof(observed: u64) -> Vec<u8> {
 /// A block commit with `(validator position, signing key)` slots, numbered from 1.
 fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
     let mut commit = Commit {
-        height: header.height as u64,
+        height: ok(u64::try_from(header.height), "committed height"),
         round: 0,
         block_id: BlockId {
             hash: header.hash().to_vec(),
@@ -173,7 +173,11 @@ fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
         encode_length_delimited(2, &parts, &mut block);
         encode_length_delimited(4, &block, &mut vote);
         let mut time = Vec::new();
-        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(
+            1,
+            ok(u64::try_from(timestamp.seconds), "timestamp seconds"),
+            &mut time,
+        );
         encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
         encode_length_delimited(5, &time, &mut vote);
         encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);

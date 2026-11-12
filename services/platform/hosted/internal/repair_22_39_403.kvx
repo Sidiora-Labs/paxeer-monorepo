@@ -1,0 +1,204 @@
+[queue_state.validate]
+steps = ["validate_scheduling", "validate_retention_bounds", "validate_replay_boundary", "validate_retained_observations", "validate_resource_counters", "validate_pending_entries"]
+
+[queue_state.validate_scheduling]
+steps = ["check delivery attempts", "check redelivery state", "check delivery identity", "check refusal timestamps"]
+
+[queue_state.validate_retention_bounds]
+steps = ["check pending capacity", "check retained capacity", "check resource capacity", "check compacted counter capacity"]
+
+[queue_state.validate_replay_boundary]
+steps = ["check closed stream key"]
+
+[queue_state.validate_retained_observations]
+steps = ["validate observations", "check transition size", "collect stream sequences"]
+
+[queue_state.validate_resource_counters]
+steps = ["check resource keys and counters", "check compacted floors", "check contiguous sequences", "check counter coverage"]
+
+[queue_state.validate_pending_entries]
+steps = ["check pending stream order", "validate pending bodies", "check pending identities"]
+
+[identity.mailer]
+parse = "parse SMTP scheme and authority; check credentials and sender"
+drain = "send queued verifications and count accepted deliveries"
+drain_confirmed = "read queued messages; send each message; confirm acceptance"
+listener = "accept SMTP session; answer commands; return observed lines"
+mailer_delivers_a_queued_verification_to_smtp_and_clears_it = "deliver queued mail; assert SMTP exchange and queue removal"
+mailer_keeps_the_verification_queued_when_smtp_refuses = "observe SMTP refusal; assert queued mail remains"
+mailer_url_parsing_is_exact = "parse SMTP URLs; assert credentials and default ports"
+
+[identity.seal]
+seal = "bound plaintext; generate nonce; encrypt and authenticate"
+open = "decode sealed value; check bounds and authentication; decrypt"
+hmac_sha256 = "mix key pads; hash message parts; return authentication tag"
+
+[identity.signup]
+sha256_hex = "hash input; encode the digest as lowercase hexadecimal"
+normalize_email = "normalize address; check local and domain bounds; return accepted address"
+start_with_delivery = "admit signup; bind queued verification delivery"
+start_inner = "check signup input and capacity; store pending signup"
+store_refusal = "map store refusal text to signup refusal"
+verify = "check pending token; create verified principal"
+signup_starter_credit_is_one_million_base_units_of_native_pax = "parse configured credit; assert amount and asset"
+
+[identity.store]
+verification_result = "look up a completed verification by digest"
+signup_deliveries = "collect queued verification deliveries"
+delivery_accepted = "append acceptance record; remove queued delivery"
+reclaim_signups = "find expired signup state; append reclaim record; checkpoint"
+admit_signup_hour = "reclaim expired windows; check hourly limits; append admission"
+put_signup_delivery = "check pending signup; append delivery; update queued state"
+verify_signup_session = "check signup and session binding; append verified session"
+reissue_starter_credit = "check unsettled credit; append reissue; update amount"
+
+[identity.verification]
+start = "normalize address; seal message; store signup; publish delivery"
+StagedDelivery_publish = "rename staged message; sync outbox directory"
+stage = "check digest and sealed message; write staged delivery"
+publish = "stage verification delivery; publish staged message"
+reconcile = "expire old deliveries; publish live deliveries"
+complete = "check token and session; store verification result; return response"
+
+[identity.main]
+known_route = "recognize supported method and path combinations"
+route = "check health and request headers; authenticate service; dispatch known route"
+resolver_shared = "build route state with registry and gateway service tokens"
+route_requires_registry_authority_and_rejects_principal_substitution = "check registry authority, principal binding, and unavailable storage responses"
+
+[internal.producer_test_support]
+Webhooks_start = "configure Redis and webhook inputs; start listeners; wait for readiness"
+configure_chain_policy = "write validator policy and bind its path to the webhook process"
+start_redis = "write Redis policy and configuration; start Redis with a process log"
+
+[internal.producer_recovery]
+assert_program_digest_enrollment = "check digest and principal enrollment responses and access control"
+exhaust_notification = "observe the first delivery; exhaust retries; check retained delivery state"
+assert_reopened_state = "check replayed delivery state and source record visibility"
+assert_recovery_requires_enrollment = "check that pending redelivery requires authenticated recovery"
+assert_completed_recovery = "check replayed records and completed delivery state"
+
+[hosted.members]
+dashboard = "allocate a listener port or report the allocation refusal"
+faucet = "serve bounded faucet requests over TLS and audit accepted transfers"
+runtime_clock = "supervise a child process with a local runtime clock service"
+webhooks = "validate ingress, source delivery and hosted authority routes"
+
+[platform.probe]
+required = "return a present value; report the supplied context for an absent value"
+required_error = "return a process error; report the supplied context for success"
+tests = "exercise a live peer, bounded output, process exit, and spawn refusal"
+
+[registry.event_producer]
+counter_test = "reopen the outbox and check unbound and overflow counters"
+
+[internal.integration]
+publication_authority = "exercise production identity enrollment and publication routes"
+transport = "use the shared TLS listener and upstream client"
+
+[paxeer.comet]
+validate = "check request shape; validate method parameters; return a typed request"
+status_and_evm_store_proofs_are_admitted = "check status and EVM proof request acceptance"
+native_store_queries_require_exact_sequence_or_account_keys = "check accepted native store query keys"
+custody_store_query_is_refused = "check custody store query refusal"
+
+[paxeer.main]
+relay = "connect upstream; check chain identity; relay accepted request"
+listen_tls_port_zero_reports_bound_address = "bind listener; assert reported address and retained port"
+
+[paxeer.native]
+hex = "encode bytes as lowercase hexadecimal"
+read_file = "open without following links; check ownership and bounds; read contents"
+ImmutableInputs_capture = "read named inputs; fingerprint JSON fields and signing inputs"
+ImmutableInputs_compare = "compare fingerprints; identify changed field"
+BootstrapGuard_open = "check private state; bind inputs and initialized outputs"
+BootstrapGuard_initialized = "report whether initialized outputs are bound"
+BootstrapGuard_complete = "check inputs and outputs; publish initialization record"
+BootstrapRequest_parse = "parse named arguments; check required inputs and paths"
+BootstrapRequest_open = "derive state directory; capture inputs; open guard"
+BootstrapRequest_command = "construct process command with parsed arguments"
+account_identity = "derive secp256k1 public key; encode checksummed address"
+rpc = "check loopback origin; send JSON RPC; validate response"
+NativeEvidence_fetch = "check chain status, commit, and EVM block; fetch validators"
+fetch_validators = "page through validator set; check bounds, members, and total"
+provision_account = "check tenant configuration; read account; check committed balance"
+run_read_command = "dispatch account or evidence read; write JSON response"
+
+[webhooks.boundary]
+request_deadline = "bound request fields; connect with TLS and deadline; send the request"
+send_request = "validate headers; encode admission deadline; write request; read bounded response"
+
+[webhooks.chain]
+varint = "emit seven-bit groups and continuation bits"
+merkle = "hash empty, leaf, and recursively split inner nodes"
+from_proof = "encode header fields and signed timestamps; check the committed block identity"
+verify = "validate policy, header, validator votes and membership proofs"
+value = "decode the membership proof and return its value"
+from_comet = "decode header fields; check the block identity; decode validator votes"
+decode_comet_votes = "bound signature count; decode vote identity, timestamp and signature"
+timestamp = "validate calendar and fractional fields; derive signed Unix seconds and nanoseconds"
+from_abci = "validate response code and proof operations; decode strict membership wrappers"
+verify_batch = "bind batch position, activity identity and committed store values"
+
+[webhooks.ai_market]
+from_authenticated_role = "require the authenticated producer role"
+open = "bind tenant, finality policy and cursor keys to the outbox"
+open_portable = "create the durable tenant store with bounded finality policy"
+admit_document = "verify captured evidence; admit the bound market event"
+admit = "check producer grant and evidence; admit the examined event"
+drain = "publish durable rows; acknowledge accepted delivery"
+pending_trusted = "read admitted, granted and unpublished market events"
+effect = "read the stored effect for a subject and key"
+set = "validate an effect key; stage its value in the consumer transaction"
+from_capture = "bind captured market facts to their commit and membership evidence"
+new = "bind market storage, capture policy and cursor keys"
+from_environment = "read market configuration; create the configured hub"
+grant = "register the tenant; persist the market grant"
+revoke = "remove the tenant's market grant"
+capture = "admit a captured document to the tenant outbox"
+resume = "read the tenant's authorized retained events from a cursor"
+drain_report = "drain each tenant independently; collect delivery readiness"
+
+[webhooks.hosted]
+dispatch = "advance settlement time with elapsed monotonic time; dispatch within budget"
+dispatch_with_clock = "use one clock for preparation, signing and settlement"
+prune_all_report = "apply retention per principal; collect store readiness"
+kms_idempotency_scope = "derive a bounded signing key from operation, principal and delivery identity"
+subscription_accepts = "check event family and minimum verification level"
+configured_retry_policy = "read bounded environment settings; validate retry policy"
+
+[webhooks.trusted]
+event = "return the verified protocol event"
+ready_until = "check verifier and source readiness within the shared deadline"
+trigger_admission = "authenticate the source; decode and validate bounded readiness evidence"
+new = "bind upstream endpoints, credentials, transport and network policy"
+verify = "fetch authority or chain evidence; verify the committed operation"
+verify_documents = "decode receipt and authority documents; bind verified operation fields"
+operation = "return the verified operation"
+verification = "return the established verification level"
+rpc = "encode the RPC request; check transport and response identity; return its result"
+verify_evidence = "validate committed node evidence against chain policy and activity identity"
+
+[webhooks.routes]
+refusal = "map webhook refusals to status, public code and retry guidance"
+body = "decode a request's JSON body"
+page = "parse the requested bounded page size"
+
+[webhooks.main]
+config = "read service role and credentials; bind trusted ingress sources"
+owned_route = "dispatch authenticated tenant endpoint and market operations"
+internal_readiness = "check producer authentication and deadline; verify source and delivery readiness"
+internal_route = "dispatch authenticated internal admission and source operations"
+route = "serve health routes; authenticate ingress peer; dispatch the request"
+serve_health = "accept readiness connections on the health listener"
+serve = "start readiness and delivery workers; serve configured ingress"
+handle = "accept TLS or plain transport; parse the request and ingress identity"
+reply = "map parse and route results to the HTTP response"
+market_route = "dispatch market grants, revocations and cursor resumption"
+
+[hosted.documentation]
+dependency_policy = "public constructors retain their published argument signatures"
+test_values = "required values report their supplied context when absent or refused"
+test_lengths = "bounded fixture lengths use checked integer conversions"
+test_encoding = "fixture digests use lowercase hexadecimal and explicit byte encoding"
+test_phases = "integration cases retain their assertions across named setup, recovery and delivery steps"
