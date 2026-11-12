@@ -290619,7 +290619,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.22.39.429]
 title = "Bring the middleware and reference application parts of the platform test recipe through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
