@@ -21225,3 +21225,23 @@ fix = "Decision 3362."
 title = "The human service member holds a type of the crypto member that is marked deprecated"
 symptom = "The lint with warnings denied reports each use of the onboarding consent type of layerx_crypto in services/human/crates/layerx-human-service as a use of a deprecated item."
 fix = "Decision 3363."
+
+[gotcha.4281]
+title = "The launchpad wiring test reads the baseline and the package inventory"
+symptom = "tests/ci/test_launchpad_go_tests_wired.py asserts the entries of tests/ci/data/launchpad_go_test_baseline.json and compares the package inventory of tests/ci/data/launchpad_go_tests.py with the sources of each module."
+fix = "A task that retires baseline entries or adds a package to a launchpad module edits the wiring test and the inventory in the same change. Decisions 3055 and 3364."
+
+[gotcha.4282]
+title = "The linter of the launchpad modules lists a bounded number of findings by default"
+symptom = "golangci-lint prints at most 50 findings per linter and at most 3 findings with the same text unless told otherwise."
+fix = "A run with --max-issues-per-linter 0 and --max-same-issues 0 lists every finding. Decision 3365."
+
+[gotcha.4283]
+title = "Targets of the gateway member of the platform include sources of the chain boundary member, of the AI market program and of the committed proof library"
+symptom = "tests/repair_22_31_345.rs of services/platform/hosted/gateway includes src/main.rs of services/platform/hosted/paxeer by path, tests/repair_22_33_1439.rs declares sources of the AI market program by path, and src/lib.rs declares the committed proof library of the interop workspace by path. The lint of the including target reads those files again."
+fix = "Decision 3366."
+
+[gotcha.4284]
+title = "Two test files of the arbiter member read a native replay corpus named by the environment"
+symptom = "tests/authority_from_prestate.rs and tests/verified_step.rs of programs/crates/layerx-programs-arbiter read the variable LAYERX_AUTHENTICATED_REPLAY_INPUTS, so a run of every test of the member needs the corpus."
+fix = "Decision 3367."
