@@ -196905,7 +196905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.456]
 title = "Have the dispute case over a host call of the arbiter isolate the storage write step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.447"]
@@ -229987,7 +229987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.472]
 title = "Pass the lint stage of the launchpad Makefile in the discovery module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230227,7 +230227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.464]
 title = "Pass the lint stage of the launchpad Makefile in the ranking module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
