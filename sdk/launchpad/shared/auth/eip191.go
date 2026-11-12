@@ -2,13 +2,14 @@ package auth
 
 import (
 	"errors"
+	"math/big"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
-	"strings"
-	"time"
 )
 
 // VerificationError deliberately excludes signatures and private message bytes.
@@ -42,16 +43,16 @@ func VerifyEOA(wallet, message, signature string, observe ObserveVerification) (
 	start := time.Now()
 	defer func() {
 		if recover() != nil {
-			err = &VerificationError{Category: "recovery"}
+			err = &VerificationError{Category: valueRecovery}
 			result = ProofResult{}
 		}
 		if observe != nil {
-			category := "accepted"
+			category := valueAccepted
 			var v *VerificationError
 			if errors.As(err, &v) {
 				category = v.Category
 			}
-			observe("eip191", category, time.Since(start))
+			observe(valueEip191, category, time.Since(start))
 		}
 	}()
 	normalized, err := NormalizeWallet(wallet)
@@ -62,11 +63,11 @@ func VerifyEOA(wallet, message, signature string, observe ObserveVerification) (
 		return result, &VerificationError{Category: "message_size"}
 	}
 	if len(signature) != 132 {
-		return result, &VerificationError{Category: "signature_length"}
+		return result, &VerificationError{Category: valueSignatureLength}
 	}
 	sig, err := hexutil.Decode(signature)
 	if err != nil || len(sig) != 65 {
-		return result, &VerificationError{Category: "signature_length"}
+		return result, &VerificationError{Category: valueSignatureLength}
 	}
 	switch sig[64] {
 	case 27, 28:
@@ -81,12 +82,12 @@ func VerifyEOA(wallet, message, signature string, observe ObserveVerification) (
 	hash := accounts.TextHash([]byte(message))
 	pub, err := crypto.SigToPub(hash, sig)
 	if err != nil {
-		return result, &VerificationError{Category: "recovery"}
+		return result, &VerificationError{Category: valueRecovery}
 	}
 	if strings.ToLower(crypto.PubkeyToAddress(*pub).Hex()) != normalized {
 		return result, &VerificationError{Category: "signer"}
 	}
-	return ProofResult{Method: "eip191", Wallet: normalized, ChallengeDigest: hexutil.Encode(hash)}, nil
+	return ProofResult{Method: valueEip191, Wallet: normalized, ChallengeDigest: hexutil.Encode(hash)}, nil
 }
 func VerifyWalletSignature(address, message, signature string) bool {
 	_, err := VerifyEOA(address, message, signature, nil)
