@@ -4,7 +4,6 @@ import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { access, constants, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
 import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
   applyEndpointOverride,
@@ -451,6 +450,7 @@ function runCli(cli, cliEnvironment, commandLine) {
 }
 
 async function merchantCheckout(environment, inputs) {
+  const { BuyerMiddleware, LayerXPaymentHttpTransport } = await import("@sidiora/layerx-buyer-middleware");
   const buyerConfig = await environmentConfig("buyer-agent", environment);
   const merchantConfig = await environmentConfig("merchant-shop", environment);
   const rawToken = scenarioEnvironment(inputs, buyerConfig.tokenEnvironment);

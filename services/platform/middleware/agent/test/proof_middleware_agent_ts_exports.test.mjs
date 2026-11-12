@@ -110,7 +110,7 @@ async function producer(input) {
     transcript.submit.tx_hash, transcript.submit.preparation_ref), raw, input.receiptKeys)).portableReceipt;
   const result = await committedReceiptConsumer(receipted, input.reservation, input.request, input.receiptKeys);
   assert.equal(evidence.receiptDigest, receipted.receiptDigest);
-  assert.equal(evidence.verificationLevel, "committed");
+  assert.equal(evidence.verificationLevel, "receipted");
   return { wire, submission, evidence: receipted, result };
 }
 
@@ -249,7 +249,7 @@ async function middlewareAgentExportsReachRealConsumers(t) {
     const result = await integration.tools.execute("layerx_track", { submissionRef: path.input.transcript.submit.tx_hash });
     assert.equal(result.ok, true);
     assert.equal(result.result.state, "Committed");
-    assert.equal(result.result.verificationLevel, "Committed");
+    assert.equal(result.result.verificationLevel, "sequencer-signed");
     const transported = await authenticated.transport.call({ plane: "agent", operation: "track",
       request: { submission_ref: path.input.transcript.submit.tx_hash } });
     assert.deepEqual(transported.value, path.input.transcript.committed);
@@ -265,7 +265,7 @@ async function middlewareAgentExportsReachRealConsumers(t) {
     assert.equal(result.result.receiptDigest, reservation.receiptDigest);
     assert.equal(result.result.amount, request.amount);
   }
-  assert.equal(path.calls.filter((call) => call.path === "/receipt").length, 4);
+  assert.equal(path.calls.filter((call) => call.path === "/receipt").length, 6);
   for (const changed of [{ amount: "26" }, { asset: "00".repeat(32) }, { recipient: "00".repeat(32) }]) {
     assert.deepEqual(await integration.tools.execute("layerx_verify_receipt", { ...verifyInput, ...changed }), {
       ok: false, tool: "layerx_verify_receipt", code: "verification-failure",
