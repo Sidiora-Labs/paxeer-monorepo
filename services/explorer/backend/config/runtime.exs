@@ -525,26 +525,34 @@ config :explorer, Explorer.Chain.Cache.Counters.NewPendingTransactionsCount,
 
 config :explorer, Explorer.Market, enabled: !disable_exchange_rates?
 
+market_source = fn env_var ->
+  if System.get_env(env_var) == "chainflow" do
+    Explorer.Market.Source.Chainflow
+  else
+    ConfigHelper.market_source(env_var)
+  end
+end
+
 config :explorer, Explorer.Market.Source,
   native_coin_source:
-    ConfigHelper.market_source("MARKET_NATIVE_COIN_SOURCE") ||
-      ConfigHelper.market_source("EXCHANGE_RATES_SOURCE"),
+    market_source.("MARKET_NATIVE_COIN_SOURCE") ||
+      market_source.("EXCHANGE_RATES_SOURCE"),
   secondary_coin_source:
-    ConfigHelper.market_source("MARKET_SECONDARY_COIN_SOURCE") ||
-      ConfigHelper.market_source("EXCHANGE_RATES_SECONDARY_COIN_SOURCE"),
+    market_source.("MARKET_SECONDARY_COIN_SOURCE") ||
+      market_source.("EXCHANGE_RATES_SECONDARY_COIN_SOURCE"),
   tokens_source:
-    ConfigHelper.market_source("MARKET_TOKENS_SOURCE") ||
-      ConfigHelper.market_source("TOKEN_EXCHANGE_RATES_SOURCE"),
+    market_source.("MARKET_TOKENS_SOURCE") ||
+      market_source.("TOKEN_EXCHANGE_RATES_SOURCE"),
   native_coin_history_source:
-    ConfigHelper.market_source("MARKET_NATIVE_COIN_HISTORY_SOURCE") ||
-      ConfigHelper.market_source("EXCHANGE_RATES_PRICE_SOURCE"),
-  secondary_coin_history_source: ConfigHelper.market_source("MARKET_SECONDARY_COIN_HISTORY_SOURCE"),
+    market_source.("MARKET_NATIVE_COIN_HISTORY_SOURCE") ||
+      market_source.("EXCHANGE_RATES_PRICE_SOURCE"),
+  secondary_coin_history_source: market_source.("MARKET_SECONDARY_COIN_HISTORY_SOURCE"),
   market_cap_history_source:
-    ConfigHelper.market_source("MARKET_CAP_HISTORY_SOURCE") ||
-      ConfigHelper.market_source("EXCHANGE_RATES_MARKET_CAP_SOURCE"),
+    market_source.("MARKET_CAP_HISTORY_SOURCE") ||
+      market_source.("EXCHANGE_RATES_MARKET_CAP_SOURCE"),
   tvl_history_source:
-    ConfigHelper.market_source("MARKET_TVL_HISTORY_SOURCE") ||
-      ConfigHelper.market_source("EXCHANGE_RATES_TVL_SOURCE")
+    market_source.("MARKET_TVL_HISTORY_SOURCE") ||
+      market_source.("EXCHANGE_RATES_TVL_SOURCE")
 
 config :explorer, Explorer.Market.Source.CoinGecko,
   platform:
@@ -649,6 +657,13 @@ config :explorer, Explorer.Market.Source.DIA,
   base_url: ConfigHelper.parse_url_env_var("MARKET_DIA_BASE_URL", "https://api.diadata.org/v1"),
   coin_address_hash: System.get_env("MARKET_DIA_COIN_ADDRESS_HASH"),
   secondary_coin_address_hash: System.get_env("MARKET_DIA_SECONDARY_COIN_ADDRESS_HASH")
+
+config :explorer, Explorer.Market.Source.Chainflow,
+  base_url: ConfigHelper.parse_url_env_var("MARKET_CHAINFLOW_BASE_URL", "https://data.feed.chainflowtrading.com"),
+  market: System.get_env("MARKET_CHAINFLOW_MARKET"),
+  coin_symbol: System.get_env("MARKET_CHAINFLOW_COIN_SYMBOL", "PAX"),
+  secondary_coin_symbol: System.get_env("MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL", "SID"),
+  tokens: ConfigHelper.parse_json_env_var("MARKET_CHAINFLOW_TOKENS", "[]")
 
 config :explorer, Explorer.Market.Fetcher.Coin,
   store: :ets,
