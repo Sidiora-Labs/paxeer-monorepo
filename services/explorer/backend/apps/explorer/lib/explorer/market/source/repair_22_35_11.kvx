@@ -1,0 +1,18 @@
+[chainflow]
+source = "chainflow"
+base_url_setting = "MARKET_CHAINFLOW_BASE_URL"
+base_url_default = "https://data.feed.chainflowtrading.com"
+market_setting = "MARKET_CHAINFLOW_MARKET"
+market = "Optional native feed identifier; an empty value uses the lowercase native symbol. Other symbols use their lowercase feed identifiers."
+coin_symbol_setting = "MARKET_CHAINFLOW_COIN_SYMBOL"
+coin_symbol_default = "PAX"
+secondary_coin_symbol_setting = "MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL"
+secondary_coin_symbol_default = "SID"
+tokens_setting = "MARKET_CHAINFLOW_TOKENS"
+tokens = "JSON list of [token address, feed symbol] pairs. WPAX uses PAX."
+routes = ["/api/{market}/price", "/api/{market}/stats", "/api/{market}/history"]
+market_cap = "Price multiplied by the backend native circulating supply or token total supply scaled by decimals. Missing values remain empty."
+token_fields = ["fiat_value", "circulating_market_cap", "volume_24h"]
+stats_fields = ["secondary_coin_market_cap", "secondary_coin_price_change_percentage"]
+secondary_coin_chart_fields = ["closing_price", "market_cap", "date"]
+source_settings = ["MARKET_NATIVE_COIN_SOURCE", "MARKET_SECONDARY_COIN_SOURCE", "MARKET_TOKENS_SOURCE", "MARKET_NATIVE_COIN_HISTORY_SOURCE", "MARKET_SECONDARY_COIN_HISTORY_SOURCE", "MARKET_CAP_HISTORY_SOURCE"]
