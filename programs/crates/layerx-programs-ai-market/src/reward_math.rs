@@ -2,14 +2,14 @@
 //! point, saturation, random ties or traversal-order ties; every step is checked.
 use crate::types::GuestIndex as _;
 use crate::{
-    aggregation_codec::{EpochAggregation, WorkerAggregate, MAX_TOTAL_WEIGHT},
+    MAX_EVALUATORS, MAX_WORKERS,
+    aggregation_codec::{EpochAggregation, MAX_TOTAL_WEIGHT, WorkerAggregate},
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, F06_AGGREGATION_MISMATCH, F06_INVALID_AMOUNT,
+        ARITHMETIC, CAPACITY, CodecResult, F06_AGGREGATION_MISMATCH, F06_INVALID_AMOUNT,
         F06_LEDGER_INVARIANT_VIOLATION, F06_UNKNOWN_WORKER_ENTITLEMENT, NON_CANONICAL,
     },
     rewards::RewardOutcome,
     types::{Amount, Presence, Score, WorkerId},
-    MAX_EVALUATORS, MAX_WORKERS,
 };
 
 pub const QUORUM: usize = 3;
@@ -48,10 +48,14 @@ fn low_limb(x: u128) -> CodecResult<u64> {
 ///
 /// # Errors
 /// Returns `ARITHMETIC` when `t` is zero or the quotient exceeds 128 bits.
-#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn mul_div_rem(b: u128, s: u64, t: u64) -> CodecResult<(u128, u64)> {
     if t == 0 {
         return Err(ARITHMETIC);
+    }
+    if let Ok(b) = u64::try_from(b) {
+        if let Some(product) = b.checked_mul(s) {
+            return Ok((u128::from(product / t), product % t));
+        }
     }
     let s = u128::from(s);
     let lo = u128::from(low_limb(b)?) * s;
@@ -277,12 +281,6 @@ pub fn conservation_holds(
 }
 
 const PAYOUT_BPS: u64 = 10_000;
-const PAYOUT_PEER_ORDER: [usize; MAX_WORKERS] = [
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-    26, 27, 28, 29, 30, 31,
-];
-
-#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn split_settled_amount(
     amount: Amount,
     profile: &crate::policy::RoomProfile,
@@ -310,6 +308,7 @@ pub fn split_settled_amount(
     {
         return Err(NON_CANONICAL);
     }
+    let uniform = peers.iter().all(|peer| peer.1 == peers.guest_index(0).1);
     let host = mul_div_rem(amount, u64::from(profile.host_share_bps), PAYOUT_BPS)?.0;
     let protocol = mul_div_rem(amount, u64::from(profile.protocol_share_bps), PAYOUT_BPS)?.0;
     let pool = amount
@@ -330,8 +329,25 @@ pub fn split_settled_amount(
     let laps = faults.len() as u128;
     let lap_floor = pool.checked_div(laps).ok_or(CAPACITY)?;
     let lap_remainder = pool.checked_rem(laps).ok_or(CAPACITY)?;
+    let high_count = faults
+        .get(..lap_remainder as usize)
+        .ok_or(CAPACITY)?
+        .iter()
+        .filter(|&&mask| mask == 0)
+        .count() as u128;
+    let low_count = faults.iter().filter(|&&mask| mask == 0).count() as u128 - high_count;
+    let mut zero_done = [false; 2];
     for (lap, &mask) in faults.iter().enumerate() {
         let budget = lap_floor + u128::from((lap as u128) < lap_remainder);
+        let group = usize::from((lap as u128) >= lap_remainder);
+        let repetitions = if mask == 0 {
+            if core::mem::replace(zero_done.guest_index_mut(group), true) {
+                continue;
+            }
+            if group == 0 { high_count } else { low_count }
+        } else {
+            1
+        };
         let mut total = 0u64;
         for (i, &(_, weight)) in peers.iter().enumerate() {
             if mask & (1u32 << i) == 0 {
@@ -351,29 +367,34 @@ pub fn split_settled_amount(
             *result.amounts.guest_index_mut(i) = result
                 .amounts
                 .guest_index(i)
-                .checked_add(share)
+                .checked_add(share.checked_mul(repetitions).ok_or(ARITHMETIC)?)
                 .ok_or(ARITHMETIC)?;
             *remainders.guest_index_mut(i) = remainder;
             left = left.checked_sub(share).ok_or(ARITHMETIC)?;
         }
-        let mut order = PAYOUT_PEER_ORDER;
-        crate::codec::sort_by(order.guest_index_mut(..peers.len()), |&a, &b| {
-            remainders
-                .guest_index(b)
-                .cmp(remainders.guest_index(a))
-                .then(a.cmp(&b))
-        });
+        let mut order: [usize; MAX_WORKERS] = core::array::from_fn(|index| index);
+        if !uniform {
+            crate::codec::sort_by(order.guest_index_mut(..peers.len()), |&a, &b| {
+                remainders
+                    .guest_index(b)
+                    .cmp(remainders.guest_index(a))
+                    .then(a.cmp(&b))
+            });
+        }
         for &i in order.guest_index(..peers.len()) {
             if left == 0 {
                 break;
             }
             if *remainders.guest_index(i) == 0 {
+                if uniform {
+                    continue;
+                }
                 return Err(F06_LEDGER_INVARIANT_VIOLATION);
             }
             *result.amounts.guest_index_mut(i) = result
                 .amounts
                 .guest_index(i)
-                .checked_add(1)
+                .checked_add(repetitions)
                 .ok_or(ARITHMETIC)?;
             left -= 1;
         }

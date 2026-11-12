@@ -7,10 +7,11 @@ pub mod placement;
 #[cfg(target_arch = "wasm32")]
 use crate::codec::Sha256State as Sha256;
 use crate::{
+    MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
     codec::{self, ChunkResponse, ReadHeader, Reader, RosterView, Writer},
     dispatch,
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, NON_CANONICAL,
+        ARITHMETIC, ApplicationError, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, NON_CANONICAL,
         NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
     evaluators::authority::split_identity_section,
@@ -21,7 +22,6 @@ use crate::{
         PrincipalId, ProgramId, RequestDigest, RosterDigest, StateDigest, Version,
     },
     workers::{WorkerState, WorkerTable},
-    MAX_CHUNK_BYTES, MAX_STATE_BYTES, SCHEMA_VERSION,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use sha2::{Digest, Sha256};
@@ -50,8 +50,9 @@ pub fn answer_book_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> C
     let mut reader = Reader::new(payload);
     let model = reader.digest32()?;
     reader.finish()?;
-    let shared = state::decode_shared_state(state_bytes)?;
-    placement::PlacementBook::decode(shared.room_market()?.1, model)?.encode_view(out)
+    let sections = state::SectionReader::new(state_bytes)?;
+    let bytes = state::room_market_parts(sections.section(state::Section::SettlementClaims))?.1;
+    placement::PlacementBook::decode(bytes, model)?.encode_view(out)
 }
 
 pub const ROOM_VIEW_BYTES: usize = crate::rooms::ROOM_RECORD_BYTES
@@ -785,7 +786,7 @@ impl<'a> StateCapture<'a> {
                     || f.digest != chunk.digest
                     || f.total_bytes != chunk.total_bytes =>
             {
-                return Err(QueryError::SnapshotConflict)
+                return Err(QueryError::SnapshotConflict);
             }
             Some(f) => f,
         };

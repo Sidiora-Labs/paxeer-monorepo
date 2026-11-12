@@ -2,10 +2,11 @@
 //! Transitions are pure over authenticated host values supplied by the adapter.
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_WORKERS,
     codec::{self, Reader, Writer},
     dispatch::{self, Operation},
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, EVIDENCE_BINDING, EXPIRED,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, EVIDENCE_BINDING, EXPIRED,
         F02_ADMISSION_NOT_EFFECTIVE, F02_DEADLINE_INVALID, F02_DELEGATE_CONSENT_REQUIRED,
         F02_DELEGATE_REVOKED, F02_MARKET_PAUSED, F02_METADATA_EXPIRED,
         F02_METADATA_INTEGRITY_FAILURE, F02_OWNER_REQUIRED, F02_RATE_LIMITED, F02_WRONG_GENERATION,
@@ -15,13 +16,12 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{market_clock, MarketHeader},
+    registry::{MarketHeader, market_clock},
     state::{self, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState},
     types::{
         Authentication, Digest32, MarketId, MetadataDigest, PrincipalId, PublicKey32, Signature64,
         Version, WorkerId, WorkerRosterEntry,
     },
-    MAX_WORKERS,
 };
 
 pub const MAX_MANIFEST_BYTES: usize = 8_192;

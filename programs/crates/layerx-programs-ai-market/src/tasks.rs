@@ -25,12 +25,13 @@ use crate::types::GuestIndex as _;
 use core::cmp::Ordering;
 
 use crate::{
+    MAX_TASKS,
     admission::{AdmissionTable, Participant},
     codec::ValidatedEnvelope,
-    codec::{self, derive_market, domain_hash, Envelope, EventCommon, Reader, Writer},
+    codec::{self, Envelope, EventCommon, Reader, Writer, derive_market, domain_hash},
     dispatch::{self, Operation},
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
         F01_POLICY_MISMATCH, F01_PRINCIPAL_MISMATCH, F01_STALE_REVISION, F01_TASK_ALREADY_ACCEPTED,
         F01_TASK_CONFLICT, F01_TASK_EXPIRED, F01_TASK_NOT_FOUND, F01_UNKNOWN_WORKER,
         F01_WRONG_LIFECYCLE, F01_WRONG_WORKER, F02_DELEGATE_REVOKED,
@@ -41,15 +42,15 @@ use crate::{
     evaluators::{
         authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
-    registry::{market_clock, MarketHeader},
+    registry::{MarketHeader, market_clock},
     registry_ops::{
-        CallContext, PolicySection, ACTIVE, CLOSED, EMPTY_TASK_REGION, RECEIPT_MAX_BYTES,
+        ACTIVE, CLOSED, CallContext, EMPTY_TASK_REGION, PolicySection, RECEIPT_MAX_BYTES,
         WINDING_DOWN,
     },
     rewards::RewardState,
     state::{
-        decode_shared_state, settlement_rewards, ActorSlot, ReplayDecision, ReplayRequest,
-        RetainedResult, Section, SharedState,
+        ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, settlement_rewards,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -57,7 +58,6 @@ use crate::{
         TaskId, Version, WorkerId,
     },
     workers::{WorkerCurrent, WorkerState, WorkerTable},
-    MAX_TASKS,
 };
 
 /// Canonical `TaskBinding` length.
@@ -132,11 +132,7 @@ impl TaskBinding {
             TaskStatus::Accepted => self.acknowledgement.is_some() && self.result.is_none(),
             TaskStatus::ResultCommitted => self.acknowledgement.is_some() && self.result.is_some(),
         };
-        if valid {
-            Ok(())
-        } else {
-            Err(NON_CANONICAL)
-        }
+        if valid { Ok(()) } else { Err(NON_CANONICAL) }
     }
     /// Canonical 233 bytes.
     ///
@@ -628,13 +624,8 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     )?;
     let admission = AdmissionTable::decode(table)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let row = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
-        if e == NOT_FOUND {
-            WRONG_EPOCH
-        } else {
-            e
-        }
-    })?;
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
     let binding = SetBinding {
         market: section.header.market_id,
         epoch,
@@ -995,11 +986,11 @@ fn cancel(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
         TaskStatus::Cancelled => {
             return Ok(Outcome::AlreadyApplied {
                 subject: Digest32::new(task.bytes())?,
-            })
+            });
         }
         TaskStatus::Accepted if call.ctx.height >= record.deadline => {}
         TaskStatus::Accepted | TaskStatus::ResultCommitted => {
-            return Err(F01_TASK_ALREADY_ACCEPTED)
+            return Err(F01_TASK_ALREADY_ACCEPTED);
         }
     }
     call.check_open_lifecycle()?;

@@ -3,21 +3,21 @@
 use crate::types::GuestIndex as _;
 use crate::{
     admission::{
-        AdmissionMeta, AdmissionTable, Participant, Role, FLAG_DRAINING, MAX_MEMBERS, POLICY_V1,
+        AdmissionMeta, AdmissionTable, FLAG_DRAINING, MAX_MEMBERS, POLICY_V1, Participant, Role,
     },
     codec::{self, Writer},
     errors::{
-        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F02_METADATA_INTEGRITY_FAILURE,
+        ACCOUNT_BINDING, ARITHMETIC, CAPACITY, CodecResult, F02_METADATA_INTEGRITY_FAILURE,
         F08_MARKET_PAUSED, F08_NO_PRUNABLE_MEMBER, F08_QUORUM_UNAVAILABLE, F08_RETENTION_BLOCKED,
         F08_STALE_STATE, NON_CANONICAL, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::authority::split_identity_section,
-    registry::{market_clock, MarketHeader},
-    registry_ops::{PolicySection, ACTIVE, REGISTERED, SUSPENDED},
-    rewards::{decode_reward_state, Disposition, EpochStatus, RewardState, REWARD_STATE_BYTES},
+    registry::{MarketHeader, market_clock},
+    registry_ops::{ACTIVE, PolicySection, REGISTERED, SUSPENDED},
+    rewards::{Disposition, EpochStatus, REWARD_STATE_BYTES, RewardState, decode_reward_state},
     state::{self, ActorSlot, Section, SharedState},
     types::{Amount, Digest32, EpochPhase, WorkerId, WorkerRosterEntry},
-    workers::{decode_manifest, CapabilityFields, WorkerState, WorkerTable},
+    workers::{CapabilityFields, WorkerState, WorkerTable, decode_manifest},
 };
 
 #[derive(Clone, Copy, Eq, PartialEq)]

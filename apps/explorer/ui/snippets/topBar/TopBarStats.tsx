@@ -13,8 +13,9 @@ import GasPrice from 'ui/shared/gas/GasPrice';
 import TextSeparator from 'ui/shared/TextSeparator';
 
 import GetGasButton from './GetGasButton';
+import TopBarCoinPrice from './TopBarCoinPrice';
 
-const TopBarStats = () => {
+const TopBarStats = ({ showGasInfo = true }: { showGasInfo?: boolean }) => {
   const isMobile = useIsMobile();
 
   const { data, isPlaceholderData, isError, refetch, dataUpdatedAt } = useApiQuery('general:stats', {
@@ -49,41 +50,35 @@ const TopBarStats = () => {
     return <div/>;
   }
 
-  const hasNativeCoinPrice = data?.coin_price && !config.UI.nativeCoinPrice.isHidden;
-  const hasSecondaryCoinPrice = data?.secondary_coin_price && config.chain.secondaryCoin.symbol && (hasNativeCoinPrice ? !isMobile : true);
-  const hasGasInfo = data?.gas_prices && data.gas_prices.average !== null && config.features.gasTracker.isEnabled && !isMobile;
+  const nativeSymbol = config.chain.currency.symbol;
+  const secondarySymbol = config.chain.secondaryCoin.symbol;
+  const hasNativeCoinPrice = Boolean(nativeSymbol) && !config.UI.nativeCoinPrice.isHidden;
+  const hasSecondaryCoinPrice = Boolean(secondarySymbol);
+  const hasGasInfo = showGasInfo && data?.gas_prices && data.gas_prices.average !== null && config.features.gasTracker.isEnabled && !isMobile;
 
   return (
     <Flex
       alignItems="center"
       fontWeight={ 500 }
+      flexWrap="wrap"
+      columnGap={ 3 }
+      rowGap={ 1 }
     >
-      { hasNativeCoinPrice && (
-        <Flex columnGap={ 1 }>
-          <Skeleton loading={ isPlaceholderData }>
-            <chakra.span color="text.secondary">{ config.chain.currency.symbol } Price: </chakra.span>
-            <chakra.span color="accent">
-              ${ Number(data.coin_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }
-            </chakra.span>
-          </Skeleton>
-          { data.coin_price_change_percentage && !(isMobile && Boolean(config.UI.featuredNetworks.items)) && (
-            <Skeleton loading={ isPlaceholderData }>
-              <chakra.span color={ Number(data.coin_price_change_percentage) >= 0 ? 'feedback.success.fg' : 'feedback.error.fg' }>
-                { Number(data.coin_price_change_percentage).toFixed(2) }%
-              </chakra.span>
-            </Skeleton>
-          ) }
-        </Flex>
+      { hasNativeCoinPrice && nativeSymbol && (
+        <TopBarCoinPrice
+          symbol={ nativeSymbol }
+          price={ data?.coin_price }
+          change={ data?.coin_price_change_percentage }
+          isLoading={ isPlaceholderData }
+        />
       ) }
-      { hasSecondaryCoinPrice && (
-        <Flex columnGap={ 1 } ml={ data?.coin_price ? 3 : 0 }>
-          <Skeleton loading={ isPlaceholderData }>
-            <chakra.span color="text.secondary">{ config.chain.secondaryCoin.symbol } Price: </chakra.span>
-            <chakra.span color="accent">
-              ${ Number(data.secondary_coin_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) }
-            </chakra.span>
-          </Skeleton>
-        </Flex>
+      { hasSecondaryCoinPrice && secondarySymbol && (
+        <TopBarCoinPrice
+          symbol={ secondarySymbol }
+          price={ data?.secondary_coin_price }
+          change={ data?.secondary_coin_price_change_percentage }
+          isLoading={ isPlaceholderData }
+        />
       ) }
       { (hasNativeCoinPrice || hasSecondaryCoinPrice) && hasGasInfo && <TextSeparator/> }
       { hasGasInfo && (

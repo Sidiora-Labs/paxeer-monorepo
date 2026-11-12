@@ -13480,6 +13480,30 @@ value = "Without a statistics service address the statistics page builds its cou
 basis = "Gotcha 4311 and decision 2587."
 affects = ["22.35.15"]
 
+[decision.3395]
+title = "Task 22.39.429 may change the Next integration example"
+value = "The paths of task 22.39.429 gain sdk/integrations/next. The task has the scan script of the example name only directories the example holds, or has the example hold the public directory with one tracked file. The scanner keeps refusing an explicitly named directory that is absent."
+basis = "Gotcha 4312."
+affects = ["22.39.429"]
+
+[decision.3396]
+title = "The Chainflow market source of the explorer reads the CoinGecko format routes of the feed"
+value = "The source reads price, market value, day volume, circulating supply and total supply of PAX and SID from api/v3/coins/ followed by the coin id and sends the key of the setting MARKET_CHAINFLOW_API_KEY in the X-API-Key header on every request. The coin ids are paxeer and sidiora. The market value is the figure of the feed. Where the feed gives none, it is the price times the supply the explorer holds as in decision 3392. The price and market value histories stay on the history route."
+basis = "Gotcha 4313. Decision 3392."
+affects = ["22.35.16"]
+
+[decision.3397]
+title = "Task 22.39.430 may change the lock file of the interop workspace"
+value = "The paths of task 22.39.430 gain services/interop/Cargo.lock. The lock file changes only as far as a dependency of a member under services/interop/crates requires."
+basis = "Gotcha 4314."
+affects = ["22.39.430"]
+
+[decision.3398]
+title = "An item of the ai-market member whose lint needs a public signature change carries an allow attribute"
+value = "In task 22.39.445 an item whose lint can only be met by changing a public name or signature of the member carries an allow attribute for that one lint on that one item, with a reason on the attribute. The record of the task lists each such item with its lint. Every other location is repaired in the source as before."
+basis = "Gotcha 4315. Decision 3346."
+affects = ["22.39.445"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43140,6 +43164,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.35.16]
+title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+do_1 = "do_1 Gotcha 4313, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source add the settings MARKET_CHAINFLOW_API_KEY, MARKET_CHAINFLOW_COIN_ID with the default paxeer and MARKET_CHAINFLOW_SECONDARY_COIN_ID with the default sidiora, read in services/explorer/backend/config/runtime.exs. Send the key as the X-API-Key header on every request of the source, the history requests included. Without a key send no such header. Fetch the native coin and the secondary coin from api/v3/coins/ followed by the coin id under the base address of the source. The reply carries name, symbol, image and market_data, and market_data carries current_price.usd, market_cap.usd, total_volume.usd, circulating_supply, total_supply and last_updated. Map them to fiat value, market value, day volume, available supply, total supply, last update, name, upper-case symbol and image. Where market_cap.usd is null the market value is the price times the supply the explorer holds, as before, and where that supply is absent too it stays empty. The token rows of the tokens setting take the same figures: the WPAX row those of PAX and the SID row those of SID. The price history and the market value history stay on the history route."
+symbols = []
 
 [capability.22.35.15]
 title = "Show every explorer statistic on the statistics page from the explorer API"
@@ -164328,7 +164361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.15]
 title = "Show every explorer statistic on the statistics page from the explorer API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164358,7 +164391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.14]
 title = "Show the price update totals in the transaction statistics of the explorer transactions page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -164387,7 +164420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.13]
 title = "Show the PAX and SID prices in the explorer top bar and their price and market value charts on the home page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188955,7 +188988,7 @@ do_16 = "do_16 Gotchas 4307 to 4309, decisions 3388 to 3391. This task makes thr
 
 [task.22.38.13]
 title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586", "22.39.300", "22.39.316", "22.39.333", "22.39.348", "22.39.365"]
@@ -197613,6 +197646,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Gotcha 4315, decision 3398. Where a lint can only be met by changing a public name or signature of the member, such as the eight arguments of apply_record_deal in src/rooms.rs and the large variant of Outcome in src/canary.rs, put an allow attribute for that one lint on that one item with a reason, and list the item with its lint in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx. Repair every other location in the source. No allow attribute covers a module or the crate."
 
 [task.22.39.444]
 title = "Bring the member layerx-programs-market of the programs workspace through the lint of the recipe"
@@ -197931,7 +197965,7 @@ do_1 = "do_1 Decision 3349. The recipe interop-test runs tests/ci/interop_worksp
 do_2 = "do_2 For each stopping case decide from the source which side holds the rule. Where the case asserts a behaviour that a decision of the spec has changed, change the case to assert the behaviour as decided and name the decision in the record. Where the crate departs from its interface, repair the crate. Weaken no assertion and remove no case."
 do_3 = "do_3 Record in services/interop/crates/repair_22_39_430.kvx each repaired case with its file and the rule it asserts. A stop whose cause lies outside services/interop/crates is listed in the closing report with file and first message and is not repaired here. The lint of task 22.39.404 stays clean. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates"]
+touches = ["services/interop/crates", "services/interop/Cargo.lock"]
 tests = []
 planned_paths = ["services/interop/crates/repair_22_39_430.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
@@ -230036,7 +230070,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.485]
 title = "Pass the race and coverage stages of the launchpad Makefile in the metadata module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.469", "22.39.458"]
@@ -230156,7 +230190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.481]
 title = "Pass the race and coverage stages of the launchpad Makefile in the statistics module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.465", "22.39.458"]
@@ -230306,7 +230340,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.476]
 title = "Pass the race and coverage stages of the launchpad Makefile in the protocol SDK module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.460", "22.39.458"]
@@ -290597,7 +290631,7 @@ do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dep
 do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
 do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi", "sdk/integrations/next"]
 tests = []
 planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
 build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"
@@ -290614,6 +290648,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "do_4 Gotcha 4312, decision 3395. The scan script of sdk/integrations/next/example names the directory public, which the example does not hold. Have the script name only directories the example holds, or have the example hold the public directory with one tracked file, whichever is the smaller change. Do not change the scanner under sdk/integrations/next/bin. Then bring the remaining parts of the recipe through and record the change in services/platform/middleware/repair_22_39_429.kvx."
 
 [task.22.39.427]
 title = "Bring the prepare step of the agent test recipe in line with the native test programs of the tree"
@@ -426053,9 +426088,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.35.16]
+title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.11"]
+reqs = ["22998.1"]
+capabilities = ["22.35.16"]
+interfaces = []
+do_1 = "do_1 Gotcha 4313, decision 3396. In the Chainflow market source under services/explorer/backend/apps/explorer/lib/explorer/market/source add the settings MARKET_CHAINFLOW_API_KEY, MARKET_CHAINFLOW_COIN_ID with the default paxeer and MARKET_CHAINFLOW_SECONDARY_COIN_ID with the default sidiora, read in services/explorer/backend/config/runtime.exs. Send the key as the X-API-Key header on every request of the source, the history requests included. Without a key send no such header. Fetch the native coin and the secondary coin from api/v3/coins/ followed by the coin id under the base address of the source. The reply carries name, symbol, image and market_data, and market_data carries current_price.usd, market_cap.usd, total_volume.usd, circulating_supply, total_supply and last_updated. Map them to fiat value, market value, day volume, available supply, total supply, last update, name, upper-case symbol and image. Where market_cap.usd is null the market value is the price times the supply the explorer holds, as before, and where that supply is absent too it stays empty. The token rows of the tokens setting take the same figures: the WPAX row those of PAX and the SID row those of SID. The price history and the market value history stay on the history route."
+do_2 = "do_2 Add the key setting with an empty value and the two coin id settings to services/explorer/deploy/env/backend.example.env. No key value enters the tree."
+do_3 = "do_3 Tests: services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_format_test.exs serves replies of the shape of do_1 from a local stand-in address and asserts that the X-API-Key header arrives on the coin requests and on the history requests when the key is set, that the PAX figures of the reply reach the result by name and value, that a null market value falls back to the price times the held supply, and that a 401 reply gives an error and no figures. Bring the existing cases of chainflow_test.exs in line with the new route. Record the settings and the mapped fields in services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/lib/explorer/market", "services/explorer/backend/apps/explorer/test/explorer/market", "services/explorer/backend/config/runtime.exs", "services/explorer/deploy/env/backend.example.env"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/market/source/chainflow_format_test.exs", "services/explorer/backend/apps/explorer/lib/explorer/market/source/repair_22_35_16.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_format_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/market/source/chainflow_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.35.12]
 title = "Count the price updates in the transactions statistics response of the explorer backend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -426084,7 +426149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.11]
 title = "Add a Chainflow market source to the explorer backend for PAX, SID and WPAX"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

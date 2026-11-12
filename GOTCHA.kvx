@@ -21380,3 +21380,23 @@ fix = "A Chainflow market source supplies PAX and SID, and both statistics respo
 title = "The statistics page of the explorer reads its counters and lines from the statistics service routes"
 symptom = "The components under apps/explorer/ui/stats read the counters route and the lines route of a statistics service, and the page feature is enabled by a statistics service address."
 fix = "The page reads the explorer API when no statistics service address is set."
+
+[gotcha.4312]
+title = "The scan script of the Next integration example names a directory the example does not hold"
+symptom = "The scan script in sdk/integrations/next/example/package.json names the directories dist/static and public, the tree holds no public directory in that example, and the middleware part of the platform test recipe runs that script."
+fix = "The example names only directories it holds."
+
+[gotcha.4313]
+title = "The Chainflow price feed gives the market figures of a coin in the CoinGecko format and takes a key header on every route"
+symptom = "The feed answers api/v3/coins/ followed by a coin id with price, market value, day volume, circulating supply and total supply in the CoinGecko format, and every route of the feed takes the key in the X-API-Key header."
+fix = "The Chainflow market source of the explorer backend sends the key and reads those routes."
+
+[gotcha.4314]
+title = "A test dependency of a member of the interop workspace changes the lock file of the workspace"
+symptom = "A member under services/interop/crates that gains a test dependency changes services/interop/Cargo.lock, and the paths of task 22.39.430 name only services/interop/crates."
+fix = "The paths of task 22.39.430 name the lock file of the workspace."
+
+[gotcha.4315]
+title = "Two lints of the ai-market member can only be met by changing a public signature"
+symptom = "In programs/crates/layerx-programs-ai-market the function apply_record_deal of src/rooms.rs takes eight arguments and the type Outcome of src/canary.rs holds a large variant, and task 22.39.445 keeps every public name and signature of the member."
+fix = "Such an item carries an allow attribute with a reason."
