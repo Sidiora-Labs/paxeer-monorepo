@@ -616,6 +616,13 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
     end
   end
 
+  @spec update_count_24h() :: non_neg_integer()
+  def update_count_24h do
+    consensus_updates_query()
+    |> where([update], update.timestamp >= ago(24, "hour"))
+    |> Repo.aggregate(:count)
+  end
+
   defp cast_hashes(%{hash: hash, feeder_hash: feeder_hash} = update) do
     {:ok, hash} = Hash.Full.cast(hash)
     {:ok, feeder_hash} = Hash.Address.cast(feeder_hash)
