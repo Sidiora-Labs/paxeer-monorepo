@@ -13522,6 +13522,24 @@ value = "Where clippy reports a line of programs/vendor/wasmi-0.31.2 that the pr
 basis = "Gotcha 4318. Decisions 3340 to 3346."
 affects = ["22.39.454"]
 
+[decision.3402]
+title = "The boundary check of the human workspace accepts the monotonic clock in two named transport files"
+value = "The boundary check carries a list of files that may read the monotonic clock for a transport deadline. The list holds services/human/crates/layerx-human-kms/src/server.rs and services/human/crates/layerx-network-gateway/src/lib.rs, each with its reason. In a listed file only the pattern Instant::now is accepted; every other pattern and every other rule holds as before. A case of the boundary check asserts that the list holds exactly these two files. Every other file the check reports is repaired in its member as decision 3400 says."
+basis = "Gotcha 4319. Decision 3400."
+affects = ["22.39.441"]
+
+[decision.3403]
+title = "The web policy records the wallet package under the licence field of decision 2775"
+value = "The policy check of apps/web and its record state Apache-2.0 for the local package @paxeer/wallet and follow the manifest of the package as it is at the base revision. The checks of the name, the path and the version of the package stay. Task 22.39.441 makes the change inside apps/web."
+basis = "Gotcha 4320. Decision 2775."
+affects = ["22.39.441"]
+
+[decision.3404]
+title = "The human lint task verifies the steps of the recipe before the lock file checks"
+value = "The verification of task 22.39.441 runs every step of the recipe human-lint except the advisory, ban and source check of the lock file. That check is not part of this task, as decision 3383 says for the platform workspace."
+basis = "Decision 3383."
+affects = ["22.39.441"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -290590,7 +290608,7 @@ touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lin
 tests = []
 planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
 build_cmd = "make -n human-lint > /dev/null"
-verify_cmd = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && make -s human-lint"
+verify_cmd = "test -s services/human/tools/repair_22_39_441.kvx && make -s human-js-install > /dev/null && d=$(mktemp -d) && make -n human-lint > $d/steps.txt && grep -q clippy $d/steps.txt && grep -v 'cargo deny' $d/steps.txt | sh -e"
 gate_kind = "planned"
 sandbox_profile = "sdk-all"
 owner_role = "fm-human"
@@ -290604,6 +290622,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4317, decision 3400. Run the boundary check over services/human/crates by hand and repair every file it reports for a direct read of the clock or of the random source, in the member that holds the file. Bound a wait by a count of steps or by the clock the member already injects and take a random value from the source the member already injects. Change no rule and no pattern of the boundary check and keep the behaviour of each member outside its tests. Run the tests of each changed member by hand before the counted runs and name each changed file in services/human/tools/repair_22_39_441.kvx."
+do_5 = "do_5 Gotchas 4319 and 4320, decisions 3402 to 3404. Give the boundary check the list of decision 3402 with its two files and their reasons and a case that asserts the list. Bring the policy check of apps/web and its record in line with the manifest of the wallet package as decision 3403 says. The advisory, ban and source check of the lock file is not part of this task; name its findings in the closing report only. A test of a member that already stops at the base revision is not repaired here, and a test file this task changes keeps the result it has at the base revision."
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
