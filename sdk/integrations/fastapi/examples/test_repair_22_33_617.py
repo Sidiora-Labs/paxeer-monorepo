@@ -23,7 +23,6 @@ sys.path[:0] = [
     str(ROOT / "services/agent/sdk/python"),
 ]
 
-from layerx_sdk.account_derivation import keccak256
 from layerx_fastapi import LayerXResource
 from layerx_fastapi.integration import LayerXSellerRuntime, layerx_payment_gate
 from layerx_fastapi.protocol import (
@@ -100,7 +99,7 @@ def example(tmp_path, monkeypatch):
         evidence=layerx_evidence_wire(LayerXReceiptEvidence(
             raw_transaction=vector["rawTransaction"],
             signed_receipt=vector["signedReceipt"],
-            receipt_digest="0x" + keccak256(signed).hex(),
+            receipt_digest="0x" + verified.receipt_digest.hex(),
             receipt_key=config.receipt_keys[0],
         )),
     )

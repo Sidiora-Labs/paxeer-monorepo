@@ -290,6 +290,9 @@ func (s *Store) DevelopmentHolders(ctx context.Context, pool string, exclude []s
 	if limit < 1 || limit > 101 {
 		return nil, ErrDataIntegrity
 	}
+	if exclude == nil {
+		exclude = []string{}
+	}
 	var after any
 	if afterBalance != "" {
 		if _, err := ParseUInt256(afterBalance); err != nil {

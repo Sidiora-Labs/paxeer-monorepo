@@ -3,7 +3,10 @@ defmodule Explorer.Market.Source.Chainflow do
   Fetches coin and token market data from the Chainflow price feed.
   """
 
+  import Ecto.Query, only: [from: 2]
+
   alias Explorer.{Chain, Repo}
+  alias Explorer.Chain.Address.CurrentTokenBalance
   alias Explorer.Chain.Hash.Address
   alias Explorer.Chain.Token, as: ChainToken
   alias Explorer.Market.{Source, Token}
@@ -38,10 +41,7 @@ defmodule Explorer.Market.Source.Chainflow do
   def fetch_native_coin, do: fetch_coin(config(:coin_symbol), Chain.circulating_supply())
 
   @impl Source
-  def fetch_secondary_coin do
-    symbol = config(:secondary_coin_symbol)
-    fetch_coin(symbol, supply_for_symbol(symbol))
-  end
+  def fetch_secondary_coin, do: fetch_coin(config(:secondary_coin_symbol), nil)
 
   @impl Source
   def fetch_tokens(state, batch_size) when is_integer(batch_size) and batch_size > 0 do
@@ -86,15 +86,12 @@ defmodule Explorer.Market.Source.Chainflow do
   end
 
   defp fetch_coin(symbol, supply) do
-    with coin_id when is_binary(coin_id) and coin_id != "" <- coin_id_for_symbol(symbol),
-         {:ok, %{"market_data" => market_data} = data} when is_map(market_data) <-
-           Source.http_request(
-             String.trim_trailing(config(:base_url), "/") <>
-               "/api/v3/coins/" <> URI.encode(coin_id, &URI.char_unreserved?/1),
-             headers()
-           ),
-         false <- Map.has_key?(data, "error") do
+    with {:ok, %{"market_data" => market_data} = data} <- fetch_coin_data(symbol) do
       fiat_value = Source.to_decimal(get_in(market_data, ["current_price", "usd"]))
+      feed_supply = Source.to_decimal(market_data["circulating_supply"])
+      secondary_coin? = symbol == config(:secondary_coin_symbol)
+      available_supply = if secondary_coin?, do: feed_supply || secondary_coin_supply(), else: feed_supply
+      market_cap_supply = if secondary_coin?, do: available_supply, else: supply
 
       {:ok,
        %Token{
@@ -103,12 +100,26 @@ defmodule Explorer.Market.Source.Chainflow do
            symbol: if(is_binary(data["symbol"]), do: String.upcase(data["symbol"])),
            image_url: Source.handle_image_url(get_in(data, ["image", "small"]) || get_in(data, ["image", "thumb"])),
            fiat_value: fiat_value,
-           available_supply: Source.to_decimal(market_data["circulating_supply"]),
+           available_supply: available_supply,
            total_supply: Source.to_decimal(market_data["total_supply"]),
-           market_cap: Source.to_decimal(get_in(market_data, ["market_cap", "usd"])) || multiply(fiat_value, supply),
+           market_cap:
+             Source.to_decimal(get_in(market_data, ["market_cap", "usd"])) || multiply(fiat_value, market_cap_supply),
            volume_24h: Source.to_decimal(get_in(market_data, ["total_volume", "usd"])),
            last_updated: Source.maybe_get_date(market_data["last_updated"])
        }}
+    end
+  end
+
+  defp fetch_coin_data(symbol) do
+    with coin_id when is_binary(coin_id) and coin_id != "" <- coin_id_for_symbol(symbol),
+         {:ok, %{"market_data" => market_data} = data} when is_map(market_data) <-
+           Source.http_request(
+             String.trim_trailing(config(:base_url), "/") <>
+               "/api/v3/coins/" <> URI.encode(coin_id, &URI.char_unreserved?/1),
+             headers()
+           ),
+         false <- Map.has_key?(data, "error") do
+      {:ok, data}
     else
       {:error, _} = error -> error
       _ -> {:error, "Invalid Chainflow quote response or coin ID"}
@@ -127,7 +138,6 @@ defmodule Explorer.Market.Source.Chainflow do
     symbol = config(if(secondary_coin?, do: :secondary_coin_symbol, else: :coin_symbol))
     now = DateTime.to_unix(DateTime.utc_now())
     query = %{symbol: symbol, resolution: "1D", from: now - previous_days * 86_400, to: now}
-    supply = if secondary_coin?, do: supply_for_symbol(symbol), else: Chain.circulating_supply()
 
     with {:ok, response} <- request(symbol, "history", query) do
       case response do
@@ -137,7 +147,9 @@ defmodule Explorer.Market.Source.Chainflow do
         %{"s" => "ok", "t" => times, "o" => opens, "c" => closes}
         when is_list(times) and is_list(opens) and is_list(closes) and
                length(times) == length(opens) and length(times) == length(closes) ->
-          history_records(times, opens, closes, secondary_coin?, supply)
+          with {:ok, supply} <- history_supply(secondary_coin?) do
+            history_records(times, opens, closes, secondary_coin?, supply)
+          end
 
         _ ->
           {:error, "Invalid Chainflow candle response"}
@@ -169,18 +181,58 @@ defmodule Explorer.Market.Source.Chainflow do
     end
   end
 
-  defp supply_for_symbol(symbol) do
+  defp history_supply(false) do
+    with {:ok, %{"market_data" => market_data}} <- fetch_coin_data(config(:coin_symbol)) do
+      {:ok, Source.to_decimal(market_data["circulating_supply"]) || Chain.circulating_supply()}
+    end
+  end
+
+  defp history_supply(true) do
+    with {:ok, quote} <- fetch_secondary_coin() do
+      {:ok, quote.available_supply}
+    end
+  end
+
+  defp secondary_coin_supply do
+    symbol = config(:secondary_coin_symbol)
+
     case Enum.find(config(:tokens) || [], fn [_address, feed_symbol] -> feed_symbol == symbol end) do
       [address, _] ->
         with {:ok, hash} <- Address.cast(address),
              %ChainToken{} = token <- Repo.get(ChainToken, hash) do
-          token_supply(token)
+          circulating_token_supply(token)
         else
           _ -> nil
         end
 
       nil ->
         nil
+    end
+  end
+
+  defp circulating_token_supply(token) do
+    case token_supply(token) do
+      nil ->
+        nil
+
+      total_supply ->
+        addresses = config(:secondary_coin_non_circulating_addresses) || []
+
+        excluded_balance =
+          if addresses == [] do
+            Decimal.new(0)
+          else
+            Repo.one(
+              from(balance in CurrentTokenBalance,
+                where: balance.token_contract_address_hash == ^token.contract_address_hash,
+                where: balance.address_hash in ^addresses,
+                select: sum(balance.value)
+              )
+            ) || Decimal.new(0)
+          end
+
+        excluded_supply = token_supply(%{token | total_supply: excluded_balance})
+        Decimal.max(Decimal.sub(total_supply, excluded_supply), Decimal.new(0))
     end
   end
 

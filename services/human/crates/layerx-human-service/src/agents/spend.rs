@@ -239,6 +239,8 @@ impl SpendReconciliation {
     }
 
     /// Reopens the last verified projection from the owner's durable store.
+    /// # Errors
+    /// Returns an error if the requested data cannot be read or validated.
     pub fn open(scope: &PrincipalScope<'_>, profile: SpendProfile) -> Result<Self, SpendError> {
         let mut service = Self::new(profile)?;
         service.check_principal(scope.principal())?;
@@ -253,6 +255,8 @@ impl SpendReconciliation {
 
     /// Adopts canonical state only after the production budget and receipt verifiers succeed.
     /// Failed observations do not replace the retained verified evidence.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn observe(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -262,10 +266,10 @@ impl SpendReconciliation {
         observed_at: u64,
     ) -> Result<AgentSpendView, SpendError> {
         self.check_principal(scope.principal())?;
-        let verified = verifier
+        let verified_state = verifier
             .verify_state(&protocol.evidence)
             .map_err(|_| SpendError::UnverifiedEvidence)?;
-        let record = ProtocolBudgetRecord::decode(verified.canonical_state())
+        let record = ProtocolBudgetRecord::decode(verified_state.canonical_state())
             .map_err(|_| SpendError::EvidenceConflict)?;
         if record.budget_id != self.profile.budget_id
             || record.asset_id != self.profile.asset
@@ -280,8 +284,8 @@ impl SpendReconciliation {
             return Err(SpendError::EvidenceConflict);
         }
         let mut total = 0_u128;
-        let mut evidence = vec![Sha256::digest(verified.canonical_state()).into()];
-        let mut rung = if verified
+        let mut evidence = vec![Sha256::digest(verified_state.canonical_state()).into()];
+        let mut rung = if verified_state
             .level()
             .compare(layerx_types::verify::VerificationLevel::COMMITTED)
             .is_ge()
@@ -303,7 +307,7 @@ impl SpendReconciliation {
                 || facts.from() != self.profile.agent_account
                 || facts.timestamp() < record.period_start
                 || facts.timestamp() >= record.window_end_sequence()
-                || receipt.global_sequence() > verified.observed_head_sequence()
+                || receipt.global_sequence() > verified_state.observed_head_sequence()
             {
                 return Err(SpendError::EvidenceConflict);
             }
@@ -358,6 +362,8 @@ impl SpendReconciliation {
     }
 
     /// Projects the opaque proof issued by the production committed-chain budget verifier.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn observe_budget_proof(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -471,12 +477,7 @@ impl SpendReconciliation {
     }
 
     fn row(&self) -> Result<RowKey, StoreError> {
-        let suffix: String = self
-            .profile
-            .agent_id
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+        let suffix: String = crate::hex::lower(&self.profile.agent_id);
         RowKey::new(format!("agent-spend-{suffix}"))
     }
 

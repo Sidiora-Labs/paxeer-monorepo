@@ -97,8 +97,8 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 fn unhex(value: &Value) -> Vec<u8> {
-    let text = value.as_str().expect("hex RPC parameter");
-    let digits = text.strip_prefix("0x").expect("hex prefix");
+    let text = value.as_str().or_fail("hex RPC parameter");
+    let digits = text.strip_prefix("0x").or_fail("hex prefix");
     assert_eq!(digits.len() % 2, 0);
     digits
         .as_bytes()
@@ -227,34 +227,15 @@ impl AdmissionSequencer {
                         Err(error) => panic!("sequencer accept: {error}"),
                     }
                 };
-                checked(stream.set_read_timeout(Some(Duration::from_secs(2))));
-                checked(stream.set_write_timeout(Some(Duration::from_secs(2))));
-                let mut reader = BufReader::new(stream);
-                let mut length = None;
-                loop {
-                    let mut line = String::new();
-                    assert_ne!(checked(reader.read_line(&mut line)), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(checked(value.trim().parse::<usize>()));
-                    }
-                }
-                let length = length.expect("RPC content length");
-                assert!(length <= 2_097_152);
-                let mut body = vec![0; length];
-                checked(reader.read_exact(&mut body));
-                let request: Value = checked(serde_json::from_slice(&body));
-                assert_eq!(request["jsonrpc"], "2.0");
+                let (reader, request) = read_request(stream);
                 let params = &request["params"];
-                let response = match request["method"].as_str().expect("RPC method") {
+                let response = match request["method"].as_str().or_fail("RPC method") {
                     "eth_chainId" => {
                         assert_eq!(params, &json!([]));
                         json!({"result": "0x7d"})
                     }
                     "eth_sendRawTransaction" => {
-                        assert_eq!(params.as_array().expect("submit params").len(), 1);
+                        assert_eq!(params.as_array().or_fail("submit params").len(), 1);
                         match self.admit(&unhex(&params[0])) {
                             Ok(hash) => {
                                 if interrupt_first_submit && !interrupted {
@@ -267,7 +248,7 @@ impl AdmissionSequencer {
                         }
                     }
                     "pax_sequencerReceipt" => {
-                        assert_eq!(params.as_array().expect("receipt params").len(), 1);
+                        assert_eq!(params.as_array().or_fail("receipt params").len(), 1);
                         let hash: [u8; 32] = checked(unhex(&params[0]).try_into());
                         json!({"result": self.admitted.get(&hash).map(|nonce| json!({
                             "rung": "submitted", "txHash": hex(&hash), "nonce": format!("{nonce:#x}")
@@ -305,6 +286,30 @@ impl AdmissionSequencer {
         });
         (endpoint, config, server)
     }
+}
+
+fn read_request(stream: std::net::TcpStream) -> (BufReader<std::net::TcpStream>, Value) {
+    checked(stream.set_read_timeout(Some(Duration::from_secs(2))));
+    checked(stream.set_write_timeout(Some(Duration::from_secs(2))));
+    let mut reader = BufReader::new(stream);
+    let mut length = None;
+    loop {
+        let mut line = String::new();
+        assert_ne!(checked(reader.read_line(&mut line)), 0);
+        if line == "\r\n" {
+            break;
+        }
+        if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+            length = Some(checked(value.trim().parse::<usize>()));
+        }
+    }
+    let length = length.or_fail("RPC content length");
+    assert!(length <= 2_097_152);
+    let mut body = vec![0; length];
+    checked(reader.read_exact(&mut body));
+    let request: Value = checked(serde_json::from_slice(&body));
+    assert_eq!(request["jsonrpc"], "2.0");
+    (reader, request)
 }
 
 fn refusal(result: KnownResult) -> Value {
@@ -500,4 +505,10 @@ fn authentication_refusals_are_typed_and_consume_no_admission_capacity() {
         AdmissionJournal::recover(&admission_directory, EVIDENCE_NETWORK_ID).len(),
         1
     );
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

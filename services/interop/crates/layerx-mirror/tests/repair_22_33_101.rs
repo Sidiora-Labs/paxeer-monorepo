@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 // Task 22.33.101: finding/test mapping and out-of-scope wiring are recorded in
 // src/repair_22_33_101.kvx. The peer below is the committed Solana loopback
 // transcript used by repair_22_31_166; the component under repair is the real
@@ -555,6 +559,7 @@ fn number(bytes: &[u8]) -> usize {
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
+        test_network::isolate().or_panic("private test network");
         let directory = std::env::temp_dir().join(format!(
             "lx-2233101-{}-{}",
             std::process::id(),

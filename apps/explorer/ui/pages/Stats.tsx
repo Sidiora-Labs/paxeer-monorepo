@@ -100,6 +100,7 @@ const Stats = () => {
       <Flex flexDirection={{ base: 'column', lg: 'row' }} alignItems="flex-start" columnGap={ 6 } w="100%" minW={ 0 }>
         <chakra.nav
           data-stats-section-nav
+          aria-label="Statistics sections"
           position={{ base: 'static', lg: 'sticky' }}
           top={{ lg: 6 }}
           alignSelf="flex-start"

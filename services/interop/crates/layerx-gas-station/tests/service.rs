@@ -367,7 +367,7 @@ fn registered_senders_parse_resolve_their_own_budget_and_are_quoted() -> TestRes
     assert!(harness.recorded.sent().is_empty());
     harness.assert_log_clean(&["/quote 200"]);
     harness.finish()?;
-    registered_budgets_cross_caps_and_survive_restart()
+    registered_budgets_cross_caps_and_survive_restart("REGISTERED")
 }
 
 #[test]

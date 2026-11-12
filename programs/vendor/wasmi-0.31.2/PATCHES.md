@@ -21,3 +21,10 @@ boundary charge). They remain necessary for the programs runtime's replay path.
 `.cargo-checksum.json` records the SHA-256 of the three files above and this
 `PATCHES.md`. Its upstream package checksum and all other file digests remain
 unchanged.
+
+The replay observation paths in `src/engine/executor.rs` use `inspect_err` in
+`execute` and `visit_observe` to record observer state while preserving the
+original trap. The `execute_step` documentation in `src/engine/mod.rs` describes
+the errors returned when restoring and executing a replay snapshot.
+The snapshot retention assertion in `issue_1773_accumulating_snapshots`
+uses `Range::contains` for the unchanged lower and upper count bounds.

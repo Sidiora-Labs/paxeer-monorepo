@@ -8,7 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { z } from "zod";
 import {
-  AgentEnvelopeTransport, AgentSessionCredential, keccak256, PlatformSdkError, SecretBytes,
+  AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, PlatformSdkError, SecretBytes,
 } from "@sidiora/layerx-sdk";
 import { DaemonReceiptResolver } from "../dist/daemon-providers.js";
 
@@ -28,9 +28,7 @@ const context = Object.freeze({
 const principal = Object.freeze({
   tenant: "receipt-repair", actor: "receipt-agent", sessionId: "11".repeat(32),
 });
-// The alias digest hashes the signed bytes; the vector's receiptDigest is the signing digest.
-const receiptDigest = "8a3d6e826696185b6615798f59acac1bad74623ca977342db0bf10901f074e0c";
-assert.equal(Buffer.from(keccak256(Buffer.from(vector.signedReceipt.slice(2), "hex"))).toString("hex"), receiptDigest);
+const receiptDigest = vector.receiptDigest.slice(2);
 
 // Public, test-only TLS identity for the in-process mutually authenticated listener.
 const certificate = `-----BEGIN CERTIFICATE-----
@@ -98,8 +96,8 @@ function refuses(code, retry = "never") {
 async function daemonFixture(t) {
   const directory = mkdtempSync(join(tmpdir(), "receipt-repair-"));
   const token = new SecretBytes(new Uint8Array(32).fill(0x22));
-  const clientCertificate = new SecretBytes(Uint8Array.from(Buffer.from(certificate)));
-  const clientKey = new SecretBytes(Uint8Array.from(Buffer.from(privateKey)));
+  const gatewayKey = new SecretBytes(new TextEncoder().encode(`lxp_live_${"33".repeat(32)}`));
+  const gatewayCredential = new LayerXKeyCredential("receipt-repair", gatewayKey);
   const resolvers = [];
   const session = new AgentSessionCredential(principal.tenant, principal.sessionId, token, 0n);
   const fixture = {
@@ -107,17 +105,14 @@ async function daemonFixture(t) {
     verification: { state: "achieved", rung: "receipted" }, found: true,
     storePath: join(directory, "receipts.sqlite"),
   };
-  const server = createServer({
-    cert: certificate, key: privateKey, ca: certificate,
-    requestCert: true, rejectUnauthorized: true,
-  }, async (request, response) => {
+  const server = createServer({ cert: certificate, key: privateKey }, async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     fixture.requests.push(body);
-    assert.equal(request.socket.authorized, true);
+    assert.equal(request.headers.authorization, `LayerX-Key receipt-repair:lxp_live_${"33".repeat(32)}`);
     assert.equal(request.method, "POST");
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/v1/agent/rpc");
     assert.equal(request.headers["content-type"], "application/json");
     assert.equal(body.version, 1);
     assert.equal(body.operation, "program.receipt");
@@ -153,12 +148,12 @@ async function daemonFixture(t) {
       server.close((error) => error ? reject(error) : resolve());
       server.closeAllConnections();
     });
-    token.destroy(); clientCertificate.destroy(); clientKey.destroy();
+    token.destroy(); gatewayKey.destroy();
     rmSync(directory, { recursive: true, force: true });
   });
   fixture.transport = () => new AgentEnvelopeTransport({
-    endpoint: `https://127.0.0.1:${server.address().port}`, surface: "daemon", session,
-    clientCertificate, clientKey, trustedCa: certificate, timeoutMs: 2000,
+    endpoint: `https://127.0.0.1:${server.address().port}`, surface: "gateway", session,
+    gatewayCredential, trustedCa: certificate, timeoutMs: 2000,
   });
   fixture.open = () => {
     const resolver = new DaemonReceiptResolver({

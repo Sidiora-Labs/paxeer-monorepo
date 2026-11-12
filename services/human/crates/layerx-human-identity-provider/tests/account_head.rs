@@ -1,3 +1,7 @@
+#[path = "support/mod.rs"]
+#[allow(dead_code)]
+mod support;
+
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -274,6 +278,7 @@ fn maintenance_head_refuses_wrong_key_signature_and_proof_encoding() {
 }
 
 #[path = "support/producer_path.rs"]
+#[allow(dead_code)]
 mod producer_path;
 
 #[test]

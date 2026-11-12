@@ -1,13 +1,14 @@
 import { Flex, chakra } from '@chakra-ui/react';
 import React from 'react';
 
+import type { GeneralApiMiscResourcePayload } from 'lib/api/services/general/misc';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { mdash } from 'toolkit/utils/htmlEntities';
 
 interface Props {
   symbol: string;
-  price?: string | null;
-  change?: number | null;
+  price?: GeneralApiMiscResourcePayload<'general:stats'>['secondary_coin_price'];
+  change?: GeneralApiMiscResourcePayload<'general:stats'>['secondary_coin_price_change_percentage'];
   isLoading: boolean;
 }
 
