@@ -147,7 +147,7 @@ func validChartCache(value chartCacheValue, key string, r HistoryRequest, mode, 
 	if json.Unmarshal(value.Body, &body) != nil || body.Mode != mode || body.Algorithm != algorithm || body.Snapshot == "" || !bytes.Equal(body.Watermark, value.Watermark) || len(body.Times) > MaxHistoryBars || (r.Countback > 0 && len(body.Times) > r.Countback) {
 		return false
 	}
-	if body.Status == "unavailable" && mode == "total_supply_valuation" && body.PriceHistory != nil {
+	if body.Status == statusUnavailable && mode == modeTotalSupplyValuation && body.PriceHistory != nil {
 		if len(body.PriceHistory.Times) != len(body.Times) {
 			return false
 		}
@@ -157,7 +157,7 @@ func validChartCache(value chartCacheValue, key string, r HistoryRequest, mode, 
 			}
 		}
 		body.Open, body.High, body.Low, body.Close = body.PriceHistory.Open, body.PriceHistory.High, body.PriceHistory.Low, body.PriceHistory.Close
-	} else if (len(body.Times) == 0 && body.Status != "no_data") || (len(body.Times) > 0 && body.Status != "ok") {
+	} else if (len(body.Times) == 0 && body.Status != statusNoData) || (len(body.Times) > 0 && body.Status != "ok") {
 		return false
 	}
 	for i, start := range body.Times {
@@ -246,7 +246,7 @@ func (c *HistoryCache) run(ctx context.Context, key string, load func(context.Co
 		return chartCacheValue{}, ctx.Err()
 	case <-flight.done:
 		value := flight.value
-		if !leader && value.cacheState == "miss" {
+		if !leader && value.cacheState == cacheMiss {
 			value.cacheState = "coalesced"
 			value.originNanos = 0
 		}
@@ -257,7 +257,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 	if err := validateHistoryRequest(r); err != nil {
 		return chartCacheValue{}, err
 	}
-	if (mode != "price" && mode != "total_supply_valuation") || algorithm == "" || len(algorithm) > 160 || c.origin == nil {
+	if (mode != modePrice && mode != modeTotalSupplyValuation) || algorithm == "" || len(algorithm) > 160 || c.origin == nil {
 		return chartCacheValue{}, errors.New("invalid history cache authority")
 	}
 	requestKey := historyRequestKey(r, mode, algorithm, source.Endpoint, permit)
@@ -277,7 +277,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 		cached, ok := c.entries[key]
 		c.mu.Unlock()
 		if ok && validChartCache(cached, key, r, mode, algorithm) {
-			cached.cacheState, cached.originNanos = "hit", 0
+			cached.cacheState, cached.originNanos = cacheHit, 0
 			return cached, nil
 		}
 		redisHealthy := c.Redis != nil
@@ -287,7 +287,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 		if redisHealthy {
 			value, e := c.Redis.Get(ctx, key).Bytes()
 			if e == nil && len(value) <= 16*1024*1024 && json.Unmarshal(value, &cached) == nil && validChartCache(cached, key, r, mode, algorithm) {
-				cached.cacheState, cached.originNanos = "hit", 0
+				cached.cacheState, cached.originNanos = cacheHit, 0
 				return cached, nil
 			}
 			if e != nil && !errors.Is(e, redis.Nil) {
@@ -311,7 +311,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 				}
 				raw, e := c.Redis.Get(ctx, key).Bytes()
 				if e == nil && len(raw) <= 16*1024*1024 && json.Unmarshal(raw, &cached) == nil && validChartCache(cached, key, r, mode, algorithm) {
-					cached.cacheState, cached.originNanos = "hit", 0
+					cached.cacheState, cached.originNanos = cacheHit, 0
 					return cached, nil
 				}
 				if e != nil && !errors.Is(e, redis.Nil) {
@@ -353,7 +353,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 			ttl = permit.MaxAge
 			policy = "public, max-age=" + strconv.FormatInt(int64(ttl/time.Second), 10) + ", must-revalidate"
 		}
-		value := chartCacheValue{cacheState: "miss", originNanos: originNanos, Scope: key, Watermark: watermark, Body: body, ETag: chartETag(key, watermark, body), Policy: policy, Expiry: time.Now().Add(ttl)}
+		value := chartCacheValue{cacheState: cacheMiss, originNanos: originNanos, Scope: key, Watermark: watermark, Body: body, ETag: chartETag(key, watermark, body), Policy: policy, Expiry: time.Now().Add(ttl)}
 		if ctx.Err() != nil || !validChartCache(value, key, r, mode, algorithm) {
 			return chartCacheValue{}, errors.New("invalid canonical history cache fill")
 		}
@@ -398,9 +398,9 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	}
 	mode := q.Get("mode")
 	if mode == "" {
-		mode = "price"
+		mode = modePrice
 	}
-	if len(q["mode"]) > 1 || (mode != "price" && mode != "total_supply_valuation") {
+	if len(q["mode"]) > 1 || (mode != modePrice && mode != modeTotalSupplyValuation) {
 		historyError(w, 422, "FIELD_INVALID", "unsupported chart mode", false)
 		return
 	}
@@ -425,7 +425,7 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		return
 	}
 	w.Header().Set("X-Chart-Cache", value.cacheState)
-	if value.cacheState == "miss" {
+	if value.cacheState == cacheMiss {
 		w.Header().Set("Server-Timing", fmt.Sprintf("chart-origin;dur=%.6f", float64(value.originNanos)/1e6))
 	}
 	w.Header().Set("ETag", value.ETag)

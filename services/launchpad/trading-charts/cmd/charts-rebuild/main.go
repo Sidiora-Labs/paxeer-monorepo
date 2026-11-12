@@ -6,7 +6,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"math/big"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
@@ -14,12 +23,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"math/big"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 )
 
 type rebuildOptions struct {
@@ -91,11 +94,11 @@ func runArgs(args []string) error {
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(manifestPath)
+	file, err := os.OpenInRoot(filepath.Dir(manifestPath), filepath.Base(manifestPath))
 	if err != nil {
-		return err
+		return &os.PathError{Op: "open", Path: manifestPath, Err: err}
 	}
-	defer file.Close()
+	defer chartcleanup.Close(file)
 	raw, err := io.ReadAll(io.LimitReader(file, 16<<20+1))
 	if err != nil || len(raw) > 16<<20 {
 		return errors.New("manifest file exceeds bound")
