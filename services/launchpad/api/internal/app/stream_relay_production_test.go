@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -35,9 +37,90 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-// streamRelayNATSEnv names the already running JetStream server the relay test
-// publishes to (the local fixture: nats://user:password@127.0.0.1:24222).
+// streamRelayNATSEnv overrides the relay test's local JetStream fixture.
 const streamRelayNATSEnv = "CORE_API_TEST_NATS_URL"
+
+func streamRelayNATSURL(t *testing.T) string {
+	t.Helper()
+	if address := os.Getenv(streamRelayNATSEnv); address != "" {
+		return address
+	}
+	binary := os.Getenv("NATS_SERVER_BINARY")
+	if binary == "" {
+		var err error
+		binary, err = exec.LookPath("nats-server")
+		if err != nil {
+			t.Fatal("NATS_SERVER_BINARY or nats-server on PATH is required for the local JetStream fixture: ", err)
+		}
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err = listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	config := fmt.Sprintf("host: 127.0.0.1\nport: %d\njetstream { store_dir: %q }\nauthorization { users: [{ user: relay, password: relay-test-secret }] }\n", port, filepath.Join(directory, "store"))
+	configPath := filepath.Join(directory, "server.conf")
+	if err = os.WriteFile(configPath, []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(directory, "server.log")
+	log, err := os.Create(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := log.Close(); err != nil {
+			t.Logf("close JetStream log: %v", err)
+		}
+	})
+	command := exec.Command(binary, "-c", configPath)
+	command.Stdout, command.Stderr = log, log
+	if err = command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	var processError error
+	go func() { processError = command.Wait(); close(done) }()
+	t.Cleanup(func() {
+		_ = command.Process.Signal(os.Interrupt)
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			_ = command.Process.Kill()
+			<-done
+		}
+		if t.Failed() {
+			contents, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Logf("read JetStream log: %v", err)
+			} else {
+				t.Logf("JetStream log:\n%s", contents)
+			}
+		}
+	})
+	address := fmt.Sprintf("nats://relay:relay-test-secret@127.0.0.1:%d", port)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		var nc *nats.Conn
+		nc, err = nats.Connect(address, nats.NoReconnect(), nats.Timeout(100*time.Millisecond))
+		if err == nil {
+			nc.Close()
+			return address
+		}
+		select {
+		case <-done:
+			t.Fatalf("local JetStream broker exited: %v", processError)
+		default:
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("local JetStream broker did not become ready: %v", err)
+	return ""
+}
 
 type relayFrame struct {
 	topic, eventID string
@@ -102,10 +185,7 @@ func committedFrames(t *testing.T) []relayFrame {
 // (broker.PostgresStream.ConsumeCommitted over a natsdriver durable) then
 // accepts the relayed frames byte-for-byte against api_stream.
 func TestProductionStreamRelayPublishesCommittedFrames(t *testing.T) {
-	natsURL := os.Getenv(streamRelayNATSEnv)
-	if natsURL == "" {
-		t.Fatalf("%s is not set: point it at a running JetStream server; tests never start containers", streamRelayNATSEnv)
-	}
+	natsURL := streamRelayNATSURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	db := internaltest.NewAPIRuntimeDatabase(t, "api_rest_runtime", "api_stream", "recovery")

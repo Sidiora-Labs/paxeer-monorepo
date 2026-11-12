@@ -206,11 +206,13 @@ impl SharedSupplyPort {
         let mint = emit_mint(
             &mut builder,
             mint_type,
-            storage_write,
-            read_word,
-            store_word,
-            transfer,
-            event,
+            &MintImports {
+                storage_write,
+                read_word,
+                store_word,
+                transfer,
+                event,
+            },
             self.terms.price_per_token,
         )?;
         let balance_of = emit_query(
@@ -363,16 +365,22 @@ fn emit_read_word(
     builder.function(signature, &[(1, I32)], &code)
 }
 
-fn emit_mint(
-    builder: &mut ModuleBuilder,
-    signature: u32,
+struct MintImports {
     storage_write: u32,
     read_word: u32,
     store_word: u32,
     transfer: u32,
     event: u32,
+}
+
+fn emit_mint(
+    builder: &mut ModuleBuilder,
+    signature: u32,
+    imports: &MintImports,
     price: u64,
 ) -> Result<u32, PortRefusal> {
+    let maximum_supply = i64::try_from(MAX_SUPPLY).map_err(|_| PortRefusal::OutOfRange)?;
+    let price = i64::try_from(price).map_err(|_| PortRefusal::OutOfRange)?;
     let mut code = Code::new();
     code.local_get(0);
     code.i64_const(1);
@@ -380,14 +388,14 @@ fn emit_mint(
     code.trap_if();
     code.i32_const(StorageSelector::Shared as i32);
     code.i32_const(i32::try_from(SUPPLY_KEY_POINTER).map_err(|_| PortRefusal::OutOfRange)?);
-    code.call(read_word);
+    code.call(imports.read_word);
     code.local_set(1);
     code.local_get(1);
-    code.i64_const(MAX_SUPPLY as i64);
+    code.i64_const(maximum_supply);
     code.op(I64_GT_U);
     code.trap_if();
     code.local_get(0);
-    code.i64_const(MAX_SUPPLY as i64);
+    code.i64_const(maximum_supply);
     code.local_get(1);
     code.op(I64_SUB);
     code.op(I64_GT_U);
@@ -398,17 +406,17 @@ fn emit_mint(
     code.local_set(2);
     code.pointer(VALUE_POINTER);
     code.local_get(2);
-    code.call(store_word);
+    code.call(imports.store_word);
     code.i32_const(StorageSelector::Shared as i32);
     code.pointer(SUPPLY_KEY_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
     code.i32_const(KEY_LENGTH);
-    code.call(storage_write);
+    code.call(imports.storage_write);
     code.trap_unless_ok();
     code.i32_const(StorageSelector::Principal as i32);
     code.i32_const(i32::try_from(BALANCE_KEY_POINTER).map_err(|_| PortRefusal::OutOfRange)?);
-    code.call(read_word);
+    code.call(imports.read_word);
     code.local_set(3);
     code.local_get(0);
     code.i64_const(-1);
@@ -422,32 +430,32 @@ fn emit_mint(
     code.local_set(4);
     code.pointer(VALUE_POINTER);
     code.local_get(4);
-    code.call(store_word);
+    code.call(imports.store_word);
     code.i32_const(StorageSelector::Principal as i32);
     code.pointer(BALANCE_KEY_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
     code.i32_const(KEY_LENGTH);
-    code.call(storage_write);
+    code.call(imports.storage_write);
     code.trap_unless_ok();
     code.i64_const(0);
     code.local_get(0);
-    code.i64_const(price as i64);
+    code.i64_const(price);
     code.op(I64_MUL);
     code.pointer(ASSET_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(RECIPIENT_POINTER);
     code.i32_const(KEY_LENGTH);
-    code.call(transfer);
+    code.call(imports.transfer);
     code.trap_unless_ok();
     code.pointer(VALUE_POINTER);
     code.local_get(0);
-    code.call(store_word);
+    code.call(imports.store_word);
     code.pointer(TOPIC_POINTER);
     code.i32_const(KEY_LENGTH);
     code.pointer(VALUE_POINTER);
     code.i32_const(KEY_LENGTH);
-    code.call(event);
+    code.call(imports.event);
     code.trap_unless_ok();
     code.local_get(2);
     code.end();

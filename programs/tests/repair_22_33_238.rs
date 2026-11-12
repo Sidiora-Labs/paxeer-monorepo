@@ -22,7 +22,7 @@ fn repair_22_33_238_registry_read_bridge() -> Result<(), ChainProofError> {
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
         vec![(key.clone(), value.to_vec())],
     )?;
-    let wire = fixture.encode_key(&key)?;
+    let wire = fixture.encode()?;
     let proof = decode_commitment_proof(&wire)?;
     assert_eq!(proof.encode()?, wire);
     let (header, commit, validators) = commitment_trust_step(&proof)?;

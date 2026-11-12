@@ -1,0 +1,15 @@
+[meta]
+kind = "developer-dashboard-recipes"
+package = "services/platform/hosted/dashboard/web"
+
+[recipe.install]
+target = "developer-dashboard-install"
+commands = ["node scripts/ci/developer-dashboard-lock.mjs", "make human-js-install", "ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules"]
+
+[recipe.build]
+target = "developer-dashboard-build"
+commands = ["npm --prefix apps/web run build:ui", "DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build"]
+
+[recipe.static_test]
+target = "developer-dashboard-static-test"
+commands = ["npm --prefix services/platform/hosted/dashboard/web run test:static", "rm -rf apps/web/packages/layerx-ui/dist"]

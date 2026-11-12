@@ -473,6 +473,8 @@ fn human_workspace_root() -> PathBuf {
         .unwrap_or_else(|error| panic!("resolve human workspace root: {error}"))
 }
 
+/// # Panics
+/// Panics if workspace metadata cannot be read or decoded.
 #[must_use]
 pub fn human_workspace_metadata() -> serde_json::Value {
     let workspace_root = human_workspace_root();
@@ -505,6 +507,8 @@ pub fn human_workspace_metadata() -> serde_json::Value {
         .unwrap_or_else(|error| panic!("parse human workspace metadata: {error}"))
 }
 
+/// # Panics
+/// Panics if metadata is missing workspace members, package IDs, or package names.
 #[must_use]
 pub fn workspace_package_names(metadata: &serde_json::Value) -> Vec<String> {
     let members: BTreeSet<&str> = metadata["workspace_members"]
@@ -538,6 +542,8 @@ pub fn workspace_package_names(metadata: &serde_json::Value) -> Vec<String> {
     names
 }
 
+/// # Panics
+/// Panics if a workspace source directory or Rust file cannot be read.
 #[must_use]
 pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
     let mut directories = vec![human_workspace_root().join("crates")];

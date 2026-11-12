@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -445,7 +446,11 @@ func (h SignedLoadHarness) execute(ctx context.Context, plan SignedLoadPlan, seq
 		s.Outcome = "transport_failure"
 		return finish()
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	if response.TLS == nil || response.TLS.Version < tls.VersionTLS13 || len(response.TLS.VerifiedChains) == 0 || len(response.TLS.PeerCertificates) == 0 {
 		s.Outcome = "response_invalid"
 		return finish()
@@ -756,7 +761,11 @@ func MeasureLogoutRevocation(ctx context.Context, authority MTLSIdentityAuthorit
 	if err != nil {
 		return time.Since(started), errors.New("authorization revocation: logout transport failed")
 	}
-	defer response.Body.Close()
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			slog.Warn("close response body", "error", err)
+		}
+	}()
 	if response.StatusCode != http.StatusNoContent {
 		return time.Since(started), errors.New("authorization revocation: logout not acknowledged")
 	}

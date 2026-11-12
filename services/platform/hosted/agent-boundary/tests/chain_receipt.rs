@@ -190,7 +190,7 @@ fn chain_listener(results: Vec<Value>) -> (String, JoinHandle<()>) {
                         if error.kind() == std::io::ErrorKind::WouldBlock
                             && Instant::now() < deadline =>
                     {
-                        thread::sleep(Duration::from_millis(10))
+                        thread::sleep(Duration::from_millis(10));
                     }
                     Err(error) => panic!("chain accept: {error}"),
                 }
@@ -232,47 +232,50 @@ fn openssl(directory: &Path, args: &[&str]) {
     );
 }
 
+fn prepare_tls_material(directory: &Path) {
+    openssl(
+        directory,
+        &[
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
+            "-nodes",
+            "-keyout",
+            "key.pem",
+            "-out",
+            "cert.pem",
+            "-days",
+            "1",
+            "-subj",
+            "/CN=localhost",
+            "-addext",
+            "subjectAltName=DNS:localhost",
+        ],
+    );
+    openssl(
+        directory,
+        &[
+            "x509", "-in", "cert.pem", "-outform", "DER", "-out", "cert.der",
+        ],
+    );
+    openssl(
+        directory,
+        &[
+            "pkcs8", "-topk8", "-nocrypt", "-in", "key.pem", "-outform", "DER", "-out", "key.der",
+        ],
+    );
+}
+
 impl Boundary {
     fn start(url: &str, last_height: u64) -> Self {
         let mut unique = [0; 16];
         must(getrandom::fill(&mut unique));
         let directory = std::env::temp_dir().join(format!("boundary-receipts-{}", hex(&unique)));
         must(fs::create_dir(&directory));
-        openssl(
-            &directory,
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "ec",
-                "-pkeyopt",
-                "ec_paramgen_curve:P-256",
-                "-nodes",
-                "-keyout",
-                "key.pem",
-                "-out",
-                "cert.pem",
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
-        );
-        openssl(
-            &directory,
-            &[
-                "x509", "-in", "cert.pem", "-outform", "DER", "-out", "cert.der",
-            ],
-        );
-        openssl(
-            &directory,
-            &[
-                "pkcs8", "-topk8", "-nocrypt", "-in", "key.pem", "-outform", "DER", "-out",
-                "key.der",
-            ],
-        );
+        prepare_tls_material(&directory);
         for (name, token) in [
             ("gateway", "gateway-token"),
             ("registry", "registry-token"),

@@ -11,6 +11,9 @@ pub const TOPIC_PROFILE: &[u8] = b"lx.market.arbitration-profile";
 pub const TOPIC_BILLING: &[u8] = b"lx.market.arbitration-billing";
 pub const NAMESPACE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/namespace/v1\0";
 
+/// # Errors
+/// Returns an error when the profile or its lease, offer, principal, and interval bindings are invalid.
+#[allow(clippy::too_many_arguments, clippy::large_types_passed_by_value)]
 pub fn authorize_profile(
     offer: &Offer<'_>,
     lease: &ComputeLease<'_>,
@@ -45,6 +48,8 @@ pub fn authorize_profile(
     Ok(profile)
 }
 
+/// # Errors
+/// Returns an error when billing does not match the authorized profile or the usage claim is invalid.
 pub fn billing_claim(
     offer: Offer<'_>,
     lease: &ComputeLease<'_>,
@@ -69,7 +74,7 @@ pub fn billing_claim(
         || height >= profile.response_deadline
         || height.checked_add(billing.challenge_window_batches) != Some(profile.response_deadline)
         || billing.usage[0] > profile.limits.cpu_fuel
-        || billing.usage[1] % (profile.interval_end - profile.interval_start) != 0
+        || !billing.usage[1].is_multiple_of(profile.interval_end - profile.interval_start)
         || u128::from(billing.usage[1])
             > u128::from(profile.limits.memory_bytes)
                 * u128::from(profile.interval_end - profile.interval_start)
@@ -106,6 +111,8 @@ pub fn billing_claim(
     )
 }
 
+/// # Errors
+/// Returns an error when the claim differs from the profile or billing commitment.
 pub fn matches_claim(
     profile: &MarketSandboxProfile,
     billing: &MarketBillingCommitment,

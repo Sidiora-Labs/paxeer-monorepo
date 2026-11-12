@@ -130,7 +130,7 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
   const markRead = useCallback((through = state.current.messages.at(-1)?.sequence) => {
     if (!through || !address || renderedWallet.current !== address.toLowerCase() || readTimer.current || BigInt(through) <= state.current.readThrough) return;
     const generation = epoch.current;
-    readTimer.current = setTimeout(() => { readTimer.current = undefined; if (generation !== epoch.current) return; void markConversationRead(conversationId, through).then(() => { if (generation === epoch.current) { state.current.read(through); publish(); } }).catch(cause => { if (generation === epoch.current) setError(reportUserFacingError(cause, 'Something went wrong, try again', 'chat-read')); }); }, 2000);
+    readTimer.current = setTimeout(() => { readTimer.current = undefined; if (generation !== epoch.current || BigInt(through) <= state.current.readThrough) return; void markConversationRead(conversationId, through).then(() => { if (generation === epoch.current) { state.current.read(through); publish(); } }).catch(cause => { if (generation === epoch.current) setError(reportUserFacingError(cause, 'Something went wrong, try again', 'chat-read')); }); }, 2000);
   }, [address, conversationId, publish]);
   const loadMore = useCallback(async () => {
     if(!address || !isConnected) throw new UserFacingError('Sign in to load more messages');

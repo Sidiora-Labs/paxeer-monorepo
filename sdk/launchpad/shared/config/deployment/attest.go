@@ -182,7 +182,7 @@ func Attest(ctx context.Context, r Reader, m Manifest, block common.Hash, p Poli
 			id.RuntimeHash, err = codeHash(ctx, r, addr, block)
 			if err != nil {
 				add("code_read_failed")
-			} else if !equalHash(id.RuntimeHash, role.RuntimeHash) {
+			} else if !role.AcceptsRuntimeHash(id.RuntimeHash) {
 				add("unknown_runtime_hash")
 			}
 		}
@@ -307,7 +307,7 @@ func runtimeIdentity(r Role, id Identity) bool {
 	if r.Kind == "precompile" {
 		return id.RuntimeHash == "" && validAddress(r.Address) && common.HexToAddress(r.Address) == common.HexToAddress(LaunchpadPrecompileAddress)
 	}
-	return equalHash(id.RuntimeHash, r.RuntimeHash)
+	return r.AcceptsRuntimeHash(id.RuntimeHash)
 }
 func equalHash(a, b string) bool {
 	return validHash(a) && validHash(b) && common.HexToHash(a) == common.HexToHash(b)

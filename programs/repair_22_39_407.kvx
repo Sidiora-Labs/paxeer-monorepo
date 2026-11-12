@@ -1,0 +1,78 @@
+[meta]
+name = "Guest module Cargo output paths"
+scope = "Program recipes and runtime guest compilation"
+
+[module.interpreter_conformance]
+place = "Makefile programs-interpreter-conformance"
+output_dir = "CARGO_TARGET_DIR relative to the programs workspace, or programs/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm"
+
+[module.interpreter_bench]
+place = "Makefile programs-interpreter-bench"
+output_dir = "CARGO_TARGET_DIR relative to the programs workspace, or programs/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm and layerx_interpreter_compiled_equivalent.wasm"
+
+[module.interpreter_workspace_test]
+place = "Makefile programs-test"
+output_dir = "CARGO_TARGET_DIR relative to the programs workspace, or programs/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm"
+
+[module.sdk_rust]
+place = "Makefile programs-sdk-rust"
+output_dir = "Each called manifest resolves CARGO_TARGET_DIR or its own target directory"
+read_path = "quickstart, response-fixture, escrow and vault build scripts read their release modules from that directory"
+
+[module.porting_evm]
+place = "Makefile programs-porting-v2-references, EVM"
+output_dir = "CARGO_TARGET_DIR relative to the repository root, or programs/porting/evm/reference-v2/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm"
+
+[module.porting_solana]
+place = "Makefile programs-porting-v2-references, Solana"
+output_dir = "CARGO_TARGET_DIR relative to the repository root, or programs/porting/solana/reference-v2/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm"
+
+[module.porting_cosmwasm]
+place = "Makefile programs-porting-v2-references, CosmWasm"
+output_dir = "CARGO_TARGET_DIR relative to the repository root, or programs/porting/cosmwasm/reference-v2/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm"
+
+[module.quickstart]
+place = "programs/sdk/rust/quickstart/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the quickstart manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_quickstart.wasm"
+
+[module.response_fixture]
+place = "programs/sdk/rust/response-fixture/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the response-fixture manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_response_fixture.wasm"
+
+[module.escrow]
+place = "programs/sdk/rust/examples/escrow/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the escrow manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm"
+
+[module.naming]
+place = "programs/sdk/rust/examples/naming/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the naming manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_reference_naming.wasm"
+
+[module.nft_lxt721]
+place = "programs/sdk/rust/examples/nft-lxt721/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the nft-lxt721 manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_nft_lxt721.wasm"
+
+[module.vault]
+place = "programs/sdk/rust/examples/vault/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the vault manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_reference_vault.wasm"
+
+[module.web_reader]
+place = "programs/sdk/rust/examples/web-reader/build.sh"
+output_dir = "CARGO_TARGET_DIR relative to the web-reader manifest, or its target directory"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/layerx_reference_web_reader.wasm"
+
+[module.runtime_test_guest]
+place = "programs/crates/layerx-programs-runtime/tests/support/compiled_guest.rs"
+output_dir = "CARGO_TARGET_DIR relative to the programs workspace, or programs/target"
+read_path = "<output_dir>/wasm32-unknown-unknown/release/<artifact>"

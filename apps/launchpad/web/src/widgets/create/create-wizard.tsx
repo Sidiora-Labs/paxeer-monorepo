@@ -1250,7 +1250,7 @@ export default function CreateWizard() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-md font-semibold text-text">Create new coin</h1>
             <Button variant="link" size="sm" href="/create/chain">
-              Launch a chain
+              Launch a chain and token
             </Button>
           </div>
 

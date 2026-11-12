@@ -20,7 +20,7 @@ const PRECOMPILE: [u8; 20] = [
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SandboxInvocationEvidence {
-    /// The signed Ethereum encoding carried by the node's MsgEVMTransaction.
+    /// The signed Ethereum encoding carried by the node's `MsgEVMTransaction`.
     pub ethereum_tx: Vec<u8>,
     /// Canonical lxphost.Activity bytes, hashed under the native activity-id domain.
     pub native_activity: Vec<u8>,
@@ -37,6 +37,7 @@ pub struct AuthenticatedSandboxReceiptEvidence {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum SandboxReceiptProof {
     Authenticated(AuthenticatedSandboxReceiptEvidence),
     Unbound(SandboxReceiptEvidence),
@@ -81,66 +82,16 @@ impl SandboxInvocationEvidence {
         did.extend_from_slice(hex(did_key).as_bytes());
         let tenant = PrincipalId::new(domain_hash(
             b"LXP/v1/did-id\0",
-            &[&(did.len() as u16).to_be_bytes()[..], &did[..]].concat(),
+            &[
+                &u16::try_from(did.len()).map_err(|_| INVALID)?.to_be_bytes()[..],
+                &did[..],
+            ]
+            .concat(),
         )?)
         .map_err(|_| INVALID)?;
         let operation = *submission.payload().get(1).ok_or(INVALID)?;
-        let previous_lease = if operation == 2 {
-            let payload = submission.payload();
-            let length = be_usize(payload.get(248..252).ok_or(INVALID)?)?;
-            let lease = Lease::decode_state(
-                payload
-                    .get(252..252usize.checked_add(length).ok_or(INVALID)?)
-                    .ok_or(INVALID)?,
-            )
-            .map_err(|_| INVALID)?;
-            if lease.id() != submission.lease()
-                || lease.tenant() != tenant
-                || lease.state() != LeaseState::Requested
-            {
-                return Err(INVALID);
-            }
-            let did_key = did_key.try_into().map_err(|_| INVALID)?;
-            let transfer_start = 256usize.checked_add(length).ok_or(INVALID)?;
-            let expected = crate::activity::canonical_fund_for_did(
-                crate::SandboxProtocolContext::new(3, 4)?,
-                &lease,
-                did_key,
-                payload.get(transfer_start..).ok_or(INVALID)?,
-            )?;
-            if expected != *submission {
-                return Err(INVALID);
-            }
-            None
-        } else {
-            let proof = self.previous_lease.as_ref().ok_or(INVALID)?;
-            let key = crate::sandbox_state_key(0, submission.lease().bytes())?;
-            let lease = Lease::decode_state(proven_value(head, proof, "lxphost", &key)?)
-                .map_err(|_| INVALID)?;
-            if lease.id() != submission.lease()
-                || lease.tenant() != tenant
-                || lease.state_digest().map_err(|_| INVALID)? != submission.expected_lease_digest()
-                || (operation == 3
-                    && (lease.state() != LeaseState::Funded
-                        || lease.history().len() as u64 + 1
-                            != submission.expected_usage_sequence()))
-                || (operation == 1 && lease.state() != LeaseState::Active)
-            {
-                return Err(INVALID);
-            }
-            if operation == 1 {
-                let expected = crate::canonical_execute(
-                    crate::SandboxProtocolContext::new(3, 4)?,
-                    &lease,
-                    submission.expected_usage_sequence(),
-                    submission.payload().get(236..).ok_or(INVALID)?,
-                )?;
-                if expected != *submission {
-                    return Err(INVALID);
-                }
-            }
-            Some(lease)
-        };
+        let previous_lease =
+            self.verified_previous_lease(head, submission, operation, tenant, did_key)?;
         let fee_limit = if operation == 1 {
             let args = tx.calldata.get(4..).ok_or(INVALID)?;
             let fee = args.get(15 * 32..16 * 32).ok_or(INVALID)?;
@@ -169,6 +120,72 @@ impl SandboxInvocationEvidence {
             activity_id,
             previous_lease,
         })
+    }
+
+    fn verified_previous_lease(
+        &self,
+        head: &VerifiedChainHead,
+        submission: &SandboxSubmission,
+        operation: u8,
+        tenant: PrincipalId,
+        did_key: &[u8],
+    ) -> Result<Option<Lease>> {
+        if operation == 2 {
+            let payload = submission.payload();
+            let length = be_usize(payload.get(248..252).ok_or(INVALID)?)?;
+            let lease = Lease::decode_state(
+                payload
+                    .get(252..252usize.checked_add(length).ok_or(INVALID)?)
+                    .ok_or(INVALID)?,
+            )
+            .map_err(|_| INVALID)?;
+            if lease.id() != submission.lease()
+                || lease.tenant() != tenant
+                || lease.state() != LeaseState::Requested
+            {
+                return Err(INVALID);
+            }
+            let did_key = did_key.try_into().map_err(|_| INVALID)?;
+            let transfer_start = 256usize.checked_add(length).ok_or(INVALID)?;
+            let expected = crate::activity::canonical_fund_for_did(
+                crate::SandboxProtocolContext::new(3, 4)?,
+                &lease,
+                did_key,
+                payload.get(transfer_start..).ok_or(INVALID)?,
+            )?;
+            if expected != *submission {
+                return Err(INVALID);
+            }
+            Ok(None)
+        } else {
+            let proof = self.previous_lease.as_ref().ok_or(INVALID)?;
+            let key = crate::sandbox_state_key(0, submission.lease().bytes())?;
+            let lease = Lease::decode_state(proven_value(head, proof, "lxphost", &key)?)
+                .map_err(|_| INVALID)?;
+            if lease.id() != submission.lease()
+                || lease.tenant() != tenant
+                || lease.state_digest().map_err(|_| INVALID)? != submission.expected_lease_digest()
+                || (operation == 3
+                    && (lease.state() != LeaseState::Funded
+                        || lease.history().len() as u64 + 1
+                            != submission.expected_usage_sequence()))
+                || (operation == 1 && lease.state() != LeaseState::Active)
+            {
+                return Err(INVALID);
+            }
+            if operation == 1 {
+                let expected = crate::canonical_execute(
+                    crate::SandboxProtocolContext::new(3, 4)?,
+                    &lease,
+                    submission.expected_usage_sequence(),
+                    submission.payload().get(236..).ok_or(INVALID)?,
+                )?;
+                if expected != *submission {
+                    return Err(INVALID);
+                }
+            }
+            Ok(Some(lease))
+        }
     }
 }
 
@@ -308,6 +325,7 @@ fn unhex(text: &[u8]) -> Result<Vec<u8>> {
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn verify_native_activity(
     bytes: &[u8],
     submission: &SandboxSubmission,
@@ -503,6 +521,19 @@ fn integer<'a>(value: &Rlp<'a>) -> Result<&'a [u8]> {
     }
     Ok(value.data)
 }
+
+fn verify_numeric_fields(
+    fields: &Fields<'_>,
+    values: &[Rlp<'_>],
+    numeric: &[(u32, usize)],
+) -> Result<()> {
+    for &(field, index) in numeric {
+        if u128::from(scalar_field(fields, field)?) != be_usize(integer(&values[index])?)? as u128 {
+            return Err(INVALID);
+        }
+    }
+    Ok(())
+}
 fn rlp_encode(bytes: &[u8], list: bool) -> Vec<u8> {
     if !list && bytes.len() == 1 && bytes[0] < 0x80 {
         return bytes.to_vec();
@@ -510,11 +541,17 @@ fn rlp_encode(bytes: &[u8], list: bool) -> Vec<u8> {
     let offset = if list { 0xc0u8 } else { 0x80u8 };
     let mut out = Vec::new();
     if bytes.len() < 56 {
-        out.push(offset + bytes.len() as u8);
+        let Ok(length) = u8::try_from(bytes.len()) else {
+            unreachable!("short RLP length fits in a byte");
+        };
+        out.push(offset + length);
     } else {
         let n = bytes.len().to_be_bytes();
         let n = &n[n.iter().position(|b| *b != 0).unwrap_or(n.len())..];
-        out.push(offset + 55 + n.len() as u8);
+        let Ok(length_bytes) = u8::try_from(n.len()) else {
+            unreachable!("machine word length fits in a byte");
+        };
+        out.push(offset + 55 + length_bytes);
         out.extend_from_slice(n);
     }
     out.extend_from_slice(bytes);
@@ -546,6 +583,11 @@ struct EthereumInvocation<'a> {
 }
 impl<'a> EthereumInvocation<'a> {
     fn decode(raw: &'a [u8]) -> Result<Self> {
+        const HALF_ORDER: [u8; 32] = [
+            0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46,
+            0x68, 0x1b, 0x20, 0xa0,
+        ];
         if raw.len() > crate::activity::MAX_CANONICAL_CALL_BYTES + 8192 {
             return Err(INVALID);
         }
@@ -594,12 +636,12 @@ impl<'a> EthereumInvocation<'a> {
             let b = &b[b.iter().position(|v| *v != 0).ok_or(INVALID)?..];
             sign.extend(rlp_encode(b, false));
             sign.extend_from_slice(&[0x80, 0x80]);
-            ((signature_v - 35) % 2) as u8
+            u8::try_from((signature_v - 35) % 2).map_err(|_| INVALID)?
         } else {
             if signature_v > 1 || integer(&v[0])?.is_empty() {
                 return Err(INVALID);
             }
-            signature_v as u8
+            u8::try_from(signature_v).map_err(|_| INVALID)?
         };
         let mut preimage = rlp_encode(&sign, true);
         if kind != 0 {
@@ -617,11 +659,6 @@ impl<'a> EthereumInvocation<'a> {
             signature[(i + 1) * 32 - part.len()..(i + 1) * 32].copy_from_slice(part);
         }
         // EIP-2 rejects the malleable high-s form.
-        const HALF_ORDER: [u8; 32] = [
-            0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-            0xff, 0xff, 0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46,
-            0x68, 0x1b, 0x20, 0xa0,
-        ];
         if signature[32..] > HALF_ORDER[..] {
             return Err(INVALID);
         }
@@ -677,11 +714,7 @@ impl<'a> EthereumInvocation<'a> {
             ),
         };
         only_fields(&data, signature + 2)?;
-        for (field, index) in numeric {
-            if scalar_field(&data, field)? as u128 != be_usize(integer(&v[index])?)? as u128 {
-                return Err(INVALID);
-            }
-        }
+        verify_numeric_fields(&data, v, &numeric)?;
         for (field, index) in decimal_fields {
             if bytes_field(&data, field)? != decimal(integer(&v[index])?) {
                 return Err(INVALID);
@@ -693,7 +726,9 @@ impl<'a> EthereumInvocation<'a> {
             return Err(INVALID);
         }
         for i in 0..3 {
-            if bytes_field(&data, signature + i as u32)? != integer(&v[v.len() - 3 + i])? {
+            if bytes_field(&data, signature + u32::try_from(i).map_err(|_| INVALID)?)?
+                != integer(&v[v.len() - 3 + i])?
+            {
                 return Err(INVALID);
             }
         }
@@ -767,13 +802,23 @@ pub(crate) fn funding_identity(key: [u8; 32], asset: [u8; 32]) -> Result<(Princi
     let did = format!("did:layerx:{}", hex(&key));
     let tenant = PrincipalId::new(domain_hash(
         b"LXP/v1/did-id\0",
-        &[&(did.len() as u16).to_be_bytes(), did.as_bytes()].concat(),
+        &[
+            &u16::try_from(did.len()).map_err(|_| INVALID)?.to_be_bytes(),
+            did.as_bytes(),
+        ]
+        .concat(),
     )?)
     .map_err(|_| INVALID)?;
     let name = format!("agent:{did}:asset:{}", hex(&asset));
     let source = domain_hash(
         b"LX:ACCOUNT:v1",
-        &[&(name.len() as u32).to_be_bytes(), name.as_bytes()].concat(),
+        &[
+            &u32::try_from(name.len())
+                .map_err(|_| INVALID)?
+                .to_be_bytes(),
+            name.as_bytes(),
+        ]
+        .concat(),
     )?;
     Ok((tenant, source))
 }

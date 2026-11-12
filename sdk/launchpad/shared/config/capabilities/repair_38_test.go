@@ -281,7 +281,7 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 			continue
 		}
 		address := common.HexToAddress(role.Address)
-		if hash := crypto.Keccak256Hash(b.codes[address]).Hex(); hash != role.RuntimeHash {
+		if hash := crypto.Keccak256Hash(b.codes[address]).Hex(); !role.AcceptsRuntimeHash(hash) {
 			t.Fatalf("%s committed runtime hash=%s want=%s", name, hash, role.RuntimeHash)
 		}
 		if role.ImplementationAddress != "" {

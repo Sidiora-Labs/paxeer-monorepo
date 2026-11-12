@@ -538,7 +538,7 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 		return nil, ErrQualification
 	}
 	for role, id := range approved.Roles {
-		if o.Manifest.Roles[role] != id {
+		if !o.Manifest.Roles[role].MatchesApproved(id) {
 			return nil, ErrQualification
 		}
 	}

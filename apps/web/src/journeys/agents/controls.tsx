@@ -230,7 +230,7 @@ function BoundAgentControls({
     const currentResult = async <T,>(operation: Promise<T>): Promise<T> => {
       const result = await operation;
       if (generation !== lifecycle.current) {
-        throw new Error("Agent selection changed");
+        throw new Error(copyEntry("agent.selection.changed").message);
       }
       return result;
     };

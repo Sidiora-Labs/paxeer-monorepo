@@ -1,22 +1,6 @@
-//! Proves: human_kms_chain_snapshot and kms_environment -> protected JSON/DER environment bindings -> Config::load, layerx-human-kms and RemoteKmsProvider.
-//!
-//! Covers the eight changed interfaces: the binary, modules, module_id, activity_types,
-//! REGISTRY_FILE, EVM_CLIENT_CERT_DER, AttestorSigner::from_config and
-//! AttestorSigner::sign_evm_transaction. The retired registry fields are refusals.
-//! Repairs: kernel/init.sh projected a module registry into the chain snapshot decoder;
-//! entrypoint.sh did not bind copied KMS material; from_config admitted the zero EVM
-//! address; Config::load pinned malformed executor DER without decoding it;
-//! main.rs silently ignored arguments. Both images now build the exact binary
-//! exercised here, and the wallet lint preserves the locked dependency graph.
-//! AttestorSignerConfig serializes its own transport rather than duplicating its JSON schema.
-//!
-//! Outside scope: services/platform/hosted/human/material.py::kms_prerequisite still
-//! emits {network_id, protocol_version, modules}; Config::load must refuse that output.
-//! This test runs that producer unchanged and asserts the refusal before exercising
-//! the kernel's repaired projection. No attestor daemon is provisioned by this test:
-//! the signer configuration and unsigned transaction consumers are exercised locally,
-//! including sign_evm_transaction's refusal without owner authority, before transport.
+//! KMS configuration binds protected material to the chain and signer identity.
 
+#[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -169,80 +153,10 @@ impl Host {
             ("human-kms-executor", "layerx-human-movement", false),
             ("foreign", "unrecognized-client", false),
         ]
-        .iter()
+        .into_iter()
         .enumerate()
         {
-            let dir = self.root.join(role);
-            fs::DirBuilder::new().mode(0o700).create(&dir)?;
-            let key = format!("{role}/key.pem");
-            let csr = format!("{role}/request.csr");
-            let cert = format!("{role}/cert.pem");
-            let ext = format!("{role}/extensions");
-            fs::write(
-                self.root.join(&ext),
-                if *server {
-                    "basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:layerx-human-kms,IP:127.0.0.1\n"
-                } else {
-                    "basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n"
-                },
-            )?;
-            self.openssl(&[
-                "req",
-                "-new",
-                "-newkey",
-                "ec",
-                "-pkeyopt",
-                "ec_paramgen_curve:P-256",
-                "-nodes",
-                "-keyout",
-                &key,
-                "-out",
-                &csr,
-                "-subj",
-                &format!("/CN={cn}"),
-            ])?;
-            self.openssl(&[
-                "x509",
-                "-req",
-                "-in",
-                &csr,
-                "-CA",
-                "ca.pem",
-                "-CAkey",
-                "ca.key",
-                "-set_serial",
-                &(index + 2).to_string(),
-                "-days",
-                "1",
-                "-extfile",
-                &ext,
-                "-out",
-                &cert,
-            ])?;
-            self.openssl(&[
-                "x509",
-                "-in",
-                &cert,
-                "-outform",
-                "DER",
-                "-out",
-                &format!("{role}/cert.der"),
-            ])?;
-            self.openssl(&[
-                "pkcs8",
-                "-topk8",
-                "-nocrypt",
-                "-in",
-                &key,
-                "-outform",
-                "DER",
-                "-out",
-                &format!("{role}/key.der"),
-            ])?;
-            fs::copy(self.root.join("ca.der"), dir.join("ca.der"))?;
-            for entry in fs::read_dir(dir)? {
-                fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
-            }
+            self.provision_leaf(index, role, cn, server)?;
         }
         fs::set_permissions(self.root.join("ca.der"), fs::Permissions::from_mode(0o600))?;
         fs::write(
@@ -282,6 +196,81 @@ impl Host {
         Ok(())
     }
 
+    fn provision_leaf(&self, index: usize, role: &str, cn: &str, server: bool) -> Result<()> {
+        let dir = self.root.join(role);
+        fs::DirBuilder::new().mode(0o700).create(&dir)?;
+        let key = format!("{role}/key.pem");
+        let csr = format!("{role}/request.csr");
+        let cert = format!("{role}/cert.pem");
+        let ext = format!("{role}/extensions");
+        fs::write(
+            self.root.join(&ext),
+            if server {
+                "basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:layerx-human-kms,IP:127.0.0.1\n"
+            } else {
+                "basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n"
+            },
+        )?;
+        self.openssl(&[
+            "req",
+            "-new",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:P-256",
+            "-nodes",
+            "-keyout",
+            &key,
+            "-out",
+            &csr,
+            "-subj",
+            &format!("/CN={cn}"),
+        ])?;
+        self.openssl(&[
+            "x509",
+            "-req",
+            "-in",
+            &csr,
+            "-CA",
+            "ca.pem",
+            "-CAkey",
+            "ca.key",
+            "-set_serial",
+            &(index + 2).to_string(),
+            "-days",
+            "1",
+            "-extfile",
+            &ext,
+            "-out",
+            &cert,
+        ])?;
+        self.openssl(&[
+            "x509",
+            "-in",
+            &cert,
+            "-outform",
+            "DER",
+            "-out",
+            &format!("{role}/cert.der"),
+        ])?;
+        self.openssl(&[
+            "pkcs8",
+            "-topk8",
+            "-nocrypt",
+            "-in",
+            &key,
+            "-outform",
+            "DER",
+            "-out",
+            &format!("{role}/key.der"),
+        ])?;
+        fs::copy(self.root.join("ca.der"), dir.join("ca.der"))?;
+        for entry in fs::read_dir(dir)? {
+            fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(())
+    }
+
     fn project_chain(&self, chain: u64) -> Result<std::process::Output> {
         let function = shell_function(KERNEL_INIT, "human_kms_chain_snapshot")?;
         Ok(Command::new("sh")
@@ -295,7 +284,7 @@ impl Host {
             .output()?)
     }
 
-    fn configure(&self, command: &mut Command) -> Result<()> {
+    fn configure(&self, command: &mut Command) {
         command
             .env_clear()
             .env("LAYERX_HUMAN_KMS_LISTEN", self.address.to_string())
@@ -308,13 +297,12 @@ impl Host {
                 "LAYERX_RUNTIME_CLOCK_UID",
                 rustix::process::geteuid().as_raw().to_string(),
             );
-        Ok(())
     }
 
     fn command(&self) -> Result<Command> {
         let function = shell_function(ENTRYPOINT, "kms_environment")?;
         let mut command = Command::new("sh");
-        self.configure(&mut command)?;
+        self.configure(&mut command);
         command
             .args([
                 "-ec",
@@ -400,7 +388,7 @@ impl Host {
         // Consume the entrypoint's actual environment producer, with no ambient configuration.
         let function = shell_function(ENTRYPOINT, "kms_environment")?;
         let mut command = Command::new("sh");
-        self.configure(&mut command)?;
+        self.configure(&mut command);
         let output = command
             .args([
                 "-ec",
@@ -496,9 +484,11 @@ fn prove_signer_contract(host: &Host) -> Result<()> {
         signer.set_evm_assertion("owner-authority")?;
         assert!(signer.sign_evm_transaction(&[2, 0xc0], 125).is_err());
         assert!(signer.sign_evm_transaction(&unsigned, 1).is_err());
-        let signed = call.sign(&[1; 32])?;
-        assert!(decode_unsigned_evm_transaction(&signed).is_err());
-        assert!(signer.sign_evm_transaction(&signed, 125).is_err());
+        let signed_transaction = call.sign(&[1; 32])?;
+        assert!(decode_unsigned_evm_transaction(&signed_transaction).is_err());
+        assert!(signer
+            .sign_evm_transaction(&signed_transaction, 125)
+            .is_err());
         assert!(signer.audit_sequences().is_empty());
     }
     let mut malformed = serde_json::to_value(&config)?;
@@ -531,91 +521,10 @@ fn prove_signer_contract(host: &Host) -> Result<()> {
 fn proof_human_kms() -> Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     if let Some(check) = std::env::var_os(CONFIG_CHECK) {
-        let (root, address, expected_error): (PathBuf, SocketAddr, Option<String>) =
-            serde_json::from_str(check.to_str().ok_or("invalid configuration check")?)?;
-        if let Some(expected) = expected_error {
-            let error = config::Config::load()
-                .err()
-                .ok_or("configuration was accepted")?;
-            if expected == "chain snapshot invalid" {
-                assert!(error.contains(&expected));
-            } else {
-                assert_eq!(error, expected);
-            }
-            return Ok(());
-        }
-        let loaded = config::Config::load()?;
-        assert_eq!(loaded.chain.chain_id, 125);
-        assert_eq!(loaded.provider, PROVIDER);
-        assert_eq!(loaded.state, root.join("state"));
-        assert_eq!(loaded.listen, address);
-        assert_eq!(loaded.seal.len(), 32);
-        assert_eq!(loaded.deadline, Duration::from_secs(3));
-        assert_eq!(loaded.tls.max_early_data_size, 0);
-        assert_eq!(
-            loaded.client_pin,
-            <[u8; 32]>::from(Sha256::digest(fs::read(root.join("kms-client.der"))?))
-        );
-        assert_eq!(
-            loaded
-                .attestor_evm_client_certificate
-                .ok_or("missing executor pin")?
-                .as_ref(),
-            fs::read(root.join("kms-executor.der"))?
-        );
-        return Ok(());
+        return verify_config_check(&check);
     }
     let mut host = Host::new()?;
-    let legacy = fs::read(host.root.join("registry.json"))?;
-    let registry: serde_json::Value = serde_json::from_slice(&legacy)?;
-    assert_eq!(registry["modules"][0]["module_id"], 1);
-    assert_eq!(
-        registry["modules"][0]["activity_types"],
-        json!([65537, 65540])
-    );
-    host.check_config(Some("chain snapshot invalid"))?;
-    assert!(host.project_chain(125)?.status.success());
-    assert!(!host.project_chain(1)?.status.success());
-    for _ in 0..2 {
-        host.check_config(None)?;
-    }
-    for malformed in [
-        br#"{"chain_id":125,"modules":[]}"#.as_slice(),
-        br#"{"chain_id":125,"module_id":1}"#,
-        br#"{"chain_id":125,"activity_types":[65537]}"#,
-        b"{",
-        legacy.as_slice(),
-    ] {
-        fs::write(host.root.join("registry.json"), malformed)?;
-        host.check_config(Some("chain snapshot invalid"))?;
-        let refused = host.command()?.output()?;
-        assert!(
-            !refused.status.success(),
-            "layerx-human-kms accepted a malformed producer snapshot"
-        );
-        assert!(String::from_utf8_lossy(&refused.stderr).contains("chain snapshot invalid"));
-    }
-    assert!(host.project_chain(125)?.status.success());
-    let executor = fs::read(host.root.join("kms-executor.der"))?;
-    fs::write(
-        host.root.join("kms-executor.der"),
-        fs::read(host.root.join("kms-client.der"))?,
-    )?;
-    host.check_config(Some("attestor signer and service identities must differ"))?;
-    fs::write(
-        host.root.join("kms-executor.der"),
-        b"malformed producer certificate",
-    )?;
-    host.check_config(Some("attestor signer certificate invalid"))?;
-    let refused = host.command()?.output()?;
-    assert!(
-        !refused.status.success(),
-        "layerx-human-kms accepted malformed executor DER"
-    );
-    assert!(
-        String::from_utf8_lossy(&refused.stderr).contains("attestor signer certificate invalid")
-    );
-    fs::write(host.root.join("kms-executor.der"), executor)?;
+    assert_config_rejections(&host)?;
     prove_signer_contract(&host)?;
     for source in [
         include_str!("../../../../../docker/human-service/Dockerfile"),
@@ -670,5 +579,95 @@ fn proof_human_kms() -> Result<()> {
         );
         executor.probe_executor(125)?;
     }
+    Ok(())
+}
+
+fn verify_config_check(check: &std::ffi::OsStr) -> Result<()> {
+    let (root, address, expected_error): (PathBuf, SocketAddr, Option<String>) =
+        serde_json::from_str(check.to_str().ok_or("invalid configuration check")?)?;
+    if let Some(expected) = expected_error {
+        let error = config::Config::load()
+            .err()
+            .ok_or("configuration was accepted")?;
+        if expected == "chain snapshot invalid" {
+            assert!(error.contains(&expected));
+        } else {
+            assert_eq!(error, expected);
+        }
+        return Ok(());
+    }
+    let loaded = config::Config::load()?;
+    assert_eq!(loaded.chain.chain_id, 125);
+    assert_eq!(loaded.provider, PROVIDER);
+    assert_eq!(loaded.state, root.join("state"));
+    assert_eq!(loaded.listen, address);
+    assert_eq!(loaded.seal.len(), 32);
+    assert_eq!(loaded.deadline, Duration::from_secs(3));
+    assert_eq!(loaded.tls.max_early_data_size, 0);
+    assert_eq!(
+        loaded.client_pin,
+        <[u8; 32]>::from(Sha256::digest(fs::read(root.join("kms-client.der"))?))
+    );
+    assert_eq!(
+        loaded
+            .attestor_evm_client_certificate
+            .ok_or("missing executor pin")?
+            .as_ref(),
+        fs::read(root.join("kms-executor.der"))?
+    );
+    Ok(())
+}
+
+fn assert_config_rejections(host: &Host) -> Result<()> {
+    let legacy = fs::read(host.root.join("registry.json"))?;
+    let registry: serde_json::Value = serde_json::from_slice(&legacy)?;
+    assert_eq!(registry["modules"][0]["module_id"], 1);
+    assert_eq!(
+        registry["modules"][0]["activity_types"],
+        json!([65537, 65540])
+    );
+    host.check_config(Some("chain snapshot invalid"))?;
+    assert!(host.project_chain(125)?.status.success());
+    assert!(!host.project_chain(1)?.status.success());
+    for _ in 0..2 {
+        host.check_config(None)?;
+    }
+    for malformed in [
+        br#"{"chain_id":125,"modules":[]}"#.as_slice(),
+        br#"{"chain_id":125,"module_id":1}"#,
+        br#"{"chain_id":125,"activity_types":[65537]}"#,
+        b"{",
+        legacy.as_slice(),
+    ] {
+        fs::write(host.root.join("registry.json"), malformed)?;
+        host.check_config(Some("chain snapshot invalid"))?;
+        let refused = host.command()?.output()?;
+        assert!(
+            !refused.status.success(),
+            "layerx-human-kms accepted a malformed producer snapshot"
+        );
+        assert!(String::from_utf8_lossy(&refused.stderr).contains("chain snapshot invalid"));
+    }
+    assert!(host.project_chain(125)?.status.success());
+    let executor = fs::read(host.root.join("kms-executor.der"))?;
+    fs::write(
+        host.root.join("kms-executor.der"),
+        fs::read(host.root.join("kms-client.der"))?,
+    )?;
+    host.check_config(Some("attestor signer and service identities must differ"))?;
+    fs::write(
+        host.root.join("kms-executor.der"),
+        b"malformed producer certificate",
+    )?;
+    host.check_config(Some("attestor signer certificate invalid"))?;
+    let refused = host.command()?.output()?;
+    assert!(
+        !refused.status.success(),
+        "layerx-human-kms accepted malformed executor DER"
+    );
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("attestor signer certificate invalid")
+    );
+    fs::write(host.root.join("kms-executor.der"), executor)?;
     Ok(())
 }

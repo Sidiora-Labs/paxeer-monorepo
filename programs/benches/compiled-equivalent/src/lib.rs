@@ -1,4 +1,5 @@
 //! Compiled ABI-v2 equivalents for the interpreter cost qualification workloads.
+//! The guest exposes the same workload steps through the program entrypoint.
 
 #![cfg_attr(target_arch = "wasm32", no_std)]
 

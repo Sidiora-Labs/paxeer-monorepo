@@ -19,7 +19,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 #[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
-mod runtime_clock_server;
+pub(crate) mod runtime_clock_server;
 
 pub struct StepClock {
     clock: Arc<layerx_client::runtime_clock::RuntimeClock>,
@@ -93,6 +93,7 @@ pub struct ClockAuthority {
 
 impl ClockAuthority {
     pub fn start(clock: Arc<StepClock>) -> Result<Self> {
+        std::fs::metadata(&clock.authority.socket)?;
         Ok(Self {
             socket: clock.authority.socket.clone(),
             _clock: clock,
@@ -146,7 +147,12 @@ pub fn openssl(dir: &Path, args: &[&str]) -> Result<()> {
 }
 
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").unwrap_or_else(|error| panic!("{error:?}"));
+    }
+    encoded
 }
 
 pub struct Pki {
@@ -601,6 +607,20 @@ impl Cluster {
             inventory_sequence: 0,
         };
         cluster.publish_inventory()?;
+        cluster.spawn_nodes(&ids, &pins, &peers, &daemon, activity_types, &chain_rpc)?;
+        cluster.wait_ready()?;
+        Ok(cluster)
+    }
+
+    fn spawn_nodes(
+        &mut self,
+        ids: &[String],
+        pins: &[String],
+        peers: &[SocketAddr],
+        daemon: &Path,
+        activity_types: &[String],
+        chain_rpc: &str,
+    ) -> Result<()> {
         for (index, id) in ids.iter().enumerate() {
             let others: Vec<usize> = (0..NODES).filter(|other| *other != index).collect();
             let peer_list = others
@@ -615,17 +635,14 @@ impl Cluster {
                 .join(",");
             let mut node_key = [0_u8; 32];
             getrandom::fill(&mut node_key)?;
-            let key_file = root.join(format!("{id}.node-key"));
+            let key_file = self.root.join(format!("{id}.node-key"));
             fs::write(&key_file, hex(&node_key))?;
             fs::set_permissions(&key_file, fs::Permissions::from_mode(0o600))?;
-            let log = fs::File::create(root.join(format!("{id}.log")))?;
-            let mut command = Command::new(&daemon);
+            let log = fs::File::create(self.root.join(format!("{id}.log")))?;
+            let mut command = Command::new(daemon);
             command
                 .env_clear()
-                .env(
-                    "LAYERX_RUNTIME_CLOCK_SOCKET",
-                    &cluster.clock_authority.socket,
-                )
+                .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.clock_authority.socket)
                 .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
                 .env(
                     "LAYERX_RUNTIME_CLOCK_UID",
@@ -633,56 +650,52 @@ impl Cluster {
                 )
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
-                .env("ATTESTOR_LISTEN_ADDR", cluster.nodes[index].1.to_string())
+                .env("ATTESTOR_LISTEN_ADDR", self.nodes[index].1.to_string())
                 .env("ATTESTOR_PEER_LISTEN_ADDR", peers[index].to_string())
                 .env("ATTESTOR_PEERS", peer_list)
                 .env("ATTESTOR_PEER_PINS", pin_list)
                 .env("ATTESTOR_NODE_KEY_FILE", &key_file)
-                .env("ATTESTOR_DATA_DIR", root.join(format!("{id}.data")))
+                .env("ATTESTOR_DATA_DIR", self.root.join(format!("{id}.data")))
                 .env("ATTESTOR_CHAIN_ID", CHAIN_ID)
-                .env("ATTESTOR_JWKS_URL", cluster.keys.url())
+                .env("ATTESTOR_JWKS_URL", self.keys.url())
                 .env("ATTESTOR_JWT_ISSUER", ISSUER)
                 .env("ATTESTOR_JWT_AUDIENCE", AUDIENCE)
                 .env(
                     "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE",
-                    root.join("authority.pem"),
+                    self.root.join("authority.pem"),
                 )
                 .env("ATTESTOR_AUTHORITY_ISSUER", ISSUER)
                 .env("ATTESTOR_AUTHORITY_TENANT", "attestor-test")
                 .env(
                     "ATTESTOR_INVENTORY_PUBLIC_KEY_FILE",
-                    root.join("authority.pem"),
+                    self.root.join("authority.pem"),
                 )
-                .env("ATTESTOR_INVENTORY_FILE", root.join("inventory.jwt"))
-                .env("ATTESTOR_POLICY_FILE", root.join("policy.json"))
+                .env("ATTESTOR_INVENTORY_FILE", self.root.join("inventory.jwt"))
+                .env("ATTESTOR_POLICY_FILE", self.root.join("policy.json"))
                 .env(
                     "ATTESTOR_TLS_CERT_FILE",
-                    cluster.pki.path(&format!("{id}.pem")),
+                    self.pki.path(&format!("{id}.pem")),
                 )
-                .env(
-                    "ATTESTOR_TLS_KEY_FILE",
-                    cluster.pki.path(&format!("{id}.key")),
-                )
-                .env("ATTESTOR_TLS_CA_FILE", cluster.pki.path("api-ca.pem"))
+                .env("ATTESTOR_TLS_KEY_FILE", self.pki.path(&format!("{id}.key")))
+                .env("ATTESTOR_TLS_CA_FILE", self.pki.path("api-ca.pem"))
                 .env(
                     "ATTESTOR_OPERATOR_CA_FILE",
-                    cluster.pki.path("operator-ca.pem"),
+                    self.pki.path("operator-ca.pem"),
                 )
                 .env("ATTESTOR_ACTIVITY_TYPES", activity_types.join(","))
                 .env(
                     "ATTESTOR_KERNEL_POLICY_FILE",
-                    root.join("kernel-policy.json"),
+                    self.root.join("kernel-policy.json"),
                 )
-                .env("ATTESTOR_RPC_URL", &chain_rpc)
+                .env("ATTESTOR_RPC_URL", chain_rpc)
                 .stdin(Stdio::null())
                 .stdout(log.try_clone()?)
                 .stderr(log);
             let child = command.spawn()?;
-            cluster.children.push((id.clone(), child));
-            cluster.commands.push((id.clone(), command));
+            self.children.push((id.clone(), child));
+            self.commands.push((id.clone(), command));
         }
-        cluster.wait_ready()?;
-        Ok(cluster)
+        Ok(())
     }
 
     pub fn client(&self) -> Result<AttestorClient> {
@@ -941,21 +954,23 @@ impl Cluster {
     }
 
     pub fn logs(&self) -> String {
-        self.nodes
-            .iter()
-            .map(|(id, _)| {
-                format!(
-                    "\n{id}: {}",
-                    fs::read_to_string(self.root.join(format!("{id}.log"))).unwrap_or_default()
-                )
-            })
-            .collect()
+        use std::fmt::Write as _;
+        let mut logs = String::new();
+        for (id, _) in &self.nodes {
+            write!(
+                &mut logs,
+                "\n{id}: {}",
+                fs::read_to_string(self.root.join(format!("{id}.log"))).unwrap_or_default()
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        }
+        logs
     }
 
     pub fn audit(&self, client: &AttestorClient) -> Result<Vec<u64>> {
-        SIGNERS
+        self.nodes
             .iter()
-            .map(|id| Ok(checked(client.health(id))?.audit_sequence))
+            .map(|(id, _)| Ok(checked(client.health(id))?.audit_sequence))
             .collect()
     }
 }
