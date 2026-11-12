@@ -21350,3 +21350,8 @@ fix = "A task that verifies with that recipe carries both directories."
 title = "The payout split operation of the AI market writes one credit per participant of the batch"
 symptom = "The operation writes one credit for each participant of the lap batch, one for the host and one for the protocol. Its CPU fuel grows with the number of credits of the batch."
 fix = "The fuel table states the batch at which it measures the operation."
+
+[gotcha.4306]
+title = "The interface rows of the inference series name no file of the proof tasks"
+symptom = "The fifteen interface rows of the inference series name symbols of the AI market program, of the agent daemon and of the peer package. No row names a file that task 22.38.36, 22.38.37 or 22.38.38 adds."
+fix = "The closing task of the series reconciles the rows without the proof tasks."

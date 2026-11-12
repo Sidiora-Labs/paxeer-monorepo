@@ -13432,6 +13432,12 @@ value = "The fuel table of task 22.38.13 measures the payout split operation at 
 basis = "Gotcha 4305 and decision 3233."
 affects = ["22.38.13"]
 
+[decision.3387]
+title = "Task 22.38.39 no longer requires tasks 22.38.37 and 22.38.38"
+value = "Task 22.38.39 no longer requires tasks 22.38.37 and 22.38.38. It requires tasks 22.38.33, 22.38.34, 22.38.35, 22.38.32, 22.38.22, 22.38.29, 22.38.30 and 22.38.20. Its record lists the tasks of the series that are on the main branch at its revision."
+basis = "Gotcha 4306 and decision 3381."
+affects = ["22.38.39"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -378023,7 +378029,7 @@ title = "Close the inference market series: interface rows served, docs cross-ch
 status = "pending"
 mode = "BUILD"
 wave = 9
-requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
+requires = ["22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.22", "22.38.29", "22.38.30", "22.38.20"]
 reqs = ["22380.6", "22998.1"]
 capabilities = ["22.38.39"]
 interfaces = []
@@ -378046,6 +378052,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Gotcha 4306, decision 3387. The task no longer requires tasks 22.38.37 and 22.38.38. The record repair_22_38_39.kvx lists the tasks of the series that are on the main branch at the revision of this task, and the test reads that list from the record. Run the reconcile and the test by hand before the one counted verification."
 
 [task.22.38.35]
 title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
