@@ -187395,7 +187395,7 @@ do_4 = "do_4 Decision 3337. The check compares services/agent/sdk/typescript/src
 
 [task.22.39.400]
 title = "Read the reward state before the room market tail of the settlement section"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
