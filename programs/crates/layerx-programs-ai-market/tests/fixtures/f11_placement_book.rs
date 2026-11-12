@@ -1,5 +1,5 @@
-use super::observe;
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{
         Admission, AdmissionContext, AdmissionTable, ApprovalTerms, Participant, TABLE_MAX_BYTES,
@@ -8,7 +8,7 @@ use layerx_programs_ai_market::{
     dispatch::{self, Buffers, CallBoundary, Operation, Routed, SequencePolicy},
     errors::*,
     evaluators::authority::split_identity_section,
-    placement::{self, BookView, PlacementBook, BOOK_VIEW_MAX_BYTES, SIDE_CAPACITY},
+    placement::{self, BookView},
     policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
     registry::{derive_rewards_account, MarketHeader},
     registry_ops::{CallContext, PolicySection},
@@ -29,10 +29,10 @@ const PEER_B: u8 = 21;
 const ASKER: u8 = 30;
 
 fn digest(n: u8) -> Digest32 {
-    Digest32::new([n; 32]).unwrap()
+    Digest32::new([n; 32]).required()
 }
 fn principal(n: u8) -> PrincipalId {
-    PrincipalId::new([n; 32]).unwrap()
+    PrincipalId::new([n; 32]).required()
 }
 fn profile() -> RoomProfile {
     RoomProfile {
@@ -43,7 +43,7 @@ fn profile() -> RoomProfile {
         slash_fraction_bps: 1000,
         host_share_bps: 1000,
         protocol_share_bps: 100,
-        settlement_account: AccountId::new([80; 32]).unwrap(),
+        settlement_account: AccountId::new([80; 32]).required(),
         max_generated_tokens: 4096,
         queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
         liveness_timeout_ms: 30_000,
@@ -53,7 +53,7 @@ fn profile() -> RoomProfile {
 }
 fn payload(size: usize, encode: impl FnOnce(&mut [u8]) -> CodecResult<usize>) -> Vec<u8> {
     let mut out = vec![0; size];
-    let n = encode(&mut out).unwrap();
+    let n = encode(&mut out).required();
     out.truncate(n);
     out
 }
@@ -83,53 +83,60 @@ struct Harness {
 impl Harness {
     fn context(&self, actor: u8) -> CallContext {
         CallContext {
-            chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap(),
-            program: ProgramId::new([11; 32]).unwrap(),
+            chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).required(),
+            program: ProgramId::new([11; 32]).required(),
             principal: principal(actor),
             height: self.height,
         }
     }
     fn state(&self) -> state::SharedState<'_> {
-        state::decode_shared_state(&self.current).unwrap()
+        state::decode_shared_state(&self.current).required()
     }
     fn header(&self) -> MarketHeader {
-        PolicySection::decode(self.state().section(Section::PolicyLifecycle).unwrap())
-            .unwrap()
+        PolicySection::decode(self.state().section(Section::PolicyLifecycle).required())
+            .required()
             .header
     }
     fn workers(&self) -> WorkerTable {
         WorkerTable::decode(
-            split_identity_section(self.state().section(Section::IdentityRoster).unwrap())
-                .unwrap()
+            split_identity_section(self.state().section(Section::IdentityRoster).required())
+                .required()
                 .0,
         )
-        .unwrap()
+        .required()
     }
     fn worker(&self, peer: u8) -> WorkerCurrent {
         *self
             .workers()
             .iter()
             .find(|w| w.owner == principal(peer))
-            .unwrap()
+            .required()
     }
     fn admission(&self) -> AdmissionTable {
         AdmissionTable::decode(
-            split_joint(self.state().section(Section::ReputationAdmission).unwrap())
-                .unwrap()
-                .1,
+            split_joint(
+                self.state()
+                    .section(Section::ReputationAdmission)
+                    .required(),
+            )
+            .required()
+            .1,
         )
-        .unwrap()
+        .required()
     }
     fn roster(&self) -> RosterDigest {
         RosterDigest::new(
-            roster::roster_digest(&self.admission(), self.admission().current_epoch().unwrap())
-                .unwrap()
-                .bytes(),
+            roster::roster_digest(
+                &self.admission(),
+                self.admission().current_epoch().required(),
+            )
+            .required()
+            .bytes(),
         )
-        .unwrap()
+        .required()
     }
     fn book(&self) -> RoomBook<'_> {
-        RoomBook::decode(self.state().room_market().unwrap().1).unwrap()
+        RoomBook::decode(self.state().room_market().required().1).required()
     }
     fn sequence(&self, actor: u8) -> u64 {
         if self.current.is_empty() {
@@ -141,7 +148,7 @@ impl Harness {
                 state
                     .control
                     .replay
-                    .actor(ActorSlot::from_index(i).unwrap())
+                    .actor(ActorSlot::from_index(i).required())
             })
             .find(|a| a.principal == principal(actor))
             .map_or(1, |a| a.last.map_or(1, |last| last.sequence + 1))
@@ -183,7 +190,7 @@ impl Harness {
                     } else {
                         (self.height - ORIGIN) / 128
                     },
-                    config: if read { 0 } else { 1 },
+                    config: u64::from(!read),
                     roster,
                     sequence: if op.metadata().sequence == SequencePolicy::ObjectLocal {
                         0
@@ -220,7 +227,7 @@ impl Harness {
                 result: &mut result,
             },
         )
-        .unwrap();
+        .required();
         super::observe(
             &self.context(actor),
             &before,
@@ -248,13 +255,13 @@ impl Harness {
                 revision,
                 operation,
             } => {
-                let framed = codec::decode_result(&result[..result_len]).unwrap();
+                let framed = codec::decode_result(&result[..result_len]).required();
                 assert_eq!(framed.status, ResultStatus::Ok);
                 assert_eq!(framed.revision, revision);
                 let mut topic = [0; 64];
-                let n = codec::event_topic(operation, &mut topic).unwrap();
+                let n = codec::event_topic(operation, &mut topic).required();
                 let (named, common, suffix) =
-                    codec::decode_event_frame(&topic[..n], &event[..event_len]).unwrap();
+                    codec::decode_event_frame(&topic[..n], &event[..event_len]).required();
                 assert_eq!(named, operation);
                 assert_eq!(common.revision, revision);
                 assert_eq!(common.result, framed.digest);
@@ -287,12 +294,12 @@ impl Harness {
     ) -> Vec<u8> {
         if op == dispatch::PostBid {
             let mut r = codec::Reader::new(bytes);
-            let room = r.digest32().unwrap();
-            let bid = r.digest32().unwrap();
-            r.take(48).unwrap();
-            let amount = r.u128().unwrap();
+            let room = r.digest32().required();
+            let bid = r.digest32().required();
+            r.take(48).required();
+            let amount = r.u128().required();
             if layerx_programs_ai_market::bonds::bond_from_state(&self.current, bid)
-                .unwrap()
+                .required()
                 .is_none()
             {
                 self.apply(
@@ -300,7 +307,7 @@ impl Harness {
                     actor,
                     &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
                         .encode()
-                        .unwrap(),
+                        .required(),
                     roster,
                 );
             }
@@ -310,7 +317,7 @@ impl Harness {
         assert!(
             matches!(routed, Routed::Applied { .. }),
             "{op:?}: {:?}",
-            codec::decode_result(&result).unwrap()
+            codec::decode_result(&result).required()
         );
         envelope
     }
@@ -326,19 +333,19 @@ impl Harness {
         let envelope = self.envelope(op, actor, bytes, roster);
         let (routed, result, _) = self.execute(actor, &envelope);
         assert!(matches!(routed, Routed::Refused { .. }), "{routed:?}");
-        assert_eq!(codec::decode_result(&result).unwrap().error, Some(error));
+        assert_eq!(codec::decode_result(&result).required().error, Some(error));
         assert_eq!(self.current, before);
     }
     fn install_admission(&mut self, table: &AdmissionTable) {
         let mut bytes = vec![0; TABLE_MAX_BYTES];
-        let n = table.encode(&mut bytes).unwrap();
+        let n = table.encode(&mut bytes).required();
         let mut out = vec![0; MAX_STATE_BYTES];
         let mut control = vec![0; Section::Control.payload_cap()];
         let state = self.state();
         let next = state
             .replace_section(Section::ReputationAdmission, &bytes[..n])
-            .unwrap();
-        let n = state::encode_shared_state(&next, &mut out, &mut control).unwrap();
+            .required();
+        let n = state::encode_shared_state(&next, &mut out, &mut control).required();
         self.current = out[..n].to_vec();
     }
     fn new() -> Self {
@@ -347,6 +354,15 @@ impl Harness {
             height: ORIGIN,
             request: 0,
         };
+        h.create_market();
+        h.enroll_peers();
+        h.refresh_metadata();
+        h.activate_workers();
+        h.height = ORIGIN + 129;
+        h
+    }
+    fn create_market(&mut self) {
+        let h = self;
         let ctx = h.context(HOST);
         let policy = TaskPolicyV1::bounded_default(
             1,
@@ -355,7 +371,7 @@ impl Harness {
                 model_artifact: digest(50),
                 dataset_artifact: [2; 32],
                 benchmark_suite: digest(3),
-                rubric: RubricDigest::new([4; 32]).unwrap(),
+                rubric: RubricDigest::new([4; 32]).required(),
                 task_schema: digest(5),
                 result_schema: digest(6),
                 service_terms: digest(7),
@@ -363,12 +379,12 @@ impl Harness {
             1000,
             1,
         )
-        .unwrap();
+        .required();
         let mut create = principal(HOST).as_bytes().to_vec();
         create.extend_from_slice(&[13; 32]);
         create.extend_from_slice(
-            derive_rewards_account(ctx.program, AssetId::new([13; 32]).unwrap())
-                .unwrap()
+            derive_rewards_account(ctx.program, AssetId::new([13; 32]).required())
+                .required()
                 .as_bytes(),
         );
         create.extend_from_slice(&[14; 32]);
@@ -386,15 +402,21 @@ impl Harness {
             .encode(out)
         });
         h.apply(dispatch::FUND, HOST, &fund, Presence::Absent);
+    }
+
+    fn enroll_peers(&mut self) {
+        let h = self;
         for peer in [PEER_A, PEER_B] {
             let key = SigningKey::from_bytes(&[peer; 32]);
             let public = PublicKey32(key.verifying_key().to_bytes());
             let nonce = [peer + 40; 32];
             let market = h.header();
-            let worker = codec::derive_worker(market.market_id, principal(peer), nonce).unwrap();
+            let worker = codec::derive_worker(market.market_id, principal(peer), nonce).required();
             let initial_manifest =
                 manifest(market.market_id, worker, peer, 1, ORIGIN, ORIGIN + 128);
-            let metadata = workers::decode_manifest(&initial_manifest).unwrap().digest;
+            let metadata = workers::decode_manifest(&initial_manifest)
+                .required()
+                .digest;
             let enroll = payload(136, |out| {
                 let mut w = Writer::new(out);
                 w.put(principal(peer).as_bytes())?;
@@ -415,7 +437,7 @@ impl Harness {
                 metadata,
                 ORIGIN + 128,
             )
-            .unwrap();
+            .required();
             let accept = payload(144, |out| {
                 let mut w = Writer::new(out);
                 w.put(worker.as_bytes())?;
@@ -427,6 +449,10 @@ impl Harness {
             });
             h.apply(dispatch::AcceptEnrollment, peer, &accept, Presence::Absent);
         }
+    }
+
+    fn refresh_metadata(&mut self) {
+        let h = self;
         h.height = ORIGIN + 8;
         for peer in [PEER_A, PEER_B] {
             let key = SigningKey::from_bytes(&[peer; 32]);
@@ -439,7 +465,7 @@ impl Harness {
                 ORIGIN + 8,
                 ORIGIN + 264,
             );
-            let metadata = workers::decode_manifest(&manifest).unwrap().digest;
+            let metadata = workers::decode_manifest(&manifest).required().digest;
             let publish = payload(100 + manifest.len(), |out| {
                 let mut w = Writer::new(out);
                 w.put(record.worker.as_bytes())?;
@@ -452,7 +478,7 @@ impl Harness {
                 Ok(w.len())
             });
             let native = h.envelope(dispatch::PublishMetadata, peer, &publish, Presence::Absent);
-            let mut envelope = codec::decode_envelope(&native).unwrap().envelope;
+            let mut envelope = codec::decode_envelope(&native).required().envelope;
             envelope.authentication = Authentication::Delegate {
                 key: PublicKey32(key.verifying_key().to_bytes()),
                 signature: Signature64([0; 64]),
@@ -461,9 +487,9 @@ impl Harness {
                 codec::encode_envelope(&envelope, out)
             });
             let hash = codec::decode_envelope(&unsigned)
-                .unwrap()
+                .required()
                 .request_digest()
-                .unwrap();
+                .required();
             envelope.authentication = Authentication::Delegate {
                 key: PublicKey32(key.verifying_key().to_bytes()),
                 signature: Signature64(key.sign(hash.as_bytes()).to_bytes()),
@@ -475,9 +501,13 @@ impl Harness {
             assert!(
                 matches!(routed, Routed::Applied { .. }),
                 "{:?}",
-                codec::decode_result(&result).unwrap()
+                codec::decode_result(&result).required()
             );
         }
+    }
+
+    fn activate_workers(&mut self) {
+        let h = self;
         let market = h.header();
         let mut table = AdmissionTable::new();
         for peer in [PEER_A, PEER_B] {
@@ -488,10 +518,10 @@ impl Harness {
                 enrollment_nonce_commitment: digest(peer + 40),
                 delegate: worker.delegate,
                 delegate_generation: 1,
-                identity_commitment: worker.proposal_digest(&market).unwrap(),
+                identity_commitment: worker.proposal_digest(&market).required(),
                 effective_epoch: 0,
                 config_version: 1,
-                request: RequestId::new([peer; 32]).unwrap(),
+                request: RequestId::new([peer; 32]).required(),
                 expiry_height: ORIGIN + 64,
             };
             let approval = table
@@ -503,7 +533,7 @@ impl Harness {
                     },
                     &terms,
                 )
-                .unwrap();
+                .required();
             table
                 .admit(
                     &AdmissionContext {
@@ -519,13 +549,12 @@ impl Harness {
                         approval_digest: approval,
                     },
                 )
-                .unwrap();
+                .required();
         }
-        roster::open_epoch(&mut table, 1, |_| false).unwrap();
+        roster::open_epoch(&mut table, 1, |_| false).required();
         h.install_admission(&table);
-        h.height = ORIGIN + 129;
-        h
     }
+
     fn open(&mut self, room: Digest32) -> Vec<u8> {
         self.apply(
             dispatch::OpenRoom,
@@ -549,7 +578,7 @@ impl Harness {
         PostBidRequest {
             room_id: room,
             bid_id: bid,
-            capability_digest: Digest32::new(self.worker(peer).metadata.bytes()).unwrap(),
+            capability_digest: Digest32::new(self.worker(peer).metadata.bytes()).required(),
             minimum_price_per_thousand_tokens: 5,
             bond_amount: 100,
             layer_capacity: 16,
@@ -670,8 +699,8 @@ impl Harness {
         request.model_digest = self
             .book()
             .room(digest(room))
-            .unwrap()
-            .unwrap()
+            .required()
+            .required()
             .model_digest;
         request.maximum_price_per_thousand_tokens = price;
         self.apply(
@@ -704,12 +733,12 @@ impl Harness {
         );
         let (routed, result, event) = self.execute(ASKER, &envelope);
         assert!(matches!(routed, Routed::Unchanged { .. }));
-        let framed = codec::decode_result(&result).unwrap();
+        let framed = codec::decode_result(&result).required();
         assert_eq!(framed.status, ResultStatus::Ok);
         assert_eq!(framed.revision, revision);
         assert!(event.is_empty());
         assert_eq!(self.current, before);
-        let view = BookView::decode(framed.payload).unwrap();
+        let view = BookView::decode(framed.payload).required();
         assert_eq!(view.model_digest, digest(model));
         assert!(result.len() <= MAX_RESULT_BYTES);
         framed.payload.to_vec()

@@ -2,11 +2,10 @@
 //! Membership is permission to participate only; it never carries quality or rewards.
 use crate::types::GuestIndex as _;
 use crate::{
-    MAX_EVALUATORS, MAX_WORKERS,
     codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult,
+        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT,
         F08_ADMINISTRATOR_APPROVAL_REQUIRED, F08_ADMISSION_WINDOW_FULL, F08_BAD_CONSENT,
         F08_CANDIDATE_CHANGED, F08_CAPACITY_EXCEEDED, F08_DELEGATE_REVOKED, F08_DUPLICATE_IDENTITY,
         F08_IDEMPOTENCY_CONFLICT, F08_MARKET_PAUSED, F08_NO_PRUNABLE_MEMBER,
@@ -19,11 +18,11 @@ use crate::{
         authority::{evaluator_region, split_identity_section},
         codec::{encode_grant, verify_digest},
         model::{
-            CONSENT_BYTES, EvaluatorGrant, GRANT_BYTES, GrantStatus, SIGNED_CONSENT_BYTES,
-            VerificationError,
+            EvaluatorGrant, GrantStatus, VerificationError, CONSENT_BYTES, GRANT_BYTES,
+            SIGNED_CONSENT_BYTES,
         },
     },
-    registry::{MarketHeader, market_clock},
+    registry::{market_clock, MarketHeader},
     registry_ops::{CallContext, PolicySection},
     reputation_transition::split_joint,
     state::{
@@ -36,6 +35,7 @@ use crate::{
         WorkerId,
     },
     workers::{WorkerState, WorkerTable},
+    MAX_EVALUATORS, MAX_WORKERS,
 };
 
 pub const FLAG_ADMITTED: u8 = 1;
@@ -1686,7 +1686,7 @@ fn transition_admission(
         }
         AdmissionCall::Evaluator(consent, payload) => {
             let grant = evaluator_region(
-                *state
+                state
                     .feature_sections
                     .guest_index(Section::IdentityRoster.index()),
             )?
@@ -1748,7 +1748,7 @@ fn apply_admission_inner(
     let call = admission_call(envelope)?;
     let mut state = state::decode_shared_state(current)?;
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;

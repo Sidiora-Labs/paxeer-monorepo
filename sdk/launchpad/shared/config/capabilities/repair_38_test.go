@@ -142,6 +142,23 @@ func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			result = b.headers[hash]
 		}
+	case "eth_getBlockByNumber":
+		var number string
+		if !decode(0, &number) {
+			fail("invalid block number")
+			break
+		}
+		matched := false
+		for _, header := range b.headers {
+			if hexutil.EncodeBig(header.Number) == number {
+				result = header
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			fail("unrecorded block number")
+		}
 	case "eth_getCode":
 		var address common.Address
 		if !decode(0, &address) {
@@ -216,7 +233,7 @@ func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				fail("unrecorded call " + key)
 			}
 			quote := repair38Call(b.t, "quoteExactInput(address,uint256,bool)", b.epoch.Pool, big.NewInt(1_000_000), true)
-			if call.To == b.address("Quoter") && (!bytes.Equal(call.Data, quote) || call.From != b.epoch.Trader) {
+			if call.To == b.address("Quoter") && bytes.Equal(call.Data[:min(len(call.Data), 4)], quote[:4]) && (!bytes.Equal(call.Data, quote) || call.From != b.epoch.Trader) {
 				fail("quote lost the recorded trader context")
 			}
 		}
@@ -306,6 +323,19 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 		b.put(b.address(role), signature, repair38Word(value))
 	}
 	b.put(b.address("ProtocolConfig"), "usdlAddress()", repair38Address(b.address("USDL")))
+	for role, getters := range map[string]map[string]string{
+		"Router":         {"factory()": "SidioraFactory", "poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL"},
+		"Quoter":         {"poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig"},
+		"SidioraFactory": {"poolBeacon()": "PoolBeacon", "nftContract()": "SidioraNFT", "poolRegistry()": "PoolRegistry", "eventEmitter()": "EventEmitter", "protocolConfig()": "ProtocolConfig", "feeAccumulator()": "FeeAccumulator", "usdlAddress()": "USDL"},
+		"PoolRegistry":   {"eventEmitter()": "EventEmitter"},
+		"FeeAccumulator": {"protocolConfig()": "ProtocolConfig", "poolRegistry()": "PoolRegistry", "eventEmitter()": "EventEmitter", "usdlAddress()": "USDL"},
+		"SidioraNFT":     {"eventEmitter()": "EventEmitter"},
+		"FeesRouter":     {"nftContract()": "SidioraNFT", "feeAccumulator()": "FeeAccumulator", "poolRegistry()": "PoolRegistry"},
+	} {
+		for signature, target := range getters {
+			b.put(b.address(role), signature, repair38Address(b.address(target)))
+		}
+	}
 	for signature, role := range map[string]string{"protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL", "eventEmitter()": "EventEmitter", "factory()": "SidioraFactory", "feeAccumulator()": "FeeAccumulator"} {
 		b.put(epoch.Pool, signature, repair38Address(b.address(role)))
 	}

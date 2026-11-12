@@ -666,6 +666,11 @@ config :explorer, Explorer.Market.Source.Chainflow,
   market: System.get_env("MARKET_CHAINFLOW_MARKET"),
   coin_symbol: System.get_env("MARKET_CHAINFLOW_COIN_SYMBOL", "PAX"),
   secondary_coin_symbol: System.get_env("MARKET_CHAINFLOW_SECONDARY_COIN_SYMBOL", "SID"),
+  secondary_coin_non_circulating_addresses:
+    "MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES"
+    |> ConfigHelper.parse_list_env_var("")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == "")),
   tokens: ConfigHelper.parse_json_env_var("MARKET_CHAINFLOW_TOKENS", "[]")
 
 config :explorer, Explorer.Market.Fetcher.Coin,

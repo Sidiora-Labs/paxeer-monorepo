@@ -94,7 +94,7 @@ export async function currentDaemonFixture(t) {
   return fixture;
 }
 
-const { keccak256, PlatformSdkError, Rung } = sdk;
+const { PlatformSdkError, Rung } = sdk;
 const { verifySequencerReceipt } = daemon;
 
 const vectors = JSON.parse(readFileSync(
@@ -102,7 +102,6 @@ const vectors = JSON.parse(readFileSync(
 )).cases;
 const vector = vectors[0];
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
-const digest = (value) => Buffer.from(keccak256(bytes(value))).toString("hex");
 const context = (entry) => ({ idempotencyKey: "11".repeat(32), activityId: entry.receiptJson.txHash.slice(2) });
 const status = (rung = Rung.Receipted) => ({ state: receiptedStatus.state, rung });
 const height = (value) => `0x${BigInt(value).toString(16)}`;
@@ -203,7 +202,7 @@ async function daemonProviderVerifiesSignedSequencerReceipt() {
   const successful = vectors.filter((entry) => entry.id.startsWith("V1-"));
   assert.ok(successful.length > 0);
   for (const entry of successful) {
-    const receiptDigest = digest(entry.signedReceipt);
+    const receiptDigest = entry.receiptDigest.slice(2);
     const verified = await verifySequencerReceipt(daemonReceipt(entry), status(), context(entry), receiptDigest);
     assert.equal(verified.receiptDigest, receiptDigest);
     assert.deepEqual(verified.evidence, {
@@ -261,7 +260,7 @@ async function daemonFinalityStagesExcludeSettlementAnchored() {
   for (const level of ["SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised"]) {
     const verified = await verifySequencerReceipt(daemonReceipt(vector, level), status(), context(vector));
     assert.equal(verified.evidence.verificationLevel, "receipted");
-    assert.equal(verified.receiptDigest, digest(vector.signedReceipt));
+    assert.equal(verified.receiptDigest, vector.receiptDigest.slice(2));
   }
   for (const level of ["SettlementAnchored", "Unverified", "Unknown"]) {
     await assert.rejects(verifySequencerReceipt(daemonReceipt(vector, level), status(), context(vector)),

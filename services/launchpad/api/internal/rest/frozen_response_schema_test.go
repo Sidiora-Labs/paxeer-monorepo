@@ -206,7 +206,7 @@ func TestFrozenV2ResponseSchemasMatchHandlerBytes(t *testing.T) {
 		defer server.Close()
 		srv := server.URL
 		for _, path := range []string{"/v2/snapshots?topics=market.stats." + address, "/v2/snapshots?topics=market.stats." + address + "&normalizedFilters=" + `%7B%22poolAddress%22%3A%22` + address + `%22%7D`} {
-			got := getV2(t, srv+path)
+			got := waitForV2Ready(t, func() v2Response { return getV2(t, srv+path) })
 			if got.status != 200 {
 				t.Fatalf("%s status=%d body=%s", path, got.status, got.body)
 			}

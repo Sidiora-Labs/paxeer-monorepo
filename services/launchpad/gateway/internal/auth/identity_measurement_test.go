@@ -244,6 +244,47 @@ func TestIdentityMeasurementAuthoritativeSocketsAndHTTPRevocation(t *testing.T) 
 		}
 		probes = append(probes, IdentityRevocationProbe{Client: cfg.Clients[0], AccessToken: token, Socket: connection})
 	}
+	for _, tc := range []struct {
+		name   string
+		change func(*IdentityRevocationProbe, *[]IdentityRevocationProbe)
+		want   string
+	}{
+		{"probe count", func(_ *IdentityRevocationProbe, p *[]IdentityRevocationProbe) { *p = (*p)[:1] }, "two real device/socket probes required"},
+		{"actor authority", func(a *IdentityRevocationProbe, _ *[]IdentityRevocationProbe) { a.AccessToken = "invalid" }, "actor not authoritative"},
+		{"private socket", func(_ *IdentityRevocationProbe, p *[]IdentityRevocationProbe) { (*p)[1].Socket = nil }, "real private socket missing"},
+		{"distinct session", func(_ *IdentityRevocationProbe, p *[]IdentityRevocationProbe) {
+			(*p)[1].AccessToken = (*p)[0].AccessToken
+		}, "distinct authorized device sessions required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actor := probes[0]
+			candidate := append([]IdentityRevocationProbe(nil), probes...)
+			tc.change(&actor, &candidate)
+			result, err := f.s.MeasureRevocationPropagation(ctx, actor, candidate, cfg.Binding)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || result.Passed || len(result.Observations) != 0 {
+				t.Fatalf("revocation input: result=%+v error=%v, want %q", result, err, tc.want)
+			}
+		})
+	}
+	for _, tc := range []struct {
+		name, baseURL, origin, want string
+	}{
+		{"unavailable logout endpoint", "http://127.0.0.1:1", "https://kindle.test", "logout not acknowledged"},
+		{"unapproved logout origin", cfg.Clients[0].BaseURL, "https://other.test", "logout not committed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			actor := probes[0]
+			actor.Client.BaseURL = tc.baseURL
+			actor.Client.Origin = tc.origin
+			result, err := f.s.MeasureRevocationPropagation(ctx, actor, probes, cfg.Binding)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || result.Passed || result.LogoutSentAt.IsZero() || len(result.Observations) != 0 {
+				t.Fatalf("logout authority: result=%+v err=%v, want %q", result, err, tc.want)
+			}
+			if _, err := f.s.AuthenticateJWT(ctx, f.s.tokens, first.AccessToken); err != nil {
+				t.Fatalf("uncommitted logout revoked the session: %v", err)
+			}
+		})
+	}
 	measurement, err := f.s.MeasureRevocationPropagation(ctx, probes[0], probes, cfg.Binding)
 	if err != nil || !measurement.Passed || len(measurement.Observations) != 2 || measurement.P99UpperBoundNS > int64(5*time.Second) {
 		t.Fatalf("real revocation measurement failed: %+v %v", measurement, err)

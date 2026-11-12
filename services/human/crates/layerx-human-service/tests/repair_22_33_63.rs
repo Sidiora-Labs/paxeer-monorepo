@@ -65,7 +65,7 @@ mod clock_regressions {
     use layerx_client::sequencer::SequencerEndpoint;
 
     use layerx_types::account::AccountId;
-    use layerx_types::clock::ClockReading;
+    use layerx_types::clock::{Clock as _, ClockReading};
     use layerx_types::clock_protocol;
     use layerx_types::ids::Did;
     use layerx_types::payload::{ActivityType, ModuleId};
@@ -83,7 +83,7 @@ mod clock_regressions {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread::{self, JoinHandle};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use base64::Engine as _;
     #[track_caller]
@@ -424,9 +424,10 @@ mod clock_regressions {
             fs::Permissions::from_mode(0o600),
         ));
         must(listener.set_nonblocking(true));
-        let generation = random::<16>();
+        let source = must(RuntimeClock::from_environment());
+        let start = must(source.sample(Duration::from_secs(1)));
+        let generation = start.generation;
         let worker = Peer::spawn(move |stop| {
-            let start = Instant::now();
             while !stop.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
@@ -435,12 +436,14 @@ mod clock_regressions {
                         must(stream.read_exact(&mut bytes));
                         let request = must(clock_protocol::Request::decode(&bytes));
                         thread::sleep(Duration::from_nanos(request.wait_nanoseconds));
+                        let elapsed =
+                            must(must(source.sample(Duration::from_secs(1))).elapsed_since(start));
                         let reading = ClockReading {
                             generation,
                             unix_milliseconds: unix_milliseconds
-                                .checked_add(must(start.elapsed().as_millis().try_into()))
+                                .checked_add(must(elapsed.as_millis().try_into()))
                                 .or_fail("fixture clock time"),
-                            monotonic_nanoseconds: must(start.elapsed().as_nanos().try_into()),
+                            monotonic_nanoseconds: must(elapsed.as_nanos().try_into()),
                         };
                         must(
                             stream

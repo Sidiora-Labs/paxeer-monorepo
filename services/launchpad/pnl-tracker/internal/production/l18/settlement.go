@@ -106,7 +106,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e != nil {
 		return "", e
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func(owned pgx.Tx) { _ = owned.Rollback(ctx) }(tx)
 	var program, version, beneficiary, raw, txHash, state string
 	var attempt int
 	e = tx.QueryRow(ctx, `SELECT a.program,a.version,p.beneficiary,p.raw::text,p.tx_hash,p.state,p.attempt FROM l18_awards a JOIN l18_payout_attempts p ON p.award_id=a.identity WHERE a.identity=$1 ORDER BY p.attempt DESC LIMIT 1`, id).Scan(&program, &version, &beneficiary, &raw, &txHash, &state, &attempt)
@@ -178,7 +178,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e != nil {
 		return "", e
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func(owned pgx.Tx) { _ = owned.Rollback(ctx) }(tx)
 	var awardStatus string
 	if e = tx.QueryRow(ctx, `SELECT status FROM l18_awards WHERE identity=$1 FOR UPDATE`, id).Scan(&awardStatus); e != nil {
 		return "", e

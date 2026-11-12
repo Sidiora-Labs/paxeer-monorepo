@@ -40,8 +40,8 @@ import (
 // or the package working directory. Bind every SQL input before using it.
 func repair63MigrationInputs(t *testing.T) (map[int64]string, production.RoleManifest) {
 	t.Helper()
-	root := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad")
-	directory := filepath.Join(root, "spec", "production-system", "integration", "migrations")
+	root := coordinatortest.RepositoryRoot(t)
+	directory := filepath.Join(root, "launchpad", "spec", "production-system", "integration", "migrations")
 	raw, err := os.ReadFile(filepath.Join(directory, "registry.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func repair63MigrationInputs(t *testing.T) (map[int64]string, production.RoleMan
 	return nil, production.RoleManifest{}
 }
 
-func TestRepair_63_MigrationFixturePaths(t *testing.T) {
+func TestProductionMigrationFixturePaths(t *testing.T) {
 	inputs, role := repair63MigrationInputs(t)
 	for _, id := range []int64{60000, 160002} {
 		if inputs[id] == "" {
@@ -98,7 +98,7 @@ func TestRepair_63_MigrationFixturePaths(t *testing.T) {
 	}
 }
 
-func TestRepair_63_CoordinatorWalletContract(t *testing.T) {
+func TestProductionCoordinatorWalletContract(t *testing.T) {
 	inputs, role := repair63MigrationInputs(t)
 	migration := inputs[160004]
 	walletDDL := strings.Split(RebuildDDL, "CREATE TABLE inventory_l16_archive_v2")[0]
@@ -278,6 +278,7 @@ func repair63RecordedRPC(t *testing.T) string {
 		t.Fatal("supplemental producer RPC headers differ from their committed checksum")
 	}
 	responses := map[string]json.RawMessage{}
+	effectiveReserves := map[common.Hash][]byte{}
 	rpcErrors := map[string]json.RawMessage{}
 	blocks := map[string]json.RawMessage{}
 	heights := map[string]uint64{}
@@ -308,6 +309,36 @@ func repair63RecordedRPC(t *testing.T) string {
 			continue
 		}
 		responses[key] = record.Result
+		if method == "eth_call" {
+			var args []json.RawMessage
+			if err := json.Unmarshal(json.RawMessage(params), &args); err != nil {
+				t.Fatal(err)
+			}
+			if len(args) == 2 {
+				var call struct {
+					To    string `json:"to"`
+					Input string `json:"input"`
+				}
+				var anchor rpc.BlockNumberOrHash
+				if json.Unmarshal(args[0], &call) == nil && json.Unmarshal(args[1], &anchor) == nil && call.To == realMarketPool && call.Input == "0x0902f1ac" {
+					var encoded string
+					if err := json.Unmarshal(record.Result, &encoded); err != nil {
+						t.Fatal(err)
+					}
+					raw, err := hexutil.Decode(encoded)
+					if err != nil || len(raw) != 96 {
+						t.Fatal("recorded pool reserves", err)
+					}
+					effective := new(big.Int).Add(new(big.Int).SetBytes(raw[:32]), new(big.Int).SetBytes(raw[32:64]))
+					if effective.BitLen() > 256 {
+						t.Fatal("recorded effective reserve overflow")
+					}
+					if blockHash, ok := anchor.Hash(); ok {
+						effectiveReserves[blockHash] = append(effective.FillBytes(make([]byte, 32)), raw[64:]...)
+					}
+				}
+			}
+		}
 		if method == "eth_getBlockByNumber" || method == "eth_getBlockByHash" {
 			var block struct {
 				Hash   string         `json:"hash"`
@@ -411,6 +442,13 @@ func repair63RecordedRPC(t *testing.T) string {
 				Input string `json:"input"`
 			}
 			var anchor rpc.BlockNumberOrHash
+			if json.Unmarshal(args[0], &call) == nil && json.Unmarshal(args[1], &anchor) == nil && call.To == realMarketPool && call.Input == hexutil.Encode(effectiveReservesSelector) {
+				if blockHash, ok := anchor.Hash(); ok {
+					if raw, exists := effectiveReserves[blockHash]; exists {
+						result, _ = json.Marshal(hexutil.Encode(raw))
+					}
+				}
+			}
 			if json.Unmarshal(args[0], &call) == nil && json.Unmarshal(args[1], &anchor) == nil && strings.EqualFold(call.To, realMarketToken) {
 				height, exists := uint64(0), false
 				if hash, ok := anchor.Hash(); ok {
@@ -465,10 +503,29 @@ func repair63RecordedRPC(t *testing.T) string {
 		}
 		if request.Method == "eth_getLogs" && len(args) == 1 {
 			var filter struct {
+				BlockHash *common.Hash     `json:"blockHash"`
 				From      hexutil.Uint64   `json:"fromBlock"`
 				To        hexutil.Uint64   `json:"toBlock"`
 				Addresses []common.Address `json:"address"`
 				Topics    [][]common.Hash  `json:"topics"`
+			}
+			if json.Unmarshal(args[0], &filter) == nil && filter.BlockHash != nil && len(filter.Addresses) > 0 && len(filter.Topics) == 0 {
+				if _, exists := blocks[filter.BlockHash.Hex()]; exists {
+					selected := []types.Log{}
+					for _, log := range logs {
+						if log.BlockHash != *filter.BlockHash {
+							continue
+						}
+						for _, address := range filter.Addresses {
+							if log.Address == address {
+								selected = append(selected, log)
+								break
+							}
+						}
+					}
+					sort.Slice(selected, func(i, j int) bool { return selected[i].Index < selected[j].Index })
+					result, _ = json.Marshal(selected)
+				}
 			}
 			if json.Unmarshal(args[0], &filter) == nil && len(filter.Addresses) == 1 && filter.Addresses[0] == common.HexToAddress(realMarketToken) && len(filter.Topics) == 1 && len(filter.Topics[0]) == 1 && filter.Topics[0][0] == transferTopic {
 				selected := []types.Log{}

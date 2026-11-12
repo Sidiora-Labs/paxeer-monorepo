@@ -1,0 +1,105 @@
+[coverage]
+scope = "pnl-tracker hand-written Go packages"
+threshold_percent = 90.0
+before_percent = 35.5
+after_percent = 91.02
+
+[package.cmd_pnld]
+path = "cmd/pnld"
+before_percent = 0.0
+after_percent = 0.00
+
+[package.internal_app]
+path = "internal/app"
+before_percent = 13.4
+after_percent = 86.82
+
+[package.internal_card]
+path = "internal/card"
+before_percent = 92.8
+after_percent = 92.78
+
+[package.internal_config]
+path = "internal/config"
+before_percent = 21.9
+after_percent = 96.05
+
+[package.internal_devreads]
+path = "internal/devreads"
+before_percent = 77.5
+after_percent = 91.42
+
+[package.internal_fileaccess]
+path = "internal/fileaccess"
+before_percent = 0.0
+after_percent = 78.12
+
+[package.internal_httpapi]
+path = "internal/httpapi"
+before_percent = 83.3
+after_percent = 95.83
+
+[package.internal_internaltest]
+path = "internal/internaltest"
+before_percent = 0.0
+after_percent = 80.00
+
+[package.internal_migrate]
+path = "internal/migrate"
+before_percent = 0.0
+after_percent = 90.62
+
+[package.internal_ogrender]
+path = "internal/ogrender"
+before_percent = 64.0
+after_percent = 96.00
+
+[package.internal_ogrender_fonts]
+path = "internal/ogrender/fonts"
+before_percent = 0.0
+after_percent = 78.10
+
+[package.internal_pnlcache]
+path = "internal/pnlcache"
+before_percent = 0.0
+after_percent = 100.00
+
+[package.internal_pnlmath]
+path = "internal/pnlmath"
+before_percent = 89.6
+after_percent = 98.26
+
+[package.internal_position]
+path = "internal/position"
+before_percent = 64.0
+after_percent = 96.00
+
+[package.internal_production_l16]
+path = "internal/production/l16"
+before_percent = 23.6
+after_percent = 90.54
+
+[package.internal_production_l17]
+path = "internal/production/l17"
+before_percent = 53.8
+after_percent = 92.19
+
+[package.internal_production_l18]
+path = "internal/production/l18"
+before_percent = 21.3
+after_percent = 91.93
+
+[package.internal_reconcile]
+path = "internal/reconcile"
+before_percent = 75.0
+after_percent = 89.29
+
+[package.internal_referral]
+path = "internal/referral"
+before_percent = 10.8
+after_percent = 84.72
+
+[package.internal_store]
+path = "internal/store"
+before_percent = 83.3
+after_percent = 94.22

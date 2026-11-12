@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import type { ChartMarketResponse, ChartSecondaryCoinMarketResponse, ChartTransactionResponse } from 'types/api/charts';
 import type { HomeStats } from 'types/api/stats';
 
+import type { GeneralApiMiscResourcePayload } from 'lib/api/services/general/misc';
 import { getResourceKey } from 'lib/api/useApiQuery';
 import { Wrapper } from 'ui/shared/layout/testWrapper';
 
@@ -30,7 +30,7 @@ export const marketStats: HomeStats = {
   tvl: null,
 };
 
-export const paxMarket: ChartMarketResponse = {
+export const paxMarket: GeneralApiMiscResourcePayload<'general:stats_charts_market'> = {
   available_supply: '100000000',
   chart_data: [
     { date: '2026-01-01', closing_price: '2', market_cap: '200000000' },
@@ -39,7 +39,7 @@ export const paxMarket: ChartMarketResponse = {
   ],
 };
 
-export const sidMarket: ChartSecondaryCoinMarketResponse = {
+export const sidMarket: GeneralApiMiscResourcePayload<'general:stats_charts_secondary_coin_market'> = {
   available_supply: '1000000000',
   chart_data: [
     { date: '2026-01-01', closing_price: '0.08', market_cap: '80000000' },
@@ -48,7 +48,7 @@ export const sidMarket: ChartSecondaryCoinMarketResponse = {
   ],
 };
 
-export const dailyTransactions: ChartTransactionResponse = {
+export const dailyTransactions: GeneralApiMiscResourcePayload<'general:stats_charts_txs'> = {
   chart_data: [
     { date: '2026-01-01', transactions_count: 40 },
     { date: '2026-01-02', transactions_count: null },
@@ -63,9 +63,9 @@ export function createMarketQueryClient({
   transactions = dailyTransactions,
 }: {
   stats?: HomeStats;
-  pax?: ChartMarketResponse;
-  sid?: ChartSecondaryCoinMarketResponse;
-  transactions?: ChartTransactionResponse;
+  pax?: GeneralApiMiscResourcePayload<'general:stats_charts_market'>;
+  sid?: GeneralApiMiscResourcePayload<'general:stats_charts_secondary_coin_market'>;
+  transactions?: GeneralApiMiscResourcePayload<'general:stats_charts_txs'>;
 } = {}) {
   const client = new QueryClient();
   client.setQueryData(getResourceKey('general:stats'), stats);

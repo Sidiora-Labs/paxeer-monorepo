@@ -119,16 +119,18 @@ defmodule Explorer.Market.Source.ChainflowFormatTest do
   test "all history requests retain the history route and carry the key", %{key: key} do
     assert {:ok, [native]} = Chainflow.fetch_native_coin_price_history(2)
     assert_received {:request, "/api/pax/history", [^key]}
+    assert_received {:request, "/api/v3/coins/paxeer", [^key]}
     assert {:ok, [secondary]} = Chainflow.fetch_secondary_coin_price_history(2)
     assert_received {:request, "/api/sid/history", [^key]}
     assert {:ok, [cap]} = Chainflow.fetch_market_cap_history(2)
     assert_received {:request, "/api/pax/history", [^key]}
+    assert_received {:request, "/api/v3/coins/paxeer", [^key]}
     assert native.date == ~D[2026-01-02]
     assert Decimal.equal?(native.opening_price, 2)
     assert Decimal.equal?(native.closing_price, 3)
-    assert Decimal.equal?(native.market_cap, Decimal.mult(Chain.circulating_supply(), 3))
+    assert Decimal.equal?(native.market_cap, 2331)
     assert secondary.secondary_coin
-    assert Decimal.equal?(secondary.market_cap, 1200)
+    assert Decimal.equal?(secondary.market_cap, 2331)
     assert cap == Map.take(native, [:date, :market_cap])
   end
 
@@ -148,27 +150,27 @@ defmodule Explorer.Market.Source.ChainflowFormatTest do
     end
   end
 
-  test "null market caps use price times the explorer held supply", %{data: data} do
+  test "null market caps use the native held supply and secondary feed circulating supply", %{data: data} do
     clear_market_caps(data)
     assert {:ok, native} = Chainflow.fetch_native_coin()
     assert Decimal.equal?(native.market_cap, Decimal.mult(Chain.circulating_supply(), "2.5"))
     assert Decimal.equal?(native.available_supply, 777)
     assert {:ok, secondary} = Chainflow.fetch_secondary_coin()
-    assert Decimal.equal?(secondary.market_cap, 1600)
+    assert Decimal.equal?(secondary.market_cap, 3108)
     assert {:ok, nil, true, [wpax, sid]} = Chainflow.fetch_tokens(nil, 2)
     assert Decimal.equal?(wpax.circulating_market_cap, 625)
-    assert Decimal.equal?(sid.circulating_market_cap, 1600)
+    assert Decimal.equal?(sid.circulating_market_cap, 3108)
   end
 
-  test "null market caps stay empty without explorer held supply", %{data: data, sid: sid} do
+  test "secondary feed circulating supply remains available without explorer held supply", %{data: data, sid: sid} do
     clear_market_caps(data)
     sid |> Ecto.Changeset.change(total_supply: nil) |> Repo.update!()
     assert {:ok, secondary} = Chainflow.fetch_secondary_coin()
     assert Decimal.equal?(secondary.fiat_value, 4)
     assert Decimal.equal?(secondary.available_supply, 777)
-    assert secondary.market_cap == nil
+    assert Decimal.equal?(secondary.market_cap, 3108)
     assert {:ok, nil, true, [_wpax, token]} = Chainflow.fetch_tokens(nil, 2)
-    assert token.circulating_market_cap == nil
+    assert Decimal.equal?(token.circulating_market_cap, 3108)
   end
 
   test "a zero feed market cap is retained", %{data: data} do
