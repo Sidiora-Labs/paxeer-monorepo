@@ -426077,7 +426077,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.16]
 title = "Read the market figures of PAX and SID from the CoinGecko format routes of the Chainflow feed with the key header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.11"]
