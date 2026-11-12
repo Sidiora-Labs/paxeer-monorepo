@@ -13324,6 +13324,12 @@ value = "The build runs the type check of the application and reads its findings
 basis = "Gotcha 4285 and decisions 3327 and 3352."
 affects = ["22.40.14", "22.39.399"]
 
+[decision.3369]
+title = "A file operation on a configured path in a launchpad Go module carries a lint comment with its reason"
+value = "In launchpad Go modules a line that opens or creates a file on a path given by the configuration or by the caller carries a nolint comment that names the linter and the reason. Decision 3365 holds for every other line."
+basis = "Gotcha 4287 and decision 3365."
+affects = ["22.39.473", "22.39.474"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -164207,7 +164213,7 @@ symbols = []
 touches = ["apps/launchpad/web/src/widgets/trade", "apps/launchpad/web/src/widgets/swap", "apps/launchpad/web/src/widgets/holder-rewards", "apps/launchpad/web/src/core/network/contracts.ts", "apps/launchpad/web/src/widgets/trading/use-trade-panel.ts", "apps/launchpad/web/src/widgets/trading/token-market-layout.tsx"]
 tests = []
 planned_paths = ["apps/launchpad/web/src/widgets/trade/home-chain.ts", "apps/launchpad/web/src/widgets/trade/home-chain.test.ts", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.tsx", "apps/launchpad/web/src/widgets/holder-rewards/chain-revenue.test.tsx"]
-build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && grep -q -E '^tsc-exit [02]$' $d/tsc.log && ! grep -E '^src/(widgets/trade/|widgets/swap/|widgets/holder-rewards/|core/network/contracts|widgets/trading/use-trade-panel|widgets/trading/token-market-layout)' $d/tsc.log"
+build_cmd = "pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && d=$(mktemp -d) && (pnpm --dir apps/launchpad/web exec tsc --noEmit > $d/tsc.log 2>&1; echo tsc-exit $? >> $d/tsc.log) && (grep -q -E '^tsc-exit 0$' $d/tsc.log || grep -q -E 'error TS[0-9]+: ' $d/tsc.log) && ! grep -E '^src/(widgets/trade/|widgets/swap/|widgets/holder-rewards/|core/network/contracts|widgets/trading/use-trade-panel|widgets/trading/token-market-layout)' $d/tsc.log"
 verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/trade/home-chain.test.ts src/widgets/holder-rewards/chain-revenue.test.tsx"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164222,6 +164228,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "do_4 The active trade panel and the token page layout are apps/launchpad/web/src/widgets/trading/use-trade-panel.ts and apps/launchpad/web/src/widgets/trading/token-market-layout.tsx. Connect the home chain trade and the chain revenue claim there and keep the cases that read those two files passing."
 do_5 = "do_5 Decision 3368 and gotcha 4285. The build reads the type check for the paths of this task. A finding in a file of another flow is listed in the closing report and stays with task 22.39.399."
+do_6 = "do_6 Gotcha 4286. The build reads the finding lines of the type check for the paths of this task, whatever value the package manager returns."
 
 [task.22.40.11]
 title = "Show the launch asset and the revenue epochs of a chain in the explorer"

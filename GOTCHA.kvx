@@ -21250,3 +21250,13 @@ fix = "Decision 3367."
 title = "The type check of the launchpad web application reads every file of the application"
 symptom = "pnpm --dir apps/launchpad/web exec tsc --noEmit reads the source and test files of every flow, so the build of a flow task reads files of other flows."
 fix = "Decision 3368."
+
+[gotcha.4286]
+title = "The package manager returns 1 when a command it runs ends with findings"
+symptom = "pnpm exec returns 1 when the type checker ends with findings, whatever value the type checker returns."
+fix = "The build of a launchpad web flow task reads the finding lines of the type check."
+
+[gotcha.4287]
+title = "The security linter reports a file opened on a path held in a variable"
+symptom = "gosec reports each call that opens or creates a file on a path held in a variable, also where the path comes from the configuration of the command."
+fix = "Decision 3369."
