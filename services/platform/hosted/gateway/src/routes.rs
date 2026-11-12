@@ -1,6 +1,4 @@
-use super::{
-    authenticate_key, http, json_response, response, Config, IncomingRequest, OutgoingResponse,
-};
+use super::{authenticate_key, http, json_response, response, Config, IncomingRequest, OutgoingResponse};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -75,10 +73,7 @@ fn catalogue() -> &'static Value {
 }
 
 fn service(id: &str) -> Option<&'static Value> {
-    catalogue()["services"]
-        .as_array()?
-        .iter()
-        .find(|s| s["id"] == id)
+    catalogue()["services"].as_array()?.iter().find(|s| s["id"] == id)
 }
 
 fn private(id: &str) -> bool {
@@ -86,31 +81,107 @@ fn private(id: &str) -> bool {
 }
 
 fn safe_path(path: &str) -> bool {
-    path.starts_with('/')
-        && path.len() <= 2048
-        && !path.contains(['?', '#', '\\', '%'])
-        && path.split('/').all(|part| part != "." && part != "..")
-        && path.bytes().all(|b| b.is_ascii_graphic())
+    path.starts_with('/') && path.len() <= 2048 && !path.contains(['?', '#', '\\', '%']) && path.split('/').all(|part| part != "." && part != "..") && path.bytes().all(|b| b.is_ascii_graphic())
 }
 
 fn protected(path: &str) -> Result<Vec<u8>, String> {
     let metadata = fs::symlink_metadata(path).map_err(|_| "route binding file unavailable")?;
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.mode() & 0o077 != 0
-        || metadata.len() > MAX_BINDINGS_BYTES
-    {
+    if !metadata.is_file() || metadata.nlink() != 1 || metadata.mode() & 0o077 != 0 || metadata.len() > MAX_BINDINGS_BYTES {
         return Err("route binding file is not protected".into());
     }
     fs::read(path).map_err(|_| "route binding file unreadable".into())
 }
 
+fn validate_upstreams(file: &BindingFile, network: &str, wire: &str) -> Result<(), String> {
+    for (name, upstream) in &file.upstreams {
+        if name.is_empty()
+            || name.len() > 64
+            || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            || private(&upstream.service)
+            || !catalogue()["routes"].as_array().is_some_and(|routes| routes.iter().any(|route| route["proxy"] == true && route["service"] == upstream.service && route["upstream"] == *name))
+        {
+            return Err("unknown route upstream or service binding".into());
+        }
+        if name == "layerx-explorer" {
+            let binding = &upstream.binding;
+            if upstream.service != "explorer"
+                || binding.health_path != "/v1/readiness"
+                || binding.identity_path != "/v1/identity"
+                || binding.ready_pointer != "/complete"
+                || binding.ready_value != json!(true)
+                || binding.network_pointer != "/network_id"
+                || binding.network_value != json!(network)
+                || binding.version_pointer != "/wire_version"
+                || binding.version_value != json!(wire)
+            {
+                return Err("native explorer owner identity binding invalid".into());
+            }
+            let _ = native_explorer_authorization(binding)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_service_bindings(file: &BindingFile, network: &str, wire: &str) -> Result<(), String> {
+    for (id, binding) in file.services.iter().chain(file.upstreams.values().map(|value| (&value.service, &value.binding))) {
+        if service(id).is_none() {
+            return Err("unknown route service".into());
+        }
+        let endpoint = http::Endpoint::parse(&binding.url)?;
+        if !endpoint.base_path.is_empty() || (!safe_path(&binding.health_path) || !safe_path(&binding.identity_path)) {
+            return Err("route binding endpoint or health path invalid".into());
+        }
+        if let Some(url) = &binding.discovery_url {
+            http::Endpoint::parse(url)?;
+            if private(id) {
+                return Err("private service cannot advertise an endpoint".into());
+            }
+        }
+        if ![&binding.ready_pointer, &binding.network_pointer, &binding.version_pointer].iter().all(|p| p.starts_with('/') && p.len() <= 128)
+            || binding.ready_value.is_null()
+            || ![json!(125), json!(network)].contains(&binding.network_value)
+            || !binding.version_value.as_str().is_some_and(|v| !v.is_empty() && v.len() <= 64)
+        {
+            return Err("route health identity predicate invalid".into());
+        }
+        if id == AGENT_RPC_SERVICE {
+            if binding.network_value != json!(network) {
+                return Err(format!("route binding {id} network_value must equal the gateway network {network}"));
+            }
+            if binding.version_value != json!(wire) {
+                return Err(format!("route binding {id} version_value differs from the gateway wire version {wire}"));
+            }
+        }
+        if let Some(path) = &binding.health_authorization_file {
+            let _ = protected(path)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_passthrough(file: &BindingFile) -> Result<(), String> {
+    let mut listeners = BTreeSet::new();
+    for tunnel in &file.passthrough {
+        if !matches!(tunnel.service.as_str(), "program-registry" | "agentd") || !listeners.insert(tunnel.listen) || tunnel.listen.port() == 0 || !file.services.contains_key(&tunnel.service) {
+            return Err("TLS passthrough service or listener invalid".into());
+        }
+        let target = http::Endpoint::parse(&tunnel.upstream)?;
+        let binding = file.services.get(&tunnel.service).ok_or("TLS service absent")?;
+        let bound = http::Endpoint::parse(&binding.url)?;
+        if target.host != bound.host || target.port != bound.port {
+            return Err("TLS passthrough differs from authenticated service identity".into());
+        }
+        if !target.base_path.is_empty() {
+            return Err("TLS passthrough cannot rewrite paths".into());
+        }
+    }
+    Ok(())
+}
+
 impl Registry {
     pub(super) fn configured(network: &str, wire: &str) -> Result<Self, String> {
         let hpx_ingress = match std::env::var_os("LAYERX_GATEWAY_HPX_INGRESS_FILE") {
-            Some(path) => layerx_platform_gateway::HpxIngressPolicy::from_protected_file(
-                std::path::Path::new(&path),
-            )?,
+            Some(path) => layerx_platform_gateway::HpxIngressPolicy::from_protected_file(std::path::Path::new(&path))?,
             None => layerx_platform_gateway::HpxIngressPolicy::default(),
         };
         let Some(path) = std::env::var_os("LAYERX_GATEWAY_ROUTE_BINDINGS_FILE") else {
@@ -124,134 +195,20 @@ impl Registry {
             });
         };
         let path = path.to_str().ok_or("route binding path invalid")?;
-        let file: BindingFile =
-            serde_json::from_slice(&protected(path)?).map_err(|_| "route bindings malformed")?;
-        if file.schema != "paxeer-x.route-bindings.v1"
-            || file.chain_id != 125
-            || file.network_id != network
-            || file.wire_version != wire
-            || file.services.len() > 31
-            || file.upstreams.len() > 64
-            || file.mcp.len() > 32
-        {
+        let file: BindingFile = serde_json::from_slice(&protected(path)?).map_err(|_| "route bindings malformed")?;
+        if file.schema != "paxeer-x.route-bindings.v1" || file.chain_id != 125 || file.network_id != network || file.wire_version != wire || file.services.len() > 31 || file.upstreams.len() > 64 || file.mcp.len() > 32 {
             return Err("route bindings network or version mismatch".into());
         }
         let mut allowed_origins = BTreeSet::new();
-        for origin in file.allowed_origins {
-            let endpoint = http::Endpoint::parse(&origin)?;
-            if !endpoint.base_path.is_empty()
-                || origin.contains('*')
-                || !allowed_origins.insert(origin)
-            {
+        for origin in &file.allowed_origins {
+            let endpoint = http::Endpoint::parse(origin)?;
+            if !endpoint.base_path.is_empty() || origin.contains('*') || !allowed_origins.insert(origin.clone()) {
                 return Err("route CORS origin invalid or duplicate".into());
             }
         }
-        for (name, upstream) in &file.upstreams {
-            if name.is_empty()
-                || name.len() > 64
-                || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
-                || private(&upstream.service)
-                || !catalogue()["routes"].as_array().is_some_and(|routes| {
-                    routes.iter().any(|route| {
-                        route["proxy"] == true
-                            && route["service"] == upstream.service
-                            && route["upstream"] == *name
-                    })
-                })
-            {
-                return Err("unknown route upstream or service binding".into());
-            }
-            if name == "layerx-explorer" {
-                let binding = &upstream.binding;
-                if upstream.service != "explorer"
-                    || binding.health_path != "/v1/readiness"
-                    || binding.identity_path != "/v1/identity"
-                    || binding.ready_pointer != "/complete"
-                    || binding.ready_value != json!(true)
-                    || binding.network_pointer != "/network_id"
-                    || binding.network_value != json!(network)
-                    || binding.version_pointer != "/wire_version"
-                    || binding.version_value != json!(wire)
-                {
-                    return Err("native explorer owner identity binding invalid".into());
-                }
-                let _ = native_explorer_authorization(binding)?;
-            }
-        }
-        for (id, binding) in file.services.iter().chain(
-            file.upstreams
-                .values()
-                .map(|value| (&value.service, &value.binding)),
-        ) {
-            if service(id).is_none() {
-                return Err("unknown route service".into());
-            }
-            let endpoint = http::Endpoint::parse(&binding.url)?;
-            if !endpoint.base_path.is_empty()
-                || (!safe_path(&binding.health_path) || !safe_path(&binding.identity_path))
-            {
-                return Err("route binding endpoint or health path invalid".into());
-            }
-            if let Some(url) = &binding.discovery_url {
-                http::Endpoint::parse(url)?;
-                if private(id) {
-                    return Err("private service cannot advertise an endpoint".into());
-                }
-            }
-            if ![
-                &binding.ready_pointer,
-                &binding.network_pointer,
-                &binding.version_pointer,
-            ]
-            .iter()
-            .all(|p| p.starts_with('/') && p.len() <= 128)
-                || binding.ready_value.is_null()
-                || ![json!(125), json!(network)].contains(&binding.network_value)
-                || !binding
-                    .version_value
-                    .as_str()
-                    .is_some_and(|v| !v.is_empty() && v.len() <= 64)
-            {
-                return Err("route health identity predicate invalid".into());
-            }
-            if id == AGENT_RPC_SERVICE {
-                if binding.network_value != json!(network) {
-                    return Err(format!(
-                        "route binding {id} network_value must equal the gateway network {network}"
-                    ));
-                }
-                if binding.version_value != json!(wire) {
-                    return Err(format!(
-                        "route binding {id} version_value differs from the gateway wire version {wire}"
-                    ));
-                }
-            }
-            if let Some(path) = &binding.health_authorization_file {
-                let _ = protected(path)?;
-            }
-        }
-        let mut listeners = BTreeSet::new();
-        for tunnel in &file.passthrough {
-            if !matches!(tunnel.service.as_str(), "program-registry" | "agentd")
-                || !listeners.insert(tunnel.listen)
-                || tunnel.listen.port() == 0
-                || !file.services.contains_key(&tunnel.service)
-            {
-                return Err("TLS passthrough service or listener invalid".into());
-            }
-            let target = http::Endpoint::parse(&tunnel.upstream)?;
-            let binding = file
-                .services
-                .get(&tunnel.service)
-                .ok_or("TLS service absent")?;
-            let bound = http::Endpoint::parse(&binding.url)?;
-            if target.host != bound.host || target.port != bound.port {
-                return Err("TLS passthrough differs from authenticated service identity".into());
-            }
-            if !target.base_path.is_empty() {
-                return Err("TLS passthrough cannot rewrite paths".into());
-            }
-        }
+        validate_upstreams(&file, network, wire)?;
+        validate_service_bindings(&file, network, wire)?;
+        validate_passthrough(&file)?;
         let mut mcp = BTreeMap::new();
         for binding in file.mcp {
             let (principal, route) = McpRoute::configured(binding)?;
@@ -279,8 +236,7 @@ impl Registry {
             if tunnel.listen == primary {
                 return Err("TLS passthrough conflicts with HTTP listener".into());
             }
-            let listener =
-                TcpListener::bind(tunnel.listen).map_err(|_| "TLS passthrough bind failed")?;
+            let listener = TcpListener::bind(tunnel.listen).map_err(|_| "TLS passthrough bind failed")?;
             let endpoint = http::Endpoint::parse(&tunnel.upstream)?;
             listeners.push((listener, endpoint));
         }
@@ -289,33 +245,22 @@ impl Registry {
             std::thread::spawn(move || {
                 for incoming in listener.incoming() {
                     let Ok(client) = incoming else { break };
-                    if active
-                        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                            (n < 32).then_some(n + 1)
-                        })
-                        .is_err()
-                    {
+                    if active.fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| (n < 32).then_some(n + 1)).is_err() {
                         continue;
                     }
                     let active = Arc::clone(&active);
                     let endpoint = endpoint.clone();
                     std::thread::spawn(move || {
                         let run = || -> Result<(), std::io::Error> {
-                            let address = (endpoint.host.as_str(), endpoint.port)
-                                .to_socket_addrs()?
-                                .next()
-                                .ok_or_else(|| std::io::Error::other("TLS upstream unresolved"))?;
-                            let upstream =
-                                TcpStream::connect_timeout(&address, Duration::from_secs(3))?;
+                            let address = (endpoint.host.as_str(), endpoint.port).to_socket_addrs()?.next().ok_or_else(|| std::io::Error::other("TLS upstream unresolved"))?;
+                            let upstream = TcpStream::connect_timeout(&address, Duration::from_secs(3))?;
                             for socket in [&client, &upstream] {
                                 socket.set_read_timeout(Some(Duration::from_secs(8)))?;
                                 socket.set_write_timeout(Some(Duration::from_secs(8)))?;
                             }
                             let client_read = client.try_clone()?;
                             let upstream_write = upstream.try_clone()?;
-                            let outbound = std::thread::spawn(move || {
-                                tunnel_bytes(client_read, upstream_write)
-                            });
+                            let outbound = std::thread::spawn(move || tunnel_bytes(client_read, upstream_write));
                             let _ = tunnel_bytes(upstream, client);
                             let _ = outbound.join();
                             Ok(())
@@ -330,21 +275,14 @@ impl Registry {
     }
 
     pub(super) fn origin<'a>(&self, request: &'a IncomingRequest) -> Option<&'a str> {
-        request
-            .headers
-            .get("origin")
-            .filter(|origin| self.allowed_origins.contains(*origin))
-            .map(String::as_str)
+        request.headers.get("origin").filter(|origin| self.allowed_origins.contains(*origin)).map(String::as_str)
     }
 
     fn binding(&self, service: &str, upstream: &str) -> Option<&Binding> {
         if upstream == service {
             self.bindings.get(service)
         } else {
-            self.upstreams
-                .get(upstream)
-                .filter(|value| value.service == service)
-                .map(|value| &value.binding)
+            self.upstreams.get(upstream).filter(|value| value.service == service).map(|value| &value.binding)
         }
     }
 
@@ -357,34 +295,22 @@ impl Registry {
                 return Err("not_configured");
             }
             for route in self.mcp.values() {
-                let binding = route
-                    .owner_binding()
-                    .map_err(|_| "owner_binding_unavailable")?;
-                let socket = binding["listener"]["socket"]
-                    .as_str()
-                    .ok_or("owner_socket_unavailable")?;
-                route
-                    .socket_identity(std::path::Path::new(socket))
-                    .map_err(|_| "owner_socket_unavailable")?;
+                let binding = route.owner_binding().map_err(|_| "owner_binding_unavailable")?;
+                let socket = binding["listener"]["socket"].as_str().ok_or("owner_socket_unavailable")?;
+                route.socket_identity(std::path::Path::new(socket)).map_err(|_| "owner_socket_unavailable")?;
             }
         }
-        let upstreams: BTreeSet<_> = catalogue()["routes"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|route| route["service"] == id && route["proxy"] == true)
-            .filter_map(|route| route["upstream"].as_str())
-            .collect();
+        let upstreams: BTreeSet<_> = catalogue()["routes"].as_array().into_iter().flatten().filter(|route| route["service"] == id && route["proxy"] == true).filter_map(|route| route["upstream"].as_str()).collect();
         if upstreams.is_empty() {
-            return self.health_binding(config, self.bindings.get(id).ok_or("not_configured")?);
+            return Self::health_binding(config, self.bindings.get(id).ok_or("not_configured")?);
         }
         for upstream in upstreams {
-            self.health_binding(config, self.binding(id, upstream).ok_or("not_configured")?)?;
+            Self::health_binding(config, self.binding(id, upstream).ok_or("not_configured")?)?;
         }
         Ok(())
     }
 
-    fn health_binding(&self, config: &Config, binding: &Binding) -> Result<(), &'static str> {
+    fn health_binding(config: &Config, binding: &Binding) -> Result<(), &'static str> {
         probe_binding(&config.client, binding)
     }
 
@@ -393,23 +319,13 @@ impl Registry {
             return json!({"complete": false});
         };
         let states = std::thread::scope(|scope| {
-            let handles: Vec<_> = services
-                .iter()
-                .filter_map(|s| s["id"].as_str())
-                .map(|id| (id, scope.spawn(move || self.health(config, id))))
-                .collect();
+            let handles: Vec<_> = services.iter().filter_map(|s| s["id"].as_str()).map(|id| (id, scope.spawn(move || self.health(config, id)))).collect();
             handles
                 .into_iter()
                 .map(|(id, handle)| {
                     let result = handle.join().unwrap_or(Err("probe_failed"));
-                    let configured = self.bindings.contains_key(id)
-                        || self.upstreams.values().any(|upstream| upstream.service == id)
-                        || (id == "mcp-a2a" && !self.mcp.is_empty())
-                        || result != Err("not_configured");
-                    (
-                        id.to_owned(),
-                        json!({"configured": configured, "ready": result.is_ok(), "reason": result.err().unwrap_or("ready")}),
-                    )
+                    let configured = self.bindings.contains_key(id) || self.upstreams.values().any(|upstream| upstream.service == id) || (id == "mcp-a2a" && !self.mcp.is_empty()) || result != Err("not_configured");
+                    (id.to_owned(), json!({"configured": configured, "ready": result.is_ok(), "reason": result.err().unwrap_or("ready")}))
                 })
                 .collect::<BTreeMap<_, _>>()
         });
@@ -427,30 +343,20 @@ fn matches_path(template: &str, path: &str) -> bool {
     parts.len() == expected.len()
         && expected.iter().zip(parts).all(|(left, right)| {
             if left.starts_with(':') || (left.starts_with('{') && left.ends_with('}')) {
-                !right.is_empty()
-                    && right.len() <= 512
-                    && right
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b"-._:".contains(&b))
+                !right.is_empty() && right.len() <= 512 && right.bytes().all(|b| b.is_ascii_alphanumeric() || b"-._:".contains(&b))
             } else {
                 *left == right
             }
         })
 }
 
-pub(super) fn route(
-    config: &Config,
-    request: &IncomingRequest,
-    peer: Option<std::net::SocketAddr>,
-) -> Option<OutgoingResponse> {
+pub(super) fn route(config: &Config, request: &IncomingRequest, peer: Option<std::net::SocketAddr>) -> Option<OutgoingResponse> {
     if let Some(result) = super::explorer_proxy::route(request) {
         return Some(result);
     }
     let browser_profile = http::browser_route_profile(&request.path);
     if request.method == "OPTIONS" && browser_profile != http::BrowserRouteProfile::GasStation {
-        if browser_profile == http::BrowserRouteProfile::UnifiedAccount
-            && !http::unified_account_preflight(request)
-        {
+        if browser_profile == http::BrowserRouteProfile::UnifiedAccount && !http::unified_account_preflight(request) {
             return Some(response(400, "invalid_preflight", None));
         }
         return Some(if config.routes.origin(request).is_some() {
@@ -468,12 +374,7 @@ pub(super) fn route(
     if request.headers.contains_key("origin") && config.routes.origin(request).is_none() {
         return Some(response(403, "origin_not_allowed", None));
     }
-    if request
-        .path
-        .split_once('?')
-        .map_or(request.path.as_str(), |(path, _)| path)
-        == "/mcp"
-    {
+    if request.path.split_once('?').map_or(request.path.as_str(), |(path, _)| path) == "/mcp" {
         return Some(mcp_route(config, request));
     }
     if request.path == "/v1/routes" || request.path.starts_with("/v1/routes/") {
@@ -499,139 +400,56 @@ pub(super) fn route(
         let result = config.routes.health(config, id);
         document["ready"] = json!(result.is_ok());
         document["reason"] = json!(result.err().unwrap_or("ready"));
-        document["routes"] = json!(catalogue()["routes"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter(|r| r["service"] == id)
-            .collect::<Vec<_>>());
+        document["routes"] = json!(catalogue()["routes"].as_array().into_iter().flatten().filter(|r| r["service"] == id).collect::<Vec<_>>());
         if result.is_ok() {
-            if let Some(url) = config
-                .routes
-                .bindings
-                .get(id)
-                .and_then(|b| b.discovery_url.as_ref())
-            {
+            if let Some(url) = config.routes.bindings.get(id).and_then(|b| b.discovery_url.as_ref()) {
                 document["endpoint"] = json!(url);
             }
         }
-        return Some(json_response(
-            if result.is_ok() { 200 } else { 503 },
-            &document,
-        ));
+        return Some(json_response(if result.is_ok() { 200 } else { 503 }, &document));
     }
-    if request
-        .path
-        .split_once('?')
-        .map_or(request.path.as_str(), |(path, _)| path)
-        == AGENT_RPC_PATH
-    {
+    if request.path.split_once('?').map_or(request.path.as_str(), |(path, _)| path) == AGENT_RPC_PATH {
         return Some(agent_rpc(config, request));
     }
+    route_proxy(config, request, peer, browser_profile)
+}
+
+fn selected_proxy_entry(request: &IncomingRequest, browser_profile: http::BrowserRouteProfile) -> Option<&'static Value> {
     let classified = layerx_platform_gateway::unified_service_route(&request.method, &request.path);
-    let entry = catalogue()["routes"].as_array()?.iter().find(|r| {
+    catalogue()["routes"].as_array()?.iter().find(|r| {
         r["proxy"] == true
             && r["method"] == request.method
             && r["path"].as_str().is_some_and(|p| {
                 if r["upstream"] == "layerx-explorer" {
                     match p {
-                        "/v1/accounts/{accountId}/unified" => {
-                            browser_profile == http::BrowserRouteProfile::UnifiedAccount
-                        }
+                        "/v1/accounts/{accountId}/unified" => browser_profile == http::BrowserRouteProfile::UnifiedAccount,
                         _ => false,
                     }
                 } else {
                     classified.is_some_and(|entry| entry["id"] == r["id"])
                 }
             })
-    })?;
+    })
+}
+
+fn route_proxy(config: &Config, request: &IncomingRequest, peer: Option<std::net::SocketAddr>, browser_profile: http::BrowserRouteProfile) -> Option<OutgoingResponse> {
+    let entry = selected_proxy_entry(request, browser_profile)?;
     let id = entry["service"].as_str()?;
     if private(id) {
         return Some(response(403, "private_service", None));
     }
-    if entry["upstream"] == "layerx-explorer" {
-        let account = browser_profile == http::BrowserRouteProfile::UnifiedAccount;
-        if !account
-            || request.method != "GET"
-            || !request.body.is_empty()
-            || request
-                .headers
-                .get("layerx-unified-profile")
-                .is_some_and(|value| !account || !matches!(value.as_str(), "1" | "2"))
-        {
-            return Some(response(400, "invalid_explorer_profile_request", None));
-        }
-    }
-    if entry["authentication"] == "gateway-api-key" {
-        if let Err(refusal) = authenticate_key(config, request) {
-            return Some(refusal);
-        }
-    }
-    if id == "agentd" {
-        if request.body.len() > 1024 * 1024 {
-            return Some(response(413, "request_too_large", None));
-        }
-        if let Err(refusal) = authenticate_key(config, request) {
-            return Some(refusal);
-        }
-    }
-    let migration_history = id == "interop"
-        && matches!(
-            entry["path"].as_str(),
-            Some("/v2/migration/history" | "/v2/migration/history/read")
-        );
-    if migration_history {
-        if entry["path"].as_str() != Some(request.path.as_str()) {
-            return Some(response(400, "migration_history_query_forbidden", None));
-        }
-        if request.body.len() > 512 * 1024 {
-            return Some(response(413, "migration_history_request_too_large", None));
-        }
-    }
-    if id == "interop"
-        && matches!(
-            request.path.as_str(),
-            "/v2/migration/accounts"
-                | "/v2/migration/assets"
-                | "/v2/migration/history"
-                | "/v2/migration/history/read"
-        )
-    {
-        if !request
-            .headers
-            .get("authorization")
-            .is_some_and(|value| !value.is_empty())
-        {
-            return Some(response(
-                401,
-                "migration_customer_authorization_required",
-                None,
-            ));
-        }
-        if request
-            .headers
-            .contains_key("x-layerx-customer-authorization")
-            || request.headers.contains_key("x-layerx-expected-did")
-        {
-            return Some(response(400, "migration_internal_headers_forbidden", None));
-        }
+    if let Err(refusal) = authorize_proxy_entry(config, request, entry, id, browser_profile) {
+        return Some(refusal);
     }
     let upstream = entry["upstream"].as_str().unwrap_or(id);
     let Some(binding) = config.routes.binding(id, upstream) else {
-        return Some(json_response(
-            503,
-            &json!({"error":{"code":"route_unavailable","service":id,"reason":"not_configured"}}),
-        ));
+        return Some(json_response(503, &json!({"error":{"code":"route_unavailable","service":id,"reason":"not_configured"}})));
     };
-    if let Err(reason) = config.routes.health_binding(config, binding) {
-        return Some(json_response(
-            503,
-            &json!({"error":{"code":"route_unavailable","service":id,"reason":reason}}),
-        ));
+    if let Err(reason) = Registry::health_binding(config, binding) {
+        return Some(json_response(503, &json!({"error":{"code":"route_unavailable","service":id,"reason":reason}})));
     }
-    let endpoint = match http::Endpoint::parse(&binding.url) {
-        Ok(endpoint) => endpoint,
-        Err(_) => return Some(response(503, "invalid_upstream", None)),
+    let Ok(endpoint) = http::Endpoint::parse(&binding.url) else {
+        return Some(response(503, "invalid_upstream", None));
     };
     let native_authorization = if upstream == "layerx-explorer" {
         match native_explorer_authorization(binding) {
@@ -643,50 +461,94 @@ pub(super) fn route(
     };
     let authorization = if let Some(value) = &native_authorization {
         value.as_str()
-    } else if matches!(
-        id,
-        "human" | "wallet-gateway" | "interop" | "ramp" | "webhooks-dashboard"
-    ) {
-        request
-            .headers
-            .get("authorization")
-            .map_or("", String::as_str)
+    } else if matches!(id, "human" | "wallet-gateway" | "interop" | "ramp" | "webhooks-dashboard") {
+        request.headers.get("authorization").map_or("", String::as_str)
     } else {
         ""
     };
     let forwarded: Vec<_> = request
         .headers
         .iter()
-        .filter(|(name, value)| {
-            forward_header(id, name)
-                || http::browser_profile_request_header(&request.method, &request.path, name, value)
-        })
+        .filter(|(name, value)| forward_header(id, name) || http::browser_profile_request_header(&request.method, &request.path, name, value))
         .map(|(name, value)| (name.as_str(), value.as_str()))
         .collect();
-    let upstream_path = match if upstream == "layerx-explorer" {
-        Some(request.path.clone())
-    } else {
-        routed_path(entry, &request.path)
-    } {
-        Some(path) => path,
-        None => return Some(response(400, "invalid_route_target", None)),
+    let Some(upstream_path) = (if upstream == "layerx-explorer" { Some(request.path.clone()) } else { routed_path(entry, &request.path) }) else {
+        return Some(response(400, "invalid_route_target", None));
     };
-    if id == "hpx" && matches!(upstream_path.as_str(), "/api/register" | "/api/myip") {
+    if let Some(result) = forward_hpx(config, request, &endpoint, &upstream_path, id, peer) {
+        return Some(result);
+    }
+    Some(
+        match config.client.request_browser_forwarded(
+            &endpoint,
+            authorization,
+            &http::OutboundRequest {
+                method: &request.method,
+                path: &upstream_path,
+                idempotency: request.headers.get("idempotency-key").map(String::as_str),
+                content_type: request.headers.get("content-type").map_or("application/json", String::as_str),
+                body: &request.body,
+            },
+            &forwarded,
+            browser_profile,
+        ) {
+            Ok(reply) => OutgoingResponse {
+                status: reply.status,
+                content_type: reply.content_type,
+                headers: reply.headers.into_iter().filter(|(name, _)| response_header(id, name) || http::browser_profile_response_header(browser_profile, name)).collect(),
+                body: reply.body,
+                retry_after: None,
+            },
+            Err(_) => response(503, "upstream_unavailable", None),
+        },
+    )
+}
+
+fn authorize_proxy_entry(config: &Config, request: &IncomingRequest, entry: &Value, id: &str, browser_profile: http::BrowserRouteProfile) -> Result<(), OutgoingResponse> {
+    if entry["upstream"] == "layerx-explorer" {
+        let account = browser_profile == http::BrowserRouteProfile::UnifiedAccount;
+        if !account || request.method != "GET" || !request.body.is_empty() || request.headers.get("layerx-unified-profile").is_some_and(|value| !account || !matches!(value.as_str(), "1" | "2")) {
+            return Err(response(400, "invalid_explorer_profile_request", None));
+        }
+    }
+    if entry["authentication"] == "gateway-api-key" {
+        authenticate_key(config, request)?;
+    }
+    if id == "agentd" {
+        if request.body.len() > 1024 * 1024 {
+            return Err(response(413, "request_too_large", None));
+        }
+        authenticate_key(config, request)?;
+    }
+    let migration_history = id == "interop" && matches!(entry["path"].as_str(), Some("/v2/migration/history" | "/v2/migration/history/read"));
+    if migration_history {
+        if entry["path"].as_str() != Some(request.path.as_str()) {
+            return Err(response(400, "migration_history_query_forbidden", None));
+        }
+        if request.body.len() > 512 * 1024 {
+            return Err(response(413, "migration_history_request_too_large", None));
+        }
+    }
+    if id == "interop" && matches!(request.path.as_str(), "/v2/migration/accounts" | "/v2/migration/assets" | "/v2/migration/history" | "/v2/migration/history/read") {
+        if request.headers.get("authorization").is_none_or(String::is_empty) {
+            return Err(response(401, "migration_customer_authorization_required", None));
+        }
+        if request.headers.contains_key("x-layerx-customer-authorization") || request.headers.contains_key("x-layerx-expected-did") {
+            return Err(response(400, "migration_internal_headers_forbidden", None));
+        }
+    }
+    Ok(())
+}
+
+fn forward_hpx(config: &Config, request: &IncomingRequest, endpoint: &http::Endpoint, upstream_path: &str, id: &str, peer: Option<std::net::SocketAddr>) -> Option<OutgoingResponse> {
+    if id == "hpx" && matches!(upstream_path, "/api/register" | "/api/myip") {
         let Some(peer) = peer else {
             return Some(response(503, "hpx_ingress_provenance_unavailable", None));
         };
-        let address = match config.routes.hpx_ingress.client_address(
-            peer,
-            request.headers.get("x-forwarded-for").map(String::as_str),
-        ) {
-            Ok(address) => address,
-            Err(_) => return Some(response(400, "hpx_ingress_provenance_refused", None)),
+        let Ok(address) = config.routes.hpx_ingress.client_address(peer, request.headers.get("x-forwarded-for").map(String::as_str)) else {
+            return Some(response(400, "hpx_ingress_provenance_refused", None));
         };
-        if request.headers.get("x-hpx-token").is_some_and(|token| {
-            token.is_empty()
-                || token.len() > 4096
-                || !token.bytes().all(|byte| byte.is_ascii_graphic())
-        }) {
+        if request.headers.get("x-hpx-token").is_some_and(|token| token.is_empty() || token.len() > 4096 || !token.bytes().all(|byte| byte.is_ascii_graphic())) {
             return Some(response(400, "hpx_registration_token_invalid", None));
         }
         if upstream_path == "/api/register" && request.body.len() > 65_536 {
@@ -697,32 +559,21 @@ pub(super) fn route(
         }
         return Some(
             match config.client.request_hpx_forwarded(
-                &endpoint,
+                endpoint,
                 &http::OutboundRequest {
                     method: &request.method,
-                    path: &upstream_path,
+                    path: upstream_path,
                     idempotency: None,
-                    content_type: request
-                        .headers
-                        .get("content-type")
-                        .map_or("application/json", String::as_str),
+                    content_type: request.headers.get("content-type").map_or("application/json", String::as_str),
                     body: &request.body,
                 },
                 address,
-                if upstream_path == "/api/register" {
-                    request.headers.get("x-hpx-token").map(String::as_str)
-                } else {
-                    None
-                },
+                if upstream_path == "/api/register" { request.headers.get("x-hpx-token").map(String::as_str) } else { None },
             ) {
                 Ok(reply) => OutgoingResponse {
                     status: reply.status,
                     content_type: reply.content_type,
-                    headers: reply
-                        .headers
-                        .into_iter()
-                        .filter(|(name, _)| response_header(id, name))
-                        .collect(),
+                    headers: reply.headers.into_iter().filter(|(name, _)| response_header(id, name)).collect(),
                     body: reply.body,
                     retry_after: None,
                 },
@@ -730,40 +581,7 @@ pub(super) fn route(
             },
         );
     }
-    Some(
-        match config.client.request_browser_forwarded(
-            &endpoint,
-            authorization,
-            &http::OutboundRequest {
-                method: &request.method,
-                path: &upstream_path,
-                idempotency: request.headers.get("idempotency-key").map(String::as_str),
-                content_type: request
-                    .headers
-                    .get("content-type")
-                    .map_or("application/json", String::as_str),
-                body: &request.body,
-            },
-            &forwarded,
-            browser_profile,
-        ) {
-            Ok(reply) => OutgoingResponse {
-                status: reply.status,
-                content_type: reply.content_type,
-                headers: reply
-                    .headers
-                    .into_iter()
-                    .filter(|(name, _)| {
-                        response_header(id, name)
-                            || http::browser_profile_response_header(browser_profile, name)
-                    })
-                    .collect(),
-                body: reply.body,
-                retry_after: None,
-            },
-            Err(_) => response(503, "upstream_unavailable", None),
-        },
-    )
+    None
 }
 
 fn agent_rpc_refusal(status: u16, reason: &str) -> OutgoingResponse {
@@ -784,22 +602,13 @@ fn agent_rpc(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         return response(400, "query_string_not_allowed", None);
     }
     let Some(entry) = catalogue()["routes"].as_array().and_then(|routes| {
-        routes.iter().find(|r| {
-            r["service"] == AGENT_RPC_SERVICE
-                && r["path"] == AGENT_RPC_PATH
-                && r["method"] == "POST"
-                && r["proxy"] == true
-                && r["authentication"] == "gateway-api-key"
-                && r["surface"] == "agent"
-                && r["tls"] == "mtls"
-        })
+        routes
+            .iter()
+            .find(|r| r["service"] == AGENT_RPC_SERVICE && r["path"] == AGENT_RPC_PATH && r["method"] == "POST" && r["proxy"] == true && r["authentication"] == "gateway-api-key" && r["surface"] == "agent" && r["tls"] == "mtls")
     }) else {
         return response(503, "route_unavailable", None);
     };
-    let Some(upstream_path) = entry["upstream_path"]
-        .as_str()
-        .filter(|path| safe_path(path))
-    else {
+    let Some(upstream_path) = entry["upstream_path"].as_str().filter(|path| safe_path(path)) else {
         return response(503, "invalid_upstream", None);
     };
     if request.method != "POST" {
@@ -808,10 +617,7 @@ fn agent_rpc(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     if private(AGENT_RPC_SERVICE) {
         return response(403, "private_service", None);
     }
-    if ["layerx-tenant", "layerx-agent"]
-        .iter()
-        .any(|name| request.headers.contains_key(*name))
-    {
+    if ["layerx-tenant", "layerx-agent"].iter().any(|name| request.headers.contains_key(*name)) {
         return response(400, "untrusted_identity_header", None);
     }
     if let Err(refusal) = authenticate_key(config, request) {
@@ -827,10 +633,7 @@ fn agent_rpc(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         return response(503, "client_identity_required", None);
     }
     if let Err(reason) = config.routes.health(config, AGENT_RPC_SERVICE) {
-        return json_response(
-            503,
-            &json!({"error":{"code":"route_unavailable","service":AGENT_RPC_SERVICE,"reason":reason}}),
-        );
+        return json_response(503, &json!({"error":{"code":"route_unavailable","service":AGENT_RPC_SERVICE,"reason":reason}}));
     }
     let Some(binding) = config.routes.bindings.get(AGENT_RPC_SERVICE) else {
         return response(503, "route_unavailable", None);
@@ -854,11 +657,7 @@ fn agent_rpc(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         Ok(reply) if reply.content_type == "application/json" => OutgoingResponse {
             status: reply.status,
             content_type: "application/json".to_owned(),
-            headers: reply
-                .headers
-                .into_iter()
-                .filter(|(name, _)| response_header(AGENT_RPC_SERVICE, name))
-                .collect(),
+            headers: reply.headers.into_iter().filter(|(name, _)| response_header(AGENT_RPC_SERVICE, name)).collect(),
             body: reply.body,
             retry_after: None,
         },
@@ -867,44 +666,25 @@ fn agent_rpc(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     }
 }
 
-pub(super) fn stream(
-    config: &Config,
-    request: &IncomingRequest,
-    downstream: &mut impl std::io::Write,
-) -> Option<Result<(), String>> {
+pub(super) fn stream(config: &Config, request: &IncomingRequest, downstream: &mut impl std::io::Write) -> Option<Result<(), String>> {
     if request.method != "GET" {
         return None;
     }
-    let entry = catalogue()["routes"].as_array()?.iter().find(|entry| {
-        entry["proxy"] == true
-            && entry["service"] == "human"
-            && entry["method"] == "GET"
-            && entry.get("upstream_path").unwrap_or(&entry["path"]) == "/v1/stream/{cursor}"
-            && entry["path"]
-                .as_str()
-                .is_some_and(|path| matches_path(path, &request.path))
-    })?;
-    let refusal = if request.headers.contains_key("x-layerx-principal")
-        || request.headers.contains_key("x-layerx-api-key")
-    {
+    let entry = catalogue()["routes"]
+        .as_array()?
+        .iter()
+        .find(|entry| entry["proxy"] == true && entry["service"] == "human" && entry["method"] == "GET" && entry.get("upstream_path").unwrap_or(&entry["path"]) == "/v1/stream/{cursor}" && entry["path"].as_str().is_some_and(|path| matches_path(path, &request.path)))?;
+    let refusal = if request.headers.contains_key("x-layerx-principal") || request.headers.contains_key("x-layerx-api-key") {
         Some(response(400, "untrusted_identity_header", None))
     } else if request.headers.contains_key("origin") && config.routes.origin(request).is_none() {
         Some(response(403, "origin_not_allowed", None))
     } else if let Err(reason) = config.routes.health(config, "human") {
-        Some(json_response(
-            503,
-            &json!({"error":{"code":"route_unavailable","service":"human","reason":reason}}),
-        ))
+        Some(json_response(503, &json!({"error":{"code":"route_unavailable","service":"human","reason":reason}})))
     } else {
         None
     };
     if let Some(refusal) = refusal {
-        return Some(http::write_response_connection_with_origin(
-            downstream,
-            &refusal,
-            false,
-            config.routes.origin(request),
-        ));
+        return Some(http::write_response_connection_with_origin(downstream, &refusal, false, config.routes.origin(request)));
     }
     let binding = config.routes.bindings.get("human")?;
     let endpoint = match http::Endpoint::parse(&binding.url) {
@@ -914,62 +694,35 @@ pub(super) fn stream(
     let Some(path) = routed_path(entry, &request.path) else {
         return Some(Err("invalid stream route target".into()));
     };
-    let authorization = request
-        .headers
-        .get("authorization")
-        .map_or("", String::as_str);
-    let forwarded: Vec<_> = request
-        .headers
-        .iter()
-        .filter(|(name, _)| forward_header("human", name))
-        .map(|(name, value)| (name.as_str(), value.as_str()))
-        .collect();
-    Some(
-        config.client.stream_forwarded(
-            &endpoint,
-            authorization,
-            &http::OutboundRequest {
-                method: "GET",
-                path: &path,
-                idempotency: None,
-                content_type: request
-                    .headers
-                    .get("content-type")
-                    .map_or("application/json", String::as_str),
-                body: &request.body,
-            },
-            &forwarded,
-            downstream,
-            config.routes.origin(request),
-        ),
-    )
+    let authorization = request.headers.get("authorization").map_or("", String::as_str);
+    let forwarded: Vec<_> = request.headers.iter().filter(|(name, _)| forward_header("human", name)).map(|(name, value)| (name.as_str(), value.as_str())).collect();
+    Some(config.client.stream_forwarded(
+        &endpoint,
+        authorization,
+        &http::OutboundRequest {
+            method: "GET",
+            path: &path,
+            idempotency: None,
+            content_type: request.headers.get("content-type").map_or("application/json", String::as_str),
+            body: &request.body,
+        },
+        &forwarded,
+        downstream,
+        config.routes.origin(request),
+    ))
 }
 
 fn routed_path(entry: &Value, target: &str) -> Option<String> {
-    let (path, query) = target
-        .split_once('?')
-        .map_or((target, None), |(p, q)| (p, Some(q)));
+    let (path, query) = target.split_once('?').map_or((target, None), |(p, q)| (p, Some(q)));
     let template = entry["path"].as_str()?;
-    let upstream = entry
-        .get("upstream_path")
-        .and_then(Value::as_str)
-        .unwrap_or(template);
+    let upstream = entry.get("upstream_path").and_then(Value::as_str).unwrap_or(template);
     let expected: Vec<_> = template.split('/').collect();
     let actual: Vec<_> = path.split('/').collect();
     if expected.len() != actual.len() {
         return None;
     }
-    let parameters: BTreeMap<_, _> = expected
-        .iter()
-        .zip(actual)
-        .filter(|(part, _)| part.starts_with(':') || part.starts_with('{'))
-        .map(|(key, value)| (*key, value))
-        .collect();
-    let rewritten = upstream
-        .split('/')
-        .map(|part| parameters.get(part).copied().unwrap_or(part))
-        .collect::<Vec<_>>()
-        .join("/");
+    let parameters: BTreeMap<_, _> = expected.iter().zip(actual).filter(|(part, _)| part.starts_with(':') || part.starts_with('{')).map(|(key, value)| (*key, value)).collect();
+    let rewritten = upstream.split('/').map(|part| parameters.get(part).copied().unwrap_or(part)).collect::<Vec<_>>().join("/");
     if !safe_path(&rewritten) {
         return None;
     }
@@ -984,24 +737,9 @@ fn forward_header(service: &str, name: &str) -> bool {
         return true;
     }
     match service {
-        "human" => matches!(
-            name,
-            "cookie" | "x-layerx-csrf" | "x-layerx-wallet-binding" | "origin" | "last-event-id"
-        ),
-        "wallet-gateway" => matches!(
-            name,
-            "x-agent-key"
-                | "x-agent-nonce"
-                | "x-agent-expires"
-                | "x-agent-signature"
-                | "x-agent-attestor-authorization-id"
-                | "x-agent-attestor-authorization"
-                | "origin"
-        ),
-        "search-web" => matches!(
-            name,
-            "payment-signature" | "layerx-payer-did" | "x-payment" | "origin"
-        ),
+        "human" => matches!(name, "cookie" | "x-layerx-csrf" | "x-layerx-wallet-binding" | "origin" | "last-event-id"),
+        "wallet-gateway" => matches!(name, "x-agent-key" | "x-agent-nonce" | "x-agent-expires" | "x-agent-signature" | "x-agent-attestor-authorization-id" | "x-agent-attestor-authorization" | "origin"),
+        "search-web" => matches!(name, "payment-signature" | "layerx-payer-did" | "x-payment" | "origin"),
         "interop" => matches!(name, "payment-signature" | "x-payment" | "origin"),
         "webhooks-dashboard" => {
             matches!(name, "cookie" | "x-csrf-token" | "x-layerx-csrf" | "origin")
@@ -1025,10 +763,7 @@ fn response_header(service: &str, name: &str) -> bool {
     }
 }
 
-fn tunnel_bytes(
-    mut source: std::net::TcpStream,
-    mut destination: std::net::TcpStream,
-) -> std::io::Result<()> {
+fn tunnel_bytes(mut source: std::net::TcpStream, mut destination: std::net::TcpStream) -> std::io::Result<()> {
     use std::io::{Read, Write};
     let started = std::time::Instant::now();
     let mut buffer = [0_u8; 16 * 1024];
@@ -1047,12 +782,7 @@ fn tunnel_bytes(
     result
 }
 
-pub(super) fn rpc_catalogue(
-    config: &Config,
-    request: &IncomingRequest,
-    id: &Value,
-    params: Option<&Value>,
-) -> Value {
+pub(super) fn rpc_catalogue(config: &Config, request: &IncomingRequest, id: &Value, params: Option<&Value>) -> Value {
     if params.is_some_and(|p| p != &json!([])) {
         return super::rpc::error(id, -32602, "Invalid params");
     }
@@ -1087,20 +817,11 @@ struct McpRoute {
 
 impl McpRoute {
     fn configured(binding: McpRouteBinding) -> Result<(String, Self), String> {
-        let principal = super::PrincipalId::new(binding.principal.clone())
-            .map_err(|_| "invalid MCP principal")?;
-        if binding.mcp_version.is_empty()
-            || binding.mcp_version.len() > 64
-            || binding.owner_binding_sha256.len() != 64
-            || !binding
-                .owner_binding_sha256
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        {
+        let principal = super::PrincipalId::new(binding.principal.clone()).map_err(|_| "invalid MCP principal")?;
+        if binding.mcp_version.is_empty() || binding.mcp_version.len() > 64 || binding.owner_binding_sha256.len() != 64 || !binding.owner_binding_sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
             return Err("invalid MCP owner binding pin".into());
         }
-        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
-            .map_err(|_| "MCP supervisor clock unavailable")?;
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(|_| "MCP supervisor clock unavailable")?;
         let identity = layerx_identity_binding::Client::new(
             layerx_identity_binding::Config {
                 socket: binding.identity_socket.clone(),
@@ -1125,32 +846,17 @@ impl McpRoute {
         let before = fs::symlink_metadata(path).map_err(|_| "MCP owner binding unavailable")?;
         let bytes = protected(&policy.owner_binding_file)?;
         let after = fs::symlink_metadata(path).map_err(|_| "MCP owner binding unavailable")?;
-        if before.uid() != policy.owner_uid
-            || before.gid() != policy.owner_gid
-            || (before.dev(), before.ino(), before.len()) != (after.dev(), after.ino(), after.len())
-            || super::hex(&Sha256::digest(&bytes)) != policy.owner_binding_sha256
-        {
+        if before.uid() != policy.owner_uid || before.gid() != policy.owner_gid || (before.dev(), before.ino(), before.len()) != (after.dev(), after.ino(), after.len()) || super::hex(&Sha256::digest(&bytes)) != policy.owner_binding_sha256 {
             return Err("MCP owner binding identity changed".into());
         }
-        let document: Value =
-            serde_json::from_slice(&bytes).map_err(|_| "invalid MCP owner binding")?;
+        let document: Value = serde_json::from_slice(&bytes).map_err(|_| "invalid MCP owner binding")?;
         let listener = &document["listener"];
-        let uid = fs::metadata("/proc/self")
-            .map_err(|_| "MCP gateway identity unavailable")?
-            .uid();
+        let uid = fs::metadata("/proc/self").map_err(|_| "MCP gateway identity unavailable")?.uid();
         if listener["owner_uid"].as_u64() != Some(u64::from(policy.owner_uid))
             || listener["owner_gid"].as_u64() != Some(u64::from(policy.owner_gid))
-            || !listener["admitted_uids"].as_array().is_some_and(|peers| {
-                peers
-                    .iter()
-                    .any(|peer| peer.as_u64() == Some(u64::from(uid)))
-            })
-            || document["session_id"]
-                .as_str()
-                .is_none_or(|id| id.is_empty())
-            || document["capability_id"]
-                .as_str()
-                .is_none_or(|id| id.is_empty())
+            || !listener["admitted_uids"].as_array().is_some_and(|peers| peers.iter().any(|peer| peer.as_u64() == Some(u64::from(uid))))
+            || document["session_id"].as_str().is_none_or(str::is_empty)
+            || document["capability_id"].as_str().is_none_or(str::is_empty)
             || document["session_generation"].as_u64().is_none()
         {
             return Err("MCP owner session or listener binding invalid".into());
@@ -1162,98 +868,56 @@ impl McpRoute {
         use std::os::unix::fs::FileTypeExt;
         protected_owner_parent(path, self.binding.owner_uid)?;
         let metadata = fs::symlink_metadata(path).map_err(|_| "MCP socket unavailable")?;
-        if !metadata.file_type().is_socket()
-            || metadata.uid() != self.binding.owner_uid
-            || metadata.gid() != self.binding.owner_gid
-            || metadata.mode() & !0o140660 != 0
-            || metadata.mode() & 0o600 != 0o600
-            || metadata.nlink() != 1
-        {
+        if !metadata.file_type().is_socket() || metadata.uid() != self.binding.owner_uid || metadata.gid() != self.binding.owner_gid || metadata.mode() & !0o140_660 != 0 || metadata.mode() & 0o600 != 0o600 || metadata.nlink() != 1 {
             return Err("MCP socket identity refused".into());
         }
         Ok((metadata.dev(), metadata.ino()))
     }
 
-    fn exchange(
-        &self,
-        body: &[u8],
-        expected: Option<&Value>,
-        expires: std::time::Instant,
-    ) -> Result<Vec<u8>, String> {
+    fn exchange(&self, body: &[u8], expected: Option<&Value>, expires: std::time::Instant) -> Result<Vec<u8>, String> {
         use std::os::unix::net::UnixStream;
         use std::time::{Duration, Instant};
-        let remaining = || {
-            expires
-                .checked_duration_since(Instant::now())
-                .filter(|duration| !duration.is_zero())
-                .ok_or("MCP request deadline exceeded")
-        };
+        let remaining = || expires.checked_duration_since(Instant::now()).filter(|duration| !duration.is_zero()).ok_or("MCP request deadline exceeded");
         remaining()?;
-        let subject = self
-            .identity
-            .lookup(&self.binding.principal)
-            .map_err(|_| "MCP principal binding refused")?;
+        let subject = self.identity.lookup(&self.binding.principal).map_err(|_| "MCP principal binding refused")?;
         let owner = self.owner_binding()?;
         if owner["tenant"].as_str() != Some(subject.agent_tenant()) {
             return Err("MCP owner principal mismatch".into());
         }
-        let path = std::path::Path::new(
-            owner["listener"]["socket"]
-                .as_str()
-                .ok_or("MCP socket absent")?,
-        );
+        let path = std::path::Path::new(owner["listener"]["socket"].as_str().ok_or("MCP socket absent")?);
         let before = self.socket_identity(path)?;
-        let socket = rustix::net::socket_with(
-            rustix::net::AddressFamily::UNIX,
-            rustix::net::SocketType::STREAM,
-            rustix::net::SocketFlags::NONBLOCK | rustix::net::SocketFlags::CLOEXEC,
-            None,
-        )
-        .map_err(|_| "MCP socket unavailable")?;
-        let address =
-            rustix::net::SocketAddrUnix::new(path).map_err(|_| "MCP socket path invalid")?;
+        let socket = rustix::net::socket_with(rustix::net::AddressFamily::UNIX, rustix::net::SocketType::STREAM, rustix::net::SocketFlags::NONBLOCK | rustix::net::SocketFlags::CLOEXEC, None).map_err(|_| "MCP socket unavailable")?;
+        let address = rustix::net::SocketAddrUnix::new(path).map_err(|_| "MCP socket path invalid")?;
         loop {
             remaining()?;
             match rustix::net::connect(&socket, &address) {
                 Ok(()) => break,
-                Err(error)
-                    if error == rustix::io::Errno::AGAIN || error == rustix::io::Errno::INTR =>
-                {
+                Err(error) if error == rustix::io::Errno::AGAIN || error == rustix::io::Errno::INTR => {
                     std::thread::sleep(remaining()?.min(Duration::from_millis(5)));
                 }
                 Err(_) => return Err("MCP connection refused".into()),
             }
         }
         let mut stream = UnixStream::from(socket);
-        stream
-            .set_nonblocking(false)
-            .map_err(|_| "MCP socket unavailable")?;
-        let peer =
-            rustix::net::sockopt::socket_peercred(&stream).map_err(|_| "MCP peer unavailable")?;
-        if peer.uid.as_raw() != self.binding.owner_uid
-            || peer.gid.as_raw() != self.binding.owner_gid
-            || self.socket_identity(path)? != before
-            || self.owner_binding()? != owner
-        {
+        stream.set_nonblocking(false).map_err(|_| "MCP socket unavailable")?;
+        let peer = rustix::net::sockopt::socket_peercred(&stream).map_err(|_| "MCP peer unavailable")?;
+        if peer.uid.as_raw() != self.binding.owner_uid || peer.gid.as_raw() != self.binding.owner_gid || self.socket_identity(path)? != before || self.owner_binding()? != owner {
             return Err("MCP peer identity changed".into());
         }
         let probe_id = json!("layerx-gateway-binding-v1");
-        let probe =
-            serde_json::to_vec(&json!({"jsonrpc":"2.0","id":probe_id,"method":"initialize",
+        let probe = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":probe_id,"method":"initialize",
             "params":{"protocolVersion":"2025-06-18","capabilities":{},
             "clientInfo":{"name":"layerx-gateway","version":env!("CARGO_PKG_VERSION")}}}))
-            .map_err(|_| "MCP binding probe invalid")?;
+        .map_err(|_| "MCP binding probe invalid")?;
         mcp_write_frame(&mut stream, &probe, expires)?;
-        let observed: Value = serde_json::from_slice(&mcp_read_frame(&mut stream, expires)?)
-            .map_err(|_| "MCP binding probe malformed")?;
+        let observed: Value = serde_json::from_slice(&mcp_read_frame(&mut stream, expires)?).map_err(|_| "MCP binding probe malformed")?;
         if observed["jsonrpc"] != "2.0"
             || observed["id"] != probe_id
             || observed.get("error").is_some()
             || observed["result"]["protocolVersion"] != "2025-06-18"
             || observed["result"]["serverInfo"]["name"] != "layerx"
             || observed["result"]["serverInfo"]["version"] != self.binding.mcp_version
-            || observed["result"]["_meta"]["layerx/loaded_binding_v1"].as_str()
-                != Some(mcp_binding_fingerprint(&owner)?.as_str())
+            || observed["result"]["_meta"]["layerx/loaded_binding_v1"].as_str() != Some(mcp_binding_fingerprint(&owner)?.as_str())
         {
             return Err("MCP loaded session binding differs".into());
         }
@@ -1264,14 +928,8 @@ impl McpRoute {
         }
         let reply = mcp_read_frame(&mut stream, expires)?;
         remaining()?;
-        let document: Value =
-            serde_json::from_slice(&reply).map_err(|_| "MCP response malformed")?;
-        if document["jsonrpc"] != "2.0"
-            || document.get("id") != expected
-            || document.get("result").is_some() == document.get("error").is_some()
-            || self.socket_identity(path)? != before
-            || self.owner_binding()? != owner
-        {
+        let document: Value = serde_json::from_slice(&reply).map_err(|_| "MCP response malformed")?;
+        if document["jsonrpc"] != "2.0" || document.get("id") != expected || document.get("result").is_some() == document.get("error").is_some() || self.socket_identity(path)? != before || self.owner_binding()? != owner {
             return Err("MCP response identity invalid".into());
         }
         Ok(reply)
@@ -1280,12 +938,7 @@ impl McpRoute {
 
 fn protected_owner_parent(path: &std::path::Path, uid: u32) -> Result<(), String> {
     let parent = path.parent().ok_or("MCP protected parent absent")?;
-    if !path.is_absolute()
-        || path.as_os_str().len() > 4096
-        || parent == std::path::Path::new("/")
-        || fs::canonicalize(parent).map_err(|_| "MCP protected parent unavailable")? != parent
-        || path.file_name().is_none()
-    {
+    if !path.is_absolute() || path.as_os_str().len() > 4096 || parent == std::path::Path::new("/") || fs::canonicalize(parent).map_err(|_| "MCP protected parent unavailable")? != parent || path.file_name().is_none() {
         return Err("MCP protected path invalid".into());
     }
     let metadata = fs::symlink_metadata(parent).map_err(|_| "MCP protected parent unavailable")?;
@@ -1306,15 +959,7 @@ fn mcp_route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         Ok(key) => key,
         Err(refusal) => return refusal,
     };
-    if [
-        "layerx-tenant",
-        "layerx-agent",
-        "x-layerx-principal",
-        "mcp-session-id",
-    ]
-    .iter()
-    .any(|header| request.headers.contains_key(*header))
-    {
+    if ["layerx-tenant", "layerx-agent", "x-layerx-principal", "mcp-session-id"].iter().any(|header| request.headers.contains_key(*header)) {
         return response(400, "untrusted_identity_header", None);
     }
     if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
@@ -1327,30 +972,14 @@ fn mcp_route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
         Ok(document) => document,
         Err(_) => return response(400, "invalid_mcp_request", None),
     };
-    let id = document
-        .get("id")
-        .filter(|id| id.is_string() || id.is_i64() || id.is_u64());
-    let notification = matches!(
-        document["method"].as_str(),
-        Some("notifications/initialized" | "notifications/cancelled")
-    );
-    if document["jsonrpc"] != "2.0"
-        || (notification && document.get("id").is_some())
-        || (!notification
-            && (id.is_none()
-                || !matches!(
-                    document["method"].as_str(),
-                    Some("initialize" | "ping" | "tools/list" | "tools/call")
-                )))
-    {
+    let id = document.get("id").filter(|id| id.is_string() || id.is_i64() || id.is_u64());
+    let notification = matches!(document["method"].as_str(), Some("notifications/initialized" | "notifications/cancelled"));
+    if document["jsonrpc"] != "2.0" || (notification && document.get("id").is_some()) || (!notification && (id.is_none() || !matches!(document["method"].as_str(), Some("initialize" | "ping" | "tools/list" | "tools/call")))) {
         return response(400, "invalid_mcp_request", None);
     }
     let required_scope = if document["method"] == "tools/call" {
         match document["params"]["name"].as_str() {
-            Some(
-                "balance.get" | "history.list" | "checkpoint.get" | "proof.get"
-                | "availability.get" | "wallet.accounts" | "wallet.balance",
-            ) => "state:read",
+            Some("balance.get" | "history.list" | "checkpoint.get" | "proof.get" | "availability.get" | "wallet.accounts" | "wallet.balance") => "state:read",
             Some("receipt.get") => "receipt:read",
             Some(_) => "activity:write",
             None => return response(400, "invalid_mcp_tool", None),
@@ -1364,10 +993,13 @@ fn mcp_route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     let Some(route) = config.routes.mcp.get(&key.principal_digest) else {
         return response(403, "mcp_owner_binding_required", None);
     };
-    let encoded = match serde_json::to_vec(&document) {
-        Ok(encoded) => encoded,
-        Err(_) => return response(400, "invalid_mcp_request", None),
+    let Ok(encoded) = serde_json::to_vec(&document) else {
+        return response(400, "invalid_mcp_request", None);
     };
+    mcp_exchange(config, route, encoded, id, notification)
+}
+
+fn mcp_exchange(config: &Config, route: &McpRoute, encoded: Vec<u8>, id: Option<&Value>, notification: bool) -> OutgoingResponse {
     let expires = std::time::Instant::now() + std::time::Duration::from_secs(8);
     let Some(binding) = config.routes.bindings.get("mcp-a2a").cloned() else {
         return response(503, "mcp_identity_unavailable", None);
@@ -1379,15 +1011,11 @@ fn mcp_route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     let route = route.clone();
     let expected = id.cloned();
     let (send, receive) = std::sync::mpsc::sync_channel(1);
-    let worker = std::thread::Builder::new()
-        .name("mcp-route".into())
-        .spawn(move || {
-            let _permit = permit;
-            let result = probe_binding(&client, &binding)
-                .map_err(str::to_owned)
-                .and_then(|()| route.exchange(&encoded, expected.as_ref(), expires));
-            let _ = send.send(result);
-        });
+    let worker = std::thread::Builder::new().name("mcp-route".into()).spawn(move || {
+        let _permit = permit;
+        let result = probe_binding(&client, &binding).map_err(str::to_owned).and_then(|()| route.exchange(&encoded, expected.as_ref(), expires));
+        let _ = send.send(result);
+    });
     if worker.is_err() {
         return response(503, "mcp_capacity_unavailable", None);
     }
@@ -1402,33 +1030,17 @@ fn mcp_route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
             body,
             retry_after: None,
         },
-        Ok(Err(_)) if std::time::Instant::now() >= expires => {
-            response(503, "mcp_deadline_exceeded", None)
-        }
-        Ok(Err(reason)) => json_response(
-            503,
-            &json!({"ok":false,"error":{"code":"mcp_owner_unavailable","reason":reason,"automatic_retry":false}}),
-        ),
+        Ok(Err(_)) if std::time::Instant::now() >= expires => response(503, "mcp_deadline_exceeded", None),
+        Ok(Err(reason)) => json_response(503, &json!({"ok":false,"error":{"code":"mcp_owner_unavailable","reason":reason,"automatic_retry":false}})),
         Err(_) => response(503, "mcp_deadline_exceeded", None),
     }
 }
 
 fn native_explorer_authorization(binding: &Binding) -> Result<Zeroizing<String>, String> {
-    let path = binding
-        .health_authorization_file
-        .as_ref()
-        .ok_or("native explorer authority absent")?;
-    let value = Zeroizing::new(
-        String::from_utf8(protected(path)?)
-            .map_err(|_| "native explorer authority invalid")?
-            .trim()
-            .to_owned(),
-    );
-    let token = value
-        .strip_prefix("Bearer ")
-        .ok_or("native explorer bearer required")?;
-    if token.len() < 32 || value.len() > 4096 || !token.bytes().all(|byte| byte.is_ascii_graphic())
-    {
+    let path = binding.health_authorization_file.as_ref().ok_or("native explorer authority absent")?;
+    let value = Zeroizing::new(String::from_utf8(protected(path)?).map_err(|_| "native explorer authority invalid")?.trim().to_owned());
+    let token = value.strip_prefix("Bearer ").ok_or("native explorer bearer required")?;
+    if token.len() < 32 || value.len() > 4096 || !token.bytes().all(|byte| byte.is_ascii_graphic()) {
         return Err("native explorer authority invalid".into());
     }
     Ok(value)
@@ -1437,12 +1049,7 @@ fn native_explorer_authorization(binding: &Binding) -> Result<Zeroizing<String>,
 fn probe_binding(client: &http::Client, binding: &Binding) -> Result<(), &'static str> {
     let endpoint = http::Endpoint::parse(&binding.url).map_err(|_| "invalid_upstream")?;
     let auth = match &binding.health_authorization_file {
-        Some(path) => Zeroizing::new(
-            String::from_utf8(protected(path).map_err(|_| "authority_unavailable")?)
-                .map_err(|_| "authority_unavailable")?
-                .trim()
-                .to_owned(),
-        ),
+        Some(path) => Zeroizing::new(String::from_utf8(protected(path).map_err(|_| "authority_unavailable")?).map_err(|_| "authority_unavailable")?.trim().to_owned()),
         None => Zeroizing::new(String::new()),
     };
     let result = client
@@ -1461,8 +1068,7 @@ fn probe_binding(client: &http::Client, binding: &Binding) -> Result<(), &'stati
     if result.status != 200 || !json_media_type(&result.content_type) {
         return Err("dependency_not_ready");
     }
-    let body: Value =
-        serde_json::from_slice(&result.body).map_err(|_| "invalid_health_response")?;
+    let body: Value = serde_json::from_slice(&result.body).map_err(|_| "invalid_health_response")?;
     let identity = if binding.identity_path == binding.health_path {
         body.clone()
     } else {
@@ -1501,12 +1107,7 @@ struct McpProbePermit;
 impl McpProbePermit {
     fn acquire() -> Option<std::sync::Arc<Self>> {
         use std::sync::atomic::Ordering;
-        MCP_PROBES
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| {
-                (count < 32).then_some(count + 1)
-            })
-            .ok()
-            .map(|_| std::sync::Arc::new(Self))
+        MCP_PROBES.fetch_update(Ordering::AcqRel, Ordering::Acquire, |count| (count < 32).then_some(count + 1)).ok().map(|_| std::sync::Arc::new(Self))
     }
 }
 impl Drop for McpProbePermit {
@@ -1555,10 +1156,7 @@ fn json_media_type(value: &str) -> bool {
                     }
                     Some(b'\\') => {
                         bytes = &bytes[1..];
-                        if !bytes
-                            .first()
-                            .is_some_and(|byte| matches!(byte, b'\t' | b' '..=b'~'))
-                        {
+                        if !bytes.first().is_some_and(|byte| matches!(byte, b'\t' | b' '..=b'~')) {
                             return false;
                         }
                         bytes = &bytes[1..];
@@ -1576,10 +1174,7 @@ fn json_media_type(value: &str) -> bool {
             }
             bytes = &bytes[length..];
         }
-        while bytes
-            .first()
-            .is_some_and(|byte| matches!(byte, b' ' | b'\t'))
-        {
+        while bytes.first().is_some_and(|byte| matches!(byte, b' ' | b'\t')) {
             bytes = &bytes[1..];
         }
         if bytes.is_empty() {
@@ -1595,19 +1190,9 @@ fn json_media_type(value: &str) -> bool {
 fn mcp_binding_fingerprint(owner: &Value) -> Result<String, String> {
     use sha2::{Digest, Sha256};
     let tenant = owner["tenant"].as_str().ok_or("MCP tenant absent")?;
-    let generation = owner["session_generation"]
-        .as_u64()
-        .ok_or("MCP generation absent")?;
-    let session = super::decode_hex(
-        owner["session_id"].as_str().ok_or("MCP session absent")?,
-        32,
-    )?;
-    let capability = super::decode_hex(
-        owner["capability_id"]
-            .as_str()
-            .ok_or("MCP capability absent")?,
-        32,
-    )?;
+    let generation = owner["session_generation"].as_u64().ok_or("MCP generation absent")?;
+    let session = super::decode_hex(owner["session_id"].as_str().ok_or("MCP session absent")?, 32)?;
+    let capability = super::decode_hex(owner["capability_id"].as_str().ok_or("MCP capability absent")?, 32)?;
     let mode = match owner["mode"].as_str() {
         Some("full") => 1_u8,
         Some("read-only") => 2_u8,
@@ -1628,17 +1213,10 @@ fn mcp_binding_fingerprint(owner: &Value) -> Result<String, String> {
 }
 
 fn mcp_remaining(expires: std::time::Instant) -> Result<std::time::Duration, String> {
-    expires
-        .checked_duration_since(std::time::Instant::now())
-        .filter(|value| !value.is_zero())
-        .ok_or_else(|| "MCP request deadline exceeded".into())
+    expires.checked_duration_since(std::time::Instant::now()).filter(|value| !value.is_zero()).ok_or_else(|| "MCP request deadline exceeded".into())
 }
 
-fn mcp_write_frame(
-    stream: &mut std::os::unix::net::UnixStream,
-    body: &[u8],
-    expires: std::time::Instant,
-) -> Result<(), String> {
+fn mcp_write_frame(stream: &mut std::os::unix::net::UnixStream, body: &[u8], expires: std::time::Instant) -> Result<(), String> {
     use std::io::Write;
     if body.len() >= AGENT_RPC_MAX_BODY {
         return Err("MCP request oversized".into());
@@ -1647,12 +1225,8 @@ fn mcp_write_frame(
     frame.push(b'\n');
     let mut offset = 0;
     while offset < frame.len() {
-        stream
-            .set_write_timeout(Some(mcp_remaining(expires)?))
-            .map_err(|_| "MCP deadline unavailable")?;
-        let written = stream
-            .write(&frame[offset..])
-            .map_err(|_| "MCP write unavailable")?;
+        stream.set_write_timeout(Some(mcp_remaining(expires)?)).map_err(|_| "MCP deadline unavailable")?;
+        let written = stream.write(&frame[offset..]).map_err(|_| "MCP write unavailable")?;
         if written == 0 {
             return Err("MCP write closed".into());
         }
@@ -1661,20 +1235,13 @@ fn mcp_write_frame(
     Ok(())
 }
 
-fn mcp_read_frame(
-    stream: &mut std::os::unix::net::UnixStream,
-    expires: std::time::Instant,
-) -> Result<Vec<u8>, String> {
+fn mcp_read_frame(stream: &mut std::os::unix::net::UnixStream, expires: std::time::Instant) -> Result<Vec<u8>, String> {
     use std::io::Read;
     let mut reply = Vec::new();
     let mut chunk = [0_u8; 4096];
     loop {
-        stream
-            .set_read_timeout(Some(mcp_remaining(expires)?))
-            .map_err(|_| "MCP deadline unavailable")?;
-        let count = stream
-            .read(&mut chunk)
-            .map_err(|_| "MCP read unavailable")?;
+        stream.set_read_timeout(Some(mcp_remaining(expires)?)).map_err(|_| "MCP deadline unavailable")?;
+        let count = stream.read(&mut chunk).map_err(|_| "MCP read unavailable")?;
         if count == 0 {
             return Err("MCP response closed".into());
         }
