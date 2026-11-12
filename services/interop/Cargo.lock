@@ -1567,6 +1567,7 @@ dependencies = [
  "ed25519-dalek",
  "k256",
  "layerx-crypto",
+ "layerx-mirror-signer",
  "layerx-proof",
  "layerx-wire",
  "openssl",

@@ -1,5 +1,89 @@
 include!("support/settlement_fixture.rs");
 
+use layerx_interop_service::relay::{ChainRelay, RelayError};
+use sha2::{Digest as _, Sha256};
+
+fn assert_mounted_recovery(
+    case: &Value,
+    raw: Vec<u8>,
+    dir: &Path,
+    identity: &Identity,
+    node: &Node,
+    mut redis: Redis,
+) -> TestResult {
+    node.reset();
+    let config = gateway(dir, &redis, node)?;
+    let issued = IssuedKey::generate()?;
+    let record = KeyRecord {
+        key_id: issued.id().into(),
+        principal_digest: "33".repeat(32),
+        salt: "repair-salt".into(),
+        secret_digest: gateway_digest(&[
+            b"gateway-key-v1",
+            b"repair-salt",
+            issued.secret().as_bytes(),
+        ]),
+        signer_public_key: hex(SigningKey::from_bytes(&[7; 32]).verifying_key().as_bytes()),
+        scopes: "interop:*".into(),
+        quota_requests: 100,
+        quota_window_seconds: 60,
+        epoch: 1,
+        disabled: false,
+    };
+    config
+        .store
+        .issue_key(&record, "repair integration issuance")?;
+    let authorization = format!("LayerX-Key {}:{}", issued.id(), issued.secret());
+    let body = visa_payment(case)?;
+    let (config, status, _) = mounted(config, &body, None)?;
+    assert_eq!(status, 401);
+    node.fault.store(2, Ordering::SeqCst);
+    let (config, status, response) = mounted(config, &body, Some(&authorization))?;
+    assert_eq!(status, 503, "{response}");
+    assert_eq!(response["error"]["code"], "settlement_unavailable");
+    assert_eq!(node.state.lock().or_panic("node state").accepted.len(), 1);
+    drop(config);
+    let address = redis.listener.address;
+    drop(redis);
+    redis = Redis::start(dir, identity, address)?;
+    let config = gateway(dir, &redis, node)?;
+    let (config, status, response) = mounted(config, &body, Some(&authorization))?;
+    assert_eq!(status, 200, "{response}");
+    assert_eq!(response["result"]["state"], "receipt-verified");
+    let operation = response["operation"].as_str().ok_or("operation scope")?;
+    let stored = config
+        .store
+        .operation(operation)?
+        .ok_or("stored operation")?;
+    assert_eq!(stored.state, "completed");
+    assert_eq!(
+        stored.receipt,
+        case["signedReceipt"]
+            .as_str()
+            .ok_or("receipt")?
+            .trim_start_matches("0x")
+    );
+    let (_, status, replay) = mounted(config, &body, Some(&authorization))?;
+    assert_eq!(status, 200, "{replay}");
+    assert_eq!(replay["result"], response["result"]);
+    let state = node.state.lock().or_panic("node state");
+    assert_eq!(state.accepted.len(), 1);
+    assert_eq!(state.attempts, vec![raw]);
+    assert_eq!(
+        state
+            .methods
+            .iter()
+            .filter(|method| *method == "px_getReceiptKeys")
+            .count(),
+        2
+    );
+    assert!(state
+        .connects
+        .iter()
+        .all(|target| target == "CONNECT router.railway.internal:9443 HTTP/1.1"));
+    Ok(())
+}
+
 #[test]
 fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
     let current = payment_case()?;
@@ -27,7 +111,10 @@ fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
             node.fault
                 .store(if scenario == 1 { 1 } else { 2 }, Ordering::SeqCst);
         }
-        let error = relay.relay(&key, &raw, sender).unwrap_err();
+        let error = relay
+            .relay(&key, &raw, sender)
+            .err()
+            .or_panic("relay refusal");
         if scenario == 0 {
             assert!(matches!(error, RelayError::Journal(_)), "{error:?}");
         } else {
@@ -39,7 +126,7 @@ fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
         );
         assert_eq!(redis.record(&format!("{journal_key}:submitted")), None);
         {
-            let state = node.state.lock().unwrap();
+            let state = node.state.lock().or_panic("node state");
             assert_eq!(state.attempts.len(), usize::from(scenario != 0));
             assert_eq!(state.accepted.len(), usize::from(scenario >= 2));
         }
@@ -75,7 +162,7 @@ fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
             relay.relay(&key, &replacement, sender),
             Err(RelayError::TransactionReplacementRefused)
         );
-        let state = node.state.lock().unwrap();
+        let state = node.state.lock().or_panic("node state");
         assert_eq!(
             state.accepted.len(),
             1,
@@ -92,75 +179,6 @@ fn relay_claim_before_send_and_private_endpoint_settlement() -> TestResult {
             .any(|method| method == "px_getReceiptKeys"));
         assert!(!state.connects.is_empty());
     }
-    node.reset();
-    let config = gateway(&dir.0, &redis, &node)?;
-    let issued = IssuedKey::generate()?;
-    let record = KeyRecord {
-        key_id: issued.id().into(),
-        principal_digest: "33".repeat(32),
-        salt: "repair-salt".into(),
-        secret_digest: gateway_digest(&[
-            b"gateway-key-v1",
-            b"repair-salt",
-            issued.secret().as_bytes(),
-        ]),
-        signer_public_key: hex(SigningKey::from_bytes(&[7; 32]).verifying_key().as_bytes()),
-        scopes: "interop:*".into(),
-        quota_requests: 100,
-        quota_window_seconds: 60,
-        epoch: 1,
-        disabled: false,
-    };
-    config
-        .store
-        .issue_key(&record, "repair integration issuance")?;
-    let authorization = format!("LayerX-Key {}:{}", issued.id(), issued.secret());
-    let body = visa_payment(case)?;
-    let (config, status, _) = mounted(config, &body, None)?;
-    assert_eq!(status, 401);
-    node.fault.store(2, Ordering::SeqCst);
-    let (config, status, response) = mounted(config, &body, Some(&authorization))?;
-    assert_eq!(status, 503, "{response}");
-    assert_eq!(response["error"]["code"], "settlement_unavailable");
-    assert_eq!(node.state.lock().unwrap().accepted.len(), 1);
-    drop(config);
-    let address = redis.listener.address;
-    drop(redis);
-    redis = Redis::start(&dir.0, &identity, address)?;
-    let config = gateway(&dir.0, &redis, &node)?;
-    let (config, status, response) = mounted(config, &body, Some(&authorization))?;
-    assert_eq!(status, 200, "{response}");
-    assert_eq!(response["result"]["state"], "receipt-verified");
-    let operation = response["operation"].as_str().ok_or("operation scope")?;
-    let stored = config
-        .store
-        .operation(operation)?
-        .ok_or("stored operation")?;
-    assert_eq!(stored.state, "completed");
-    assert_eq!(
-        stored.receipt,
-        case["signedReceipt"]
-            .as_str()
-            .ok_or("receipt")?
-            .trim_start_matches("0x")
-    );
-    let (_, status, replay) = mounted(config, &body, Some(&authorization))?;
-    assert_eq!(status, 200, "{replay}");
-    assert_eq!(replay["result"], response["result"]);
-    let state = node.state.lock().unwrap();
-    assert_eq!(state.accepted.len(), 1);
-    assert_eq!(state.attempts, vec![raw]);
-    assert_eq!(
-        state
-            .methods
-            .iter()
-            .filter(|method| *method == "px_getReceiptKeys")
-            .count(),
-        2
-    );
-    assert!(state
-        .connects
-        .iter()
-        .all(|target| target == "CONNECT router.railway.internal:9443 HTTP/1.1"));
+    assert_mounted_recovery(case, raw, &dir.0, &identity, &node, redis)?;
     Ok(())
 }

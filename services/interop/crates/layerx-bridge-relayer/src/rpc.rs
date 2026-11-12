@@ -214,6 +214,9 @@ impl PaxeerRpc {
 
     /// Multi-endpoint operation requires the operator to identify each
     /// independent backend explicitly, including services reached via aliases.
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn with_backends(backends: Vec<(String, PaxeerEndpoint)>) -> Result<Self, RpcFault> {
         validate_backend_identities(backends.iter().map(|(identity, _)| identity.as_str()))?;
         Self::validated(backends.into_iter().map(|(_, endpoint)| endpoint).collect())

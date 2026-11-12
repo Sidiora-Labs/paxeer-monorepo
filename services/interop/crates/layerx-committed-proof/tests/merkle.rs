@@ -71,7 +71,8 @@ fn a_flipped_aunt_is_refused() {
     for (index, proof) in proofs.iter().enumerate() {
         let aunts: Vec<_> = proof.iter().map(|value| hash(value)).collect();
         let index = index as u64;
-        let leaf = ITEMS[index as usize];
+        let leaf = ITEMS[usize::try_from(index)
+            .unwrap_or_else(|error| panic!("numeric fixture fits usize: {error:?}"))];
         assert_eq!(
             verify_proof(hash(FIVE_ROOT), 5, index, leaf, &aunts),
             Ok(())

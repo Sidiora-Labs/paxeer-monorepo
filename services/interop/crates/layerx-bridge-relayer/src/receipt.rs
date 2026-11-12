@@ -199,6 +199,9 @@ impl ReceiptView {
 }
 
 impl SequencerReceipt {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(value: &Value) -> Result<Self, ReceiptError> {
         let rung = match text(value, "rung")? {
             "submitted" => Rung::Submitted,
@@ -241,6 +244,9 @@ impl SequencerReceipt {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn verify(&self, keys: &[SequencerAuthorization]) -> Result<(), ReceiptError> {
         self.check_shape()?;
         let view = self.view.as_ref().ok_or(ReceiptError::Malformed)?;

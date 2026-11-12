@@ -174,7 +174,7 @@ impl TrustedConsensusAnchor {
             &self.header.chain_id,
             validators,
             header.hash(),
-            header.height as u64,
+            u64::try_from(header.height).map_err(|_| X402Error::EvidenceMismatch)?,
             commit,
         )
         .map_err(|_| X402Error::EvidenceMismatch)?;
@@ -199,7 +199,9 @@ fn validate_consensus_header(header: &Header, validators: &[Validator]) -> Resul
             return Err(X402Error::EvidenceMismatch);
         }
         power = power
-            .checked_add(validator.voting_power as u64)
+            .checked_add(
+                u64::try_from(validator.voting_power).map_err(|_| X402Error::EvidenceMismatch)?,
+            )
             .filter(|power| *power <= (i64::MAX / 8) as u64)
             .ok_or(X402Error::EvidenceMismatch)?;
     }
@@ -343,6 +345,45 @@ impl<'a> ProofValue<'a> {
                 .collect::<Result<_, X402Error>>()?,
         })
     }
+}
+
+fn verify_consensus_evidence(
+    evidence: &LayerXEvidence,
+    canonical_receipt: &[u8],
+    receipt_digest: [u8; 32],
+    anchors: &[TrustedConsensusAnchor],
+    network: &str,
+    trace: &TraceId,
+) -> Result<(), Traced<X402Error>> {
+    let fail = |error| trace.wrap(error);
+    if evidence.verification_level == "committed" {
+        let mut matching_anchors = anchors.iter().filter(|anchor| anchor.network == network);
+        let anchor = matching_anchors
+            .next()
+            .ok_or_else(|| fail(X402Error::EvidenceMismatch))?;
+        if matching_anchors.next().is_some() {
+            return Err(fail(X402Error::EvidenceMismatch));
+        }
+        verify_committed_evidence(
+            evidence
+                .proof
+                .as_ref()
+                .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+            canonical_receipt,
+            receipt_digest,
+            evidence
+                .block_number
+                .as_deref()
+                .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+            evidence
+                .block_hash
+                .as_deref()
+                .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+            anchor,
+        )
+        .map_err(fail)?;
+    }
+    Ok(())
 }
 
 fn verify_committed_evidence(
@@ -491,6 +532,9 @@ impl Buyer {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn with_receipt_keys(
         supported: Vec<SupportedKind>,
         receipt_keys: Vec<SequencerAuthorization>,
@@ -679,12 +723,7 @@ impl Buyer {
         if !response.success {
             return Err(fail(X402Error::PaymentRefused));
         }
-        if response.transaction.len() != 66
-            || !response.transaction.starts_with("0x")
-            || !response.transaction.as_bytes()[2..]
-                .iter()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
-        {
+        if !valid_hex_hash(&response.transaction) {
             return Err(fail(X402Error::EvidenceMismatch));
         }
         validate_network(&response.network).map_err(fail)?;
@@ -695,32 +734,9 @@ impl Buyer {
             .ok_or_else(|| fail(X402Error::EvidenceMissing))?;
         let has_block_fields = evidence_value.get("blockNumber").is_some()
             || evidence_value.get("blockHash").is_some();
-        let evidence: LayerXEvidence = serde_json::from_value(evidence_value)
+        let mut evidence: LayerXEvidence = serde_json::from_value(evidence_value)
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
-        let valid_rung = match evidence.verification_level.as_str() {
-            "receipted" => !has_block_fields && evidence.proof.is_none(),
-            "committed" => match (
-                evidence.block_number.as_deref(),
-                evidence.block_hash.as_deref(),
-            ) {
-                (Some(number), Some(hash)) => {
-                    evidence.proof.is_some()
-                        && number.strip_prefix("0x").is_some_and(|digits| {
-                            !digits.is_empty()
-                                && digits.len() <= 16
-                                && (digits == "0" || !digits.starts_with('0'))
-                                && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
-                        })
-                        && hash.len() == 66
-                        && hash.starts_with("0x")
-                        && hash.as_bytes()[2..]
-                            .iter()
-                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
-                }
-                _ => false,
-            },
-            _ => false,
-        };
+        let valid_rung = valid_evidence_rung(&evidence, has_block_fields);
         if !valid_rung
             || evidence.purpose_hash
                 != grant_purpose(&expected.payload.accepted)
@@ -733,8 +749,7 @@ impl Buyer {
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
         let verified = verify_sequencer_signature(&canonical_receipt, receipt_keys)
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
-        let logs = evidence
-            .logs
+        let logs = std::mem::take(&mut evidence.logs)
             .into_iter()
             .map(EvidenceLog::decode)
             .collect::<Result<Vec<_>, _>>()
@@ -767,35 +782,14 @@ impl Buyer {
         {
             return Err(fail(X402Error::EvidenceMismatch));
         }
-        if evidence.verification_level == "committed" {
-            let mut anchors = consensus_anchors
-                .iter()
-                .filter(|anchor| anchor.network == expected.payload.accepted.network);
-            let anchor = anchors
-                .next()
-                .ok_or_else(|| fail(X402Error::EvidenceMismatch))?;
-            if anchors.next().is_some() {
-                return Err(fail(X402Error::EvidenceMismatch));
-            }
-            verify_committed_evidence(
-                evidence
-                    .proof
-                    .as_ref()
-                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
-                &canonical_receipt,
-                receipt_digest,
-                evidence
-                    .block_number
-                    .as_deref()
-                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
-                evidence
-                    .block_hash
-                    .as_deref()
-                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
-                anchor,
-            )
-            .map_err(fail)?;
-        }
+        verify_consensus_evidence(
+            &evidence,
+            &canonical_receipt,
+            receipt_digest,
+            consensus_anchors,
+            &expected.payload.accepted.network,
+            trace,
+        )?;
         Ok(CapturedSettlement {
             transaction_hash: protocol.activity_id(),
             rung: evidence.verification_level,
@@ -804,6 +798,37 @@ impl Buyer {
             receipt_digest,
         })
     }
+}
+
+fn valid_evidence_rung(evidence: &LayerXEvidence, has_block_fields: bool) -> bool {
+    match evidence.verification_level.as_str() {
+        "receipted" => !has_block_fields && evidence.proof.is_none(),
+        "committed" => match (
+            evidence.block_number.as_deref(),
+            evidence.block_hash.as_deref(),
+        ) {
+            (Some(number), Some(hash)) => {
+                evidence.proof.is_some()
+                    && number.strip_prefix("0x").is_some_and(|digits| {
+                        !digits.is_empty()
+                            && digits.len() <= 16
+                            && (digits == "0" || !digits.starts_with('0'))
+                            && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+                    && valid_hex_hash(hash)
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn valid_hex_hash(value: &str) -> bool {
+    value.len() == 66
+        && value.starts_with("0x")
+        && value.as_bytes()[2..]
+            .iter()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
 }
 
 fn unhex(value: &str) -> Result<Vec<u8>, X402Error> {
@@ -858,6 +883,39 @@ mod tests {
         0x62, 0x71, 0x47, 0x58, 0x5c, 0xbe, 0x20, 0x6b, 0xad, 0xb4, 0xd2, 0x14, 0xd8, 0x44, 0xb1,
         0xcc, 0xd1,
     ];
+
+    fn fixture_payment(
+        topics: &[[u8; 32]],
+        data: &[u8],
+        amount: AtomicAmount,
+    ) -> Result<BuiltPayment, X402Error> {
+        Ok(BuiltPayment {
+            header: String::new(),
+            payload: PaymentPayload {
+                x402_version: X402_VERSION,
+                resource: None,
+                accepted: PaymentRequirements {
+                    scheme: "exact".to_owned(),
+                    network: "eip155:125".to_owned(),
+                    amount,
+                    asset: format!(
+                        "0x{}",
+                        hex(&data[..32]
+                            .try_into()
+                            .map_err(|_| X402Error::EvidenceMismatch)?)
+                    ),
+                    pay_to: format!("0x{}", hex(&topics[3])),
+                    max_timeout_seconds: 90,
+                    extra: Some(
+                        json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
+                    ),
+                },
+                payload: json!({}),
+                extensions: BTreeMap::new(),
+            },
+            idempotency_key: topics[1],
+        })
+    }
 
     fn settlement() -> Result<
         (
@@ -922,32 +980,7 @@ mod tests {
             .collect::<Vec<_>>());
         let data = unhex(&text(&log["data"])?)?;
         let amount = AtomicAmount::from_u128(1_000_000);
-        let payment = BuiltPayment {
-            header: String::new(),
-            payload: PaymentPayload {
-                x402_version: X402_VERSION,
-                resource: None,
-                accepted: PaymentRequirements {
-                    scheme: "exact".to_owned(),
-                    network: "eip155:125".to_owned(),
-                    amount,
-                    asset: format!(
-                        "0x{}",
-                        hex(&data[..32]
-                            .try_into()
-                            .map_err(|_| X402Error::EvidenceMismatch)?)
-                    ),
-                    pay_to: format!("0x{}", hex(&topics[3])),
-                    max_timeout_seconds: 90,
-                    extra: Some(
-                        json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
-                    ),
-                },
-                payload: json!({}),
-                extensions: BTreeMap::new(),
-            },
-            idempotency_key: topics[1],
-        };
+        let payment = fixture_payment(&topics, &data, amount)?;
         let response = SettlementResponse {
             success: true,
             error_reason: None,

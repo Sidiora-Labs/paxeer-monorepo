@@ -252,6 +252,9 @@ pub struct EthereumVerifier {
 impl crate::sealed::SourceVerifier for EthereumVerifier {}
 
 impl EthereumVerifier {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn verify_owned_history(
         &self,
         ownership_evidence: &SourceEvidence,

@@ -8,7 +8,13 @@ fn wire<T>(result: Result<T, layerx_wire::WireError>) -> TestResult<T> {
     result.map_err(|error| format!("wire fixture: {error:?}").into())
 }
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 fn bytes(text: &str) -> TestResult<Vec<u8>> {
     let text = text.strip_prefix("0x").unwrap_or(text);
@@ -34,6 +40,10 @@ fn recorded_case() -> TestResult<Value> {
 
 // Preserve the captured payment terms, but sign a currently valid payer deadline.
 // Receipt identities, log commitments and signatures are then emitted anew.
+/// Produces a signed payment with a current payer deadline.
+///
+/// # Errors
+/// Returns an error when the recorded transaction cannot be decoded or signed.
 pub fn payment_case(reference: Option<[u8; 32]>) -> TestResult<Value> {
     let case = recorded_case()?;
     let raw = bytes(case["rawTransaction"].as_str().ok_or("raw transaction")?)?;
@@ -45,6 +55,13 @@ pub fn payment_case(reference: Option<[u8; 32]>) -> TestResult<Value> {
     transaction_case(&transaction.sign(&[0x3b; 32])?)
 }
 
+/// Produces receipt evidence for the signed payment bytes.
+///
+/// # Errors
+/// Returns an error when the transaction or receipt cannot be decoded.
+///
+/// # Panics
+/// Panics when the transaction does not match the expected chain and call shape.
 pub fn transaction_case(raw: &[u8]) -> TestResult<Value> {
     let mut case = recorded_case()?;
     let (transaction, signature) = decode_signed(raw)?;
@@ -96,13 +113,22 @@ fn payment_now_millis() -> Result<u64, String> {
     u64::try_from(elapsed.as_millis()).map_err(|error| error.to_string())
 }
 
+/// Encodes a sequencer receipt for the signed payment and log.
+///
+/// # Errors
+/// Returns an error when the transaction, log, or receipt cannot be decoded or encoded.
+///
+/// # Panics
+/// Panics when recorded receipt fields are absent or have an unexpected shape.
 pub fn emit_node_receipt(raw: &[u8], log: &Value) -> TestResult<Vec<u8>> {
     use layerx_wire::encode::Encoder;
     // Sequencer layout from rpc/sequencer_receipt.go and the canonical
     // ProtocolReceipt encoder in layerx-wire; this isolated fixture starts at seq 1.
     let recorded = recorded_case()?;
     let old = wire(layerx_wire::receipt::decode(&bytes(
-        recorded["signedReceipt"].as_str().unwrap(),
+        recorded["signedReceipt"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value")),
     )?))?;
     let old = old.protocol().ok_or("protocol receipt")?;
     let (transaction, signature) = decode_signed(raw)?;
@@ -117,12 +143,27 @@ pub fn emit_node_receipt(raw: &[u8], log: &Value) -> TestResult<Vec<u8>> {
     let resulting: [u8; 32] = chain.finalize().into();
     let mut summary = old.effects()[0].body().to_vec();
     summary[24..28].copy_from_slice(&0_u32.to_be_bytes());
-    let mut log_body = bytes(log["address"].as_str().unwrap())?;
+    let mut log_body = bytes(
+        log["address"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value")),
+    )?;
     log_body.push(4);
-    for topic in log["topics"].as_array().unwrap() {
-        log_body.extend(bytes(topic.as_str().unwrap())?);
+    for topic in log["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("expected Some value"))
+    {
+        log_body.extend(bytes(
+            topic
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        )?);
     }
-    log_body.extend(Sha256::digest(bytes(log["data"].as_str().unwrap())?));
+    log_body.extend(Sha256::digest(bytes(
+        log["data"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value")),
+    )?));
     let mut encoder = Encoder::new(512 * 1024);
     wire(encoder.structure_header_version(0x5201, 2))?;
     wire(encoder.u16(2))?;
@@ -136,7 +177,7 @@ pub fn emit_node_receipt(raw: &[u8], log: &Value) -> TestResult<Vec<u8>> {
     for (index, body) in [summary, log_body].into_iter().enumerate() {
         let effect = &old.effects()[index];
         wire(encoder.u16(effect.module_id()))?;
-        wire(encoder.u16(index as u16))?;
+        wire(encoder.u16(u16::try_from(index)?))?;
         wire(encoder.u16(effect.event_type()))?;
         wire(encoder.u8(effect.kind()))?;
         wire(encoder.u8(u8::from(effect.monetary())))?;

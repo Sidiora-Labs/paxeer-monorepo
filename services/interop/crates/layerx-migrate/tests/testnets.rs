@@ -89,7 +89,7 @@ fn copied_journal_refuses_damage(
     records.sort();
     let first = records
         .first()
-        .expect("real stored source page creates a journal record");
+        .unwrap_or_else(|| panic!("real stored source page creates a journal record"));
     match damage {
         "tampered" => {
             let mut bytes = fs::read(first)?;
@@ -106,7 +106,7 @@ fn copied_journal_refuses_damage(
         _ => panic!("unknown history damage case"),
     }
     let mut copied = config.clone();
-    copied.directory = copy.0.clone();
+    copied.directory.clone_from(&copy.0);
     assert!(matches!(
         DurableExternalHistory::new(&copied),
         Err(MigrationError::CheckpointIntegrity)
