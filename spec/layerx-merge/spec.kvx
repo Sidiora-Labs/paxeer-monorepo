@@ -426225,7 +426225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.19]
 title = "Store the market value of every PAX price history point in the explorer backend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.18"]
