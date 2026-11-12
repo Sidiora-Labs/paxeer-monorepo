@@ -3,7 +3,7 @@ use crate::{
     codec::{self, Envelope, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
-        BAD_VERSION, CAPACITY, CONFLICT, CodecResult, NON_CANONICAL, UNAUTHORIZED,
+        CodecResult, BAD_VERSION, CAPACITY, CONFLICT, NON_CANONICAL, UNAUTHORIZED,
         UNKNOWN_OPERATION,
     },
     registry_ops::CallContext,
@@ -26,11 +26,14 @@ pub struct BookRequest<'a> {
     unsigned: &'a [u8],
 }
 impl BookRequest<'_> {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn request_digest(&self) -> CodecResult<RequestDigest> {
         RequestDigest::new(codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
     }
 }
 
+#[must_use]
 pub fn is_book_view(input: &[u8]) -> bool {
     matches!(input.get(8..10), Some([0x0b, 0x14]))
 }
@@ -58,11 +61,15 @@ fn validate_book_envelope(envelope: &Envelope<'_>) -> CodecResult<()> {
     r.finish()
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn encode_book_envelope(envelope: &Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_book_envelope(envelope)?;
     codec::encode_envelope_fields(envelope, out)
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn decode_book_envelope(input: &[u8]) -> CodecResult<BookRequest<'_>> {
     let (envelope, unsigned) = codec::decode_envelope_fields(input, false)?;
     validate_book_envelope(&envelope)?;
@@ -146,6 +153,8 @@ fn scan_order(
 }
 
 impl<'a> PlacementBook<'a> {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &'a [u8], model_digest: Digest32) -> CodecResult<Self> {
         Self::from_book(&RoomBook::decode(bytes)?, model_digest)
     }
@@ -220,7 +229,8 @@ impl<'a> PlacementBook<'a> {
                         return Err(CONFLICT);
                     }
                 }
-                *consumed.guest_index_mut(index) = (deal_index + 1) as u8;
+                *consumed.guest_index_mut(index) =
+                    u8::try_from(deal_index + 1).map_err(|_| crate::errors::CAPACITY)?;
             }
         }
         let mut counts = [0; 2];
@@ -269,10 +279,13 @@ impl<'a> PlacementBook<'a> {
         Ok(counts)
     }
 
+    #[must_use]
     pub fn counts(&self) -> [usize; 2] {
         self.counts
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn ask(&self, index: usize) -> CodecResult<rooms::AskRecord> {
         let index = usize::from(
             *self
@@ -287,6 +300,8 @@ impl<'a> PlacementBook<'a> {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn bid(&self, index: usize) -> CodecResult<rooms::BidRecord> {
         let index = usize::from(
             *self
@@ -301,6 +316,8 @@ impl<'a> PlacementBook<'a> {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode_view(&self, out: &mut [u8]) -> CodecResult<usize> {
         let len = VIEW_HEADER_BYTES
             + *self.counts.guest_index(0) * ASK_VIEW_BYTES
@@ -311,8 +328,8 @@ impl<'a> PlacementBook<'a> {
             put: b"F11P";
             u16: 1_u16;
             id32: self.model_digest.as_bytes();
-            u8: (*(self.counts).guest_index(0)) as u8;
-            u8: (*(self.counts).guest_index(1)) as u8;
+            u8: u8::try_from(*(self.counts).guest_index(0)).map_err(|_| crate::errors::CAPACITY)?;
+            u8: u8::try_from(*(self.counts).guest_index(1)).map_err(|_| crate::errors::CAPACITY)?;
         )?;
         for index in 0..*self.counts.guest_index(0) {
             let row_index = usize::from(*self.asks.guest_index(index));
@@ -424,6 +441,8 @@ pub struct BookView<'a> {
     crossings: &'a [u8],
 }
 impl<'a> BookView<'a> {
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &'a [u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(4)? != b"F11P" {
@@ -485,6 +504,7 @@ impl<'a> BookView<'a> {
         Ok(value)
     }
 
+    #[must_use]
     pub fn counts(&self) -> [usize; 2] {
         [
             self.asks.len() / ASK_VIEW_BYTES,
@@ -492,26 +512,30 @@ impl<'a> BookView<'a> {
         ]
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn ask(&self, index: usize) -> CodecResult<Placement> {
         Placement::decode(
             self.asks
                 .as_chunks::<{ ASK_VIEW_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; 96]>::as_slice)
                 .nth(index)
                 .ok_or(CAPACITY)?,
             true,
         )
     }
 
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn bid(&self, index: usize) -> CodecResult<Placement> {
         Placement::decode(
             self.bids
                 .as_chunks::<{ BID_VIEW_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; 80]>::as_slice)
                 .nth(index)
                 .ok_or(CAPACITY)?,
             false,
@@ -531,6 +555,8 @@ impl<'a> BookView<'a> {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,

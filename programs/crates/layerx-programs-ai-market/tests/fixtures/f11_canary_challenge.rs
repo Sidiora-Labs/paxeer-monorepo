@@ -1,12 +1,11 @@
-use super::observe;
-#[path = "f11_producers.rs"]
-mod producers;
+use super::producers;
+use layerx_ai_market_test_values::RequiredValue as _;
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     canary::{
-        self, CanaryLogits, CanaryRegion, CanaryReveal, CanaryRoomProfile, CanaryTask,
-        ChallengeLapPayload, ChallengeStatus, ResolveChallengePayload,
+        self, CanaryLogits, CanaryReveal, CanaryRoomProfile, CanaryTask, ChallengeLapPayload,
+        ChallengeStatus, ResolveChallengePayload,
     },
     codec::{self, Envelope, ResultStatus},
     commit_reveal,
@@ -250,7 +249,7 @@ impl Market {
     ) -> CodecResult<producers::Reply> {
         let reply = producers::compose(&self.bytes, encoded, actor, at)?;
         if let Routed::Applied { .. } = reply.routed {
-            self.bytes = reply.state.clone();
+            self.bytes.clone_from(&reply.state);
         }
         Ok(reply)
     }
@@ -430,16 +429,16 @@ fn commit_challenge_reveal_resolve_hit_returns_deposit_after_restart() -> CodecR
         new.control
             .replay
             .actor(ActorSlot::OWNER)
-            .unwrap()
+            .required()
             .last
-            .unwrap()
+            .required()
             .sequence,
         old.control
             .replay
             .actor(ActorSlot::OWNER)
-            .unwrap()
+            .required()
             .last
-            .unwrap()
+            .required()
             .sequence
             + 2
     );
@@ -447,5 +446,5 @@ fn commit_challenge_reveal_resolve_hit_returns_deposit_after_restart() -> CodecR
 }
 
 pub fn recorded_journey() {
-    commit_challenge_reveal_resolve_hit_returns_deposit_after_restart().unwrap();
+    commit_challenge_reveal_resolve_hit_returns_deposit_after_restart().required();
 }

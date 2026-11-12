@@ -1,3 +1,4 @@
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     codec, dispatch, registry_ops::CallContext, rewards, state, MAX_RESULT_BYTES,
     REWARDS_ACCOUNT_SEED, SHARED_STATE_KEY,
@@ -23,10 +24,10 @@ fn assert_build_recipe() {
         .any(|line| line == format!("PAXAI_GUEST_OPT_LEVEL={BUILD_OPT_LEVEL}")));
     let passes = recipe
         .split_once("PAXAI_GUEST_PASSES=(\n")
-        .unwrap()
+        .required()
         .1
         .split_once("\n)")
-        .unwrap()
+        .required()
         .0
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -66,8 +67,11 @@ pub fn aggregation_baseline_module() -> Checked<Arc<ValidatedModule>> {
     let hash = codec::sha256([wasm.as_slice()])
         .map_err(|e| format!("{e:?}"))?
         .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+        .fold(String::new(), |mut text, byte| {
+            use core::fmt::Write as _;
+            write!(text, "{byte:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+            text
+        });
     assert!(metadata
         .lines()
         .any(|line| line == format!("sha256 = \"{hash}\"")));
@@ -111,8 +115,11 @@ fn source_digest() -> Checked<String> {
     Ok(codec::sha256([bytes.as_slice()])
         .map_err(|e| format!("{e:?}"))?
         .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect())
+        .fold(String::new(), |mut text, byte| {
+            use core::fmt::Write as _;
+            write!(text, "{byte:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+            text
+        }))
 }
 
 pub fn module() -> Checked<Arc<ValidatedModule>> {
@@ -147,10 +154,14 @@ pub fn module() -> Checked<Arc<ValidatedModule>> {
         .lines()
         .any(|line| line == "optimizer_version = \"133\""));
     assert!(metadata.lines().any(|line| line == "profile = \"release\""));
-    let domain = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let domain = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN.iter().fold(
+        String::new(),
+        |mut text, byte| {
+            use core::fmt::Write as _;
+            write!(text, "{byte:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+            text
+        },
+    );
     assert!(metadata
         .lines()
         .any(|line| line == format!("chain_domain = \"{domain}\"")));
@@ -165,10 +176,11 @@ pub fn module() -> Checked<Arc<ValidatedModule>> {
         "compiled guest is stale; regenerate it from the current production source"
     );
     let hash = codec::sha256([wasm.as_slice()]).map_err(|e| format!("{e:?}"))?;
-    let hash = hash
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let hash = hash.iter().fold(String::new(), |mut text, byte| {
+        use core::fmt::Write as _;
+        write!(text, "{byte:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+        text
+    });
     assert!(
         metadata
             .lines()
@@ -218,7 +230,7 @@ impl Ledger {
         out
     }
     pub fn reopen(bytes: &[u8]) -> Checked<Self> {
-        if bytes.len() < 8 || (bytes.len() - 8) % 48 != 0 {
+        if bytes.len() < 8 || !(bytes.len() - 8).is_multiple_of(48) {
             return Err("invalid ledger image".into());
         }
         let mut out = Self {
@@ -379,175 +391,12 @@ impl Guest {
         expected_next: Option<&[u8]>,
         expected_error: Option<layerx_programs_ai_market::errors::ApplicationError>,
     ) -> Checked<Observed> {
-        let selector = u16::from_be_bytes(envelope[8..10].try_into()?);
-        let (e, digest) = match selector {
-            0x0b10..=0x0b13 => {
-                let request = layerx_programs_ai_market::queries::decode_view_envelope(envelope)
-                    .map_err(|e| format!("{e:?}"))?;
-                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
-                (request.envelope, digest)
-            }
-            0x0b14 => {
-                let request = layerx_programs_ai_market::placement::decode_book_envelope(envelope)
-                    .map_err(|e| format!("{e:?}"))?;
-                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
-                (request.envelope, digest)
-            }
-            _ => {
-                let request = codec::decode_envelope(envelope).map_err(|e| format!("{e:?}"))?;
-                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
-                (request.envelope, digest)
-            }
-        };
+        let (e, digest) = Self::decoded_guest_envelope(envelope)?;
         let actor = rt::PrincipalId::new(ctx.principal.bytes()).map_err(|e| format!("{e:?}"))?;
-        let mut caps = vec![
-            Capability::SharedStorageRead,
-            Capability::SharedStorageWrite,
-            Capability::EmitEvent,
-        ];
-        if matches!(e.operation, dispatch::FUND | dispatch::LockBond) {
-            let amount = if e.operation == dispatch::FUND {
-                rewards::FundRequest::decode(e.payload)
-                    .map_err(|e| format!("{e:?}"))?
-                    .amount
-            } else {
-                let mut r = codec::Reader::new(e.payload);
-                r.take(64).map_err(|e| format!("{e:?}"))?;
-                let amount = r.u128().map_err(|e| format!("{e:?}"))?;
-                r.finish().map_err(|e| format!("{e:?}"))?;
-                amount
-            };
-            caps.push(Capability::Transfer402 {
-                asset: self.asset,
-                to: self.account,
-                maximum_amount: amount,
-            });
-        }
-        if let (Some(before), Some(after)) =
-            (self.state().map_err(|e| format!("{e:?}"))?, expected_next)
-        {
-            let old = state::decode_shared_state(&before).map_err(|e| format!("{e:?}"))?;
-            let new = state::decode_shared_state(after).map_err(|e| format!("{e:?}"))?;
-            let ledger = |state: &state::SharedState<'_>| -> Checked<rewards::RewardLedger> {
-                if state.feature_sections[state::Section::SettlementClaims.index()].is_empty() {
-                    let header = layerx_programs_ai_market::registry_ops::PolicySection::decode(
-                        state.feature_sections[state::Section::PolicyLifecycle.index()],
-                    )
-                    .map_err(|e| format!("{e:?}"))?
-                    .header;
-                    Ok(rewards::RewardLedger::new(
-                        header.funding_asset,
-                        header.rewards_account,
-                        header.refund_recipient_account,
-                    )
-                    .map_err(|e| format!("{e:?}"))?)
-                } else {
-                    Ok(state::settlement_rewards(state, None)
-                        .map_err(|e| format!("{e:?}"))?
-                        .ledger()
-                        .map_err(|e| format!("{e:?}"))?)
-                }
-            };
-            let a = ledger(&old).map_err(|e| format!("{e:?}"))?;
-            let b = ledger(&new).map_err(|e| format!("{e:?}"))?;
-            let paid = b
-                .total_claimed
-                .checked_sub(a.total_claimed)
-                .ok_or("paid counter regressed")
-                .map_err(|e| format!("{e:?}"))?;
-            let refunded = b
-                .tracked_refunds
-                .checked_sub(a.tracked_refunds)
-                .ok_or("refund counter regressed")
-                .map_err(|e| format!("{e:?}"))?;
-            let amount = paid
-                .checked_add(refunded)
-                .ok_or("payout overflow")
-                .map_err(|e| format!("{e:?}"))?;
-            if amount > 0 {
-                let to = if e.operation == dispatch::RefundBond {
-                    ctx.principal.bytes()
-                } else if paid > 0 {
-                    rewards::ClaimRequest::decode(e.payload)
-                        .map_err(|e| format!("{e:?}"))?
-                        .recipient
-                        .bytes()
-                } else {
-                    a.refund_recipient.bytes()
-                };
-                caps.push(Capability::ProgramSpend {
-                    owner_program: self.program,
-                    seed: REWARDS_ACCOUNT_SEED.to_vec(),
-                    source_account: self.account,
-                    asset: self.asset,
-                    to,
-                    maximum_amount: amount,
-                });
-            }
-        }
-        if let (Some(before), Some(after)) = (self.state()?, expected_next) {
-            use layerx_programs_ai_market::{canary, value_adapter::ValueAction};
-            if matches!(
-                e.operation,
-                dispatch::ChallengeLap | dispatch::ResolveChallenge
-            ) {
-                match canary::value_action(e.operation, &before, after)
-                    .map_err(|e| format!("{e:?}"))?
-                {
-                    ValueAction::Fund { amount } => caps.push(Capability::Transfer402 {
-                        asset: self.asset,
-                        to: self.account,
-                        maximum_amount: amount,
-                    }),
-                    ValueAction::Pay { recipient, amount } => caps.push(Capability::ProgramSpend {
-                        owner_program: self.program,
-                        seed: REWARDS_ACCOUNT_SEED.to_vec(),
-                        source_account: self.account,
-                        asset: self.asset,
-                        to: recipient.bytes(),
-                        maximum_amount: amount,
-                    }),
-                    ValueAction::None => {}
-                }
-            }
-        }
-        let executor = Executor::declared();
-        let binding = ActivityBudgetBinding::new(digest.bytes()).map_err(|e| format!("{e:?}"))?;
-        let admitted = executor
-            .admit_activity_budget_for_qualification(
-                DeclaredBudget::protocol_maximum(),
-                actor,
-                binding,
-                u128::MAX,
-            )
-            .map_err(|e| format!("{e:?}"))?;
-        let no_receipts = rt::UnavailableReceiptOracle;
-        let request = BudgetedAuthorizedExecutionRequest::new(
-            AuthorizedExecutionRequest {
-                module: &self.module,
-                program: self.program,
-                authorization: AuthorizationContext::new(
-                    actor,
-                    CapabilitySet::new(caps).map_err(|e| format!("{e:?}"))?,
-                ),
-                receipts: &no_receipts,
-                entrypoint: CALL_ENTRY_EXPORT,
-                calldata: envelope,
-                composition: CompositionContext::isolated(),
-                response_capacity: MAX_RESULT_BYTES,
-            },
-            admitted,
-            actor,
-            binding,
-        );
-        let record = executor
-            .execute_authorized_v5_budgeted_for_qualification(
-                &mut self.storage,
-                request,
-                1,
-                ctx.height,
-            )
-            .map_err(|e| format!("{e:?}"))?;
+        let mut caps = self.deposit_capabilities(&e)?;
+        self.append_payout_capability(ctx, &e, expected_next, &mut caps)?;
+        self.append_canary_capability(&e, expected_next, &mut caps)?;
+        let record = self.execute_guest(ctx, envelope, actor, digest, caps)?;
         let fuel = record.execution().usage().cpu_fuel;
         assert!(
             fuel > 0,
@@ -613,8 +462,7 @@ impl Guest {
                             let name = layerx_programs_ai_market::errors::APPLICATION_ERRORS
                                 .iter()
                                 .find(|entry| entry.code == error.code())
-                                .map(|entry| entry.name)
-                                .unwrap_or("UNREGISTERED_APPLICATION_ERROR");
+                                .map_or("UNREGISTERED_APPLICATION_ERROR", |entry| entry.name);
                             format!("{name} (0x{:04x})", error.code())
                         }
                         None => format!("{failure:?}"),
@@ -628,12 +476,219 @@ impl Guest {
                 )
                 .into())
             }
-            other => Err(format!(
+            other @ V2ActivityOutcome::Resource(_) => Err(format!(
                 "guest {} at height {} refused: {other:?}",
                 e.operation.metadata().name,
                 ctx.height
             )
             .into()),
         }
+    }
+    fn append_canary_capability(
+        &mut self,
+        e: &codec::Envelope<'_>,
+        expected_next: Option<&[u8]>,
+        caps: &mut Vec<Capability>,
+    ) -> Checked {
+        if let (Some(before), Some(after)) = (self.state()?, expected_next) {
+            use layerx_programs_ai_market::{canary, value_adapter::ValueAction};
+            if matches!(
+                e.operation,
+                dispatch::ChallengeLap | dispatch::ResolveChallenge
+            ) {
+                match canary::value_action(e.operation, &before, after)
+                    .map_err(|e| format!("{e:?}"))?
+                {
+                    ValueAction::Fund { amount } => caps.push(Capability::Transfer402 {
+                        asset: self.asset,
+                        to: self.account,
+                        maximum_amount: amount,
+                    }),
+                    ValueAction::Pay { recipient, amount } => caps.push(Capability::ProgramSpend {
+                        owner_program: self.program,
+                        seed: REWARDS_ACCOUNT_SEED.to_vec(),
+                        source_account: self.account,
+                        asset: self.asset,
+                        to: recipient.bytes(),
+                        maximum_amount: amount,
+                    }),
+                    ValueAction::None => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn deposit_capabilities(&self, e: &codec::Envelope<'_>) -> Checked<Vec<Capability>> {
+        let mut caps = vec![
+            Capability::SharedStorageRead,
+            Capability::SharedStorageWrite,
+            Capability::EmitEvent,
+        ];
+        if matches!(e.operation, dispatch::FUND | dispatch::LockBond) {
+            let amount = if e.operation == dispatch::FUND {
+                rewards::FundRequest::decode(e.payload)
+                    .map_err(|e| format!("{e:?}"))?
+                    .amount
+            } else {
+                let mut r = codec::Reader::new(e.payload);
+                r.take(64).map_err(|e| format!("{e:?}"))?;
+                let amount = r.u128().map_err(|e| format!("{e:?}"))?;
+                r.finish().map_err(|e| format!("{e:?}"))?;
+                amount
+            };
+            caps.push(Capability::Transfer402 {
+                asset: self.asset,
+                to: self.account,
+                maximum_amount: amount,
+            });
+        }
+        Ok(caps)
+    }
+    fn append_payout_capability(
+        &mut self,
+        ctx: &CallContext,
+        e: &codec::Envelope<'_>,
+        expected_next: Option<&[u8]>,
+        caps: &mut Vec<Capability>,
+    ) -> Checked {
+        if let (Some(before), Some(after)) =
+            (self.state().map_err(|e| format!("{e:?}"))?, expected_next)
+        {
+            let old = state::decode_shared_state(&before).map_err(|e| format!("{e:?}"))?;
+            let new = state::decode_shared_state(after).map_err(|e| format!("{e:?}"))?;
+            let ledger = |state: &state::SharedState<'_>| -> Checked<rewards::RewardLedger> {
+                if state.feature_sections[state::Section::SettlementClaims.index()].is_empty() {
+                    let header = layerx_programs_ai_market::registry_ops::PolicySection::decode(
+                        state.feature_sections[state::Section::PolicyLifecycle.index()],
+                    )
+                    .map_err(|e| format!("{e:?}"))?
+                    .header;
+                    Ok(rewards::RewardLedger::new(
+                        header.funding_asset,
+                        header.rewards_account,
+                        header.refund_recipient_account,
+                    )
+                    .map_err(|e| format!("{e:?}"))?)
+                } else {
+                    Ok(state::settlement_rewards(state, None)
+                        .map_err(|e| format!("{e:?}"))?
+                        .ledger()
+                        .map_err(|e| format!("{e:?}"))?)
+                }
+            };
+            let a = ledger(&old).map_err(|e| format!("{e:?}"))?;
+            let b = ledger(&new).map_err(|e| format!("{e:?}"))?;
+            let paid = b
+                .total_claimed
+                .checked_sub(a.total_claimed)
+                .ok_or("paid counter regressed")
+                .map_err(|e| format!("{e:?}"))?;
+            let refunded = b
+                .tracked_refunds
+                .checked_sub(a.tracked_refunds)
+                .ok_or("refund counter regressed")
+                .map_err(|e| format!("{e:?}"))?;
+            let amount = paid
+                .checked_add(refunded)
+                .ok_or("payout overflow")
+                .map_err(|e| format!("{e:?}"))?;
+            if amount > 0 {
+                let to = if e.operation == dispatch::RefundBond {
+                    ctx.principal.bytes()
+                } else if paid > 0 {
+                    rewards::ClaimRequest::decode(e.payload)
+                        .map_err(|e| format!("{e:?}"))?
+                        .recipient
+                        .bytes()
+                } else {
+                    a.refund_recipient.bytes()
+                };
+                caps.push(Capability::ProgramSpend {
+                    owner_program: self.program,
+                    seed: REWARDS_ACCOUNT_SEED.to_vec(),
+                    source_account: self.account,
+                    asset: self.asset,
+                    to,
+                    maximum_amount: amount,
+                });
+            }
+        }
+        Ok(())
+    }
+    fn execute_guest(
+        &mut self,
+        ctx: &CallContext,
+        envelope: &[u8],
+        actor: rt::PrincipalId,
+        digest: layerx_programs_ai_market::RequestDigest,
+        caps: Vec<Capability>,
+    ) -> Checked<rt::V2AuthorizedExecutionRecord> {
+        let executor = Executor::declared();
+        let binding = ActivityBudgetBinding::new(digest.bytes()).map_err(|e| format!("{e:?}"))?;
+        let admitted = executor
+            .admit_activity_budget_for_qualification(
+                DeclaredBudget::protocol_maximum(),
+                actor,
+                binding,
+                u128::MAX,
+            )
+            .map_err(|e| format!("{e:?}"))?;
+        let no_receipts = rt::UnavailableReceiptOracle;
+        let request = BudgetedAuthorizedExecutionRequest::new(
+            AuthorizedExecutionRequest {
+                module: &self.module,
+                program: self.program,
+                authorization: AuthorizationContext::new(
+                    actor,
+                    CapabilitySet::new(caps).map_err(|e| format!("{e:?}"))?,
+                ),
+                receipts: &no_receipts,
+                entrypoint: CALL_ENTRY_EXPORT,
+                calldata: envelope,
+                composition: CompositionContext::isolated(),
+                response_capacity: MAX_RESULT_BYTES,
+            },
+            admitted,
+            actor,
+            binding,
+        );
+        let record = executor
+            .execute_authorized_v5_budgeted_for_qualification(
+                &mut self.storage,
+                request,
+                1,
+                ctx.height,
+            )
+            .map_err(|e| format!("{e:?}"))?;
+        Ok(record)
+    }
+    fn decoded_guest_envelope(
+        envelope: &[u8],
+    ) -> Checked<(
+        codec::Envelope<'_>,
+        layerx_programs_ai_market::RequestDigest,
+    )> {
+        let selector = u16::from_be_bytes(envelope[8..10].try_into()?);
+        let (e, digest) = match selector {
+            0x0b10..=0x0b13 => {
+                let request = layerx_programs_ai_market::queries::decode_view_envelope(envelope)
+                    .map_err(|e| format!("{e:?}"))?;
+                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
+                (request.envelope, digest)
+            }
+            0x0b14 => {
+                let request = layerx_programs_ai_market::placement::decode_book_envelope(envelope)
+                    .map_err(|e| format!("{e:?}"))?;
+                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
+                (request.envelope, digest)
+            }
+            _ => {
+                let request = codec::decode_envelope(envelope).map_err(|e| format!("{e:?}"))?;
+                let digest = request.request_digest().map_err(|e| format!("{e:?}"))?;
+                (request.envelope, digest)
+            }
+        };
+        Ok((e, digest))
     }
 }

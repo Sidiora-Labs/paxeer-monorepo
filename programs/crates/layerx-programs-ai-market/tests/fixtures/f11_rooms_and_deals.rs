@@ -1,5 +1,5 @@
-use super::observe;
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{
         Admission, AdmissionContext, AdmissionTable, ApprovalTerms, Participant, TABLE_MAX_BYTES,
@@ -8,7 +8,6 @@ use layerx_programs_ai_market::{
     dispatch::{self, Buffers, Operation, Routed, SequencePolicy},
     errors::*,
     evaluators::authority::split_identity_section,
-    placement::SIDE_CAPACITY,
     policy::{PolicyCommitments, RoomProfile, TaskPolicyV1, TASK_POLICY_BYTES},
     registry::{derive_rewards_account, MarketHeader},
     registry_ops::{CallContext, PolicySection},
@@ -29,10 +28,10 @@ const PEER_B: u8 = 21;
 const ASKER: u8 = 30;
 
 fn digest(n: u8) -> Digest32 {
-    Digest32::new([n; 32]).unwrap()
+    Digest32::new([n; 32]).required()
 }
 fn principal(n: u8) -> PrincipalId {
-    PrincipalId::new([n; 32]).unwrap()
+    PrincipalId::new([n; 32]).required()
 }
 fn profile() -> RoomProfile {
     RoomProfile {
@@ -43,7 +42,7 @@ fn profile() -> RoomProfile {
         slash_fraction_bps: 1000,
         host_share_bps: 1000,
         protocol_share_bps: 100,
-        settlement_account: AccountId::new([80; 32]).unwrap(),
+        settlement_account: AccountId::new([80; 32]).required(),
         max_generated_tokens: 4096,
         queue_depth: layerx_programs_ai_market::policy::DEFAULT_QUEUE_DEPTH,
         liveness_timeout_ms: 30_000,
@@ -57,7 +56,7 @@ fn payload(size: usize, encode: impl FnOnce(&mut [u8]) -> CodecResult<usize>) ->
         let name = APPLICATION_ERRORS
             .iter()
             .find(|entry| entry.code == error.code())
-            .unwrap();
+            .required();
         panic!(
             "fixture payload capacity={size}: {} (0x{:04x})",
             name.name,
@@ -93,56 +92,63 @@ struct Harness {
 impl Harness {
     fn context(&self, actor: u8) -> CallContext {
         CallContext {
-            chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).unwrap(),
-            program: ProgramId::new([11; 32]).unwrap(),
+            chain: ChainDomain::new(MERGED_CHAIN_DOMAIN).required(),
+            program: ProgramId::new([11; 32]).required(),
             principal: principal(actor),
             height: self.height,
         }
     }
     fn state(&self) -> state::SharedState<'_> {
-        state::decode_shared_state(&self.current).unwrap()
+        state::decode_shared_state(&self.current).required()
     }
     fn header(&self) -> MarketHeader {
-        PolicySection::decode(self.state().section(Section::PolicyLifecycle).unwrap())
-            .unwrap()
+        PolicySection::decode(self.state().section(Section::PolicyLifecycle).required())
+            .required()
             .header
     }
     fn workers(&self) -> WorkerTable {
         WorkerTable::decode(
-            split_identity_section(self.state().section(Section::IdentityRoster).unwrap())
-                .unwrap()
+            split_identity_section(self.state().section(Section::IdentityRoster).required())
+                .required()
                 .0,
         )
-        .unwrap()
+        .required()
     }
     fn worker(&self, peer: u8) -> WorkerCurrent {
         *self
             .workers()
             .iter()
             .find(|w| w.owner == principal(peer))
-            .unwrap()
+            .required()
     }
     fn admission(&self) -> AdmissionTable {
         AdmissionTable::decode(
-            split_joint(self.state().section(Section::ReputationAdmission).unwrap())
-                .unwrap()
-                .1,
+            split_joint(
+                self.state()
+                    .section(Section::ReputationAdmission)
+                    .required(),
+            )
+            .required()
+            .1,
         )
-        .unwrap()
+        .required()
     }
     fn roster(&self) -> RosterDigest {
         RosterDigest::new(
-            roster::roster_digest(&self.admission(), self.admission().current_epoch().unwrap())
-                .unwrap()
-                .bytes(),
+            roster::roster_digest(
+                &self.admission(),
+                self.admission().current_epoch().required(),
+            )
+            .required()
+            .bytes(),
         )
-        .unwrap()
+        .required()
     }
     fn book(&self) -> RoomBook<'_> {
-        RoomBook::decode(self.room_parts().1).unwrap()
+        RoomBook::decode(self.room_parts().1).required()
     }
     fn room_parts(&self) -> (&[u8], &[u8]) {
-        self.state().room_market().unwrap()
+        self.state().room_market().required()
     }
     fn sequence(&self, actor: u8) -> u64 {
         if self.current.is_empty() {
@@ -154,7 +160,7 @@ impl Harness {
                 state
                     .control
                     .replay
-                    .actor(ActorSlot::from_index(i).unwrap())
+                    .actor(ActorSlot::from_index(i).required())
             })
             .find(|a| a.principal == principal(actor))
             .map_or(1, |a| a.last.map_or(1, |last| last.sequence + 1))
@@ -221,7 +227,7 @@ impl Harness {
                 result: &mut result,
             },
         )
-        .unwrap();
+        .required();
         super::observe(
             &self.context(actor),
             &before,
@@ -249,13 +255,13 @@ impl Harness {
                 revision,
                 operation,
             } => {
-                let framed = codec::decode_result(&result[..result_len]).unwrap();
+                let framed = codec::decode_result(&result[..result_len]).required();
                 assert_eq!(framed.status, ResultStatus::Ok);
                 assert_eq!(framed.revision, revision);
                 let mut topic = [0; 64];
-                let n = codec::event_topic(operation, &mut topic).unwrap();
+                let n = codec::event_topic(operation, &mut topic).required();
                 let (named, common, suffix) =
-                    codec::decode_event_frame(&topic[..n], &event[..event_len]).unwrap();
+                    codec::decode_event_frame(&topic[..n], &event[..event_len]).required();
                 assert_eq!(named, operation);
                 assert_eq!(common.revision, revision);
                 assert_eq!(common.result, framed.digest);
@@ -288,12 +294,12 @@ impl Harness {
     ) -> Vec<u8> {
         if op == dispatch::PostBid {
             let mut r = codec::Reader::new(bytes);
-            let room = r.digest32().unwrap();
-            let bid = r.digest32().unwrap();
-            r.take(48).unwrap();
-            let amount = r.u128().unwrap();
+            let room = r.digest32().required();
+            let bid = r.digest32().required();
+            r.take(48).required();
+            let amount = r.u128().required();
             if layerx_programs_ai_market::bonds::bond_from_state(&self.current, bid)
-                .unwrap()
+                .required()
                 .is_none()
             {
                 self.apply(
@@ -301,7 +307,7 @@ impl Harness {
                     actor,
                     &layerx_programs_ai_market::bonds::LockBondRequest { room, bid, amount }
                         .encode()
-                        .unwrap(),
+                        .required(),
                     roster,
                 );
             }
@@ -311,7 +317,7 @@ impl Harness {
         assert!(
             matches!(routed, Routed::Applied { .. }),
             "{op:?}: {:?}",
-            codec::decode_result(&result).unwrap()
+            codec::decode_result(&result).required()
         );
         envelope
     }
@@ -327,19 +333,19 @@ impl Harness {
         let envelope = self.envelope(op, actor, bytes, roster);
         let (routed, result, _) = self.execute(actor, &envelope);
         assert!(matches!(routed, Routed::Refused { .. }), "{routed:?}");
-        assert_eq!(codec::decode_result(&result).unwrap().error, Some(error));
+        assert_eq!(codec::decode_result(&result).required().error, Some(error));
         assert_eq!(self.current, before);
     }
     fn install_admission(&mut self, table: &AdmissionTable) {
         let mut bytes = vec![0; TABLE_MAX_BYTES];
-        let n = table.encode(&mut bytes).unwrap();
+        let n = table.encode(&mut bytes).required();
         let mut out = vec![0; MAX_STATE_BYTES];
         let mut control = vec![0; Section::Control.payload_cap()];
         let state = self.state();
         let next = state
             .replace_section(Section::ReputationAdmission, &bytes[..n])
-            .unwrap();
-        let n = state::encode_shared_state(&next, &mut out, &mut control).unwrap();
+            .required();
+        let n = state::encode_shared_state(&next, &mut out, &mut control).required();
         self.current = out[..n].to_vec();
     }
     fn new() -> Self {
@@ -348,6 +354,15 @@ impl Harness {
             height: ORIGIN,
             request: 0,
         };
+        h.create_market();
+        h.enroll_peers();
+        h.refresh_metadata();
+        h.activate_workers();
+        h.height = ORIGIN + 129;
+        h
+    }
+    fn create_market(&mut self) {
+        let h = self;
         let ctx = h.context(HOST);
         let policy = TaskPolicyV1::bounded_default(
             1,
@@ -356,7 +371,7 @@ impl Harness {
                 model_artifact: digest(50),
                 dataset_artifact: [2; 32],
                 benchmark_suite: digest(3),
-                rubric: RubricDigest::new([4; 32]).unwrap(),
+                rubric: RubricDigest::new([4; 32]).required(),
                 task_schema: digest(5),
                 result_schema: digest(6),
                 service_terms: digest(7),
@@ -364,12 +379,12 @@ impl Harness {
             1000,
             1,
         )
-        .unwrap();
+        .required();
         let mut create = principal(HOST).as_bytes().to_vec();
         create.extend_from_slice(&[13; 32]);
         create.extend_from_slice(
-            derive_rewards_account(ctx.program, AssetId::new([13; 32]).unwrap())
-                .unwrap()
+            derive_rewards_account(ctx.program, AssetId::new([13; 32]).required())
+                .required()
                 .as_bytes(),
         );
         create.extend_from_slice(&[14; 32]);
@@ -387,15 +402,21 @@ impl Harness {
             .encode(out)
         });
         h.apply(dispatch::FUND, HOST, &fund, Presence::Absent);
+    }
+
+    fn enroll_peers(&mut self) {
+        let h = self;
         for peer in [PEER_A, PEER_B] {
             let key = SigningKey::from_bytes(&[peer; 32]);
             let public = PublicKey32(key.verifying_key().to_bytes());
             let nonce = [peer + 40; 32];
             let market = h.header();
-            let worker = codec::derive_worker(market.market_id, principal(peer), nonce).unwrap();
+            let worker = codec::derive_worker(market.market_id, principal(peer), nonce).required();
             let initial_manifest =
                 manifest(market.market_id, worker, peer, 1, ORIGIN, ORIGIN + 128);
-            let metadata = workers::decode_manifest(&initial_manifest).unwrap().digest;
+            let metadata = workers::decode_manifest(&initial_manifest)
+                .required()
+                .digest;
             let enroll = payload(136, |out| {
                 let mut w = Writer::new(out);
                 w.put(principal(peer).as_bytes())?;
@@ -416,7 +437,7 @@ impl Harness {
                 metadata,
                 ORIGIN + 128,
             )
-            .unwrap();
+            .required();
             let accept = payload(144, |out| {
                 let mut w = Writer::new(out);
                 w.put(worker.as_bytes())?;
@@ -428,6 +449,10 @@ impl Harness {
             });
             h.apply(dispatch::AcceptEnrollment, peer, &accept, Presence::Absent);
         }
+    }
+
+    fn refresh_metadata(&mut self) {
+        let h = self;
         h.height = ORIGIN + 8;
         for peer in [PEER_A, PEER_B] {
             let key = SigningKey::from_bytes(&[peer; 32]);
@@ -440,7 +465,7 @@ impl Harness {
                 ORIGIN + 8,
                 ORIGIN + 264,
             );
-            let metadata = workers::decode_manifest(&manifest).unwrap().digest;
+            let metadata = workers::decode_manifest(&manifest).required().digest;
             let publish = payload(100 + manifest.len(), |out| {
                 let mut w = Writer::new(out);
                 w.put(record.worker.as_bytes())?;
@@ -453,7 +478,7 @@ impl Harness {
                 Ok(w.len())
             });
             let native = h.envelope(dispatch::PublishMetadata, peer, &publish, Presence::Absent);
-            let mut envelope = codec::decode_envelope(&native).unwrap().envelope;
+            let mut envelope = codec::decode_envelope(&native).required().envelope;
             envelope.authentication = Authentication::Delegate {
                 key: PublicKey32(key.verifying_key().to_bytes()),
                 signature: Signature64([0; 64]),
@@ -462,9 +487,9 @@ impl Harness {
                 codec::encode_envelope(&envelope, out)
             });
             let hash = codec::decode_envelope(&unsigned)
-                .unwrap()
+                .required()
                 .request_digest()
-                .unwrap();
+                .required();
             envelope.authentication = Authentication::Delegate {
                 key: PublicKey32(key.verifying_key().to_bytes()),
                 signature: Signature64(key.sign(hash.as_bytes()).to_bytes()),
@@ -476,9 +501,13 @@ impl Harness {
             assert!(
                 matches!(routed, Routed::Applied { .. }),
                 "{:?}",
-                codec::decode_result(&result).unwrap()
+                codec::decode_result(&result).required()
             );
         }
+    }
+
+    fn activate_workers(&mut self) {
+        let h = self;
         let market = h.header();
         let mut table = AdmissionTable::new();
         for peer in [PEER_A, PEER_B] {
@@ -489,10 +518,10 @@ impl Harness {
                 enrollment_nonce_commitment: digest(peer + 40),
                 delegate: worker.delegate,
                 delegate_generation: 1,
-                identity_commitment: worker.proposal_digest(&market).unwrap(),
+                identity_commitment: worker.proposal_digest(&market).required(),
                 effective_epoch: 0,
                 config_version: 1,
-                request: RequestId::new([peer; 32]).unwrap(),
+                request: RequestId::new([peer; 32]).required(),
                 expiry_height: ORIGIN + 64,
             };
             let approval = table
@@ -504,7 +533,7 @@ impl Harness {
                     },
                     &terms,
                 )
-                .unwrap();
+                .required();
             table
                 .admit(
                     &AdmissionContext {
@@ -520,13 +549,12 @@ impl Harness {
                         approval_digest: approval,
                     },
                 )
-                .unwrap();
+                .required();
         }
-        roster::open_epoch(&mut table, 1, |_| false).unwrap();
+        roster::open_epoch(&mut table, 1, |_| false).required();
         h.install_admission(&table);
-        h.height = ORIGIN + 129;
-        h
     }
+
     fn open(&mut self, room: Digest32) -> Vec<u8> {
         self.apply(
             dispatch::OpenRoom,
@@ -550,7 +578,7 @@ impl Harness {
         PostBidRequest {
             room_id: room,
             bid_id: bid,
-            capability_digest: Digest32::new(self.worker(peer).metadata.bytes()).unwrap(),
+            capability_digest: Digest32::new(self.worker(peer).metadata.bytes()).required(),
             minimum_price_per_thousand_tokens: 5,
             bond_amount: 100,
             layer_capacity: 16,
@@ -668,11 +696,11 @@ fn manifest(
 fn open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding() {
     let mut h = Harness::ready(123);
     let before = h.state();
-    let legacy = before.room_market().unwrap().0.to_vec();
-    let identity = before.section(Section::IdentityRoster).unwrap().to_vec();
+    let legacy = before.room_market().required().0.to_vec();
+    let identity = before.section(Section::IdentityRoster).required().to_vec();
     let admission = before
         .section(Section::ReputationAdmission)
-        .unwrap()
+        .required()
         .to_vec();
     assert_eq!(legacy.len(), REWARD_STATE_BYTES);
     let request = h.deal_request(digest(60), digest(61), digest(62));
@@ -684,18 +712,18 @@ fn open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding() {
         request: h.request,
     };
     assert_eq!(restarted.current, persisted);
-    let room = restarted.book().room(digest(60)).unwrap().unwrap();
+    let room = restarted.book().room(digest(60)).required().required();
     assert_eq!(room.host_key, principal(HOST));
     assert_eq!(room.model_digest, digest(50));
     assert_eq!(room.runtime_digest, digest(51));
     assert_eq!(room.profile, profile());
     assert_eq!(room.state, RoomState::Open);
     assert_eq!(room.opened_at_epoch, 1);
-    let ask = restarted.book().ask(digest(61)).unwrap().unwrap();
+    let ask = restarted.book().ask(digest(61)).required().required();
     assert_eq!(ask.asker_key, principal(ASKER));
     assert_eq!(ask.stream_id, 123);
     assert_eq!(ask.state, AskState::Matched);
-    let bid = restarted.book().bid(digest(70)).unwrap().unwrap();
+    let bid = restarted.book().bid(digest(70)).required().required();
     assert_eq!(bid.peer_key, principal(PEER_A));
     assert_eq!(
         bid.capability_digest.bytes(),
@@ -704,7 +732,7 @@ fn open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding() {
     assert_eq!(bid.minimum_price_per_thousand_tokens, 5);
     assert_eq!(bid.bond_amount, 100);
     assert_eq!(bid.layer_capacity, 16);
-    let deal = restarted.book().deal(digest(62)).unwrap().unwrap();
+    let deal = restarted.book().deal(digest(62)).required().required();
     assert_eq!(deal.ask_id, digest(61));
     assert_eq!(deal.layers, request.layers);
     assert_eq!(deal.roster_digest, restarted.roster());
@@ -713,17 +741,17 @@ fn open_ask_bid_deal_persist_with_ordered_layers_and_roster_binding() {
     let (routed, result, _) = restarted.execute(HOST, &encoded);
     assert!(matches!(routed, Routed::Unchanged { .. }));
     assert_eq!(
-        codec::decode_result(&result).unwrap().status,
+        codec::decode_result(&result).required().status,
         ResultStatus::AlreadyApplied
     );
     assert_eq!(restarted.current, persisted);
     restarted.ask(digest(60), digest(63), 124);
     assert_eq!(restarted.book().counts(), [1, 2, 2, 1]);
     let state = restarted.state();
-    assert_eq!(state.room_market().unwrap().0, legacy);
-    assert_eq!(state.section(Section::IdentityRoster).unwrap(), identity);
+    assert_eq!(state.room_market().required().0, legacy);
+    assert_eq!(state.section(Section::IdentityRoster).required(), identity);
     assert_eq!(
-        state.section(Section::ReputationAdmission).unwrap(),
+        state.section(Section::ReputationAdmission).required(),
         admission
     );
 }
@@ -738,7 +766,7 @@ fn host_can_close_an_idle_room_and_closed_rooms_refuse_new_work() {
         Presence::Absent,
     );
     assert_eq!(
-        h.book().room(digest(60)).unwrap().unwrap().state,
+        h.book().room(digest(60)).required().required().state,
         RoomState::Closed
     );
     let (routed, _, _) = h.execute(HOST, &encoded);
@@ -785,8 +813,8 @@ fn a_matched_ask_accepts_a_further_deal_of_the_room_host() {
     let mut h = Harness::ready(123);
     let first = h.deal_request(digest(60), digest(61), digest(62));
     h.deal(&first);
-    let earlier = h.book().deal(first.deal_id).unwrap().unwrap();
-    let ask = h.book().ask(first.ask_id).unwrap().unwrap();
+    let earlier = h.book().deal(first.deal_id).required().required();
+    let ask = h.book().ask(first.ask_id).required().required();
     assert_eq!(ask.state, AskState::Matched);
     h.bid(digest(60), digest(72), PEER_A);
     h.bid(digest(60), digest(73), PEER_B);
@@ -802,20 +830,23 @@ fn a_matched_ask_accepts_a_further_deal_of_the_room_host() {
         request: h.request,
     };
     assert_eq!(restarted.book().counts(), [1, 1, 4, 2]);
-    assert_eq!(restarted.book().ask(first.ask_id).unwrap().unwrap(), ask);
     assert_eq!(
-        restarted.book().deal(first.deal_id).unwrap().unwrap(),
+        restarted.book().ask(first.ask_id).required().required(),
+        ask
+    );
+    assert_eq!(
+        restarted.book().deal(first.deal_id).required().required(),
         earlier
     );
     for request in [&first, &further] {
         let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
         let n =
             queries::answer_deal_view(&restarted.current, request.deal_id.as_bytes(), &mut bytes)
-                .unwrap();
-        let view = DealView::decode(&bytes[..n]).unwrap();
+                .required();
+        let view = DealView::decode(&bytes[..n]).required();
         assert_eq!(
             view.deal,
-            restarted.book().deal(request.deal_id).unwrap().unwrap()
+            restarted.book().deal(request.deal_id).required().required()
         );
         assert_eq!(view.deal.ask_id, first.ask_id);
         assert_eq!(view.deal.room_id, request.room_id);
@@ -833,7 +864,7 @@ fn a_matched_ask_accepts_a_further_deal_of_the_room_host() {
     let (routed, result, _) = restarted.execute(HOST, &encoded);
     assert!(matches!(routed, Routed::Unchanged { .. }));
     assert_eq!(
-        codec::decode_result(&result).unwrap().status,
+        codec::decode_result(&result).required().status,
         ResultStatus::AlreadyApplied
     );
     assert_eq!(restarted.current, persisted);
@@ -849,18 +880,21 @@ pub fn recorded_journey() {
 
 pub fn room_profile_wire_round_trip() {
     let request = open_request(digest(60));
-    request.profile.validate().unwrap();
+    request.profile.validate().required();
     let mut profile_bytes = [0; layerx_programs_ai_market::policy::ROOM_PROFILE_BYTES];
     assert_eq!(
-        request.profile.encode(&mut profile_bytes).unwrap(),
+        request.profile.encode(&mut profile_bytes).required(),
         profile_bytes.len()
     );
     assert_eq!(
-        RoomProfile::decode(&profile_bytes).unwrap(),
+        RoomProfile::decode(&profile_bytes).required(),
         request.profile
     );
     let mut bytes = vec![0; OPEN_ROOM_REQUEST_BYTES];
-    assert_eq!(request.encode(&mut bytes).unwrap(), OPEN_ROOM_REQUEST_BYTES);
+    assert_eq!(
+        request.encode(&mut bytes).required(),
+        OPEN_ROOM_REQUEST_BYTES
+    );
     assert_eq!(&bytes[96..], profile_bytes);
     let mut short = vec![0; OPEN_ROOM_REQUEST_BYTES - 1];
     assert_eq!(request.encode(&mut short), Err(CAPACITY));
@@ -876,11 +910,11 @@ fn a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask() {
         let mut h = Harness::ready(123);
         let first = h.deal_request(digest(60), digest(61), digest(62));
         h.deal(&first);
-        let earlier = h.book().deal(first.deal_id).unwrap().unwrap();
-        let ask = h.book().ask(first.ask_id).unwrap().unwrap();
+        let earlier = h.book().deal(first.deal_id).required().required();
+        let ask = h.book().ask(first.ask_id).required().required();
         let mut further = h.deal_request(first.room_id, first.ask_id, digest(further_id));
-        further.layers[0].as_mut().unwrap().end_layer = 12;
-        further.layers[1].as_mut().unwrap().first_layer = 12;
+        further.layers[0].as_mut().required().end_layer = 12;
+        further.layers[1].as_mut().required().first_layer = 12;
         assert_ne!(first.layers, further.layers);
         let sequence = h.sequence(HOST);
         let encoded = h.deal(&further);
@@ -892,14 +926,17 @@ fn a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask() {
             request: h.request,
         };
         assert_eq!(restarted.book().counts(), [1, 1, 2, 2]);
-        assert_eq!(restarted.book().ask(first.ask_id).unwrap().unwrap(), ask);
         assert_eq!(
-            restarted.book().deal(first.deal_id).unwrap().unwrap(),
+            restarted.book().ask(first.ask_id).required().required(),
+            ask
+        );
+        assert_eq!(
+            restarted.book().deal(first.deal_id).required().required(),
             earlier
         );
         assert_eq!(
-            PlacementBook::decode(restarted.state().room_market().unwrap().1, digest(50))
-                .unwrap()
+            PlacementBook::decode(restarted.state().room_market().required().1, digest(50))
+                .required()
                 .counts(),
             [0, 0]
         );
@@ -910,11 +947,11 @@ fn a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask() {
                 request.deal_id.as_bytes(),
                 &mut bytes,
             )
-            .unwrap();
-            let view = DealView::decode(&bytes[..n]).unwrap();
+            .required();
+            let view = DealView::decode(&bytes[..n]).required();
             assert_eq!(
                 view.deal,
-                restarted.book().deal(request.deal_id).unwrap().unwrap()
+                restarted.book().deal(request.deal_id).required().required()
             );
             assert_eq!(view.deal.ask_id, request.ask_id);
             assert_eq!(view.deal.room_id, request.room_id);
@@ -931,14 +968,14 @@ fn a_further_deal_names_the_bids_of_the_earlier_deal_of_its_ask() {
         }
         let mut bytes = vec![0; queries::ROOM_VIEW_BYTES];
         let n = queries::answer_room_view(&restarted.current, first.room_id.as_bytes(), &mut bytes)
-            .unwrap();
-        let room = RoomView::decode(&bytes[..n]).unwrap();
+            .required();
+        let room = RoomView::decode(&bytes[..n]).required();
         assert!(room.open_asks.iter().all(Option::is_none));
         assert!(room.open_bids.iter().all(Option::is_none));
         let (routed, result, event) = restarted.execute(HOST, &encoded);
         assert!(matches!(routed, Routed::Unchanged { .. }));
         assert_eq!(
-            codec::decode_result(&result).unwrap().status,
+            codec::decode_result(&result).required().status,
             ResultStatus::AlreadyApplied
         );
         assert!(event.is_empty());
@@ -953,8 +990,8 @@ fn a_deal_of_another_ask_that_names_a_bid_of_a_deal_is_refused() {
     h.deal(&first);
     // A third deal must also agree with every existing use of the shared bid.
     let mut same_ask = h.deal_request(first.room_id, first.ask_id, digest(59));
-    same_ask.layers[0].as_mut().unwrap().end_layer = 12;
-    same_ask.layers[1].as_mut().unwrap().first_layer = 12;
+    same_ask.layers[0].as_mut().required().end_layer = 12;
+    same_ask.layers[1].as_mut().required().first_layer = 12;
     h.deal(&same_ask);
     h.ask(first.room_id, digest(64), 124);
     let before = h.current.clone();
@@ -976,9 +1013,9 @@ fn a_deal_of_another_ask_that_names_a_bid_of_a_deal_is_refused() {
         );
         assert_eq!(h.current, before);
         assert_eq!(h.sequence(HOST), sequence);
-        assert!(h.book().deal(other.deal_id).unwrap().is_none());
+        assert!(h.book().deal(other.deal_id).required().is_none());
         assert_eq!(
-            h.book().ask(other.ask_id).unwrap().unwrap().state,
+            h.book().ask(other.ask_id).required().required().state,
             AskState::Open
         );
     }
