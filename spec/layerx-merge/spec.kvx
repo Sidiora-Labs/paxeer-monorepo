@@ -188225,7 +188225,7 @@ do_6 = "Attempt 4 (requalify, gotcha 3874, decision 3075): the attempt-3 tree f5
 
 [task.18.1750.1]
 title = "Issue #1750: Prove authenticated Claim and RefundFree replay through native activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
