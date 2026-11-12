@@ -10,7 +10,15 @@ use layerx_platform_gateway::evm;
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Map, Value};
 
-#[allow(unused, clippy::all, clippy::pedantic, clippy::unwrap_used, clippy::expect_used, clippy::float_arithmetic, clippy::lossy_float_literal)]
+#[allow(
+    unused,
+    clippy::all,
+    clippy::pedantic,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::float_arithmetic,
+    clippy::lossy_float_literal
+)]
 #[path = "../../../../../tools/platform/cli/src/wallet_gateway.rs"]
 mod wallet_contract;
 
@@ -29,15 +37,23 @@ pub(super) fn configured_endpoint() -> Result<Option<Vec<super::Endpoint>>, Stri
 }
 
 fn parse_endpoints(value: &str) -> Result<Vec<super::Endpoint>, String> {
-    let urls: Vec<String> = serde_json::from_str(value).map_err(|_| "LAYERX_GATEWAY_PAXEER_RPC_URLS must be a JSON array".to_owned())?;
+    let urls: Vec<String> = serde_json::from_str(value)
+        .map_err(|_| "LAYERX_GATEWAY_PAXEER_RPC_URLS must be a JSON array".to_owned())?;
     if !(MIN_ENDPOINTS..=MAX_ENDPOINTS).contains(&urls.len()) {
-        return Err("LAYERX_GATEWAY_PAXEER_RPC_URLS must hold two to eight Paxeer RPC urls".to_owned());
+        return Err(
+            "LAYERX_GATEWAY_PAXEER_RPC_URLS must hold two to eight Paxeer RPC urls".to_owned(),
+        );
     }
     let mut seen = std::collections::BTreeSet::new();
     let mut endpoints = Vec::with_capacity(urls.len());
     for url in urls {
-        let endpoint = super::Endpoint::parse(&url).map_err(|error| format!("LAYERX_GATEWAY_PAXEER_RPC_URLS entry is invalid: {error}"))?;
-        if !seen.insert((endpoint.host.clone(), endpoint.port, endpoint.base_path.clone())) {
+        let endpoint = super::Endpoint::parse(&url)
+            .map_err(|error| format!("LAYERX_GATEWAY_PAXEER_RPC_URLS entry is invalid: {error}"))?;
+        if !seen.insert((
+            endpoint.host.clone(),
+            endpoint.port,
+            endpoint.base_path.clone(),
+        )) {
             return Err("LAYERX_GATEWAY_PAXEER_RPC_URLS entries must be distinct".to_owned());
         }
         endpoints.push(endpoint);
@@ -95,7 +111,11 @@ fn check_deadline(deadline: Option<std::time::Instant>) -> Result<(), &'static s
     }
 }
 
-fn node_before(config: &Config, request: &Value, deadline: Option<std::time::Instant>) -> Result<Value, &'static str> {
+fn node_before(
+    config: &Config,
+    request: &Value,
+    deadline: Option<std::time::Instant>,
+) -> Result<Value, &'static str> {
     let Some(endpoints) = &config.paxeer else {
         return Err("paxeer_rpc_not_configured");
     };
@@ -107,7 +127,8 @@ fn node_before(config: &Config, request: &Value, deadline: Option<std::time::Ins
         let path = rpc_path(endpoint);
         let mut target = endpoint.clone();
         target.base_path.clear();
-        let identity_body = br#"{"jsonrpc":"2.0","id":"route-network","method":"eth_chainId","params":[]}"#;
+        let identity_body =
+            br#"{"jsonrpc":"2.0","id":"route-network","method":"eth_chainId","params":[]}"#;
         let identity = config.client.request_unauthenticated(
             &target,
             &OutboundRequest {
@@ -133,7 +154,16 @@ fn node_before(config: &Config, request: &Value, deadline: Option<std::time::Ins
         let valid_network = (identity.content_type == "application/json")
             .then(|| serde_json::from_slice::<Value>(&identity.body).ok())
             .flatten()
-            .is_some_and(|body| body["jsonrpc"] == "2.0" && body["id"] == "route-network" && body["result"].as_str().and_then(|s| s.strip_prefix("0x")).and_then(|s| u64::from_str_radix(s, 16).ok()) == Some(125) && body.get("error").is_none());
+            .is_some_and(|body| {
+                body["jsonrpc"] == "2.0"
+                    && body["id"] == "route-network"
+                    && body["result"]
+                        .as_str()
+                        .and_then(|s| s.strip_prefix("0x"))
+                        .and_then(|s| u64::from_str_radix(s, 16).ok())
+                        == Some(125)
+                    && body.get("error").is_none()
+            });
         if !valid_network {
             failure = "paxeer_wrong_network_or_unavailable";
             continue;
@@ -156,11 +186,17 @@ fn node_before(config: &Config, request: &Value, deadline: Option<std::time::Ins
                 break;
             }
             Ok(upstream) => {
-                eprintln!("paxeer_endpoint_failed endpoint={}:{} status={}", endpoint.host, endpoint.port, upstream.status);
+                eprintln!(
+                    "paxeer_endpoint_failed endpoint={}:{} status={}",
+                    endpoint.host, endpoint.port, upstream.status
+                );
                 failure = "paxeer_node_unavailable";
             }
             Err(error) => {
-                eprintln!("paxeer_endpoint_failed endpoint={}:{} transport={error}", endpoint.host, endpoint.port);
+                eprintln!(
+                    "paxeer_endpoint_failed endpoint={}:{} transport={error}",
+                    endpoint.host, endpoint.port
+                );
                 failure = "paxeer_unreachable";
             }
         }
@@ -169,8 +205,12 @@ fn node_before(config: &Config, request: &Value, deadline: Option<std::time::Ins
     if upstream.content_type != "application/json" {
         return Err("paxeer_node_unavailable");
     }
-    let document: Value = serde_json::from_slice(&upstream.body).map_err(|_| "invalid_paxeer_response")?;
-    if document.get("jsonrpc") != Some(&json!("2.0")) || document.get("id") != request.get("id") || document.get("result").is_some() == document.get("error").is_some() {
+    let document: Value =
+        serde_json::from_slice(&upstream.body).map_err(|_| "invalid_paxeer_response")?;
+    if document.get("jsonrpc") != Some(&json!("2.0"))
+        || document.get("id") != request.get("id")
+        || document.get("result").is_some() == document.get("error").is_some()
+    {
         return Err("invalid_paxeer_response");
     }
     Ok(document)
@@ -225,13 +265,19 @@ fn call(node: &mut Node<'_>, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, &'st
     let Some(result) = answer.get("result").and_then(Value::as_str) else {
         return Err("paxeer_call_refused");
     };
-    super::decode_hex(result.strip_prefix("0x").unwrap_or(result), 128 * 1024).map_err(|_| "invalid_paxeer_response")
+    super::decode_hex(result.strip_prefix("0x").unwrap_or(result), 128 * 1024)
+        .map_err(|_| "invalid_paxeer_response")
 }
 
 fn quantity(node: &mut Node<'_>, method: &str, params: &Value) -> Result<String, &'static str> {
     let request = json!({"jsonrpc":"2.0","id":"px-read","method":method,"params":params});
     let answer = node(&request)?;
-    answer.get("result").and_then(Value::as_str).filter(|value| value.starts_with("0x") && value.len() <= 66).map(str::to_owned).ok_or("invalid_paxeer_response")
+    answer
+        .get("result")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("0x") && value.len() <= 66)
+        .map(str::to_owned)
+        .ok_or("invalid_paxeer_response")
 }
 
 /// The Paxeer head height as `eth_blockNumber` answers it.
@@ -241,7 +287,7 @@ pub(super) fn block_number(node: &mut Node<'_>) -> Result<u64, &'static str> {
 }
 
 fn hex32(bytes: &[u8; 32]) -> String {
-    super::hex(bytes)
+    crate::encoding::hex_encode(bytes)
 }
 
 fn is_zero(bytes: &[u8]) -> bool {
@@ -258,11 +304,17 @@ struct Resolution {
 
 impl Resolution {
     fn document(&self) -> Value {
-        wallet_contract::account_document(self.evm, self.pax_address.clone(), self.did_public_key, self.layerx_account)
+        wallet_contract::account_document(
+            self.evm,
+            self.pax_address.clone(),
+            self.did_public_key,
+            self.layerx_account,
+        )
     }
     #[cfg(test)]
     fn did(&self) -> Option<String> {
-        self.did_public_key.map(|key| format!("did:layerx:{}", hex32(&key)))
+        self.did_public_key
+            .map(|key| format!("did:layerx:{}", hex32(&key)))
     }
 }
 
@@ -292,7 +344,11 @@ fn account_selector(params: Option<&Value>) -> Result<Selector, i32> {
     if is_zero(&key) {
         return Err(-32602);
     }
-    Ok(if explicit_did.is_some() { Selector::Did(key) } else { Selector::NativeAccount(key) })
+    Ok(if explicit_did.is_some() {
+        Selector::Did(key)
+    } else {
+        Selector::NativeAccount(key)
+    })
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -320,14 +376,29 @@ fn resolve(node: &mut Node<'_>, selector: &Selector) -> Result<Resolution, &'sta
         Selector::NativeAccount(_) => {
             return Err("native_account_reverse_resolution_unsupported");
         }
-        Selector::Did(key) => bound_address(&call(node, &evm::ADDR_PRECOMPILE, &evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, key))?)?,
+        Selector::Did(key) => bound_address(&call(
+            node,
+            &evm::ADDR_PRECOMPILE,
+            &evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, key),
+        )?)?,
     };
-    let answer = call(node, &evm::ADDR_PRECOMPILE, &evm::calldata_address(evm::SELECTOR_GET_UNIFIED_ACCOUNT, &address))?;
+    let answer = call(
+        node,
+        &evm::ADDR_PRECOMPILE,
+        &evm::calldata_address(evm::SELECTOR_GET_UNIFIED_ACCOUNT, &address),
+    )?;
     let unified = evm::decode_unified_account(&answer).map_err(|_| "invalid_paxeer_response")?;
     let bound = !is_zero(&unified.did_public_key);
     validate_resolution(selector, &address, &unified)?;
     if bound {
-        let reverse = call(node, &evm::ADDR_PRECOMPILE, &evm::calldata_word(evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX, &unified.did_public_key))?;
+        let reverse = call(
+            node,
+            &evm::ADDR_PRECOMPILE,
+            &evm::calldata_word(
+                evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
+                &unified.did_public_key,
+            ),
+        )?;
         if evm::decode_address(&reverse).map_err(|_| "invalid_paxeer_response")? != address {
             return Err("conflicting_identity_binding");
         }
@@ -336,18 +407,27 @@ fn resolve(node: &mut Node<'_>, selector: &Selector) -> Result<Resolution, &'sta
         evm: Some(address),
         pax_address: Some(unified.pax_address).filter(|value| !value.is_empty()),
         did_public_key: bound.then_some(unified.did_public_key),
-        layerx_account: (bound && !is_zero(&unified.layerx_main_account_id)).then_some(unified.layerx_main_account_id),
+        layerx_account: (bound && !is_zero(&unified.layerx_main_account_id))
+            .then_some(unified.layerx_main_account_id),
     })
 }
 
-fn validate_resolution(selector: &Selector, address: &[u8; 20], unified: &evm::UnifiedAccount) -> Result<(), &'static str> {
-    if unified.evm != *address || is_zero(&unified.did_public_key) != is_zero(&unified.layerx_main_account_id) {
+fn validate_resolution(
+    selector: &Selector,
+    address: &[u8; 20],
+    unified: &evm::UnifiedAccount,
+) -> Result<(), &'static str> {
+    if unified.evm != *address
+        || is_zero(&unified.did_public_key) != is_zero(&unified.layerx_main_account_id)
+    {
         return Err("conflicting_identity_binding");
     }
     if !is_zero(&unified.did_public_key) {
         let name = format!("agent:did:layerx:{}:main", hex32(&unified.did_public_key));
-        let account = layerx_types::account::AccountId::parse(&name).map_err(|_| "conflicting_identity_binding")?;
-        let expected = layerx_wire::hash::account_id_for_protocol(&account, 3).map_err(|_| "conflicting_identity_binding")?;
+        let account = layerx_types::account::AccountId::parse(&name)
+            .map_err(|_| "conflicting_identity_binding")?;
+        let expected = layerx_wire::hash::account_id_for_protocol(&account, 3)
+            .map_err(|_| "conflicting_identity_binding")?;
         if unified.layerx_main_account_id != expected {
             return Err("conflicting_identity_binding");
         }
@@ -364,7 +444,17 @@ fn resolved(config: &Config, id: &Value, params: Option<&Value>) -> Result<Resol
     if config.paxeer.is_none() {
         return Err(unconfigured(id));
     }
-    let selector = account_selector(params).map_err(|code| super::rpc::error(id, code, if code == -32602 { "Invalid params" } else { "Read unavailable" }))?;
+    let selector = account_selector(params).map_err(|code| {
+        super::rpc::error(
+            id,
+            code,
+            if code == -32602 {
+                "Invalid params"
+            } else {
+                "Read unavailable"
+            },
+        )
+    })?;
     resolve(&mut |request| node(config, request), &selector).map_err(|code| unavailable(id, code))
 }
 
@@ -396,10 +486,17 @@ pub(super) fn history_refusal(id: &Value, code: &'static str) -> Value {
 /// The EVM address one history read pages on the indexer, with the
 /// resolution document naming both halves. A DID resolves through addr
 /// `0x1004` alone; the kernel is never asked.
-pub(super) fn history_account(node: &mut Node<'_>, id: &Value, account: &str) -> Result<(Value, String), Value> {
-    let selector = history_selector(account).map_err(|code| super::rpc::error(id, code, "Invalid params"))?;
+pub(super) fn history_account(
+    node: &mut Node<'_>,
+    id: &Value,
+    account: &str,
+) -> Result<(Value, String), Value> {
+    let selector =
+        history_selector(account).map_err(|code| super::rpc::error(id, code, "Invalid params"))?;
     let resolution = resolve(node, &selector).map_err(|code| history_refusal(id, code))?;
-    let address = resolution.evm.ok_or_else(|| unavailable(id, "invalid_paxeer_response"))?;
+    let address = resolution
+        .evm
+        .ok_or_else(|| unavailable(id, "invalid_paxeer_response"))?;
     Ok((resolution.document(), evm::address_hex(&address)))
 }
 
@@ -410,14 +507,33 @@ fn validate_native_listing(resolution: &Resolution, listing: &Value) -> Result<(
     if listing.get("did").and_then(Value::as_str) != Some(did.as_str()) {
         return Err("conflicting_identity_binding");
     }
-    let accounts = listing.get("accounts").and_then(Value::as_array).ok_or("conflicting_identity_binding")?;
+    let accounts = listing
+        .get("accounts")
+        .and_then(Value::as_array)
+        .ok_or("conflicting_identity_binding")?;
     let prefix = format!("agent:{did}:");
     let mut seen = std::collections::BTreeSet::new();
     for record in accounts {
-        let name = record.get("name").and_then(Value::as_str).filter(|name| name.starts_with(&prefix)).ok_or("conflicting_identity_binding")?;
-        let suffix = name.strip_prefix(&prefix).ok_or("conflicting_identity_binding")?;
-        let owned = suffix == "main" || suffix.split_once(':').is_some_and(|(kind, tail)| matches!(kind, "asset" | "budget" | "escrow" | "stream" | "margin") && !tail.is_empty() && !tail.contains(':'));
-        if !owned || name.len() > layerx_types::limits::MAX_ACCOUNT_NAME_BYTES || !name.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-:".contains(&byte)) {
+        let name = record
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|name| name.starts_with(&prefix))
+            .ok_or("conflicting_identity_binding")?;
+        let suffix = name
+            .strip_prefix(&prefix)
+            .ok_or("conflicting_identity_binding")?;
+        let owned = suffix == "main"
+            || suffix.split_once(':').is_some_and(|(kind, tail)| {
+                matches!(kind, "asset" | "budget" | "escrow" | "stream" | "margin")
+                    && !tail.is_empty()
+                    && !tail.contains(':')
+            });
+        if !owned
+            || name.len() > layerx_types::limits::MAX_ACCOUNT_NAME_BYTES
+            || !name.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-:".contains(&byte)
+            })
+        {
             return Err("conflicting_identity_binding");
         }
         let length = u32::try_from(name.len()).map_err(|_| "conflicting_identity_binding")?;
@@ -426,7 +542,11 @@ fn validate_native_listing(resolution: &Resolution, listing: &Value) -> Result<(
         hash.update(length.to_be_bytes());
         hash.update(name.as_bytes());
         let expected: [u8; 32] = hash.finalize().into();
-        let actual = record.get("account_id").and_then(Value::as_str).and_then(|id| super::parse_hex32(id).ok()).ok_or("conflicting_identity_binding")?;
+        let actual = record
+            .get("account_id")
+            .and_then(Value::as_str)
+            .and_then(|id| super::parse_hex32(id).ok())
+            .ok_or("conflicting_identity_binding")?;
         if actual != expected || !seen.insert(actual) {
             return Err("conflicting_identity_binding");
         }
@@ -441,7 +561,11 @@ fn resolve_account(config: &Config, id: &Value, params: Option<&Value>) -> Value
     }
 }
 
-fn node_at_height(node: &mut Node<'_>, height: u64, request: &Value) -> Result<Value, &'static str> {
+fn node_at_height(
+    node: &mut Node<'_>,
+    height: u64,
+    request: &Value,
+) -> Result<Value, &'static str> {
     let mut request = request.clone();
     if request["method"] == "eth_call" {
         request["params"][1] = json!(format!("0x{height:x}"));
@@ -449,21 +573,32 @@ fn node_at_height(node: &mut Node<'_>, height: u64, request: &Value) -> Result<V
     node(&request)
 }
 
-fn resolved_at_height(config: &Config, id: &Value, params: Option<&Value>) -> Result<(Resolution, u64), Value> {
+fn resolved_at_height(
+    config: &Config,
+    id: &Value,
+    params: Option<&Value>,
+) -> Result<(Resolution, u64), Value> {
     if config.paxeer.is_none() {
         return Err(unconfigured(id));
     }
-    let selector = account_selector(params).map_err(|code| super::rpc::error(id, code, "Invalid params"))?;
-    let height = block_number(&mut |request| node(config, request)).map_err(|code| unavailable(id, code))?;
-    let resolution = match resolve(&mut |request| node_at_height(&mut |request| node(config, request), height, request), &selector) {
+    let selector =
+        account_selector(params).map_err(|code| super::rpc::error(id, code, "Invalid params"))?;
+    let height =
+        block_number(&mut |request| node(config, request)).map_err(|code| unavailable(id, code))?;
+    let resolution = match resolve(
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
+        &selector,
+    ) {
         Ok(resolution) => resolution,
         Err(UNBOUND_DID) => {
             let Selector::Did(key) = selector else {
                 return Err(unavailable(id, UNBOUND_DID));
             };
             let name = format!("agent:did:layerx:{}:main", hex32(&key));
-            let account = layerx_types::account::AccountId::parse(&name).map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
-            let account = layerx_wire::hash::account_id_for_protocol(&account, 3).map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
+            let account = layerx_types::account::AccountId::parse(&name)
+                .map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
+            let account = layerx_wire::hash::account_id_for_protocol(&account, 3)
+                .map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
             Resolution {
                 evm: None,
                 pax_address: None,
@@ -477,15 +612,29 @@ fn resolved_at_height(config: &Config, id: &Value, params: Option<&Value>) -> Re
 }
 
 fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
-    if let Some([Value::String(did), Value::String(asset)]) = params.and_then(Value::as_array).map(Vec::as_slice) {
-        if wallet_contract::key(asset).is_err() || did.strip_prefix("did:layerx:").is_none_or(|key| wallet_contract::key(key).is_err()) {
+    if let Some([Value::String(did), Value::String(asset)]) =
+        params.and_then(Value::as_array).map(Vec::as_slice)
+    {
+        if wallet_contract::key(asset).is_err()
+            || did
+                .strip_prefix("did:layerx:")
+                .is_none_or(|key| wallet_contract::key(key).is_err())
+        {
             return super::rpc::error(id, -32602, "Invalid params");
         }
         let height = match block_number(&mut |request| node(config, request)) {
             Ok(height) => height,
             Err(code) => return unavailable(id, code),
         };
-        return match wallet_contract::ledger_account(did, asset, height, &mut |data| call(&mut |request| node_at_height(&mut |request| node(config, request), height, request), &evm::LEDGER_PRECOMPILE, data)) {
+        return match wallet_contract::ledger_account(did, asset, height, &mut |data| {
+            call(
+                &mut |request| {
+                    node_at_height(&mut |request| node(config, request), height, request)
+                },
+                &evm::LEDGER_PRECOMPILE,
+                data,
+            )
+        }) {
             Ok(result) => json!({"jsonrpc":"2.0","id":id,"result":result}),
             Err(code) => unavailable(id, code),
         };
@@ -499,11 +648,19 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Some(address) => {
             let address = evm::address_hex(&address);
             let block = format!("0x{height:x}");
-            let balance = match quantity(&mut |request| node(config, request), "eth_getBalance", &json!([address, block])) {
+            let balance = match quantity(
+                &mut |request| node(config, request),
+                "eth_getBalance",
+                &json!([address, block]),
+            ) {
                 Ok(balance) => balance,
                 Err(code) => return unavailable(id, code),
             };
-            let nonce = match quantity(&mut |request| node(config, request), "eth_getTransactionCount", &json!([address, block])) {
+            let nonce = match quantity(
+                &mut |request| node(config, request),
+                "eth_getTransactionCount",
+                &json!([address, block]),
+            ) {
                 Ok(nonce) => nonce,
                 Err(code) => return unavailable(id, code),
             };
@@ -519,24 +676,51 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
 
 const ASSET_LIST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
 
-fn layerx_assets(config: &Config, id: &Value, cursor: Option<u64>, limit: usize) -> Result<(Vec<Value>, Option<u64>), Value> {
-    let indexer = config.indexer.as_ref().ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
+fn layerx_assets(
+    config: &Config,
+    id: &Value,
+    cursor: Option<u64>,
+    limit: usize,
+) -> Result<(Vec<Value>, Option<u64>), Value> {
+    let indexer = config
+        .indexer
+        .as_ref()
+        .ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
     if !public_reads::consume_read(&config.read_windows) {
         return Err(unavailable(id, "public_read_rate_limit"));
     }
     // The indexer's keyset contract is registration order, not lexical asset order.
     // Request exactly one bounded page; never walk its continuation here.
-    let query = cursor.map_or_else(|| format!("limit={limit}"), |cursor| format!("limit={limit}&cursor={cursor}"));
+    let query = cursor.map_or_else(
+        || format!("limit={limit}"),
+        |cursor| format!("limit={limit}&cursor={cursor}"),
+    );
     let answer = match indexer {
-        super::history::Indexer::Tls(endpoint) => config.client.get_with_query(endpoint, "/v1/assets", &query),
-        super::history::Indexer::Loopback { address, authority, base_path } => layerx_platform_gateway::http::loopback_get(*address, authority, &format!("{base_path}/v1/assets"), &query),
+        super::history::Indexer::Tls(endpoint) => {
+            config.client.get_with_query(endpoint, "/v1/assets", &query)
+        }
+        super::history::Indexer::Loopback {
+            address,
+            authority,
+            base_path,
+        } => layerx_platform_gateway::http::loopback_get(
+            *address,
+            authority,
+            &format!("{base_path}/v1/assets"),
+            &query,
+        ),
     }
     .map_err(|_| unavailable(id, "indexer_unreachable"))?;
     if answer.status != 200 || answer.content_type != "application/json" {
         return Err(unavailable(id, "indexer_assets_unavailable"));
     }
-    let document: Value = serde_json::from_slice(&answer.body).map_err(|_| unavailable(id, "invalid_indexer_response"))?;
-    let rows = document.get("items").and_then(Value::as_array).filter(|rows| rows.len() <= limit).ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+    let document: Value = serde_json::from_slice(&answer.body)
+        .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
+    let rows = document
+        .get("items")
+        .and_then(Value::as_array)
+        .filter(|rows| rows.len() <= limit)
+        .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
     if document["version"] != 1 {
         return Err(unavailable(id, "invalid_indexer_response"));
     }
@@ -556,9 +740,19 @@ fn layerx_assets(config: &Config, id: &Value, cursor: Option<u64>, limit: usize)
     let mut records = Vec::with_capacity(rows.len());
     let mut seen = std::collections::BTreeSet::new();
     for row in rows {
-        let asset_id = row.get("asset").and_then(Value::as_str).filter(|asset| !asset.is_empty() && seen.insert(*asset)).ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-        let kind = row.get("kind").and_then(Value::as_str).ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-        let denom = row.get("denom").filter(|denom| denom.is_null() || denom.is_string()).ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let asset_id = row
+            .get("asset")
+            .and_then(Value::as_str)
+            .filter(|asset| !asset.is_empty() && seen.insert(*asset))
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let kind = row
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let denom = row
+            .get("denom")
+            .filter(|denom| denom.is_null() || denom.is_string())
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
         records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
     }
     Ok((records, next))
@@ -576,20 +770,41 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
     let mut node = |request: &Value| node_at_height(node, height, request);
     let metadata = (|| -> Result<Value, &'static str> {
         if matches!(record["kind"].as_str(), Some("layerx" | "ledger")) {
-            let id = record["asset_id"].as_str().and_then(|id| super::parse_hex32(id).ok()).filter(|id| !is_zero(id)).ok_or("invalid_asset_id")?;
-            let answer = call(&mut node, &evm::LEDGER_PRECOMPILE, &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id))?;
+            let id = record["asset_id"]
+                .as_str()
+                .and_then(|id| super::parse_hex32(id).ok())
+                .filter(|id| !is_zero(id))
+                .ok_or("invalid_asset_id")?;
+            let answer = call(
+                &mut node,
+                &evm::LEDGER_PRECOMPILE,
+                &evm::calldata_word(evm::SELECTOR_GET_ASSET, &id),
+            )?;
             let asset = evm::decode_ledger_asset(&answer).map_err(|_| "invalid_ledger_asset")?;
             if asset.asset_id != id {
                 return Err("invalid_ledger_asset");
             }
             return Ok(layerx_asset_metadata(&asset));
         }
-        let denom = record["denom"].as_str().filter(|denom| !denom.is_empty()).ok_or("missing_bank_denom")?;
-        let mut bank = |selector| call(&mut node, &evm::BANK_PRECOMPILE, &evm::calldata_string(selector, denom));
+        let denom = record["denom"]
+            .as_str()
+            .filter(|denom| !denom.is_empty())
+            .ok_or("missing_bank_denom")?;
+        let mut bank = |selector| {
+            call(
+                &mut node,
+                &evm::BANK_PRECOMPILE,
+                &evm::calldata_string(selector, denom),
+            )
+        };
         let name = bank(evm::SELECTOR_BANK_NAME)?;
-        let name = evm::Answer::new(&name).string(0, 0).map_err(|_| "invalid_bank_metadata")?;
+        let name = evm::Answer::new(&name)
+            .string(0, 0)
+            .map_err(|_| "invalid_bank_metadata")?;
         let symbol = bank(evm::SELECTOR_BANK_SYMBOL)?;
-        let symbol = evm::Answer::new(&symbol).string(0, 0).map_err(|_| "invalid_bank_metadata")?;
+        let symbol = evm::Answer::new(&symbol)
+            .string(0, 0)
+            .map_err(|_| "invalid_bank_metadata")?;
         let decimals = bank(evm::SELECTOR_BANK_DECIMALS)?;
         let decimals = evm::decode_u8(&decimals).map_err(|_| "invalid_bank_metadata")?;
         let supply = bank(evm::SELECTOR_BANK_SUPPLY)?;
@@ -642,7 +857,15 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
             Ok(value) => value,
             Err(code) => return unavailable(id, code),
         };
-        record.as_object_mut().unwrap_or_else(|| panic!("asset record is an object")).extend(metadata.as_object().unwrap_or_else(|| panic!("asset metadata is an object")).clone());
+        record
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("asset record is an object"))
+            .extend(
+                metadata
+                    .as_object()
+                    .unwrap_or_else(|| panic!("asset metadata is an object"))
+                    .clone(),
+            );
     }
     json!({"jsonrpc":"2.0","id":id,"result": {
         "height": height, "assets": records, "joined_limit": MAX_JOINED_ASSETS,
@@ -664,7 +887,11 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     let Some(address) = resolution.evm else {
         return unavailable(id, UNBOUND_DID);
     };
-    let answer = match call(&mut |request| node_at_height(&mut |request| node(config, request), height, request), &evm::BANK_PRECOMPILE, &evm::calldata_address(evm::SELECTOR_BANK_ALL_BALANCES, &address)) {
+    let answer = match call(
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
+        &evm::BANK_PRECOMPILE,
+        &evm::calldata_address(evm::SELECTOR_BANK_ALL_BALANCES, &address),
+    ) {
         Ok(answer) => answer,
         Err(code) => return unavailable(id, code),
     };
@@ -686,11 +913,19 @@ fn get_network(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if !no_params(params) {
         return super::rpc::error(id, -32602, "Invalid params");
     }
-    let chain_id = match quantity(&mut |request| node(config, request), "eth_chainId", &json!([])) {
+    let chain_id = match quantity(
+        &mut |request| node(config, request),
+        "eth_chainId",
+        &json!([]),
+    ) {
         Ok(chain_id) => chain_id,
         Err(code) => return unavailable(id, code),
     };
-    let block = match quantity(&mut |request| node(config, request), "eth_blockNumber", &json!([])) {
+    let block = match quantity(
+        &mut |request| node(config, request),
+        "eth_blockNumber",
+        &json!([]),
+    ) {
         Ok(block) => block,
         Err(code) => return unavailable(id, code),
     };
@@ -702,9 +937,15 @@ fn get_network(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     })
 }
 
-pub(super) fn network_result(network_id: &str, chain_id: &str, latest_block: &str, consensus: Option<super::chain_reads::ConsensusHead>) -> Value {
+pub(super) fn network_result(
+    network_id: &str,
+    chain_id: &str,
+    latest_block: &str,
+    consensus: Option<super::chain_reads::ConsensusHead>,
+) -> Value {
     let consensus_available = consensus.is_some();
-    let consensus_value = serde_json::to_value(consensus).unwrap_or_else(|error| panic!("consensus serialization: {error}"));
+    let consensus_value = serde_json::to_value(consensus)
+        .unwrap_or_else(|error| panic!("consensus serialization: {error}"));
     let mut result = json!({
         "network_id": network_id,
         "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
@@ -718,7 +959,12 @@ pub(super) fn network_result(network_id: &str, chain_id: &str, latest_block: &st
 
 /// Answers every unified and relayed EVM method, or `None` when the method
 /// belongs to another namespace.
-pub(super) fn dispatch(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> Option<Value> {
+pub(super) fn dispatch(
+    config: &Config,
+    method: &str,
+    id: &Value,
+    params: Option<&Value>,
+) -> Option<Value> {
     Some(match method {
         "px_resolveAccount" => resolve_account(config, id, params),
         "px_getAccount" => get_account(config, id, params),
@@ -727,10 +973,12 @@ pub(super) fn dispatch(config: &Config, method: &str, id: &Value, params: Option
         "px_getNetwork" => get_network(config, id, params),
         "px_getCapabilities" => super::capabilities::get(config, id, params),
         _ if evm::SEQUENCER_METHODS.contains(&method) => relay(config, id, method, params),
-        _ if evm::is_evm_namespace(method) => match super::capabilities::gate(config, id, method, params) {
-            Some(refusal) => refusal,
-            None => relay(config, id, method, params),
-        },
+        _ if evm::is_evm_namespace(method) => {
+            match super::capabilities::gate(config, id, method, params) {
+                Some(refusal) => refusal,
+                None => relay(config, id, method, params),
+            }
+        }
         _ => return None,
     })
 }
@@ -758,7 +1006,10 @@ mod tests {
             };
             let metadata = layerx_asset_metadata(&asset);
             assert_eq!(metadata["paused"], json!(asset.paused));
-            assert_eq!(metadata["verification"], json!("authenticated_committed_snapshot"));
+            assert_eq!(
+                metadata["verification"],
+                json!("authenticated_committed_snapshot")
+            );
             assert_eq!(metadata["name"], json!(asset.name));
             assert_eq!(metadata["symbol"], json!(asset.symbol));
             assert_eq!(metadata["decimals"], json!(asset.decimals));
@@ -769,9 +1020,13 @@ mod tests {
     #[test]
     fn endpoint_arrays_hold_two_to_eight_distinct_https_names() {
         let url = |index: usize| format!("\"https://api{index}.example.net\"");
-        let array = |count: usize| format!("[{}]", (1..=count).map(url).collect::<Vec<_>>().join(","));
+        let array =
+            |count: usize| format!("[{}]", (1..=count).map(url).collect::<Vec<_>>().join(","));
         for count in [2, 8] {
-            assert_eq!(parse_endpoints(&array(count)).map(|all| all.len()), Ok(count));
+            assert_eq!(
+                parse_endpoints(&array(count)).map(|all| all.len()),
+                Ok(count)
+            );
         }
         for invalid in [
             array(0),
@@ -798,10 +1053,27 @@ mod tests {
     #[test]
     fn account_selectors_accept_both_domains() {
         let address = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
-        assert!(matches!(account_selector(Some(&json!([address]))), Ok(Selector::Evm(_))));
-        assert!(matches!(account_selector(Some(&json!([format!("did:layerx:{}", "61".repeat(32))]))), Ok(Selector::Did(_))));
-        assert!(matches!(account_selector(Some(&json!(["61".repeat(32)]))), Ok(Selector::NativeAccount(_))));
-        for invalid in [json!([]), json!([address, address]), json!(["0x1234"]), json!(["did:layerx:zz"]), json!(["did:layerx:".to_owned() + &"00".repeat(32)]), json!([1]), json!({})] {
+        assert!(matches!(
+            account_selector(Some(&json!([address]))),
+            Ok(Selector::Evm(_))
+        ));
+        assert!(matches!(
+            account_selector(Some(&json!([format!("did:layerx:{}", "61".repeat(32))]))),
+            Ok(Selector::Did(_))
+        ));
+        assert!(matches!(
+            account_selector(Some(&json!(["61".repeat(32)]))),
+            Ok(Selector::NativeAccount(_))
+        ));
+        for invalid in [
+            json!([]),
+            json!([address, address]),
+            json!(["0x1234"]),
+            json!(["did:layerx:zz"]),
+            json!(["did:layerx:".to_owned() + &"00".repeat(32)]),
+            json!([1]),
+            json!({}),
+        ] {
             assert_eq!(account_selector(Some(&invalid)).err(), Some(-32602));
         }
         assert_eq!(account_selector(None).err(), Some(-32602));
@@ -817,8 +1089,14 @@ mod tests {
         };
         let document = bound.document();
         assert_eq!(document["bound"], json!(true));
-        assert_eq!(document["evm_address"], json!(format!("0x{}", "11".repeat(20))));
-        assert_eq!(document["layerx_did"], json!(format!("did:layerx:{}", "61".repeat(32))));
+        assert_eq!(
+            document["evm_address"],
+            json!(format!("0x{}", "11".repeat(20)))
+        );
+        assert_eq!(
+            document["layerx_did"],
+            json!(format!("did:layerx:{}", "61".repeat(32)))
+        );
         assert_eq!(document["layerx_account"], json!("7c".repeat(32)));
         assert_eq!(bound.did(), Some(format!("did:layerx:{}", "61".repeat(32))));
         let unbound = Resolution {
@@ -841,8 +1119,14 @@ mod identity_selector_contract {
     #[test]
     fn identical_hex_has_distinct_did_and_native_meanings() {
         let key = "61".repeat(32);
-        assert!(matches!(account_selector(Some(&json!([key]))), Ok(Selector::NativeAccount(_))));
-        assert!(matches!(account_selector(Some(&json!([format!("did:layerx:{key}")]))), Ok(Selector::Did(_))));
+        assert!(matches!(
+            account_selector(Some(&json!([key]))),
+            Ok(Selector::NativeAccount(_))
+        ));
+        assert!(matches!(
+            account_selector(Some(&json!([format!("did:layerx:{key}")]))),
+            Ok(Selector::Did(_))
+        ));
     }
 }
 
@@ -852,14 +1136,18 @@ mod identity_ownership_contract {
 
     fn canonical(did: [u8; 32], suffix: &str) -> (String, [u8; 32]) {
         let name = format!("agent:did:layerx:{}:{suffix}", hex32(&did));
-        let account = layerx_types::account::AccountId::parse(&name).unwrap_or_else(|error| panic!("canonical name: {error:?}"));
-        let id = layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap_or_else(|error| panic!("native account: {error:?}"));
+        let account = layerx_types::account::AccountId::parse(&name)
+            .unwrap_or_else(|error| panic!("canonical name: {error:?}"));
+        let id = layerx_wire::hash::account_id_for_protocol(&account, 3)
+            .unwrap_or_else(|error| panic!("native account: {error:?}"));
         (name, id)
     }
 
     #[test]
     fn canonical_main_account_is_bound_to_the_exact_did() {
-        let did = ed25519_dalek::SigningKey::from_bytes(&[71; 32]).verifying_key().to_bytes();
+        let did = ed25519_dalek::SigningKey::from_bytes(&[71; 32])
+            .verifying_key()
+            .to_bytes();
         let address = [9; 20];
         let (_, account) = canonical(did, "main");
         let mut unified = evm::UnifiedAccount {
@@ -868,18 +1156,35 @@ mod identity_ownership_contract {
             did_public_key: did,
             layerx_main_account_id: account,
         };
-        assert_eq!(validate_resolution(&Selector::Did(did), &address, &unified), Ok(()));
-        assert_eq!(validate_resolution(&Selector::Evm(address), &address, &unified), Ok(()));
+        assert_eq!(
+            validate_resolution(&Selector::Did(did), &address, &unified),
+            Ok(())
+        );
+        assert_eq!(
+            validate_resolution(&Selector::Evm(address), &address, &unified),
+            Ok(())
+        );
         unified.layerx_main_account_id[0] ^= 1;
-        assert_eq!(validate_resolution(&Selector::Did(did), &address, &unified), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_resolution(&Selector::Did(did), &address, &unified),
+            Err("conflicting_identity_binding")
+        );
         unified.layerx_main_account_id = account;
-        assert_eq!(validate_resolution(&Selector::Did([3; 32]), &address, &unified), Err("conflicting_identity_binding"));
-        assert_eq!(validate_resolution(&Selector::Evm([8; 20]), &[8; 20], &unified), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_resolution(&Selector::Did([3; 32]), &address, &unified),
+            Err("conflicting_identity_binding")
+        );
+        assert_eq!(
+            validate_resolution(&Selector::Evm([8; 20]), &[8; 20], &unified),
+            Err("conflicting_identity_binding")
+        );
     }
 
     #[test]
     fn native_listing_refuses_another_owner_or_noncanonical_account() {
-        let did = ed25519_dalek::SigningKey::from_bytes(&[72; 32]).verifying_key().to_bytes();
+        let did = ed25519_dalek::SigningKey::from_bytes(&[72; 32])
+            .verifying_key()
+            .to_bytes();
         let (name, account) = canonical(did, "main");
         let resolution = Resolution {
             evm: Some([9; 20]),
@@ -893,20 +1198,34 @@ mod identity_ownership_contract {
         assert_eq!(validate_native_listing(&resolution, &listing), Ok(()));
         let mut other = listing.clone();
         other["did"] = json!(format!("did:layerx:{}", "11".repeat(32)));
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         other["accounts"][0]["account_id"] = json!(hex32(&did));
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         let (foreign_name, foreign_account) = canonical([3; 32], "main");
         other["accounts"][0] = json!({"name":foreign_name,"account_id":hex32(&foreign_account)});
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         let prefixed_owner = format!("agent:did:layerx:{}:other:main", hex32(&did));
-        let foreign = layerx_types::account::AccountId::parse(&prefixed_owner).unwrap_or_else(|error| panic!("extended owner: {error:?}"));
-        let foreign_id = layerx_wire::hash::account_id_for_protocol(&foreign, 3).unwrap_or_else(|error| panic!("extended owner account: {error:?}"));
+        let foreign = layerx_types::account::AccountId::parse(&prefixed_owner)
+            .unwrap_or_else(|error| panic!("extended owner: {error:?}"));
+        let foreign_id = layerx_wire::hash::account_id_for_protocol(&foreign, 3)
+            .unwrap_or_else(|error| panic!("extended owner account: {error:?}"));
         other["accounts"][0] = json!({"name":prefixed_owner,"account_id":hex32(&foreign_id)});
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         assert_eq!(validate_native_listing(&resolution, &listing), Ok(()));
     }
 }
