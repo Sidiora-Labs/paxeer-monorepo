@@ -709,10 +709,13 @@ mod tests {
     #[test]
     fn stored_retired_verification_words_decode_as_block_committed() {
         let event = ProtocolEvent::new(EventDraft {
-            id: EventId::new("stored-event").expect("valid event id"),
+            id: EventId::new("stored-event")
+                .unwrap_or_else(|error| panic!("valid event id: {error:?}")),
             kind: EventKind::Payment,
-            principal: Principal::new("stored-principal").expect("valid principal"),
-            subject: SubjectId::new("stored-subject").expect("valid subject"),
+            principal: Principal::new("stored-principal")
+                .unwrap_or_else(|error| panic!("valid principal: {error:?}")),
+            subject: SubjectId::new("stored-subject")
+                .unwrap_or_else(|error| panic!("valid subject: {error:?}")),
             subject_sequence: 1,
             occurred_at: 1,
             facts: vec![ProtocolFact::verified(
@@ -721,10 +724,11 @@ mod tests {
                 Verification::BlockCommitted,
                 "ab".repeat(32),
             )
-            .expect("valid committed fact")],
+            .unwrap_or_else(|error| panic!("valid committed fact: {error:?}"))],
         })
-        .expect("valid committed event");
-        let canonical = serde_json::to_value(&event).expect("event serializes");
+        .unwrap_or_else(|error| panic!("valid committed event: {error:?}"));
+        let canonical = serde_json::to_value(&event)
+            .unwrap_or_else(|error| panic!("event serializes: {error:?}"));
 
         for event_word in ["checkpoint-finalised", "paxeer-finalised"] {
             assert!(matches!(
@@ -737,17 +741,18 @@ mod tests {
                 let mut stored = canonical.clone();
                 stored["verification"] = serde_json::json!(event_word);
                 stored["facts"][0]["verification"] = serde_json::json!(fact_word);
-                let decoded: ProtocolEvent =
-                    serde_json::from_value(stored.clone()).expect("retired stored words decode");
+                let decoded: ProtocolEvent = serde_json::from_value(stored.clone())
+                    .unwrap_or_else(|error| panic!("retired stored words decode: {error:?}"));
                 assert_eq!(decoded.verification(), Verification::BlockCommitted);
                 assert_eq!(
                     decoded.facts()[0].verification(),
                     Verification::BlockCommitted
                 );
-                decoded
-                    .validate()
-                    .expect("decoded event retains its evidence");
-                let serialized = serde_json::to_value(&decoded).expect("decoded event serializes");
+                decoded.validate().unwrap_or_else(|error| {
+                    panic!("decoded event retains its evidence: {error:?}")
+                });
+                let serialized = serde_json::to_value(&decoded)
+                    .unwrap_or_else(|error| panic!("decoded event serializes: {error:?}"));
                 assert_eq!(serialized["verification"], "block-committed");
                 assert_eq!(serialized["facts"][0]["verification"], "block-committed");
                 assert_eq!(serialized, canonical);
@@ -768,8 +773,8 @@ mod tests {
             let mut stored = canonical.clone();
             stored["verification"] = serde_json::json!(level.as_str());
             stored["facts"][0]["verification"] = serde_json::json!(level.as_str());
-            let decoded: ProtocolEvent =
-                serde_json::from_value(stored).expect("current stored words decode");
+            let decoded: ProtocolEvent = serde_json::from_value(stored)
+                .unwrap_or_else(|error| panic!("current stored words decode: {error:?}"));
             assert_eq!(decoded.verification(), level);
             assert_eq!(decoded.facts()[0].verification(), level);
         }
@@ -784,11 +789,12 @@ mod tests {
         ];
         for (rank, (level, word)) in levels.iter().enumerate() {
             assert_eq!(level.as_str(), *word);
-            let parsed = Verification::parse(level.as_str()).expect("wire level round-trips");
+            let parsed = Verification::parse(level.as_str())
+                .unwrap_or_else(|error| panic!("wire level round-trips: {error:?}"));
             assert_eq!(parsed, *level);
             for (required_rank, (required, required_word)) in levels.iter().enumerate() {
-                let parsed_required =
-                    Verification::parse(required_word).expect("required wire level round-trips");
+                let parsed_required = Verification::parse(required_word)
+                    .unwrap_or_else(|error| panic!("required wire level round-trips: {error:?}"));
                 assert_eq!(parsed_required, *required);
                 assert_eq!(parsed.at_least(parsed_required), rank >= required_rank);
                 assert_eq!(parsed.cmp(&parsed_required), rank.cmp(&required_rank));

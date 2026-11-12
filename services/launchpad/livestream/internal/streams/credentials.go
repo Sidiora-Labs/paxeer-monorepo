@@ -275,11 +275,14 @@ func (c *EncryptedCredentials) Rewrap(ctx context.Context, id string) error {
 	if key != c.Transit.Key {
 		return ErrUnavailable
 	}
-	result, err := c.Transit.call(ctx, "rewrap", map[string]string{ciphertextField: old, associatedDataField: base64.StdEncoding.EncodeToString([]byte(id + ":" + provider))})
+	plain, err := c.Transit.Open(ctx, id, provider, old)
 	if err != nil {
 		return err
 	}
-	cipher := result[ciphertextField]
+	cipher, err := c.Transit.Seal(ctx, id, provider, plain)
+	if err != nil {
+		return err
+	}
 	if !transitCiphertext.MatchString(cipher) || len(cipher) > 8192 {
 		return ErrUnavailable
 	}

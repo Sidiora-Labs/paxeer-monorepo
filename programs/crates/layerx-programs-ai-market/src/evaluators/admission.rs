@@ -27,33 +27,33 @@
 //!   `ActorSlot::evaluator(i)` yet (F08 evaluator acceptance must).
 use crate::types::GuestIndex as _;
 use crate::{
+    MAX_EVALUATORS, MAX_WORKERS,
     admission::{AdmissionTable, Participant},
-    codec::{self, compare_native_principal, derive_market, EventCommon, Reader, Writer},
+    codec::{self, EventCommon, Reader, Writer, compare_native_principal, derive_market},
     codec::{RevealScoreEvent, ValidatedEnvelope},
     dispatch,
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F03_CHALLENGE_CAPACITY,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F03_CHALLENGE_CAPACITY,
         F03_REPORT_ALREADY_FINAL, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED,
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{evaluator_region, EvaluatorRegion, FrozenEvaluator},
+        authority::{EvaluatorRegion, FrozenEvaluator, evaluator_region},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
-        model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
+        model::{ReportContext, SIGNED_REPORT_MAX_BYTES, SignedReport, VerificationError},
     },
     evidence::SealRegion,
     registry_ops::{CallContext, PolicySection},
     rewards::{RewardEpoch, RewardState},
     state::{
-        decode_shared_state, settlement_rewards, ReplayDecision, ReplayRequest, RetainedResult,
-        Section, SharedState,
+        ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState, decode_shared_state,
+        settlement_rewards,
     },
     types::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
         ReportDigest, ResultDigest, Version, WorkerRosterEntry,
     },
-    MAX_EVALUATORS, MAX_WORKERS,
 };
 
 /// Fixed bytes of one admitted-report row before its signed report.
@@ -592,13 +592,8 @@ fn view_in_state<'a>(
     known_reports: Option<ReportRegion<'a>>,
 ) -> CodecResult<Opened<'a>> {
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let rewards = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
-        if e == NOT_FOUND {
-            WRONG_EPOCH
-        } else {
-            e
-        }
-    })?;
+    let rewards = crate::rewards::committed_row(state.room_market()?.0, epoch)
+        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
     let row = rewards.row;
     let header = &section.header;
     let frozen = FrozenBinding {

@@ -130,7 +130,7 @@ impl SignupFixture {
         let smtp = Smtp::parse(&format!("smtp://{address}"), "identity@example.com")
             .unwrap_or_else(|error| panic!("SMTP config: {error}"));
         thread::scope(|scope| {
-            let receiver = scope.spawn(move || smtp_transcript(listener, acknowledge));
+            let receiver = scope.spawn(move || smtp_transcript(&listener, acknowledge));
             let delivered = smtp.drain(&self.outbox());
             if acknowledge {
                 assert_eq!(delivered, Ok(1));
@@ -261,7 +261,7 @@ fn signup_body() -> Value {
     })
 }
 
-fn assert_refused(reply: SignupReply, status: u16, code: &str) {
+fn assert_refused(reply: &SignupReply, status: u16, code: &str) {
     assert_eq!(reply.status, status, "{}", reply.body);
     assert_eq!(reply.body["error"]["code"], code);
     assert_eq!(reply.body["error"]["retry"], "never");
@@ -296,7 +296,7 @@ fn smtp_reply(session: &mut BufReader<TcpStream>, reply: &str) {
         .unwrap_or_else(|error| panic!("SMTP flush: {error}"));
 }
 
-fn smtp_transcript(listener: TcpListener, acknowledge: bool) -> String {
+fn smtp_transcript(listener: &TcpListener, acknowledge: bool) -> String {
     listener
         .set_nonblocking(true)
         .unwrap_or_else(|error| panic!("SMTP listener mode: {error}"));
@@ -390,8 +390,19 @@ fn assert_session(server: &RunningIdentity, session: &Value) {
     );
 }
 
-pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
-    let fixture = SignupFixture::new(86_400);
+struct SignupOutcome {
+    token: String,
+    verified: SignupReply,
+    duplicate: Value,
+}
+struct CreditOutcome {
+    grant: SignupReply,
+    grant_id: String,
+    settled: SignupReply,
+    settled_at: u64,
+}
+
+fn begin_signup(fixture: &SignupFixture) -> SignupOutcome {
     let server = fixture.open();
     for path in [
         "/v1/signup",
@@ -400,7 +411,7 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
         "/v1/starter-credits/settle",
     ] {
         assert_refused(
-            server.request(path, None, &signup_body()),
+            &server.request(path, None, &signup_body()),
             401,
             "service_token_required",
         );
@@ -409,7 +420,7 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
             .filter(|service| *service != Service::Provisioning)
         {
             assert_refused(
-                server.request(path, Some(service), &signup_body()),
+                &server.request(path, Some(service), &signup_body()),
                 403,
                 "service_not_permitted",
             );
@@ -422,9 +433,9 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
     assert_eq!(pending.body["tenant"], "beta");
     assert!(pending.body.get("token").is_none());
     assert_eq!(fixture.queued().len(), 1);
-    assert_refused(server.grant(SIGNUP_SUB), 403, "verification_required");
+    assert_refused(&server.grant(SIGNUP_SUB), 403, "verification_required");
     assert_refused(
-        server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
+        &server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
         404,
         "principal_not_found",
     );
@@ -455,7 +466,7 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
 
     let server = fixture.open();
     assert_refused(
-        server.verify(&token, OTHER_SUB),
+        &server.verify(&token, OTHER_SUB),
         404,
         "verification_not_found",
     );
@@ -463,20 +474,106 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
     assert_eq!(verified.status, 200, "{}", verified.body);
     assert_session(&server, &verified.body);
     assert_refused(
-        server.verify(&token, SIGNUP_SUB),
+        &server.verify(&token, SIGNUP_SUB),
         404,
         "verification_not_found",
     );
     let mut duplicate = signup_body();
     duplicate["sub"] = json!(OTHER_SUB);
     assert_refused(
-        server.provision("/v1/signup", &duplicate),
+        &server.provision("/v1/signup", &duplicate),
         409,
         "email_registered",
     );
     assert!(fixture.queued().is_empty());
     drop(server);
 
+    SignupOutcome {
+        token,
+        verified,
+        duplicate,
+    }
+}
+
+fn assert_recovered(fixture: &SignupFixture, signup: &SignupOutcome, credit: &CreditOutcome) {
+    let token = &signup.token;
+    let verified = &signup.verified;
+    let duplicate = &signup.duplicate;
+    let grant_id = &credit.grant_id;
+    let settled = &credit.settled;
+    let settled_at = credit.settled_at;
+    let server = fixture.open();
+    let repeated_settle = server.settle(SIGNUP_SUB, grant_id);
+    assert_eq!(repeated_settle.status, 200);
+    assert_eq!(repeated_settle.body, settled.body);
+    assert_refused(
+        &server.grant(SIGNUP_SUB),
+        409,
+        "starter_credit_already_claimed",
+    );
+    assert_refused(
+        &server.provision("/v1/signup", duplicate),
+        409,
+        "email_registered",
+    );
+    assert_refused(
+        &server.verify(token, SIGNUP_SUB),
+        404,
+        "verification_not_found",
+    );
+    assert_session(&server, &verified.body);
+    let store = server
+        .shared
+        .store
+        .lock()
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert!(store
+        .pending_signup(&sha256_hex(token.as_bytes()))
+        .is_none());
+    assert_eq!(
+        store.verified_email(SIGNUP_SUB),
+        Some(sha256_hex(SIGNUP_EMAIL.as_bytes()).as_str())
+    );
+    assert!(store.principal("beta", OTHER_SUB).is_none());
+    assert!(store.starter_credit(OTHER_SUB).is_none());
+    let credit = store
+        .starter_credit(SIGNUP_SUB)
+        .unwrap_or_else(|| panic!("recovered credit"));
+    assert_eq!(&credit.grant_id, grant_id);
+    assert_eq!(credit.amount, "1000000");
+    assert_eq!(credit.settled_at, Some(settled_at));
+    let session = store
+        .session(&text(&verified.body, "session_id"))
+        .unwrap_or_else(|| panic!("recovered session"));
+    assert_eq!(session.principal, SIGNUP_SUB);
+    assert_eq!(session.tenant, "beta");
+    drop(store);
+    let audit = fs::read_to_string(fixture.state().join("audit.log"))
+        .unwrap_or_else(|error| panic!("audit: {error}"));
+    for event in [
+        "signup_requested",
+        "signup_verified",
+        "starter_credit_granted",
+        "starter_credit_settled",
+    ] {
+        assert!(audit.contains(event));
+    }
+    for secret in [
+        token.clone(),
+        text(&verified.body, "token"),
+        SIGNUP_EMAIL.to_owned(),
+    ] {
+        assert!(
+            !audit.contains(&secret),
+            "audit must not disclose signup secrets"
+        );
+    }
+}
+
+pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
+    let fixture = SignupFixture::new(86_400);
+    let signup = begin_signup(&fixture);
+    let verified = &signup.verified;
     let server = fixture.open();
     assert_session(&server, &verified.body);
     let grant = server.grant(SIGNUP_SUB);
@@ -491,7 +588,7 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
     assert_eq!(retry.status, 200);
     assert_eq!(retry.body, grant.body);
     assert_refused(
-        server.settle(OTHER_SUB, &grant_id),
+        &server.settle(OTHER_SUB, &grant_id),
         403,
         "verification_required",
     );
@@ -501,7 +598,7 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
         "0".repeat(32)
     };
     assert_refused(
-        server.settle(SIGNUP_SUB, &wrong_grant),
+        &server.settle(SIGNUP_SUB, &wrong_grant),
         409,
         "starter_credit_grant_mismatch",
     );
@@ -526,72 +623,13 @@ pub(super) fn signup_delivery_session_and_credit_survive_restarts() {
     assert_eq!(settled.body["amount"], grant.body["amount"]);
     drop(server);
 
-    let server = fixture.open();
-    let repeated_settle = server.settle(SIGNUP_SUB, &grant_id);
-    assert_eq!(repeated_settle.status, 200);
-    assert_eq!(repeated_settle.body, settled.body);
-    assert_refused(
-        server.grant(SIGNUP_SUB),
-        409,
-        "starter_credit_already_claimed",
-    );
-    assert_refused(
-        server.provision("/v1/signup", &duplicate),
-        409,
-        "email_registered",
-    );
-    assert_refused(
-        server.verify(&token, SIGNUP_SUB),
-        404,
-        "verification_not_found",
-    );
-    assert_session(&server, &verified.body);
-    let store = server
-        .shared
-        .store
-        .lock()
-        .unwrap_or_else(|error| panic!("{error}"));
-    assert!(store
-        .pending_signup(&sha256_hex(token.as_bytes()))
-        .is_none());
-    assert_eq!(
-        store.verified_email(SIGNUP_SUB),
-        Some(sha256_hex(SIGNUP_EMAIL.as_bytes()).as_str())
-    );
-    assert!(store.principal("beta", OTHER_SUB).is_none());
-    assert!(store.starter_credit(OTHER_SUB).is_none());
-    let credit = store
-        .starter_credit(SIGNUP_SUB)
-        .unwrap_or_else(|| panic!("recovered credit"));
-    assert_eq!(credit.grant_id, grant_id);
-    assert_eq!(credit.amount, "1000000");
-    assert_eq!(credit.settled_at, Some(settled_at));
-    let session = store
-        .session(&text(&verified.body, "session_id"))
-        .unwrap_or_else(|| panic!("recovered session"));
-    assert_eq!(session.principal, SIGNUP_SUB);
-    assert_eq!(session.tenant, "beta");
-    drop(store);
-    let audit = fs::read_to_string(fixture.state().join("audit.log"))
-        .unwrap_or_else(|error| panic!("audit: {error}"));
-    for event in [
-        "signup_requested",
-        "signup_verified",
-        "starter_credit_granted",
-        "starter_credit_settled",
-    ] {
-        assert!(audit.contains(event));
-    }
-    for secret in [
-        token,
-        text(&verified.body, "token"),
-        SIGNUP_EMAIL.to_owned(),
-    ] {
-        assert!(
-            !audit.contains(&secret),
-            "audit must not disclose signup secrets"
-        );
-    }
+    let credit = CreditOutcome {
+        grant,
+        grant_id,
+        settled,
+        settled_at,
+    };
+    assert_recovered(&fixture, &signup, &credit);
 }
 
 pub(super) fn expired_delivered_token_is_refused_after_restart() {
@@ -614,20 +652,20 @@ pub(super) fn expired_delivered_token_is_refused_after_restart() {
     }
     let server = fixture.open();
     assert_refused(
-        server.verify(&token, SIGNUP_SUB),
+        &server.verify(&token, SIGNUP_SUB),
         410,
         "verification_expired",
     );
-    assert_refused(server.grant(SIGNUP_SUB), 403, "verification_required");
+    assert_refused(&server.grant(SIGNUP_SUB), 403, "verification_required");
     assert_refused(
-        server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
+        &server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
         404,
         "principal_not_found",
     );
     drop(server);
     let server = fixture.open();
     assert_refused(
-        server.verify(&token, SIGNUP_SUB),
+        &server.verify(&token, SIGNUP_SUB),
         410,
         "verification_expired",
     );
@@ -658,7 +696,7 @@ pub(super) fn interrupted_smtp_delivery_retries_the_durable_token() {
         fs::read(&queued[0]).unwrap_or_else(|error| panic!("{error}")),
         bytes
     );
-    assert_refused(server.grant(SIGNUP_SUB), 403, "verification_required");
+    assert_refused(&server.grant(SIGNUP_SUB), 403, "verification_required");
     drop(server);
 
     let server = fixture.open();
@@ -675,7 +713,7 @@ pub(super) fn interrupted_smtp_delivery_retries_the_durable_token() {
     let server = fixture.open();
     assert_session(&server, &verified.body);
     assert_refused(
-        server.verify(&token, SIGNUP_SUB),
+        &server.verify(&token, SIGNUP_SUB),
         404,
         "verification_not_found",
     );
@@ -708,9 +746,9 @@ pub(super) fn interrupted_outbox_enqueue_never_verifies_the_subject() {
     drop(server);
 
     let server = fixture.open();
-    assert_refused(server.grant(SIGNUP_SUB), 403, "verification_required");
+    assert_refused(&server.grant(SIGNUP_SUB), 403, "verification_required");
     assert_refused(
-        server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
+        &server.provision("/v1/sessions", &json!({"sub":SIGNUP_SUB})),
         404,
         "principal_not_found",
     );
@@ -744,7 +782,7 @@ pub(super) fn interrupted_outbox_enqueue_never_verifies_the_subject() {
     assert_eq!(recovered_grant.status, 200);
     assert_eq!(recovered_grant.body, grant.body);
     assert_refused(
-        server.verify(&token, SIGNUP_SUB),
+        &server.verify(&token, SIGNUP_SUB),
         404,
         "verification_not_found",
     );

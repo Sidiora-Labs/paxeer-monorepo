@@ -211,7 +211,11 @@ fn exchange(server: &SocketAddr, query: &[u8], deadline: Instant) -> Result<Vec<
         socket
             .set_read_timeout(Some(left(deadline)?))
             .map_err(|_| FetchError::Resolve)?;
-        let count = socket.recv(&mut packet).map_err(|_| FetchError::Resolve)?;
+        let count = match socket.recv(&mut packet) {
+            Ok(count) => count,
+            Err(error) if retry_read(&error) => continue,
+            Err(_) => return Err(FetchError::Resolve),
+        };
         if count >= 12 && packet[..2] == query[..2] {
             packet.truncate(count);
             break;
@@ -244,6 +248,15 @@ fn exchange(server: &SocketAddr, query: &[u8], deadline: Instant) -> Result<Vec<
     Ok(packet)
 }
 
+fn retry_read(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::Interrupted
+            | std::io::ErrorKind::WouldBlock
+            | std::io::ErrorKind::TimedOut
+    )
+}
+
 fn read_exact(
     stream: &mut TcpStream,
     mut output: &mut [u8],
@@ -253,7 +266,11 @@ fn read_exact(
         stream
             .set_read_timeout(Some(left(deadline)?))
             .map_err(|_| FetchError::Resolve)?;
-        let count = stream.read(output).map_err(|_| FetchError::Resolve)?;
+        let count = match stream.read(output) {
+            Ok(count) => count,
+            Err(error) if retry_read(&error) => continue,
+            Err(_) => return Err(FetchError::Resolve),
+        };
         if count == 0 {
             return Err(FetchError::Resolve);
         }

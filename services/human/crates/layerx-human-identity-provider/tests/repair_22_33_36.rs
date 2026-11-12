@@ -19,8 +19,10 @@ use serde_json::{json, Value};
 
 // Compile the actual production clock authority and operational probe in-process.
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
+#[allow(dead_code)]
 mod clock_server;
 #[path = "../src/probe.rs"]
+#[allow(dead_code)]
 mod readiness;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;

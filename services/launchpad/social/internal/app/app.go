@@ -1250,7 +1250,7 @@ func (r *socialConnectedRuntime) stageSafetyOutbox(ctx context.Context) error {
 		}
 		if e == nil {
 			eventID := "social_policy_" + strings.ReplaceAll(id, "-", "")
-			e = r.delivery.Enqueue(ctx, tx, r.binding.PolicySubject, delivery.Envelope{EventID: eventID, EventType: socialPolicyChangedEvent, SchemaVersion: 2, ChainID: 125, SourceOrder: position, EmittedAt: at.UTC(), TraceID: eventID, PayloadHash: delivery.Hash(wire), Payload: wire})
+			e = r.delivery.Enqueue(ctx, tx, r.binding.PolicySubject, delivery.Envelope{EventID: eventID, EventType: socialPolicyChangedEvent, SchemaVersion: 1, ChainID: 125, SourceOrder: position, EmittedAt: at.UTC(), TraceID: eventID, PayloadHash: delivery.Hash(wire), Payload: wire})
 		}
 		if e == nil {
 			_, e = tx.Exec(ctx, `UPDATE safety_outbox SET published_at=clock_timestamp() WHERE id=$1`, id)

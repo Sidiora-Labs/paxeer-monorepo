@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,15 +19,16 @@ import (
 )
 
 type repair28Producer struct {
-	Endpoint               string
-	Addresses              map[string]common.Address
-	Account                common.Address
-	Direct, Routed, Forged common.Hash
-	Lists                  []struct {
+	Endpoint                                              string
+	Addresses                                             map[string]common.Address
+	Account                                               common.Address
+	Created, Funded, Direct, Routed, Forged, Orphan, Sold common.Hash
+	Lists                                                 []struct {
 		Transactions                 [][]byte
 		Receipts                     types.Receipts
 		TransactionRoot, ReceiptRoot common.Hash
 	}
+	stop func()
 }
 
 func repair28StartProducer(t *testing.T) repair28Producer {
@@ -63,22 +65,27 @@ func repair28StartProducer(t *testing.T) repair28Producer {
 	if err = command.Start(); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		stdin.Close()
-		if err := command.Wait(); err != nil {
-			stderr.Close()
-			raw, _ := os.ReadFile(stderr.Name())
-			t.Errorf("real contract producer: %v\n%s", err, raw)
-		} else {
-			stderr.Close()
-		}
-	})
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			stdin.Close()
+			if err := command.Wait(); err != nil {
+				stderr.Close()
+				raw, _ := os.ReadFile(stderr.Name())
+				t.Errorf("real contract producer: %v\n%s", err, raw)
+			} else {
+				stderr.Close()
+			}
+		})
+	}
+	t.Cleanup(stop)
 	var producer repair28Producer
 	if err := json.NewDecoder(stdout).Decode(&producer); err != nil {
 		cancel()
 		raw, _ := os.ReadFile(stderr.Name())
 		t.Fatalf("real producer did not start: %v\n%s", err, raw)
 	}
+	producer.stop = stop
 	return producer
 }
 
@@ -204,6 +211,14 @@ func TestRepair_28_EmitterCallerEvidence(t *testing.T) {
 	t.Run("TraceRefusals", func(t *testing.T) {
 		_, tx, receipt := load(producer.Routed)
 		log := swapLog(receipt)
+		traceLog := CallFrameLog{Address: log.Address, Topics: append([]common.Hash(nil), log.Topics...), Data: append([]byte(nil), log.Data...)}
+		if !sameRawLog(traceLog, log) {
+			t.Fatal("committed trace log differs from receipt")
+		}
+		traceLog.Topics[0] = common.Hash{}
+		if sameRawLog(traceLog, log) {
+			t.Fatal("different trace topic matched receipt")
+		}
 		frame, err := source.Traces.TraceTransactionInBlock(ctx, receipt.BlockHash, tx.Hash())
 		if err != nil {
 			t.Fatal(err)
@@ -217,9 +232,16 @@ func TestRepair_28_EmitterCallerEvidence(t *testing.T) {
 			Mutate func(*CallFrame)
 		}{
 			{"OuterSender", func(f *CallFrame) { f.From = producer.Addresses["SidioraPool"] }},
+			{"OuterTarget", func(f *CallFrame) { f.To = producer.Addresses["SidioraPool"] }},
 			{"OuterSelector", func(f *CallFrame) { f.Input[0] ^= 1 }},
+			{"MissingValue", func(f *CallFrame) { f.Value = nil }},
+			{"WrongValue", func(f *CallFrame) { (*big.Int)(f.Value).SetInt64(1) }},
+			{"WrongRootType", func(f *CallFrame) { f.Type = "DELEGATECALL" }},
 			{"FailedRoot", func(f *CallFrame) { f.Error = "execution reverted" }},
 			{"TruncatedLogs", func(f *CallFrame) { f.Calls = nil; f.Logs = nil }},
+			{"InvalidSelfDestruct", func(f *CallFrame) {
+				f.Calls = append(f.Calls, CallFrame{Type: "SELFDESTRUCT", From: f.To, Logs: []CallFrameLog{{Address: log.Address}}})
+			}},
 		}
 		var visit func(*CallFrame, func(*CallFrame))
 		visit = func(f *CallFrame, change func(*CallFrame)) {
@@ -246,6 +268,45 @@ func TestRepair_28_EmitterCallerEvidence(t *testing.T) {
 				Name   string
 				Mutate func(*CallFrame)
 			}{"MissingLogAssociation", func(f *CallFrame) { visit(f, func(frame *CallFrame) { frame.Logs[0].Position = nil }) }},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"RevertedLogFrame", func(f *CallFrame) { visit(f, func(frame *CallFrame) { frame.Error = "execution reverted" }) }},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"StaticLogFrame", func(f *CallFrame) { visit(f, func(frame *CallFrame) { frame.Type = "STATICCALL" }) }},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"UnsupportedLogFrame", func(f *CallFrame) { visit(f, func(frame *CallFrame) { frame.Type = "UNKNOWN" }) }},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"ExcessTopics", func(f *CallFrame) {
+				visit(f, func(frame *CallFrame) {
+					frame.Logs[0].Topics = append(frame.Logs[0].Topics, common.Hash{}, common.Hash{}, common.Hash{}, common.Hash{}, common.Hash{})
+				})
+			}},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"OutOfRangeLogPosition", func(f *CallFrame) {
+				visit(f, func(frame *CallFrame) {
+					position := *frame.Logs[0].Position + 1000
+					frame.Logs[0].Position = &position
+				})
+			}},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"MissingEmitterSelector", func(f *CallFrame) { visit(f, func(frame *CallFrame) { frame.Input = nil }) }},
+			struct {
+				Name   string
+				Mutate func(*CallFrame)
+			}{"WrongLogAddress", func(f *CallFrame) {
+				visit(f, func(frame *CallFrame) { frame.Logs[0].Address = common.HexToAddress("0xdead") })
+			}},
 		)
 		for _, item := range cases {
 			t.Run(item.Name, func(t *testing.T) {
@@ -261,6 +322,9 @@ func TestRepair_28_EmitterCallerEvidence(t *testing.T) {
 		}
 		if _, err := source.Traces.TraceTransactionInBlock(ctx, receipt.BlockHash, producer.Direct); err == nil {
 			t.Fatal("trace crossed block identity")
+		}
+		if _, err := source.Traces.TraceTransactionInBlock(ctx, common.HexToHash("0x9876"), producer.Routed); err == nil {
+			t.Fatal("uncommitted block supplied execution trace")
 		}
 		wrong := position(*log)
 		wrong.Log++
@@ -293,10 +357,64 @@ func TestRepair_28_EmitterCallerEvidence(t *testing.T) {
 		if err := verifier.VerifyNativeReceipt(ctx, header, tx, receipt); err != nil {
 			t.Fatal("committed producer receipt refused", err)
 		}
+		log := swapLog(receipt)
+		caller, selector, err := source.nativeCaller(ctx, header, tx, receipt, *log)
+		wantSelector, ok := TypedSelector("Swap")
+		if err != nil || !ok || caller != producer.Addresses["SidioraPool"] || selector != wantSelector {
+			t.Fatalf("committed pool mirror caller differs: %s %x %v", caller, selector, err)
+		}
+		if _, _, err := source.nativeCaller(ctx, header, tx, receipt, *receipt.Logs[0]); err == nil {
+			t.Fatal("unrelated committed log gained swap caller authority")
+		}
+		alteredLog := *log
+		alteredLog.Data = append([]byte(nil), log.Data...)
+		alteredLog.Data[len(alteredLog.Data)-64+31] ^= 1
+		if _, _, err := source.nativeCaller(ctx, header, tx, receipt, alteredLog); err == nil {
+			t.Fatal("mirror with different block timestamp gained native caller")
+		}
+		alteredLog = *log
+		alteredLog.Topics = append([]common.Hash(nil), log.Topics...)
+		alteredLog.Topics[1] = common.HexToHash("0xdead")
+		if _, _, err := source.nativeCaller(ctx, header, tx, receipt, alteredLog); err == nil {
+			t.Fatal("mirror with unknown pool gained native caller")
+		}
+		withoutNative := *source
+		withoutNative.NativeReceipts = nil
+		if _, _, err := withoutNative.nativeCaller(ctx, header, tx, receipt, *log); err == nil {
+			t.Fatal("caller without receipt inclusion gained authority")
+		}
+		if err := source.AuthenticateReceipt(ctx, nil); err == nil {
+			t.Fatal("missing authenticated receipt admitted")
+		}
+		unknown := *receipt
+		unknown.TxHash = common.HexToHash("0x9876")
+		if err := source.AuthenticateReceipt(ctx, &unknown); err == nil {
+			t.Fatal("uncommitted receipt returned authenticated bytes")
+		}
 		modified := *receipt
 		modified.Status = types.ReceiptStatusFailed
 		if err := verifier.VerifyNativeReceipt(ctx, header, tx, &modified); err == nil {
 			t.Fatal("modified native receipt accepted")
+		}
+		if err := source.AuthenticateReceipt(ctx, &modified); err == nil {
+			t.Fatal("different authenticated receipt bytes admitted")
+		}
+		if err := verifier.VerifyNativeReceipt(ctx, nil, tx, receipt); err == nil {
+			t.Fatal("native evidence without header admitted")
+		}
+		wrongIndex := *receipt
+		wrongIndex.TransactionIndex++
+		if err := verifier.VerifyNativeReceipt(ctx, header, tx, &wrongIndex); err == nil {
+			t.Fatal("native receipt with foreign transaction index admitted")
+		}
+		wrongData := *receipt
+		wrongData.Logs = append([]*types.Log(nil), receipt.Logs...)
+		firstLog := *receipt.Logs[0]
+		firstLog.Data = append([]byte(nil), firstLog.Data...)
+		firstLog.Data[0] ^= 1
+		wrongData.Logs[0] = &firstLog
+		if err := verifier.VerifyNativeReceipt(ctx, header, tx, &wrongData); err == nil {
+			t.Fatal("native receipt with different log data admitted")
 		}
 		otherHeader := *header
 		otherHeader.ReceiptHash = common.Hash{}

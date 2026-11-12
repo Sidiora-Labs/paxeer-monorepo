@@ -55,8 +55,10 @@ fn run(program: &str, arguments: &[&str]) {
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .and_then(|listener| listener.local_addr())
-        .map(|address| address.port())
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
+        .map_or_else(
+            |error| panic!("test port must be allocated: {error}"),
+            |address| address.port(),
+        )
 }
 
 fn material(label: &str) -> Material {
@@ -143,9 +145,88 @@ fn secret(directory: &Path, name: &str, value: &str) -> String {
 
 fn environment(material: &Material, listen: u16) -> Vec<(String, String)> {
     let directory = &material.directory;
-    let ca = path(&directory.join("server.der"));
     let unused = free_port();
-    let mut environment: Vec<(String, String)> = [
+    let mut environment = base_environment(directory, listen, unused);
+    environment.extend(
+        [
+            (
+                "LAYERX_WEBHOOKS_INSTANCE_ID",
+                "webhooks-plain-listener".to_owned(),
+            ),
+            (
+                "LAYERX_WEBHOOKS_SEQUENCER_PUBLIC_KEY_FILE",
+                secret(
+                    directory,
+                    "sequencer-public-key",
+                    &format!("58{}", "66".repeat(31)),
+                ),
+            ),
+            (
+                "LAYERX_WEBHOOKS_SEQUENCER_ID_FILE",
+                secret(directory, "sequencer-id", &"22".repeat(32)),
+            ),
+            (
+                "LAYERX_WEBHOOKS_SEQUENCER_FIRST_BATCH_FILE",
+                secret(directory, "sequencer-first-batch", "1"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_SEQUENCER_LAST_BATCH_FILE",
+                secret(directory, "sequencer-last-batch", &u64::MAX.to_string()),
+            ),
+            ("LAYERX_WEBHOOKS_LXP_WIRE_VERSION", "3".to_owned()),
+            (
+                "LAYERX_WEBHOOKS_NETWORK_ID",
+                "paxeer-plain-listener".to_owned(),
+            ),
+            (
+                "LAYERX_WEBHOOKS_COMPONENT_URL",
+                format!("https://localhost:{unused}"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_COMPONENT_TOKEN_FILE",
+                secret(directory, "component-token", "component-token"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_AUTHORITY_URL",
+                format!("https://localhost:{unused}"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_AUTHORITY_TOKEN_FILE",
+                secret(directory, "authority-token", "authority-token"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_IDENTITY_URL",
+                format!("https://localhost:{unused}"),
+            ),
+            (
+                "LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE",
+                secret(directory, "identity-token", "identity-token"),
+            ),
+            ("LAYERX_WEBHOOKS_ROLE", "public".to_owned()),
+        ]
+        .into_iter()
+        .map(|(name, value)| (name.to_owned(), value)),
+    );
+    for stem in ["JOURNEY", "PAYMENT", "APPROVAL", "PROGRAM"] {
+        environment.push((
+            format!("LAYERX_WEBHOOKS_{stem}_SOURCE_URL"),
+            format!("https://localhost:{unused}"),
+        ));
+        environment.push((
+            format!("LAYERX_WEBHOOKS_{stem}_SOURCE_TOKEN_FILE"),
+            secret(directory, "source-token", "source-token"),
+        ));
+    }
+    environment
+}
+
+fn base_environment(
+    directory: &std::path::Path,
+    listen: u16,
+    unused: u16,
+) -> Vec<(String, String)> {
+    let ca = path(&directory.join("server.der"));
+    [
         ("LAYERX_WEBHOOKS_LISTEN", format!("127.0.0.1:{listen}")),
         ("LAYERX_WEBHOOKS_TLS_CERT_DER", ca.clone()),
         (
@@ -186,75 +267,10 @@ fn environment(material: &Material, listen: u16) -> Vec<(String, String)> {
             "LAYERX_WEBHOOKS_KMS_TOKEN_FILE",
             secret(directory, "kms-token", "kms-token"),
         ),
-        (
-            "LAYERX_WEBHOOKS_INSTANCE_ID",
-            "webhooks-plain-listener".to_owned(),
-        ),
-        (
-            "LAYERX_WEBHOOKS_SEQUENCER_PUBLIC_KEY_FILE",
-            secret(
-                directory,
-                "sequencer-public-key",
-                &format!("58{}", "66".repeat(31)),
-            ),
-        ),
-        (
-            "LAYERX_WEBHOOKS_SEQUENCER_ID_FILE",
-            secret(directory, "sequencer-id", &"22".repeat(32)),
-        ),
-        (
-            "LAYERX_WEBHOOKS_SEQUENCER_FIRST_BATCH_FILE",
-            secret(directory, "sequencer-first-batch", "1"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_SEQUENCER_LAST_BATCH_FILE",
-            secret(directory, "sequencer-last-batch", &u64::MAX.to_string()),
-        ),
-        ("LAYERX_WEBHOOKS_LXP_WIRE_VERSION", "3".to_owned()),
-        (
-            "LAYERX_WEBHOOKS_NETWORK_ID",
-            "paxeer-plain-listener".to_owned(),
-        ),
-        (
-            "LAYERX_WEBHOOKS_COMPONENT_URL",
-            format!("https://localhost:{unused}"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_COMPONENT_TOKEN_FILE",
-            secret(directory, "component-token", "component-token"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_AUTHORITY_URL",
-            format!("https://localhost:{unused}"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_AUTHORITY_TOKEN_FILE",
-            secret(directory, "authority-token", "authority-token"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_IDENTITY_URL",
-            format!("https://localhost:{unused}"),
-        ),
-        (
-            "LAYERX_WEBHOOKS_IDENTITY_TOKEN_FILE",
-            secret(directory, "identity-token", "identity-token"),
-        ),
-        ("LAYERX_WEBHOOKS_ROLE", "public".to_owned()),
     ]
     .into_iter()
     .map(|(name, value)| (name.to_owned(), value))
-    .collect();
-    for stem in ["JOURNEY", "PAYMENT", "APPROVAL", "PROGRAM"] {
-        environment.push((
-            format!("LAYERX_WEBHOOKS_{stem}_SOURCE_URL"),
-            format!("https://localhost:{unused}"),
-        ));
-        environment.push((
-            format!("LAYERX_WEBHOOKS_{stem}_SOURCE_TOKEN_FILE"),
-            secret(directory, "source-token", "source-token"),
-        ));
-    }
-    environment
+    .collect()
 }
 
 fn command(environment: &[(String, String)]) -> Command {
@@ -452,23 +468,67 @@ fn private_readiness_listener_cannot_serve_product_or_internal_routes() {
         .unwrap_or_else(|error| panic!("reserve API port: {error}"));
     let health = TcpListener::bind("127.0.0.1:0")
         .unwrap_or_else(|error| panic!("reserve health port: {error}"));
-    let api_port = api.local_addr().unwrap_or_else(|error| panic!("API address: {error}")).port();
-    let health_port = health.local_addr().unwrap_or_else(|error| panic!("health address: {error}")).port();
+    let api_port = api
+        .local_addr()
+        .unwrap_or_else(|error| panic!("API address: {error}"))
+        .port();
+    let health_port = health
+        .local_addr()
+        .unwrap_or_else(|error| panic!("health address: {error}"))
+        .port();
     let mut environment = environment(&material, api_port);
-    environment.push(("LAYERX_WEBHOOKS_HEALTH_LISTEN".to_owned(), format!("127.0.0.1:{health_port}")));
+    environment.push((
+        "LAYERX_WEBHOOKS_HEALTH_LISTEN".to_owned(),
+        format!("127.0.0.1:{health_port}"),
+    ));
     let ca = path(&material.directory.join("server.pem"));
     drop((api, health));
     let mut service = start(&environment);
-    let api_health = readiness(&mut service, &["--cacert", &ca, &format!("https://localhost:{api_port}/healthz")]);
-    let private_health = readiness(&mut service, &[&format!("http://127.0.0.1:{health_port}/healthz")]);
+    let api_health = readiness(
+        &mut service,
+        &[
+            "--cacert",
+            &ca,
+            &format!("https://localhost:{api_port}/healthz"),
+        ],
+    );
+    let private_health = readiness(
+        &mut service,
+        &[&format!("http://127.0.0.1:{health_port}/healthz")],
+    );
     assert_eq!(api_health, private_health);
-    assert_eq!(private_health.0, 503, "unavailable real dependencies cannot advertise readiness");
-    for route in ["/v1/webhooks/scheme", "/v1/webhooks/endpoints", "/internal/v1/dispatch", "/internal/v1/events/payment/event"] {
-        let (status, body) = readiness(&mut service, &[&format!("http://127.0.0.1:{health_port}{route}")]);
+    assert_eq!(
+        private_health.0, 503,
+        "unavailable real dependencies cannot advertise readiness"
+    );
+    for route in [
+        "/v1/webhooks/scheme",
+        "/v1/webhooks/endpoints",
+        "/internal/v1/dispatch",
+        "/internal/v1/events/payment/event",
+    ] {
+        let (status, body) = readiness(
+            &mut service,
+            &[&format!("http://127.0.0.1:{health_port}{route}")],
+        );
         assert_eq!(status, 404, "{route}: {body}");
     }
-    let (status, body) = readiness(&mut service, &["-X", "POST", &format!("http://127.0.0.1:{health_port}/healthz")]);
+    let (status, body) = readiness(
+        &mut service,
+        &[
+            "-X",
+            "POST",
+            &format!("http://127.0.0.1:{health_port}/healthz"),
+        ],
+    );
     assert_eq!(status, 404, "{body}");
-    let (status, body) = readiness(&mut service, &["--cacert", &ca, &format!("https://localhost:{api_port}/v1/webhooks/scheme")]);
+    let (status, body) = readiness(
+        &mut service,
+        &[
+            "--cacert",
+            &ca,
+            &format!("https://localhost:{api_port}/v1/webhooks/scheme"),
+        ],
+    );
     assert_eq!(status, 200, "{body}");
 }

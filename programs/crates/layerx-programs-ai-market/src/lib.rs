@@ -71,7 +71,7 @@ pub fn deployment_chain_domain_from_setting(setting: Option<&str>) -> CodecResul
 }
 
 mod deployment {
-    use crate::{errors::WRONG_DOMAIN, ChainDomain, CodecResult};
+    use crate::{ChainDomain, CodecResult, errors::WRONG_DOMAIN};
 
     const fn nibble(byte: u8) -> Option<u8> {
         match byte {
@@ -96,11 +96,7 @@ mod deployment {
             nonzero = nonzero || out[i] != 0;
             i += 1;
         }
-        if nonzero {
-            Some(out)
-        } else {
-            None
-        }
+        if nonzero { Some(out) } else { None }
     }
 
     fn checked_domain(bytes: Option<[u8; 32]>) -> CodecResult<ChainDomain> {
@@ -122,11 +118,11 @@ mod deployment {
     mod tests {
         use super::{chain_domain, checked_domain, parse_domain};
         use crate::{
-            codec::{decode_envelope, derive_market, encode_envelope, Envelope},
+            Authentication, ChainDomain, CodecResult, MAX_ENVELOPE_BYTES, MAX_STATE_BYTES,
+            Presence, PrincipalId, ProgramId, RequestId, RosterDigest,
+            codec::{Envelope, decode_envelope, derive_market, encode_envelope},
             dispatch::BeginAggregation,
             errors::{CAPACITY, WRONG_DOMAIN},
-            Authentication, ChainDomain, CodecResult, Presence, PrincipalId, ProgramId, RequestId,
-            RosterDigest, MAX_ENVELOPE_BYTES, MAX_STATE_BYTES,
         };
 
         #[test]
@@ -355,7 +351,7 @@ mod guest {
                     ) {
                         Ok(()) => {}
                         Err(AdapterError::Application(error)) => {
-                            return Err(failure(error, result))
+                            return Err(failure(error, result));
                         }
                         Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
                     }
@@ -544,13 +540,13 @@ mod repair_478_fixture;
 #[cfg(test)]
 mod repair478_fund_tests {
     use crate::{
+        MAX_STATE_BYTES,
         codec::{self, Envelope},
         errors::{WRONG_EPOCH, WRONG_ROSTER},
         registry_ops::CallContext,
         rewards::*,
-        state::{decode_shared_state, encode_shared_state, ActorSlot, Section},
+        state::{ActorSlot, Section, decode_shared_state, encode_shared_state},
         types::*,
-        MAX_STATE_BYTES,
     };
     #[test]
     fn repair478_fund_head_carries_populated_regions_and_epoch_binding() {

@@ -125,6 +125,9 @@ const ChainIndicators = () => {
         value: typeof statsApiQueryResult.data?.secondary_coin_price !== 'string' ?
           '$N/A' :
           '$' + Number(statsApiQueryResult.data?.secondary_coin_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
+        valueDiff: typeof statsApiQueryResult.data?.secondary_coin_price_change_percentage === 'number' ?
+          statsApiQueryResult.data.secondary_coin_price_change_percentage :
+          undefined,
         hint: `${ config.chain.secondaryCoin.symbol } token daily price in USD.`,
         icon: <NativeTokenIcon boxSize={ 6 } type="secondary"/>,
       },
@@ -137,6 +140,15 @@ const ChainIndicators = () => {
         // eslint-disable-next-line max-len
         hint: 'The total market value of a cryptocurrency\'s circulating supply. It is analogous to the free-float capitalization in the stock market. Market Cap = Current Price x Circulating Supply.',
         icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="white"/>,
+      },
+      {
+        id: 'secondary_coin_market_cap' as const,
+        title: `${ config.chain.secondaryCoin.symbol } market value`,
+        value: typeof statsApiQueryResult.data?.secondary_coin_market_cap !== 'string' ?
+          '$N/A' :
+          '$' + Number(statsApiQueryResult.data.secondary_coin_market_cap).toLocaleString(undefined, { maximumFractionDigits: 2, notation: 'compact' }),
+        hint: `${ config.chain.secondaryCoin.symbol } price multiplied by its token supply, in USD.`,
+        icon: <NativeTokenIcon boxSize={ 6 } type="secondary"/>,
       },
       {
         id: 'tvl' as const,
