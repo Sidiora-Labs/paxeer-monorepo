@@ -100,6 +100,10 @@ func writeExclusive(path string, value any) (string, error) {
 }
 
 func run() (bool, error) {
+	return runMeasurement(nil)
+}
+
+func runMeasurement(historyComplete func()) (bool, error) {
 	manifestPath := flag.String("manifest", "", "Reviewed measurement manifest JSON")
 	manifestDigest := flag.String("manifest-sha256", "", "Reviewed measurement manifest file SHA256")
 	outputDir := flag.String("output-dir", "", "Private directory for raw-history.json and measurement.json")
@@ -144,6 +148,9 @@ func run() (bool, error) {
 	replay, err := coverage.ReplayHistorical(ctx, source, input, capture)
 	if err != nil {
 		return false, err
+	}
+	if historyComplete != nil {
+		historyComplete()
 	}
 	burst, err := coverage.MeasureDecoderBurst(ctx, registry, capture)
 	if err != nil {
