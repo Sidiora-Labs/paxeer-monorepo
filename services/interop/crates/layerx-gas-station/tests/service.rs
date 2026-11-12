@@ -1,6 +1,11 @@
 include!("support/service_harness.rs");
 include!("support/service_repairs.rs");
 
+use layerx_gas_station::config::{ConfigError, PaymasterRequired};
+use layerx_gas_station::rpc::{JsonRpc, Rung, SequencerReceipt};
+use layerx_gas_station::station::StationError;
+use layerx_gas_station::tx::recover;
+
 #[test]
 fn quote_and_sponsored_submission_over_a_socket() -> TestResult {
     let harness = start("CYCLE")?;

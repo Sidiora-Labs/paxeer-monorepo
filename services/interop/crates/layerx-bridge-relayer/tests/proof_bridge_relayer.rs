@@ -1,15 +1,15 @@
-//! Proves: Journal + CosignDirectory + AttestationView::{deposit_answer, release_answer} -> attestation_api::serve over HTTP -> fetchDepositAttestation + fetchReleaseAttestation in apps/bridge/src/lib/bridge/attestation-api.ts.
+//! Proves: Journal + `CosignDirectory` + `AttestationView::{deposit_answer`, `release_answer`} -> `attestation_api::serve` over HTTP -> fetchDepositAttestation + fetchReleaseAttestation in apps/bridge/src/lib/bridge/attestation-api.ts.
 //!
 //! Repairs: that TypeScript module's readBytes32 accepted non-hex characters;
-//! attestation_api.rs responses lacked Cache-Control: no-store; transport.rs
-//! lacked the documented PaxeerEndpoint::call instance entry point.
+//! `attestation_api.rs` responses lacked Cache-Control: no-store; transport.rs
+//! lacked the documented `PaxeerEndpoint::call` instance entry point.
 //! The real journal is closed and replayed before the consumer runs. The real
 //! TypeScript client uses native fetch, with no replacement of HTTP or decoding.
 //! Node 22.15+ and the bridge application's installed dependencies are required.
 //! Only negative decoding cases mutate a bundle emitted by the real producer.
 //! The separate Paxeer JSON-RPC surface is exercised against the real HTTP
-//! server: POST is refused, both directly and by rpc.rs::PaxeerRpc::call (which
-//! currently maps HTTP faults to RpcFault::Unavailable). This asserts that
+//! server: POST is refused, both directly and by `rpc.rs::PaxeerRpc::call` (which
+//! currently maps HTTP faults to `RpcFault::Unavailable`). This asserts that
 //! existing boundary; the attestation server is not a Paxeer JSON-RPC node.
 
 use std::collections::BTreeMap;
@@ -57,14 +57,14 @@ struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
         let mut random = [0; 16];
-        openssl::rand::rand_bytes(&mut random).expect("random directory suffix");
+        openssl::rand::rand_bytes(&mut random).or_panic("random directory suffix");
         let path = std::env::temp_dir().join(format!("proof-bridge-{}", hex::encode(&random)));
-        fs::create_dir(&path).expect("exclusive proof directory");
+        fs::create_dir(&path).or_panic("exclusive proof directory");
         Self(path)
     }
 
     fn config(&self, enabled: bool) -> RelayerConfig {
-        let mut config: Value = serde_json::from_str(EXAMPLE).expect("real deployment example");
+        let mut config: Value = serde_json::from_str(EXAMPLE).or_panic("real deployment example");
         config["journal_path"] = json!(self.0.join("journal.jsonl"));
         config["cosign_directory"] = json!(self.0.join("cosign"));
         config["attestation_allowed_origins"] = json!([ORIGIN]);
@@ -73,35 +73,37 @@ impl Directory {
         } else {
             config
                 .as_object_mut()
-                .expect("config object")
+                .or_panic("config object")
                 .remove("attestation_listen");
         }
         let path = self.0.join("relayer.json");
-        fs::write(&path, serde_json::to_vec(&config).expect("encode config"))
-            .expect("write config");
-        RelayerConfig::load(&path).expect("production configuration loader")
+        fs::write(&path, serde_json::to_vec(&config).or_panic("encode config"))
+            .or_panic("write config");
+        RelayerConfig::load(&path).or_panic("production configuration loader")
     }
 }
 
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove proof directory");
+        fs::remove_dir_all(&self.0).or_panic("remove proof directory");
     }
 }
 
 fn server(config: &RelayerConfig, view: Arc<RwLock<AttestationView>>) -> Option<SocketAddr> {
     let address = config.attestation_listen?;
-    let listener = TcpListener::bind(address).expect("bind real attestation server");
-    let address = listener.local_addr().expect("assigned address");
+    let listener = TcpListener::bind(address).or_panic("bind real attestation server");
+    let address = listener.local_addr().or_panic("assigned address");
     let origins = config.attestation_allowed_origins.clone();
-    std::thread::spawn(move || serve(listener, view, origins).expect("real HTTP server"));
+    std::thread::spawn(move || {
+        serve(&listener, &view, &origins).or_panic("real HTTP server");
+    });
     Some(address)
 }
 
 // This is a Node host for the application's own TypeScript module, not a port
 // of its parser. The resolve hook only supplies .ts for its extensionless local
 // imports; Node strips types and loads the actual viem and Solana dependencies.
-const CONSUMER: &str = r#"
+const CONSUMER: &str = r"
 import assert from 'node:assert/strict';
 import { createInterface } from 'node:readline';
 import { registerHooks } from 'node:module';
@@ -217,7 +219,7 @@ assert.equal(malformed.status, 400);
 await malformed.arrayBuffer();
 process.stdout.write('consumer assertions passed\n');
 process.stdin.destroy();
-"#;
+";
 
 fn consumer_available() -> bool {
     match Command::new("npm").arg("--version").output() {
@@ -235,7 +237,7 @@ fn consumer_available() -> bool {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
-        .unwrap()
+        .or_panic("expected Some value")
         .to_path_buf();
     let output = Command::new("node")
         .current_dir(root.join("apps/bridge"))
@@ -273,12 +275,12 @@ fn consumer_dependencies() -> &'static PathBuf {
             "layerx-bridge-consumer-dependencies-{}",
             std::process::id()
         ));
-        fs::create_dir_all(&directory).expect("consumer dependency directory");
+        fs::create_dir_all(&directory).or_panic("consumer dependency directory");
         let manifest: Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../apps/bridge/package.json"
         )))
-        .expect("TypeScript consumer package manifest");
+        .or_panic("TypeScript consumer package manifest");
         let dependencies = json!({
             "viem": manifest["dependencies"]["viem"],
             "@noble/curves": manifest["devDependencies"]["@noble/curves"],
@@ -288,7 +290,7 @@ fn consumer_dependencies() -> &'static PathBuf {
             &package,
             json!({"private": true, "dependencies": dependencies}).to_string(),
         )
-        .expect("consumer dependency manifest");
+        .or_panic("consumer dependency manifest");
         let output = Command::new("npm")
             .current_dir(&directory)
             .args([
@@ -299,7 +301,12 @@ fn consumer_dependencies() -> &'static PathBuf {
                 "--no-package-lock",
             ])
             .output()
-            .expect("install the real TypeScript consumer dependencies");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "install the real TypeScript consumer dependencies"
+                )
+            });
         assert!(
             output.status.success(),
             "TypeScript consumer dependency install failed with {}: {}\n{}",
@@ -323,14 +330,15 @@ fn proof_signer(directory: &Directory) -> ProofSigner {
     let mut keys = Vec::new();
     for seed in 1..=3 {
         let path = directory.0.join(format!("attestor-{seed}.key"));
-        fs::write(&path, hex::encode(&[seed; 32])).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        fs::write(&path, hex::encode(&[seed; 32])).or_panic("expected Ok value");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).or_panic("expected Ok value");
         keys.push(json!({"handle": format!("attestor-{seed}"), "algorithm": "secp256k1", "key_file": path,
-            "domains": [std::str::from_utf8(ATTEST_INBOUND_DOMAIN).unwrap(), std::str::from_utf8(ATTEST_OUTBOUND_DOMAIN).unwrap()]}));
+            "domains": [std::str::from_utf8(ATTEST_INBOUND_DOMAIN).or_panic("expected Ok value"), std::str::from_utf8(ATTEST_OUTBOUND_DOMAIN).or_panic("expected Ok value")]}));
     }
-    fs::set_permissions(&directory.0, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::set_permissions(&directory.0, fs::Permissions::from_mode(0o700))
+        .or_panic("expected Ok value");
     let manifest = directory.0.join("keys.json");
-    fs::write(&manifest, json!({"keys": keys}).to_string()).unwrap();
+    fs::write(&manifest, json!({"keys": keys}).to_string()).or_panic("expected Ok value");
     let mut signer = ProofSigner(
         Command::new(signer_binary::signer_binary())
             .arg("bridge")
@@ -339,12 +347,12 @@ fn proof_signer(directory: &Directory) -> ProofSigner {
             .arg("--keys")
             .arg(manifest)
             .spawn()
-            .expect("real bridge signer"),
+            .or_panic("real bridge signer"),
     );
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     while !directory.0.join("signer.sock").exists() {
         assert!(
-            signer.0.try_wait().unwrap().is_none(),
+            signer.0.try_wait().or_panic("expected Ok value").is_none(),
             "real signer exited during startup"
         );
         assert!(
@@ -367,7 +375,7 @@ fn consume(
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
-        .expect("repository root")
+        .or_panic("repository root")
         .to_path_buf();
     let mut child = Command::new("node")
         .args([
@@ -390,7 +398,7 @@ fn consume(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Node host for real TypeScript consumer");
+        .or_panic("Node host for real TypeScript consumer");
     let mut input = json!({
         "chain": chain.to_string(), "hash": hex::prefixed(hash), "index": index.to_string(),
         "origin": ORIGIN,
@@ -403,30 +411,32 @@ fn consume(
             "release": release_answer(next, chain, hash, index),
         });
     }
-    let mut stdin = child.stdin.take().expect("consumer input");
-    writeln!(stdin, "{input}").expect("send producer expectations");
-    let mut stdout = BufReader::new(child.stdout.take().expect("consumer output"));
+    let mut stdin = child.stdin.take().or_panic("consumer input");
+    writeln!(stdin, "{input}").or_panic("send producer expectations");
+    let mut stdout = BufReader::new(child.stdout.take().or_panic("consumer output"));
     if let Some((shared, next)) = transition {
         let mut signal = String::new();
-        stdout.read_line(&mut signal).expect("read refresh signal");
+        stdout
+            .read_line(&mut signal)
+            .or_panic("read refresh signal");
         if signal != "refresh\n" {
             drop(stdin);
-            let output = child.wait_with_output().expect("failed consumer output");
+            let output = child.wait_with_output().or_panic("failed consumer output");
             panic!(
                 "consumer must finish both initial HTTP reads; signal {signal:?}, status {}: {}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr)
             );
         }
-        *shared.write().expect("refresh live producer view") = next.clone();
-        writeln!(stdin, "continue").expect("resume same consumer instance");
+        *shared.write().or_panic("refresh live producer view") = next.clone();
+        writeln!(stdin, "continue").or_panic("resume same consumer instance");
     }
     drop(stdin);
     let mut observed = String::new();
     stdout
         .read_to_string(&mut observed)
-        .expect("read consumer assertions");
-    let output = child.wait_with_output().expect("wait for real consumer");
+        .or_panic("read consumer assertions");
+    let output = child.wait_with_output().or_panic("wait for real consumer");
     assert!(
         output.status.success(),
         "TypeScript consumer failed: {}\n{}",
@@ -447,13 +457,13 @@ fn unobserved() {
     assert_eq!(config.attestation_listen, None);
     assert_eq!(server(&config, Arc::clone(&view)), None);
     let config = directory.config(true);
-    let address = server(&config, Arc::clone(&view)).expect("enabled server");
+    let address = server(&config, Arc::clone(&view)).or_panic("enabled server");
     consume(
         address,
         u64::MAX,
         &[0xef; 32],
         u64::MAX - 1,
-        &view.read().expect("view"),
+        &view.read().or_panic("view"),
         None,
     );
 }
@@ -465,21 +475,7 @@ fn runs() {
     }
     let directory = Directory::new();
     let _signer = proof_signer(&directory);
-    let mut config = directory.config(true);
-    for invalid in [
-        "*",
-        "https://bridge.example/path",
-        "https://bridge.example\r\nInjected: yes",
-    ] {
-        config.attestation_allowed_origins = vec![invalid.to_owned()];
-        assert!(config
-            .validate()
-            .expect_err("invalid origin")
-            .to_string()
-            .contains("attestation_allowed_origins"));
-    }
-    config.attestation_allowed_origins = vec![ORIGIN.to_owned()];
-    config.validate().expect("exact origin config");
+    let mut config = configured_origin(&directory);
     let inbound = InboundAttestation {
         chain_id: u64::MAX,
         vault: [0xcd; 20],
@@ -502,15 +498,111 @@ fn runs() {
         block_number: 100,
         block_hash: [0x12; 32],
     };
-    let mut journal = Journal::open(&config.journal_path).expect("real journal");
-    let cosign = CosignDirectory::new(config.cosign_directory.clone().expect("cosign directory"));
+    let signatures = record_signed_evidence(&directory, &config, &inbound, &outbound, position);
+    let reopened = Journal::open(&config.journal_path).or_panic("stop and reopen producer journal");
+    let cosign = CosignDirectory::new(config.cosign_directory.clone().or_panic("cosign directory"));
+    let snapshot = verified_snapshot(
+        &config,
+        &inbound,
+        &outbound,
+        &reopened,
+        &cosign,
+        &signatures,
+    );
+    let shared = Arc::new(RwLock::new(snapshot.clone()));
+    let address = server(&config, Arc::clone(&shared)).or_panic("configured socket");
+
+    // Keep the same URL and identifiers, but withdraw peer signatures. Both
+    // consecutive reads must now report attesting, rather than cached ready.
+    let mut pending = snapshot.clone();
+    pending.signatures.clear();
+    assert_eq!(
+        deposit_answer(
+            &pending,
+            inbound.chain_id,
+            &inbound.tx_hash,
+            inbound.log_index
+        )
+        .or_panic("deposit")["status"],
+        "attesting"
+    );
+    consume(
+        address,
+        inbound.chain_id,
+        &inbound.tx_hash,
+        inbound.log_index,
+        &snapshot,
+        Some((Arc::clone(&shared), &pending)),
+    );
+
+    config.paxeer.endpoints[0].url = format!("http://{address}");
+    config.paxeer.endpoints[0].trust_anchor_der = None;
+    config.paxeer.endpoints[0].local_emulator = true;
+    let endpoints = config
+        .paxeer_endpoints()
+        .or_panic("real endpoint config consumer");
+    assert_eq!(endpoints[0].expected_chain_id, config.paxeer.chain_id);
+    for _ in 0..2 {
+        assert_eq!(
+            endpoints[0].call("eth_blockNumber", &json!([])),
+            Err(TransportFault::Http { status: 405 })
+        );
+    }
+    let rpc = PaxeerRpc::new(endpoints).or_panic("real RPC consumer");
+    assert_eq!(
+        rpc.call("eth_blockNumber", json!([])),
+        Err(RpcFault::Unavailable)
+    );
+    assert_eq!(
+        PaxeerEndpoint::new(
+            "http://rpc.example/rpc",
+            Duration::from_secs(2),
+            None,
+            125,
+            true
+        ),
+        Err(TransportFault::InsecureTransport)
+    );
+    config.paxeer.endpoints[0].local_emulator = false;
+    assert!(
+        config.paxeer_endpoints().is_err(),
+        "plaintext must be explicitly local"
+    );
+}
+
+fn configured_origin(directory: &Directory) -> RelayerConfig {
+    let mut config = directory.config(true);
+    for invalid in [
+        "*",
+        "https://bridge.example/path",
+        "https://bridge.example\r\nInjected: yes",
+    ] {
+        config.attestation_allowed_origins = vec![invalid.to_owned()];
+        assert!(config
+            .validate()
+            .err()
+            .or_panic("invalid origin")
+            .to_string()
+            .contains("attestation_allowed_origins"));
+    }
+    config.attestation_allowed_origins = vec![ORIGIN.to_owned()];
+    config.validate().or_panic("exact origin config");
+    config
+}
+
+fn record_signed_evidence(
+    directory: &Directory,
+    config: &RelayerConfig,
+    inbound: &InboundAttestation,
+    outbound: &OutboundAttestation,
+    position: Position,
+) -> BTreeMap<[u8; 32], Vec<[u8; 65]>> {
+    let mut journal = Journal::open(&config.journal_path).or_panic("real journal");
+    let cosign = CosignDirectory::new(config.cosign_directory.clone().or_panic("cosign directory"));
     let mut signatures = BTreeMap::new();
     for (observation, digest) in [
-        (Observation::inbound(&inbound, position), inbound.digest()),
-        (
-            Observation::outbound(&outbound, position),
-            outbound.digest(),
-        ),
+        (Observation::inbound(inbound, position), inbound.digest()),
+        (Observation::outbound(outbound, position), outbound.digest()),
     ] {
         let item = observation.key();
         journal
@@ -518,9 +610,9 @@ fn runs() {
                 item: item.clone(),
                 observation,
             })
-            .expect("persist event");
+            .or_panic("persist event");
         for seed in 1..=3 {
-            let key = SigningKey::from_bytes((&[seed; 32]).into()).expect("real signing key");
+            let key = SigningKey::from_bytes((&[seed; 32]).into()).or_panic("real signing key");
             let attestor = Attestor::new(
                 RemoteChainSigner::new(RemoteSignerConfig {
                     endpoint: SignerEndpoint::Uds {
@@ -535,25 +627,25 @@ fn runs() {
                         .to_vec(),
                     timeout: Duration::from_secs(5),
                 })
-                .expect("real signer client"),
+                .or_panic("real signer client"),
             )
-            .expect("real attestor");
+            .or_panic("real attestor");
             let signature = if matches!(observation, Observation::Inbound { .. }) {
-                attestor.sign_inbound(&inbound)
+                attestor.sign_inbound(inbound)
             } else {
-                attestor.sign_outbound(&outbound)
+                attestor.sign_outbound(outbound)
             }
-            .expect("real bridge signer share");
+            .or_panic("real bridge signer share");
             cosign
                 .publish(&digest, &ethereum_address(key.verifying_key()), &signature)
-                .expect("persist cosign");
+                .or_panic("persist cosign");
             if seed == 1 {
                 journal
                     .append(&Entry::Signed {
                         item: item.clone(),
                         signature,
                     })
-                    .expect("persist signature");
+                    .or_panic("persist signature");
             }
         }
         signatures.insert(digest, cosign.collect(&digest));
@@ -561,10 +653,20 @@ fn runs() {
     let persisted = journal.state().items.clone();
     drop(journal);
     drop(cosign);
-    let reopened = Journal::open(&config.journal_path).expect("stop and reopen producer journal");
+    let reopened = Journal::open(&config.journal_path).or_panic("stop and reopen producer journal");
     assert_eq!(reopened.state().items, persisted);
-    let cosign = CosignDirectory::new(config.cosign_directory.clone().expect("cosign directory"));
-    for (digest, expected) in &signatures {
+    signatures
+}
+
+fn verified_snapshot(
+    config: &RelayerConfig,
+    inbound: &InboundAttestation,
+    outbound: &OutboundAttestation,
+    reopened: &Journal,
+    cosign: &CosignDirectory,
+    signatures: &BTreeMap<[u8; 32], Vec<[u8; 65]>>,
+) -> AttestationView {
+    for (digest, expected) in signatures {
         assert_eq!(
             &cosign.collect(digest),
             expected,
@@ -574,7 +676,7 @@ fn runs() {
     }
     let attestors: Vec<_> = (1..=3)
         .map(|seed| {
-            let key = SigningKey::from_bytes((&[seed; 32]).into()).expect("real signing key");
+            let key = SigningKey::from_bytes((&[seed; 32]).into()).or_panic("real signing key");
             ethereum_address(key.verifying_key())
         })
         .collect();
@@ -602,8 +704,8 @@ fn runs() {
         )
     })
     .collect();
-    let snapshot = AttestationView::from_journal(&reopened, Some(&cosign), &policies);
-    assert_eq!(snapshot.signatures, signatures);
+    let snapshot = AttestationView::from_journal(reopened, Some(cosign), &policies);
+    assert_eq!(&snapshot.signatures, signatures);
     assert_eq!(snapshot.thresholds, BTreeMap::from([(inbound.chain_id, 3)]));
     let deposit = deposit_answer(
         &snapshot,
@@ -611,14 +713,14 @@ fn runs() {
         &inbound.tx_hash,
         inbound.log_index,
     )
-    .expect("deposit");
+    .or_panic("deposit");
     let release = release_answer(
         &snapshot,
         outbound.chain_id,
         &outbound.paxeer_tx_hash,
         outbound.paxeer_nonce,
     )
-    .expect("release");
+    .or_panic("release");
     for answer in [&deposit, &release] {
         assert_eq!(answer["status"], "ready");
         assert_eq!(
@@ -628,70 +730,34 @@ fn runs() {
         assert_eq!(
             answer["signatures"]
                 .as_array()
-                .expect("signature array")
+                .or_panic("signature array")
                 .len(),
             3
         );
     }
     assert_eq!(deposit["digest"], hex::prefixed(&inbound.digest()));
     assert_eq!(release["digest"], hex::prefixed(&outbound.digest()));
-    let shared = Arc::new(RwLock::new(snapshot.clone()));
-    let address = server(&config, Arc::clone(&shared)).expect("configured socket");
+    snapshot
+}
 
-    // Keep the same URL and identifiers, but withdraw peer signatures. Both
-    // consecutive reads must now report attesting, rather than cached ready.
-    let mut pending = snapshot.clone();
-    pending.signatures.clear();
-    assert_eq!(
-        deposit_answer(
-            &pending,
-            inbound.chain_id,
-            &inbound.tx_hash,
-            inbound.log_index
-        )
-        .expect("deposit")["status"],
-        "attesting"
-    );
-    consume(
-        address,
-        inbound.chain_id,
-        &inbound.tx_hash,
-        inbound.log_index,
-        &snapshot,
-        Some((Arc::clone(&shared), &pending)),
-    );
+trait OrPanic {
+    type Output;
 
-    config.paxeer.endpoints[0].url = format!("http://{address}");
-    config.paxeer.endpoints[0].trust_anchor_der = None;
-    config.paxeer.endpoints[0].local_emulator = true;
-    let endpoints = config
-        .paxeer_endpoints()
-        .expect("real endpoint config consumer");
-    assert_eq!(endpoints[0].expected_chain_id, config.paxeer.chain_id);
-    for _ in 0..2 {
-        assert_eq!(
-            endpoints[0].call("eth_blockNumber", &json!([])),
-            Err(TransportFault::Http { status: 405 })
-        );
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
     }
-    let rpc = PaxeerRpc::new(endpoints).expect("real RPC consumer");
-    assert_eq!(
-        rpc.call("eth_blockNumber", json!([])),
-        Err(RpcFault::Unavailable)
-    );
-    assert_eq!(
-        PaxeerEndpoint::new(
-            "http://rpc.example/rpc",
-            Duration::from_secs(2),
-            None,
-            125,
-            true
-        ),
-        Err(TransportFault::InsecureTransport)
-    );
-    config.paxeer.endpoints[0].local_emulator = false;
-    assert!(
-        config.paxeer_endpoints().is_err(),
-        "plaintext must be explicitly local"
-    );
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

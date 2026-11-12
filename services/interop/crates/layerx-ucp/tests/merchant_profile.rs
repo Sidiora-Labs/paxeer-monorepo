@@ -132,7 +132,7 @@ fn signed_receipt(
     let signed = fixture_bytes(&case["signedReceipt"]);
     let mut unsigned = signed[..signed.len() - 69].to_vec();
     let recorded_topics = topics.concat();
-    let [reference, from, to] = payment_exact_words(&case);
+    let [reference, from, to] = payment_exact_words(case);
     topics = vec![topics[0], reference, from, to];
     topics[1] = idempotency_key;
     topics[3] = recipient;
@@ -531,7 +531,7 @@ fn payment_handler_mismatch_refuses_negotiation() {
 }
 
 #[path = "support/producer_checkout.rs"]
-mod producer_checkout;
+pub mod producer_checkout;
 
 #[test]
 fn ucp_merchant_producer() {

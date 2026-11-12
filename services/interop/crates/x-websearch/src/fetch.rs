@@ -632,6 +632,8 @@ impl Fetcher {
         Self::with_resolver(limits, crate::resolve::Resolver::system()?)
     }
 
+    /// # Errors
+    /// Returns an error when the destination or response violates configured bounds.
     pub fn with_resolver(
         limits: FetchLimits,
         resolver: crate::resolve::Resolver,
@@ -670,6 +672,8 @@ impl Fetcher {
         self.destination_before(url, Instant::now() + self.limits.total_timeout())
     }
 
+    /// # Errors
+    /// Returns an error when the destination or response violates configured bounds.
     pub fn destination_before(
         &self,
         url: &Url,
@@ -777,6 +781,8 @@ impl Fetcher {
         }
     }
 
+    /// # Errors
+    /// Returns an error when the destination or response violates configured bounds.
     pub fn fetch_bytes(&self, url: &str, limit: usize) -> Result<Vec<u8>, FetchError> {
         if limit == 0 {
             return Err(FetchError::InvalidLimits);

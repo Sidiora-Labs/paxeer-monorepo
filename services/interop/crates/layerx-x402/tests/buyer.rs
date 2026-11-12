@@ -34,7 +34,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
                 } else {
                     prefix - 0xf7
                 });
-                let length = input[1..1 + width]
+                let length = input[1..=width]
                     .iter()
                     .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                 (1 + width, length)
@@ -61,7 +61,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     std::array::from_fn(|index| {
         calldata[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .or_panic("expected Ok value")
     })
 }
 
@@ -138,9 +138,7 @@ fn test_payment_required() -> PaymentRequired {
 }
 
 fn encode_payment_required(required: &PaymentRequired) -> String {
-    STANDARD.encode(
-        serde_json::to_vec(required).unwrap_or_else(|error| panic!("test input: {error:?}")),
-    )
+    STANDARD.encode(serde_json::to_vec(required).or_panic("test input"))
 }
 
 fn mock_receipt_bytes() -> Vec<u8> {
@@ -154,10 +152,10 @@ fn receipt_fixture() -> Value {
     .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
     fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("fixture cases"))
+        .or_panic("fixture cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("recorded settlement"))
+        .or_panic("recorded settlement")
         .clone()
 }
 
@@ -165,11 +163,13 @@ fn receipt_fixture_bytes(value: &Value) -> Vec<u8> {
     let digits = value
         .as_str()
         .and_then(|text| text.strip_prefix("0x"))
-        .unwrap_or_else(|| panic!("fixture hexadecimal bytes"));
+        .or_panic("fixture hexadecimal bytes");
     assert_eq!(digits.len() % 2, 0);
     (0..digits.len())
         .step_by(2)
-        .map(|index| u8::from_str_radix(&digits[index..index + 2], 16).unwrap())
+        .map(|index| {
+            u8::from_str_radix(&digits[index..index + 2], 16).or_panic("expected Ok value")
+        })
         .collect()
 }
 
@@ -180,7 +180,7 @@ fn pinned_receipt_keys() -> [SequencerAuthorization; 1] {
         key[name]
             .as_str()
             .and_then(|value| value.strip_prefix("0x"))
-            .unwrap_or_else(|| panic!("pinned key {name}"))
+            .or_panic(&format!("pinned key {name}"))
     };
     [SequencerAuthorization::from_config(
         field("keyId"),
@@ -200,21 +200,27 @@ fn signed_settlement() -> (
     let log = &fixture["receiptJson"]["logs"][0];
     let topics: Vec<[u8; 32]> = log["topics"]
         .as_array()
-        .unwrap()
+        .or_panic("expected Some value")
         .iter()
-        .map(|topic| receipt_fixture_bytes(topic).try_into().unwrap())
+        .map(|topic| {
+            receipt_fixture_bytes(topic)
+                .try_into()
+                .or_panic("expected Ok value")
+        })
         .collect();
     assert_eq!(topics.len(), 4);
     let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
     let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
         .try_into()
-        .unwrap();
+        .or_panic("expected Ok value");
     let keys = pinned_receipt_keys();
     let data = receipt_fixture_bytes(&log["data"]);
     assert_eq!(data.len(), 64);
     assert_eq!(data[32..48], [0; 16]);
-    let asset: [u8; 32] = data[..32].try_into().unwrap();
-    let amount = AtomicAmount::from_u128(u128::from_be_bytes(data[48..64].try_into().unwrap()));
+    let asset: [u8; 32] = data[..32].try_into().or_panic("expected Ok value");
+    let amount = AtomicAmount::from_u128(u128::from_be_bytes(
+        data[48..64].try_into().or_panic("expected Ok value"),
+    ));
     let idempotency_key = topics[1];
     let payer = topics[2];
     let payment = BuiltPayment {
@@ -226,7 +232,10 @@ fn signed_settlement() -> (
             accepted: PaymentRequirements {
                 amount,
                 asset: format!("0x{}", hex32(&asset)),
-                pay_to: log["topics"][3].as_str().unwrap().to_owned(),
+                pay_to: log["topics"][3]
+                    .as_str()
+                    .or_panic("expected Some value")
+                    .to_owned(),
                 extra: Some(layerx_terms(PAYEE_ACCOUNT)),
                 ..test_requirements()
             },
@@ -240,7 +249,7 @@ fn signed_settlement() -> (
         payer: Some(hex32(&payer)),
         transaction: fixture["receiptJson"]["txHash"]
             .as_str()
-            .unwrap()
+            .or_panic("expected Some value")
             .to_owned(),
         network: payment.payload.accepted.network.clone(),
         amount: Some(amount),
@@ -263,7 +272,7 @@ fn capture_settlement(
     keys: &[SequencerAuthorization],
 ) -> Result<layerx_x402::buyer::CapturedSettlement, Traced<X402Error>> {
     Buyer::capture_settlement(
-        &STANDARD.encode(serde_json::to_vec(response).unwrap()),
+        &STANDARD.encode(serde_json::to_vec(response).or_panic("expected Ok value")),
         payment,
         keys,
         &TraceId::mint([0xab; 16]),
@@ -274,25 +283,15 @@ fn capture_settlement(
 fn buyer_tests_capture_on_the_recorded_receipt() {
     let fixture = receipt_fixture();
     let (payment, response, keys) = signed_settlement();
-    let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
-    let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
-        .try_into()
-        .unwrap();
-    let transaction: [u8; 32] = receipt_fixture_bytes(&fixture["receiptJson"]["txHash"])
-        .try_into()
-        .unwrap();
-    let verified =
-        layerx_proof::receipt::verify_sequencer_signature(&receipt, &pinned_receipt_keys())
-            .unwrap();
-    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
-    assert_eq!(
-        layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap(),
-        digest
-    );
+    let (receipt, digest, transaction) = recorded_receipt_identity(&fixture);
     let logs = &fixture["receiptJson"]["logs"];
     let topics = &logs[0]["topics"];
-    let idempotency_key: [u8; 32] = receipt_fixture_bytes(&topics[1]).try_into().unwrap();
-    let payer: [u8; 32] = receipt_fixture_bytes(&topics[2]).try_into().unwrap();
+    let idempotency_key: [u8; 32] = receipt_fixture_bytes(&topics[1])
+        .try_into()
+        .or_panic("expected Ok value");
+    let payer: [u8; 32] = receipt_fixture_bytes(&topics[2])
+        .try_into()
+        .or_panic("expected Ok value");
     assert_eq!(response.extensions["layerx"]["logs"], *logs);
     assert_eq!(payment.idempotency_key, idempotency_key);
     assert_eq!(
@@ -300,7 +299,10 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
         hex32(&idempotency_key)
     );
     assert_eq!(response.payer.as_deref(), Some(hex32(&payer).as_str()));
-    assert_eq!(payment.payload.accepted.pay_to, topics[3].as_str().unwrap());
+    assert_eq!(
+        payment.payload.accepted.pay_to,
+        topics[3].as_str().or_panic("expected Some value")
+    );
     assert_eq!(payment.payload.accepted.pay_to, pay_to(PAYEE_ACCOUNT));
     assert_eq!(
         payment.payload.accepted.pay_to,
@@ -311,37 +313,57 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
     assert_eq!(payer, words[0]);
     assert_eq!(receipt_fixture_bytes(&topics[3]), words[1]);
     assert_eq!(
-        payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"],
+        payment
+            .payload
+            .accepted
+            .extra
+            .as_ref()
+            .or_panic("expected Some value")["layerx"]["account"],
         PAYEE_ACCOUNT
     );
     assert_eq!(
         STANDARD
-            .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
-            .unwrap(),
+            .decode(
+                response.extensions["layerx"]["receipt"]
+                    .as_str()
+                    .or_panic("expected Some value")
+            )
+            .or_panic("expected Ok value"),
         receipt
     );
     assert_eq!(
         response.extensions["layerx"]["receiptDigest"],
         hex32(&digest)
     );
-    let verified = layerx_proof::receipt::verify_sequencer_signature(&receipt, &keys).unwrap();
-    assert_eq!(verified.protocol().unwrap().activity_id(), transaction);
-    let [pinned] = pinned_receipt_keys();
-    assert_eq!(keys[0].sequencer_id(), pinned.sequencer_id());
-    assert_eq!(keys[0].first_batch_number(), pinned.first_batch_number());
-    assert_eq!(keys[0].last_batch_number(), pinned.last_batch_number());
+    let verified = layerx_proof::receipt::verify_sequencer_signature(&receipt, &keys)
+        .or_panic("expected Ok value");
+    assert_eq!(
+        verified
+            .protocol()
+            .or_panic("expected Some value")
+            .activity_id(),
+        transaction
+    );
+    assert_pinned_authorities(&keys);
     let captured = capture_settlement(&response, &payment, &keys).unwrap_or_else(|error| {
-        let account = payment.payload.accepted.extra.as_ref().unwrap()["layerx"]["account"]
+        let account = payment
+            .payload
+            .accepted
+            .extra
+            .as_ref()
+            .or_panic("expected Some value")["layerx"]["account"]
             .as_str()
-            .unwrap();
+            .or_panic("expected Some value");
         panic!(
             "recorded settlement: {error:?}; unmodified recorded payee {}; account {account}; \
              derived account identifiers {:?}",
             payment.payload.accepted.pay_to,
-            account_identifiers(account).unwrap().map(|id| hex32(&id))
+            account_identifiers(account)
+                .or_panic("expected Ok value")
+                .map(|id| hex32(&id))
         )
     });
-    payment.payload.validate().unwrap();
+    payment.payload.validate().or_panic("expected Ok value");
     assert_eq!(captured.response, response);
     assert_eq!(captured.canonical_receipt, receipt);
     assert_eq!(captured.receipt_digest, digest);
@@ -361,6 +383,39 @@ fn buyer_tests_capture_on_the_recorded_receipt() {
     assert_eq!(captured.rung, "receipted");
 }
 
+fn recorded_receipt_identity(fixture: &Value) -> (Vec<u8>, [u8; 32], [u8; 32]) {
+    let receipt = receipt_fixture_bytes(&fixture["signedReceipt"]);
+    let digest: [u8; 32] = receipt_fixture_bytes(&fixture["receiptDigest"])
+        .try_into()
+        .or_panic("expected Ok value");
+    let transaction: [u8; 32] = receipt_fixture_bytes(&fixture["receiptJson"]["txHash"])
+        .try_into()
+        .or_panic("expected Ok value");
+    let verified =
+        layerx_proof::receipt::verify_sequencer_signature(&receipt, &pinned_receipt_keys())
+            .or_panic("expected Ok value");
+    assert_eq!(
+        verified
+            .protocol()
+            .or_panic("expected Some value")
+            .activity_id(),
+        transaction
+    );
+    assert_eq!(
+        layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)
+            .or_panic("expected Ok value"),
+        digest
+    );
+    (receipt, digest, transaction)
+}
+
+fn assert_pinned_authorities(keys: &[SequencerAuthorization]) {
+    let [pinned] = pinned_receipt_keys();
+    assert_eq!(keys[0].sequencer_id(), pinned.sequencer_id());
+    assert_eq!(keys[0].first_batch_number(), pinned.first_batch_number());
+    assert_eq!(keys[0].last_batch_number(), pinned.last_batch_number());
+}
+
 fn payment_log_settlement(
     scheme: &str,
     logged_idempotency_key: [u8; 32],
@@ -370,9 +425,11 @@ fn payment_log_settlement(
     [SequencerAuthorization; 1],
 ) {
     let mut accepted = test_requirements();
-    accepted.scheme = scheme.to_owned();
+    accepted.scheme.clear();
+    accepted.scheme.push_str(scheme);
     if scheme == "metered" {
-        accepted.extra.as_mut().unwrap()["layerx"]["purposeHash"] = json!(CHALLENGE_PURPOSE);
+        accepted.extra.as_mut().or_panic("expected Some value")["layerx"]["purposeHash"] =
+            json!(CHALLENGE_PURPOSE);
     }
     signed_payment_log_settlement(accepted, logged_idempotency_key)
 }
@@ -392,14 +449,7 @@ fn signed_payment_log_settlement(
     let fixture = receipt_fixture();
     let recorded_log = &fixture["receiptJson"]["logs"][0];
     let address = receipt_fixture_bytes(&recorded_log["address"]);
-    let mut recorded_body = address.clone();
-    recorded_body.push(4);
-    for topic in recorded_log["topics"].as_array().unwrap() {
-        recorded_body.extend_from_slice(&receipt_fixture_bytes(topic));
-    }
-    recorded_body.extend_from_slice(&Sha256::digest(receipt_fixture_bytes(
-        &recorded_log["data"],
-    )));
+    let recorded_body = recorded_log_body(recorded_log, &address);
 
     let grant = [0x8a; 32];
     let payer = [0x6a; 32];
@@ -429,7 +479,7 @@ fn signed_payment_log_settlement(
     ]);
     let mut body = address;
     body.push(4);
-    for topic in topics.as_array().unwrap() {
+    for topic in topics.as_array().or_panic("expected Some value") {
         body.extend_from_slice(&receipt_fixture_bytes(topic));
     }
     body.extend_from_slice(&Sha256::digest(&data));
@@ -442,7 +492,8 @@ fn signed_payment_log_settlement(
         .collect();
     assert_eq!(positions.len(), 1);
     receipt[positions[0]..positions[0] + body.len()].copy_from_slice(&body);
-    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt).unwrap();
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)
+        .or_panic("expected Ok value");
     let signer = SigningKey::from_bytes(&[0x72; 32]);
     let signature_start = receipt.len() - 64;
     receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
@@ -471,7 +522,7 @@ fn signed_payment_log_settlement(
         "logs": [{
             "address": recorded_log["address"],
             "topics": topics,
-            "data": format!("0x{}", data.iter().map(|byte| format!("{byte:02x}")).collect::<String>()),
+            "data": format!("0x{}", hex_lower(&data)),
             "logIndex": "0x0",
         }],
     });
@@ -484,13 +535,30 @@ fn signed_payment_log_settlement(
         payer: Some(hex32(&payer)),
         transaction: fixture["receiptJson"]["txHash"]
             .as_str()
-            .unwrap()
+            .or_panic("expected Some value")
             .to_owned(),
         network: payment.payload.accepted.network.clone(),
         amount: Some(payment.payload.accepted.amount),
         extensions: BTreeMap::from([("layerx".to_owned(), evidence)]),
     };
     (payment, response, keys)
+}
+
+fn recorded_log_body(recorded_log: &Value, address: &[u8]) -> Vec<u8> {
+    use sha2::{Digest as _, Sha256};
+    let mut recorded_body = address.to_vec();
+    recorded_body.push(4);
+    for topic in recorded_log["topics"]
+        .as_array()
+        .or_panic("expected Some value")
+    {
+        recorded_body.extend_from_slice(&receipt_fixture_bytes(topic));
+    }
+    recorded_body.extend_from_slice(&Sha256::digest(receipt_fixture_bytes(
+        &recorded_log["data"],
+    )));
+
+    recorded_body
 }
 
 #[test]
@@ -500,19 +568,23 @@ fn buyer_captures_a_metered_settlement_from_a_payment_drawn_log() {
         for grant_id in ["8a".repeat(32), format!("0x{}", "8A".repeat(32))] {
             payment.payload.payload["grantId"] = json!(grant_id);
             let captured = Buyer::capture_settlement(
-                &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+                &STANDARD.encode(serde_json::to_vec(&response).or_panic("expected Ok value")),
                 &payment,
                 &keys,
                 &TraceId::mint([0xab; 16]),
             )
-            .unwrap_or_else(|error| panic!("{scheme} settlement: {error:?}"));
+            .or_panic(&format!("{scheme} settlement"));
             assert_eq!(captured.response, response);
             assert_eq!(captured.rung, "receipted");
             assert_eq!(
                 captured.canonical_receipt,
                 STANDARD
-                    .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
-                    .unwrap()
+                    .decode(
+                        response.extensions["layerx"]["receipt"]
+                            .as_str()
+                            .or_panic("expected Some value")
+                    )
+                    .or_panic("expected Ok value")
             );
             assert_eq!(
                 hex32(&captured.receipt_digest),
@@ -525,7 +597,7 @@ fn buyer_captures_a_metered_settlement_from_a_payment_drawn_log() {
 #[test]
 fn buyer_refuses_a_metered_settlement_whose_idempotency_word_differs() {
     let (payment, response, keys) = payment_log_settlement("metered", [0x5d; 32]);
-    let header = STANDARD.encode(serde_json::to_vec(&response).unwrap());
+    let header = STANDARD.encode(serde_json::to_vec(&response).or_panic("expected Ok value"));
     let trace = TraceId::mint([0xab; 16]);
     assert_eq!(
         Buyer::capture_settlement(&header, &payment, &keys, &trace).map_err(Traced::into_error),
@@ -535,7 +607,7 @@ fn buyer_refuses_a_metered_settlement_whose_idempotency_word_differs() {
     matching_payment.idempotency_key = [0x5d; 32];
     matching_payment.payload.payload["idempotencyKey"] = json!("5d".repeat(32));
     let captured = Buyer::capture_settlement(&header, &matching_payment, &keys, &trace)
-        .unwrap_or_else(|error| panic!("matching idempotency word: {error:?}"));
+        .or_panic("matching idempotency word");
     assert_eq!(captured.response, response);
 }
 
@@ -586,7 +658,7 @@ fn buyer_validates_supported_kinds_on_construction() {
 #[test]
 fn buyer_refuses_unsupported_offer() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let mut required = test_payment_required();
     required.accepts[0].scheme = "unsupported".to_owned();
@@ -605,7 +677,7 @@ fn buyer_refuses_unsupported_offer() {
 #[test]
 fn buyer_selects_first_supported_offer_in_seller_order() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let mut required = test_payment_required();
     let unsupported = PaymentRequirements {
@@ -629,7 +701,7 @@ fn buyer_selects_first_supported_offer_in_seller_order() {
 
     let payment = buyer
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
     assert_eq!(payment.payload.accepted.scheme, "exact");
     assert_eq!(payment.payload.accepted.network, "eip155:125");
@@ -638,7 +710,7 @@ fn buyer_selects_first_supported_offer_in_seller_order() {
 #[test]
 fn buyer_echoes_required_extensions_byte_for_value() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let mut required = test_payment_required();
     required.extensions.insert(
@@ -657,7 +729,7 @@ fn buyer_echoes_required_extensions_byte_for_value() {
 
     let payment = buyer
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
     assert_eq!(payment.payload.extensions, required.extensions);
 }
@@ -665,7 +737,7 @@ fn buyer_echoes_required_extensions_byte_for_value() {
 #[test]
 fn buyer_refuses_zero_idempotency_key() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -682,7 +754,7 @@ fn buyer_refuses_zero_idempotency_key() {
 #[test]
 fn buyer_validates_payment_required_header_before_parsing() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let invalid_header = "not-valid-base64!";
     let mut plane = TestBuyerPlane {
@@ -698,7 +770,7 @@ fn buyer_validates_payment_required_header_before_parsing() {
 #[test]
 fn buyer_refuses_wrong_x402_version() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let mut required = test_payment_required();
     required.x402_version = 1;
@@ -717,7 +789,7 @@ fn buyer_refuses_wrong_x402_version() {
 #[test]
 fn buyer_includes_resource_info_in_built_payment() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -728,14 +800,14 @@ fn buyer_includes_resource_info_in_built_payment() {
 
     let payment = buyer
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
     assert!(payment.payload.resource.is_some());
     assert_eq!(
         payment
             .payload
             .resource
-            .unwrap_or_else(|| panic!("payment resource missing"))
+            .or_panic("payment resource missing")
             .url,
         required.resource.url
     );
@@ -744,7 +816,7 @@ fn buyer_includes_resource_info_in_built_payment() {
 #[test]
 fn buyer_payment_header_is_base64_encoded_json() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -755,13 +827,12 @@ fn buyer_payment_header_is_base64_encoded_json() {
 
     let payment = buyer
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
     let decoded = STANDARD
         .decode(payment.header.as_bytes())
-        .unwrap_or_else(|error| panic!("valid base64: {error:?}"));
-    let parsed: PaymentPayload = serde_json::from_slice(&decoded)
-        .unwrap_or_else(|error| panic!("valid payment payload: {error:?}"));
+        .or_panic("valid base64");
+    let parsed: PaymentPayload = serde_json::from_slice(&decoded).or_panic("valid payment payload");
 
     assert_eq!(parsed.x402_version, X402_VERSION);
     assert_eq!(parsed.accepted, test_requirements());
@@ -783,7 +854,7 @@ fn buyer_plane_request_contains_all_requirements() {
     }
 
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -792,9 +863,9 @@ fn buyer_plane_request_contains_all_requirements() {
 
     let _payment = buyer
         .build_payment(&encoded, [5; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
-    let captured = plane.captured.unwrap_or_else(|| panic!("plane was called"));
+    let captured = plane.captured.or_panic("plane was called");
     assert_eq!(captured.requirements, test_requirements());
     assert_eq!(captured.idempotency_key, [5; 32]);
 }
@@ -802,7 +873,7 @@ fn buyer_plane_request_contains_all_requirements() {
 #[test]
 fn buyer_refuses_non_object_scheme_payload() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -845,9 +916,7 @@ fn buyer_capture_refuses_failed_settlement_as_success() {
         extensions: BTreeMap::new(),
     };
 
-    let encoded = STANDARD.encode(
-        serde_json::to_vec(&failed).unwrap_or_else(|error| panic!("test input: {error:?}")),
-    );
+    let encoded = STANDARD.encode(serde_json::to_vec(&failed).or_panic("test input"));
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -879,9 +948,7 @@ fn buyer_capture_refuses_missing_layerx_evidence() {
         extensions: BTreeMap::new(),
     };
 
-    let encoded = STANDARD.encode(
-        serde_json::to_vec(&no_evidence).unwrap_or_else(|error| panic!("test input: {error:?}")),
-    );
+    let encoded = STANDARD.encode(serde_json::to_vec(&no_evidence).or_panic("test input"));
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -923,9 +990,7 @@ fn buyer_capture_refuses_wrong_verification_level() {
         extensions,
     };
 
-    let encoded = STANDARD.encode(
-        serde_json::to_vec(&wrong_level).unwrap_or_else(|error| panic!("test input: {error:?}")),
-    );
+    let encoded = STANDARD.encode(serde_json::to_vec(&wrong_level).or_panic("test input"));
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -967,9 +1032,7 @@ fn buyer_capture_refuses_malformed_receipt() {
         extensions,
     };
 
-    let encoded = STANDARD.encode(
-        serde_json::to_vec(&bad_receipt).unwrap_or_else(|error| panic!("test input: {error:?}")),
-    );
+    let encoded = STANDARD.encode(serde_json::to_vec(&bad_receipt).or_panic("test input"));
     let trace = TraceId::mint([0xab; 16]);
 
     let result = Buyer::capture_settlement(&encoded, &payment, &pinned_receipt_keys(), &trace);
@@ -999,7 +1062,7 @@ fn supported_kind_equality_matches_both_scheme_and_network() {
 #[test]
 fn buyer_validates_payment_payload_after_construction() {
     let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(supported).or_panic("valid supported");
 
     let required = test_payment_required();
     let encoded = encode_payment_required(&required);
@@ -1010,15 +1073,14 @@ fn buyer_validates_payment_payload_after_construction() {
 
     let payment = buyer
         .build_payment(&encoded, [1; 32], &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
+        .or_panic("payment built");
 
     assert!(payment.payload.validate().is_ok());
 }
 
 #[test]
 fn buyer_refuses_a_layerx_offer_that_carries_no_quote_terms() {
-    let buyer =
-        Buyer::new(test_supported()).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(test_supported()).or_panic("valid supported");
     let mut required = test_payment_required();
     required.accepts[0].extra = None;
 
@@ -1038,8 +1100,7 @@ fn buyer_refuses_a_layerx_offer_that_carries_no_quote_terms() {
 
 #[test]
 fn buyer_refuses_a_layerx_offer_paying_another_accounts_identifier() {
-    let buyer =
-        Buyer::new(test_supported()).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
+    let buyer = Buyer::new(test_supported()).or_panic("valid supported");
     let mut required = test_payment_required();
     required.accepts[0].pay_to = pay_to(ALTERNATE_ACCOUNT);
 
@@ -1099,15 +1160,15 @@ fn capture(
     let layerx = response
         .extensions
         .get_mut("layerx")
-        .unwrap()
+        .or_panic("expected Some value")
         .as_object_mut()
-        .unwrap();
+        .or_panic("expected Some value");
     layerx.remove("purposeHash");
     if let Some(purpose) = repeated {
         layerx.insert("purposeHash".to_owned(), json!(purpose));
     }
     Buyer::capture_settlement(
-        &STANDARD.encode(serde_json::to_vec(&response).unwrap()),
+        &STANDARD.encode(serde_json::to_vec(&response).or_panic("expected Ok value")),
         &payment,
         &keys,
         &TraceId::mint([0xab; 16]),
@@ -1122,13 +1183,17 @@ fn buyer_capture_accepts_a_grant_settlement_repeating_the_challenge_purpose() {
         [0x5c; 32],
     );
     let receipt = STANDARD
-        .decode(response.extensions["layerx"]["receipt"].as_str().unwrap())
-        .unwrap();
+        .decode(
+            response.extensions["layerx"]["receipt"]
+                .as_str()
+                .or_panic("expected Some value"),
+        )
+        .or_panic("expected Ok value");
     let captured = capture(
         settled_offer("metered", Some(CHALLENGE_PURPOSE)),
         Some(CHALLENGE_PURPOSE),
     )
-    .unwrap_or_else(|error| panic!("grant settlement: {error:?}"));
+    .or_panic("grant settlement");
     assert_eq!(captured.canonical_receipt, receipt);
     assert_eq!(
         captured.response.extensions["layerx"]["purposeHash"],
@@ -1172,8 +1237,7 @@ fn buyer_capture_refuses_a_grant_settlement_repeating_another_purpose() {
 
 #[test]
 fn buyer_capture_refuses_an_exact_settlement_carrying_a_purpose() {
-    capture(settled_offer("exact", None), None)
-        .unwrap_or_else(|error| panic!("exact settlement: {error:?}"));
+    capture(settled_offer("exact", None), None).or_panic("exact settlement");
     assert_eq!(
         capture(settled_offer("exact", None), Some(CHALLENGE_PURPOSE)),
         Err(X402Error::EvidenceMismatch)
@@ -1191,4 +1255,36 @@ fn buyer_construction_refuses_missing_plane_idempotency_key() {
 #[test]
 fn buyer_construction_refuses_conflicting_plane_idempotency_key() {
     repair_path::buyer_refuses_conflicting_plane_key();
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

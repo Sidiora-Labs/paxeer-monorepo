@@ -26,14 +26,14 @@ const NEGATIVE_RECORDED: &str =
 fn string<'a>(value: &'a Value, key: &str) -> &'a str {
     value[key]
         .as_str()
-        .unwrap_or_else(|| panic!("missing string {key}"))
+        .or_panic(&format!("missing string {key}"))
 }
 
 fn hex(value: &Value) -> Vec<u8> {
     let encoded = value
         .as_str()
         .and_then(|text| text.strip_prefix("0x"))
-        .unwrap_or_else(|| panic!("missing hex value"));
+        .or_panic("missing hex value");
     assert_eq!(encoded.len() % 2, 0);
     (0..encoded.len())
         .step_by(2)
@@ -53,14 +53,14 @@ fn array<const N: usize>(value: &Value) -> [u8; N] {
 fn logs(value: &Value) -> Vec<SequencerLog> {
     value
         .as_array()
-        .unwrap_or_else(|| panic!("missing log array"))
+        .or_panic("missing log array")
         .iter()
         .map(|log| {
             SequencerLog::new(
                 array(&log["address"]),
                 log["topics"]
                     .as_array()
-                    .unwrap_or_else(|| panic!("missing topics"))
+                    .or_panic("missing topics")
                     .iter()
                     .map(array)
                     .collect(),
@@ -68,7 +68,7 @@ fn logs(value: &Value) -> Vec<SequencerLog> {
                 u64::from_str_radix(
                     string(log, "logIndex")
                         .strip_prefix("0x")
-                        .unwrap_or_else(|| panic!("missing hex log index")),
+                        .or_panic("missing hex log index"),
                     16,
                 )
                 .unwrap_or_else(|error| panic!("invalid log index: {error}")),
@@ -283,67 +283,20 @@ fn ucp_sequenced_order_vectors_replay() {
         };
         let source = recording["cases"]
             .as_array()
-            .unwrap_or_else(|| panic!("missing recorded cases"))
+            .or_panic("missing recorded cases")
             .iter()
             .find(|case| case["id"] == vector["source_case"])
-            .unwrap_or_else(|| panic!("{name}: missing recorded source"));
+            .or_panic(&format!("{name}: missing recorded source"));
         for field in ["rawTransaction", "pinnedKey"] {
             assert_eq!(vector[field], source[field], "{name}: recorded {field}");
         }
         let submission = submission(&vector["checkout"]);
         let config = UcpServiceConfig::new(
             MerchantCurrencyBinding::new(submission.currency, submission.layerx_asset, 2, 6)
-                .unwrap(),
+                .or_panic("expected Ok value"),
         );
-        if name == "tampered_log" {
-            assert_eq!(vector["signedReceipt"], source["signedReceipt"]);
-            assert_eq!(vector["evidence"]["logs"], source["receiptJson"]["logs"]);
-        } else {
-            assert_payment_derivation(vector, source, &submission);
-        }
-        assert_eq!(
-            vector["evidence"]["transaction_hash"],
-            source["receiptJson"]["txHash"]
-        );
-        let key = &vector["pinnedKey"];
-        let keys = [SequencerAuthorization::new(
-            array(&key["keyId"]),
-            array(&key["publicKey"]),
-            key["firstHeight"]
-                .as_u64()
-                .unwrap_or_else(|| panic!("first height")),
-            key["lastHeight"]
-                .as_u64()
-                .unwrap_or_else(|| panic!("last height")),
-        )];
-        let mut payment = ExecutedUcpPayment {
-            metadata: metadata(&vector["metadata"]),
-            evidence: SequencerEvidence {
-                transaction_hash: array(&vector["evidence"]["transaction_hash"]),
-                signed_receipt: hex(&vector["signedReceipt"]),
-                logs: logs(&vector["evidence"]["logs"]),
-                rung: rung(string(&vector["evidence"], "rung")),
-            },
-        };
-        let verified = verify_sequencer_signature(&payment.evidence.signed_receipt, &keys)
-            .unwrap_or_else(|error| panic!("{name}: recorded signature: {error:?}"));
-        assert_eq!(
-            verified
-                .protocol()
-                .unwrap_or_else(|| panic!("protocol receipt"))
-                .activity_id(),
-            payment.evidence.transaction_hash
-        );
-        let verified_logs = verify_logs(&verified, payment.evidence.logs.clone());
-        if name == "tampered_log" {
-            assert_eq!(string(source, "vector"), "V3");
-            assert!(
-                verified_logs.is_err(),
-                "{name}: tampering must fail log verification"
-            );
-        } else {
-            assert!(verified_logs.is_ok(), "{name}: recorded logs must verify");
-        }
+        assert_source_recording(name, vector, source, &submission);
+        let (mut payment, keys) = recorded_payment(name, vector, source);
         let expected = expected(&vector["expected"]);
         let mut gateway = gateway(&trace, vectors.len() as u64);
         for now in [2, 3] {
@@ -356,7 +309,7 @@ fn ucp_sequenced_order_vectors_replay() {
                 &trace,
                 now,
             )
-            .map_err(|error| error.into_error());
+            .map_err(layerx_interop_gateway::trace::Traced::into_error);
             if actual != expected {
                 failures.push(format!(
                     "{name} at {now}: expected {:?}, got {:?}; payment reference {:?}, UCP reference {:?}",
@@ -378,7 +331,7 @@ fn ucp_sequenced_order_vectors_replay() {
                             receipt_digest: outcome
                                 .order
                                 .as_ref()
-                                .unwrap_or_else(|| panic!("missing order"))
+                                .or_panic("missing order")
                                 .receipt_digest
                         })
                     );
@@ -402,4 +355,87 @@ fn ucp_sequenced_order_vectors_replay() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn assert_source_recording(
+    name: &str,
+    vector: &Value,
+    source: &Value,
+    submission: &CheckoutSubmission,
+) {
+    if name == "tampered_log" {
+        assert_eq!(vector["signedReceipt"], source["signedReceipt"]);
+        assert_eq!(vector["evidence"]["logs"], source["receiptJson"]["logs"]);
+    } else {
+        assert_payment_derivation(vector, source, submission);
+    }
+    assert_eq!(
+        vector["evidence"]["transaction_hash"],
+        source["receiptJson"]["txHash"]
+    );
+}
+
+fn recorded_payment(
+    name: &str,
+    vector: &Value,
+    source: &Value,
+) -> (ExecutedUcpPayment, [SequencerAuthorization; 1]) {
+    let key = &vector["pinnedKey"];
+    let keys = [SequencerAuthorization::new(
+        array(&key["keyId"]),
+        array(&key["publicKey"]),
+        key["firstHeight"].as_u64().or_panic("first height"),
+        key["lastHeight"].as_u64().or_panic("last height"),
+    )];
+    let payment = ExecutedUcpPayment {
+        metadata: metadata(&vector["metadata"]),
+        evidence: SequencerEvidence {
+            transaction_hash: array(&vector["evidence"]["transaction_hash"]),
+            signed_receipt: hex(&vector["signedReceipt"]),
+            logs: logs(&vector["evidence"]["logs"]),
+            rung: rung(string(&vector["evidence"], "rung")),
+        },
+    };
+    let verified = verify_sequencer_signature(&payment.evidence.signed_receipt, &keys)
+        .or_panic(&format!("{name}: recorded signature"));
+    assert_eq!(
+        verified
+            .protocol()
+            .or_panic("protocol receipt")
+            .activity_id(),
+        payment.evidence.transaction_hash
+    );
+    let verified_logs = verify_logs(&verified, payment.evidence.logs.clone());
+    if name == "tampered_log" {
+        assert_eq!(string(source, "vector"), "V3");
+        assert!(
+            verified_logs.is_err(),
+            "{name}: tampering must fail log verification"
+        );
+    } else {
+        assert!(verified_logs.is_ok(), "{name}: recorded logs must verify");
+    }
+    (payment, keys)
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }
