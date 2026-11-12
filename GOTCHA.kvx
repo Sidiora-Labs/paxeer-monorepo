@@ -21455,3 +21455,8 @@ fix = "A program call is signed where the rules of the account name the program 
 title = "The unsafe rule of the programs dependency policy excepts files by name"
 symptom = "The rule of scripts/programs/dependency-policy.sh reads every Rust file under programs/crates and excepts the foreign function files of the runtime member and one host boundary file of the isolation member by their file names. The native contract file of the runtime member, the guest cell file of the market program, the host boundary directory of the isolation member and the test files that declare a foreign function or a counting allocator carry other names."
 fix = "The rule names every file of the native boundary, one line each with its reason."
+
+[gotcha.4327]
+title = "The secp256k1 crate of the programs workspace takes its big integer crate in the 0.5 line"
+symptom = "The runtime member of the programs workspace uses k256 0.13 for signature verification and key recovery, and k256 0.13 takes elliptic-curve 0.13 and with it crypto-bigint 0.5. The advisory check of the lint recipe reads programs/Cargo.lock against the advisory list, and the entries it accepts stand in programs/deny.toml with a reason each."
+fix = "The advisory settings carry one entry with its reason for the big integer crate while the runtime verifies and recovers over public inputs only."
