@@ -69,9 +69,9 @@ func ParseFrame(version string, raw []byte) (Frame, error) {
 	if json.Unmarshal(raw, &fields) != nil || json.Unmarshal(raw, &f) != nil {
 		return f, ErrFrame
 	}
-	for _, k := range []string{"eventId", "topic", "sequence", "revision", "occurredAt", "watermark", "payload", "coalesced", "sourceSequenceFirst", "sourceSequenceLast"} {
+	for _, k := range []string{"eventId", "topic", "sequence", "revision", "occurredAt", literalWatermark, "payload", "coalesced", "sourceSequenceFirst", "sourceSequenceLast"} {
 		v, ok := fields[k]
-		if !ok || (string(v) == "null" && k != "watermark" && k != "sourceSequenceFirst" && k != "sourceSequenceLast") {
+		if !ok || (string(v) == literalNull && k != literalWatermark && k != "sourceSequenceFirst" && k != "sourceSequenceLast") {
 			return f, ErrFrame
 		}
 	}
@@ -124,11 +124,11 @@ func (t *RevisionTracker) Apply(f Frame, stateKey string) error {
 // ConsumeDurable acknowledges only after the committed envelope was accepted by
 // the gateway processing callback. Retry/ack failures surface to supervision;
 // there is no fallback transport that could advertise false continuity.
-func ConsumeDurable(ctx context.Context, consumer DurableConsumer, version string, accept func(context.Context, Frame, string, uint64) error) error {
+func ConsumeDurable(ctx context.Context, consumer DurableConsumer, version string, accept func(context.Context, Frame, string, uint64) error) (result error) {
 	if consumer == nil || accept == nil {
 		return errors.New("durable consumer and processor required")
 	}
-	defer consumer.Close()
+	defer func() { result = errors.Join(result, consumer.Close()) }()
 	for {
 		if err := ctx.Err(); err != nil {
 			return err

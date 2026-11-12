@@ -1,0 +1,19 @@
+[meta]
+task = "22.39.465"
+module = "services/launchpad/stats-workers"
+
+[repair]
+goconst = "148 repeated literals use package constants while preserving their values."
+errcheck = "33 transaction, file, connection and response errors are handled or reported."
+goimports = "23 import groups use the module formatter."
+gosec = "21 file access, process and integer conversion sites use bounded operations."
+staticcheck = "6 declarations and predicates use the recommended direct forms."
+prealloc = "3 slices reserve the capacity needed by their append paths."
+
+[comments]
+nolint = []
+
+[tests]
+target = "test-module"
+packages = ["internal/analytics", "internal/app", "internal/config", "internal/consumer", "internal/holdings", "internal/httpapi", "internal/internaltest", "internal/migrate", "internal/projectionstats", "internal/search", "internal/store"]
+result = "All module packages compile and all package tests pass."

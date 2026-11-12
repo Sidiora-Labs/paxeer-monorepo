@@ -5,11 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"io"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -23,7 +24,7 @@ type Cursor struct {
 }
 
 func (f Filter) Validate() error {
-	if !address.MatchString(f.Pool) || (f.Side != "" && f.Side != "buy" && f.Side != "sell") || len(f.ProjectionVersion) == 0 || len(f.ProjectionVersion) > 64 {
+	if !address.MatchString(f.Pool) || (f.Side != "" && f.Side != valueBuy && f.Side != valueSell) || len(f.ProjectionVersion) == 0 || len(f.ProjectionVersion) > 64 {
 		return ErrInvalid
 	}
 	return nil
@@ -166,8 +167,8 @@ func (r *Repository) AggregateWindow(ctx context.Context, version, watermark str
 	if e != nil {
 		return Aggregate{}, e
 	}
-	defer tx.Rollback(ctx)
-	a := Aggregate{TraderPopulation: "sender_actor", Fees: []AssetFee{}, WindowStart: observedAt - seconds, WindowEnd: observedAt, ComputedAt: observedAt, WatermarkHeight: watermark, ProjectionVersion: version}
+	defer rollbackTransaction(ctx, tx)
+	a := Aggregate{TraderPopulation: valueSenderActor, Fees: []AssetFee{}, WindowStart: observedAt - seconds, WindowEnd: observedAt, ComputedAt: observedAt, WatermarkHeight: watermark, ProjectionVersion: version}
 	args := []any{version, watermark, a.WindowStart, a.WindowEnd}
 	predicate := `projection_version=$1 AND height<=$2::numeric AND block_timestamp>$3 AND block_timestamp<=$4`
 	e = tx.QueryRow(ctx, fmt.Sprintf(`SELECT COALESCE(SUM(volume),0)::text,COUNT(*),COUNT(DISTINCT actor) FROM %s.trade_facts WHERE %s`, r.schema, predicate), args...).Scan(&a.VenueVolumeRaw, &a.PoolFillCount, &a.UniqueActors)
@@ -213,7 +214,7 @@ func (r *Repository) PublishPending(ctx context.Context, limit int, send func(co
 	if e != nil {
 		return 0, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	rows, e := tx.Query(ctx, fmt.Sprintf(`SELECT event_id,projection_version,revision,payload FROM %s.outbox WHERE NOT published ORDER BY event_id LIMIT $1 FOR UPDATE SKIP LOCKED`, r.schema), limit)
 	if e != nil {
 		return 0, e

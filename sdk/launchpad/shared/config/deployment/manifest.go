@@ -30,7 +30,7 @@ var currentJSON []byte
 //go:embed history/*.json
 var historyJSON embed.FS
 
-var mandatory = []string{"EventEmitter", "ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", "USDL"}
+var mandatory = []string{"EventEmitter", valueProtocolConfig, "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", valuePoolBeacon, valueUSDL}
 var hashRE = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
 var digestRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var versionRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,95}$`)
@@ -96,11 +96,12 @@ func Current() Manifest {
 	return m
 }
 func approvedHistory() []Manifest {
-	manifests := []Manifest{Current()}
 	entries, err := historyJSON.ReadDir("history")
 	if err != nil {
 		panic(err)
 	}
+	manifests := make([]Manifest, 1, 1+len(entries))
+	manifests[0] = Current()
 	seen := map[uint64]bool{manifests[0].ActivationHeight: true}
 	for _, entry := range entries {
 		data, err := historyJSON.ReadFile("history/" + entry.Name())
@@ -177,7 +178,7 @@ func (m Manifest) Validate() error {
 		add("activation_height_invalid", "")
 	}
 	switch m.Status {
-	case "recorded", "attesting", "eligible", "active", "pending-beacon-acceptance":
+	case "recorded", "attesting", valueEligible, valueActive, valuePendingBeaconAcceptance:
 	default:
 		add("manifest_status_invalid", "")
 	}
@@ -191,18 +192,18 @@ func (m Manifest) Validate() error {
 		}
 	}
 	for name, r := range m.Roles {
-		if name == "USDL" && r.Kind != "direct" {
+		if name == valueUSDL && r.Kind != valueDirect {
 			add("identity_kind_invalid", name)
 		}
-		if name == "PoolBeacon" && r.Kind != "beacon" && r.Kind != "surface" {
+		if name == valuePoolBeacon && r.Kind != valueBeacon && r.Kind != valueSurface {
 			add("identity_kind_invalid", name)
 		}
 		for _, required := range mandatory {
-			if name == required && name != "USDL" && name != "PoolBeacon" && r.Kind != "erc1967" && r.Kind != "surface" {
+			if name == required && name != valueUSDL && name != valuePoolBeacon && r.Kind != valueErc1967 && r.Kind != valueSurface {
 				add("identity_kind_invalid", name)
 			}
 		}
-		if (name == LaunchpadPrecompileRole) != (r.Kind == "precompile") {
+		if (name == LaunchpadPrecompileRole) != (r.Kind == valuePrecompile) {
 			add("identity_kind_invalid", name)
 		}
 		if name == LaunchpadPrecompileRole && r.Address != LaunchpadPrecompileAddress {
@@ -221,24 +222,24 @@ func (m Manifest) Validate() error {
 			}
 			seen[a] = name
 		}
-		hashExempt := (r.Kind == "surface" || r.Kind == "precompile") && r.RuntimeHash == ""
+		hashExempt := (r.Kind == valueSurface || r.Kind == valuePrecompile) && r.RuntimeHash == ""
 		if !hashExempt && !validHash(r.RuntimeHash) {
 			add("runtime_hash_invalid", name)
 		}
 		if r.StagedRuntimeHash != "" || r.StagedUpgrade != "" {
-			if r.Kind != "surface" || !validHash(r.RuntimeHash) || !validHash(r.StagedRuntimeHash) || !versionRE.MatchString(r.StagedUpgrade) || equalHash(r.RuntimeHash, r.StagedRuntimeHash) {
+			if r.Kind != valueSurface || !validHash(r.RuntimeHash) || !validHash(r.StagedRuntimeHash) || !versionRE.MatchString(r.StagedUpgrade) || equalHash(r.RuntimeHash, r.StagedRuntimeHash) {
 				add("staged_runtime_identity_invalid", name)
 			}
 		}
 		switch r.Kind {
-		case "erc1967", "beacon", "beacon_proxy":
+		case valueErc1967, valueBeacon, valueBeaconProxy:
 			if !validAddress(r.ImplementationAddress) || !validHash(r.ImplementationHash) {
 				add("implementation_identity_missing", name)
 			}
-			if r.Kind == "beacon_proxy" && !validAddress(r.BeaconAddress) {
+			if r.Kind == valueBeaconProxy && !validAddress(r.BeaconAddress) {
 				add("beacon_identity_missing", name)
 			}
-		case "direct", "surface", "precompile":
+		case valueDirect, valueSurface, valuePrecompile:
 			if r.ImplementationAddress != "" || r.ImplementationHash != "" || r.BeaconAddress != "" {
 				add("direct_identity_conflict", name)
 			}
@@ -246,14 +247,14 @@ func (m Manifest) Validate() error {
 			add("identity_kind_invalid", name)
 		}
 	}
-	if r, ok := m.Roles["USDL"]; !ok || !validAddress(r.Address) || common.HexToAddress(r.Address) != common.HexToAddress(SettlementAddress) {
-		add("settlement_address_mismatch", "USDL")
+	if r, ok := m.Roles[valueUSDL]; !ok || !validAddress(r.Address) || common.HexToAddress(r.Address) != common.HexToAddress(SettlementAddress) {
+		add("settlement_address_mismatch", valueUSDL)
 	}
-	if m.Native != (Asset{"PAX", 18}) || m.Settlement != (Asset{"USDL", 6}) || m.CreationFeeRaw != CreationFeeRaw {
+	if m.Native != (Asset{"PAX", 18}) || m.Settlement != (Asset{valueUSDL, 6}) || m.CreationFeeRaw != CreationFeeRaw {
 		add("asset_or_creation_fee_policy_mismatch", "")
 	}
 	if !validAddress(m.Governance.ExpectedBeaconOwner) || m.Governance.Mode != "timelock-handoff" || m.Governance.TimelockDelaySeconds != 172800 {
-		add("governance_policy_invalid", "PoolBeacon")
+		add("governance_policy_invalid", valuePoolBeacon)
 	}
 	if m.MarketModel != "AMM" || m.Graduation || m.CoreOracleRequired {
 		add("market_policy_invalid", "")
@@ -271,7 +272,7 @@ func (r Role) MatchesApproved(approved Role) bool {
 }
 
 func (r Role) AcceptsRuntimeHash(hash string) bool {
-	return equalHash(hash, r.RuntimeHash) || (r.Kind == "surface" && versionRE.MatchString(r.StagedUpgrade) && equalHash(hash, r.StagedRuntimeHash))
+	return equalHash(hash, r.RuntimeHash) || (r.Kind == valueSurface && versionRE.MatchString(r.StagedUpgrade) && equalHash(hash, r.StagedRuntimeHash))
 }
 
 func (m Manifest) Hash() (string, error) {

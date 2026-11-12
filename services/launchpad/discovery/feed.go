@@ -34,11 +34,11 @@ func (f Feed) Page(ctx context.Context, account, order, token string, limit int,
 	if f.Sources == nil || f.Graph == nil || limit < 1 || limit > 50 {
 		return page, ErrInvalid
 	}
-	if order != "chronological" && order != "relevance" {
+	if order != "chronological" && order != orderRelevance {
 		return page, ErrInvalid
 	}
 	page.Algorithm = "chronological-v1"
-	if order == "relevance" {
+	if order == orderRelevance {
 		page.Algorithm = "language-follow-topic-v1"
 	}
 	var pref PreferenceSnapshot
@@ -96,7 +96,7 @@ func (f Feed) Page(ctx context.Context, account, order, token string, limit int,
 				continue
 			}
 			snap.Refs = append(snap.Refs, ref)
-			if order == "relevance" && page.Personalized {
+			if order == orderRelevance && page.Personalized {
 				public, e := f.Sources.ResolvePublic(ctx, ref.Kind, ref.ID)
 				if e != nil {
 					continue
@@ -114,7 +114,7 @@ func (f Feed) Page(ctx context.Context, account, order, token string, limit int,
 				}
 			}
 		}
-		if order == "relevance" && page.Personalized {
+		if order == orderRelevance && page.Personalized {
 			sort.SliceStable(snap.Refs, func(i, j int) bool { return scores[snap.Refs[i].ID] > scores[snap.Refs[j].ID] })
 		}
 		var id [24]byte
@@ -157,7 +157,7 @@ func (f Feed) resolve(ctx context.Context, account string, ref SourceRef, now ti
 	}
 	card.Source = current
 	if current.Tombstone {
-		card.State = "removed"
+		card.State = stateRemoved
 		return card, nil
 	}
 	if !current.Public || !current.Authorized {

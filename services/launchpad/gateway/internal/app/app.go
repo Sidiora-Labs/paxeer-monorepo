@@ -14,6 +14,18 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/netip"
+	"net/url"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	control "github.com/Sidiora-Technologies/KindleLaunch/security/control"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -26,17 +38,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"log/slog"
-	"net"
-	"net/http"
-	"net/netip"
-	"net/url"
-	"os"
-	"sort"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,6 +56,13 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/serve"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/upload"
+)
+
+const (
+	identityAudience          = "identity"
+	responseCodeField         = "code"
+	gatewayServiceName        = "gateway"
+	nodeEnvironmentProduction = "production"
 )
 
 // App is a fully-wired, ready-to-serve gateway edge.
@@ -96,7 +104,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := process.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var e error
 		metrics, e = telemetry.New("mediagatewayd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -110,7 +118,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	var pool, controlPool *pgxpool.Pool
 	var runtimeBinding gatewayRuntimeBinding
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var err error
 		if err = config.ReadBoundDocument(cfg.GatewayRuntimeFile, cfg.GatewayRuntimeSHA256, &runtimeBinding); err != nil {
 			return nil, err
@@ -179,7 +187,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	// (USER_HTTP_URL). The caller's bearer is forwarded so media/user can
 	// re-verify the session with the identity authority itself.
 	var userProxy http.Handler
-	if cfg.NodeEnv != "production" && strings.TrimSpace(cfg.UserHTTPURL) != "" {
+	if cfg.NodeEnv != nodeEnvironmentProduction && strings.TrimSpace(cfg.UserHTTPURL) != "" {
 		up, e := proxy.NewREST(proxy.RESTDeps{
 			TargetBaseURL:        cfg.UserHTTPURL,
 			Prefix:               "",
@@ -219,7 +227,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	})
 
 	var connected *gatewayConnectedRuntime
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		connected, err = newGatewayConnectedRuntime(ctx, cfg, pool, controlPool, runtimeBinding, rdb, objCache, readers, logger)
 		if err != nil {
 			return nil, err
@@ -234,7 +242,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	identityMetrics := newIdentityRuntimeMetrics()
 	var identity *auth.Identity
 	var identityRPC *ethclient.Client
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var identityConfig struct {
 			Issuer         string            `json:"issuer"`
 			Audience       string            `json:"audience"`
@@ -304,7 +312,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}
 	var devIdentity *devidentity.Runtime
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != nodeEnvironmentProduction {
 		devIdentity, err = openDevelopmentIdentity(ctx, cfg, identityMetrics.observe, logger)
 		if err != nil {
 			return nil, err
@@ -322,7 +330,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var trustedProxies []netip.Prefix
 	if connected != nil {
 		trustedProxies = connected.trustedProxies
-	} else if cfg.NodeEnv != "production" {
+	} else if cfg.NodeEnv != nodeEnvironmentProduction {
 		trustedProxies = developmentTrustedProxies()
 	}
 	mux := sharedhttp.NewRouter(sharedhttp.ServerOptions{
@@ -344,7 +352,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Redis:  rdb,
 		}))
 
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			authH.RegisterRoutes(gr)
 		}
 		if connected == nil {
@@ -375,7 +383,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				gr.Method(route.Method, route.Template, connected.controlHandler)
 			}
 		}
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			uploadH.RegisterRoutes(gr)
 		}
 
@@ -385,12 +393,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		sessions := auth.DevSessions{Legacy: authH, Identity: identity}
 		// Social realtime tunnel: WS requires a session (exact path beats the
 		// REST wildcard below in chi's trie).
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			gr.With(sessions.Require).Method(http.MethodGet, "/social/ws", wsProxy)
 		}
 		// Social REST: reads are public; writes need a session, which social
 		// itself enforces once the gateway injects X-Actor-Wallet.
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			gr.With(sessions.Optional).Handle("/social/*", restProxy)
 			// Frozen v2 social paths the web calls (follow graph, /v2/social,
 			// /v2/chat, comments, callouts, bounties, rooms) are forwarded
@@ -410,7 +418,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		// Account owner routes whose service (media/user's connected
 		// account runtime) is production-only answer a JSON 503 here.
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			registerDevelopmentAccountRoutes(gr)
 			// Owner writes media/user serves in development. Without
 			// USER_HTTP_URL they answer the same frozen 503.
@@ -537,7 +545,7 @@ func Run(parent context.Context) error {
 	if err != nil {
 		return err
 	}
-	logger := sharedlog.New("gateway", cfg.LogLevel)
+	logger := sharedlog.New(gatewayServiceName, cfg.LogLevel)
 	logger.Info("starting media gateway")
 
 	ctx, cancel := context.WithCancel(parent)
@@ -773,8 +781,8 @@ func privateIdentityHandler(mux http.Handler) http.Handler {
 // never "gateway"; at most 16 peers.
 func identityServiceVerifiers(peers []gatewayIdentityPeer, ownPin string, ownKey ed25519.PublicKey) ([]sharedauth.ServiceRequestVerifier, error) {
 	identityTransport := sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}
-	verifiers := []sharedauth.ServiceRequestVerifier{{Transport: identityTransport, Issuer: "gateway", Audience: "identity", PeerCertSHA256: ownPin, Key: ownKey}}
-	peerIssuers := map[string]bool{"gateway": true}
+	verifiers := []sharedauth.ServiceRequestVerifier{{Transport: identityTransport, Issuer: gatewayServiceName, Audience: identityAudience, PeerCertSHA256: ownPin, Key: ownKey}}
+	peerIssuers := map[string]bool{gatewayServiceName: true}
 	if len(peers) == 0 || len(peers) > 16 {
 		return nil, errors.New("identity service peers required")
 	}
@@ -786,7 +794,7 @@ func identityServiceVerifiers(peers []gatewayIdentityPeer, ownPin string, ownKey
 		if e != nil || len(public) != ed25519.PublicKeySize {
 			return nil, errors.New("identity service peer key invalid")
 		}
-		verifiers = append(verifiers, sharedauth.ServiceRequestVerifier{Transport: identityTransport, Issuer: peer.Issuer, Audience: "identity", PeerCertSHA256: peer.PeerCertSHA256, Key: ed25519.PublicKey(public)})
+		verifiers = append(verifiers, sharedauth.ServiceRequestVerifier{Transport: identityTransport, Issuer: peer.Issuer, Audience: identityAudience, PeerCertSHA256: peer.PeerCertSHA256, Key: ed25519.PublicKey(public)})
 		peerIssuers[peer.Issuer] = true
 	}
 	return verifiers, nil
@@ -797,7 +805,7 @@ func gatewayBoundBytes(path, digest string) ([]byte, error) {
 	if e != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 1048576 || len(digest) != 64 {
 		return nil, errors.New("gateway TLS file binding unavailable")
 	}
-	raw, e := os.ReadFile(path)
+	raw, e := os.ReadFile(path) //nolint:gosec // The configured TLS file is regular, size bounded, and digest verified.
 	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != digest {
 		return nil, errors.New("gateway TLS file binding mismatch")
 	}
@@ -894,7 +902,7 @@ func newGatewayConnectedRuntime(ctx context.Context, cfg config.Config, pool, co
 	}
 	authorityTransport := &http.Transport{TLSClientConfig: clientTLS.Clone(), Proxy: nil, MaxIdleConns: 64, MaxIdleConnsPerHost: 32, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: 2 * time.Second}
 	identityTransport := sharedauth.AssertionTransport{AssertionHeader: sharedauth.IdentityAssertionHeader, SignatureHeader: sharedauth.IdentitySignatureHeader}
-	authority, e := sharedauth.NewMTLSIdentityAuthority(b.IdentityEndpoint, b.IdentityServerPeerCertSHA256, &http.Client{Transport: authorityTransport, Timeout: 2 * time.Second}, sharedauth.ServiceRequestIssuer{Issuer: "gateway", Audience: "identity", Key: ed25519.PrivateKey(signingKey), Transport: identityTransport})
+	authority, e := sharedauth.NewMTLSIdentityAuthority(b.IdentityEndpoint, b.IdentityServerPeerCertSHA256, &http.Client{Transport: authorityTransport, Timeout: 2 * time.Second}, sharedauth.ServiceRequestIssuer{Issuer: gatewayServiceName, Audience: identityAudience, Key: ed25519.PrivateKey(signingKey), Transport: identityTransport})
 	if e != nil {
 		return nil, e
 	}
@@ -1209,10 +1217,10 @@ func publicGatewayHandler(next http.Handler, cfg config.Config) http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if cfg.NodeEnv == "production" {
+		if cfg.NodeEnv == nodeEnvironmentProduction {
 			if origin := r.Header.Get("Origin"); origin != "" {
 				if !origins[origin] {
-					sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{"code": "SCOPE_DENIED"})
+					sharedhttp.WriteJSON(w, http.StatusForbidden, map[string]string{responseCodeField: "SCOPE_DENIED"})
 					return
 				}
 				w.Header().Set("Access-Control-Expose-Headers", "X-CSRF-Token, X-Request-ID, ETag, Retry-After, X-Recovery-Receipt")
@@ -1321,12 +1329,12 @@ func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg conf
 		public := request.Method == http.MethodGet && (strings.HasPrefix(request.URL.Path, "/v2/control/caps/") || request.URL.Path == "/v2/control/settlement-capability")
 		if !public {
 			if len(request.Header.Values("Authorization")) > 1 {
-				sharedhttp.WriteJSON(w, http.StatusBadRequest, map[string]string{"code": "FIELD_INVALID"})
+				sharedhttp.WriteJSON(w, http.StatusBadRequest, map[string]string{responseCodeField: "FIELD_INVALID"})
 				return
 			}
 			if request.Header.Get("Authorization") == "" {
 				if _, e := authority.AuthenticateRequest(request.Context(), request); e != nil {
-					sharedhttp.WriteJSON(w, http.StatusUnauthorized, map[string]string{"code": "AUTH_REQUIRED"})
+					sharedhttp.WriteJSON(w, http.StatusUnauthorized, map[string]string{responseCodeField: "AUTH_REQUIRED"})
 					return
 				}
 			}
@@ -1348,7 +1356,8 @@ func (r *gatewayConnectedRuntime) configureControl(ctx context.Context, cfg conf
 	return nil
 }
 func gatewayControlRoutes() []proxy.ConnectedRoute {
-	routes := []proxy.ConnectedRoute{{Method: http.MethodGet, Template: "/v2/control/caps/{capability}"}, {Method: http.MethodGet, Template: "/v2/control/campaigns/{policy}"}, {Method: http.MethodGet, Template: "/v2/control/recommendations/{key}"}, {Method: http.MethodGet, Template: "/v2/control/settlement-capability"}}
+	routes := make([]proxy.ConnectedRoute, 0, 21)
+	routes = append(routes, proxy.ConnectedRoute{Method: http.MethodGet, Template: "/v2/control/caps/{capability}"}, proxy.ConnectedRoute{Method: http.MethodGet, Template: "/v2/control/campaigns/{policy}"}, proxy.ConnectedRoute{Method: http.MethodGet, Template: "/v2/control/recommendations/{key}"}, proxy.ConnectedRoute{Method: http.MethodGet, Template: "/v2/control/settlement-capability"})
 	for _, operation := range []string{"replays", "actions", "complete-action", "recover-incident", "bounty-submissions", "transition", "caps", "budget", "policies", "policy-state", "recommendations", "bounties", "bounty-state", "inventory", "access", "incidents", "settlements"} {
 		routes = append(routes, proxy.ConnectedRoute{Method: http.MethodPost, Template: "/v2/control/" + operation, Authenticate: true})
 	}

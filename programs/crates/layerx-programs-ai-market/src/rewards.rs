@@ -3226,23 +3226,23 @@ impl<'a> FundingView<'a> {
         if header.state_revision != state.revision {
             return Err(NON_CANONICAL);
         }
-        let committed = *state
-            .feature_sections
-            .guest_index(Section::SettlementClaims.index());
-        let (ledger, retained, tail) = if committed.is_empty() {
+        let committed = state.section(Section::SettlementClaims)?;
+        let reward_bytes = state.room_market()?.0;
+        let (ledger, retained, tail) = if reward_bytes.is_empty() {
             (
                 RewardLedger::new(
                     header.funding_asset,
                     header.rewards_account,
                     header.refund_recipient_account,
                 )?,
-                ([]).guest_index(..),
-                ([]).guest_index(..),
+                reward_bytes,
+                committed,
             )
         } else {
-            let (head, tail) = committed
+            let (head, _) = reward_bytes
                 .split_at_checked(REWARD_STATE_BYTES)
                 .ok_or(NON_CANONICAL)?;
+            let tail = committed.get(REWARD_STATE_BYTES..).ok_or(NON_CANONICAL)?;
             (
                 decode_ledger(head.guest_index(..LEDGER_BYTES))?,
                 head.guest_index(LEDGER_BYTES..),
@@ -3496,22 +3496,21 @@ pub fn apply(
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
     let (settlement, rest) = rest.split_at_mut_checked(SETTLEMENT_CAP).ok_or(CAPACITY)?;
     let (control, initial) = rest.split_at_mut_checked(CONTROL_CAP).ok_or(CAPACITY)?;
-    let committed = *view
-        .state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
-    let (rewards, tail) = if committed.is_empty() {
+    let committed = view.state.section(Section::SettlementClaims)?;
+    let reward_bytes = view.state.room_market()?.0;
+    let (rewards, tail) = if reward_bytes.is_empty() {
         let ledger = RewardLedger::new(
             header.funding_asset,
             header.rewards_account,
             header.refund_recipient_account,
         )?;
         let initial = initial.get_mut(..REWARD_STATE_BYTES).ok_or(CAPACITY)?;
-        (RewardState::init(&ledger, initial)?, ([]).guest_index(..))
+        (RewardState::init(&ledger, initial)?, committed)
     } else {
-        let (head, tail) = committed
+        let (head, _) = reward_bytes
             .split_at_checked(REWARD_STATE_BYTES)
             .ok_or(NON_CANONICAL)?;
+        let tail = committed.get(REWARD_STATE_BYTES..).ok_or(NON_CANONICAL)?;
         (decode_reward_state(head)?, tail)
     };
     let before = rewards.ledger()?;

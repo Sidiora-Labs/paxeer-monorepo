@@ -16,28 +16,16 @@ const CHAIN_ID: &str = "0x7d";
 const RPC_URLS: &str = "LAYERX_GATEWAY_PAXEER_RPC_URLS";
 
 fn command(program: &str, arguments: &[&str]) {
-    let output = Command::new(program)
-        .args(arguments)
-        .output()
-        .unwrap_or_else(|error| panic!("{program} must run: {error}"));
-    assert!(
-        output.status.success(),
-        "{program} failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let output = Command::new(program).args(arguments).output().unwrap_or_else(|error| panic!("{program} must run: {error}"));
+    assert!(output.status.success(), "{program} failed: {}", String::from_utf8_lossy(&output.stderr));
 }
 
 fn path(value: &Path) -> &str {
-    value
-        .to_str()
-        .unwrap_or_else(|| panic!("test path must be UTF-8"))
+    value.to_str().unwrap_or_else(|| panic!("test path must be UTF-8"))
 }
 
 fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .and_then(|listener| listener.local_addr())
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
-        .port()
+    TcpListener::bind("127.0.0.1:0").and_then(|listener| listener.local_addr()).unwrap_or_else(|error| panic!("test port must be allocated: {error}")).port()
 }
 
 struct RefusingEndpoint {
@@ -48,26 +36,10 @@ struct RefusingEndpoint {
 impl RefusingEndpoint {
     fn reserve() -> Self {
         use rustix::net::{bind, getsockname, socket_with, AddressFamily, SocketFlags, SocketType};
-        let socket = socket_with(
-            AddressFamily::INET,
-            SocketType::STREAM,
-            SocketFlags::CLOEXEC,
-            Some(rustix::net::ipproto::TCP),
-        )
-        .expect("unreachable endpoint socket");
-        bind(
-            &socket,
-            &std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0),
-        )
-        .expect("reserve unreachable endpoint without listening");
-        let address = std::net::SocketAddrV4::try_from(
-            getsockname(&socket).expect("reserved endpoint address"),
-        )
-        .expect("IPv4 endpoint");
-        Self {
-            _socket: socket,
-            port: address.port(),
-        }
+        let socket = socket_with(AddressFamily::INET, SocketType::STREAM, SocketFlags::CLOEXEC, Some(rustix::net::ipproto::TCP)).unwrap_or_else(|error| panic!("{}: {error:?}", "unreachable endpoint socket"));
+        bind(&socket, &std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0)).unwrap_or_else(|error| panic!("{}: {error:?}", "reserve unreachable endpoint without listening"));
+        let address = std::net::SocketAddrV4::try_from(getsockname(&socket).unwrap_or_else(|error| panic!("{}: {error:?}", "reserved endpoint address"))).unwrap_or_else(|error| panic!("{}: {error:?}", "IPv4 endpoint"));
+        Self { _socket: socket, port: address.port() }
     }
 
     fn url(&self) -> String {
@@ -87,72 +59,20 @@ struct Fixture {
 impl Fixture {
     fn start() -> Self {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let directory = std::env::temp_dir().join(format!(
-            "layerx-paxeer-failover-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-        ));
-        fs::create_dir(&directory)
-            .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
+        let directory = std::env::temp_dir().join(format!("layerx-paxeer-failover-{}-{}", std::process::id(), SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos()));
+        fs::create_dir(&directory).unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let pem = directory.join("server.pem");
         let der = directory.join("server.der");
         let key = directory.join("server.key");
         let key_der = directory.join("server-key.der");
         command(
             "openssl",
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-nodes",
-                "-keyout",
-                path(&key),
-                "-out",
-                path(&pem),
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
+            &["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", path(&key), "-out", path(&pem), "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost"],
         );
-        command(
-            "openssl",
-            &[
-                "x509",
-                "-in",
-                path(&pem),
-                "-outform",
-                "DER",
-                "-out",
-                path(&der),
-            ],
-        );
-        command(
-            "openssl",
-            &[
-                "pkcs8",
-                "-topk8",
-                "-nocrypt",
-                "-in",
-                path(&key),
-                "-outform",
-                "DER",
-                "-out",
-                path(&key_der),
-            ],
-        );
+        command("openssl", &["x509", "-in", path(&pem), "-outform", "DER", "-out", path(&der)]);
+        command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&key), "-outform", "DER", "-out", path(&key_der)]);
         let redis_port = free_port();
-        fs::write(
-            directory.join("users.acl"),
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
-        )
-        .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(directory.join("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.join("redis.conf");
         fs::write(
             &config,
@@ -166,30 +86,11 @@ impl Fixture {
             ),
         )
         .unwrap_or_else(|error| panic!("test Redis config must be written: {error}"));
-        let redis = Command::new("redis-server")
-            .arg(&config)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
-        let certificate = CertificateDer::from(
-            fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")),
-        );
-        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
-            fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}")),
-        ));
-        let tls = Arc::new(
-            ServerConfig::builder()
-                .with_no_client_auth()
-                .with_single_cert(vec![certificate], private_key)
-                .unwrap_or_else(|error| panic!("listener TLS must build: {error}")),
-        );
-        let fixture = Self {
-            redis,
-            directory,
-            redis_port,
-            tls,
-        };
+        let redis = Command::new("redis-server").arg(&config).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
+        let certificate = CertificateDer::from(fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")));
+        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}"))));
+        let tls = Arc::new(ServerConfig::builder().with_no_client_auth().with_single_cert(vec![certificate], private_key).unwrap_or_else(|error| panic!("listener TLS must build: {error}")));
+        let fixture = Self { redis, directory, redis_port, tls };
         for _ in 0..100 {
             if TcpStream::connect(("127.0.0.1", redis_port)).is_ok() {
                 return fixture;
@@ -208,37 +109,16 @@ impl Fixture {
     fn environment(&self, listen: u16, urls: &str) -> Vec<(String, String)> {
         let ca = path(&self.directory.join("server.der")).to_owned();
         vec![
-            (
-                "LAYERX_GATEWAY_LISTEN".to_owned(),
-                format!("127.0.0.1:{listen}"),
-            ),
+            ("LAYERX_GATEWAY_LISTEN".to_owned(), format!("127.0.0.1:{listen}")),
             ("LAYERX_GATEWAY_LISTENER".to_owned(), "plain".to_owned()),
             ("LAYERX_GATEWAY_OUTBOUND_CA_DER".to_owned(), ca),
-            (
-                "LAYERX_GATEWAY_NETWORK_ID".to_owned(),
-                "paxeer-failover".to_owned(),
-            ),
-            (
-                "LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(),
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
-            ),
-            (
-                "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(),
-                "7".to_owned(),
-            ),
+            ("LAYERX_GATEWAY_NETWORK_ID".to_owned(), "paxeer-failover".to_owned()),
+            ("LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(), layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()),
+            ("LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(), "7".to_owned()),
             (RPC_URLS.to_owned(), urls.to_owned()),
-            (
-                "LAYERX_GATEWAY_REDIS_URL".to_owned(),
-                format!("rediss://localhost:{}", self.redis_port),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(),
-                self.secret("redis-username", "gateway"),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(),
-                self.secret("redis-password", "gateway-secret"),
-            ),
+            ("LAYERX_GATEWAY_REDIS_URL".to_owned(), format!("rediss://localhost:{}", self.redis_port)),
+            ("LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(), self.secret("redis-username", "gateway")),
+            ("LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(), self.secret("redis-password", "gateway-secret")),
         ]
     }
 }
@@ -253,10 +133,7 @@ impl Drop for Fixture {
 
 fn gateway_command(environment: &[(String, String)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
-    command
-        .env_clear()
-        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
-        .envs(environment.iter().map(|(name, value)| (name, value)));
+    command.env_clear().env("PATH", std::env::var_os("PATH").unwrap_or_default()).envs(environment.iter().map(|(name, value)| (name, value)));
     command
 }
 
@@ -274,24 +151,14 @@ struct Upstream {
 impl Upstream {
     fn start(tls: &Arc<ServerConfig>, failing: bool) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-        let port = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"))
-            .port();
-        listener
-            .set_nonblocking(true)
-            .unwrap_or_else(|error| panic!("{error}"));
+        let port = listener.local_addr().unwrap_or_else(|error| panic!("{error}")).port();
+        listener.set_nonblocking(true).unwrap_or_else(|error| panic!("{error}"));
         let failing = Arc::new(AtomicBool::new(failing));
         let hits = Arc::new(AtomicUsize::new(0));
         let calls = Arc::new(Mutex::new(Vec::new()));
         let observed = Arc::clone(&calls);
         let stop = Arc::new(AtomicBool::new(false));
-        let (tls, fail, count, stopped) = (
-            Arc::clone(tls),
-            Arc::clone(&failing),
-            Arc::clone(&hits),
-            Arc::clone(&stop),
-        );
+        let (tls, fail, count, stopped) = (Arc::clone(tls), Arc::clone(&failing), Arc::clone(&hits), Arc::clone(&stop));
         let join = thread::spawn(move || {
             while !stopped.load(Ordering::Acquire) {
                 match listener.accept() {
@@ -303,26 +170,18 @@ impl Upstream {
                             continue;
                         };
                         let mut stream = StreamOwned::new(connection, tcp);
-                        let request = http::parse_client_request(&mut stream)
-                            .unwrap_or_else(|error| panic!("chain request must be read: {error}"));
+                        let request = http::parse_client_request(&mut stream).unwrap_or_else(|error| panic!("chain request must be read: {error}"));
                         assert_eq!(request.method, "POST");
                         assert_eq!(request.path, "/");
                         observed
                             .lock()
-                            .expect("captured calls")
-                            .push(serde_json::from_slice(&request.body).expect("upstream JSON"));
+                            .unwrap_or_else(|error| panic!("{}: {error:?}", "captured calls"))
+                            .push(serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{}: {error:?}", "upstream JSON")));
                         count.fetch_add(1, Ordering::AcqRel);
-                        let response = if fail.load(Ordering::Acquire) {
-                            http::refusal(502, "bad_gateway", None)
-                        } else {
-                            chain_answer(&request)
-                        };
-                        http::write_response(&mut stream, &response)
-                            .unwrap_or_else(|error| panic!("chain response must be sent: {error}"));
+                        let response = if fail.load(Ordering::Acquire) { http::refusal(502, "bad_gateway", None) } else { chain_answer(&request) };
+                        http::write_response(&mut stream, &response).unwrap_or_else(|error| panic!("chain response must be sent: {error}"));
                         stream.conn.send_close_notify();
-                        stream.flush().unwrap_or_else(|error| {
-                            panic!("chain TLS response must flush: {error}")
-                        });
+                        stream.flush().unwrap_or_else(|error| panic!("chain TLS response must flush: {error}"));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(5));
@@ -331,14 +190,7 @@ impl Upstream {
                 }
             }
         });
-        Self {
-            port,
-            failing,
-            hits,
-            calls,
-            stop,
-            join: Some(join),
-        }
+        Self { port, failing, hits, calls, stop, join: Some(join) }
     }
 
     fn url(&self) -> String {
@@ -371,10 +223,7 @@ fn chain_answer(request: &http::Request) -> http::Response {
     };
     let id = call["id"].clone();
     match call["method"].as_str() {
-        Some("eth_chainId") => http::json(
-            200,
-            &json!({"jsonrpc": "2.0", "id": id, "result": CHAIN_ID}),
-        ),
+        Some("eth_chainId") => http::json(200, &json!({"jsonrpc": "2.0", "id": id, "result": CHAIN_ID})),
         Some("pax_sequencerReceipt") => http::json(
             200,
             &json!({
@@ -387,10 +236,7 @@ fn chain_answer(request: &http::Request) -> http::Response {
                 }
             }),
         ),
-        _ => http::json(
-            200,
-            &json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": "method not found"}}),
-        ),
+        _ => http::json(200, &json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32601, "message": "method not found"}})),
     }
 }
 
@@ -418,19 +264,10 @@ impl Gateway {
         for _ in 0..200 {
             if let Ok(Some(status)) = gateway.child.try_wait() {
                 let mut diagnostic = String::new();
-                gateway
-                    .child
-                    .stderr
-                    .take()
-                    .expect("startup stderr")
-                    .read_to_string(&mut diagnostic)
-                    .expect("startup diagnostic");
+                gateway.child.stderr.take().unwrap_or_else(|| panic!("{}", "startup stderr")).read_to_string(&mut diagnostic).unwrap_or_else(|error| panic!("{}: {error:?}", "startup diagnostic"));
                 panic!("gateway refused start-up: {status}: {diagnostic}; endpoints: {urls:?}");
             }
-            if gateway
-                .exchange("GET", "/livez", b"")
-                .is_ok_and(|(status, _)| status == 200)
-            {
+            if gateway.exchange("GET", "/livez", b"").is_ok_and(|(status, _)| status == 200) {
                 return gateway;
             }
             thread::sleep(Duration::from_millis(50));
@@ -439,80 +276,45 @@ impl Gateway {
     }
 
     fn exchange(&self, method: &str, path: &str, body: &[u8]) -> Result<(u16, Vec<u8>), String> {
-        let mut stream =
-            TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(30)))
-            .map_err(|error| error.to_string())?;
-        let mut request = format!(
-            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        )
-        .into_bytes();
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
+        stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(|error| error.to_string())?;
+        let mut request = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).into_bytes();
         request.extend_from_slice(body);
-        stream
-            .write_all(&request)
-            .map_err(|error| error.to_string())?;
+        stream.write_all(&request).map_err(|error| error.to_string())?;
         let mut answer = Vec::new();
-        stream
-            .read_to_end(&mut answer)
-            .map_err(|error| error.to_string())?;
-        let header_end = answer
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .ok_or_else(|| "answer has no header terminator".to_owned())?;
+        stream.read_to_end(&mut answer).map_err(|error| error.to_string())?;
+        let header_end = answer.windows(4).position(|window| window == b"\r\n\r\n").ok_or_else(|| "answer has no header terminator".to_owned())?;
         let head = String::from_utf8_lossy(&answer[..header_end]).into_owned();
-        let status = head
-            .split_whitespace()
-            .nth(1)
-            .and_then(|value| value.parse::<u16>().ok())
-            .ok_or_else(|| format!("answer status is invalid: {head}"))?;
+        let status = head.split_whitespace().nth(1).and_then(|value| value.parse::<u16>().ok()).ok_or_else(|| format!("answer status is invalid: {head}"))?;
         Ok((status, answer[header_end + 4..].to_vec()))
     }
 
     fn chain_id(&self) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": "eth_chainId", "params": []});
-        assert_eq!(
-            self.exchange("POST", "/rpc", request.to_string().as_bytes())
-                .expect("retired RPC refusal")
-                .0,
-            404
-        );
-        let (status, body) = self
-            .exchange("POST", "/", request.to_string().as_bytes())
-            .unwrap_or_else(|error| panic!("eth_chainId must be answered: {error}"));
+        assert_eq!(self.exchange("POST", "/rpc", request.to_string().as_bytes()).unwrap_or_else(|error| panic!("{}: {error:?}", "retired RPC refusal")).0, 404);
+        let (status, body) = self.exchange("POST", "/", request.to_string().as_bytes()).unwrap_or_else(|error| panic!("eth_chainId must be answered: {error}"));
         assert_eq!(status, 200);
-        let document: Value = serde_json::from_slice(&body)
-            .unwrap_or_else(|error| panic!("eth_chainId answer must be JSON: {error}"));
+        let document: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("eth_chainId answer must be JSON: {error}"));
         assert_eq!(document["id"], 7, "{document}");
         document
     }
 
     fn paxeer_chain(&self) -> Value {
-        let (_, body) = self
-            .exchange("GET", "/readyz", b"")
-            .unwrap_or_else(|error| panic!("/readyz must be answered: {error}"));
-        let readiness: Value = serde_json::from_slice(&body)
-            .unwrap_or_else(|error| panic!("/readyz answer must be JSON: {error}"));
+        let (_, body) = self.exchange("GET", "/readyz", b"").unwrap_or_else(|error| panic!("/readyz must be answered: {error}"));
+        let readiness: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("/readyz answer must be JSON: {error}"));
         readiness["backends"]["paxeer_chain"].clone()
     }
 
     fn assert_up(&self) {
         assert_eq!(self.chain_id()["result"], CHAIN_ID);
-        assert_eq!(
-            self.paxeer_chain(),
-            json!({"state": "ready", "reason": "ready"})
-        );
+        assert_eq!(self.paxeer_chain(), json!({"state": "ready", "reason": "ready"}));
     }
 
     fn assert_down(&self, code: &str) {
         let answer = self.chain_id();
         assert!(answer.get("result").is_none(), "{answer}");
         assert_eq!(answer["error"]["data"]["code"], code, "{answer}");
-        assert_eq!(
-            self.paxeer_chain(),
-            json!({"state": "unavailable", "reason": "unreachable"})
-        );
+        assert_eq!(self.paxeer_chain(), json!({"state": "unavailable", "reason": "unreachable"}));
     }
 }
 
@@ -531,9 +333,7 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
             "method": "pax_sequencerReceipt",
             "params": [tx_hash]
         });
-        let (status, body) = gateway
-            .exchange("POST", "/", request.to_string().as_bytes())
-            .unwrap_or_else(|error| panic!("pax_sequencerReceipt must be answered: {error}"));
+        let (status, body) = gateway.exchange("POST", "/", request.to_string().as_bytes()).unwrap_or_else(|error| panic!("pax_sequencerReceipt must be answered: {error}"));
         assert_eq!(status, 200);
         let expected = json!({
             "jsonrpc": "2.0",
@@ -546,36 +346,20 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
         });
         assert_eq!(
             body,
-            serde_json::to_vec(&expected).unwrap(),
+            serde_json::to_vec(&expected).unwrap_or_else(|error| panic!("value required: {error:?}")),
             "chain listener received {} requests; gateway answered {}",
             upstream.hits(),
             String::from_utf8_lossy(&body)
         );
     }
-    assert!(
-        upstream.hits() > 0,
-        "the chain listener must receive the call"
-    );
-    let calls = upstream.calls.lock().expect("captured calls");
+    assert!(upstream.hits() > 0, "the chain listener must receive the call");
+    let calls = upstream.calls.lock().unwrap_or_else(|error| panic!("{}: {error:?}", "captured calls"));
     assert_eq!(calls.len(), 4);
-    for (pair, id) in calls
-        .chunks_exact(2)
-        .zip([json!("receipt-caller"), json!(9_007_199_254_740_993_u64)])
-    {
-        assert_eq!(
-            pair[0],
-            json!({"jsonrpc":"2.0", "id":"route-network", "method":"eth_chainId", "params":[]})
-        );
-        assert_eq!(
-            pair[1],
-            json!({"jsonrpc":"2.0", "id":id, "method":"pax_sequencerReceipt", "params":[tx_hash]})
-        );
+    for (pair, id) in calls.chunks_exact(2).zip([json!("receipt-caller"), json!(9_007_199_254_740_993_u64)]) {
+        assert_eq!(pair[0], json!({"jsonrpc":"2.0", "id":"route-network", "method":"eth_chainId", "params":[]}));
+        assert_eq!(pair[1], json!({"jsonrpc":"2.0", "id":id, "method":"pax_sequencerReceipt", "params":[tx_hash]}));
     }
-    assert_eq!(
-        second.hits(),
-        0,
-        "a successful first endpoint ends retrying"
-    );
+    assert_eq!(second.hits(), 0, "a successful first endpoint ends retrying");
 }
 
 #[test]
@@ -617,26 +401,12 @@ fn an_rpc_name_array_outside_two_to_eight_https_urls_refuses_startup() {
     let cases = [
         (json!([]), count.to_owned()),
         (json!([url(1)]), count.to_owned()),
-        (
-            json!((1..=9).map(url).collect::<Vec<_>>()),
-            count.to_owned(),
-        ),
-        (
-            json!([format!("http://localhost:{}", 20_001), url(2)]),
-            "LAYERX_GATEWAY_PAXEER_RPC_URLS entry is invalid: component endpoint must use HTTPS"
-                .to_owned(),
-        ),
+        (json!((1..=9).map(url).collect::<Vec<_>>()), count.to_owned()),
+        (json!([format!("http://localhost:{}", 20_001), url(2)]), "LAYERX_GATEWAY_PAXEER_RPC_URLS entry is invalid: component endpoint must use HTTPS".to_owned()),
     ];
     for (urls, reason) in cases {
-        let output = gateway_command(&fixture.environment(free_port(), &urls.to_string()))
-            .stdout(Stdio::null())
-            .output()
-            .unwrap_or_else(|error| panic!("gateway must run: {error}"));
+        let output = gateway_command(&fixture.environment(free_port(), &urls.to_string())).stdout(Stdio::null()).output().unwrap_or_else(|error| panic!("gateway must run: {error}"));
         assert_eq!(output.status.code(), Some(1), "{urls}");
-        assert_eq!(
-            String::from_utf8_lossy(&output.stderr).trim_end(),
-            format!("layerx-gateway refused startup: {reason}"),
-            "{urls}"
-        );
+        assert_eq!(String::from_utf8_lossy(&output.stderr).trim_end(), format!("layerx-gateway refused startup: {reason}"), "{urls}");
     }
 }

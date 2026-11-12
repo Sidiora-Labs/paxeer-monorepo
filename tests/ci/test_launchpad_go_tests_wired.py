@@ -218,6 +218,28 @@ def test_launchpad_makefile_ci_target_exists():
     assert "$(GO) list ./...) ||" in text, "Discovery errors must fail the gate"
 
 
+def test_launchpad_lint_release_and_module_selection():
+    makefile = (ROOT / "services/launchpad/Makefile").read_text()
+    lint_recipe = makefile.split("\nlint:", 1)[1].split("\n\ntest race cover:", 1)[0]
+    assert "golangci-lint@v2.15.0" in lint_recipe
+    assert lint_recipe.count("v2.15.0") == 1
+    assert 'GOBIN="$(CURDIR)/build/bin" GOTOOLCHAIN=go1.27.3 $(GO) install' in lint_recipe
+    assert 'command -v "$$lint"' in lint_recipe
+    assert '"$$lint" version' in lint_recipe
+    assert '"$$lint" run --config "$(abspath ../../.golangci.yml)"' in lint_recipe
+
+    selected = "security/control"
+    for target in ("lint", "race", "cover", "cover-check"):
+        recipe = subprocess.check_output(
+            ["make", "--no-print-directory", "-n", "-C",
+             str(ROOT / "services/launchpad"), target, f"MODULES={selected}"],
+            text=True,
+        )
+        assert f"for m in {selected}; do" in recipe, target
+        if target == "cover-check":
+            assert f'MODULES="{selected}" RUN_MANIFEST=' in recipe
+
+
 def baseline_runner():
     spec = importlib.util.spec_from_file_location("launchpad_go_tests", ROOT / RUNNER)
     module = importlib.util.module_from_spec(spec)
@@ -228,12 +250,10 @@ def baseline_runner():
 def test_launchpad_baseline_names_only_reviewed_existing_tests():
     runner = baseline_runner()
     entries = runner.load_baseline()
-    assert len(entries) == 113
+    assert len(entries) == 78
     assert {entry["package"] for entry in entries} == {
-        runner.SHARED + suffix for suffix in (
-            "auth", "chain", "db/production", "delivery", "delivery/natsdriver", "storage"
-        )
-    } | {runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"} | {
+        runner.SHARED + "auth"
+    } | {
         runner.API + "internal/" + name for name in ("app", "broker", "cache", "rest", "store")
     } | {
         'github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/app',
@@ -286,29 +306,14 @@ def test_launchpad_baseline_names_only_reviewed_existing_tests():
 
 def test_launchpad_baseline_records_nats_duplicates_window_failures():
     runner = baseline_runner()
-    entries = {entry["test"]: entry for entry in runner.load_baseline()}
-    for name in (
-        "TestPhase3ActualRelayCrashAndConsumerRestart",
-        "TestPhase3ActualOrderedPoisonAndHundredDuplicates",
-    ):
-        entry = entries[name]
-        assert entry["package"] == runner.SHARED + "delivery/natsdriver"
-        assert "100 ms" in entry["reason"]
-        assert "duplicates window" in entry["reason"]
-        assert entry["retiring_task"] == "22.39.117"
+    assert not any(entry["package"] == runner.SHARED + "delivery/natsdriver"
+                   for entry in runner.load_baseline())
 
 
 def test_launchpad_baseline_records_database_cancellation_failure():
     runner = baseline_runner()
-    (entry,) = [
-        entry for entry in runner.load_baseline()
-        if entry["test"] == "TestPhase3CancellationAndAuthorization"
-    ]
-    assert entry["package"] == runner.SHARED + "db/production"
-    assert "production_test.go line 421" in entry["reason"]
-    assert "neither reusable nor discarded within one second" in entry["reason"]
-    assert "fixture database" in entry["reason"]
-    assert entry["retiring_task"] == "22.39.117"
+    assert not any(entry["package"] == runner.SHARED + "db/production"
+                   for entry in runner.load_baseline())
 
 
 def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
@@ -327,22 +332,9 @@ def test_launchpad_baseline_patterns_are_exact_and_package_scoped():
 
 def test_launchpad_baseline_records_protocol_fixture_failures():
     runner = baseline_runner()
-    entries = {entry["test"]: entry for entry in runner.load_baseline()}
-    for name, package in (
-        ("TestRepair_61_event_argument_collision", runner.PROTOCOL),
-        ("TestProofLaunchpadSdkProtocolGo", runner.PROTOCOL + "/bindings"),
-    ):
-        entry = entries[name]
-        assert entry["package"] == package
-        assert "github.com/elliots/go-pglite" in entry["reason"]
-        assert "services/launchpad/indexer" in entry["reason"]
-        assert entry["retiring_task"] == "22.39.117"
-    entry = entries["TestRealReviewedHistoricalDecoderMeasurement"]
-    assert entry["package"] == runner.PROTOCOL + "/coverage"
-    assert "measure_test.go line 68" in entry["reason"]
-    assert "reviewed L02 historical measurement manifest/digest" in entry["reason"]
-    assert "chain125 RPC inputs" in entry["reason"]
-    assert entry["retiring_task"] == "22.39.117"
+    assert not any(entry["package"] in {
+        runner.PROTOCOL, runner.PROTOCOL + "/bindings", runner.PROTOCOL + "/coverage"
+    } for entry in runner.load_baseline())
 
 
 def test_launchpad_baseline_records_api_failures_and_retiring_owner():

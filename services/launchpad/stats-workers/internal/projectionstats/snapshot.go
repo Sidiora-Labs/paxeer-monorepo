@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -81,7 +82,7 @@ func (r *Repository) AccountingSnapshot(ctx context.Context, pool, version strin
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		_ = tx.Rollback(cleanup)
+		rollbackTransaction(cleanup, tx)
 	}()
 	out, found, err := r.AccountingSnapshotTx(ctx, tx, pool, version, start)
 	if err != nil {

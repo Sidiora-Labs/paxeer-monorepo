@@ -20,7 +20,7 @@ func RegisterPoolTransactions(r chi.Router, st *store.Store) {
 // filtered by side (type=buy|sell|all). Ports the TS pool-transactions route.
 func poolTransactions(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := strings.ToLower(chi.URLParam(r, "poolAddress"))
+		poolAddress := strings.ToLower(chi.URLParam(r, valuePoolAddress))
 		q := r.URL.Query()
 		page, err := boundedPage(q, 50, legacyPageMaximum, 1, "transactions:"+poolAddress+":"+q.Get("type"))
 		if err != nil {
@@ -44,9 +44,9 @@ func poolTransactions(st *store.Store) http.HandlerFunc {
 		}
 
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"transactions": txs,
-			"limit":        limit,
-			"offset":       offset,
+			valueTransactions: txs,
+			valueLimit:        limit,
+			valueOffset:       offset,
 		})
 	}
 }

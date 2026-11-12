@@ -39,7 +39,7 @@ func Sniff(declared string, b []byte) (Sniffed, error) {
 	if err != nil {
 		return Sniffed{}, ErrInvalid
 	}
-	if (mime == "image/png" && format != "png") || (mime == "image/jpeg" && format != "jpeg") || (mime == "image/webp" && format != "webp") {
+	if (mime == mimePNG && format != formatPNG) || (mime == mimeJPEG && format != "jpeg") || (mime == mimeWebP && format != formatWebP) {
 		return Sniffed{}, ErrInvalid
 	}
 	if c.Width < 1 || c.Height < 1 || c.Width > MaxDimension || c.Height > MaxDimension || int64(c.Width)*int64(c.Height) > MaxPixels {

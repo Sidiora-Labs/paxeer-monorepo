@@ -11,6 +11,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
@@ -66,7 +68,7 @@ func paritySeconds(value int64, unit string) (int64, error) {
 		return 0, sourceError(IncompleteError, "parity", nil)
 	}
 	switch unit {
-	case "seconds":
+	case valueSeconds:
 		return value, nil
 	case "milliseconds":
 		if value%1000 == 0 {
@@ -76,7 +78,7 @@ func paritySeconds(value int64, unit string) (int64, error) {
 	return 0, sourceError(InvalidError, "parity", nil)
 }
 func validateParityInput(input ParityInput, from, to uint64) error {
-	if !validSourceID(input.SourceID) || !input.Result.Complete || input.Result.ManifestDigest == "" || (input.TimestampUnit != "seconds" && input.TimestampUnit != "milliseconds") || len(input.Result.Logs) > 131072 || len(input.Result.Blocks) != int(to-from+1) {
+	if !validSourceID(input.SourceID) || !input.Result.Complete || input.Result.ManifestDigest == "" || (input.TimestampUnit != valueSeconds && input.TimestampUnit != "milliseconds") || len(input.Result.Logs) > 131072 || len(input.Result.Blocks) != int(to-from+1) { //nolint:gosec // bounded chain count is used for slice indexing
 		return sourceError(IncompleteError, "parity", nil)
 	}
 	next := from
@@ -364,11 +366,11 @@ func WriteParityReport(directory string, report ParityReport) error {
 		return err
 	}
 	path := filepath.Join(directory, report.ReportID+".json")
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	if _, err = file.Write(append(data, '\n')); err != nil {
 		return err
 	}
@@ -376,7 +378,7 @@ func WriteParityReport(directory string, report ParityReport) error {
 }
 
 func ValidateParityAdmission(report *ParityReport, manifest, explorerSourceID string) error {
-	if report == nil || !report.Certified || report.Version != 1 || report.ManifestDigest != manifest || (report.LeftSourceID != explorerSourceID && report.RightSourceID != explorerSourceID) || report.LeftSourceID == report.RightSourceID || len(report.LeftRawSHA256) != 64 || report.LeftRawSHA256 != report.RightRawSHA256 || len(report.LeftBlocksSHA256) != 64 || report.LeftBlocksSHA256 != report.RightBlocksSHA256 || report.ToHeight < report.FromHeight || report.ToHeight-report.FromHeight+1 < 10000 || report.CompleteBlockCount != int(report.ToHeight-report.FromHeight+1) || report.EmptyBlockCount < 1 || report.HighLogBlockCount < 1 || len(report.Missing) > 0 || len(report.Duplicates) > 0 || len(report.Different) > 0 || len(report.BlockDifferences) > 0 {
+	if report == nil || !report.Certified || report.Version != 1 || report.ManifestDigest != manifest || (report.LeftSourceID != explorerSourceID && report.RightSourceID != explorerSourceID) || report.LeftSourceID == report.RightSourceID || len(report.LeftRawSHA256) != 64 || report.LeftRawSHA256 != report.RightRawSHA256 || len(report.LeftBlocksSHA256) != 64 || report.LeftBlocksSHA256 != report.RightBlocksSHA256 || report.ToHeight < report.FromHeight || report.ToHeight-report.FromHeight+1 < 10000 || report.CompleteBlockCount != int(report.ToHeight-report.FromHeight+1) || report.EmptyBlockCount < 1 || report.HighLogBlockCount < 1 || len(report.Missing) > 0 || len(report.Duplicates) > 0 || len(report.Different) > 0 || len(report.BlockDifferences) > 0 { //nolint:gosec // bounded chain count is used for slice indexing
 		return sourceError(IdentityError, "parity-admission", nil)
 	}
 	copyReport := *report

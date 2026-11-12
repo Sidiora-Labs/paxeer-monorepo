@@ -53,7 +53,7 @@ func ValidateAdversarialEvidence(profile AttackProfile, e AdversarialEvidence) e
 			return ErrDenied
 		}
 		seen[s.RequestID] = true
-		if !validRouteClass(s.Class) && s.Class != "authentication" {
+		if !validRouteClass(s.Class) && s.Class != classAuthentication {
 			return ErrDenied
 		}
 		if !s.Valid {
@@ -63,16 +63,16 @@ func ValidateAdversarialEvidence(profile AttackProfile, e AdversarialEvidence) e
 			return ErrDenied
 		}
 		if s.RedisUnavailable {
-			if s.Class == "account-write" {
+			if s.Class == classAccountWrite {
 				outageWrites++
 			}
-			if s.Class == "account-write" || s.Class == "quote" || s.Class == "authentication" {
+			if s.Class == classAccountWrite || s.Class == classQuote || s.Class == classAuthentication {
 				if s.Admitted || s.Status != 401 && s.Status != 403 && s.Status != 503 {
 					return ErrDenied
 				}
 			}
 			if s.Admitted {
-				if !s.Valid || s.Class != "public-read" || !s.CachedRead {
+				if !s.Valid || s.Class != classPublicRead || !s.CachedRead {
 					return ErrDenied
 				}
 				outageCached++
@@ -86,11 +86,11 @@ func ValidateAdversarialEvidence(profile AttackProfile, e AdversarialEvidence) e
 		if s.Valid && s.Admitted && !s.RedisUnavailable {
 			valid++
 			switch s.Class {
-			case "public-read", "account-read":
+			case classPublicRead, classAccountRead:
 				reads = append(reads, s.Duration)
-			case "account-write":
+			case classAccountWrite:
 				writes++
-			case "quote":
+			case classQuote:
 				quotes++
 			default:
 				return ErrDenied
@@ -119,13 +119,13 @@ func validateAdversarialSample(s AdversarialSample) error {
 	if s.RequestID == "" || len(s.RequestID) > 128 || s.Observed.IsZero() || s.Status < 200 || s.Status > 599 || s.Duration <= 0 || s.Authorization < 0 || s.Limiter < 0 || s.Authorization > s.Duration || s.Limiter > s.Duration || s.Admitted && s.Status >= 300 || !s.Admitted && s.Status < 400 || !s.Valid && s.Admitted {
 		return ErrDenied
 	}
-	if !validRouteClass(s.Class) && s.Class != "authentication" {
+	if !validRouteClass(s.Class) && s.Class != classAuthentication {
 		return ErrDenied
 	}
-	if s.RedisUnavailable && (s.Class == "account-write" || s.Class == "quote" || s.Class == "authentication") && (s.Admitted || s.Status != 401 && s.Status != 403 && s.Status != 503) {
+	if s.RedisUnavailable && (s.Class == classAccountWrite || s.Class == classQuote || s.Class == classAuthentication) && (s.Admitted || s.Status != 401 && s.Status != 403 && s.Status != 503) {
 		return ErrDenied
 	}
-	if s.RedisUnavailable && s.Admitted && (!s.Valid || s.Class != "public-read" || !s.CachedRead) {
+	if s.RedisUnavailable && s.Admitted && (!s.Valid || s.Class != classPublicRead || !s.CachedRead) {
 		return ErrDenied
 	}
 	return nil

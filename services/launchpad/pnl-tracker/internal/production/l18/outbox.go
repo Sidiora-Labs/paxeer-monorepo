@@ -56,7 +56,7 @@ func NewOutboxBridge(ctx context.Context, ledger *Ledger, store *delivery.Store,
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var permitted bool
 	err = tx.QueryRow(ctx, `SELECT has_column_privilege(current_user,$1,'published_at','UPDATE')`, pgx.Identifier{ledger.schema, "l18_outbox"}.Sanitize()).Scan(&permitted)
 	if err != nil {

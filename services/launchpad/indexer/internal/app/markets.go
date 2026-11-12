@@ -36,7 +36,8 @@ type postgresMarketInventory struct{ pool *pgxpool.Pool }
 // Pages are selected by addresses referenced by the current operation, never
 // by lifetime count. The token cursor preserves each durable creation identity.
 func marketPageQuery(addresses []common.Address, through uint64, after string) (string, []any) {
-	args := []any{int64(through), after}
+	args := make([]any, 0, 2+len(addresses))
+	args = append(args, int64(through), after) //nolint:gosec // Page bounds the height to the signed database range
 	parameters := make([]string, len(addresses))
 	for i, address := range addresses {
 		args = append(args, strings.ToLower(address.Hex()))

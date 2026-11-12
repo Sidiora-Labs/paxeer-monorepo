@@ -27,24 +27,18 @@ pub(super) type TrustedProxies = Vec<(IpAddr, u8)>;
 fn canonical_ip(ip: IpAddr) -> IpAddr {
     match ip {
         IpAddr::V6(ip) => ip.to_ipv4_mapped().map_or(IpAddr::V6(ip), IpAddr::V4),
-        ip => ip,
+        ip @ IpAddr::V4(_) => ip,
     }
 }
 
 fn parse_trusted_proxies(value: &str) -> Result<TrustedProxies, String> {
     let mut proxies = Vec::new();
     for entry in value.split(',').map(str::trim) {
-        let (address, prefix) = entry
-            .split_once('/')
-            .map_or((entry, None), |(a, p)| (a, Some(p)));
-        let address: IpAddr = address
-            .parse()
-            .map_err(|_| "LAYERX_GATEWAY_TRUSTED_PROXIES entry is not an address")?;
+        let (address, prefix) = entry.split_once('/').map_or((entry, None), |(a, p)| (a, Some(p)));
+        let address: IpAddr = address.parse().map_err(|_| "LAYERX_GATEWAY_TRUSTED_PROXIES entry is not an address")?;
         let address = canonical_ip(address);
         let width = if address.is_ipv4() { 32 } else { 128 };
-        let prefix = prefix
-            .map_or(Ok(width), str::parse::<u8>)
-            .map_err(|_| "LAYERX_GATEWAY_TRUSTED_PROXIES prefix is invalid".to_owned())?;
+        let prefix = prefix.map_or(Ok(width), str::parse::<u8>).map_err(|_| "LAYERX_GATEWAY_TRUSTED_PROXIES prefix is invalid".to_owned())?;
         if prefix > width || proxies.len() >= 32 {
             return Err("LAYERX_GATEWAY_TRUSTED_PROXIES entry is out of bounds".into());
         }
@@ -54,33 +48,15 @@ fn parse_trusted_proxies(value: &str) -> Result<TrustedProxies, String> {
 }
 
 pub(super) fn configured_trusted_proxies() -> Result<TrustedProxies, String> {
-    std::env::var("LAYERX_GATEWAY_TRUSTED_PROXIES")
-        .ok()
-        .map_or(Ok(Vec::new()), |value| parse_trusted_proxies(&value))
+    std::env::var("LAYERX_GATEWAY_TRUSTED_PROXIES").ok().map_or(Ok(Vec::new()), |value| parse_trusted_proxies(&value))
 }
 
 fn trusted(proxies: &[(IpAddr, u8)], ip: IpAddr) -> bool {
-    proxies
-        .iter()
-        .any(|&(network, prefix)| match (network, ip) {
-            (IpAddr::V4(network), IpAddr::V4(ip)) => {
-                u32::from(network)
-                    .checked_shr(32 - u32::from(prefix))
-                    .unwrap_or(0)
-                    == u32::from(ip)
-                        .checked_shr(32 - u32::from(prefix))
-                        .unwrap_or(0)
-            }
-            (IpAddr::V6(network), IpAddr::V6(ip)) => {
-                u128::from(network)
-                    .checked_shr(128 - u32::from(prefix))
-                    .unwrap_or(0)
-                    == u128::from(ip)
-                        .checked_shr(128 - u32::from(prefix))
-                        .unwrap_or(0)
-            }
-            _ => false,
-        })
+    proxies.iter().any(|&(network, prefix)| match (network, ip) {
+        (IpAddr::V4(network), IpAddr::V4(ip)) => u32::from(network).checked_shr(32 - u32::from(prefix)).unwrap_or(0) == u32::from(ip).checked_shr(32 - u32::from(prefix)).unwrap_or(0),
+        (IpAddr::V6(network), IpAddr::V6(ip)) => u128::from(network).checked_shr(128 - u32::from(prefix)).unwrap_or(0) == u128::from(ip).checked_shr(128 - u32::from(prefix)).unwrap_or(0),
+        _ => false,
+    })
 }
 
 fn tagged(domain: &[u8], tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
@@ -97,17 +73,11 @@ fn binding(tenant: &str, signer_public_key: &[u8; 32]) -> [u8; 32] {
 }
 
 fn subject(tenant: &str, signer_public_key: &[u8; 32]) -> String {
-    format!(
-        "{tenant}.{}",
-        &super::hex(&tagged(SUBJECT_DOMAIN, tenant, signer_public_key))[..32]
-    )
+    format!("{tenant}.{}", &super::hex(&tagged(SUBJECT_DOMAIN, tenant, signer_public_key))[..32])
 }
 
 fn lowercase_hex(value: &str, bytes: usize) -> bool {
-    value.len() == bytes * 2
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    value.len() == bytes * 2 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -122,11 +92,7 @@ fn signup_step(value: &str) -> Option<Step> {
         return lowercase_hex(secret, 32).then(|| Step::Verify(value.to_owned()));
     }
     let (local, domain) = value.split_once('@')?;
-    (!local.is_empty()
-        && domain.contains('.')
-        && value.len() <= 254
-        && value.bytes().all(|byte| byte.is_ascii_graphic()))
-    .then(|| Step::Signup(value.to_owned()))
+    (!local.is_empty() && domain.contains('.') && value.len() <= 254 && value.bytes().all(|byte| byte.is_ascii_graphic())).then(|| Step::Signup(value.to_owned()))
 }
 
 fn register_step(params: Option<&Value>) -> Result<([u8; 32], [u8; 64], Step), i32> {
@@ -134,22 +100,16 @@ fn register_step(params: Option<&Value>) -> Result<([u8; 32], [u8; 64], Step), i
         return Err(-32602);
     };
     match args.as_slice() {
-        [signer, signature] => register_params(Some(&json!([signer, signature])))
-            .map(|(key, signature)| (key, signature, Step::Direct)),
+        [signer, signature] => register_params(Some(&json!([signer, signature]))).map(|(key, signature)| (key, signature, Step::Direct)),
         [signer, signature, Value::String(step)] => {
             let step = signup_step(step).ok_or(-32602)?;
-            register_params(Some(&json!([signer, signature])))
-                .map(|(key, signature)| (key, signature, step))
+            register_params(Some(&json!([signer, signature]))).map(|(key, signature)| (key, signature, step))
         }
         _ => Err(-32602),
     }
 }
 
-pub(super) fn client_ip(
-    proxies: &[(IpAddr, u8)],
-    peer: Option<SocketAddr>,
-    forwarded: Option<&str>,
-) -> String {
+pub(super) fn client_ip(proxies: &[(IpAddr, u8)], peer: Option<SocketAddr>, forwarded: Option<&str>) -> String {
     let Some(peer) = peer else {
         return "unattributed".to_owned();
     };
@@ -183,20 +143,12 @@ fn register_params(params: Option<&Value>) -> Result<([u8; 32], [u8; 64]), i32> 
         return Err(-32602);
     }
     let signer_public_key = super::parse_hex32(signer_public_key).map_err(|_| -32602)?;
-    let signature: [u8; 64] = super::decode_hex(signature, 64)
-        .ok()
-        .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
-        .ok_or(-32602)?;
+    let signature: [u8; 64] = super::decode_hex(signature, 64).ok().and_then(|bytes| <[u8; 64]>::try_from(bytes).ok()).ok_or(-32602)?;
     Ok((signer_public_key, signature))
 }
 
 fn proven(tenant: &str, signer_public_key: &[u8; 32], signature: &[u8; 64]) -> bool {
-    layerx_crypto::ed25519::verify_digest(
-        signer_public_key,
-        signature,
-        &binding(tenant, signer_public_key),
-    )
-    .is_ok()
+    layerx_crypto::ed25519::verify_digest(signer_public_key, signature, &binding(tenant, signer_public_key)).is_ok()
 }
 
 fn consume(window: &mut (u64, u32), minute: u64) -> bool {
@@ -226,15 +178,7 @@ fn refusal(id: &Value, code: i32, message: &str, reason: &str) -> Value {
     refused
 }
 
-fn principal_result(
-    tenant: &str,
-    id: &Value,
-    sub: &str,
-    signer: &str,
-    status: u16,
-    content_type: &str,
-    body: &[u8],
-) -> Value {
+fn principal_result(tenant: &str, id: &Value, sub: &str, signer: &str, status: u16, content_type: &str, body: &[u8]) -> Value {
     if content_type != "application/json" {
         return error(id, -32603, "Invalid upstream response");
     }
@@ -251,10 +195,7 @@ fn principal_result(
         refused["error"]["data"] = document;
         return refused;
     }
-    if document["tenant"] != json!(tenant)
-        || document["sub"] != json!(sub)
-        || document["allowed_signer_public_keys"] != json!([signer])
-    {
+    if document["tenant"] != json!(tenant) || document["sub"] != json!(sub) || document["allowed_signer_public_keys"] != json!([signer]) {
         return error(id, -32603, "Registration principal mismatch");
     }
     json!({"jsonrpc":"2.0", "id":id, "result":document})
@@ -269,14 +210,7 @@ fn principal_request(tenant: &str, sub: &str, signer: &str) -> String {
     .to_string()
 }
 
-fn signup_result(
-    tenant: &str,
-    id: &Value,
-    status: u16,
-    content_type: &str,
-    body: &[u8],
-    sub: &str,
-) -> Value {
+fn signup_result(tenant: &str, id: &Value, status: u16, content_type: &str, body: &[u8], sub: &str) -> Value {
     if content_type != "application/json" {
         return error(id, -32603, "Invalid upstream response");
     }
@@ -300,51 +234,23 @@ fn signup_result(
     json!({"jsonrpc":"2.0", "id":id, "result":document})
 }
 
-fn register(
-    config: &Config,
-    request: &IncomingRequest,
-    id: &Value,
-    params: Option<&Value>,
-) -> Value {
+fn register(config: &Config, request: &IncomingRequest, id: &Value, params: Option<&Value>) -> Value {
     let (signer_public_key, signature, step) = match register_step(params) {
         Ok(parsed) => parsed,
         Err(code) => return error(id, code, "Invalid params"),
     };
     let Some(registration) = &config.registration_token else {
-        return refusal(
-            id,
-            -32001,
-            "Registration unavailable",
-            "registration_not_configured",
-        );
+        return refusal(id, -32001, "Registration unavailable", "registration_not_configured");
     };
-    let tenant = match configured_tenant() {
-        Ok(tenant) => tenant,
-        Err(_) => {
-            return refusal(
-                id,
-                -32001,
-                "Registration unavailable",
-                "registration_tenant_not_configured",
-            )
-        }
+    let Ok(tenant) = configured_tenant() else {
+        return refusal(id, -32001, "Registration unavailable", "registration_tenant_not_configured");
     };
     let tenant = tenant.as_str();
     if !proven(tenant, &signer_public_key, &signature) {
-        return refusal(
-            id,
-            -32002,
-            "Registration refused",
-            "registration_proof_invalid",
-        );
+        return refusal(id, -32002, "Registration refused", "registration_proof_invalid");
     }
     if !consume_registration() {
-        return refusal(
-            id,
-            -32005,
-            "Registration unavailable",
-            "registration_rate_limit",
-        );
+        return refusal(id, -32005, "Registration unavailable", "registration_rate_limit");
     }
     let identity = match config.backend(super::KernelBackend::Identity) {
         Ok((identity, _)) => identity,
@@ -369,54 +275,17 @@ fn register(
             })
             .to_string(),
         ),
-        Step::Verify(token) => (
-            "/v1/signup/verify",
-            json!({"token": token, "sub": sub}).to_string(),
-        ),
+        Step::Verify(token) => ("/v1/signup/verify", json!({"token": token, "sub": sub}).to_string()),
     };
-    let upstream = super::upstream_json(
-        config,
-        identity,
-        registration.as_str(),
-        "POST",
-        path,
-        None,
-        body.as_bytes(),
-    );
+    let upstream = super::upstream_json(config, identity, registration.as_str(), "POST", path, None, body.as_bytes());
     match upstream {
-        Ok(upstream) if path == "/v1/principals" => principal_result(
-            tenant,
-            id,
-            &sub,
-            &signer,
-            upstream.status,
-            &upstream.content_type,
-            &upstream.body,
-        ),
-        Ok(upstream) => signup_result(
-            tenant,
-            id,
-            upstream.status,
-            &upstream.content_type,
-            &upstream.body,
-            &sub,
-        ),
-        Err(_) => refusal(
-            id,
-            -32001,
-            "Registration unavailable",
-            "identity_unavailable",
-        ),
+        Ok(upstream) if path == "/v1/principals" => principal_result(tenant, id, &sub, &signer, upstream.status, &upstream.content_type, &upstream.body),
+        Ok(upstream) => signup_result(tenant, id, upstream.status, &upstream.content_type, &upstream.body, &sub),
+        Err(_) => refusal(id, -32001, "Registration unavailable", "identity_unavailable"),
     }
 }
 
-pub(super) fn dispatch(
-    config: &Config,
-    request: &IncomingRequest,
-    method: &str,
-    id: &Value,
-    params: Option<&Value>,
-) -> Option<Value> {
+pub(super) fn dispatch(config: &Config, request: &IncomingRequest, method: &str, id: &Value, params: Option<&Value>) -> Option<Value> {
     serves(method).then(|| register(config, request, id, params))
 }
 
@@ -434,14 +303,8 @@ pub(super) fn configured_token() -> Result<Option<Zeroizing<String>>, String> {
 }
 
 fn configured_tenant() -> Result<String, String> {
-    let tenant = std::env::var("LAYERX_GATEWAY_TENANT")
-        .map_err(|_| "registration requires trusted LAYERX_GATEWAY_TENANT".to_owned())?;
-    if tenant.is_empty()
-        || tenant.len() > 95
-        || !tenant.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-_.".contains(&byte)
-        })
-    {
+    let tenant = std::env::var("LAYERX_GATEWAY_TENANT").map_err(|_| "registration requires trusted LAYERX_GATEWAY_TENANT".to_owned())?;
+    if tenant.is_empty() || tenant.len() > 95 || !tenant.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-_.".contains(&byte)) {
         return Err("invalid gateway registration tenant".into());
     }
     Ok(tenant)
@@ -465,57 +328,23 @@ mod tests {
 
     #[test]
     fn client_ip_is_the_rightmost_untrusted_forwarded_hop() {
-        let proxies = parse_trusted_proxies("100.64.0.0/10, fd12::/16,192.0.2.10").unwrap();
-        let edge: SocketAddr = "[fd12:3456::7]:41000".parse().unwrap();
-        let direct: SocketAddr = "198.51.100.23:50000".parse().unwrap();
-        assert_eq!(
-            client_ip(&proxies, Some(edge), Some("203.0.113.9, 100.64.1.2")),
-            "203.0.113.9"
-        );
-        assert_eq!(
-            client_ip(
-                &proxies,
-                Some(edge),
-                Some("1.1.1.1, 203.0.113.9, 192.0.2.10")
-            ),
-            "203.0.113.9"
-        );
-        assert_eq!(
-            client_ip(&proxies, Some(edge), Some("2001:db8::5")),
-            "2001:db8::5"
-        );
-        assert_eq!(
-            client_ip(&proxies, Some(direct), Some("203.0.113.9")),
-            "198.51.100.23"
-        );
+        let proxies = parse_trusted_proxies("100.64.0.0/10, fd12::/16,192.0.2.10").unwrap_or_else(|error| panic!("value required: {error:?}"));
+        let edge: SocketAddr = "[fd12:3456::7]:41000".parse().unwrap_or_else(|error| panic!("value required: {error:?}"));
+        let direct: SocketAddr = "198.51.100.23:50000".parse().unwrap_or_else(|error| panic!("value required: {error:?}"));
+        assert_eq!(client_ip(&proxies, Some(edge), Some("203.0.113.9, 100.64.1.2")), "203.0.113.9");
+        assert_eq!(client_ip(&proxies, Some(edge), Some("1.1.1.1, 203.0.113.9, 192.0.2.10")), "203.0.113.9");
+        assert_eq!(client_ip(&proxies, Some(edge), Some("2001:db8::5")), "2001:db8::5");
+        assert_eq!(client_ip(&proxies, Some(direct), Some("203.0.113.9")), "198.51.100.23");
         assert_eq!(client_ip(&proxies, Some(edge), None), "fd12:3456::7");
-        assert_eq!(
-            client_ip(&proxies, Some(edge), Some("evil, 100.64.1.2")),
-            "unattributed"
-        );
-        assert_eq!(
-            client_ip(&[], Some(edge), Some("203.0.113.9")),
-            "fd12:3456::7"
-        );
-        let mapped: SocketAddr = "[::ffff:100.64.0.1]:443".parse().unwrap();
-        assert_eq!(
-            client_ip(&proxies, Some(mapped), Some("203.0.113.9")),
-            "203.0.113.9"
-        );
-        assert_eq!(
-            client_ip(&proxies, None, Some("203.0.113.9")),
-            "unattributed"
-        );
-        let everyone = parse_trusted_proxies("0.0.0.0/0").unwrap();
-        assert!(trusted(&everyone, "8.8.8.8".parse().unwrap()));
-        assert!(!trusted(&proxies, "100.128.0.1".parse().unwrap()));
-        for value in [
-            "",
-            "10.0.0.0/33",
-            "fd12::/129",
-            "edge.railway.internal",
-            "10.0.0.0/x",
-        ] {
+        assert_eq!(client_ip(&proxies, Some(edge), Some("evil, 100.64.1.2")), "unattributed");
+        assert_eq!(client_ip(&[], Some(edge), Some("203.0.113.9")), "fd12:3456::7");
+        let mapped: SocketAddr = "[::ffff:100.64.0.1]:443".parse().unwrap_or_else(|error| panic!("value required: {error:?}"));
+        assert_eq!(client_ip(&proxies, Some(mapped), Some("203.0.113.9")), "203.0.113.9");
+        assert_eq!(client_ip(&proxies, None, Some("203.0.113.9")), "unattributed");
+        let everyone = parse_trusted_proxies("0.0.0.0/0").unwrap_or_else(|error| panic!("value required: {error:?}"));
+        assert!(trusted(&everyone, "8.8.8.8".parse().unwrap_or_else(|error| panic!("value required: {error:?}"))));
+        assert!(!trusted(&proxies, "100.128.0.1".parse().unwrap_or_else(|error| panic!("value required: {error:?}"))));
+        for value in ["", "10.0.0.0/33", "fd12::/129", "edge.railway.internal", "10.0.0.0/x"] {
             assert!(parse_trusted_proxies(value).is_err(), "{value}");
         }
     }
@@ -523,22 +352,12 @@ mod tests {
     #[test]
     fn the_registration_binding_and_subject_are_pinned_domain_separated_digests() {
         let key = [0xab_u8; 32];
-        assert_eq!(
-            crate::hex(&binding(TENANT, &key)),
-            "425fa6c5988efc16bce8a7931f1efbc039b75d10f0ffa617c3c2d3de2366e128"
-        );
-        assert_eq!(
-            subject(TENANT, &key),
-            "beta.7399f031b011aa1198718d62c3f79984"
-        );
+        assert_eq!(crate::hex(&binding(TENANT, &key)), "425fa6c5988efc16bce8a7931f1efbc039b75d10f0ffa617c3c2d3de2366e128");
+        assert_eq!(subject(TENANT, &key), "beta.7399f031b011aa1198718d62c3f79984");
         assert_ne!(binding(TENANT, &key), binding("gamma", &key));
         assert_ne!(subject(TENANT, &key), subject("gamma", &key));
         assert_ne!(binding(TENANT, &key).as_slice(), &key[..]);
-        assert_ne!(
-            binding(TENANT, &key),
-            tagged(SUBJECT_DOMAIN, TENANT, &key),
-            "the signed binding and the subject digest must not collide"
-        );
+        assert_ne!(binding(TENANT, &key), tagged(SUBJECT_DOMAIN, TENANT, &key), "the signed binding and the subject digest must not collide");
         assert_ne!(subject(TENANT, &key), subject(TENANT, &[0xac_u8; 32]));
         assert!(!subject(TENANT, &key).contains(':'));
         assert_eq!(subject(TENANT, &key).len(), 37);
@@ -548,10 +367,7 @@ mod tests {
     fn registration_params_require_two_lowercase_hexadecimal_arguments() {
         let key = "ab".repeat(32);
         let signature = "cd".repeat(64);
-        assert_eq!(
-            register_params(Some(&json!([key, signature]))),
-            Ok(([0xab_u8; 32], [0xcd_u8; 64]))
-        );
+        assert_eq!(register_params(Some(&json!([key, signature]))), Ok(([0xab_u8; 32], [0xcd_u8; 64])));
         for args in [
             json!([]),
             json!([key]),
@@ -618,15 +434,7 @@ mod tests {
             "account": Value::Null,
             "audiences": [],
         });
-        let accepted = principal_result(
-            TENANT,
-            &json!(3),
-            &sub,
-            &signer,
-            200,
-            "application/json",
-            confirmed.to_string().as_bytes(),
-        );
+        let accepted = principal_result(TENANT, &json!(3), &sub, &signer, 200, "application/json", confirmed.to_string().as_bytes());
         assert_eq!(accepted["id"], 3);
         assert_eq!(accepted["result"], confirmed);
         assert!(accepted.get("error").is_none());
@@ -638,15 +446,7 @@ mod tests {
             json!({"tenant":TENANT,"sub":sub.as_str(),"allowed_signer_public_keys":[signer.as_str(),"cd".repeat(32)]}),
             json!({"tenant":TENANT,"sub":sub.as_str()}),
         ] {
-            let refused = principal_result(
-                TENANT,
-                &json!(3),
-                &sub,
-                &signer,
-                200,
-                "application/json",
-                divergent.to_string().as_bytes(),
-            );
+            let refused = principal_result(TENANT, &json!(3), &sub, &signer, 200, "application/json", divergent.to_string().as_bytes());
             assert_eq!(refused["error"]["code"], -32603, "{divergent}");
             assert!(refused.get("result").is_none());
         }
@@ -656,41 +456,15 @@ mod tests {
     fn identity_refusals_are_preserved_with_their_own_json_rpc_codes() {
         let sub = subject(TENANT, &[0xab_u8; 32]);
         let signer = "ab".repeat(32);
-        for (status, code) in [
-            (400_u16, -32001_i32),
-            (403, -32002),
-            (401, -32002),
-            (429, -32005),
-            (404, -32001),
-            (503, -32001),
-        ] {
+        for (status, code) in [(400_u16, -32001_i32), (403, -32002), (401, -32002), (429, -32005), (404, -32001), (503, -32001)] {
             let upstream = json!({"error":{"code":"invalid_argument","retry":"never"}});
-            let refused = principal_result(
-                TENANT,
-                &json!("r1"),
-                &sub,
-                &signer,
-                status,
-                "application/json",
-                upstream.to_string().as_bytes(),
-            );
+            let refused = principal_result(TENANT, &json!("r1"), &sub, &signer, status, "application/json", upstream.to_string().as_bytes());
             assert_eq!(refused["error"]["code"], code, "{status}");
             assert_eq!(refused["error"]["data"], upstream);
             assert!(refused.get("result").is_none());
         }
         for (content_type, body) in [("application/json", "not json"), ("text/html", "{}")] {
-            assert_eq!(
-                principal_result(
-                    TENANT,
-                    &json!("r1"),
-                    &sub,
-                    &signer,
-                    200,
-                    content_type,
-                    body.as_bytes()
-                )["error"]["code"],
-                -32603
-            );
+            assert_eq!(principal_result(TENANT, &json!("r1"), &sub, &signer, 200, content_type, body.as_bytes())["error"]["code"], -32603);
         }
     }
 
@@ -698,23 +472,10 @@ mod tests {
     fn signup_steps_ride_on_the_proven_registration() {
         let key = "ab".repeat(32);
         let signature = "cd".repeat(64);
-        assert_eq!(
-            register_step(Some(&json!([key, signature]))),
-            Ok(([0xab_u8; 32], [0xcd_u8; 64], Step::Direct))
-        );
-        assert_eq!(
-            register_step(Some(&json!([key, signature, "dev@example.com"]))),
-            Ok((
-                [0xab_u8; 32],
-                [0xcd_u8; 64],
-                Step::Signup("dev@example.com".to_owned())
-            ))
-        );
+        assert_eq!(register_step(Some(&json!([key, signature]))), Ok(([0xab_u8; 32], [0xcd_u8; 64], Step::Direct)));
+        assert_eq!(register_step(Some(&json!([key, signature, "dev@example.com"]))), Ok(([0xab_u8; 32], [0xcd_u8; 64], Step::Signup("dev@example.com".to_owned()))));
         let token = format!("vfy_{}", "ef".repeat(32));
-        assert_eq!(
-            register_step(Some(&json!([key, signature, token]))),
-            Ok(([0xab_u8; 32], [0xcd_u8; 64], Step::Verify(token.clone())))
-        );
+        assert_eq!(register_step(Some(&json!([key, signature, token]))), Ok(([0xab_u8; 32], [0xcd_u8; 64], Step::Verify(token.clone()))));
         for args in [
             json!([key, signature, key]),
             json!([key, signature, "vfy_zz"]),
@@ -730,46 +491,14 @@ mod tests {
     #[test]
     fn signup_answers_are_bound_to_the_proven_subject() {
         let sub = subject(TENANT, &[0xab_u8; 32]);
-        let pending =
-            json!({"pending": true, "tenant": TENANT, "sub": sub.as_str(), "expires_at": 9});
-        let accepted = signup_result(
-            TENANT,
-            &json!(1),
-            200,
-            "application/json",
-            pending.to_string().as_bytes(),
-            &sub,
-        );
+        let pending = json!({"pending": true, "tenant": TENANT, "sub": sub.as_str(), "expires_at": 9});
+        let accepted = signup_result(TENANT, &json!(1), 200, "application/json", pending.to_string().as_bytes(), &sub);
         assert_eq!(accepted["result"], pending);
-        let other =
-            json!({"pending": true, "tenant": TENANT, "sub": "beta.other", "expires_at": 9});
-        assert_eq!(
-            signup_result(
-                TENANT,
-                &json!(1),
-                200,
-                "application/json",
-                other.to_string().as_bytes(),
-                &sub
-            )["error"]["code"],
-            -32603
-        );
-        for (status, code) in [
-            (429_u16, -32005_i32),
-            (409, -32602),
-            (410, -32602),
-            (403, -32002),
-            (503, -32001),
-        ] {
+        let other = json!({"pending": true, "tenant": TENANT, "sub": "beta.other", "expires_at": 9});
+        assert_eq!(signup_result(TENANT, &json!(1), 200, "application/json", other.to_string().as_bytes(), &sub)["error"]["code"], -32603);
+        for (status, code) in [(429_u16, -32005_i32), (409, -32602), (410, -32602), (403, -32002), (503, -32001)] {
             let upstream = json!({"error": {"code": "signup_ip_rate_limited", "retry": "after"}});
-            let refused = signup_result(
-                TENANT,
-                &json!(1),
-                status,
-                "application/json",
-                upstream.to_string().as_bytes(),
-                &sub,
-            );
+            let refused = signup_result(TENANT, &json!(1), status, "application/json", upstream.to_string().as_bytes(), &sub);
             assert_eq!(refused["error"]["code"], code, "{status}");
             assert_eq!(refused["error"]["data"], upstream);
         }
@@ -777,12 +506,7 @@ mod tests {
 
     #[test]
     fn registration_refusals_carry_a_machine_readable_reason() {
-        for (code, reason) in [
-            (-32002, "registration_proof_invalid"),
-            (-32001, "registration_not_configured"),
-            (-32005, "registration_rate_limit"),
-            (-32001, "identity_unavailable"),
-        ] {
+        for (code, reason) in [(-32002, "registration_proof_invalid"), (-32001, "registration_not_configured"), (-32005, "registration_rate_limit"), (-32001, "identity_unavailable")] {
             let refused = refusal(&json!(1), code, "Registration unavailable", reason);
             assert_eq!(refused["error"]["code"], code);
             assert_eq!(refused["error"]["data"]["code"], reason);
@@ -795,23 +519,12 @@ mod tests {
         let key = [0xab_u8; 32];
         let sub = subject(TENANT, &key);
         let signer = crate::hex(&key);
-        assert_eq!(
-            principal_request(TENANT, &sub, &signer),
-            format!(
-                "{{\"allowed_signer_public_keys\":[\"{signer}\"],\"sub\":\"{sub}\",\"tenant\":\"beta\"}}"
-            )
-        );
-        let request: Value = serde_json::from_str(&principal_request(TENANT, &sub, &signer))
-            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(principal_request(TENANT, &sub, &signer), format!("{{\"allowed_signer_public_keys\":[\"{signer}\"],\"sub\":\"{sub}\",\"tenant\":\"beta\"}}"));
+        let request: Value = serde_json::from_str(&principal_request(TENANT, &sub, &signer)).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(request.as_object().map(serde_json::Map::len), Some(3));
         for field in [TENANT, sub.as_str()] {
             assert!(!field.is_empty() && field.len() <= 128, "{field}");
-            assert!(
-                field.bytes().all(|byte| byte.is_ascii_lowercase()
-                    || byte.is_ascii_digit()
-                    || matches!(byte, b'-' | b'_' | b'.' | b':')),
-                "{field}"
-            );
+            assert!(field.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.' | b':')), "{field}");
         }
         assert!(!TENANT.contains(':'));
         assert!(!sub.contains(':'));

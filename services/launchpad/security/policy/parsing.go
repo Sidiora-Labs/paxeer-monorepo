@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -83,7 +84,7 @@ func MutationStatus(err error) int {
 func RequestBounds(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(r.URL.RawQuery) > 8192 {
-			http.Error(w, "query_too_large", 414)
+			http.Error(w, "query_too_large", http.StatusRequestURITooLong)
 			return
 		}
 		total := 0
@@ -93,7 +94,7 @@ func RequestBounds(next http.Handler) http.Handler {
 			}
 		}
 		if total > 16384 {
-			http.Error(w, "headers_too_large", 431)
+			http.Error(w, "headers_too_large", http.StatusRequestHeaderFieldsTooLarge)
 			return
 		}
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
@@ -111,9 +112,21 @@ func RequestBounds(next http.Handler) http.Handler {
 			http.Error(w, "response_deadline_unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		defer controller.SetReadDeadline(time.Time{})
-		defer controller.SetWriteDeadline(time.Time{})
-		defer r.Body.Close()
+		defer func() {
+			if err := controller.SetReadDeadline(time.Time{}); err != nil {
+				slog.Warn("request deadline reset", "error", err)
+			}
+		}()
+		defer func() {
+			if err := controller.SetWriteDeadline(time.Time{}); err != nil {
+				slog.Warn("response deadline reset", "error", err)
+			}
+		}()
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				slog.Warn("request body close", "error", err)
+			}
+		}()
 		ctx, cancel := context.WithDeadline(r.Context(), deadline)
 		defer cancel()
 		http.TimeoutHandler(next, MutationRequestTimeout, "request_timeout").ServeHTTP(w, r.WithContext(ctx))

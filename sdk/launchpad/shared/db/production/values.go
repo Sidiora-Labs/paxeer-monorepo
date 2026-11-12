@@ -1,0 +1,25 @@
+package production
+
+const (
+	valueEXECUTE                = "EXECUTE"
+	valueSELECT                 = "SELECT"
+	valueUPDATE                 = "UPDATE"
+	valueUSAGE                  = "USAGE"
+	valueApiLimits              = "api_limits"
+	valueApplied                = "applied"
+	valueCoreDiscovery          = "core/discovery"
+	valueCoreNotifications      = "core/notifications"
+	valueCoreStatsWorkers       = "core/stats-workers"
+	valueFailed                 = "failed"
+	valueFunction               = "function"
+	valueMigration              = "migration"
+	valueMigrationControl       = "migration_control"
+	valueSequence               = "sequence"
+	valueTable                  = "table"
+	valueTransactional          = "transactional"
+	valueView                   = "view"
+	valueCoreApiCache           = "core/api/cache"
+	valueDiscoveryNotifications = "discovery_notifications"
+	valueNarrativeDiscovery     = "narrative_discovery"
+	valueText                   = "text"
+)

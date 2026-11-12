@@ -84,15 +84,15 @@ type ChannelAdapter interface {
 
 func ValidateResult(r SendResult) error {
 	switch r.State {
-	case "accepted":
+	case stateAccepted:
 		if r.Receipt == "" {
 			return ErrInvalid
 		}
-	case "unknown", "retry", "rejected":
+	case stateUnknown, stateRetry, stateRejected:
 	default:
 		return ErrInvalid
 	}
-	if r.DisableTarget && r.State != "rejected" {
+	if r.DisableTarget && r.State != stateRejected {
 		return ErrInvalid
 	}
 	return nil
@@ -138,7 +138,7 @@ func Decide(p DeliveryPreference, n InboxItem, channel string, now time.Time) (D
 		return d, ErrForbidden
 	}
 	if p.Revision == 0 || !p.Linked {
-		d.Reason = "consent_unavailable"
+		d.Reason = reasonConsentUnavailable
 		return d, nil
 	}
 	allowed := p.Categories[n.Category] && p.Channels[channel]
@@ -194,24 +194,24 @@ func RetryDelay(attempt int) (time.Duration, error) {
 }
 
 func preserveUncertainty(d DeliveryAttempt, previous bool) DeliveryAttempt {
-	if d.State == "accepted" {
+	if d.State == stateAccepted {
 		d.AcceptanceUnknown = false
 		return d
 	}
-	d.AcceptanceUnknown = previous || d.State == "unknown"
+	d.AcceptanceUnknown = previous || d.State == stateUnknown
 	if !d.AcceptanceUnknown {
 		return d
 	}
 	switch d.State {
-	case "suppressed", "rejected", "dead":
-		d.State = "unknown"
+	case stateSuppressed, stateRejected, stateDead:
+		d.State = stateUnknown
 		d.Reason = "stopped_uncertain"
-	case "retry":
-		d.State = "unknown"
+	case stateRetry:
+		d.State = stateUnknown
 	}
 	return d
 }
 
 func validDeliveryTarget(target PushTarget, account string, attempt DeliveryAttempt, preference DeliveryPreference) bool {
-	return target.AccountID == account && target.DeviceInstallationID == attempt.TargetID && target.Status == "active" && target.Revision != 0 && (attempt.TargetRevision == 0 || target.Revision == attempt.TargetRevision) && target.ConsentRevision == preference.Revision
+	return target.AccountID == account && target.DeviceInstallationID == attempt.TargetID && target.Status == targetActive && target.Revision != 0 && (attempt.TargetRevision == 0 || target.Revision == attempt.TargetRevision) && target.ConsentRevision == preference.Revision
 }

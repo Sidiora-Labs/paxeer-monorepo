@@ -28,7 +28,7 @@ import (
 // "draft" with a null fundingTransactionRequest: the contract requires that
 // absent funding/settlement support blocks publication rather than simulating
 // payment. Drafts are visible only to their creator. Submissions and
-// acceptance are served for bounties in "open"/"reviewing"; acceptance
+// acceptance are served for bounties in openState/reviewingState; acceptance
 // reserves the award against the budget and never marks a bounty "paid"
 // (that needs settlement evidence), so settlementRequest is null.
 
@@ -99,11 +99,12 @@ func plainText(v string) bool {
 }
 
 func digest(parts ...string) string {
-	h := sha256.New()
+	var payload []byte
 	for _, p := range parts {
-		fmt.Fprintf(h, "%d:%s;", len(p), p)
+		payload = fmt.Appendf(payload, "%d:%s;", len(p), p)
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	h := sha256.Sum256(payload)
+	return hex.EncodeToString(h[:])
 }
 
 func (rt *Runtime) createBounty(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +195,7 @@ func (rt *Runtime) insertBounty(ctx context.Context, wallet, key, hash, pool, as
 func (rt *Runtime) listBounties(w http.ResponseWriter, r *http.Request) {
 	viewer, _ := actor(r)
 	state := r.URL.Query().Get("state")
-	if state != "" && state != "open" && state != "reviewing" && state != "paid" {
+	if state != "" && state != openState && state != reviewingState && state != "paid" {
 		writeError(w, r, http.StatusUnprocessableEntity, "FIELD_INVALID", "state must be open, reviewing or paid")
 		return
 	}
@@ -211,7 +212,7 @@ func (rt *Runtime) listBounties(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	at, id := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	at, id := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), maxUUID
 	if cursor != nil {
 		at, id = cursor.At, cursor.ID
 	}
@@ -305,7 +306,7 @@ func (rt *Runtime) listSubmissions(w http.ResponseWriter, r *http.Request) {
 		storeError(w, r, err)
 		return
 	}
-	at, after := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	at, after := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), maxUUID
 	if cursor != nil {
 		at, after = cursor.At, cursor.ID
 	}
@@ -407,7 +408,7 @@ func (rt *Runtime) insertSubmission(ctx context.Context, wallet, bounty string, 
 	if denied {
 		return v2.BountySubmission{}, errDenied
 	}
-	if state != "open" && state != "reviewing" {
+	if state != openState && state != reviewingState {
 		return v2.BountySubmission{}, fmt.Errorf("%w: bounty is %s and not accepting submissions", errState, state)
 	}
 	created, _, err := scanSubmission(tx.QueryRow(ctx, `INSERT INTO chat.v2_bounty_submissions AS s (submission_id,bounty_id,author,client_submission_id,body,evidence_urls) VALUES($1,$2,$3,$4,$5,$6) RETURNING `+submissionColumns, uuid.New(), bounty, wallet, client, text, string(evidence)))
@@ -486,7 +487,7 @@ func (rt *Runtime) acceptSubmission(ctx context.Context, wallet, key, bounty, su
 	if creator != wallet {
 		return v2.BountySubmission{}, errDenied
 	}
-	if state != "open" && state != "reviewing" {
+	if state != openState && state != reviewingState {
 		return v2.BountySubmission{}, fmt.Errorf("%w: bounty is %s", errState, state)
 	}
 	if revision != expected {

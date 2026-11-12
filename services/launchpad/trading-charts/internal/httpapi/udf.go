@@ -29,10 +29,10 @@ func udfConfig(w http.ResponseWriter, _ *http.Request) {
 		"supports_marks":           false,
 		"supports_timescale_marks": false,
 		"supports_time":            true,
-		"exchanges":                []map[string]string{{"value": "sidiora", "name": "Sidiora", "desc": "Sidiora Launchpad"}},
-		"symbols_types":            []map[string]string{{"name": "token", "value": "token"}},
-		"supported_resolutions":    supportedResolutions(),
-		"currency_codes":           []map[string]string{{"id": "USDL", "code": "USDL", "description": "USDL Stablecoin"}},
+		"exchanges":                []map[string]string{{"value": exchangeSidiora, fieldName: "Sidiora", "desc": "Sidiora Launchpad"}},
+		"symbols_types":            []map[string]string{{fieldName: symbolTypeToken, "value": symbolTypeToken}},
+		fieldSupportedResolutions:  supportedResolutions(),
+		"currency_codes":           []map[string]string{{"id": currencyUSDL, fieldCode: currencyUSDL, fieldDescription: "USDL Stablecoin"}},
 	})
 }
 

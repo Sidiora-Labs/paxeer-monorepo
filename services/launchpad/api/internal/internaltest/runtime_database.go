@@ -71,6 +71,7 @@ func RepositoryRoot(t *testing.T) string {
 
 func readBound(t *testing.T, root, relative, want string) []byte {
 	t.Helper()
+	//nolint:gosec // The migration path is selected from the repository fixture.
 	raw, err := os.ReadFile(filepath.Join(root, relative))
 	if err != nil {
 		t.Fatal(err)
@@ -190,7 +191,11 @@ func NewAPIRuntimeDatabase(t *testing.T, runtimeRole string, planned ...string) 
 	if err != nil {
 		t.Fatalf("connect %s: %v", ExternalPostgresEnv, err)
 	}
-	defer control.Close(ctx)
+	defer func() {
+		if err := control.Close(ctx); err != nil {
+			t.Errorf("close control database: %v", err)
+		}
+	}()
 	name := "core_api_runtime" + tag
 	created := []string{}
 	ownsControlOwner := false
@@ -202,7 +207,11 @@ func NewAPIRuntimeDatabase(t *testing.T, runtimeRole string, planned ...string) 
 			t.Logf("cleanup: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if err := c.Close(context.Background()); err != nil {
+				t.Errorf("close cleanup database: %v", err)
+			}
+		}()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database: %v", err)
 		}
@@ -228,7 +237,11 @@ func NewAPIRuntimeDatabase(t *testing.T, runtimeRole string, planned ...string) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if err := conn.Close(ctx); err != nil {
+			t.Errorf("close runtime database: %v", err)
+		}
+	}()
 	exec := func(step, sql string, args ...any) {
 		t.Helper()
 		if _, err := conn.Exec(ctx, sql, args...); err != nil {

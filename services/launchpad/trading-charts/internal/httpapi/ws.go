@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	goredis "github.com/redis/go-redis/v9"
@@ -90,7 +92,7 @@ func RegisterWS(ctx context.Context, r chi.Router, deps WSDeps) {
 	r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Link", `</v2/stream>; rel="successor-version"`)
 		sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{
-			"code": "LEGACY_STREAM_RETIRED", "message": "Use /v2/snapshots and /v2/stream for durable candle delivery", "retryable": false,
+			fieldCode: "LEGACY_STREAM_RETIRED", fieldMessage: "Use /v2/snapshots and /v2/stream for durable candle delivery", fieldRetryable: false,
 		})
 	})
 }
@@ -124,13 +126,13 @@ func (h *wsHub) removeFromIndex(c *clientSub) {
 
 func (h *wsHub) runRedisSubscriber(ctx context.Context, redisURL string) {
 	rdb := goredis.NewClient(parseRedisOpts(redisURL))
-	defer rdb.Close()
+	defer chartcleanup.Close(rdb)
 
 	if h.channel == "" {
 		return
 	} // Fail closed until the common delivery gateway supplies a partition.
 	ps := rdb.Subscribe(ctx, h.channel)
-	defer ps.Close()
+	defer chartcleanup.Close(ps)
 
 	ch := ps.Channel()
 	capacity := h.retentionCapacity
@@ -237,8 +239,8 @@ func (h *wsHub) writePump(c *clientSub) {
 			}
 		case <-ticker.C:
 			ping, err := json.Marshal(map[string]interface{}{
-				"type": "ping",
-				"ts":   time.Now().UnixMilli(),
+				fieldType: "ping",
+				"ts":      time.Now().UnixMilli(),
 			})
 			if err != nil {
 				continue
@@ -263,7 +265,7 @@ var upgrader = websocket.Upgrader{
 			return true
 		}
 		u, e := url.Parse(o)
-		return e == nil && u.User == nil && u.Path == "" && u.RawQuery == "" && u.Fragment == "" && (u.Scheme == "http" || u.Scheme == "https") && u.Host == r.Host
+		return e == nil && u.User == nil && u.Path == "" && u.RawQuery == "" && u.Fragment == "" && (u.Scheme == schemeHTTP || u.Scheme == schemeHTTPS) && u.Host == r.Host
 	},
 }
 
@@ -335,8 +337,8 @@ func (h *wsHub) handleWS(w http.ResponseWriter, r *http.Request) {
 
 	// Send welcome message.
 	if welcome, err := json.Marshal(map[string]interface{}{
-		"type":    "connected",
-		"message": `Send { type: "subscribe", pools: ["0x..."], timeframes: ["1m"] } to start receiving candle updates`,
+		fieldType:    "connected",
+		fieldMessage: `Send { type: "subscribe", pools: ["0x..."], timeframes: ["1m"] } to start receiving candle updates`,
 	}); err == nil {
 		h.enqueue(sub, welcome)
 	}
@@ -360,7 +362,7 @@ func (h *wsHub) handleWS(w http.ResponseWriter, r *http.Request) {
 			Series     []seriesSubscription `json:"series"`
 		}
 		if err := json.Unmarshal(raw, &msg); err != nil {
-			if errMsg, mErr := json.Marshal(map[string]string{"type": "error", "message": "Invalid JSON"}); mErr == nil {
+			if errMsg, mErr := json.Marshal(map[string]string{fieldType: "error", fieldMessage: "Invalid JSON"}); mErr == nil {
 				h.enqueue(sub, errMsg)
 			}
 			continue
@@ -391,16 +393,16 @@ func (h *wsHub) handleWS(w http.ResponseWriter, r *http.Request) {
 			}
 			response := map[string]interface{}{"requestId": msg.RequestID}
 			if err != nil {
-				response["type"] = "error"
-				response["message"] = err.Error()
+				response[fieldType] = "error"
+				response[fieldMessage] = err.Error()
 			} else {
-				response["type"] = msg.Type + "d"
+				response[fieldType] = msg.Type + "d"
 			}
 			raw, _ := json.Marshal(response)
 			h.enqueue(sub, raw)
 
 		case "ping":
-			if pong, err := json.Marshal(map[string]string{"type": "pong"}); err == nil {
+			if pong, err := json.Marshal(map[string]string{fieldType: "pong"}); err == nil {
 				h.enqueue(sub, pong)
 			}
 		}
@@ -491,7 +493,7 @@ func validateTopics(series []seriesSubscription, pools, tfs []string) (map[strin
 }
 
 func (h *wsHub) resyncSeries(candle CandleSnapshot) {
-	raw, _ := json.Marshal(map[string]string{"type": "resync_required", "reason": "candle_revision_integrity_or_capacity"})
+	raw, _ := json.Marshal(map[string]string{fieldType: "resync_required", fieldReason: "candle_revision_integrity_or_capacity"})
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for client := range h.subscriptionIndex[h.subKey(strings.ToLower(candle.PoolAddress), candle.Timeframe)] {

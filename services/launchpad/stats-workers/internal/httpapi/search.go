@@ -154,7 +154,7 @@ func RegisterCanonicalSearch(r chi.Router, st canonicalsearch.Store) {
 		id := searchRequestID(w, r)
 		w.Header().Set("X-Schema-Version", "2")
 		w.Header().Set("Cache-Control", "no-store")
-		sharedhttp.WriteJSON(w, 200, map[string]any{"requestId": id, "data": map[string]any{"items": page.Items, "matchKind": page.MatchKind, "status": page.Status, "generation": page.Generation}, "watermark": nil, "revision": strconv.FormatInt(page.Watermark, 10), "quality": "partial", "nextCursor": next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+		sharedhttp.WriteJSON(w, 200, map[string]any{valueRequestId: id, "data": map[string]any{"items": page.Items, "matchKind": page.MatchKind, "status": page.Status, "generation": page.Generation}, valueWatermark: nil, valueRevision: strconv.FormatInt(page.Watermark, 10), valueQuality: "partial", "nextCursor": next, valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 	})
 }
 func searchRequestID(w http.ResponseWriter, r *http.Request) string {
@@ -181,7 +181,7 @@ func writeSearchError(w http.ResponseWriter, r *http.Request, status int, code s
 	}
 	w.Header().Set("X-Schema-Version", "2")
 	w.Header().Set("Cache-Control", "no-store")
-	sharedhttp.WriteJSON(w, status, map[string]any{"code": code, "message": message, "requestId": id, "retryable": retry, "retryAfterMs": retryAfter, "fieldErrors": []any{}, "details": nil})
+	sharedhttp.WriteJSON(w, status, map[string]any{"code": code, "message": message, valueRequestId: id, valueRetryable: retry, valueRetryAfterMs: retryAfter, valueFieldErrors: []any{}, "details": nil})
 }
 
 func urlQuery(r *http.Request) (url.Values, error) {
@@ -250,7 +250,7 @@ func RegisterIntegratedSearch(r chi.Router, service *canonicalsearch.Service, id
 		w.Header().Set("Cache-Control", "private, no-store")
 		query, _ := request.Validate()
 		w.Header().Set("ETag", `"`+canonicalsearch.PublicCacheKey(query, request, page.Generation, page.Revision, page.PrivacyRevision)+`"`)
-		sharedhttp.WriteJSON(w, 200, map[string]any{"requestId": searchRequestID(w, r), "data": page, "watermark": nil, "revision": strconv.FormatInt(page.Revision, 10), "quality": "partial", "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+		sharedhttp.WriteJSON(w, 200, map[string]any{valueRequestId: searchRequestID(w, r), "data": page, valueWatermark: nil, valueRevision: strconv.FormatInt(page.Revision, 10), valueQuality: "partial", valueGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 	})
 }
 func writeExpandedSearchError(w http.ResponseWriter, r *http.Request, status int, code string) {
@@ -269,5 +269,5 @@ func writeExpandedSearchError(w http.ResponseWriter, r *http.Request, status int
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Schema-Version", "2")
-	sharedhttp.WriteJSON(w, status, map[string]any{"code": code, "message": message, "requestId": searchRequestID(w, r), "retryable": status == 429, "retryAfterMs": delay, "fieldErrors": []any{}, "details": nil})
+	sharedhttp.WriteJSON(w, status, map[string]any{"code": code, "message": message, valueRequestId: searchRequestID(w, r), valueRetryable: status == 429, valueRetryAfterMs: delay, valueFieldErrors: []any{}, "details": nil})
 }

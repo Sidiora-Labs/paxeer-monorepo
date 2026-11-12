@@ -52,11 +52,11 @@ func attestDurableAnchor(ctx context.Context, pool *pgxpool.Pool, stream string,
 	}
 	var extended bool
 	var watermark int64
-	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height=$2), COALESCE((SELECT raw_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1), -1)`, stream, int64(anchor.Height)).Scan(&extended, &watermark)
+	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits WHERE chain_id=125 AND stream_id=$1 AND previous_height=$2), COALESCE((SELECT raw_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1), -1)`, stream, int64(anchor.Height)).Scan(&extended, &watermark) //nolint:gosec // anchor height uses the existing signed database height field
 	if err != nil {
 		return err
 	}
-	if !extended || watermark <= int64(anchor.Height) {
+	if !extended || watermark <= int64(anchor.Height) { //nolint:gosec // anchor height uses the existing signed database height field
 		return errors.New("indexer: no durable ingestion descends from the pruned chain anchor")
 	}
 	return nil
@@ -69,7 +69,7 @@ func durableBlockHash(ctx context.Context, pool *pgxpool.Pool, stream string, he
 		return common.HexToHash(lifecycle.InitialCheckpointHash), nil
 	}
 	var hash string
-	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, int64(height)).Scan(&hash)
+	err := pool.QueryRow(ctx, `SELECT block_hash FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height=$2 AND fetch_complete AND required_decode_complete`, stream, int64(height)).Scan(&hash) //nolint:gosec // chain values use the existing signed storage representation
 	if errors.Is(err, pgx.ErrNoRows) {
 		return common.Hash{}, fmt.Errorf("indexer: durable block %d has no completed source block", height)
 	}

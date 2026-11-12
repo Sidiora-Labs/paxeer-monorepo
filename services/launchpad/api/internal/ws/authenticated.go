@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -72,7 +73,11 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Warn("close WebSocket connection", "error", err)
+		}
+	}()
 	// Every exit after the upgrade ends with a close frame, so clients see the
 	// terminal reason instead of an abnormal 1006 drop. closeCode/closeReason
 	// are set by the terminal control frame (see control) or the failure path.
@@ -147,10 +152,10 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 			closeCode, closeReason = websocket.CloseNormalClosure, "resnapshot_required"
 		case "subscription_closed":
 			closeCode, closeReason = websocket.CloseGoingAway, code
-		case "error":
+		case literalError:
 			closeCode, closeReason = websocket.ClosePolicyViolation, code
 		}
-		body, e := broker.StreamControl(op, string(subscribe.SubscriptionId), cursor, code, topics, fields)
+		body, e := broker.StreamControl(op, subscribe.SubscriptionId, cursor, code, topics, fields)
 		if e != nil {
 			return e
 		}
@@ -162,14 +167,14 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 		principal, err = h.privateStream.Authority.ConsumeStreamTicket(bounded, ticket, binding)
 		done()
 		if err != nil {
-			_ = control("error", "", "AUTH_REQUIRED", nil)
+			_ = control(literalError, "", "AUTH_REQUIRED", nil)
 			return
 		}
 	}
 	var grants broker.TopicSet
 	decisions, err := grants.Replace(ctx, principal, binding, h.privateStream.Authority)
 	if err != nil {
-		_ = control("error", "", "AUTH_REQUIRED", nil)
+		_ = control(literalError, "", "AUTH_REQUIRED", nil)
 		return
 	}
 	// A topic naming an unregistered resource can never be projected: end
@@ -183,7 +188,7 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(unknown) > 0 {
-			_ = control("error", "", "NOT_FOUND", nil)
+			_ = control(literalError, "", "NOT_FOUND", nil)
 			return
 		}
 	}
@@ -387,10 +392,10 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 				Op string `json:"op"`
 			}
 			if json.Unmarshal(in.data, &action) != nil {
-				_ = control("error", lastWritten, "FIELD_INVALID", nil)
+				_ = control(literalError, lastWritten, "FIELD_INVALID", nil)
 				return
 			}
-			if action.Op == "ping" {
+			if action.Op == literalPing {
 				if control("heartbeat", "", "", nil) != nil {
 					return
 				}
@@ -400,7 +405,7 @@ func (h *Hub) privateHandle(w http.ResponseWriter, r *http.Request) {
 				_ = control("resnapshot_required", lastWritten, "SCOPE_CHANGE_REQUIRED", nil)
 				return
 			}
-			_ = control("error", lastWritten, "FIELD_INVALID", nil)
+			_ = control(literalError, lastWritten, "FIELD_INVALID", nil)
 			return
 		case <-poll.C:
 		case <-commits:

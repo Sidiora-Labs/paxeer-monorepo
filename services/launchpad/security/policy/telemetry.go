@@ -30,7 +30,7 @@ func (l *SecurityLog) Write(requestID, session, class, outcome, version string, 
 	if l.Writer == nil || len(l.Key) < 32 || len(requestID) > 128 || !regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`).MatchString(requestID) || !regexp.MustCompile(`^[a-z0-9.-]{1,32}$`).MatchString(version) {
 		return ErrDenied
 	}
-	if class != "public-read" && class != "account-read" && class != "account-write" && class != "quote" && class != "operator" {
+	if class != classPublicRead && class != classAccountRead && class != classAccountWrite && class != classQuote && class != identityOperator {
 		return ErrDenied
 	}
 	if outcome != "allow" && outcome != "deny" && outcome != "unavailable" {

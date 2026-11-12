@@ -1,0 +1,20 @@
+[metadata]
+criterion = "22998.1"
+scope = "Metadata service lint and package behavior"
+
+[checks]
+errcheck = "Resource closures, transaction rollback, process cleanup and response writes handle returned errors."
+goconst = "Repeated media types, states, schemas and JSON keys use package constants with unchanged values."
+gofmt = "Touched Go sources use standard Go formatting."
+goimports = "Touched Go sources keep imports grouped and ordered."
+gosec = "Document reads stay within a bounded directory, image sizes are checked before narrowing, and external requests use validated origins."
+staticcheck = "Runtime profile selection, social host selection and visibility validation use direct conditions."
+
+[comments]
+worker_executable = "internal/image/worker.go:174 checks the configured absolute raster executable before use."
+gateway_build = "internal/internaltest/identity.go:61 builds the fixed gateway package into a temporary directory."
+gateway_binary = "internal/internaltest/identity.go:156 runs the gateway binary from the temporary directory."
+visibility_request = "internal/metadata/connected.go:639 uses a validated HTTPS origin and checked query values."
+visibility_transport = "internal/metadata/connected.go:649 disables redirects for visibility requests."
+multipart_body = "internal/metadata/handlers.go:419 bounds the complete request before multipart parsing."
+image_size = "internal/metadata/io_cleanup.go:43 checks the int32 database image size bound before conversion."
