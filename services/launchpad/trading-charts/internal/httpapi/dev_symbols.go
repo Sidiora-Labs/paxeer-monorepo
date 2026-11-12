@@ -194,7 +194,7 @@ func (s *DevelopmentPoolMetadataSource) Resolve(ctx context.Context, pool string
 	revisionInput, _ := json.Marshal([]any{"charts-dev-token-metadata-v1", pool, tokenAddress, position, []byte(results[0]), []byte(results[1]), []byte(results[2]), []byte(results[3])})
 	digest := sha256.Sum256(revisionInput)
 	revision := interfaces.UInt256(new(big.Int).SetBytes(digest[:]).String())
-	token = interfaces.Token{Address: tokenAddress, Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: "verified", MetadataRevision: revision, SourcePosition: &position, SupplyQuality: "verified", TotalSupplyRaw: &total}
+	token = interfaces.Token{Address: tokenAddress, Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: qualityVerified, MetadataRevision: revision, SourcePosition: &position, SupplyQuality: qualityVerified, TotalSupplyRaw: &total}
 	raw, err := json.Marshal(token)
 	if err != nil || interfaces.ValidateJSON("Token", raw) != nil {
 		return interfaces.Token{}, errors.New("development token metadata violates the Token contract")
