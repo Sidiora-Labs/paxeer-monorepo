@@ -314063,7 +314063,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.493]
 title = "Have the first sequenced block of the merge rehearsal pass the block-end occupancy transition of Programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
