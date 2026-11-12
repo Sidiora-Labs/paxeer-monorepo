@@ -12,7 +12,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_network_gateway::{
     decode_hex, encode_hex, rpc_request, rpc_result, AccountIdentifier, Evidence, GatewayEndpoint,
@@ -129,9 +129,9 @@ impl Peer {
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopped);
         let worker = thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(3);
+            let mut accept_steps = 0..3_000;
             while !stop.load(Ordering::Acquire) {
-                assert!(Instant::now() < deadline, "real client must connect");
+                assert!(accept_steps.next().is_some(), "real client must connect");
                 match listener.accept() {
                     Ok((stream, _)) => {
                         stream
@@ -361,6 +361,17 @@ fn gateway_http_framing_producer_transport_consumer() {
     }
 }
 
+fn post_with_bounded_wait(endpoint: &GatewayEndpoint, body: &str) -> Result<Vec<u8>, GatewayError> {
+    let (sent, received) = mpsc::channel();
+    thread::scope(|scope| {
+        scope.spawn(move || {
+            sent.send(endpoint.post_with_timeout(body, Duration::from_millis(250)))
+                .required();
+        });
+        received.recv_timeout(Duration::from_millis(500)).required()
+    })
+}
+
 #[test]
 fn gateway_total_deadline_fragmented_response() {
     let (sent, received) = mpsc::channel();
@@ -383,19 +394,13 @@ fn gateway_total_deadline_fragmented_response() {
         }
         sent.send(fragments).required();
     });
-    let started = Instant::now();
-    let answer = peer.endpoint.post_with_deadline(
+    let answer = post_with_bounded_wait(
+        &peer.endpoint,
         &rpc_request(56, "px_getBalances", &[json!(selector().canonical_text())]),
-        started + Duration::from_millis(250),
     );
-    let elapsed = started.elapsed();
     assert!(
         matches!(answer, Err(GatewayError::Transport(_))),
         "{answer:?}"
-    );
-    assert!(
-        elapsed < Duration::from_millis(500),
-        "fragmented response retained caller for {elapsed:?}"
     );
     assert!(
         received.recv_timeout(Duration::from_secs(2)).required() >= 3,
@@ -415,20 +420,12 @@ fn gateway_total_deadline_tls_handshake() {
         hello.send(()).required();
         stopped.recv_timeout(Duration::from_secs(2)).required();
     });
-    let started = Instant::now();
-    let answer = peer
-        .endpoint
-        .post_with_deadline("{}", started + Duration::from_millis(250));
-    let elapsed = started.elapsed();
+    let answer = post_with_bounded_wait(&peer.endpoint, "{}");
     received.recv_timeout(Duration::from_secs(1)).required();
     stop.send(()).required();
     assert!(
         matches!(answer, Err(GatewayError::Transport(_))),
         "{answer:?}"
-    );
-    assert!(
-        elapsed < Duration::from_millis(500),
-        "TLS retained caller for {elapsed:?}"
     );
     peer.finish();
 }
@@ -439,7 +436,7 @@ fn gateway_expired_deadline_starts_no_exchange() {
     listener.set_nonblocking(true).required();
     let endpoint =
         GatewayEndpoint::parse(&format!("http://{}/", listener.local_addr().required())).required();
-    let answer = endpoint.post_with_deadline("{}", Instant::now());
+    let answer = endpoint.post_with_timeout("{}", Duration::ZERO);
     assert!(matches!(answer, Err(GatewayError::Transport(_))));
     assert!(matches!(
         listener.accept(),
@@ -447,7 +444,7 @@ fn gateway_expired_deadline_starts_no_exchange() {
     ));
     let endpoint = GatewayEndpoint::parse("http://localhost/").required();
     assert!(matches!(
-        endpoint.post_with_deadline("{}", Instant::now()),
+        endpoint.post_with_timeout("{}", Duration::ZERO),
         Err(GatewayError::Transport(_))
     ));
 }

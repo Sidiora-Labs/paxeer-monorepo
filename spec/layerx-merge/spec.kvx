@@ -13576,6 +13576,42 @@ value = "The unsafe rule of scripts/programs/dependency-policy.sh keeps one list
 basis = "Gotcha 4326. Decisions 3401 and 3407."
 affects = []
 
+[decision.3411]
+title = "The advisory settings of the programs workspace record the big integer crate of the secp256k1 chain"
+value = "The runtime member of the programs workspace calls the secp256k1 crate for verification and for key recovery, both over public inputs, and holds no signing key outside its tests. programs/deny.toml records the advisory that the check reports for crypto-bigint 0.5 as one entry with that reason. The entry names the single advisory and nothing wider. No vendored file changes for it. A later move of the secp256k1 chain to a line that takes crypto-bigint 0.7.6 or later removes the entry."
+basis = "Gotcha 4327. Decision 3410."
+affects = []
+
+[decision.3412]
+title = "The intents crate of the human workspace gains the receipt constructors the service member needs"
+value = "The paths of task 22.39.441 gain services/human/crates/layerx-intents. The crate gains constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, with the same bytes for the same fields as today, and the two files call the constructors. The payload rule of the boundary check stays as it is and no file joins an exception for it. Nothing else of the crate changes."
+basis = "Gotcha 4328. Decisions 3046 and 3402."
+affects = []
+
+[decision.3413]
+title = "The wave 6 gate task may add the rows of the Swift sample package files to the platform dependency inventory"
+value = "The paths of task 17.5.7 gain tools/workspace/platform-dependency-roots.txt. The change there is limited to one row for each of services/platform/examples/samples/first-payment-swift/Package.resolved and services/platform/examples/samples/mobile-payment-ios/Package.resolved, in the form of the rows of their Package.swift files. The check script stays as it is."
+basis = "Gotcha 4329. Decision 3349."
+affects = []
+
+[decision.3414]
+title = "The decoder burst case runs a declared fraction of its rate under the race detector"
+value = "Under the race detector the complete workload case of services/launchpad/indexer/internal/decode keeps its duration and schedules its deliveries at the full rate divided by one constant, declared in a file that is built only with the race build tag. The constant is not above 4. The assertions on conservation, on zero drops and on the latency bound stay as they are. Without the race detector the case runs the full rate, so the test stage and the coverage stage keep the full workload. No other case changes its bounds."
+basis = "Gotchas 4330 and 4331."
+affects = []
+
+[decision.3415]
+title = "The wave 6 gate task may regenerate the web client, group the inputs of one agent daemon function and list two live names in the retired reference catalogue"
+value = "The paths of task 17.5.7 gain apps/web/src/api/generated, services/agent/crates/layerx-agentd/src/main.rs and tools/paxeer-x/retired_callers.json. Under apps/web/src/api/generated the task commits only the output of the generator target of the Makefile. In the agent daemon file the change is limited to the function terms and its callers: the inputs move into one parameter structure, the behaviour and every signed value stay the same, and no lint allowance is added. In the catalogue the task adds one allowed reference for the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and one for the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py, each with its citation in the form of the neighbouring entries. The check program stays unchanged."
+basis = "Gotchas 4332 to 4334. Decisions 3051 and 3413."
+affects = []
+
+[decision.3416]
+title = "The source capacity measurement takes up to three database clock samples at each point"
+value = "At each of the two points where the source capacity measurement of services/launchpad/indexer/internal/source reads the database clock it takes up to three samples and uses the first whose two local readings lie within five milliseconds. The bound of five milliseconds, the offsets the report carries and the error capacity-clock-uncertainty when no sample lies within the bound stay as they are. No other bound of the measurement changes."
+basis = "Gotcha 4335. Decision 3414."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -189074,7 +189110,7 @@ do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
@@ -230290,7 +230326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.482]
 title = "Pass the race and coverage stages of the launchpad Makefile in the trading charts module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.466", "22.39.458"]
@@ -230437,6 +230473,8 @@ time_limit_minutes = 600
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3414, gotchas 4330 and 4331. Add one file with the race build tag and one without it to services/launchpad/indexer/internal/decode that declare the rate divisor of the complete workload case, 1 without the race detector and at most 4 with it, and let the case divide its scheduled rate by it. Keep the duration and every assertion. Name the divisor and the prerequisite track_commit_timestamp on for the source capacity cases in services/launchpad/indexer/repair_22_39_478.kvx. Change no other bound."
+do_5 = "do_5 Decision 3416, gotcha 4335. In services/launchpad/indexer/internal/source/capacity.go let each of the two database clock readings of the capacity measurement take up to three samples and use the first within the bound of five milliseconds, with the present error when none is. Keep the sampling in one small internal function that takes the reading of the database clock as an input, and add a case to the tests of the package that asserts by value that a slow first sample followed by a sample within the bound is accepted and that three slow samples give the error. Note the rule in services/launchpad/indexer/repair_22_39_478.kvx. Change no other bound."
 
 [task.22.39.477]
 title = "Pass the race and coverage stages of the launchpad Makefile in the API module"
@@ -290653,7 +290691,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.456"]
@@ -290685,10 +290723,11 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_4 = "do_4 Gotcha 4318, decision 3401. Repair the findings clippy reports in the lines the project added to programs/vendor/wasmi-0.31.2, such as the two closures in src/engine/executor.rs that only observe an error and the missing errors section of execute_step in src/engine/mod.rs. Use the form clippy proposes, change no behaviour, add no allow attribute and note each repair in PATCHES.md of that directory. Run the cases of the interpreter member by hand and confirm the vectors and fixtures are unchanged before the counted runs. Change no other file under programs/vendor."
 do_5 = "do_5 Decision 3407, gotcha 4323. Change the Ed25519 dependency declaration of services/interop/crates/layerx-committed-proof/Cargo.toml so that it takes no default features and keeps alloc, fast and zeroize, with the matching line of services/interop/Cargo.toml where the declaration is inherited from there. The dependency policy of the programs workspace then passes. The members of services/interop compile and the tests of the proof crate pass with the change. Note the change in programs/repair_22_39_454.kvx."
 do_6 = "do_6 Decision 3410, gotcha 4326. Give the unsafe rule of scripts/programs/dependency-policy.sh one list of excepted files with a reason line for every entry, the same list for both search tools of the script. The list names the files of the present native boundary one by one: the foreign function files and the native contract file of the runtime member, the guest cell file of the market program, the host boundary files and the library file of the isolation member, and the test files that declare a foreign function or a counting allocator. Read every finding the rule prints before adding its file and add no file whose use is not one of the three kinds of decision 3410. Change no Rust file for this rule. Add a case to the self-test of the script, or one next to it under scripts/programs, that asserts a file outside the list is still refused. Note the list in programs/repair_22_39_454.kvx."
+do_7 = "do_7 Decision 3411, gotcha 4327. Add to the ignore list of programs/deny.toml one entry for the advisory the check reports against crypto-bigint 0.5.5, with a reason that states that the runtime member uses the secp256k1 crate for verification and key recovery over public inputs only. Before adding it, confirm with a search of programs/crates that no code outside tests builds a signing key of that crate, and write the result into programs/repair_22_39_454.kvx. Change no vendored file and no dependency version for this."
 
 [task.22.39.441]
 title = "Bring the whole lint recipe of the human workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.434", "22.39.435", "22.39.436", "22.39.437", "22.39.438", "22.39.439", "22.39.440"]
@@ -290700,7 +290739,7 @@ do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-
 do_2 = "do_2 Repair each stop inside services/human/tools/boundary-check, services/human/tools/copy-lint, services/human/tools/dependency-policy.sh and apps/web by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table or of a lint configuration, no removal of a check."
 do_3 = "do_3 A stop whose cause lies in a member crate is listed in the closing report with file and first message. Record in services/human/tools/repair_22_39_441.kvx what each step of the recipe covers. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider"]
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-intents"]
 tests = []
 planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
 build_cmd = "make -n human-lint > /dev/null"
@@ -290719,6 +290758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4317, decision 3400. Run the boundary check over services/human/crates by hand and repair every file it reports for a direct read of the clock or of the random source, in the member that holds the file. Bound a wait by a count of steps or by the clock the member already injects and take a random value from the source the member already injects. Change no rule and no pattern of the boundary check and keep the behaviour of each member outside its tests. Run the tests of each changed member by hand before the counted runs and name each changed file in services/human/tools/repair_22_39_441.kvx."
 do_5 = "do_5 Gotchas 4319 and 4320, decisions 3402 to 3404. Give the boundary check the list of decision 3402 with its two files and their reasons and a case that asserts the list. Bring the policy check of apps/web and its record in line with the manifest of the wallet package as decision 3403 says. The advisory, ban and source check of the lock file is not part of this task; name its findings in the closing report only. A test of a member that already stops at the base revision is not repaired here, and a test file this task changes keeps the result it has at the base revision."
+do_6 = "do_6 Decision 3412, gotcha 4328. Add to services/human/crates/layerx-intents the constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, and let both files call them. A test of the crate asserts for each constructor that its bytes equal the bytes the replaced code produced for the same fields. The payload rule of the boundary check keeps its list of entry points and gains no exception. The tests of the intents crate pass as at the base revision."
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
@@ -341453,7 +341493,7 @@ do_1 = "Run gates.run_wave(6, root) from spec/layerx-merge/programme/gates.py (p
 do_2 = "Record the evidence line in logs/waves/6 named by [wave.6] of spec/layerx-merge/programme/data/wave-gates.kvx (planned); a nonzero exit fails the wave and files a finding in spec/layerx-merge/qualification.kvx:1 format."
 do_3 = "Create spec/layerx-merge/programme/tests/test_wave_6_gate.py (planned) with the test named below; it runs the real script, never --list alone."
 symbols = ["test_wave_6_gate_passes"]
-touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py"]
+touches = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py", "spec/layerx-merge/programme/gates.py", "services/human/tools/api-gen/tests/completion_gate.rs", "apps/web/package.json", "Makefile", "scripts/gates/run_gate.py", "scripts/gates/test_run_gate.py", "tools/workspace/platform-dependency-roots.txt", "apps/web/src/api/generated", "services/agent/crates/layerx-agentd/src/main.rs", "tools/paxeer-x/retired_callers.json"]
 tests = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
@@ -341499,6 +341539,8 @@ do_30 = "Attempt 26 (continue after 22.39.377 and 22.39.378 land, gotchas 4228 a
 do_31 = "do_31 Decision 3326, gotcha 4254: tasks 22.39.396, 22.39.397 and 22.39.398 carry the ABI type set of the SDKs, the copy catalog of the web app and the runtime module boundary check. Change none of the three in this task."
 do_32 = "do_32 Decisions 3331 to 3335: the task now requires tasks 22.39.400 to 22.39.409, which carry the readers of the settlement section, the generated files of the agent TypeScript SDK, the recipes of the developer dashboard, the lints of the platform and interop crates, the terminal vectors of the program ABI, the lifecycle cases, the output directory of the program recipes, the compiler fetch of the install step and the record of what each part of the test and lint recipes covers. Change none of those in this task and drop from its tree each change that those tasks carry. The gate runs in the checkout of the task and makes no second checkout. The permitted outputs of scripts/gates/run_gate.py hold the ignored build directory of the C SDK example."
 do_33 = "do_33 Decision 3349: the task now requires tasks 22.39.426 to 22.39.433, 22.39.441 and 22.39.454, which own the parts of the workspace test and lint recipes. Change nothing for those parts in this task."
+do_34 = "do_34 Decision 3413, gotcha 4329. Add one row for each of the two Package.resolved files of the Swift samples to tools/workspace/platform-dependency-roots.txt in the form of the neighbouring rows, so that sh scripts/workspace/check-platform-dependencies.sh passes. Change nothing else in the inventory and nothing in the check script. Then run the install target of the workspace and go on with the wave commands."
+do_35 = "do_35 Decision 3415, gotchas 4332 to 4334. Run the generator target of the Makefile for the web client and commit its output under apps/web/src/api/generated without a hand edit, so that make human-check-api passes. Move the inputs of the function terms of services/agent/crates/layerx-agentd/src/main.rs into one parameter structure, without a lint allowance and without a change of behaviour, and run the lint recipe of the agent workspace. Add the two allowed references of decision 3415 to tools/paxeer-x/retired_callers.json in the form of the neighbouring entries and run python3 tools/paxeer-x/tests/retired_callers_test.py with the deleted option. Then go on with the wave commands."
 
 [task.17.5.8]
 title = "Write the wave gate manifest over the domain-16 wave scripts"
@@ -426225,7 +426267,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.19]
 title = "Store the market value of every PAX price history point in the explorer backend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.18"]

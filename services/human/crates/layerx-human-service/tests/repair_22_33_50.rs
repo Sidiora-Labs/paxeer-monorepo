@@ -27,7 +27,7 @@ use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agentd::human::{self, HumanOperationError, HumanRefusal, HumanRequest, HumanResponse};
 use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
@@ -146,12 +146,15 @@ fn authenticate_recording(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> Authe
         // The exact recorded Comet header, votes and batch inclusion establish
         // commitment even without an Ethereum landing receipt.
         for (method, params, answer) in replies {
-            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut accept_steps = 0..5_000;
             let stream = loop {
                 match listener.accept() {
                     Ok((stream, _)) => break stream,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(Instant::now() < deadline, "recorded RPC request deadline");
+                        assert!(
+                            accept_steps.next().is_some(),
+                            "recorded RPC request deadline"
+                        );
                         thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("recorded RPC accept: {error}"),
@@ -336,12 +339,15 @@ fn exchange<T: Send + 'static>(
     let listener = checked(UnixListener::bind(socket));
     checked(listener.set_nonblocking(true));
     let server = thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut accept_steps = 0..5_000;
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "control peer request deadline");
+                    assert!(
+                        accept_steps.next().is_some(),
+                        "control peer request deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("control peer accept: {error}"),

@@ -4,7 +4,7 @@ mod runtime_clock;
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_human_service::custody::{
     GatewayChainSnapshot, GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
@@ -107,12 +107,12 @@ fn serve_probe_provider(listener: TcpListener) -> std::thread::JoinHandle<()> {
                 .or_fail("provider TLS"),
         );
         for _ in 0..2 {
-            let expires = Instant::now() + Duration::from_secs(5);
+            let mut accept_steps = 0..5_000;
             let stream = loop {
                 match listener.accept() {
                     Ok((stream, _)) => break stream,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(Instant::now() < expires, "provider request deadline");
+                        assert!(accept_steps.next().is_some(), "provider request deadline");
                         std::thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("provider accept: {error}"),

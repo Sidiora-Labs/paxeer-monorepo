@@ -108,6 +108,7 @@ pub fn batch_header_signing_digest(header: &[u8]) -> Result<[u8; 32], WireError>
 mod availability;
 mod native_setup;
 mod proof;
+mod receipts;
 mod receive;
 mod security;
 mod send;
@@ -116,6 +117,7 @@ mod withdrawal;
 pub use availability::{availability_record, small_availability_record};
 pub use native_setup::{native_budget_create, native_recovery_policy};
 pub use proof::native_merkle_proof;
+pub use receipts::{activity_receipt, onboarding_receipt};
 pub use receive::{signed_receive, SignedReceiveRequest};
 pub use security::{security_batch_header, security_program_receipt};
 pub use withdrawal::withdrawal_receipt;

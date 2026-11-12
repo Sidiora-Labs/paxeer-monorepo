@@ -1,0 +1,5 @@
+[program_calls]
+rule = "program_calls lists a lowercase 32-byte hexadecimal program_id, nonempty unique entrypoints and a decimal uint128 fee_limit. Account lists replace default lists; an absent account list inherits the defaults."
+inspection = "layerxprograms.call requires zero value, a listed program and entrypoint, a feeLimit no greater than the listed fee_limit and the existing selector permission. Inspection retains programId, entrypoint and feeLimit."
+refusals = "An absent list, unlisted program, unlisted entrypoint or excessive fee limit returns selector_not_allowed. Nonzero value returns decode_error for the nonpayable call."
+stream = "layerxpay.streamMeter verifies the meter authority and updates accrued_total and cumulative_meter in the funded stream record without debiting an owner account. The inspection requires zero value and the existing selector permission."

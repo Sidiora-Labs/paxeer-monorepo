@@ -1575,10 +1575,7 @@ func rawRecord(l *types.Log) store.RawRecord {
 	return store.RawRecord{TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex()), Emitter: strings.ToLower(l.Address.Hex()), Height: int64(l.BlockNumber), TransactionIndex: uint32(l.TxIndex), LogIndex: uint32(l.Index), Topics: topics, Data: append([]byte{}, l.Data...)} //nolint:gosec // chain value uses the existing signed storage representation
 }
 func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts) (*RPCQualification, error) {
-	owned, err := clone(a.options)
-	if err != nil {
-		return nil, err
-	}
+	owned := a.options
 	changed := false
 	for _, r := range receipts {
 		for _, l := range r.Logs {
@@ -1630,6 +1627,12 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 				}
 				if len(owned.Epochs) >= 4096 {
 					return nil, ErrQualification
+				}
+				if !changed {
+					owned, err = clone(a.options)
+					if err != nil {
+						return nil, err
+					}
 				}
 				owned.Epochs = append(owned.Epochs, e)
 				changed = true

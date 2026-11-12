@@ -20,8 +20,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
-
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jackc/pgx/v5"
@@ -122,6 +120,27 @@ type CapacityClockSample struct {
 	ObservedAt                                     time.Time
 	OffsetLowerNanoseconds, OffsetUpperNanoseconds int64
 }
+type capacityClockReading struct {
+	before, database, after time.Time
+}
+
+func sampleCapacityClock(ctx context.Context, read func(context.Context) (capacityClockReading, error)) (CapacityClockSample, error) {
+	for range 3 {
+		reading, err := read(ctx)
+		if err != nil {
+			return CapacityClockSample{}, err
+		}
+		if reading.after.Sub(reading.before) <= 5*time.Millisecond {
+			return CapacityClockSample{
+				ObservedAt:             reading.after,
+				OffsetLowerNanoseconds: reading.database.Sub(reading.after).Nanoseconds(),
+				OffsetUpperNanoseconds: reading.database.Sub(reading.before).Nanoseconds(),
+			}, nil
+		}
+	}
+	return CapacityClockSample{}, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
+}
+
 type CapacityFaultObservation struct {
 	Kind, SourceID, State string
 	ObservedAt            time.Time
@@ -526,15 +545,10 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 	if err != nil {
 		return err
 	}
-	stderr, err := child.StderrPipe()
-	if err != nil {
-		return err
-	}
+	child.Stderr = io.Discard
 	if err = child.Start(); err != nil {
 		return err
 	}
-	stderrDone := make(chan error, 1)
-	go func() { _, err := io.Copy(io.Discard, stderr); stderrDone <- err }()
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
 	var lines uint64
@@ -544,14 +558,12 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 		if err = json.Unmarshal(value, &record); err != nil || record.Kind == "" {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			checked.Report(<-stderrDone)
 			return sourceError(InvalidError, "capacity-workload-capture", nil)
 		}
 		if record.Kind == "fault" {
 			if record.Fault == nil || !validSourceID(record.Fault.SourceID) || record.Fault.ObservedAt.IsZero() || (record.Fault.Kind != "throttle" && record.Fault.Kind != "truncate" && record.Fault.Kind != "endpoint_loss" && record.Fault.Kind != valueRecovery) || (record.Fault.State != "injected" && record.Fault.State != valueRestored) {
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				checked.Report(<-stderrDone)
 				return sourceError(InvalidError, "capacity-fault-capture", nil)
 			}
 			select {
@@ -559,14 +571,12 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 			case <-ctx.Done():
 				_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 				_ = child.Wait()
-				checked.Report(<-stderrDone)
 				return ctx.Err()
 			}
 		}
 		if err = capture.write("workload_provider", value); err != nil {
 			_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 			_ = child.Wait()
-			checked.Report(<-stderrDone)
 			return err
 		}
 		lines++
@@ -576,9 +586,8 @@ func capacityWorkload(ctx context.Context, command CapacityCommand, capture *cap
 		_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
 	}
 	waitErr := child.Wait()
-	stderrErr := <-stderrDone
-	if readErr != nil || waitErr != nil || stderrErr != nil {
-		return sourceError(IncompleteError, "capacity-workload", errors.Join(readErr, waitErr, stderrErr))
+	if readErr != nil || waitErr != nil {
+		return sourceError(IncompleteError, "capacity-workload", errors.Join(readErr, waitErr))
 	}
 	if lines == 0 {
 		return sourceError(IncompleteError, "capacity-workload-capture", nil)
@@ -652,19 +661,20 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 	if err = p.Pool.QueryRow(ctx, `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks WHERE chain_id=125 AND stream_id=$1`, options.StreamID).Scan(&initial, &typed); err != nil || initial < 0 || typed != initial {
 		return report, sourceError(IntegrityError, "capacity-watermark", err)
 	}
-	beforeClock := time.Now().UTC()
-	var databaseClock time.Time
-	if err = p.Pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&databaseClock); err != nil {
+	readClock := func(ctx context.Context) (capacityClockReading, error) {
+		reading := capacityClockReading{before: time.Now().UTC()}
+		err := p.Pool.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&reading.database)
+		reading.after = time.Now().UTC()
+		return reading, err
+	}
+	initialClock, err := sampleCapacityClock(ctx, readClock)
+	if err != nil {
 		return report, err
 	}
-	afterClock := time.Now().UTC()
-	if afterClock.Sub(beforeClock) > 5*time.Millisecond {
-		return report, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
-	}
-	report.DBClockOffsetLowerNanoseconds = databaseClock.Sub(afterClock).Nanoseconds()
-	report.DBClockOffsetUpperNanoseconds = databaseClock.Sub(beforeClock).Nanoseconds()
+	report.DBClockOffsetLowerNanoseconds = initialClock.OffsetLowerNanoseconds
+	report.DBClockOffsetUpperNanoseconds = initialClock.OffsetUpperNanoseconds
 	report.LatencyResolutionNanoseconds = int64(time.Microsecond)
-	report.ClockSamples = []CapacityClockSample{{afterClock, report.DBClockOffsetLowerNanoseconds, report.DBClockOffsetUpperNanoseconds}}
+	report.ClockSamples = []CapacityClockSample{initialClock}
 	initialHead, err := p.Head.Head(ctx)
 	if err != nil || initialHead != initial {
 		return report, sourceError(IntegrityError, "capacity-initial-cursor", err)
@@ -948,18 +958,12 @@ loop:
 				return report, err
 			}
 			before := p.Live.ids.Load()
-			clockBefore := time.Now().UTC()
-			var actualDatabaseTime time.Time
-			if err = p.Pool.QueryRow(run, `SELECT clock_timestamp()`).Scan(&actualDatabaseTime); err != nil {
+			clockSample, err := sampleCapacityClock(run, readClock)
+			if err != nil {
 				return report, err
 			}
-			clockAfter := time.Now().UTC()
-			if clockAfter.Sub(clockBefore) > 5*time.Millisecond {
-				return report, sourceError(TimeoutError, "capacity-clock-uncertainty", nil)
-			}
-			report.DBClockOffsetLowerNanoseconds = actualDatabaseTime.Sub(clockAfter).Nanoseconds()
-			report.DBClockOffsetUpperNanoseconds = actualDatabaseTime.Sub(clockBefore).Nanoseconds()
-			clockSample := CapacityClockSample{clockAfter, report.DBClockOffsetLowerNanoseconds, report.DBClockOffsetUpperNanoseconds}
+			report.DBClockOffsetLowerNanoseconds = clockSample.OffsetLowerNanoseconds
+			report.DBClockOffsetUpperNanoseconds = clockSample.OffsetUpperNanoseconds
 			if err = capture.write("clock_sample", clockSample); err != nil {
 				return report, err
 			}

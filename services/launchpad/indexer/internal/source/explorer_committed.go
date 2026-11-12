@@ -373,6 +373,7 @@ func (s *CommittedPaxscanSource) fetchLogs(ctx context.Context, o FetchOptions, 
 				rows.Close()
 				return empty, sourceError(OversizeError, s.Name(), nil)
 			}
+			log.BlockTimestamp = uint64(result.Blocks[log.BlockNumber].TimestampSeconds) //nolint:gosec // validated block timestamps are nonnegative
 			result.Logs = append(result.Logs, log)
 		}
 		err = rows.Err()

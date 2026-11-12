@@ -11,7 +11,8 @@ cargo metadata --manifest-path "$repo_root/services/human/Cargo.toml" \
 
 banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core'
 banned="$banned"'|layerx-human-movement-provider|layerx-paxeer-client|ctor|inventory)$'
-if jq -r '.packages[].name' "$metadata_file" | grep -Eq "$banned"; then
+package_names=$(jq -r '.packages[].name' "$metadata_file")
+if printf '%s\n' "$package_names" | grep -Eq "$banned"; then
     echo "human dependency policy: forbidden boundary or global-initialisation crate" >&2
     exit 1
 fi
@@ -70,9 +71,21 @@ LICENSE_ALTERNATIVES
 done <"$license_file"
 
 if command -v rg >/dev/null 2>&1; then
-    unsafe_hits=$(rg -n --glob '*.rs' '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' "$repo_root/services/human/crates" || true)
+    if unsafe_hits=$(rg -n --glob '*.rs' '\bunsafe\s+(fn|trait|impl|extern)|\bunsafe\s*\{' "$repo_root/services/human/crates"); then
+        unsafe_status=0
+    else
+        unsafe_status=$?
+    fi
 else
-    unsafe_hits=$(grep -rEn --include='*.rs' '\bunsafe[[:space:]]+(fn|trait|impl|extern)|\bunsafe[[:space:]]*\{' "$repo_root/services/human/crates" || true)
+    if unsafe_hits=$(grep -rEn --include='*.rs' '\bunsafe[[:space:]]+(fn|trait|impl|extern)|\bunsafe[[:space:]]*\{' "$repo_root/services/human/crates"); then
+        unsafe_status=0
+    else
+        unsafe_status=$?
+    fi
+fi
+if [ "$unsafe_status" -gt 1 ]; then
+    echo "human unsafe policy: cannot read Rust sources" >&2
+    exit "$unsafe_status"
 fi
 if [ -n "$unsafe_hits" ]; then
     printf '%s\n' "$unsafe_hits" >&2

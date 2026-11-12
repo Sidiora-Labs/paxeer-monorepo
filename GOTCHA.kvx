@@ -21455,3 +21455,48 @@ fix = "A program call is signed where the rules of the account name the program 
 title = "The unsafe rule of the programs dependency policy excepts files by name"
 symptom = "The rule of scripts/programs/dependency-policy.sh reads every Rust file under programs/crates and excepts the foreign function files of the runtime member and one host boundary file of the isolation member by their file names. The native contract file of the runtime member, the guest cell file of the market program, the host boundary directory of the isolation member and the test files that declare a foreign function or a counting allocator carry other names."
 fix = "The rule names every file of the native boundary, one line each with its reason."
+
+[gotcha.4327]
+title = "The secp256k1 crate of the programs workspace takes its big integer crate in the 0.5 line"
+symptom = "The runtime member of the programs workspace uses k256 0.13 for signature verification and key recovery, and k256 0.13 takes elliptic-curve 0.13 and with it crypto-bigint 0.5. The advisory check of the lint recipe reads programs/Cargo.lock against the advisory list, and the entries it accepts stand in programs/deny.toml with a reason each."
+fix = "The advisory settings carry one entry with its reason for the big integer crate while the runtime verifies and recovers over public inputs only."
+
+[gotcha.4328]
+title = "The payload rule of the human boundary check lets only the intents crate call the payload encoders"
+symptom = "The rule payload-encoding-entry-point of services/human/tools/boundary-check reports every file outside services/human/crates/layerx-intents that calls a payload encoding entry point. The production reads file of the service member and one of its tests build receipt payloads for fields that the intents crate offers no constructor for."
+fix = "The intents crate gains the constructors those two files need, and the files call them."
+
+[gotcha.4329]
+title = "The platform dependency inventory lists the resolved package files of the Swift samples"
+symptom = "The inventory check of scripts/workspace/check-platform-dependencies.sh compares the tracked manifests and resolved package files under services/platform with the rows of tools/workspace/platform-dependency-roots.txt. The Swift samples first-payment-swift and mobile-payment-ios each track a Package.resolved file next to their Package.swift."
+fix = "The inventory carries one row for every tracked Package.resolved file of the samples."
+
+[gotcha.4330]
+title = "The decoder burst case of the indexer module schedules its complete workload in every test stage"
+symptom = "The case of services/launchpad/indexer/internal/decode that schedules the complete five minute workload asserts that no delivery is dropped and that the latency bound holds. The race stage of the launchpad Makefile runs the same case with the race detector, under which the process runs several times slower on any machine."
+fix = "Under the race detector the case schedules a declared fraction of the rate and keeps every assertion."
+
+[gotcha.4331]
+title = "The source capacity cases of the indexer module read commit timestamps of the database"
+symptom = "The capacity measurement of services/launchpad/indexer/internal/source reads the setting track_commit_timestamp of PostgreSQL and refuses a database where it is off. Its cases run against the database of the test stage."
+fix = "The database of the test stage runs with track_commit_timestamp on, and the record of the module names the prerequisite."
+
+[gotcha.4332]
+title = "The retired reference catalogue lists the live names that share a retired word"
+symptom = "The check of tools/paxeer-x/tests/retired_callers_test.py reads the genesis key layerxcustody in tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py and the import of the receipt authority fixture module in tools/qualification/paxeer-x/inference_market_room.py. Both names belong to live code, the custody module of the node and a fixture module of the qualification tools."
+fix = "The catalogue tools/paxeer-x/retired_callers.json carries one allowed reference with its citation for each live name."
+
+[gotcha.4333]
+title = "The web client under apps/web/src/api/generated is the output of the API generator"
+symptom = "The build of the human workspace compares the committed client with a fresh run of the generator of services/human/tools/api-gen over the API schema directory, so the committed client follows every change of the schema."
+fix = "The client is regenerated with the generator target of the Makefile after a schema change and committed without a hand edit."
+
+[gotcha.4334]
+title = "The lint recipe of the agent workspace bounds a function at seven inputs"
+symptom = "The recipe counts the receiver with the inputs. A function of the agent daemon that needs more values takes them one by one only up to that bound."
+fix = "A function with more values takes one parameter structure."
+
+[gotcha.4335]
+title = "The source capacity measurement bounds the round trip of its database clock sample"
+symptom = "RunSourceCapacity of services/launchpad/indexer/internal/source/capacity.go reads the database clock between two readings of the local clock and accepts the sample only when the two local readings lie within five milliseconds. The measurement takes one sample at each of its two points."
+fix = "The measurement takes up to three samples at each point and uses the first one within the bound."
