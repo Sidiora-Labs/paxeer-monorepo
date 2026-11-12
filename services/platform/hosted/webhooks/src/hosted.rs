@@ -1147,6 +1147,9 @@ impl HostedService {
 
     /// Refreshes the caller's epoch with monotonic elapsed time at every boundary.
     /// Retry calculations remain deterministic functions of settlement time.
+    ///
+    /// # Errors
+    /// Returns an error when delivery state, configuration, or transport rejects the operation.
     pub fn dispatch(&self, now: u64, budget: u32) -> Result<HostedDispatchReport, WebhookError> {
         let started = Instant::now();
         self.dispatch_with_clock(budget, || now.saturating_add(started.elapsed().as_secs()))
@@ -1154,6 +1157,9 @@ impl HostedService {
 
     /// Dispatches with the same clock at preparation, signing and settlement.
     /// A supplied clock must return Unix seconds and advance monotonically.
+    ///
+    /// # Errors
+    /// Returns an error when delivery state, configuration, or transport rejects the operation.
     pub fn dispatch_with_clock(
         &self,
         budget: u32,
@@ -1772,6 +1778,9 @@ impl HostedService {
 
     /// Applies retention independently per principal; failed stores remain in health
     /// until a later successful retention transaction proves recovery.
+    ///
+    /// # Errors
+    /// Returns an error when delivery state, configuration, or transport rejects the operation.
     pub fn prune_all_report(&self, retain: usize) -> Result<HostedRetentionReport, WebhookError> {
         let mut report = HostedRetentionReport::default();
         for participant in self.participants_for(WorkerStage::Retention)? {
@@ -2234,6 +2243,9 @@ return 1
 ";
 
 /// Derives the bounded KMS key from a public idempotency token and its full scope.
+///
+/// # Errors
+/// Returns an error when delivery state, configuration, or transport rejects the operation.
 pub fn kms_idempotency_scope(
     operation: &str,
     principal: &Principal,
@@ -2263,6 +2275,7 @@ pub fn kms_idempotency_scope(
 }
 
 /// Applies the delivery subscription's family and minimum evidence requirements.
+#[must_use]
 pub fn subscription_accepts(
     kinds: &[EventKind],
     minimum: Verification,
@@ -2304,6 +2317,9 @@ pub mod repair_support;
 
 /// Decodes the documented environment settings through one validated retry bound.
 /// Environment readers and deterministic configuration consumers use this same path.
+///
+/// # Errors
+/// Returns an error when delivery state, configuration, or transport rejects the operation.
 pub fn configured_retry_policy(
     mut read: impl FnMut(&str, u64) -> Result<u64, String>,
 ) -> Result<RetryPolicy, String> {

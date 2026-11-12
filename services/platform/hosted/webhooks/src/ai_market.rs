@@ -67,7 +67,7 @@ pub const MAXIMUM_ADMITTED: usize = 4_096;
 /// Tenant-wide identity/row limit, independent of the number of markets.
 pub const MAXIMUM_RETAINED_IDENTITIES: usize = 8_192;
 /// Public market facts version. Stored v1 events remain byte-identical on replay;
-/// v1's checkpoint_id was a store proof digest, never a checkpoint identity.
+/// v1's `checkpoint_id` was a store proof digest, never a checkpoint identity.
 pub const MARKET_FACTS_SCHEMA: &str = "paxai.webhook-facts.v2";
 
 const MAXIMUM_ALERTS: usize = 256;
@@ -154,6 +154,9 @@ pub struct ProducerGrant(());
 
 impl ProducerGrant {
     /// The ingress caller must obtain `role` from its verified TLS peer leaf.
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn from_authenticated_role(role: IngressRole) -> Result<Self, MarketEventError> {
         if role != IngressRole::Producer {
             return Err(MarketEventError::ProducerRoleRequired);
@@ -573,6 +576,7 @@ impl MarketOutbox {
     ///
     /// # Errors
     /// Returns [`WebhookError::Io`] when the directory cannot be created.
+    #[allow(clippy::needless_pass_by_value)] // The public constructor takes ownership of its policy.
     pub fn open(
         directory: &Path,
         principal: Principal,
@@ -590,6 +594,9 @@ impl MarketOutbox {
         )
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn open_portable(
         directory: &Path,
         principal: Principal,
@@ -605,6 +612,9 @@ impl MarketOutbox {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn admit_document(
         &self,
         producer: &ProducerGrant,
@@ -671,6 +681,9 @@ impl MarketOutbox {
 
     /// Hands durable rows to hosted delivery before acknowledging them. A crash
     /// between the two commits replays the same event into hosted deduplication.
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn drain(
         &self,
         service: &crate::HostedService,
@@ -742,7 +755,7 @@ impl MarketOutbox {
     /// store failures.
     pub fn admit(
         &self,
-        _producer: &ProducerGrant,
+        producer: &ProducerGrant,
         row: &CapturedEvent,
         evidence: &Evidence<'_>,
     ) -> Result<Admission, MarketEventError> {
@@ -756,7 +769,7 @@ impl MarketOutbox {
             .transpose()
             .map_err(|_| MarketEventError::CommitRejected)?;
         self.admit_examined(
-            _producer,
+            producer,
             row,
             examine(
                 &self.policy,
@@ -821,6 +834,9 @@ impl MarketOutbox {
 
     /// Returns only durably admitted, granted and unpublished events for trusted
     /// delivery adapters; callers cannot promote an arbitrary event this way.
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn pending_trusted(
         &self,
         market_id: &[u8; 32],
@@ -1527,6 +1543,9 @@ impl MarketConsumer {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn effect(&self, subject: &SubjectId, key: &str) -> Result<Option<String>, WebhookError> {
         let state: ConsumerState = self.store.read()?;
         Ok(state
@@ -1629,6 +1648,9 @@ impl ConsumerTransaction<'_> {
     pub fn get(&self, key: &str) -> Option<&str> {
         self.effects.get(key).map(String::as_str)
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn set(&mut self, key: &str, value: String) -> Result<(), WebhookError> {
         if key.is_empty()
             || key.len() > 128
@@ -1667,6 +1689,9 @@ pub struct CaptureDocument {
     pub commit: CommitCertificate,
 }
 impl CaptureDocument {
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn from_capture(
         row: &CapturedEvent,
         evidence: &Evidence<'_>,
@@ -1750,6 +1775,9 @@ pub struct MarketHub {
     cursor_keys: CursorKeys,
 }
 impl MarketHub {
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn new(
         root: &Path,
         policy: CapturePolicy,
@@ -1763,6 +1791,9 @@ impl MarketHub {
             cursor_keys,
         })
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn from_environment() -> Result<Option<Self>, String> {
         let Some(root) = std::env::var_os("LAYERX_WEBHOOKS_MARKET_OUTBOX_DIR") else {
             return Ok(None);
@@ -1796,6 +1827,9 @@ impl MarketHub {
             self.cursor_keys.clone(),
         )
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn grant(&self, principal: &Principal, market: &[u8; 32]) -> Result<(), MarketEventError> {
         Store::open(&self.root)?.transact(|registry: &mut TenantRegistry| {
             let id = hex_encode(&digest(principal.as_str().as_bytes()));
@@ -1807,9 +1841,15 @@ impl MarketHub {
         })?;
         self.tenant(principal)?.grant(market)
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn revoke(&self, principal: &Principal, market: &[u8; 32]) -> Result<(), MarketEventError> {
         self.tenant(principal)?.revoke(market)
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn capture(
         &self,
         principal: &Principal,
@@ -1818,6 +1858,9 @@ impl MarketHub {
     ) -> Result<Admission, MarketEventError> {
         self.tenant(principal)?.admit_document(producer, document)
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn resume(
         &self,
         principal: &Principal,
@@ -1829,6 +1872,9 @@ impl MarketHub {
         self.tenant(principal)?
             .resume(principal, endpoint, market, cursor, limit)
     }
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn drain(
         &self,
         service: &crate::HostedService,
@@ -1842,6 +1888,9 @@ impl MarketHub {
     }
 
     /// Drains each tenant independently and retains failures in delivery readiness.
+    ///
+    /// # Errors
+    /// Returns an error when market admission, persistence, or delivery rejects the operation.
     pub fn drain_report(
         &self,
         service: &crate::HostedService,

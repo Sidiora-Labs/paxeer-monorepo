@@ -12,8 +12,41 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::{json, Value};
 
 fn header(document: &Value) -> CommittedHeader {
-    CommittedHeader::from_block_json(&document["committedBlock"])
-        .unwrap_or_else(|error| panic!("recorded header: {error:?}"))
+    CommittedHeader::from_block_json(&document["committedBlock"]).or_panic("recorded header")
+}
+
+fn assert_rpc_requests(
+    rpc: &support::TestRpc,
+    receipts: &[Value],
+    height: u64,
+    transactions: &[[u8; 32]],
+) {
+    let requests = rpc
+        .requests
+        .lock()
+        .unwrap_or_else(|error| panic!("requests: {error}"));
+    for peer in 0..2 {
+        let calls: Vec<_> = requests
+            .iter()
+            .filter(|(index, _)| *index == peer)
+            .map(|(_, request)| request)
+            .collect();
+        assert_eq!(calls.len(), 3 + receipts.len());
+        assert_eq!(calls[0]["method"], "eth_chainId");
+        assert_eq!(calls[0]["params"], json!([]));
+        assert_eq!(calls[1]["method"], "eth_getBlockByNumber");
+        assert_eq!(calls[1]["params"], json!(["0x0", false]));
+        assert_eq!(calls[2]["method"], "eth_getBlockByNumber");
+        assert_eq!(calls[2]["params"], json!([format!("0x{height:x}"), false]));
+        for (index, transaction) in transactions.iter().enumerate() {
+            assert_eq!(calls[index + 3]["method"], "pax_sequencerReceipt");
+            assert_eq!(
+                calls[index + 3]["params"],
+                json!([receipts[index]["txHash"]])
+            );
+            assert_eq!(support::bytes(&receipts[index]["txHash"]), *transaction);
+        }
+    }
 }
 
 #[test]
@@ -25,15 +58,12 @@ fn finding_20_root_acquisition_reaches_the_mirror_receipt_consumer() {
         let authority = endpoint
             .url
             .strip_prefix("https://")
-            .unwrap_or_else(|| panic!("authenticated HTTPS endpoint"));
+            .or_panic("authenticated HTTPS endpoint");
         assert_eq!(authority.split_once('/').map(|(_, path)| path), Some(""));
     }
-    let source = CommittedBlockSource::open(&rpc.config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::open(&rpc.config).or_panic("root source");
     let expected = header(&document);
-    let block = source
-        .acquire(expected.height)
-        .unwrap_or_else(|error| panic!("root acquisition: {error:?}"));
+    let block = source.acquire(expected.height).or_panic("root acquisition");
     assert_eq!(block.header, expected);
     let coordinate = CommittedCoordinate {
         height: block.header.height,
@@ -49,10 +79,9 @@ fn finding_20_root_acquisition_reaches_the_mirror_receipt_consumer() {
             latest_committed: Some(coordinate),
         },
     )
-    .unwrap_or_else(|error| panic!("archive producer: {error:?}"));
+    .or_panic("archive producer");
     let observation = MirrorObservation::from_archive(
-        MirrorSourceId::new("shared-native-root")
-            .unwrap_or_else(|error| panic!("source identity: {error:?}")),
+        MirrorSourceId::new("shared-native-root").or_panic("source identity"),
         MirrorTargetIdentity::Ethereum {
             chain_id: 1,
             genesis_hash: [1; 32],
@@ -71,9 +100,9 @@ fn finding_20_root_acquisition_reaches_the_mirror_receipt_consumer() {
             reference_head_hash: [6; 32],
         },
     )
-    .unwrap_or_else(|error| panic!("archive observation: {error:?}"));
-    let verifier = MirrorVerifier::admit_committed(archive.bytes(), observation)
-        .unwrap_or_else(|error| panic!("archive consumer: {error:?}"));
+    .or_panic("archive observation");
+    let verifier =
+        MirrorVerifier::admit_committed(archive.bytes(), observation).or_panic("archive consumer");
     let key = &document["receiptKey"];
     let keys = [SequencerAuthorization::new(
         support::bytes(&key["keyId"])
@@ -82,60 +111,32 @@ fn finding_20_root_acquisition_reaches_the_mirror_receipt_consumer() {
         support::bytes(&key["publicKey"])
             .try_into()
             .unwrap_or_else(|_| panic!("public key")),
-        key["firstHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("first height")),
-        key["lastHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("last height")),
+        key["firstHeight"].as_u64().or_panic("first height"),
+        key["lastHeight"].as_u64().or_panic("last height"),
     )];
     assert_eq!(verifier.committed(), Ok(coordinate));
     let receipts = document["receipts"]
         .as_array()
-        .unwrap_or_else(|| panic!("recorded receipts"));
+        .or_panic("recorded receipts");
     assert_eq!(block.receipts.len(), receipts.len());
     for (index, receipt) in receipts.iter().enumerate() {
         assert_eq!(block.receipts[index], support::bytes(&receipt["receipt"]));
-        let verified = verifier
+        let receipt_proof = verifier
             .committed_receipt(index, &keys)
-            .unwrap_or_else(|error| panic!("receipt consumer: {error:?}"));
-        assert_eq!(verified.level(), MirrorEvidenceLevel::Committed);
-        assert_eq!(verified.batch_number(), coordinate.height);
+            .or_panic("receipt consumer");
+        assert_eq!(receipt_proof.level(), MirrorEvidenceLevel::Committed);
+        assert_eq!(receipt_proof.batch_number(), coordinate.height);
         assert_eq!(
-            layerx_wire::receipt::encode(verified.value())
-                .unwrap_or_else(|error| panic!("receipt codec: {error:?}")),
+            layerx_wire::receipt::encode(receipt_proof.value()).or_panic("receipt codec"),
             block.receipts[index]
         );
     }
-    let requests = rpc
-        .requests
-        .lock()
-        .unwrap_or_else(|error| panic!("requests: {error}"));
-    for peer in 0..2 {
-        let calls: Vec<_> = requests
-            .iter()
-            .filter(|(index, _)| *index == peer)
-            .map(|(_, request)| request)
-            .collect();
-        assert_eq!(calls.len(), 3 + receipts.len());
-        assert_eq!(calls[0]["method"], "eth_chainId");
-        assert_eq!(calls[0]["params"], json!([]));
-        assert_eq!(calls[1]["method"], "eth_getBlockByNumber");
-        assert_eq!(calls[1]["params"], json!(["0x0", false]));
-        assert_eq!(calls[2]["method"], "eth_getBlockByNumber");
-        assert_eq!(
-            calls[2]["params"],
-            json!([format!("0x{:x}", coordinate.height), false])
-        );
-        for (index, transaction) in block.header.transactions.iter().enumerate() {
-            assert_eq!(calls[index + 3]["method"], "pax_sequencerReceipt");
-            assert_eq!(
-                calls[index + 3]["params"],
-                json!([receipts[index]["txHash"]])
-            );
-            assert_eq!(support::bytes(&receipts[index]["txHash"]), *transaction);
-        }
-    }
+    assert_rpc_requests(
+        &rpc,
+        receipts,
+        coordinate.height,
+        &block.header.transactions,
+    );
 }
 
 #[test]
@@ -166,8 +167,7 @@ fn finding_20_root_acquisition_preserves_receipt_authority() {
         let mut config = rpc.config.clone();
         config.receipt_keys[0].first_height = first;
         config.receipt_keys[0].last_height = last;
-        let source = CommittedBlockSource::open(&config)
-            .unwrap_or_else(|error| panic!("root source: {error:?}"));
+        let source = CommittedBlockSource::open(&config).or_panic("root source");
         assert_eq!(
             source.acquire(height),
             Err(CommittedRefusal::ReceiptSignature)
@@ -175,8 +175,7 @@ fn finding_20_root_acquisition_preserves_receipt_authority() {
     }
     let mut config = rpc.config.clone();
     config.receipt_keys[0].public_key_hex = format!("0x{}", "ff".repeat(32));
-    let source = CommittedBlockSource::open(&config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::open(&config).or_panic("root source");
     assert_eq!(
         source.acquire(height),
         Err(CommittedRefusal::ReceiptSignature)
@@ -184,19 +183,10 @@ fn finding_20_root_acquisition_preserves_receipt_authority() {
 
     let mut altered = document;
     let mut signed = support::bytes(&altered["receipts"][1]["receipt"]);
-    *signed
-        .last_mut()
-        .unwrap_or_else(|| panic!("signed receipt")) ^= 1;
-    altered["receipts"][1]["receipt"] = json!(format!(
-        "0x{}",
-        signed
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    ));
+    *signed.last_mut().or_panic("signed receipt") ^= 1;
+    altered["receipts"][1]["receipt"] = json!(format!("0x{}", hex_bytes_lower(&signed)));
     let rpc = support::TestRpc::new(vec![altered.clone(), altered]);
-    let source = CommittedBlockSource::open(&rpc.config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::open(&rpc.config).or_panic("root source");
     assert_eq!(
         source.acquire(height),
         Err(CommittedRefusal::ReceiptSignature)
@@ -230,21 +220,48 @@ fn finding_20_root_acquisition_requires_independent_backend_agreement() {
     different["committedBlock"]["timestamp"] = json!("0x1");
     let majority =
         support::TestRpc::new(vec![document.clone(), different.clone(), document.clone()]);
-    let source = CommittedBlockSource::new(&majority.config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::new(&majority.config).or_panic("root source");
     assert_eq!(
         source.acquire(height).map(|block| block.header),
         Ok(header(&document))
     );
     let divergent = support::TestRpc::new(vec![document.clone(), different]);
-    let source = CommittedBlockSource::new(&divergent.config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::new(&divergent.config).or_panic("root source");
     assert_eq!(source.acquire(height), Err(CommittedRefusal::Divergence));
 
     let mut different = document.clone();
     different["receipts"][1]["rung"] = json!("receipted");
     let divergent = support::TestRpc::new(vec![document, different]);
-    let source = CommittedBlockSource::new(&divergent.config)
-        .unwrap_or_else(|error| panic!("root source: {error:?}"));
+    let source = CommittedBlockSource::new(&divergent.config).or_panic("root source");
     assert_eq!(source.acquire(height), Err(CommittedRefusal::Divergence));
+}
+
+fn hex_bytes_lower(data: &[u8]) -> String {
+    let mut encoded = String::with_capacity(data.len() * 2);
+    for byte in data {
+        assert!(std::fmt::Write::write_fmt(&mut encoded, format_args!("{byte:02x}")).is_ok());
+    }
+    encoded
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

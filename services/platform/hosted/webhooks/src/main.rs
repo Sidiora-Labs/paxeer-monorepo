@@ -41,7 +41,7 @@ enum Role {
         identity: DeveloperIdentity,
     },
     Ingress {
-        sources: TrustedSources,
+        sources: Box<TrustedSources>,
         source_trigger: SourceTrigger,
         operator_trigger: SourceTrigger,
     },
@@ -202,7 +202,7 @@ fn config() -> Result<Config, String> {
             return Err("source and operator trigger credentials must be distinct".to_owned());
         }
         Role::Ingress {
-            sources: TrustedSources::from_environment()?,
+            sources: Box::new(TrustedSources::from_environment()?),
             source_trigger,
             operator_trigger,
         }
@@ -298,7 +298,11 @@ fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u6
         (_, ["v1", "webhooks", "endpoints"]) => endpoints(config, request, principal, at),
         (method, ["v1", "webhooks", "endpoints", endpoint, "markets", market, action]) => {
             market_route(
-                config, request, principal, endpoint, market, method, action, at,
+                config,
+                request,
+                principal,
+                (endpoint, market, method, action),
+                at,
             )
         }
         (_, ["v1", "webhooks", "endpoints", endpoint, action]) => {
@@ -338,6 +342,63 @@ fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u6
     }
 }
 
+fn internal_readiness(
+    config: &Config,
+    sources: &TrustedSources,
+    source_trigger: &SourceTrigger,
+    request: &Request,
+    peer: Option<IngressRole>,
+    kind: &str,
+) -> Reply {
+    if peer != Some(IngressRole::Producer) {
+        return Reply::refusal(403, "producer_role_required", None);
+    }
+    if !source_trigger.authorizes(request.header("authorization")) {
+        return Reply::refusal(401, "source_authentication_required", None);
+    }
+    if !request.body.is_empty() {
+        return Reply::refusal(400, "body_not_allowed", None);
+    }
+    let started = Instant::now();
+    let maximum = Duration::from_secs(5);
+    let budget = match request.header("x-layerx-admission-deadline-ms") {
+        None => maximum,
+        Some(value) => {
+            let Some(absolute) = value
+                .parse::<u64>()
+                .ok()
+                .and_then(|value| UNIX_EPOCH.checked_add(Duration::from_millis(value)))
+            else {
+                return Reply::refusal(400, "invalid_admission_deadline", None);
+            };
+            let Ok(budget) = absolute.duration_since(SystemTime::now()) else {
+                return Reply::refusal(503, "admission_deadline_exceeded", None);
+            };
+            budget.min(maximum)
+        }
+    };
+    let Some(deadline) = started
+        .checked_add(budget)
+        .filter(|deadline| Instant::now() < *deadline)
+    else {
+        return Reply::refusal(503, "admission_deadline_exceeded", None);
+    };
+    let admission =
+        EventKind::parse(kind).and_then(|kind| sources.trigger_admission(kind, deadline));
+    match admission {
+        Ok((generation, principals)) if config.service.ready_until(deadline) => encoded(
+            200,
+            &serde_json::json!({
+                "schema": "layerx.event-admission.v1", "role": "webhook-trigger",
+                "kind": kind, "ready": true, "generation": generation, "principals": principals,
+                "principal_digest": false, "fresh_for_ms": 10_000
+            }),
+        ),
+        Ok(_) => Reply::refusal(503, "delivery_state_unavailable", None),
+        Err(error) => refusal(&error),
+    }
+}
+
 fn internal_route(
     config: &Config,
     sources: &TrustedSources,
@@ -369,53 +430,7 @@ fn internal_route(
             result.map_or_else(|e| market_refusal(&e), |value| encoded(202, &value))
         }
         ("GET", ["internal", "v1", "readiness", kind]) => {
-            if peer != Some(IngressRole::Producer) {
-                return Reply::refusal(403, "producer_role_required", None);
-            }
-            if !source_trigger.authorizes(request.header("authorization")) {
-                return Reply::refusal(401, "source_authentication_required", None);
-            }
-            if !request.body.is_empty() {
-                return Reply::refusal(400, "body_not_allowed", None);
-            }
-            let started = Instant::now();
-            let maximum = Duration::from_secs(5);
-            let budget = match request.header("x-layerx-admission-deadline-ms") {
-                None => maximum,
-                Some(value) => {
-                    let Some(absolute) = value
-                        .parse::<u64>()
-                        .ok()
-                        .and_then(|value| UNIX_EPOCH.checked_add(Duration::from_millis(value)))
-                    else {
-                        return Reply::refusal(400, "invalid_admission_deadline", None);
-                    };
-                    let Ok(budget) = absolute.duration_since(SystemTime::now()) else {
-                        return Reply::refusal(503, "admission_deadline_exceeded", None);
-                    };
-                    budget.min(maximum)
-                }
-            };
-            let Some(deadline) = started
-                .checked_add(budget)
-                .filter(|deadline| Instant::now() < *deadline)
-            else {
-                return Reply::refusal(503, "admission_deadline_exceeded", None);
-            };
-            let admission =
-                EventKind::parse(kind).and_then(|kind| sources.trigger_admission(kind, deadline));
-            match admission {
-                Ok((generation, principals)) if config.service.ready_until(deadline) => encoded(
-                    200,
-                    &serde_json::json!({
-                        "schema": "layerx.event-admission.v1", "role": "webhook-trigger",
-                        "kind": kind, "ready": true, "generation": generation, "principals": principals,
-                        "principal_digest": false, "fresh_for_ms": 10_000
-                    }),
-                ),
-                Ok(_) => Reply::refusal(503, "delivery_state_unavailable", None),
-                Err(error) => refusal(&error),
-            }
+            internal_readiness(config, sources, source_trigger, request, peer, kind)
         }
         ("POST", ["internal", "v1", "events", kind, source_event]) => {
             if peer != Some(IngressRole::Producer) {
@@ -499,7 +514,7 @@ fn readiness(config: &Config) -> Reply {
 fn route(
     config: &Config,
     request: &Request,
-    peer: Option<Result<IngressRole, WebhookError>>,
+    peer: Option<&Result<IngressRole, WebhookError>>,
 ) -> Reply {
     let at = now();
     if request.method == "GET" && request.path == "/healthz" {
@@ -546,14 +561,14 @@ fn route(
                 source_trigger,
                 operator_trigger,
                 request,
-                Some(peer),
+                Some(*peer),
                 at,
             )
         }
     }
 }
 
-fn serve_health(listener: TcpListener, config: &Arc<Config>) {
+fn serve_health(listener: &TcpListener, config: &Arc<Config>) {
     for accepted in listener.incoming() {
         let Ok(mut stream) = accepted else {
             continue;
@@ -600,7 +615,7 @@ fn serve(config: Config) -> Result<(), String> {
         let health_config = Arc::clone(&config);
         thread::Builder::new()
             .name("webhook-readiness".to_owned())
-            .spawn(move || serve_health(listener, &health_config))
+            .spawn(move || serve_health(&listener, &health_config))
             .map_err(|error| format!("webhook health thread: {error}"))?;
     }
     if config.dispatch_interval.is_zero() {
@@ -677,7 +692,7 @@ fn handle(tcp: TcpStream, config: &Config) -> Result<(), String> {
                 .peer_certificates()
                 .and_then(|chain| chain.first())
                 .map(|leaf| IngressRole::from_certificate(leaf.as_ref()));
-            reply(config, &mut stream, request, peer)
+            reply(config, &mut stream, request, peer.as_ref())
         }
         Listener::Plain => {
             let mut stream = tcp;
@@ -691,7 +706,7 @@ fn reply<S: Read + Write, E>(
     config: &Config,
     stream: &mut S,
     request: Result<Request, E>,
-    peer: Option<Result<IngressRole, WebhookError>>,
+    peer: Option<&Result<IngressRole, WebhookError>>,
 ) -> Result<(), String> {
     let reply = request.map_or_else(
         |_| Reply::refusal(400, "invalid_request", None),
@@ -728,10 +743,7 @@ fn market_route(
     config: &Config,
     request: &Request,
     principal: &Principal,
-    endpoint: &str,
-    market: &str,
-    method: &str,
-    action: &str,
+    (endpoint, market, method, action): (&str, &str, &str, &str),
     at: u64,
 ) -> Reply {
     let Some(markets) = &config.markets else {

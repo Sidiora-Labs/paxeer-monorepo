@@ -14,6 +14,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+impl<T, E: std::fmt::Debug> Checked<T> for Result<T, E> {
+    fn checked(self) -> T {
+        self.unwrap_or_else(|error| panic!("{error:?}"))
+    }
+}
+impl<T> Checked<T> for Option<T> {
+    fn checked(self) -> T {
+        self.unwrap_or_else(|| panic!("expected a value"))
+    }
+}
+
 const HOUR: u64 = 3600;
 const DAY: u64 = 86_400;
 const NOW: u64 = 10 * DAY + 12 * HOUR;
@@ -28,11 +42,11 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir_all(&path).unwrap();
+        fs::create_dir_all(&path).checked();
         Self(path)
     }
     fn open(&self) -> Store {
-        Store::open(&self.0.join("state")).unwrap()
+        Store::open(&self.0.join("state")).checked()
     }
     fn outbox(&self) -> PathBuf {
         self.0.join("outbox")
@@ -40,7 +54,7 @@ impl Directory {
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).checked();
     }
 }
 fn key() -> StoreKey {
@@ -71,26 +85,26 @@ fn start(directory: &Directory, store: &mut Store, sub: &str, index: usize) {
         &token(index),
         NOW,
     )
-    .unwrap();
+    .checked();
 }
 
 // A committed loopback SMTP fixture: the production mailer drives the complete protocol.
 fn relay() -> (Smtp, thread::JoinHandle<Vec<String>>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
+    let listener = TcpListener::bind("127.0.0.1:0").checked();
+    let port = listener.local_addr().checked().port();
     let handle = thread::spawn(move || {
-        let (stream, _) = listener.accept().unwrap();
+        let (stream, _) = listener.accept().checked();
         stream
             .set_read_timeout(Some(Duration::from_secs(10)))
-            .unwrap();
-        let mut writer = stream.try_clone().unwrap();
+            .checked();
+        let mut writer = stream.try_clone().checked();
         let mut reader = BufReader::new(stream);
-        writer.write_all(b"220 fixture ESMTP\r\n").unwrap();
+        writer.write_all(b"220 fixture ESMTP\r\n").checked();
         let mut transcript = Vec::new();
         let mut data = false;
         loop {
             let mut line = String::new();
-            assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+            assert_ne!(reader.read_line(&mut line).checked(), 0);
             let line = line.trim_end_matches("\r\n").to_owned();
             let reply: &[u8] = if data {
                 if line == "." {
@@ -109,7 +123,7 @@ fn relay() -> (Smtp, thread::JoinHandle<Vec<String>>) {
             } else {
                 b"250 ok\r\n"
             };
-            writer.write_all(reply).unwrap();
+            writer.write_all(reply).checked();
             let quit = line == "QUIT";
             transcript.push(line);
             if quit {
@@ -119,7 +133,7 @@ fn relay() -> (Smtp, thread::JoinHandle<Vec<String>>) {
         transcript
     });
     (
-        Smtp::parse(&format!("smtp://127.0.0.1:{port}"), "identity@example.com").unwrap(),
+        Smtp::parse(&format!("smtp://127.0.0.1:{port}"), "identity@example.com").checked(),
         handle,
     )
 }
@@ -132,57 +146,57 @@ fn identity_outbox_durability_recovers_before_and_after_rename() {
         let mut store = directory.open();
         start(&directory, &mut store, "outbox-user", 1);
         let digest = signup::sha256_hex(token(1).as_bytes());
-        let (_, delivery) = store.signup_deliveries().pop().unwrap();
-        fs::remove_file(directory.outbox().join(format!("{digest}.json"))).unwrap();
-        let staged = verification::stage(&directory.outbox(), &digest, &delivery, &key()).unwrap();
+        let (_, delivery) = store.signup_deliveries().pop().checked();
+        fs::remove_file(directory.outbox().join(format!("{digest}.json"))).checked();
+        let staged = verification::stage(&directory.outbox(), &digest, &delivery, &key()).checked();
         if after_rename {
-            staged.publish().unwrap();
+            staged.publish().checked();
             // The namespace entry is what can disappear after an interrupted publication.
-            fs::remove_file(directory.outbox().join(format!("{digest}.json"))).unwrap();
+            fs::remove_file(directory.outbox().join(format!("{digest}.json"))).checked();
         } else {
             drop(staged);
             assert!(directory.outbox().join(format!("{digest}.tmp")).exists());
         }
         drop(store);
         let mut store = directory.open();
-        verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 1).unwrap();
+        verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 1).checked();
         assert!(store.pending_signup(&digest).is_some());
         assert!(directory.outbox().join(format!("{digest}.json")).exists());
         let (smtp, transcript) = relay();
         assert_eq!(
             smtp.drain_confirmed(&directory.outbox(), |digest| store
                 .delivery_accepted(digest))
-                .unwrap(),
+                .checked(),
             1
         );
-        let transcript = transcript.join().unwrap();
+        let transcript = transcript.join().checked();
         assert!(transcript
             .iter()
             .any(|line| line == "RCPT TO:<user1@example.com>"));
         let received = transcript
             .iter()
             .find_map(|line| line.strip_prefix("Your verification code is "))
-            .unwrap();
+            .checked();
         assert_eq!(received, token(1));
         let response =
             verification::complete(&mut store, &key(), received, "outbox-user", HOUR, NOW + 2)
-                .unwrap();
+                .checked();
         assert_eq!(response["sub"], "outbox-user");
         assert!(store.signup_deliveries().is_empty());
         drop(store);
         let mut store = directory.open();
-        verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 3).unwrap();
-        assert_eq!(fs::read_dir(directory.outbox()).unwrap().count(), 0);
-        let snapshot = fs::read_to_string(directory.0.join("state/snapshot.json")).unwrap();
+        verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 3).checked();
+        assert_eq!(fs::read_dir(directory.outbox()).checked().count(), 0);
+        let snapshot = fs::read_to_string(directory.0.join("state/snapshot.json")).checked();
         assert!(!snapshot.contains(&token(1)));
-        assert!(!snapshot.contains(response["token"].as_str().unwrap()));
+        assert!(!snapshot.contains(response["token"].as_str().checked()));
     }
 }
 
 #[test]
 fn identity_outbox_failed_publication_is_retried_after_reopen() {
     let directory = Directory::new();
-    fs::write(directory.outbox(), b"publication unavailable").unwrap();
+    fs::write(directory.outbox(), b"publication unavailable").checked();
     let mut store = directory.open();
     assert_eq!(
         verification::start(
@@ -199,33 +213,33 @@ fn identity_outbox_failed_publication_is_retried_after_reopen() {
     let digest = signup::sha256_hex(token(2).as_bytes());
     assert!(store.pending_signup(&digest).is_some());
     drop(store);
-    fs::remove_file(directory.outbox()).unwrap();
+    fs::remove_file(directory.outbox()).checked();
     let mut store = directory.open();
-    verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 1).unwrap();
+    verification::reconcile(&mut store, &key(), &directory.outbox(), NOW + 1).checked();
     let document: Value = serde_json::from_slice(
-        &fs::read(directory.outbox().join(format!("{digest}.json"))).unwrap(),
+        &fs::read(directory.outbox().join(format!("{digest}.json"))).checked(),
     )
-    .unwrap();
+    .checked();
     assert_eq!(document["token"], token(2));
     assert_eq!(document["email"], "retry@example.com");
 }
 
 fn assert_session_result(store: &Store, response: &Value) {
-    let id = response["session_id"].as_str().unwrap();
-    let session = store.session(id).unwrap();
-    assert_eq!(session.principal, response["sub"].as_str().unwrap());
-    let bearer = response["token"].as_str().unwrap();
+    let id = response["session_id"].as_str().checked();
+    let session = store.session(id).checked();
+    assert_eq!(session.principal, response["sub"].as_str().checked());
+    let bearer = response["token"].as_str().checked();
     let (session_id, secret) = bearer
         .strip_prefix("ses_")
-        .unwrap()
+        .checked()
         .split_once('.')
-        .unwrap();
+        .checked();
     assert_eq!(session_id, id);
     assert_eq!(session.token_digest, signup::sha256_hex(secret.as_bytes()));
-    let csrf = response["csrf_token"].as_str().unwrap();
+    let csrf = response["csrf_token"].as_str().checked();
     assert_eq!(session.csrf_digest, signup::sha256_hex(csrf.as_bytes()));
     assert_eq!(
-        key().open(&session.csrf_sealed).unwrap().as_slice(),
+        key().open(&session.csrf_sealed).checked().as_slice(),
         csrf.as_bytes()
     );
 }
@@ -237,7 +251,7 @@ fn identity_verify_session_retry_is_atomic_and_recovers_lost_response() {
     start(&directory, &mut store, "session-user", 3);
     let digest = signup::sha256_hex(token(3).as_bytes());
     // An unavailable journal cannot consume verification or create half a session transaction.
-    fs::rename(directory.0.join("state"), directory.0.join("disconnected")).unwrap();
+    fs::rename(directory.0.join("state"), directory.0.join("disconnected")).checked();
     assert_eq!(
         verification::complete(&mut store, &key(), &token(3), "session-user", HOUR, NOW + 1),
         Err(Refused::Store)
@@ -245,43 +259,43 @@ fn identity_verify_session_retry_is_atomic_and_recovers_lost_response() {
     assert!(store.pending_signup(&digest).is_some());
     assert!(store.principal("beta", "session-user").is_none());
     drop(store);
-    fs::rename(directory.0.join("disconnected"), directory.0.join("state")).unwrap();
+    fs::rename(directory.0.join("disconnected"), directory.0.join("state")).checked();
     let mut store = directory.open();
-    let before = fs::read(directory.0.join("state/snapshot.json")).unwrap();
+    let before = fs::read(directory.0.join("state/snapshot.json")).checked();
     let response =
         verification::complete(&mut store, &key(), &token(3), "session-user", HOUR, NOW + 2)
-            .unwrap();
+            .checked();
     assert_session_result(&store, &response);
-    let journal = fs::read(directory.0.join("state/journal.log")).unwrap();
-    assert_eq!(journal.iter().filter(|byte| **byte == b'\n').count(), 1);
+    let journal = fs::read(directory.0.join("state/journal.log")).checked();
+    assert_eq!(journal.split(|byte| *byte == b'\n').count() - 1, 1);
     drop(store);
     // A storage crash in the middle of this one record exposes neither verification nor session.
     fs::write(
         directory.0.join("state/journal.log"),
         &journal[..journal.len() / 2],
     )
-    .unwrap();
+    .checked();
     let store = directory.open();
     assert!(store.pending_signup(&digest).is_some());
     assert!(store.principal("beta", "session-user").is_none());
     assert!(store
-        .session(response["session_id"].as_str().unwrap())
+        .session(response["session_id"].as_str().checked())
         .is_none());
     drop(store);
     // Replay the fully durable transaction with its original snapshot: response was never received.
-    fs::write(directory.0.join("state/snapshot.json"), before).unwrap();
-    fs::write(directory.0.join("state/journal.log"), journal).unwrap();
+    fs::write(directory.0.join("state/snapshot.json"), before).checked();
+    fs::write(directory.0.join("state/journal.log"), journal).checked();
     let mut store = directory.open();
     for _ in 0..8 {
         let retried =
             verification::complete(&mut store, &key(), &token(3), "session-user", HOUR, NOW + 3)
-                .unwrap();
+                .checked();
         assert_eq!(retried, response);
         assert_session_result(&store, &retried);
     }
     assert_eq!(store.signup_state_sizes().5, 1);
     assert!(fs::read(directory.0.join("state/journal.log"))
-        .unwrap()
+        .checked()
         .is_empty());
     assert_eq!(
         verification::complete(&mut store, &key(), &token(3), "other-user", HOUR, NOW + 3),
@@ -291,12 +305,12 @@ fn identity_verify_session_retry_is_atomic_and_recovers_lost_response() {
     let mut store = directory.open();
     assert_eq!(
         verification::complete(&mut store, &key(), &token(3), "session-user", HOUR, NOW + 4)
-            .unwrap(),
+            .checked(),
         response
     );
     store
-        .revoke_session(response["session_id"].as_str().unwrap(), NOW + 5)
-        .unwrap();
+        .revoke_session(response["session_id"].as_str().checked(), NOW + 5)
+        .checked();
     assert_eq!(
         verification::complete(&mut store, &key(), &token(3), "session-user", HOUR, NOW + 6),
         Err(Refused::TokenExpired)
@@ -320,7 +334,7 @@ fn identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity() {
         &token(4),
         NOW,
     )
-    .unwrap();
+    .checked();
     for index in 0..MAX_TRACKED_KEYS + 17 {
         assert_eq!(
             desk.start(
@@ -352,7 +366,7 @@ fn identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity() {
         &token(6),
         NOW + HOUR,
     )
-    .unwrap();
+    .checked();
     assert_eq!(
         desk.start(
             &mut store,
@@ -373,7 +387,7 @@ fn identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity() {
                     1,
                     u32::MAX
                 )
-                .unwrap(),
+                .checked(),
             Ok(())
         );
     }
@@ -381,7 +395,7 @@ fn identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity() {
     assert_eq!(
         store
             .admit_signup_hour("overflow", "shared", NOW + HOUR, 1, u32::MAX)
-            .unwrap(),
+            .checked(),
         Err(HourlyRefusal::Capacity)
     );
     drop(store);
@@ -390,13 +404,13 @@ fn identity_hourly_key_bound_refuses_distinct_ip_flood_and_capacity() {
     assert_eq!(
         store
             .admit_signup_hour("overflow", "shared", NOW + HOUR + 1, 1, u32::MAX)
-            .unwrap(),
+            .checked(),
         Err(HourlyRefusal::Capacity)
     );
     assert_eq!(
         store
             .admit_signup_hour("overflow", "shared", NOW + 2 * HOUR, 1, u32::MAX)
-            .unwrap(),
+            .checked(),
         Ok(())
     );
     assert_eq!(store.signup_state_sizes().2, 1);
@@ -419,7 +433,7 @@ fn identity_rate_window_restart_preserves_ip_and_email_refusals_until_expiry() {
         &token(8),
         NOW + 10,
     )
-    .unwrap();
+    .checked();
     for reopen in [false, true] {
         if reopen {
             drop(store);
@@ -460,7 +474,7 @@ fn identity_rate_window_restart_preserves_ip_and_email_refusals_until_expiry() {
         &token(12),
         NOW + HOUR,
     )
-    .unwrap();
+    .checked();
     assert_eq!(store.signups_on_day(NOW / DAY), 2);
 }
 
@@ -469,8 +483,8 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
     let directory = Directory::new();
     let mut store = directory.open();
     start(&directory, &mut store, "verified", 13);
-    verification::complete(&mut store, &key(), &token(13), "verified", HOUR, NOW + 1).unwrap();
-    let verified = store.principal("beta", "verified").unwrap().clone();
+    verification::complete(&mut store, &key(), &token(13), "verified", HOUR, NOW + 1).checked();
+    let verified = store.principal("beta", "verified").checked().clone();
     let limits = Limits {
         per_ip_per_hour: 100,
         per_email_per_hour: 100,
@@ -481,7 +495,7 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
     for day in 1..48 {
         let now = NOW + day * DAY;
         for index in 0..8 {
-            let n = (day * 10 + index) as usize + 100;
+            let n = usize::try_from(day * 10 + index).checked() + 100;
             verification::start(
                 &mut desk,
                 &mut store,
@@ -495,7 +509,7 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
                 &token(n),
                 now,
             )
-            .unwrap();
+            .checked();
         }
         assert_eq!(store.signup_state_sizes().0, 8);
         assert_eq!(store.signup_state_sizes().1, 1);
@@ -503,20 +517,20 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
             verification::complete(
                 &mut store,
                 &key(),
-                &token((day * 10) as usize + 100),
+                &token(usize::try_from(day * 10).checked() + 100),
                 &format!("abandoned{}", day * 10 + 100),
                 HOUR,
                 now + 10
             ),
             Err(Refused::TokenExpired)
         );
-        verification::reconcile(&mut store, &key(), &directory.outbox(), now + 10).unwrap();
+        verification::reconcile(&mut store, &key(), &directory.outbox(), now + 10).checked();
         assert_eq!(store.signup_state_sizes().0, 0);
         assert_eq!(store.signup_state_sizes().4, 0);
         assert_eq!(store.signup_state_sizes().5, 0);
         assert_eq!(
             fs::metadata(directory.0.join("state/journal.log"))
-                .unwrap()
+                .checked()
                 .len(),
             0
         );
@@ -530,7 +544,7 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
             verification::complete(
                 &mut store,
                 &key(),
-                &token((day * 10) as usize + 100),
+                &token(usize::try_from(day * 10).checked() + 100),
                 &format!("abandoned{}", day * 10 + 100),
                 HOUR,
                 now + 11
@@ -539,7 +553,7 @@ fn identity_expired_signup_growth_reclaims_live_state_and_preserves_bindings() {
         );
     }
     assert!(fs::read_to_string(directory.0.join("state/audit.log"))
-        .unwrap()
+        .checked()
         .contains("signup_verified"));
 }
 
@@ -559,9 +573,9 @@ fn identity_signup_subject_replacement_is_refused_and_explicit_rotation_survives
             &signup::sha256_hex(token(15).as_bytes()),
             NOW,
         )
-        .unwrap();
-    verification::complete(&mut store, &key(), &token(14), "existing", HOUR, NOW + 1).unwrap();
-    let original = store.principal("beta", "existing").unwrap().clone();
+        .checked();
+    verification::complete(&mut store, &key(), &token(14), "existing", HOUR, NOW + 1).checked();
+    let original = store.principal("beta", "existing").checked().clone();
     let second_digest = signup::sha256_hex(token(15).as_bytes());
     assert_eq!(
         verification::complete(&mut store, &key(), &token(15), "existing", HOUR, NOW + 2),
@@ -595,7 +609,7 @@ fn identity_signup_subject_replacement_is_refused_and_explicit_rotation_survives
         audiences: vec!["ramp".to_owned()],
         ..original
     };
-    store.put_principal(rotated.clone()).unwrap();
+    store.put_principal(rotated.clone()).checked();
     drop(store);
     let store = directory.open();
     assert_eq!(store.principal("beta", "existing"), Some(&rotated));
@@ -605,7 +619,12 @@ fn identity_signup_subject_replacement_is_refused_and_explicit_rotation_survives
     );
 }
 
+#[allow(
+    dead_code,
+    reason = "The binary entrypoint retains its published command signature."
+)]
 mod http_fixture {
+    use super::Checked;
     include!("../src/main.rs");
 
     pub struct Identity(Shared);
@@ -615,13 +634,13 @@ mod http_fixture {
                 rustls::crypto::ring::default_provider(),
             ))
             .with_safe_default_protocol_versions()
-            .unwrap()
+            .checked()
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
             Self(Shared {
                 config: Config {
-                    listen: "127.0.0.1:0".parse().unwrap(),
-                    health: "127.0.0.1:0".parse().unwrap(),
+                    listen: "127.0.0.1:0".parse().checked(),
+                    health: "127.0.0.1:0".parse().checked(),
                     tls: Arc::new(tls),
                     state_dir: root.join("state"),
                     store_key: super::key(),
@@ -641,7 +660,7 @@ mod http_fixture {
                     outbox_dir: root.join("outbox"),
                     smtp: None,
                 },
-                store: Mutex::new(Store::open(&root.join("state")).unwrap()),
+                store: Mutex::new(Store::open(&root.join("state")).checked()),
                 desk: Mutex::new(Desk::new(Limits::default(), Vec::new())),
             })
         }
@@ -650,18 +669,23 @@ mod http_fixture {
             &self,
             path: &str,
             credential: &str,
-            body: serde_json::Value,
+            body: &serde_json::Value,
         ) -> (u16, serde_json::Value) {
             let body = body.to_string();
             let wire = format!("POST {path} HTTP/1.1\r\nHost: identity\r\nAuthorization: Bearer {credential}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}", body.len());
-            let request = parse_client_request(&mut wire.as_bytes()).unwrap();
+            let request = parse_client_request(&mut wire.as_bytes()).checked();
             let response = route(&self.0, &request);
             let mut encoded = Vec::new();
-            write_response(&mut encoded, &response).unwrap();
-            let encoded = String::from_utf8(encoded).unwrap();
-            let (headers, body) = encoded.split_once("\r\n\r\n").unwrap();
-            let status = headers.split_whitespace().nth(1).unwrap().parse().unwrap();
-            (status, serde_json::from_str(body).unwrap())
+            write_response(&mut encoded, &response).checked();
+            let encoded = String::from_utf8(encoded).checked();
+            let (headers, body) = encoded.split_once("\r\n\r\n").checked();
+            let status = headers
+                .split_whitespace()
+                .nth(1)
+                .checked()
+                .parse()
+                .checked();
+            (status, serde_json::from_str(body).checked())
         }
     }
 }
@@ -673,36 +697,29 @@ fn identity_http_signup_retry_and_authenticated_rotation_use_the_real_codec_and_
     let signup = json!({"email":"http@example.com", "client_ip":"127.0.0.1", "tenant":"beta", "sub":"http-user", "signer_public_key":SIGNER});
     assert_eq!(
         identity
-            .post("/v1/signup", "fixture-provisioning-token", signup.clone())
+            .post("/v1/signup", "fixture-provisioning-token", &signup)
             .0,
         200
     );
     let queued = fs::read_dir(directory.outbox())
-        .unwrap()
+        .checked()
         .next()
-        .unwrap()
-        .unwrap()
+        .checked()
+        .checked()
         .path();
-    let message: Value = serde_json::from_slice(&fs::read(queued).unwrap()).unwrap();
+    let message: Value = serde_json::from_slice(&fs::read(queued).checked()).checked();
     let verify = json!({"sub":"http-user", "token":message["token"]});
-    let (status, response) = identity.post(
-        "/v1/signup/verify",
-        "fixture-provisioning-token",
-        verify.clone(),
-    );
+    let (status, response) =
+        identity.post("/v1/signup/verify", "fixture-provisioning-token", &verify);
     assert_eq!(status, 200);
     drop(identity);
     let identity = http_fixture::Identity::open(&directory.0);
     assert_eq!(
-        identity.post("/v1/signup/verify", "fixture-provisioning-token", verify),
+        identity.post("/v1/signup/verify", "fixture-provisioning-token", &verify),
         (200, response.clone())
     );
     let introspect = json!({"token":response["token"]});
-    let (status, active) = identity.post(
-        "/v1/introspect",
-        "fixture-gateway-token",
-        introspect.clone(),
-    );
+    let (status, active) = identity.post("/v1/introspect", "fixture-gateway-token", &introspect);
     assert_eq!(status, 200);
     assert_eq!(active["active"], true);
     assert_eq!(active["allowed_signer_public_keys"], json!([SIGNER]));
@@ -710,31 +727,31 @@ fn identity_http_signup_retry_and_authenticated_rotation_use_the_real_codec_and_
     let mut replacement = signup;
     replacement["email"] = json!("replacement@example.com");
     replacement["signer_public_key"] = json!(rotated_key);
-    let (status, refused) = identity.post("/v1/signup", "fixture-provisioning-token", replacement);
+    let (status, refused) = identity.post("/v1/signup", "fixture-provisioning-token", &replacement);
     assert_eq!(status, 409);
     assert_eq!(refused["error"]["code"], "subject_already_exists");
     let rotation = json!({"tenant":"beta", "sub":"http-user", "allowed_signer_public_keys":[rotated_key], "account":"agent:http-user:main", "audiences":["ramp"]});
     assert_eq!(
         identity
-            .post("/v1/principals", "invalid-token", rotation.clone())
+            .post("/v1/principals", "invalid-token", &rotation)
             .0,
         401
     );
     assert_eq!(
         identity
-            .post("/v1/principals", "fixture-gateway-token", rotation.clone())
+            .post("/v1/principals", "fixture-gateway-token", &rotation)
             .0,
         403
     );
     assert_eq!(
         identity
-            .post("/v1/principals", "fixture-provisioning-token", rotation)
+            .post("/v1/principals", "fixture-provisioning-token", &rotation)
             .0,
         200
     );
     drop(identity);
     let identity = http_fixture::Identity::open(&directory.0);
-    let (status, active) = identity.post("/v1/introspect", "fixture-gateway-token", introspect);
+    let (status, active) = identity.post("/v1/introspect", "fixture-gateway-token", &introspect);
     assert_eq!(status, 200);
     assert_eq!(active["active"], true);
     assert_eq!(active["allowed_signer_public_keys"], json!([rotated_key]));

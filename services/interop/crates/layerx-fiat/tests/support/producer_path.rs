@@ -28,47 +28,81 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 const JOURNEYS: &str = include_str!("../../../../specs/conformance/fiat/sequenced-journeys.json");
 
 fn bytes(value: &Value) -> Vec<u8> {
-    let text = value.as_str().unwrap().strip_prefix("0x").unwrap();
+    let text = value
+        .as_str()
+        .unwrap_or_else(|| panic!("expected Some value"))
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("expected Some value"));
     assert!(text.is_ascii());
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|offset| u8::from_str_radix(&text[offset..offset + 2], 16).unwrap())
+        .map(|offset| {
+            u8::from_str_radix(&text[offset..offset + 2], 16)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        })
         .collect()
 }
 
 fn array<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().unwrap()
+    bytes(value)
+        .try_into()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
 }
 
 fn journeys() -> Vec<Value> {
-    serde_json::from_str(JOURNEYS).unwrap()
+    serde_json::from_str(JOURNEYS).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
 }
 
 fn facts(journey: &Value) -> VerifiedProviderFacts {
-    authenticate_provider(journey).unwrap();
+    authenticate_provider(journey).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let facts = &journey["provider_facts"];
     assert_eq!(facts["class"], "settled");
     VerifiedProviderFacts {
-        provider: ExternalId::new(facts["provider"].as_str().unwrap()).unwrap(),
-        settlement: ExternalId::new(facts["settlement"].as_str().unwrap()).unwrap(),
-        rail: match facts["rail"].as_str().unwrap() {
+        provider: ExternalId::new(
+            facts["provider"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        settlement: ExternalId::new(
+            facts["settlement"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        rail: match facts["rail"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value"))
+        {
             "card" => FiatRail::Card,
             "bank" => FiatRail::Bank,
             "rtp" => FiatRail::RealTimePayment,
             other => panic!("unsupported recorded rail {other}"),
         },
         class: EvidenceClass::Settled,
-        amount: facts["amount"].as_str().unwrap().parse().unwrap(),
+        amount: facts["amount"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .parse()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         asset: array(&facts["asset"]),
         destination: array(&facts["destination"]),
-        observed_at: facts["observed_at"].as_u64().unwrap(),
+        observed_at: facts["observed_at"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("expected Some value")),
         hold_until: None,
     }
 }
 
 fn authenticate_provider(journey: &Value) -> TestResult {
-    let token = TokenReference::new(journey["token"].as_str().unwrap().as_bytes().to_vec())?;
+    let token = TokenReference::new(
+        journey["token"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .as_bytes()
+            .to_vec(),
+    )?;
     let payload = serde_json::to_vec(&journey["provider_facts"])?;
     let evidence = ProviderEvidence::new(payload)?;
     let public = VerifyingKey::from_bytes(&array(&journey["provider_public_key"]))?;
@@ -86,6 +120,7 @@ fn authenticate_provider(journey: &Value) -> TestResult {
     Ok(())
 }
 
+#[test]
 pub fn provider_recordings_authenticate() -> TestResult {
     let recordings = journeys();
     assert_eq!(recordings.len(), 5);
@@ -107,6 +142,7 @@ pub fn provider_recordings_authenticate() -> TestResult {
     Ok(())
 }
 
+#[test]
 pub fn fiat_payment_call_carries_provider_reference() -> TestResult {
     let mut references = std::collections::BTreeSet::new();
     for journey in journeys()
@@ -160,14 +196,14 @@ fn evidence(case: &Value) -> SequencerEvidence {
         signed_receipt: bytes(&case["signedReceipt"]),
         logs: case["receiptJson"]["logs"]
             .as_array()
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .iter()
             .map(|log| {
                 SequencerLog::new(
                     array(&log["address"]),
                     log["topics"]
                         .as_array()
-                        .unwrap()
+                        .unwrap_or_else(|| panic!("expected Some value"))
                         .iter()
                         .map(array)
                         .collect(),
@@ -175,12 +211,12 @@ fn evidence(case: &Value) -> SequencerEvidence {
                     u64::from_str_radix(
                         log["logIndex"]
                             .as_str()
-                            .unwrap()
+                            .unwrap_or_else(|| panic!("expected Some value"))
                             .strip_prefix("0x")
-                            .unwrap(),
+                            .unwrap_or_else(|| panic!("expected Some value")),
                         16,
                     )
-                    .unwrap(),
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
                 )
             })
             .collect(),
@@ -193,8 +229,12 @@ fn keys(case: &Value) -> [SequencerAuthorization; 1] {
     [SequencerAuthorization::new(
         array(&pin["keyId"]),
         array(&pin["publicKey"]),
-        pin["firstHeight"].as_u64().unwrap(),
-        pin["lastHeight"].as_u64().unwrap(),
+        pin["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("expected Some value")),
+        pin["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("expected Some value")),
     )]
 }
 
@@ -207,7 +247,10 @@ fn authenticate(case: &Value, evidence: &SequencerEvidence) -> TestResult {
     let receipt = verify_sequencer_signature(&evidence.signed_receipt, &keys(case))
         .map_err(|error| format!("producer signature: {error:?}"))?;
     assert_eq!(
-        receipt.protocol().unwrap().activity_id(),
+        receipt
+            .protocol()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .activity_id(),
         evidence.transaction_hash
     );
     verify_logs(&receipt, evidence.logs.clone())
@@ -220,33 +263,45 @@ fn authenticate(case: &Value, evidence: &SequencerEvidence) -> TestResult {
 }
 
 fn reserve(facts: &VerifiedProviderFacts) -> (GatewayCore, PrincipalId, TraceId) {
-    let principal = PrincipalId::new("fiat-producer-path").unwrap();
+    let principal = PrincipalId::new("fiat-producer-path")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let trace = TraceId::mint([0x33; 16]);
     let mut gateway = GatewayCore::new();
-    let adapter = AdapterId::new("fiat").unwrap();
+    let adapter =
+        AdapterId::new("fiat").unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let digest: [u8; 32] = Sha256::digest(JOURNEYS.as_bytes()).into();
     let spec = PinnedSpec::new(
         adapter.clone(),
-        SpecVersion::parse("1.0.0").unwrap(),
+        SpecVersion::parse("1.0.0").unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         digest,
     )
-    .unwrap();
-    let suite =
-        ConformanceSuite::new(AdapterId::new("fiat-producer-path").unwrap(), 5, digest).unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let suite = ConformanceSuite::new(
+        AdapterId::new("fiat-producer-path")
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        5,
+        digest,
+    )
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     gateway
-        .register_adapter(fiat_adapter_descriptor(spec, suite).unwrap(), &trace, 10)
-        .unwrap();
+        .register_adapter(
+            fiat_adapter_descriptor(spec, suite)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            &trace,
+            10,
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let request = TranslationRequest::new(
         adapter,
         TranslationKind::StateChanging,
         FiatAdapter::idempotency_key(facts),
         digest,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
         gateway
             .begin_translation(&principal, &request, &trace, 11)
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         TranslationStatus::Pending
     );
     (gateway, principal, trace)
@@ -261,8 +316,14 @@ impl ProviderVerifier for SignedProvider<'_> {
         evidence: &ProviderEvidence,
         _: &TraceId,
     ) -> Result<VerifiedProviderFacts, FiatError> {
-        if token.as_bytes() != self.0["token"].as_str().unwrap().as_bytes()
-            || evidence.canonical() != serde_json::to_vec(&self.0["provider_facts"]).unwrap()
+        if token.as_bytes()
+            != self.0["token"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value"))
+                .as_bytes()
+            || evidence.canonical()
+                != serde_json::to_vec(&self.0["provider_facts"])
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             || authenticate_provider(self.0).is_err()
         {
             return Err(FiatError::InvalidEvidence);
@@ -292,20 +353,19 @@ impl FiatPlane for NodePlane<'_> {
         &self.keys
     }
     fn execute(&mut self, intent: FiatIntent, _: &TraceId) -> Result<FiatPlaneResult, FiatError> {
-        let hash = match self.hash {
-            Some(hash) => hash,
-            None => {
-                let hash = self
-                    .node
-                    .submit(&intent)
-                    .map_err(|_| FiatError::ReceiptRequired)?;
-                self.hash = Some(hash);
-                hash
-            }
+        let hash = if let Some(hash) = self.hash {
+            hash
+        } else {
+            let hash = self
+                .node
+                .submit(&intent)
+                .map_err(|_| FiatError::ReceiptRequired)?;
+            self.hash = Some(hash);
+            hash
         };
         let case = self
             .node
-            .rpc("pax_sequencerReceipt", json!([payment_node::hex(&hash)]))
+            .rpc("pax_sequencerReceipt", &json!([payment_node::hex(&hash)]))
             .map_err(|_| FiatError::ReceiptRequired)?;
         let evidence = if case.is_null() {
             SequencerEvidence {
@@ -330,8 +390,11 @@ impl FiatPlane for NodePlane<'_> {
 
 fn intent(journey: &Value) -> FiatIntent {
     let facts = facts(journey);
-    let provider =
-        ProviderEvidence::new(serde_json::to_vec(&journey["provider_facts"]).unwrap()).unwrap();
+    let provider = ProviderEvidence::new(
+        serde_json::to_vec(&journey["provider_facts"])
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     FiatIntent {
         kind: FiatIntentKind::Credit,
         provider: facts.provider.clone(),
@@ -348,7 +411,7 @@ pub fn produced_case(journey: &Value) -> Result<Value, Box<dyn std::error::Error
     let node = PaymentNode::start()?;
     let hash = node.submit(&intent(journey))?;
     assert!(node
-        .rpc("pax_sequencerReceipt", json!([payment_node::hex(&hash)]))?
+        .rpc("pax_sequencerReceipt", &json!([payment_node::hex(&hash)]))?
         .is_null());
     let transcript = node.transcript();
     for offset in [
@@ -360,7 +423,7 @@ pub fn produced_case(journey: &Value) -> Result<Value, Box<dyn std::error::Error
         assert!(
             node.rpc(
                 "fixture_submitPayment",
-                json!([payment_node::hex(&changed)])
+                &json!([payment_node::hex(&changed)])
             )?
             .is_null(),
             "a mutated call or signature is not producer input"
@@ -370,9 +433,12 @@ pub fn produced_case(journey: &Value) -> Result<Value, Box<dyn std::error::Error
     }
     node.ready();
     assert!(node
-        .rpc("pax_sequencerReceipt", json!([payment_node::hex(&[0; 32])]))?
+        .rpc(
+            "pax_sequencerReceipt",
+            &json!([payment_node::hex(&[0; 32])])
+        )?
         .is_null());
-    let case = node.rpc("pax_sequencerReceipt", json!([payment_node::hex(&hash)]))?;
+    let case = node.rpc("pax_sequencerReceipt", &json!([payment_node::hex(&hash)]))?;
     assert_eq!(case, node.transcript());
     assert_eq!(node.submissions(), 1);
     authenticate(&case, &evidence(&case))?;
@@ -387,7 +453,13 @@ fn apply(
     trace: &TraceId,
     now: u64,
 ) -> Result<FiatJourneyState, Box<dyn std::error::Error>> {
-    let token = TokenReference::new(journey["token"].as_str().unwrap().as_bytes().to_vec())?;
+    let token = TokenReference::new(
+        journey["token"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .as_bytes()
+            .to_vec(),
+    )?;
     let provider = ProviderEvidence::new(serde_json::to_vec(&journey["provider_facts"])?)?;
     Ok(FiatAdapter::apply(
         gateway,
@@ -406,10 +478,14 @@ fn gateway(journey: &Value) -> (GatewayCore, PrincipalId, TraceId) {
     let (reserved, principal, trace) = reserve(&facts(journey));
     let mut gateway = GatewayCore::new();
     let adapter = reserved
-        .adapter(&AdapterId::new("fiat").unwrap())
-        .unwrap()
+        .adapter(
+            &AdapterId::new("fiat").unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        )
+        .unwrap_or_else(|| panic!("expected Some value"))
         .clone();
-    gateway.register_adapter(adapter, &trace, 10).unwrap();
+    gateway
+        .register_adapter(adapter, &trace, 10)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     (gateway, principal, trace)
 }
 
@@ -417,7 +493,7 @@ fn completed_once(gateway: &GatewayCore, principal: &PrincipalId) {
     assert_eq!(
         gateway
             .principal_audit(principal)
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .entries()
             .iter()
             .filter(|entry| entry.kind() == AuditEventKind::TranslationCompleted)
@@ -426,11 +502,12 @@ fn completed_once(gateway: &GatewayCore, principal: &PrincipalId) {
     );
 }
 
+#[test]
 pub fn fiat_unit_path() -> TestResult {
     let journey = journeys()
         .into_iter()
         .find(|v| v["name"] == "card_receipted_credit")
-        .unwrap();
+        .unwrap_or_else(|| panic!("expected Some value"));
     let node = PaymentNode::start()?;
     node.ready();
     let mut plane = NodePlane::new(&node);
@@ -470,6 +547,7 @@ pub fn fiat_unit_path() -> TestResult {
     Ok(())
 }
 
+#[test]
 pub fn fiat_resigned_vectors() -> TestResult {
     let journeys = journeys();
     assert_eq!(journeys.len(), 5);
@@ -500,7 +578,9 @@ pub fn fiat_resigned_vectors() -> TestResult {
             &log.topics()[1..],
             &[
                 reference,
-                call[4..36].try_into().unwrap(),
+                call[4..36]
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
                 facts.destination
             ]
         );
@@ -538,6 +618,7 @@ pub fn fiat_resigned_vectors() -> TestResult {
     Ok(())
 }
 
+#[test]
 pub fn fiat_settlement_path() -> TestResult {
     let mut checked = 0;
     for journey in journeys()
@@ -567,7 +648,6 @@ pub fn fiat_settlement_path() -> TestResult {
             pending_snapshot = Some(snapshot);
         }
         let hash = plane.hash;
-        drop(plane);
         let mut plane = NodePlane::new(&node);
         plane.hash = hash;
         assert_eq!(
@@ -601,7 +681,12 @@ pub fn fiat_settlement_path() -> TestResult {
             let mut invalid = evidence.clone();
             match changed {
                 0 => invalid.transaction_hash[0] ^= 1,
-                1 => *invalid.signed_receipt.last_mut().unwrap() ^= 1,
+                1 => {
+                    *invalid
+                        .signed_receipt
+                        .last_mut()
+                        .unwrap_or_else(|| panic!("expected Some value")) ^= 1;
+                }
                 _ => {
                     let log = &invalid.logs[0];
                     let mut topics = log.topics().to_vec();

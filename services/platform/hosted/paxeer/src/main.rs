@@ -432,9 +432,8 @@ fn relay(config: &Config, request: &Request, deadline: Instant) -> Response {
     if !method_allowed(method) {
         return rpc_error(&id, -32601, "method is not relayed by the boundary");
     }
-    let mut upstream = match transport::connect(&config.node, deadline) {
-        Ok(upstream) => upstream,
-        Err(_) => return refusal(503, "node_unavailable", Some(5)),
+    let Ok(mut upstream) = transport::connect(&config.node, deadline) else {
+        return refusal(503, "node_unavailable", Some(5));
     };
     match node_chain_id(&config.node, &mut upstream, true) {
         Ok(chain_id) if chain_id == config.chain_id => {}
@@ -694,25 +693,49 @@ mod tests {
     fn listen_tls_port_zero_reports_bound_address() {
         let mut report = Vec::new();
         let listener = listen_and_report(
-            "127.0.0.1:0".parse().expect("loopback address"),
+            "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("loopback address: {error}")),
             &mut report,
         )
-        .expect("bind and report listener");
-        let report = String::from_utf8(report).expect("address is UTF-8");
+        .unwrap_or_else(|error| panic!("bind and report listener: {error}"));
+        let report =
+            String::from_utf8(report).unwrap_or_else(|error| panic!("address is UTF-8: {error}"));
         assert_eq!(report.lines().count(), 1);
         assert!(report.ends_with('\n'));
-        let address: SocketAddr = report.trim_end().parse().expect("reported socket address");
+        let address: SocketAddr = report
+            .trim_end()
+            .parse()
+            .unwrap_or_else(|error| panic!("reported socket address: {error}"));
         assert!(address.ip().is_loopback());
         assert_ne!(address.port(), 0);
-        assert_eq!(address, listener.local_addr().expect("bound address"));
+        assert_eq!(
+            address,
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("bound address: {error}"))
+        );
         assert!(
             TcpListener::bind(address).is_err(),
             "listener retains its port"
         );
-        let client = TcpStream::connect(address).expect("connect to reported address");
-        let (accepted, peer) = listener.accept().expect("accept on retained listener");
-        assert_eq!(peer, client.local_addr().expect("client address"));
-        assert_eq!(accepted.local_addr().expect("accepted address"), address);
+        let client = TcpStream::connect(address)
+            .unwrap_or_else(|error| panic!("connect to reported address: {error}"));
+        let (accepted, peer) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("accept on retained listener: {error}"));
+        assert_eq!(
+            peer,
+            client
+                .local_addr()
+                .unwrap_or_else(|error| panic!("client address: {error}"))
+        );
+        assert_eq!(
+            accepted
+                .local_addr()
+                .unwrap_or_else(|error| panic!("accepted address: {error}")),
+            address
+        );
     }
 
     #[test]

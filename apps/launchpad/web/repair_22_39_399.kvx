@@ -1,0 +1,34 @@
+[meta]
+name = "Launchpad web type contracts"
+
+[contract.breakpoints]
+path = "src/app/breakpoints.test.ts"
+cause = "The Tailwind PostCSS creator can return a plugin or a processor."
+repair = "The stylesheet uses the plugin's Root processor type, and media rules retain their nested rule type."
+
+[contract.pool_detail]
+path = "src/core/market/pool-resolver.ts"
+cause = "The pool detail route serves a homeChain value in each pool row."
+repair = "The SDK v2 pool detail type includes homeChain, and the transport and operation response share that type."
+
+[contract.creation_journey]
+path = "src/widgets/create/creation-journey.integration.test.tsx"
+cause = "The creation journey constructs a jsdom window during test setup."
+repair = "The web development dependencies provide jsdom declarations, and the browser variable reflects its setup lifecycle."
+
+[contract.advanced_route]
+path = "src/widgets/meta-ag/repair-22-33-987.test.ts"
+cause = "The transaction send method belongs to the wallet RPC client."
+repair = "The transaction send assertion uses the wallet client request method."
+
+[contract.chain_launch]
+path = "src/widgets/create-chain/chain-launch.test.ts"
+cause = "ABI input and output names are optional in the parsed ABI type."
+repair = "The published ABI comparison reads input and output names through their parsed shapes."
+
+[checks]
+web_typecheck = "The web package typecheck script runs tsc --noEmit."
+mobile_typecheck = "The mobile TypeScript project is checked with tsc --noEmit."
+web_tests = "The web package test script prepares fixtures and runs Vitest."
+workflow = "The launchpad-test workflow builds SDK packages and runs web Vitest; the web typecheck script is declared in the web package."
+search = "Makefile, .github/workflows and tests/ci"

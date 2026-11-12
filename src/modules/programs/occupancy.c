@@ -316,8 +316,8 @@ lxp_result lxp_programs_occupancy_bind_call(
     if (lxp_u128_sub(admission->signed_fee_limit, execution_ceiling,
                      &bridge->authorized_responsibility_ceiling) != LXP_OK)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
-    /* The remainder is the only responsibility that an occupancy position
-     * opened by this call may debit. */
+    /* The remainder authorizes only responsibility added by this call.
+     * Existing limits retain their payer when another principal calls. */
     (void)memcpy(bridge->authorized_root_program, root_program, 32U);
     (void)memcpy(bridge->authorized_payer, principal, 32U);
     (void)memcpy(bridge->authorized_activity_binding,

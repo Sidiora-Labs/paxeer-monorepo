@@ -59,7 +59,7 @@ fn main() -> ExitCode {
         let shared = Arc::clone(&view);
         let origins = config.attestation_allowed_origins.clone();
         std::thread::spawn(move || {
-            if let Err(error) = serve(listener, shared, origins) {
+            if let Err(error) = serve(&listener, &shared, &origins) {
                 eprintln!("layerx-bridge-relayer: attestation server: {error}");
                 std::process::exit(1);
             }
@@ -83,12 +83,11 @@ fn main() -> ExitCode {
                 }
             }
             let snapshot = relayer.attestation_snapshot();
-            match view.write() {
-                Ok(mut shared) => *shared = snapshot,
-                Err(_) => {
-                    eprintln!("layerx-bridge-relayer: attestation view lock poisoned");
-                    return ExitCode::FAILURE;
-                }
+            if let Ok(mut shared) = view.write() {
+                *shared = snapshot;
+            } else {
+                eprintln!("layerx-bridge-relayer: attestation view lock poisoned");
+                return ExitCode::FAILURE;
             }
         }
         if !relayer.failures().is_empty() {

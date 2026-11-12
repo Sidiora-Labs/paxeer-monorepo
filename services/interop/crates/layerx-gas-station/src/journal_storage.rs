@@ -143,46 +143,7 @@ impl Storage {
         lock.try_lock().map_err(|_| JournalError::Locked)?;
         let file = protected(path, true, true)?;
         file.try_lock().map_err(|_| JournalError::Locked)?;
-        let key_path = side(path, ".key");
-        let key = if key_path.exists() {
-            let mut key_file = protected(&key_path, false, false)?;
-            if key_file.metadata().map_err(|_| JournalError::Io)?.len() != 32 {
-                return Err(JournalError::Corrupt);
-            }
-            let mut key = Zeroizing::new([0; 32]);
-            key_file
-                .read_exact(key.as_mut())
-                .map_err(|_| JournalError::Io)?;
-            key
-        } else {
-            // Legacy journals have plain entries. An authenticated journal never recreates its key.
-            let mut reader = BufReader::new(&file);
-            let mut first = Vec::new();
-            reader
-                .by_ref()
-                .take((MAX_SNAPSHOT_BYTES + 1) as u64)
-                .read_until(b'\n', &mut first)
-                .map_err(|_| JournalError::Io)?;
-            if serde_json::from_slice::<serde_json::Value>(&first)
-                .ok()
-                .is_some_and(|v| !v["tag"].is_null())
-            {
-                return Err(JournalError::Corrupt);
-            }
-            let random =
-                layerx_platform_internal::secret::random_hex(32).map_err(|_| JournalError::Io)?;
-            let decoded = crate::rpc::bytes(&format!("0x{}", random.as_str()))
-                .map_err(|_| JournalError::Io)?;
-            let key: Zeroizing<Word> =
-                Zeroizing::new(decoded.try_into().map_err(|_| JournalError::Io)?);
-            let mut key_file = fresh(&key_path)?;
-            key_file
-                .write_all(key.as_ref())
-                .and_then(|()| key_file.sync_all())
-                .map_err(|_| JournalError::Io)?;
-            sync_parent(path)?;
-            key
-        };
+        let key = Self::load_or_create_key(path, &file)?;
         let mut storage = Self {
             path: path.to_owned(),
             file,
@@ -217,47 +178,24 @@ impl Storage {
             }
             let value: serde_json::Value =
                 serde_json::from_slice(&line).map_err(|_| unreadable(&line))?;
-            if !value["tag"].is_null() {
+            if value["tag"].is_null() {
+                if authenticated || line.len() > 4_194_304 {
+                    return Err(JournalError::Corrupt);
+                }
+                let entry = serde_json::from_value(value).map_err(|_| unreadable(&line))?;
+                state.apply(&entry)?;
+                storage.tail_records += 1;
+            } else {
                 let record: Authenticated =
                     serde_json::from_value(value).map_err(|_| JournalError::Corrupt)?;
                 last_previous_seal = Some(storage.head_seal());
                 let payload = record.payload.as_bytes();
-                let tag = storage.tag(record.sequence, &record.previous, &payload);
+                let tag = storage.tag(record.sequence, &record.previous, payload);
                 if !constant_eq(&tag, &record.tag) || record.previous != storage.head {
                     return Err(JournalError::Corrupt);
                 }
                 if first && record.sequence == 0 {
-                    let snapshot: Snapshot =
-                        serde_json::from_str(&record.payload).map_err(|_| JournalError::Corrupt)?;
-                    if snapshot.version != 1
-                        || snapshot.index.len() != 32
-                        || !snapshot.index.bytes().all(|b| b.is_ascii_hexdigit())
-                        || snapshot.index_count > MAX_INDEX_KEYS
-                    {
-                        return Err(JournalError::Corrupt);
-                    }
-                    let index_path = side(path, &format!(".replay.{}", snapshot.index));
-                    let mut index = protected(&index_path, false, false)?;
-                    if index.metadata().map_err(|_| JournalError::Io)?.len()
-                        != snapshot.index_count * KEY_BYTES
-                    {
-                        return Err(JournalError::Corrupt);
-                    }
-                    let mut hash = Keccak256::new();
-                    let mut previous = None;
-                    while let Some(key) = read_key(&mut index)? {
-                        if previous.is_some_and(|prior| prior >= key) {
-                            return Err(JournalError::Corrupt);
-                        }
-                        hash.update(key);
-                        previous = Some(key);
-                    }
-                    let digest: Word = hash.finalize().into();
-                    if digest != snapshot.index_digest {
-                        return Err(JournalError::Corrupt);
-                    }
-                    storage.index = Some((index_path, index, snapshot.index_count));
-                    state = snapshot.state;
+                    state = storage.apply_snapshot(path, &record.payload)?;
                 } else {
                     if record.sequence
                         != storage
@@ -275,13 +213,6 @@ impl Storage {
                 storage.sequence = record.sequence;
                 storage.head = record.tag;
                 authenticated = true;
-            } else {
-                if authenticated || line.len() > 4_194_304 {
-                    return Err(JournalError::Corrupt);
-                }
-                let entry = serde_json::from_value(value).map_err(|_| unreadable(&line))?;
-                state.apply(&entry)?;
-                storage.tail_records += 1;
             }
             first = false;
             records += 1;
@@ -291,6 +222,95 @@ impl Storage {
                 return Err(JournalError::Corrupt);
             }
         }
+        storage.verify_head(path, authenticated, last_previous_seal)?;
+        storage.file.sync_all().map_err(|_| JournalError::Io)?;
+        sync_parent(path)?;
+        storage.remove_orphans()?;
+        Ok((storage, state))
+    }
+    fn load_or_create_key(path: &Path, file: &File) -> Result<Zeroizing<Word>, JournalError> {
+        let key_path = side(path, ".key");
+        let key = if key_path.exists() {
+            let mut key_file = protected(&key_path, false, false)?;
+            if key_file.metadata().map_err(|_| JournalError::Io)?.len() != 32 {
+                return Err(JournalError::Corrupt);
+            }
+            let mut key = Zeroizing::new([0; 32]);
+            key_file
+                .read_exact(key.as_mut())
+                .map_err(|_| JournalError::Io)?;
+            key
+        } else {
+            // Legacy journals have plain entries. An authenticated journal never recreates its key.
+            let mut reader = BufReader::new(file);
+            let mut first = Vec::new();
+            reader
+                .by_ref()
+                .take((MAX_SNAPSHOT_BYTES + 1) as u64)
+                .read_until(b'\n', &mut first)
+                .map_err(|_| JournalError::Io)?;
+            if serde_json::from_slice::<serde_json::Value>(&first)
+                .ok()
+                .is_some_and(|v| !v["tag"].is_null())
+            {
+                return Err(JournalError::Corrupt);
+            }
+            let random =
+                layerx_platform_internal::secret::random_hex(32).map_err(|_| JournalError::Io)?;
+            let decoded = crate::rpc::bytes(&format!("0x{}", random.as_str()))
+                .map_err(|_| JournalError::Io)?;
+            let key: Zeroizing<Word> =
+                Zeroizing::new(decoded.try_into().map_err(|_| JournalError::Io)?);
+            let mut key_file = fresh(&key_path)?;
+            key_file
+                .write_all(key.as_ref())
+                .and_then(|()| key_file.sync_all())
+                .map_err(|_| JournalError::Io)?;
+            sync_parent(path)?;
+            key
+        };
+        Ok(key)
+    }
+
+    fn apply_snapshot(&mut self, path: &Path, payload: &str) -> Result<State, JournalError> {
+        let snapshot: Snapshot =
+            serde_json::from_str(payload).map_err(|_| JournalError::Corrupt)?;
+        if snapshot.version != 1
+            || snapshot.index.len() != 32
+            || !snapshot.index.bytes().all(|b| b.is_ascii_hexdigit())
+            || snapshot.index_count > MAX_INDEX_KEYS
+        {
+            return Err(JournalError::Corrupt);
+        }
+        let index_path = side(path, &format!(".replay.{}", snapshot.index));
+        let mut index = protected(&index_path, false, false)?;
+        if index.metadata().map_err(|_| JournalError::Io)?.len() != snapshot.index_count * KEY_BYTES
+        {
+            return Err(JournalError::Corrupt);
+        }
+        let mut hash = Keccak256::new();
+        let mut previous = None;
+        while let Some(key) = read_key(&mut index)? {
+            if previous.is_some_and(|prior| prior >= key) {
+                return Err(JournalError::Corrupt);
+            }
+            hash.update(key);
+            previous = Some(key);
+        }
+        let digest: Word = hash.finalize().into();
+        if digest != snapshot.index_digest {
+            return Err(JournalError::Corrupt);
+        }
+        self.index = Some((index_path, index, snapshot.index_count));
+        Ok(snapshot.state)
+    }
+
+    fn verify_head(
+        &mut self,
+        path: &Path,
+        authenticated: bool,
+        last_previous_seal: Option<Word>,
+    ) -> Result<(), JournalError> {
         let head_path = side(path, ".head");
         if head_path.exists() {
             let mut file = protected(&head_path, false, false)?;
@@ -298,25 +318,23 @@ impl Storage {
             if length != 32 && length != 64 {
                 return Err(JournalError::Corrupt);
             }
-            let mut heads = vec![0; length as usize];
+            let mut heads = vec![0; usize::try_from(length).map_err(|_| JournalError::Corrupt)?];
             file.read_exact(&mut heads).map_err(|_| JournalError::Io)?;
-            let current = storage.head_seal();
+            let current = self.head_seal();
             if !heads.chunks_exact(32).any(|head| {
                 head == current || last_previous_seal.is_some_and(|previous| head == previous)
             }) {
                 return Err(JournalError::Corrupt);
             }
-            storage.save_head()?;
+            self.save_head()?;
         } else if authenticated {
             return Err(JournalError::Corrupt);
         } else {
-            storage.save_head()?;
+            self.save_head()?;
         }
-        storage.file.sync_all().map_err(|_| JournalError::Io)?;
-        sync_parent(path)?;
-        storage.remove_orphans()?;
-        Ok((storage, state))
+        Ok(())
     }
+
     fn remove_orphans(&self) -> Result<(), JournalError> {
         let parent = self
             .path
@@ -395,7 +413,7 @@ impl Storage {
         payload: String,
     ) -> Result<(Vec<u8>, Word), JournalError> {
         let bytes = payload.as_bytes();
-        let tag = self.tag(sequence, &previous, &bytes);
+        let tag = self.tag(sequence, &previous, bytes);
         let mut line = serde_json::to_vec(&Authenticated {
             sequence,
             previous,

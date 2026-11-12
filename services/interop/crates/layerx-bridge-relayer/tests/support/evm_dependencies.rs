@@ -6,23 +6,31 @@ pub fn node_modules() -> &'static PathBuf {
     static MODULES: OnceLock<PathBuf> = OnceLock::new();
     MODULES.get_or_init(|| {
         let mut random = [0; 16];
-        openssl::rand::rand_bytes(&mut random).expect("EVM dependency directory identifier");
+        openssl::rand::rand_bytes(&mut random)
+            .unwrap_or_else(|error| panic!("EVM dependency directory identifier: {error:?}"));
         let directory = std::env::temp_dir().join(format!(
             "layerx-bridge-evm-dependencies-{}",
             layerx_bridge_relayer::hex::encode(&random)
         ));
-        std::fs::create_dir(&directory).expect("exclusive EVM dependency directory");
+        std::fs::create_dir(&directory)
+            .unwrap_or_else(|error| panic!("exclusive EVM dependency directory: {error:?}"));
         for (name, content) in [
             ("package.json", include_str!("evm/package.json")),
             ("package-lock.json", include_str!("evm/package-lock.json")),
         ] {
-            std::fs::write(directory.join(name), content).expect("pinned EVM dependency manifest");
+            std::fs::write(directory.join(name), content)
+                .unwrap_or_else(|error| panic!("pinned EVM dependency manifest: {error:?}"));
         }
         let output = Command::new("npm")
             .current_dir(&directory)
             .args(["ci", "--ignore-scripts", "--no-audit", "--no-fund"])
             .output()
-            .expect("npm is required to provision the real EVM test dependencies");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "npm is required to provision the real EVM test dependencies"
+                )
+            });
         assert!(
             output.status.success(),
             "EVM dependency install failed with {}: {}\n{}",

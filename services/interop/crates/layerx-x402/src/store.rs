@@ -54,7 +54,12 @@ struct Record {
 }
 
 fn record_name(key: &[u8; 32]) -> String {
-    let hex: String = key.iter().map(|byte| format!("{byte:02x}")).collect();
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut hex = String::with_capacity(key.len() * 2);
+    for byte in key {
+        hex.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        hex.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
     format!("{hex}.json")
 }
 
@@ -134,8 +139,8 @@ impl SettlementStore {
             if entry.file_name() != record_name(&record.idempotency_key).as_str() {
                 return Err(SettlementStoreError::Conflict);
             }
-            let captured = record.capture(buyer, trace)?;
-            captures.insert(record.idempotency_key, (record, captured));
+            let settlement = record.capture(buyer, trace)?;
+            captures.insert(record.idempotency_key, (record, settlement));
         }
         Ok(Self {
             directory,

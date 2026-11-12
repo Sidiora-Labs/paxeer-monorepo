@@ -70,23 +70,28 @@ pub struct BackfillJournal {
     pending: Option<BackfillContinuation>,
 }
 
-fn io(error: std::io::Error) -> JournalError {
+fn io(error: &std::io::Error) -> JournalError {
     JournalError::Io(error.to_string())
 }
 
 impl BackfillJournal {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn open(path: &Path) -> Result<Self, JournalError> {
         let pending = match File::open(path) {
             Ok(file) => {
                 let mut bytes = Vec::new();
-                file.take(4097).read_to_end(&mut bytes).map_err(io)?;
+                file.take(4097)
+                    .read_to_end(&mut bytes)
+                    .map_err(|error| io(&error))?;
                 if bytes.len() > 4096 {
                     return Err(JournalError::Corrupt { line: 1 });
                 }
                 serde_json::from_slice(&bytes).map_err(|_| JournalError::Corrupt { line: 1 })?
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(io(error)),
+            Err(error) => return Err(io(&error)),
         };
         Ok(Self {
             path: path.to_path_buf(),
@@ -113,10 +118,10 @@ impl BackfillJournal {
             .create(true)
             .truncate(true)
             .open(&temporary)
-            .map_err(io)?;
-        file.write_all(&bytes).map_err(io)?;
-        file.sync_all().map_err(io)?;
-        fs::rename(&temporary, &self.path).map_err(io)?;
+            .map_err(|error| io(&error))?;
+        file.write_all(&bytes).map_err(|error| io(&error))?;
+        file.sync_all().map_err(|error| io(&error))?;
+        fs::rename(&temporary, &self.path).map_err(|error| io(&error))?;
         let parent = self
             .path
             .parent()
@@ -124,7 +129,7 @@ impl BackfillJournal {
             .unwrap_or_else(|| Path::new("."));
         File::open(parent)
             .and_then(|directory| directory.sync_all())
-            .map_err(io)?;
+            .map_err(|error| io(&error))?;
         self.pending = pending;
         Ok(())
     }

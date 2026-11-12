@@ -36,16 +36,29 @@ impl Tape {
         })
     }
     pub fn phase(&self, phase: &str) {
-        self.state.lock().unwrap().phase = phase.into();
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .phase = phase.into();
     }
     pub fn withhold(&self, value: bool) {
-        self.state.lock().unwrap().withheld = value;
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .withheld = value;
     }
     pub fn tamper(&self, field: Option<&'static str>) {
-        self.state.lock().unwrap().tamper = field;
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .tamper = field;
     }
     pub fn sent(&self) -> Vec<Vec<u8>> {
-        self.state.lock().unwrap().sent.clone()
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .sent
+            .clone()
     }
     pub fn config(&self) -> Result<PublisherConfig> {
         Ok(PublisherConfig::parse(

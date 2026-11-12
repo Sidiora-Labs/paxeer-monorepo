@@ -157,12 +157,12 @@ fn checkout_payment(case: &Value, submission: &CheckoutSubmission) -> ExecutedUc
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     digest.update([0]);
-    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    let receipt_signer = SigningKey::from_bytes(&[0x5e; 32]);
     assert_eq!(
-        signer.verifying_key().to_bytes(),
+        receipt_signer.verifying_key().to_bytes(),
         array(&case["pinnedKey"]["publicKey"])
     );
-    let signature = signer.sign(&digest.finalize()).to_bytes();
+    let signature = receipt_signer.sign(&digest.finalize()).to_bytes();
     unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
     unsigned.extend_from_slice(&signature);
     ExecutedUcpPayment {
@@ -556,7 +556,7 @@ fn with_signed_log(
 }
 
 #[path = "support/producer_checkout.rs"]
-mod producer_checkout;
+pub mod producer_checkout;
 
 #[test]
 fn ucp_checkout_producer() {

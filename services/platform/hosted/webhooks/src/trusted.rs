@@ -110,6 +110,7 @@ impl TrustedEvent {
         }
         Ok(Self(event))
     }
+    #[must_use]
     pub fn event(&self) -> &ProtocolEvent {
         &self.0
     }
@@ -264,6 +265,7 @@ impl TrustedSources {
             .is_some_and(|deadline| self.ready_until(deadline))
     }
 
+    #[must_use]
     pub fn ready_until(&self, deadline: Instant) -> bool {
         self.verifier.ready_until(deadline)
             && self.sources.values().all(|source| {
@@ -284,11 +286,26 @@ impl TrustedSources {
             })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn trigger_admission(
         &self,
         kind: EventKind,
         deadline: Instant,
     ) -> Result<(u64, usize), WebhookError> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Admission {
+            schema: String,
+            role: String,
+            kind: String,
+            ready: bool,
+            generation: u64,
+            principals: usize,
+            principal_digest: bool,
+            fresh_for_ms: u64,
+        }
         let source = self
             .sources
             .get(&kind)
@@ -313,18 +330,6 @@ impl TrustedSources {
             || response.body.len() > 4096
         {
             return Err(WebhookError::Unavailable);
-        }
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Admission {
-            schema: String,
-            role: String,
-            kind: String,
-            ready: bool,
-            generation: u64,
-            principals: usize,
-            principal_digest: bool,
-            fresh_for_ms: u64,
         }
         let value: Admission =
             serde_json::from_slice(&response.body).map_err(|_| WebhookError::Unavailable)?;
@@ -606,6 +611,10 @@ impl SourceTrigger {
 }
 
 impl AuthorityReceiptVerifier {
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
+    #[allow(clippy::too_many_arguments)] // The public constructor preserves its published configuration signature.
     pub fn new(
         component_url: &str,
         authority_url: &str,
@@ -634,28 +643,9 @@ impl AuthorityReceiptVerifier {
         })
     }
 
-    fn ready_until(&self, deadline: Instant) -> bool {
-        [
-            (&self.component, self.component_token.as_str()),
-            (&self.authority, self.authority_token.as_str()),
-        ]
-        .into_iter()
-        .all(|(endpoint, token)| {
-            let request = OutboundRequest {
-                endpoint,
-                method: "GET",
-                path: "/readyz",
-                bearer: Some(token),
-                idempotency: None,
-                headers: &[],
-                body: &[],
-            };
-            self.client
-                .request_until(&request, deadline)
-                .is_ok_and(|response| response.status == 200)
-        })
-    }
-
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn verify(&self, activity: &str) -> Result<VerifiedOperation, WebhookError> {
         fixed_hex::<32>(activity)?;
         let receipt_path = format!("/internal/v1/receipts/{activity}");
@@ -698,6 +688,9 @@ impl AuthorityReceiptVerifier {
         self.verify_documents(activity, &receipt_response.body, &authority_response.body)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn verify_documents(
         &self,
         activity: &str,
@@ -795,14 +788,6 @@ fn read_secret_file(path: &std::path::Path, name: &str) -> Result<Zeroizing<Stri
         return Err(format!("{name} does not contain a bounded secret"));
     }
     Ok(Zeroizing::new(value))
-}
-
-fn bounded_env(name: &str, maximum: usize) -> Result<String, String> {
-    let value = env::var(name).map_err(|_| format!("{name} is required"))?;
-    if !valid_identifier(&value, maximum) {
-        return Err(format!("{name} is invalid"));
-    }
-    Ok(value)
 }
 
 fn valid_identifier(value: &str, maximum: usize) -> bool {
@@ -910,9 +895,11 @@ pub struct VerifiedSourceOperation {
     verification: Verification,
 }
 impl VerifiedSourceOperation {
+    #[must_use]
     pub fn operation(&self) -> &VerifiedOperation {
         &self.operation
     }
+    #[must_use]
     pub fn verification(&self) -> Verification {
         self.verification
     }
@@ -941,6 +928,9 @@ impl ReceiptVerifier {
             policy,
         })
     }
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn new(
         url: &str,
         comet_url: &str,
@@ -999,7 +989,7 @@ impl ReceiptVerifier {
         &self,
         endpoint: &Endpoint,
         method: &str,
-        params: serde_json::Value,
+        params: &serde_json::Value,
     ) -> Result<serde_json::Value, WebhookError> {
         let body = serde_json::to_vec(
             &serde_json::json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
@@ -1031,12 +1021,15 @@ impl ReceiptVerifier {
             .filter(|v| !v.is_null())
             .ok_or(WebhookError::VerificationRequired)
     }
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn verify(&self, activity: &str) -> Result<VerifiedSourceOperation, WebhookError> {
         let expected = fixed_hex::<32>(activity)?;
         let receipt_json = self.rpc(
             &self.node,
             "pax_sequencerReceipt",
-            serde_json::json!([format!("0x{activity}")]),
+            &serde_json::json!([format!("0x{activity}")]),
         )?;
         if receipt_json["rung"] != "committed" {
             return Err(WebhookError::VerificationRequired);
@@ -1063,7 +1056,7 @@ impl ReceiptVerifier {
         let commit_json = self.rpc(
             &self.comet,
             "commit",
-            serde_json::json!({"height":height.to_string()}),
+            &serde_json::json!({"height":height.to_string()}),
         )?;
         let commit = crate::chain::CommitCertificate::from_comet(&commit_json)?;
         if commit.height()? != height {
@@ -1072,7 +1065,7 @@ impl ReceiptVerifier {
         let block = self.rpc(
             &self.comet,
             "block",
-            serde_json::json!({"height":height.to_string()}),
+            &serde_json::json!({"height":height.to_string()}),
         )?;
         let transactions = block["block"]["data"]["txs"]
             .as_array()
@@ -1087,7 +1080,7 @@ impl ReceiptVerifier {
         let ethereum = self.rpc(
             &self.node,
             "eth_getBlockByNumber",
-            serde_json::json!([format!("0x{height:x}"), false]),
+            &serde_json::json!([format!("0x{height:x}"), false]),
         )?;
         let activity_ids = ethereum["transactions"]
             .as_array()
@@ -1101,7 +1094,7 @@ impl ReceiptVerifier {
                 )
             })
             .collect::<Result<Vec<[u8; 32]>, _>>()?;
-        let proof = self.rpc(&self.comet, "abci_query", serde_json::json!({"path":"/store/sequencer/key", "data":"0x03", "height":(height-1).to_string(), "prove":true}))?;
+        let proof = self.rpc(&self.comet, "abci_query", &serde_json::json!({"path":"/store/sequencer/key", "data":"0x03", "height":(height-1).to_string(), "prove":true}))?;
         let response = &proof["response"];
         if response["height"]
             .as_str()
@@ -1125,6 +1118,9 @@ impl ReceiptVerifier {
         self.verify_evidence(&document, expected, fixed_hex::<32>(served_hash)?)
     }
     /// Verifies transported node evidence before granting a committed source label.
+    ///
+    /// # Errors
+    /// Returns an error when authority evidence, transport, or configuration fails validation.
     pub fn verify_evidence(
         &self,
         document: &crate::chain::NodeReceiptEvidence,
