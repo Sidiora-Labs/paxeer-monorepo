@@ -2,10 +2,11 @@ import "./source-loader.mjs";
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
-import { refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { decodeRawEip1559, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
-import {
+import { committedVector, recordedCommittedReceipt } from "./committed-fixture.mjs";
+const { refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { decodeRawEip1559, keccak256, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
+const {
   LAYERX_LEDGER_ADDRESS,
   MiddlewareError,
   PAYMENT_RESPONSE_HEADER,
@@ -15,8 +16,7 @@ import {
   encodePaymentPayloadHeader,
   ReceiptPayloadAuthority,
   verifyPaymentReceipt,
-} from "../dist/index.js";
-import { committedVector, recordedCommittedReceipt } from "./committed-fixture.mjs";
+} = await import("../dist/index.js");
 
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
