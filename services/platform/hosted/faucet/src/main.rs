@@ -1,3 +1,5 @@
+//! Serves bounded faucet requests over TLS and audits accepted transfers.
+
 use native_tls::{Certificate, TlsConnector};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};

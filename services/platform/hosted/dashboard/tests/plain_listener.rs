@@ -55,8 +55,10 @@ fn run(program: &str, arguments: &[&str]) {
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
         .and_then(|listener| listener.local_addr())
-        .map(|address| address.port())
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
+        .map_or_else(
+            |error| panic!("test port must be allocated: {error}"),
+            |address| address.port(),
+        )
 }
 
 fn material(label: &str) -> Material {

@@ -8,13 +8,48 @@ mod probe_process;
 
 const CHILD_CASE: &str = "LAYERX_TLS_PROBE_REPAIR_CASE";
 
+trait RequireValue<T> {
+    fn required(self, context: &str) -> T;
+}
+
+impl<T, E: std::fmt::Debug> RequireValue<T> for Result<T, E> {
+    fn required(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+impl<T> RequireValue<T> for Option<T> {
+    fn required(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+trait RequireError<E> {
+    fn required_error(self, context: &str) -> E;
+}
+
+impl<T: std::fmt::Debug, E> RequireError<E> for Result<T, E> {
+    fn required_error(self, context: &str) -> E {
+        match self {
+            Ok(value) => panic!("{context}: {value:?}"),
+            Err(error) => error,
+        }
+    }
+}
+
 fn is_child(name: &str) -> bool {
     std::env::var(CHILD_CASE).as_deref() == Ok(name)
 }
 
 fn probe_command(name: &str) -> Command {
     let mut command =
-        Command::new(std::env::current_exe().expect("running integration executable"));
+        Command::new(std::env::current_exe().required("running integration executable"));
     command
         .args(["--exact", name, "--nocapture", "--test-threads=1"])
         .env(CHILD_CASE, name);
@@ -24,17 +59,17 @@ fn probe_command(name: &str) -> Command {
 fn accept(listener: &TcpListener) -> TcpStream {
     listener
         .set_nonblocking(true)
-        .expect("nonblocking listener");
+        .required("nonblocking listener");
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         match listener.accept() {
             Ok((stream, _)) => {
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("server read deadline");
+                    .required("server read deadline");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("server write deadline");
+                    .required("server write deadline");
                 return stream;
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -47,9 +82,12 @@ fn accept(listener: &TcpListener) -> TcpStream {
 }
 
 fn assert_reaped(error: &probe_process::ProbeError) {
-    let output = error.output.as_ref().expect("cleanup returns wait status");
+    let output = error
+        .output
+        .as_ref()
+        .required("cleanup returns wait status");
     assert!(!output.status.success(), "running probe must be killed");
-    let process_id = error.process_id.expect("spawned probe PID");
+    let process_id = error.process_id.required("spawned probe PID");
     #[cfg(target_os = "linux")]
     assert!(
         !std::path::Path::new(&format!("/proc/{process_id}")).exists(),
@@ -62,34 +100,34 @@ fn tls_probe_deadline_kills_and_reaps_stalled_client() {
     let name = "tls_probe_deadline_kills_and_reaps_stalled_client";
     if is_child(name) {
         let mut stream =
-            TcpStream::connect(std::env::var("LAYERX_TLS_PROBE_REPAIR_PEER").expect("peer"))
-                .expect("connect to real loopback peer");
+            TcpStream::connect(std::env::var("LAYERX_TLS_PROBE_REPAIR_PEER").required("peer"))
+                .required("connect to real loopback peer");
         println!("probe connected");
         eprintln!("waiting for peer response");
-        stream.write_all(b"request").expect("send real request");
+        stream.write_all(b"request").required("send real request");
         let mut reply = [0];
         stream
             .read_exact(&mut reply)
-            .expect("peer stalls this read");
+            .required("peer stalls this read");
         panic!("stalled probe unexpectedly returned");
     }
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback fixture");
+    let listener = TcpListener::bind("127.0.0.1:0").required("loopback fixture");
     let mut command = probe_command(name);
     command.env(
         "LAYERX_TLS_PROBE_REPAIR_PEER",
-        listener.local_addr().expect("bound address").to_string(),
+        listener.local_addr().required("bound address").to_string(),
     );
     let server = std::thread::spawn(move || {
         let mut stream = accept(&listener);
         let mut request = [0; 7];
         stream
             .read_exact(&mut request)
-            .expect("receive probe request");
+            .required("receive probe request");
         assert_eq!(&request, b"request");
         assert_eq!(
             stream
                 .read(&mut [0])
-                .expect("killed client closes transport"),
+                .required("killed client closes transport"),
             0
         );
     });
@@ -99,15 +137,17 @@ fn tls_probe_deadline_kills_and_reaps_stalled_client() {
         Duration::from_secs(1),
         probe_process::PROBE_OUTPUT_LIMIT,
     )
-    .expect_err("stalled client must fail the deadline");
+    .required_error("stalled client must fail the deadline");
     assert_eq!(error.kind, io::ErrorKind::TimedOut);
     assert!(started.elapsed() < Duration::from_secs(5));
     assert_reaped(&error);
-    let output = error.output.as_ref().expect("bounded diagnostic output");
+    let output = error.output.as_ref().required("bounded diagnostic output");
     assert!(String::from_utf8_lossy(&output.stdout).contains("probe connected"));
     assert!(String::from_utf8_lossy(&output.stderr).contains("waiting for peer response"));
     assert!(error.to_string().contains("deadline exceeded"));
-    server.join().expect("real peer observed transport cleanup");
+    server
+        .join()
+        .required("real peer observed transport cleanup");
 }
 
 fn output_limit_case(name: &str, stderr: bool) {
@@ -119,8 +159,8 @@ fn output_limit_case(name: &str, stderr: bool) {
             Box::new(io::stdout().lock())
         };
         loop {
-            writer.write_all(&block).expect("write probe output");
-            writer.flush().expect("flush probe output");
+            writer.write_all(&block).required("write probe output");
+            writer.flush().required("flush probe output");
         }
     }
     let mut command = probe_command(name);
@@ -130,12 +170,12 @@ fn output_limit_case(name: &str, stderr: bool) {
         probe_process::PROBE_DEADLINE,
         probe_process::PROBE_OUTPUT_LIMIT,
     )
-    .expect_err("unbounded output must fail");
+    .required_error("unbounded output must fail");
     assert_eq!(error.kind, io::ErrorKind::Other);
     assert!(error.to_string().contains("output limit exceeded"));
     assert!(started.elapsed() < Duration::from_secs(5));
     assert_reaped(&error);
-    let output = error.output.as_ref().expect("bounded captured bytes");
+    let output = error.output.as_ref().required("bounded captured bytes");
     assert_eq!(
         output.stdout.len() + output.stderr.len(),
         probe_process::PROBE_OUTPUT_LIMIT
@@ -163,40 +203,40 @@ fn tls_probe_captures_real_client_response_and_both_outputs() {
     let name = "tls_probe_captures_real_client_response_and_both_outputs";
     if is_child(name) {
         let mut stream =
-            TcpStream::connect(std::env::var("LAYERX_TLS_PROBE_REPAIR_PEER").expect("peer"))
-                .expect("real loopback connection");
-        stream.write_all(b"GET /livez\r\n").expect("request");
+            TcpStream::connect(std::env::var("LAYERX_TLS_PROBE_REPAIR_PEER").required("peer"))
+                .required("real loopback connection");
+        stream.write_all(b"GET /livez\r\n").required("request");
         let mut response = String::new();
-        stream.read_to_string(&mut response).expect("response");
+        stream.read_to_string(&mut response).required("response");
         assert_eq!(response, "real peer response");
         println!("TLS client probe completed: {response}");
         eprintln!("probe diagnostic");
         return;
     }
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback fixture");
+    let listener = TcpListener::bind("127.0.0.1:0").required("loopback fixture");
     let mut command = probe_command(name);
     command.env(
         "LAYERX_TLS_PROBE_REPAIR_PEER",
-        listener.local_addr().expect("bound address").to_string(),
+        listener.local_addr().required("bound address").to_string(),
     );
     let server = std::thread::spawn(move || {
         let mut stream = accept(&listener);
         let mut request = [0; 12];
-        stream.read_exact(&mut request).expect("request");
+        stream.read_exact(&mut request).required("request");
         assert_eq!(&request, b"GET /livez\r\n");
-        stream.write_all(b"real peer response").expect("response");
+        stream.write_all(b"real peer response").required("response");
     });
     let output = probe_process::run_probe(
         &mut command,
         Duration::from_secs(5),
         probe_process::PROBE_OUTPUT_LIMIT,
     )
-    .expect("successful real child probe");
+    .required("successful real child probe");
     assert!(output.status.success());
     assert!(String::from_utf8_lossy(&output.stdout)
         .contains("TLS client probe completed: real peer response"));
     assert!(String::from_utf8_lossy(&output.stderr).contains("probe diagnostic"));
-    server.join().expect("real peer completed");
+    server.join().required("real peer completed");
 }
 
 #[test]
@@ -205,10 +245,10 @@ fn tls_probe_preserves_failed_client_status_and_diagnostics() {
     if is_child(name) {
         io::stdout()
             .write_all(b"client assertion failed\n")
-            .expect("stdout");
+            .required("stdout");
         io::stderr()
             .write_all(b"certificate rejected\n")
-            .expect("stderr");
+            .required("stderr");
         std::process::exit(23);
     }
     let output = probe_process::run_probe(
@@ -216,7 +256,7 @@ fn tls_probe_preserves_failed_client_status_and_diagnostics() {
         Duration::from_secs(5),
         probe_process::PROBE_OUTPUT_LIMIT,
     )
-    .expect("completed process preserves its failed status");
+    .required("completed process preserves its failed status");
     assert_eq!(output.status.code(), Some(23));
     assert!(String::from_utf8_lossy(&output.stdout).contains("client assertion failed"));
     assert!(String::from_utf8_lossy(&output.stderr).contains("certificate rejected"));
@@ -230,7 +270,7 @@ fn tls_probe_spawn_failure_is_reported() {
         Duration::from_secs(5),
         probe_process::PROBE_OUTPUT_LIMIT,
     )
-    .expect_err("invalid executable must fail, never silently fall back");
+    .required_error("invalid executable must fail, never silently fall back");
     assert!(error.process_id.is_none());
     assert!(error.output.is_none());
     assert!(!error.to_string().is_empty());

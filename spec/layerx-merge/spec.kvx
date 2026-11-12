@@ -13414,6 +13414,18 @@ value = "The verification of task 22.39.403 runs every step of the recipe platfo
 basis = "Gotcha 4302 and the fifth item of the task."
 affects = ["22.39.403"]
 
+[decision.3384]
+title = "A call of another principal changes a shared namespace within the standing occupancy responsibility of the program owner"
+value = "Where the occupancy ledger holds a responsibility for a shared namespace whose payer is the owner of the program, a call paid by another principal that leaves the namespace within the byte limit of that responsibility is admitted and the occupancy stays charged to the owner. Past the byte limit, or without such a responsibility, a call paid by another principal is refused with the code of the unauthorised debit as before. Task 22.39.496 makes the change."
+basis = "Gotcha 4303 and task 22.39.394."
+affects = ["22.39.496"]
+
+[decision.3385]
+title = "The middleware test task carries the Express and FastAPI integrations"
+value = "Task 22.39.429 carries sdk/integrations/express and sdk/integrations/fastapi next to its other paths."
+basis = "Gotcha 4304 and decision 3379."
+affects = ["22.39.429"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43074,6 +43086,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.496]
+title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime", "src/modules/programs", "include/layerx/programs.h", "modules/lxphost", "node/programs_occupancy_call_test.go"]
+tests = ["node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts"]
+verification_contract = "test -s programs/crates/layerx-programs-runtime/repair_22_39_496.kvx && grep -q -e 'func TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits(' node/programs_occupancy_call_test.go && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib occupancy && CGO_ENABLED=1 go test -count=1 -timeout 30m ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+do_1 = "do_1 Gotcha 4303, decision 3384. The function settle_call_occupancy of programs/crates/layerx-programs-runtime/src/ffi_call.rs returns the code of the unauthorised debit for every call that changes the size of a shared namespace of a program when the payer of the call is not the owner of the program. Change the rule in one respect only. Where the occupancy ledger holds responsibility limits for the namespace, the payer of those limits is the authorised payer of the namespace, the final size is within the byte limit of the limits and the namespace does not require migration, the call is admitted whoever pays it, no responsibility is added for it and the occupancy stays charged to the payer of the standing responsibility. In every other case the present behaviour stands: a call whose payer is not the authorised payer is refused with the same code, and so is such a call that takes the namespace past the byte limit. Follow the rule through every place that mirrors it, the admission of the call and the files occupancy.c and call.c of src/modules/programs among them, so that admission, settlement and the block-end transition agree. No stored layout changes."
+symbols = ["FinalizeProgramsOccupancy"]
 
 [capability.22.39.495]
 title = "Bring the retired caller scan to exit 0 on the attestor source of the key management member"
@@ -197739,7 +197760,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.428]
 title = "Bring the epoch cases of the evaluator member through the platform test recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.400"]
@@ -290386,7 +290407,7 @@ do_1 = "do_1 Decision 3349. Run make platform-sample-install first where the dep
 do_2 = "do_2 The case encodesLedgerDrawCalldataWithDrawSelector of services/platform/middleware/seller/test/ledger.test.mjs compares the call the seller middleware encodes with the draw signature of the ledger interface. Find which side departs from the ledger precompile interface of the tree and repair that side inside the middleware; the precompile is the producer and is not changed here (decision 3046). The script services/platform/examples/run-reference-apps.mjs imports the built entry of the buyer middleware: find the step of the recipes that builds that entry and make platform-test-reference-apps run after it."
 do_3 = "do_3 Repair every further stop of the first two targets whose cause lies in services/platform/middleware, services/platform/examples or the recipes of services/platform/Makefile.inc. A test run leaves no process behind. List in the closing report each remaining stop, and each stop of platform-test-docs, with its file and first message. Record in services/platform/middleware/repair_22_39_429.kvx what each of the three targets runs. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents"]
+touches = ["services/platform/middleware", "services/platform/examples", "services/platform/Makefile.inc", "sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/fastapi"]
 tests = []
 planned_paths = ["services/platform/middleware/repair_22_39_429.kvx"]
 build_cmd = "make -n platform-test-middleware > /dev/null && make -n platform-test-reference-apps > /dev/null"
@@ -314061,9 +314082,39 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.39.496]
+title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.496"]
+interfaces = []
+do_1 = "do_1 Gotcha 4303, decision 3384. The function settle_call_occupancy of programs/crates/layerx-programs-runtime/src/ffi_call.rs returns the code of the unauthorised debit for every call that changes the size of a shared namespace of a program when the payer of the call is not the owner of the program. Change the rule in one respect only. Where the occupancy ledger holds responsibility limits for the namespace, the payer of those limits is the authorised payer of the namespace, the final size is within the byte limit of the limits and the namespace does not require migration, the call is admitted whoever pays it, no responsibility is added for it and the occupancy stays charged to the payer of the standing responsibility. In every other case the present behaviour stands: a call whose payer is not the authorised payer is refused with the same code, and so is such a call that takes the namespace past the byte limit. Follow the rule through every place that mirrors it, the admission of the call and the files occupancy.c and call.c of src/modules/programs among them, so that admission, settlement and the block-end transition agree. No stored layout changes."
+do_2 = "do_2 Cases of the runtime library, next to the existing occupancy cases: a call of another principal within the byte limit of the owner commits and leaves the responsibility as it was, the same call past the byte limit is refused with the code, a call of another principal with no standing responsibility is refused with the code. A case TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits in node/programs_occupancy_call_test.go: a call of the owner sets a responsibility with a byte limit above the size it writes, a call paid by another principal adds bytes within that limit and commits, the following blocks apply and the block-end transition charges the owner. The five existing cases of that file pass unchanged."
+do_3 = "do_3 Record in programs/crates/layerx-programs-runtime/repair_22_39_496.kvx the rule, the changed files and the cases. Run the build once and the verification once at the final revision."
+symbols = ["FinalizeProgramsOccupancy"]
+touches = ["programs/crates/layerx-programs-runtime", "src/modules/programs", "include/layerx/programs.h", "modules/lxphost", "node/programs_occupancy_call_test.go"]
+tests = ["node/programs_occupancy_call_test.go::TestCallByAPayerThatIsNotTheOwnerReverts"]
+planned_paths = ["programs/crates/layerx-programs-runtime/repair_22_39_496.kvx"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ ./node/ && CGO_ENABLED=1 go vet ./modules/lxphost/ ./node/"
+verify_cmd = "test -s programs/crates/layerx-programs-runtime/repair_22_39_496.kvx && grep -q -e 'func TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits(' node/programs_occupancy_call_test.go && cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib occupancy && CGO_ENABLED=1 go test -count=1 -timeout 30m ./node/ -run '^(TestCallAddingBytesAtTheQuotedFeeCommitsAndBlocksApply|TestCallAtTheLargestBudgetCommitsAndBlocksApply|TestCallShortOfTheOccupancyResponsibilityReverts|TestCallByAPayerThatIsNotTheOwnerReverts|TestBlocksApplyAcrossRestartAfterOccupancyCalls|TestCallByAnotherPayerWithinTheOwnerResponsibilityCommits|TestProgramCallsAtConsecutiveHeightsPassThroughTheBlockFlow|TestProgramCallAfterIdleBlocksPasses|TestBlockEndTransitionRunsOncePerBlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.493]
 title = "Have the first sequenced block of the merge rehearsal pass the block-end occupancy transition of Programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
