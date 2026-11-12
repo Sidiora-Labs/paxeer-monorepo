@@ -197892,7 +197892,7 @@ do_4 = "do_4 Decision 3359 and gotcha 4276. The test target client of the member
 
 [task.22.39.435]
 title = "Bring the member layerx-human-service of the human workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -230040,7 +230040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.486]
 title = "Pass the race and coverage stages of the launchpad Makefile in the social module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.470", "22.39.458"]
