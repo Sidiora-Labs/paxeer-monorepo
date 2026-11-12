@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
-	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"time"
+
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
 func (s Store) CreateSquad(ctx context.Context, actor string, q Squad) error {
@@ -21,7 +22,7 @@ func (s Store) CreateSquad(ctx context.Context, actor string, q Squad) error {
 		if e != nil {
 			return e
 		}
-		m := Membership{SquadID: q.ID, AccountID: actor, Role: "owner", Status: "active", JoinedAt: time.Now().UTC(), Revision: 1}
+		m := Membership{SquadID: q.ID, AccountID: actor, Role: roleOwner, Status: statusActive, JoinedAt: time.Now().UTC(), Revision: 1}
 		_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.members(squad_id,account_id,document)VALUES($1,$2,$3)`, q.ID, actor, encode(m))
 		return e
 	})
@@ -83,7 +84,7 @@ func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token st
 		return e
 	}
 	m, e := member(ctx, tx, squadID, actor)
-	if e != nil || m.Status != "active" || (q.OwnerAccountID != actor && m.Role != "moderator") {
+	if e != nil || m.Status != statusActive || (q.OwnerAccountID != actor && m.Role != roleModerator) {
 		return ErrForbidden
 	}
 	existing, e := member(ctx, tx, squadID, account)
@@ -93,11 +94,11 @@ func inviteTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, token st
 	if existing.Revision != expected {
 		return ErrConflict
 	}
-	if e == nil && (existing.Status == "active" || existing.Status == "banned") {
+	if e == nil && (existing.Status == statusActive || existing.Status == statusBanned) {
 		return ErrConflict
 	}
 	inv := Invitation{SquadID: squadID, AccountID: account, TokenHash: sha256.Sum256([]byte(token)), ExpiresAt: expires}
-	m = Membership{SquadID: squadID, AccountID: account, Status: "invited", Revision: existing.Revision + 1}
+	m = Membership{SquadID: squadID, AccountID: account, Status: statusInvited, Revision: existing.Revision + 1}
 	if m.Revision == 0 {
 		return ErrRevisionExhausted
 	}
@@ -158,7 +159,7 @@ func (s Store) UpdateSquad(ctx context.Context, actor string, next Squad, expect
 			return e
 		}
 		m, e := member(ctx, tx, next.ID, actor)
-		if e != nil || m.Status != "active" || (m.Role != "owner" && m.Role != "moderator") {
+		if e != nil || m.Status != statusActive || (m.Role != roleOwner && m.Role != roleModerator) {
 			return ErrForbidden
 		}
 		if q.Revision != expected || next.Revision != expected+1 || next.Revision == 0 || q.OwnerAccountID != next.OwnerAccountID {
@@ -169,7 +170,7 @@ func (s Store) UpdateSquad(ctx context.Context, actor string, next Squad, expect
 	})
 }
 func (s Store) SetMemberStatus(ctx context.Context, actor, squadID, account, status string, expected uint64) error {
-	if status != "removed" && status != "banned" {
+	if status != stateRemoved && status != statusBanned {
 		return ErrInvalid
 	}
 	return s.transaction(ctx, func(tx *sql.Tx) error { return setMemberStatusTx(ctx, tx, actor, squadID, account, status, expected) })
@@ -202,7 +203,7 @@ func setMemberStatusTx(ctx context.Context, tx *sql.Tx, actor, squadID, account,
 }
 
 func (s Store) SetMemberRole(ctx context.Context, actor, squadID, account, role string, expected uint64) error {
-	if role != "moderator" && role != "member" {
+	if role != roleModerator && role != roleMember {
 		return ErrInvalid
 	}
 	return s.transaction(ctx, func(tx *sql.Tx) error { return setMemberRoleTx(ctx, tx, actor, squadID, account, role, expected) })
@@ -222,7 +223,7 @@ func setMemberRoleTx(ctx context.Context, tx *sql.Tx, actor, squadID, account, r
 	if e != nil {
 		return e
 	}
-	if m.Status != "active" || (m.Role != "member" && m.Role != "moderator") {
+	if m.Status != statusActive || (m.Role != roleMember && m.Role != roleModerator) {
 		return ErrForbidden
 	}
 	if m.Revision != expected {
@@ -265,35 +266,35 @@ func requestJoinTx(ctx context.Context, tx *sql.Tx, actor, squadID string, expec
 		if e != nil {
 			return e
 		}
-		if q.Policy != "request" && q.Policy != "open" {
+		if q.Policy != actionRequest && q.Policy != policyOpen {
 			return ErrForbidden
 		}
 		m, e := member(ctx, tx, squadID, actor)
 		if e != nil && e != sql.ErrNoRows {
 			return e
 		}
-		if m.Status == "banned" {
+		if m.Status == statusBanned {
 			return ErrForbidden
 		}
 		if m.Revision != expected {
 			return ErrConflict
 		}
-		if m.Status != "" && m.Status != "removed" {
+		if m.Status != "" && m.Status != stateRemoved {
 			return ErrConflict
 		}
 		if m.Revision == ^uint64(0) {
 			return ErrRevisionExhausted
 		}
-		requested = Membership{SquadID: squadID, AccountID: actor, Role: "member", Status: "requested", Revision: m.Revision + 1}
+		requested = Membership{SquadID: squadID, AccountID: actor, Role: roleMember, Status: statusRequested, Revision: m.Revision + 1}
 
-		if q.Policy == "open" {
-			requested.Status, requested.JoinedAt = "active", time.Now().UTC()
+		if q.Policy == policyOpen {
+			requested.Status, requested.JoinedAt = statusActive, time.Now().UTC()
 			if _, e = tx.ExecContext(ctx, `DELETE FROM narrative_discovery.invitations WHERE squad_id=$1 AND account_id=$2`, squadID, actor); e != nil {
 				return e
 			}
 		}
-		inv := Invitation{SquadID: squadID, AccountID: actor, Status: "requested"}
-		if q.Policy == "request" {
+		inv := Invitation{SquadID: squadID, AccountID: actor, Status: statusRequested}
+		if q.Policy == actionRequest {
 			_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.invitations(squad_id,account_id,document)VALUES($1,$2,$3)ON CONFLICT(squad_id,account_id) DO UPDATE SET document=EXCLUDED.document`, squadID, actor, encode(inv))
 			if e != nil {
 				return e
@@ -340,7 +341,7 @@ func approveRequestTx(ctx context.Context, tx *sql.Tx, actor, squadID, account s
 		if e != nil && e != sql.ErrNoRows {
 			return e
 		}
-		if e == sql.ErrNoRows || authority.Status != "active" || (actor != q.OwnerAccountID && authority.Role != "moderator") || q.Policy != "request" {
+		if e == sql.ErrNoRows || authority.Status != statusActive || (actor != q.OwnerAccountID && authority.Role != roleModerator) || q.Policy != actionRequest {
 			return ErrForbidden
 		}
 		m, e := member(ctx, tx, squadID, account)
@@ -350,7 +351,7 @@ func approveRequestTx(ctx context.Context, tx *sql.Tx, actor, squadID, account s
 		if m.Revision != expected {
 			return ErrConflict
 		}
-		if m.Status != "requested" {
+		if m.Status != statusRequested {
 			return ErrForbidden
 		}
 		var b []byte
@@ -361,15 +362,15 @@ func approveRequestTx(ctx context.Context, tx *sql.Tx, actor, squadID, account s
 		if e = json.Unmarshal(b, &inv); e != nil {
 			return e
 		}
-		if inv.Status != "requested" || inv.Consumed || inv.SquadID != squadID || inv.AccountID != account {
+		if inv.Status != statusRequested || inv.Consumed || inv.SquadID != squadID || inv.AccountID != account {
 			return ErrForbidden
 		}
 		if m.Revision == ^uint64(0) {
 			return ErrRevisionExhausted
 		}
-		m.Status, m.Role, m.JoinedAt = "active", "member", now.UTC()
+		m.Status, m.Role, m.JoinedAt = statusActive, roleMember, now.UTC()
 		m.Revision++
-		inv.Status, inv.Consumed = "approved", true
+		inv.Status, inv.Consumed = statusApproved, true
 		if _, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.invitations SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(inv), squadID, account); e != nil {
 			return e
 		}
@@ -439,9 +440,9 @@ func (s Store) ConfirmTransfer(ctx context.Context, actor, squadID string) error
 		if old.Revision == ^uint64(0) || recipient.Revision == ^uint64(0) {
 			return ErrRevisionExhausted
 		}
-		old.Role = "member"
+		old.Role = roleMember
 		old.Revision++
-		recipient.Role = "owner"
+		recipient.Role = roleOwner
 		recipient.Revision++
 		for _, m := range []Membership{old, recipient} {
 			_, e = tx.ExecContext(ctx, `UPDATE narrative_discovery.members SET document=$1 WHERE squad_id=$2 AND account_id=$3`, encode(m), squadID, m.AccountID)
@@ -471,10 +472,10 @@ func (s Store) UpdateConnectedSquad(ctx context.Context, actor, id string, input
 			return e
 		}
 		m, e := member(ctx, tx, id, actor)
-		if e != nil || m.Status != "active" || (m.Role != "owner" && m.Role != "moderator") {
+		if e != nil || m.Status != statusActive || (m.Role != roleOwner && m.Role != roleModerator) {
 			return ErrForbidden
 		}
-		if input.Expected < 1 || input.Squad.ID != id || input.Squad.OwnerAccountID != q.OwnerAccountID || uint64(input.Expected) != q.Revision || input.Squad.Revision != input.Expected+1 {
+		if input.Expected < 1 || input.Squad.Revision < 1 || input.Squad.ID != id || input.Squad.OwnerAccountID != q.OwnerAccountID || uint64(input.Expected) != q.Revision || input.Squad.Revision != input.Expected+1 {
 			return ErrConflict
 		}
 		next = q

@@ -61,7 +61,11 @@ func externalDatabase(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("external postgres: %v", err)
 	}
-	defer conn.Close(ctx)
+	defer func() {
+		if closeErr := conn.Close(ctx); closeErr != nil {
+			t.Errorf("close test database connection: %v", closeErr)
+		}
+	}()
 	name := "metadata_test_" + suffix(t)
 	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("create test database: %v", err)
@@ -72,7 +76,11 @@ func externalDatabase(t *testing.T) string {
 			t.Logf("drop test database %s: %v", name, err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() {
+			if closeErr := c.Close(context.Background()); closeErr != nil {
+				t.Errorf("close test database cleanup connection: %v", closeErr)
+			}
+		}()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database %s: %v", name, err)
 		}

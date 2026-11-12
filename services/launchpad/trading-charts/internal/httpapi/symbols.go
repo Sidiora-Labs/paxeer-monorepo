@@ -6,12 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
-	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"math/big"
 	"net/http"
@@ -21,6 +15,13 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
@@ -37,11 +38,11 @@ func parseSymbolQuery(raw string) (string, error) {
 		if len(values) != 1 {
 			return "", errors.New("duplicate symbol query field")
 		}
-		if key != "symbol" && key != "chainId" {
+		if key != "symbol" && key != fieldChainID {
 			return "", errors.New("unknown symbol query field")
 		}
 	}
-	if query.Has("chainId") && query.Get("chainId") != "125" {
+	if query.Has(fieldChainID) && query.Get(fieldChainID) != "125" {
 		return "", errors.New("chainId must be 125")
 	}
 	symbol := strings.ToLower(query.Get("symbol"))
@@ -58,21 +59,21 @@ func udfSymbols(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sharedhttp.WriteJSON(w, 200, map[string]interface{}{
-		"name":                   symbol,
-		"full_name":              symbol + "/USDL",
-		"description":            "Token " + symbol,
-		"type":                   "token",
-		"session":                "24x7",
-		"exchange":               "sidiora",
-		"listed_exchange":        "sidiora",
-		"timezone":               "Etc/UTC",
-		"has_intraday":           true,
-		"has_weekly_and_monthly": true,
-		"supported_resolutions":  supportedResolutions(),
-		"pricescale":             100000000,
-		"ticker":                 symbol,
-		"currency_code":          "USDL",
-		"has_empty_bars":         false,
+		fieldName:                 symbol,
+		"full_name":               symbol + "/USDL",
+		fieldDescription:          "Token " + symbol,
+		fieldType:                 symbolTypeToken,
+		"session":                 "24x7",
+		"exchange":                exchangeSidiora,
+		"listed_exchange":         exchangeSidiora,
+		"timezone":                "Etc/UTC",
+		"has_intraday":            true,
+		"has_weekly_and_monthly":  true,
+		fieldSupportedResolutions: supportedResolutions(),
+		"pricescale":              100000000,
+		"ticker":                  symbol,
+		"currency_code":           currencyUSDL,
+		"has_empty_bars":          false,
 	})
 }
 
@@ -83,7 +84,7 @@ type PoolMetadataClient struct {
 
 var ErrUnknownPool = errors.New("unknown verified pool")
 
-func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string, dst any, schema string) error {
+func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string, dst any, schema string) (resultErr error) {
 	ctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
 	defer cancel()
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -99,7 +100,7 @@ func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string,
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { resultErr = errors.Join(resultErr, response.Body.Close()) }()
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -121,7 +122,7 @@ func boundedChartJSON(ctx context.Context, client *http.Client, endpoint string,
 func (c PoolMetadataClient) Resolve(ctx context.Context, pool string) (interfaces.PoolDetailResponse, error) {
 	var out interfaces.PoolDetailResponse
 	base, err := url.Parse(c.Endpoint)
-	if err != nil || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != "http" && base.Scheme != "https") || !poolAddressPattern.MatchString(pool) {
+	if err != nil || base.Host == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Scheme != schemeHTTP && base.Scheme != schemeHTTPS) || !poolAddressPattern.MatchString(pool) {
 		return out, errors.New("metadata authority unavailable")
 	}
 	base.Path = strings.TrimRight(base.Path, "/") + "/v2/pools/" + pool
@@ -129,7 +130,7 @@ func (c PoolMetadataClient) Resolve(ctx context.Context, pool string) (interface
 		return out, err
 	}
 	p, t := out.Data.Pool, out.Data.Token
-	if p.ChainId != "125" || strings.ToLower(p.PoolAddress) != pool || !strings.EqualFold(p.TokenAddress, t.Address) || t.Decimals == nil || t.DecimalsQuality != "verified" || t.SourcePosition == nil || t.SourcePosition.ChainId != "125" || p.QuoteAssetDecimals != 6 || *t.Decimals < 0 || *t.Decimals > 255 {
+	if p.ChainId != "125" || strings.ToLower(p.PoolAddress) != pool || !strings.EqualFold(p.TokenAddress, t.Address) || t.Decimals == nil || t.DecimalsQuality != qualityVerified || t.SourcePosition == nil || t.SourcePosition.ChainId != "125" || p.QuoteAssetDecimals != 6 || *t.Decimals < 0 || *t.Decimals > 255 {
 		return out, errors.New("unverified pool metadata")
 	}
 	return out, nil
@@ -201,7 +202,7 @@ func (h SymbolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < precision; i++ {
 		scale *= 10
 	}
-	sharedhttp.WriteJSON(w, 200, map[string]any{"name": pool, "ticker": pool, "full_name": token.Symbol + "/USDL", "description": token.Name, "type": "token", "session": "24x7", "exchange": "sidiora", "listed_exchange": "sidiora", "timezone": "Etc/UTC", "has_intraday": true, "has_weekly_and_monthly": true, "supported_resolutions": supportedResolutions(), "pricescale": scale, "priceScale": scale, "displayPrecision": precision, "minmov": 1, "currency_code": "USDL", "has_empty_bars": false, "chainId": "125", "poolAddress": pool, "tokenAddress": token.Address, "baseDecimals": *token.Decimals, "quoteDecimals": quoteDecimals, "metadataRevision": token.MetadataRevision})
+	sharedhttp.WriteJSON(w, 200, map[string]any{fieldName: pool, "ticker": pool, "full_name": token.Symbol + "/USDL", fieldDescription: token.Name, fieldType: symbolTypeToken, "session": "24x7", "exchange": exchangeSidiora, "listed_exchange": exchangeSidiora, "timezone": "Etc/UTC", "has_intraday": true, "has_weekly_and_monthly": true, fieldSupportedResolutions: supportedResolutions(), "pricescale": scale, "priceScale": scale, "displayPrecision": precision, "minmov": 1, "currency_code": currencyUSDL, "has_empty_bars": false, fieldChainID: "125", "poolAddress": pool, "tokenAddress": token.Address, "baseDecimals": *token.Decimals, "quoteDecimals": quoteDecimals, "metadataRevision": token.MetadataRevision})
 }
 func boundedMetadataText(value string, max int) bool {
 	if value == "" || !utf8.ValidString(value) || utf8.RuneCountInString(value) > max {
@@ -283,7 +284,7 @@ func (s CanonicalPoolMetadataSource) Resolve(ctx context.Context, pool string) (
 	total := interfaces.UInt256(new(big.Int).SetBytes(values[3]).String())
 	digest := sha256.Sum256(append(append(append([]byte(pool+":"+fact.Token+":"+blockHash), values[0]...), values[1]...), append(values[2], values[3]...)...))
 	revision := interfaces.UInt256(new(big.Int).SetBytes(digest[:]).String())
-	token = interfaces.Token{Address: strings.ToLower(fact.Token), Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: "verified", MetadataRevision: revision, SourcePosition: &fact.Position, SupplyQuality: "verified", TotalSupplyRaw: &total}
+	token = interfaces.Token{Address: strings.ToLower(fact.Token), Name: name, Symbol: symbol, Decimals: &decimals, DecimalsQuality: qualityVerified, MetadataRevision: revision, SourcePosition: &fact.Position, SupplyQuality: qualityVerified, TotalSupplyRaw: &total}
 	return token, nil
 }
 func decodeMetadataString(raw []byte, max int) (string, error) {

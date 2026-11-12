@@ -15,6 +15,8 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn system() -> Result<Self, FetchError> {
         let configuration =
             std::fs::read_to_string("/etc/resolv.conf").map_err(|_| FetchError::Resolve)?;
@@ -36,10 +38,10 @@ impl Resolver {
                         .iter()
                         .take(6)
                         .map(|domain| (*domain).to_owned())
-                        .collect()
+                        .collect();
                 }
                 ["domain", domain] if resolver.search.is_empty() => {
-                    resolver.search.push((*domain).to_owned())
+                    resolver.search.push((*domain).to_owned());
                 }
                 ["options", options @ ..] => {
                     for option in options {
@@ -77,6 +79,8 @@ impl Resolver {
 
     /// Explicit DNS peers are useful for private DNS deployments as well as
     /// loopback transcript servers. Literal destinations still bypass DNS.
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn from_nameservers(servers: &[SocketAddr]) -> Result<Self, FetchError> {
         if servers.len() > 8 || servers.iter().any(|server| server.port() == 0) {
             return Err(FetchError::Resolve);
@@ -89,6 +93,8 @@ impl Resolver {
         })
     }
 
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn resolve(
         &self,
         host: &str,
@@ -352,7 +358,7 @@ fn decode(packet: &[u8], query: &[u8], name: &str, kind: u16) -> Result<Answer, 
         if class == 1 {
             match (record_kind, data) {
                 (1, [a, b, c, d]) if kind == 1 => {
-                    addresses.push((owner, IpAddr::V4(Ipv4Addr::new(*a, *b, *c, *d))))
+                    addresses.push((owner, IpAddr::V4(Ipv4Addr::new(*a, *b, *c, *d))));
                 }
                 (28, data) if kind == 28 && data.len() == 16 => {
                     addresses.push((
@@ -387,7 +393,7 @@ fn decode(packet: &[u8], query: &[u8], name: &str, kind: u16) -> Result<Answer, 
     let mut canonical = name.to_owned();
     for _ in 0..8 {
         if let Some((_, target)) = aliases.iter().find(|(owner, _)| *owner == canonical) {
-            canonical = target.clone();
+            canonical.clone_from(target);
         } else {
             let addresses: Vec<_> = addresses
                 .into_iter()

@@ -14,7 +14,7 @@ func chainParameter(w http.ResponseWriter, r *http.Request) (uint32, bool) {
 	raw := chi.URLParam(r, "chain")
 	number, err := strconv.ParseUint(raw, 10, 32)
 	if err != nil || number == 0 || strconv.FormatUint(number, 10) != raw {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return 0, false
 	}
 	return uint32(number), true
@@ -23,21 +23,21 @@ func chainParameter(w http.ResponseWriter, r *http.Request) (uint32, bool) {
 func chainPageRequest(w http.ResponseWriter, r *http.Request, holderAllowed bool) (int, poolListCursor, string, bool) {
 	q := r.URL.Query()
 	for key, values := range q {
-		if len(values) != 1 || key != "limit" && key != "cursor" && !(holderAllowed && key == "holder") {
+		if len(values) != 1 || key != literalLimit && key != literalCursor && (!holderAllowed || key != "holder") {
 			WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 			return 0, poolListCursor{}, "", false
 		}
 	}
-	limit, err := boundedInteger(q.Get("limit"), 50, 1, 100)
+	limit, err := boundedInteger(q.Get(literalLimit), 50, 1, 100)
 	if err != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return 0, poolListCursor{}, "", false
 	}
 	var cursor poolListCursor
-	if tokens, present := q["cursor"]; present {
+	if tokens, present := q[literalCursor]; present {
 		cursor, err = decodePoolListCursor(tokens[0])
 		if err != nil {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return 0, poolListCursor{}, "", false
 		}
 	}
@@ -45,7 +45,7 @@ func chainPageRequest(w http.ResponseWriter, r *http.Request, holderAllowed bool
 	if values, present := q["holder"]; present {
 		holder, err = store.Address(values[0])
 		if err != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return 0, poolListCursor{}, "", false
 		}
 	}
@@ -54,12 +54,12 @@ func chainPageRequest(w http.ResponseWriter, r *http.Request, holderAllowed bool
 
 func writeChainEnvelope(w http.ResponseWriter, r *http.Request, data any, next any) {
 	body, err := json.Marshal(map[string]any{
-		"requestId": responseRequestID(w), "data": data,
-		"revision": nil, "watermark": nil, "quality": "complete",
-		"nextCursor": next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		literalRequestId: responseRequestID(w), literalData: data,
+		literalRevision: nil, literalWatermark: nil, literalQuality: "complete",
+		literalNextCursor: next, literalGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 	})
 	if err != nil || store.ValidatePublicJSON(body) != nil {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -88,14 +88,14 @@ func chainsList(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if cursor.Offset > page.Total {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return
 		}
 		var next any
 		if end := cursor.Offset + len(page.Items); end < page.Total {
 			next = encodePoolListCursor(poolListCursor{SnapshotID: snapshotID, Offset: end})
 		}
-		writeChainEnvelope(w, r, map[string]any{"items": page.Items}, next)
+		writeChainEnvelope(w, r, map[string]any{literalItems: page.Items}, next)
 	}
 }
 
@@ -106,7 +106,7 @@ func chainsDetail(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if len(r.URL.Query()) != 0 {
-			WriteV2APIError(w, r, 400, "QUERY_INVALID")
+			WriteV2APIError(w, r, 400, literalQUERYINVALID)
 			return
 		}
 		if st == nil {
@@ -119,7 +119,7 @@ func chainsDetail(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if row == nil {
-			WriteV2APIError(w, r, 404, "NOT_FOUND")
+			WriteV2APIError(w, r, 404, literalNOTFOUND)
 			return
 		}
 		writeChainEnvelope(w, r, map[string]any{"chain": row}, nil)
@@ -146,7 +146,7 @@ func chainsRevenue(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if row == nil {
-			WriteV2APIError(w, r, 404, "NOT_FOUND")
+			WriteV2APIError(w, r, 404, literalNOTFOUND)
 			return
 		}
 		page, err := st.ChainRevenue(r.Context(), chain, holder, limit, cursor.Offset)
@@ -160,7 +160,7 @@ func chainsRevenue(st *store.Store) http.HandlerFunc {
 			return
 		}
 		if cursor.Offset > page.Total {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return
 		}
 		var next any

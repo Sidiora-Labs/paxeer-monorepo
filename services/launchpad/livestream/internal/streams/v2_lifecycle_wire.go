@@ -19,7 +19,7 @@ func AdaptV2StreamStart(requestID string, o Operation) ([]byte, error) {
 		RequestId:   requestID,
 		Data:        v2.StreamStartData{Operation: operation},
 		Revision:    &operation.Revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: time.Now().UTC().Format(v2LifecycleTimeLayout),
 	})
 }
@@ -33,7 +33,7 @@ func AdaptV2StreamEnd(requestID string, o Operation) ([]byte, error) {
 		RequestId:   requestID,
 		Data:        v2.StreamEndData{Operation: operation},
 		Revision:    &operation.Revision,
-		Quality:     "complete",
+		Quality:     qualityComplete,
 		GeneratedAt: time.Now().UTC().Format(v2LifecycleTimeLayout),
 	})
 }
@@ -44,8 +44,8 @@ func AdaptV2StreamHeartbeat(requestID string, streamID string, viewers int64, at
 	}
 	return marshalV2Lifecycle("StreamHeartbeatResponse", v2.StreamHeartbeatResponse{
 		RequestId:   requestID,
-		Data:        v2.StreamHeartbeatData{ViewerCount: v2.SafeInteger(viewers), ViewerQuality: "verified"},
-		Quality:     "complete",
+		Data:        v2.StreamHeartbeatData{ViewerCount: v2.SafeInteger(viewers), ViewerQuality: qualityVerified},
+		Quality:     qualityComplete,
 		GeneratedAt: at.UTC().Format(v2LifecycleTimeLayout),
 	})
 }

@@ -8,13 +8,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"net"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func (p Principal) ProofAt() time.Time { return p.reauthenticatedAt }
@@ -35,14 +37,14 @@ func (s *Identity) IssueLogin(ctx context.Context, r ChallengeRequest, ip string
 	if e != nil || !s.origins[r.Origin] || net.ParseIP(ip) == nil {
 		return Challenge{}, invalid()
 	}
-	return s.issue(ctx, w, "login", "", "", "", ip)
+	return s.issue(ctx, w, loginOperation, "", "", "", ip)
 }
 func (s *Identity) issue(ctx context.Context, w, purpose, account, session, link, ip string) (Challenge, error) {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Challenge{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	c, e := s.issueTx(ctx, tx, w, purpose, account, session, link, ip)
 	if e != nil {
 		return Challenge{}, e
@@ -142,14 +144,17 @@ func (s *Identity) verifyChallengeWith(ctx context.Context, q identityRowQuerier
 			return c, unauthorized()
 		}
 	}
-	if len(p.Signature) > 8194 || !strings.HasPrefix(p.Signature, "0x") || (p.Kind != "eoa_eip191" && p.Kind != "erc1271") {
+	if len(p.Signature) > 8194 || !strings.HasPrefix(p.Signature, "0x") || (p.Kind != eoaEIP191Method && p.Kind != "erc1271") {
 		return c, unauthorized()
 	}
 	verificationStarted := time.Now()
 	e = s.verifier.VerifyIdentity(ctx, c.message, p)
-	if p.Kind == "eoa_eip191" {
+	if p.Kind == eoaEIP191Method {
 		s.measureEOACount.Add(1)
-		s.measureEOAWallNS.Add(uint64(time.Since(verificationStarted).Nanoseconds()))
+		elapsed := time.Since(verificationStarted)
+		if elapsed > 0 {
+			s.measureEOAWallNS.Add(uint64(elapsed))
+		}
 	} else {
 		s.measureContractCount.Add(1)
 	}
@@ -181,7 +186,7 @@ func (s *Identity) Login(ctx context.Context, r LoginRequest) (Credentials, erro
 	if !utf8.ValidString(r.DeviceLabel) || utf8.RuneCountInString(r.DeviceLabel) > 80 {
 		return Credentials{}, invalid()
 	}
-	c, e := s.verifyChallenge(ctx, r.ChallengeID, r.Proof, "login", "", "", "")
+	c, e := s.verifyChallenge(ctx, r.ChallengeID, r.Proof, loginOperation, "", "", "")
 	if e != nil {
 		return Credentials{}, e
 	}
@@ -189,7 +194,7 @@ func (s *Identity) Login(ctx context.Context, r LoginRequest) (Credentials, erro
 	if e != nil {
 		return Credentials{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	now := s.now().UTC()
 	if e = consume(ctx, tx, r.ChallengeID, now); e != nil {
 		return Credentials{}, e
@@ -235,7 +240,7 @@ func (s *Identity) createSession(ctx context.Context, tx pgx.Tx, account, w stri
 	}
 	refresh = salt + "." + refresh
 	csrf := s.refreshCSRFSecret(refresh)
-	sess := Session{SessionID: uuid.NewString(), Wallet: w, AccessExpiresAt: now.Add(15 * time.Minute), RefreshExpiresAt: now.Add(30 * 24 * time.Hour), Scopes: []string{"account:owner"}, DeviceLabel: label}
+	sess := Session{SessionID: uuid.NewString(), Wallet: w, AccessExpiresAt: now.Add(15 * time.Minute), RefreshExpiresAt: now.Add(30 * 24 * time.Hour), Scopes: []string{accountOwnerScope}, DeviceLabel: label}
 	_, e = tx.Exec(ctx, `INSERT INTO identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$7,$7,$10)`, sess.SessionID, account, w, epoch, digest(access), digest(csrf), now, sess.AccessExpiresAt, sess.RefreshExpiresAt, label)
 	if e != nil {
 		return Credentials{}, unavailable()
@@ -311,14 +316,14 @@ func (s *Identity) fresh(ctx context.Context, p Principal, tx pgx.Tx) error {
 }
 func (s *Identity) IssueLink(ctx context.Context, p Principal, r WalletLinkChallengeRequest, ip string) (Challenge, string, error) {
 	w, e := normalizeWallet(r.Wallet)
-	if e != nil || r.ChainID != "125" || (r.Visibility != "private" && r.Visibility != "public_optin") || net.ParseIP(ip) == nil {
+	if e != nil || r.ChainID != "125" || (r.Visibility != privateVisibility && r.Visibility != publicOptInVisibility) || net.ParseIP(ip) == nil {
 		return Challenge{}, "", invalid()
 	}
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
 		return Challenge{}, "", unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if e = s.fresh(ctx, p, tx); e != nil {
 		return Challenge{}, "", e
 	}
@@ -345,7 +350,7 @@ func (s *Identity) VerifyLink(ctx context.Context, p Principal, r WalletLinkVeri
 	if e != nil {
 		return WalletLink{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if e = s.fresh(ctx, p, tx); e != nil {
 		return WalletLink{}, e
 	}
@@ -378,7 +383,7 @@ func (s *Identity) Unlink(ctx context.Context, p Principal, r WalletLinkRemoveRe
 	if e != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if e = s.fresh(ctx, p, tx); e != nil {
 		return e
 	}
@@ -409,7 +414,7 @@ func (s *Identity) Unlink(ctx context.Context, p Principal, r WalletLinkRemoveRe
 	if e != nil {
 		return unavailable()
 	}
-	if e = s.audit(ctx, tx, p, "wallet_unlink"); e != nil {
+	if e = s.audit(ctx, tx, p, walletUnlinkEvent); e != nil {
 		return e
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -454,7 +459,7 @@ func (s *Identity) Logout(ctx context.Context, p Principal, all bool) error {
 	if e != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	var epoch int64
 	e = tx.QueryRow(ctx, `SELECT auth_epoch FROM identity_accounts WHERE account_id=$1 FOR UPDATE`, p.accountID).Scan(&epoch)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -508,7 +513,7 @@ func (s *Identity) Refresh(ctx context.Context, secret string) (Credentials, err
 	if e != nil {
 		return Credentials{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	var sid string
 	var used *time.Time
 	var expires time.Time
@@ -591,7 +596,7 @@ func (s *Identity) Refresh(ctx context.Context, secret string) (Credentials, err
 	if e = tx.Commit(ctx); e != nil {
 		return Credentials{}, unavailable()
 	}
-	return Credentials{LoginData: LoginData{AccessToken: access, Session: Session{SessionID: sid, Wallet: wallet, AccessExpiresAt: accessExpires, RefreshExpiresAt: expires, DeviceLabel: label, Scopes: []string{"account:owner"}}}, RefreshSecret: next, CSRFSecret: csrf}, nil
+	return Credentials{LoginData: LoginData{AccessToken: access, Session: Session{SessionID: sid, Wallet: wallet, AccessExpiresAt: accessExpires, RefreshExpiresAt: expires, DeviceLabel: label, Scopes: []string{accountOwnerScope}}}, RefreshSecret: next, CSRFSecret: csrf}, nil
 }
 func validEndpoint(v string) bool {
 	return len(v) > 0 && len(v) <= 256 && strings.HasPrefix(v, "/") && !strings.ContainsAny(v, "?#\r\n")
@@ -678,7 +683,7 @@ func (s *Identity) LogoutSession(ctx context.Context, p Principal, id string) er
 	if err != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if err = s.AuthorizeTx(ctx, tx, p); err != nil {
 		return err
 	}
@@ -721,7 +726,7 @@ func (s *Identity) IssueLoginIdempotent(ctx context.Context, r ChallengeRequest,
 	if err != nil {
 		return Challenge{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, wallet+":"+key); err != nil {
 		return Challenge{}, unavailable()
 	}
@@ -746,7 +751,7 @@ func (s *Identity) IssueLoginIdempotent(ctx context.Context, r ChallengeRequest,
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return Challenge{}, unavailable()
 	}
-	challenge, err := s.issueTx(ctx, tx, wallet, "login", "", "", "", ip)
+	challenge, err := s.issueTx(ctx, tx, wallet, loginOperation, "", "", "", ip)
 	if err != nil {
 		return Challenge{}, err
 	}

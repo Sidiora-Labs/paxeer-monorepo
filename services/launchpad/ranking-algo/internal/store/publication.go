@@ -77,7 +77,7 @@ func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snap
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	if _, err = tx.Exec(ctx, "SET LOCAL lock_timeout='2s'"); err != nil {
 		return err
 	}
@@ -322,7 +322,7 @@ func (s *PublicationStore) CommitStreamOnce(ctx context.Context, writer StreamAp
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	p, err := s.nextEvent(ctx, tx, maxAttempts)
 	if err != nil || p == nil {
 		return false, err
@@ -363,7 +363,7 @@ func (s *PublicationStore) DispatchOnce(ctx context.Context, publisher delivery.
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	p, err := s.nextEvent(ctx, tx, maxAttempts)
 	if err != nil || p == nil {
 		return false, err
@@ -398,7 +398,7 @@ func (s *PublicationStore) recordFailure(ctx context.Context, sequence int64, ma
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	if err = s.guard.Assert(ctx, tx); err != nil {
 		return err
 	}
@@ -487,7 +487,7 @@ func (s *PublicationStore) Prune(ctx context.Context, now time.Time, limit int) 
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(bounded)
+	defer rollbackTransaction(bounded, tx)
 	if err = s.guard.Assert(bounded, tx); err != nil {
 		return 0, err
 	}

@@ -6,15 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	goredis "github.com/redis/go-redis/v9"
-	"io"
-	"reflect"
-	"strings"
-	"time"
 )
 
 const ConnectedSchemaSQL = `
@@ -119,7 +121,7 @@ func (s *DurableStore) MarkReadConnected(ctx context.Context, actor, conversatio
 	if err != nil {
 		return err
 	}
-	event := map[string]string{"type": "read_marker", "conversation_id": conversation, "through_sequence": itoa64(read)}
+	event := map[string]string{typeField: readMarkerType, "conversation_id": conversation, "through_sequence": itoa64(read)}
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -184,7 +186,7 @@ func NewPostgresNotificationTargets(identitySchema string) (PostgresNotification
 		return PostgresNotificationTargets{}, ErrInvalid
 	}
 	for _, c := range identitySchema {
-		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' {
 			return PostgresNotificationTargets{}, ErrInvalid
 		}
 	}
@@ -316,12 +318,12 @@ func (s *DurableStore) ConsumeSocialBroker(ctx context.Context, message *natsdri
 		Type, ID     string
 		Conversation string `json:"conversation_id"`
 	}
-	if json.Unmarshal(envelope.Payload, &event) != nil || event.Conversation == "" || (event.Type != "dm" && event.Type != "pool_message" && event.Type != "read_marker") {
+	if json.Unmarshal(envelope.Payload, &event) != nil || event.Conversation == "" || (event.Type != "dm" && event.Type != "pool_message" && event.Type != readMarkerType) {
 		return ErrInvalid
 	}
 	seen := map[string]bool{}
 	for _, channel := range envelope.Channels {
-		if seen[channel] || len(channel) > 256 || !(strings.HasPrefix(channel, s.ChannelNamespace+poolChannelPrefix) || strings.HasPrefix(channel, s.ChannelNamespace+dmChannelPrefix)) {
+		if seen[channel] || len(channel) > 256 || (!strings.HasPrefix(channel, s.ChannelNamespace+poolChannelPrefix) && !strings.HasPrefix(channel, s.ChannelNamespace+dmChannelPrefix)) {
 			return ErrInvalid
 		}
 		seen[channel] = true
@@ -335,7 +337,7 @@ func (s *DurableStore) ConsumeSocialBroker(ctx context.Context, message *natsdri
 		return err
 	}
 	var durablePayload, durableChannels []byte
-	if event.Type == "read_marker" {
+	if event.Type == readMarkerType {
 		var wallet string
 		if err = tx.QueryRow(ctx, `SELECT payload,wallet FROM chat_control_outbox WHERE event_id=$1`, envelope.EventID).Scan(&durablePayload, &wallet); err != nil {
 			return err
@@ -353,6 +355,9 @@ func (s *DurableStore) ConsumeSocialBroker(ctx context.Context, message *natsdri
 	var committedChannels []string
 	if json.Unmarshal(durablePayload, &persisted) != nil || json.Unmarshal(envelope.Payload, &received) != nil || !reflect.DeepEqual(persisted, received) || json.Unmarshal(durableChannels, &committedChannels) != nil || !reflect.DeepEqual(committedChannels, envelope.Channels) {
 		return errors.New("social event differs from committed publication intent")
+	}
+	if message.Sequence > math.MaxInt64 {
+		return ErrInvalid
 	}
 	tag, err := tx.Exec(ctx, `INSERT INTO chat_broker_inbox(event_id,payload_hash,broker_stream,broker_sequence) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, envelope.EventID, delivery.Hash(message.Wire), message.Stream, int64(message.Sequence))
 	if err != nil {

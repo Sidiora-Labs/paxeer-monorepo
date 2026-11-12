@@ -85,7 +85,7 @@ func ValidateAttribution(a Attribution) error {
 		}
 	}
 	switch a.Quality {
-	case "unavailable":
+	case valueUnavailable:
 		if len(a.Evidence) != 0 {
 			return ErrInvalid
 		}
@@ -126,7 +126,7 @@ func ValidateExecutionPolicy(e ExecutionPolicy) error {
 		return ErrInvalid
 	}
 	switch e.Quality {
-	case "unavailable":
+	case valueUnavailable:
 		if e.FeeBPS != nil || e.ConfigDigest != nil || e.PreTransactionStateDigest != nil || e.ReplayEvidenceDigest != nil || e.OpticalImplementation != nil || len(e.Evidence) != 0 {
 			return ErrInvalid
 		}
@@ -217,7 +217,7 @@ func ValidateFillV1(f FillV1) error {
 		if expected.Sign() < 0 || expected.Cmp(net) != 0 {
 			return bad("net input arithmetic")
 		}
-		if f.Execution.Quality == "unavailable" {
+		if f.Execution.Quality == valueUnavailable {
 			return bad("priced input authority")
 		}
 		if f.Execution.FeeBPS != nil {
@@ -243,11 +243,11 @@ func ValidatePartitionPosition(p PartitionPosition) error {
 	}
 	parts := strings.Split(p.PartitionKey, ":")
 	switch p.PartitionKind {
-	case "market":
+	case valueMarket:
 		if len(parts) != 2 || parts[0] != "125" || !validAddress(parts[1]) {
 			return ErrInvalid
 		}
-	case "inventory":
+	case valueInventory:
 		if len(parts) != 3 || parts[0] != "125" || !validAddress(parts[1]) || !validAddress(parts[2]) {
 			return ErrInvalid
 		}
@@ -257,7 +257,7 @@ func ValidatePartitionPosition(p PartitionPosition) error {
 	return nil
 }
 func ValidateEnrichmentV1(e EnrichmentV1) error {
-	if !validDigest(e.SourceFillID) || !validDigest(string(e.SourceFactDigest)) || !validDigest(string(e.EvidenceDigest)) || !validLabel(e.EnrichmentVersion) || e.EnrichmentVersion == "initial" || !validLabel(e.ProjectionVersion) || len(e.ProjectionVersion) > 128 || (e.Facet != "market" && e.Facet != "inventory") || (e.Attribution == nil && e.Execution == nil) {
+	if !validDigest(e.SourceFillID) || !validDigest(string(e.SourceFactDigest)) || !validDigest(string(e.EvidenceDigest)) || !validLabel(e.EnrichmentVersion) || e.EnrichmentVersion == "initial" || !validLabel(e.ProjectionVersion) || len(e.ProjectionVersion) > 128 || (e.Facet != valueMarket && e.Facet != valueInventory) || (e.Attribution == nil && e.Execution == nil) {
 		return ErrInvalid
 	}
 	if e.Attribution != nil && ValidateAttribution(*e.Attribution) != nil {
@@ -266,13 +266,13 @@ func ValidateEnrichmentV1(e EnrichmentV1) error {
 	if e.Execution != nil && ValidateExecutionPolicy(*e.Execution) != nil {
 		return ErrInvalid
 	}
-	if e.Facet == "inventory" && (e.Attribution == nil || e.Attribution.Payer == nil || e.Attribution.Recipient == nil || *e.Attribution.Payer != *e.Attribution.Recipient || e.Attribution.Quality == "unavailable") {
+	if e.Facet == valueInventory && (e.Attribution == nil || e.Attribution.Payer == nil || e.Attribution.Recipient == nil || *e.Attribution.Payer != *e.Attribution.Recipient || e.Attribution.Quality == valueUnavailable) {
 		return ErrInvalid
 	}
 	return nil
 }
 func ValidatePublicationV1(p PublicationV1) error {
-	if p.Version != PublicationVersion || !validDigest(p.PublicationID) || !validDigest(p.SourceFillID) || !validDigest(string(p.SourceFactDigest)) || (p.Facet != "market" && p.Facet != "inventory") || (p.Fill == nil) == (p.Enrichment == nil) || len(p.Positions) != 1 {
+	if p.Version != PublicationVersion || !validDigest(p.PublicationID) || !validDigest(p.SourceFillID) || !validDigest(string(p.SourceFactDigest)) || (p.Facet != valueMarket && p.Facet != valueInventory) || (p.Fill == nil) == (p.Enrichment == nil) || len(p.Positions) != 1 {
 		return ErrInvalid
 	}
 	position := p.Positions[0]
@@ -282,7 +282,7 @@ func ValidatePublicationV1(p PublicationV1) error {
 	evidence := Digest("")
 	enrichmentVersion := "initial"
 	if p.Fill != nil {
-		if p.Facet != "market" || ValidateFillV1(*p.Fill) != nil || p.Fill.SourceFillID != p.SourceFillID || position.SourceOrder != p.Fill.Position || position.PartitionKey != "125:"+p.Fill.PoolAddress {
+		if p.Facet != valueMarket || ValidateFillV1(*p.Fill) != nil || p.Fill.SourceFillID != p.SourceFillID || position.SourceOrder != p.Fill.Position || position.PartitionKey != "125:"+p.Fill.PoolAddress {
 			return ErrIdentity
 		}
 		d, err := FillDigest(*p.Fill)
@@ -296,7 +296,7 @@ func ValidatePublicationV1(p PublicationV1) error {
 		}
 		evidence = e.EvidenceDigest
 		enrichmentVersion = e.EnrichmentVersion
-		if e.Facet == "inventory" && strings.Split(position.PartitionKey, ":")[1] != *e.Attribution.Payer {
+		if e.Facet == valueInventory && strings.Split(position.PartitionKey, ":")[1] != *e.Attribution.Payer {
 			return ErrIdentity
 		}
 	}

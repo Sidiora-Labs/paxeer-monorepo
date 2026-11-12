@@ -45,6 +45,21 @@ fn hex(text: &str) -> Vec<u8> {
         })
         .collect()
 }
+
+#[test]
+fn canonical_settlement_frame_carries_room_tail_bytes() -> Checked {
+    let room_tail = [
+        0, 0, 0, 0, b'P', b'A', b'X', b'A', b'I', b'/', b'F', b'1', b'1',
+    ];
+    let frame = StateFrame {
+        revision: 1,
+        sections: [&[], &[], &[], &room_tail, &[], &[]],
+    };
+    let mut out = vec![0; frame.encoded_len()?];
+    let n = encode_state(&frame, &mut out)?;
+    assert_eq!(decode_state(&out[..n])?.sections[3], room_tail);
+    Ok(())
+}
 fn fixed32(text: &str) -> Checked<[u8; 32]> {
     hex(text)
         .try_into()

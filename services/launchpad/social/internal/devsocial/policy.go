@@ -89,7 +89,7 @@ func (p *Policy) pool(ctx context.Context, q pgxQuerier, pool string) (token, cr
 // and pool existence when a comment is created.
 func (p *Policy) Check(ctx context.Context, tx pgx.Tx, r interactions.Request) error {
 	pool := r.Pool
-	if pool == "" && r.ID != "" && (r.Action == "comment" || r.Action == "reaction") {
+	if pool == "" && r.ID != "" && (r.Action == commentAction || r.Action == "reaction") {
 		if err := tx.QueryRow(ctx, `SELECT pool FROM chat.interaction_comments WHERE id=$1`, r.ID).Scan(&pool); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -101,7 +101,7 @@ func (p *Policy) Check(ctx context.Context, tx pgx.Tx, r interactions.Request) e
 	if denied {
 		return interactions.ErrDenied
 	}
-	if r.Action == "comment" && !r.Remove && r.Pool != "" {
+	if r.Action == commentAction && !r.Remove && r.Pool != "" {
 		if _, _, err = p.pool(ctx, tx, r.Pool); err != nil {
 			if errors.Is(err, errNotFound) {
 				return pgx.ErrNoRows
@@ -180,12 +180,12 @@ func (p *Policy) SendChat(ctx context.Context, tx pgx.Tx, in fanout.SendInput) e
 func (p *Policy) chatAuthority() *interactions.PGPolicy {
 	return &interactions.PGPolicy{
 		DB:               p.DB,
-		Accounts:         pgx.Identifier{"users", "account_state_v2"},
-		Sessions:         pgx.Identifier{"users", "identity_sessions_v2"},
-		IdentityAccounts: pgx.Identifier{"users", "identity_accounts_v2"},
-		WalletLinks:      pgx.Identifier{"users", "identity_wallet_links_v2"},
-		SessionGuard:     pgx.Identifier{"chat", "interaction_session_valid"},
-		AccountGuard:     pgx.Identifier{"chat", "interaction_account_active"},
+		Accounts:         pgx.Identifier{usersScope, "account_state_v2"},
+		Sessions:         pgx.Identifier{usersScope, "identity_sessions_v2"},
+		IdentityAccounts: pgx.Identifier{usersScope, "identity_accounts_v2"},
+		WalletLinks:      pgx.Identifier{usersScope, "identity_wallet_links_v2"},
+		SessionGuard:     pgx.Identifier{chatScope, "interaction_session_valid"},
+		AccountGuard:     pgx.Identifier{chatScope, "interaction_account_active"},
 	}
 }
 

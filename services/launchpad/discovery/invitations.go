@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,7 +34,7 @@ func (s Store) ChangeMembership(ctx context.Context, actor, id, account, action 
 				return ErrInvalid
 			}
 			e = inviteTx(ctx, tx, actor, id, account, uuid.NewString()+uuid.NewString(), expected, time.Now().UTC().Add(24*time.Hour))
-		case "request":
+		case actionRequest:
 			if actor != account {
 				return ErrForbidden
 			}
@@ -41,15 +42,15 @@ func (s Store) ChangeMembership(ctx context.Context, actor, id, account, action 
 		case "approve":
 			m, e = approveRequestTx(ctx, tx, actor, id, account, expected, time.Now().UTC())
 		case "remove", "ban":
-			status := "removed"
+			status := stateRemoved
 			if action == "ban" {
-				status = "banned"
+				status = statusBanned
 			}
 			e = setMemberStatusTx(ctx, tx, actor, id, account, status, expected)
 		case "promote", "demote":
-			role := "member"
+			role := roleMember
 			if action == "promote" {
-				role = "moderator"
+				role = roleModerator
 			}
 			e = setMemberRoleTx(ctx, tx, actor, id, account, role, expected)
 		default:
@@ -63,7 +64,7 @@ func (s Store) ChangeMembership(ctx context.Context, actor, id, account, action 
 			return e
 		}
 		if m.Role == "" && m.JoinedAt.IsZero() {
-			m.Role = "member"
+			m.Role = roleMember
 		}
 		result = MembershipMutation{Squad: q, Membership: m}
 		return nil
@@ -133,7 +134,7 @@ func (s Store) RedeemInvitation(ctx context.Context, actor, id, token string, ex
 		if e != nil {
 			return e
 		}
-		if m.Status != "invited" {
+		if m.Status != statusInvited {
 			return ErrForbidden
 		}
 		inv, m, e = Accept(inv, m, token, expected, now)
@@ -163,7 +164,7 @@ type InvitationPage struct {
 	NextCursor string
 }
 
-func (s Store) InvitationInbox(ctx context.Context, actor, after string, now time.Time) (InvitationPage, error) {
+func (s Store) InvitationInbox(ctx context.Context, actor, after string, now time.Time) (result InvitationPage, err error) {
 	page := InvitationPage{Items: []InvitationDelivery{}}
 	if actor == "" {
 		return page, ErrForbidden
@@ -175,7 +176,7 @@ func (s Store) InvitationInbox(ctx context.Context, actor, after string, now tim
 	if e != nil {
 		return page, e
 	}
-	defer rows.Close()
+	defer func() { err = errors.Join(err, rows.Close()) }()
 	for rows.Next() {
 		var raw []byte
 		var d InvitationDelivery

@@ -2,7 +2,7 @@
 
 use crate::{
     merkle,
-    proto::{encode_length_delimited, encode_varint_field},
+    proto::{encode_length_delimited, encode_varint_field, signed_varint},
 };
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -69,10 +69,10 @@ impl Header {
         nonzero_varint(2, self.version.app, &mut version);
 
         let mut height = Vec::new();
-        nonzero_varint(1, self.height as u64, &mut height);
+        nonzero_varint(1, signed_varint(self.height), &mut height);
 
         let mut time = Vec::new();
-        nonzero_varint(1, self.time.seconds as u64, &mut time);
+        nonzero_varint(1, signed_varint(self.time.seconds), &mut time);
         nonzero_varint(2, u64::from(self.time.nanos), &mut time);
 
         let mut parts = Vec::new();
@@ -124,7 +124,7 @@ pub fn validators_hash(set: &[Validator]) -> [u8; 32] {
             encode_length_delimited(1, &validator.pub_key, &mut key);
             let mut encoded = Vec::new();
             encode_length_delimited(1, &key, &mut encoded);
-            nonzero_varint(2, validator.voting_power as u64, &mut encoded);
+            nonzero_varint(2, signed_varint(validator.voting_power), &mut encoded);
             encoded
         })
         .collect();

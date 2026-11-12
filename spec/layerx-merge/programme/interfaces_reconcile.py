@@ -105,7 +105,7 @@ def _quote(value: str) -> str:
 
 
 def interfaces_reconcile(
-    spec_dir: str | PathLike[str], repo_root: str | PathLike[str]
+    spec_dir: str | PathLike[str], repo_root: str | PathLike[str], *, write: bool = True
 ) -> dict[str, dict[str, KvxValue]]:
     spec_dir, repo_root = Path(spec_dir).resolve(), Path(repo_root).resolve()
     registry = load(spec_dir / "interfaces.kvx")
@@ -213,9 +213,10 @@ def interfaces_reconcile(
             rendered = _quote(value) if isinstance(value, str) else str(value)
             output.append(f"{key} = {rendered}")
         output.append("")
-    destination = spec_dir / "programme/sweeps/interfaces.kvx"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text("\n".join(output), encoding="utf-8")
+    if write:
+        destination = spec_dir / "programme/sweeps/interfaces.kvx"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text("\n".join(output), encoding="utf-8")
     return report
 
 
@@ -223,8 +224,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("spec_dir", type=Path)
     parser.add_argument("repo_root", type=Path)
+    parser.add_argument("--no-write", action="store_true")
     args = parser.parse_args()
-    report = interfaces_reconcile(args.spec_dir, args.repo_root)
+    report = interfaces_reconcile(args.spec_dir, args.repo_root, write=not args.no_write)
     print(report["interfaces"])
     return 0
 

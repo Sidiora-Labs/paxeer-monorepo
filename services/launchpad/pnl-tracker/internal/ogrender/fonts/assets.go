@@ -38,7 +38,7 @@ func Materialize(dest string) error {
 	if err != nil {
 		return err
 	}
-	defer directory.Close()
+	defer func() { _ = directory.Close() }()
 	for _, item := range []asset{{"Inter-Regular.ttf", RegularSHA256}, {"Inter-Bold.ttf", BoldSHA256}, {"OFL.txt", LicenseSHA256}} {
 		data, err := embedded.ReadFile(item.name)
 		if err != nil {
@@ -71,7 +71,7 @@ func openPrivateDirectory(dest string) (*os.File, error) {
 				next, err = unix.Openat(fd, part, flags, 0)
 			}
 		}
-		unix.Close(fd)
+		_ = unix.Close(fd)
 		if err != nil {
 			return nil, fmt.Errorf("fonts: open destination component %s: %w", part, err)
 		}
@@ -79,11 +79,11 @@ func openPrivateDirectory(dest string) (*os.File, error) {
 	}
 	var state unix.Stat_t
 	if err := unix.Fstat(fd, &state); err != nil {
-		unix.Close(fd)
+		_ = unix.Close(fd)
 		return nil, fmt.Errorf("fonts: inspect destination: %w", err)
 	}
-	if state.Mode&unix.S_IFMT != unix.S_IFDIR || state.Mode&07777 != 0700 || state.Uid != uint32(os.Geteuid()) {
-		unix.Close(fd)
+	if state.Mode&unix.S_IFMT != unix.S_IFDIR || state.Mode&07777 != 0700 || int64(state.Uid) != int64(os.Geteuid()) {
+		_ = unix.Close(fd)
 		return nil, fmt.Errorf("fonts: destination must be an owned private directory with permissions 0700")
 	}
 	return os.NewFile(uintptr(fd), dest), nil
@@ -113,8 +113,8 @@ func installAsset(directory *os.File, item asset, data []byte) error {
 		return fmt.Errorf("create temporary asset: %w", err)
 	}
 	file := os.NewFile(uintptr(tempFD), temporary)
-	defer file.Close()
-	defer unix.Unlinkat(fd, temporary, 0)
+	defer func() { _ = file.Close() }()
+	defer func() { _ = unix.Unlinkat(fd, temporary, 0) }()
 	if count, err := file.Write(data); err != nil {
 		return fmt.Errorf("write asset: %w", err)
 	} else if count != len(data) {
@@ -163,7 +163,7 @@ func verifyAsset(file *os.File, expected []byte, expectedDigest string) error {
 	if err := unix.Fstat(int(file.Fd()), &state); err != nil {
 		return fmt.Errorf("inspect asset: %w", err)
 	}
-	if state.Mode&unix.S_IFMT != unix.S_IFREG || state.Mode&07777 != 0600 || state.Uid != uint32(os.Geteuid()) || state.Nlink != 1 || state.Size != int64(len(expected)) {
+	if state.Mode&unix.S_IFMT != unix.S_IFREG || state.Mode&07777 != 0600 || int64(state.Uid) != int64(os.Geteuid()) || state.Nlink != 1 || state.Size != int64(len(expected)) {
 		return fmt.Errorf("asset must be an owned regular private file with one link and the expected size")
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

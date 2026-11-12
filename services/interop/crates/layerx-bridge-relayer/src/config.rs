@@ -542,6 +542,9 @@ impl RelayerConfig {
         .map_err(|error| invalid(error.to_string()))
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn paxeer_rpc(&self) -> Result<PaxeerRpc, RelayerError> {
         let endpoints = self.paxeer_endpoints()?;
         if endpoints.len() == 1 {
@@ -563,6 +566,9 @@ impl RelayerConfig {
         PaxeerRpc::with_backends(backends).map_err(Into::into)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
         self.validate_paxeer_backends()?;
         self.paxeer
@@ -595,6 +601,9 @@ impl RelayerConfig {
             .collect()
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn receipt_keys(&self) -> Result<Vec<SequencerAuthorization>, RelayerError> {
         let keys = &self.paxeer.receipt_keys;
         if keys.is_empty() {

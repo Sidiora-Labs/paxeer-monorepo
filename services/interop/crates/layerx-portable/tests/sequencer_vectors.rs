@@ -15,7 +15,8 @@ struct Fixture {
 #[serde(rename_all = "camelCase")]
 struct Vector {
     id: String,
-    vector: String,
+    #[serde(rename = "vector")]
+    era: String,
     raw_transaction: String,
     signed_receipt: String,
     receipt_digest: String,
@@ -57,14 +58,20 @@ fn vector(id: &str) -> Vector {
 }
 
 fn hex_bytes(encoded: &str) -> Vec<u8> {
-    let digits = encoded.strip_prefix("0x").expect("fixture hex prefix");
+    let digits = encoded
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("fixture hex prefix"));
     assert_eq!(digits.len() % 2, 0);
     digits
         .as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("fixture ASCII"), 16)
-                .expect("fixture hex digits")
+            u8::from_str_radix(
+                std::str::from_utf8(pair)
+                    .unwrap_or_else(|error| panic!("fixture ASCII: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("fixture hex digits: {error:?}"))
         })
         .collect()
 }
@@ -74,10 +81,10 @@ impl Vector {
         ReceiptKeyEntry::new(
             hex_bytes(&self.pinned_key.key_id)
                 .try_into()
-                .expect("key id"),
+                .unwrap_or_else(|error| panic!("key id: {error:?}")),
             hex_bytes(&self.pinned_key.public_key)
                 .try_into()
-                .expect("public key"),
+                .unwrap_or_else(|error| panic!("public key: {error:?}")),
             self.pinned_key.first_height,
             self.pinned_key.last_height,
         )
@@ -88,10 +95,10 @@ impl Vector {
             self.receipt_json
                 .height
                 .strip_prefix("0x")
-                .expect("height prefix"),
+                .unwrap_or_else(|| panic!("height prefix")),
             16,
         )
-        .expect("fixture height")
+        .unwrap_or_else(|error| panic!("fixture height: {error:?}"))
     }
 }
 
@@ -103,19 +110,22 @@ fn a_pax_transfer_vector_exports_with_its_raw_transaction() {
     let keys = [case.key()];
     let exported =
         PortableReceiptV2::export_with_transaction(&signed, &keys[0], case.height(), &raw)
-            .expect("shared PAX transfer exports");
-    let json = exported.to_json().expect("portable JSON");
-    let wire: serde_json::Value = serde_json::from_slice(&json).expect("portable JSON object");
+            .unwrap_or_else(|error| panic!("shared PAX transfer exports: {error:?}"));
+    let json = exported
+        .to_json()
+        .unwrap_or_else(|error| panic!("portable JSON: {error:?}"));
+    let wire: serde_json::Value = serde_json::from_slice(&json)
+        .unwrap_or_else(|error| panic!("portable JSON object: {error:?}"));
     assert_eq!(wire["rawTransaction"], case.raw_transaction);
     assert_eq!(wire["signedReceipt"], case.signed_receipt);
     assert_eq!(wire["receiptDigest"], case.receipt_digest);
     assert!(wire["rawTransaction"]
         .as_str()
-        .unwrap()
+        .unwrap_or_else(|| panic!("expected Some value"))
         .bytes()
         .all(|byte| !byte.is_ascii_uppercase()));
-    let verified =
-        PortableReceiptV2::verify_json(&json, &keys).expect("PAX transfer verifies offline");
+    let verified = PortableReceiptV2::verify_json(&json, &keys)
+        .unwrap_or_else(|error| panic!("PAX transfer verifies offline: {error:?}"));
     assert_eq!(exported.verify_v2(&keys), Ok(verified.clone()));
     assert_eq!(verified.raw_transaction(), Some(raw.as_slice()));
     assert_eq!(verified.signed_receipt(), signed.as_slice());
@@ -149,14 +159,20 @@ fn a_pax_transfer_vector_exports_with_its_raw_transaction() {
         let mut malformed = wire.clone();
         malformed["rawTransaction"] = encoded.into();
         assert_eq!(
-            PortableReceiptV2::from_json(&serde_json::to_vec(&malformed).unwrap()),
+            PortableReceiptV2::from_json(
+                &serde_json::to_vec(&malformed)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            ),
             Err(error)
         );
     }
     let mut extended = wire;
     extended["unexpected"] = true.into();
     assert_eq!(
-        PortableReceiptV2::from_json(&serde_json::to_vec(&extended).unwrap()),
+        PortableReceiptV2::from_json(
+            &serde_json::to_vec(&extended)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        ),
         Err(PortableReceiptError::JsonShape)
     );
 }
@@ -167,9 +183,16 @@ fn a_raw_transaction_that_does_not_hash_to_the_activity_id_is_refused() {
     let signed = hex_bytes(&case.signed_receipt);
     let raw = hex_bytes(&case.raw_transaction);
     let keys = [case.key()];
-    let exported = PortableReceiptV2::export(&signed, &keys[0], case.height())
-        .expect("shared mismatch vector has a valid signed receipt");
-    let verified = exported.verify_v2(&keys).expect("receipt alone verifies");
+    let exported =
+        PortableReceiptV2::export(&signed, &keys[0], case.height()).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "shared mismatch vector has a valid signed receipt"
+            )
+        });
+    let verified = exported
+        .verify_v2(&keys)
+        .unwrap_or_else(|error| panic!("receipt alone verifies: {error:?}"));
     let transaction_hash: [u8; 32] = Keccak256::digest(&raw).into();
     assert_ne!(verified.activity_id(), transaction_hash);
     assert_eq!(verified.raw_transaction(), None);
@@ -177,10 +200,17 @@ fn a_raw_transaction_that_does_not_hash_to_the_activity_id_is_refused() {
         PortableReceiptV2::export_with_transaction(&signed, &keys[0], case.height(), &raw),
         Err(PortableReceiptError::RawTransactionMismatch)
     );
-    let mut wire: serde_json::Value = serde_json::from_slice(&exported.to_json().unwrap()).unwrap();
+    let mut wire: serde_json::Value = serde_json::from_slice(
+        &exported
+            .to_json()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     wire["rawTransaction"] = case.raw_transaction.into();
-    let json = serde_json::to_vec(&wire).unwrap();
-    let parsed = PortableReceiptV2::from_json(&json).expect("mismatch remains valid wire shape");
+    let json =
+        serde_json::to_vec(&wire).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let parsed = PortableReceiptV2::from_json(&json)
+        .unwrap_or_else(|error| panic!("mismatch remains valid wire shape: {error:?}"));
     assert_eq!(
         parsed.verify_v2(&keys),
         Err(PortableReceiptError::RawTransactionMismatch)
@@ -201,14 +231,15 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
     for case in fixture()
         .cases
         .into_iter()
-        .filter(|case| matches!(case.vector.as_str(), "V1" | "V2"))
+        .filter(|case| matches!(case.era.as_str(), "V1" | "V2"))
     {
         let key = case.key();
         let unrelated = ReceiptKeyEntry::new([0x99; 32], key.public_key(), 0, u64::MAX);
         let keys = [unrelated, key];
         let raw = hex_bytes(&case.raw_transaction);
         let signed = hex_bytes(&case.signed_receipt);
-        let original = serde_json::to_value(&case.receipt_json).expect("receipt answer");
+        let original = serde_json::to_value(&case.receipt_json)
+            .unwrap_or_else(|error| panic!("receipt answer: {error:?}"));
         for rung in ["receipted", "committed"] {
             let mut answer = original.clone();
             answer["rung"] = rung.into();
@@ -224,8 +255,11 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
                 let exported =
                     PortableReceiptV2::from_sequencer_receipt(&answer, &keys, transaction)
                         .unwrap_or_else(|error| panic!("{} at {rung}: {error:?}", case.id));
-                let json = exported.to_json().expect("exported JSON");
-                let wire: serde_json::Value = serde_json::from_slice(&json).unwrap();
+                let json = exported
+                    .to_json()
+                    .unwrap_or_else(|error| panic!("exported JSON: {error:?}"));
+                let wire: serde_json::Value = serde_json::from_slice(&json)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 assert_eq!(wire["signedReceipt"], case.signed_receipt);
                 assert_eq!(wire["receiptDigest"], case.receipt_digest);
                 assert_eq!(wire["receiptKey"]["keyId"], case.pinned_key.key_id);
@@ -235,8 +269,10 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
                 } else {
                     assert!(wire.get("rawTransaction").is_none());
                 }
-                let verified = PortableReceiptV2::verify_json(&json, &keys)
-                    .expect("exported shared case verifies offline");
+                let verified =
+                    PortableReceiptV2::verify_json(&json, &keys).unwrap_or_else(|error| {
+                        panic!("exported shared case verifies offline: {error:?}")
+                    });
                 assert_eq!(verified.signed_receipt(), signed.as_slice());
                 assert_eq!(verified.raw_transaction(), transaction);
                 assert_eq!(verified.receipt_key(), &key);
@@ -246,10 +282,7 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
                     verified.activity_id().as_slice(),
                     hex_bytes(&case.receipt_json.tx_hash)
                 );
-                assert_eq!(
-                    verified.result_code(),
-                    if case.vector == "V2" { 1 } else { 0 }
-                );
+                assert_eq!(verified.result_code(), i32::from(case.era == "V2"));
             }
         }
         exported_cases += 1;
@@ -257,8 +290,7 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
     assert_eq!(exported_cases, 7, "all valid shared cases executed");
 }
 
-#[test]
-fn the_shared_refusal_cases_are_refused_at_export() {
+fn assert_shared_refusals() {
     for (id, error) in [
         (
             "V3-key-not-pinned",
@@ -282,7 +314,8 @@ fn the_shared_refusal_cases_are_refused_at_export() {
         ),
     ] {
         let case = vector(id);
-        let answer = serde_json::to_value(&case.receipt_json).unwrap();
+        let answer = serde_json::to_value(&case.receipt_json)
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let raw = hex_bytes(&case.raw_transaction);
         assert_eq!(
             PortableReceiptV2::from_sequencer_receipt(&answer, &[case.key()], Some(&raw)),
@@ -290,10 +323,16 @@ fn the_shared_refusal_cases_are_refused_at_export() {
             "{id}"
         );
     }
+}
+
+#[test]
+fn the_shared_refusal_cases_are_refused_at_export() {
+    assert_shared_refusals();
 
     let case = vector("V1-pax-transfer");
     let keys = [case.key()];
-    let answer = serde_json::to_value(&case.receipt_json).unwrap();
+    let answer = serde_json::to_value(&case.receipt_json)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let submitted = serde_json::json!({
         "rung": "submitted",
         "txHash": case.receipt_json.tx_hash,
@@ -316,15 +355,16 @@ fn the_shared_refusal_cases_are_refused_at_export() {
 
     let mut tampered = answer.clone();
     let mut signed = hex_bytes(&case.signed_receipt);
-    *signed.last_mut().unwrap() ^= 1;
-    tampered["receipt"] = format!(
-        "0x{}",
-        signed
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    )
-    .into();
+    *signed
+        .last_mut()
+        .unwrap_or_else(|| panic!("expected Some value")) ^= 1;
+    let mut signed_hex = String::from("0x");
+    for byte in &signed {
+        use std::fmt::Write as _;
+        write!(&mut signed_hex, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex rendering: {error:?}"));
+    }
+    tampered["receipt"] = signed_hex.into();
     assert_eq!(
         PortableReceiptV2::from_sequencer_receipt(&tampered, &keys, None),
         Err(PortableReceiptError::Receipt(VerificationFailure {
@@ -371,7 +411,10 @@ fn the_shared_refusal_cases_are_refused_at_export() {
     }
     for field in ["rung", "receipt", "keyId", "height"] {
         let mut malformed = answer.clone();
-        malformed.as_object_mut().unwrap().remove(field);
+        malformed
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .remove(field);
         assert_eq!(
             PortableReceiptV2::from_sequencer_receipt(&malformed, &keys, None),
             Err(PortableReceiptError::JsonShape),

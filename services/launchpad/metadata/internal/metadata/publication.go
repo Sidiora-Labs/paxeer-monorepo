@@ -177,7 +177,7 @@ func (s PublicationService) enqueue(w http.ResponseWriter, r *http.Request) {
 		v2Failure(w, ErrUnrepresentable)
 		return
 	}
-	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != "application/json" {
+	if strings.TrimSpace(strings.Split(r.Header.Get("Content-Type"), ";")[0]) != metadataJSONType {
 		v2Error(w, 415, "unsupported_media_type")
 		return
 	}
@@ -323,7 +323,7 @@ func (s PublicationService) admitInTx(ctx context.Context, tx pgx.Tx, identity V
 	if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 		return nil, e
 	}
-	status := PublicationStatus{SchemaVersion: 3, OperationID: b.OperationID, DraftID: b.DraftID, TokenAddress: identity.Token.Address, Creator: creator, ContentHash: publicationHash(b.Metadata), UploadRefs: b.UploadRefs, Status: "metadata_pending", AcceptedAt: now, ExpiresAt: now.Add(30 * time.Minute)}
+	status := PublicationStatus{SchemaVersion: 3, OperationID: b.OperationID, DraftID: b.DraftID, TokenAddress: identity.Token.Address, Creator: creator, ContentHash: publicationHash(b.Metadata), UploadRefs: b.UploadRefs, Status: metadataPendingState, AcceptedAt: now, ExpiresAt: now.Add(30 * time.Minute)}
 	response, e := json.Marshal(status)
 	if e != nil {
 		return nil, e
@@ -391,7 +391,7 @@ func (s PublicationService) status(w http.ResponseWriter, r *http.Request) {
 }
 func publicationRespond(w http.ResponseWriter, v any) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", metadataJSONType)
 	_ = json.NewEncoder(w).Encode(map[string]any{"data": v})
 }
 

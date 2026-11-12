@@ -161,9 +161,9 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 			Address:     common.BytesToAddress(addr),
 			Topics:      topics,
 			Data:        data,
-			BlockNumber: uint64(blockNumber),
+			BlockNumber: uint64(blockNumber), //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			TxHash:      common.BytesToHash(txHash),
-			Index:       uint(logIndex),
+			Index:       uint(logIndex), //nolint:gosec // persisted nonnegative log index uses the EVM index field
 		}
 		topic0 := ""
 		if len(topics) > 0 {
@@ -192,7 +192,7 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 	// Step 2: batch block timestamps.
 	blocks := make([]int64, 0, len(uniqueBlocks))
 	for b := range uniqueBlocks {
-		blocks = append(blocks, int64(b))
+		blocks = append(blocks, int64(b)) //nolint:gosec // chain value uses the existing signed storage representation
 	}
 	for i := 0; i < len(blocks); i += paxscanLookupBatch {
 		end := i + paxscanLookupBatch
@@ -209,7 +209,7 @@ func (s *PaxscanSource) FetchLogs(ctx context.Context, opts FetchOptions) (Fetch
 				tsRows.Close()
 				return FetchResult{}, fmt.Errorf("paxscan scan ts: %w", err)
 			}
-			res.BlockTimestamps[uint64(number)] = ts
+			res.BlockTimestamps[uint64(number)] = ts //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 		}
 		if err := tsRows.Err(); err != nil {
 			return FetchResult{}, err

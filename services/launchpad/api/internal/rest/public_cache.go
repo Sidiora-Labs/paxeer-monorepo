@@ -162,7 +162,7 @@ func guardedPublicFetch(ctx context.Context, fetch func(context.Context) ([]byte
 	defer func() {
 		if recover() != nil {
 			body = nil
-			err = errors.New("DATA_UNAVAILABLE")
+			err = errors.New(literalDATAUNAVAILABLE)
 		}
 	}()
 	return fetch(ctx)

@@ -1,4 +1,4 @@
-use std::io::{self, Read as _, Write as _};
+use std::io::{self, Read as _};
 use std::net::{TcpStream, ToSocketAddrs as _};
 use std::time::Duration;
 
@@ -49,6 +49,8 @@ pub struct SettlementRpc {
 }
 
 impl SettlementRpc {
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn new(endpoint: &str, chain_id: u64) -> Result<Self, SettlementError> {
         let (tls, rest) = if let Some(rest) = endpoint.strip_prefix("https://") {
             (true, rest)
@@ -95,6 +97,8 @@ impl SettlementRpc {
         })
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn call(&self, method: &str, params: &Value) -> Result<Value, SettlementError> {
         let actual = self.chain_id()?;
         if actual != self.chain_id {
@@ -106,10 +110,14 @@ impl SettlementRpc {
         self.request(method, params)
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn chain_id(&self) -> Result<u64, SettlementError> {
         quantity(&self.request("eth_chainId", &json!([]))?)
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn pending_nonce(&self, address: [u8; 20]) -> Result<u64, SettlementError> {
         quantity(&self.call(
             "eth_getTransactionCount",
@@ -117,6 +125,8 @@ impl SettlementRpc {
         )?)
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn eth_call(&self, to: [u8; 20], data: &[u8]) -> Result<Vec<u8>, SettlementError> {
         bytes(&self.call(
             "eth_call",
@@ -124,10 +134,14 @@ impl SettlementRpc {
         )?)
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn send_raw_transaction(&self, transaction: &[u8]) -> Result<[u8; 32], SettlementError> {
         fixed(&self.call("eth_sendRawTransaction", &json!([hex0x(transaction)]))?)
     }
 
+    /// # Errors
+    /// Returns an error when the RPC answer is unavailable or malformed.
     pub fn sequencer_receipt(
         &self,
         hash: &[u8; 32],
@@ -228,6 +242,8 @@ pub struct SettlementReceipt {
     pub receipt: Option<Vec<u8>>,
 }
 
+/// # Errors
+/// Returns an error when the RPC answer is unavailable or malformed.
 pub fn decode(value: &Value) -> Result<SettlementReceipt, SettlementError> {
     let object = value.as_object().ok_or(SettlementError::Malformed)?;
     let rung = match field(value, "rung")?.as_str() {

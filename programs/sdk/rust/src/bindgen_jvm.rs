@@ -19,12 +19,22 @@ impl BindingGenerator {
     #[must_use]
     pub fn generate_kotlin(&self) -> String {
         let mut out = String::from(KOTLIN_RUNTIME);
-        let _ = writeln!(out, "const val INTERFACE_DIGEST: String = \"{}\"\nconst val CODE_HASH: String = \"{}\"", hex(&self.digest), hex(&self.code_hash));
+        let _ = writeln!(
+            out,
+            "const val INTERFACE_DIGEST: String = \"{}\"\nconst val CODE_HASH: String = \"{}\"",
+            hex(&self.digest),
+            hex(&self.code_hash)
+        );
         out.push_str("class Call<O,F> private constructor(bytes: ByteArray) {private val encoded=bytes.copyOf();val bytes: ByteArray get()=encoded.copyOf();companion object {\n");
         for entry in &self.entries {
-            let suffix=hex(&entry.discriminator);
-            let name=format!("Entry{suffix}");
-            let disc=entry.discriminator.iter().map(|b|format!("{b}.toByte()")).collect::<alloc::vec::Vec<_>>().join(",");
+            let suffix = hex(&entry.discriminator);
+            let name = format!("Entry{suffix}");
+            let disc = entry
+                .discriminator
+                .iter()
+                .map(|b| format!("{b}.toByte()"))
+                .collect::<alloc::vec::Vec<_>>()
+                .join(",");
             let _=writeln!(out,"internal fun entry{suffix}(input: {name}.Input,code: String,digest: String): Call<{name}.Output,{name}.Failure> {{checkTarget(code,digest);return Call(callBytes(byteArrayOf({disc}),{},input.canonicalBytes()))}}",convention(&entry.input));
         }
         out.push_str("}}\n");
@@ -62,7 +72,11 @@ fn integer(t: &Type) -> Option<(u8, u32, bool)> {
 }
 
 fn convention(t: &Type) -> u8 {
-    if matches!(t, Type::EvmHead) { 2 } else { 1 }
+    if matches!(t, Type::EvmHead) {
+        2
+    } else {
+        1
+    }
 }
 
 fn java_node(out: &mut String, t: &Type, name: &str) {
@@ -80,14 +94,20 @@ fn java_node(out: &mut String, t: &Type, name: &str) {
                 (format!("if((long)value.length>{max}L||value.length>MAX_BYTES-6)throw refusal(\"INVALID_VALUE\");"),
                  String::from("w.b(32);w.u32(this.value.length);w.put(this.value);"),
                  format!("r.tag(32);long n=r.u32();if(n>{max}L)throw refusal(\"NON_CANONICAL\");return new NAME(r.take(r.length(n)));"))
-            } else { unreachable!() };
+            } else {
+                unreachable!()
+            };
             let dec = dec.replace("NAME", name);
             let _ = writeln!(out,"public static final class {name} {{ private final byte[] value; private final byte[] wire; public {name}(byte[] value){{nonNull(value);{check}this.value=value.clone();Writer w=new Writer();{enc}wire=w.bytes();}} public byte[] value(){{return value.clone();}} public byte[] canonicalBytes(){{return wire.clone();}} private static {name} read(Reader r){{{dec}}} }}");
         }
         Type::Fixed(child, n) | Type::Variable(child, n) => {
             let child_name = format!("{name}Element");
             java_node(out, child, &child_name);
-            let (tag, cmp) = if matches!(t, Type::Fixed(_, _)) { (48, "!=") } else { (49, ">") };
+            let (tag, cmp) = if matches!(t, Type::Fixed(_, _)) {
+                (48, "!=")
+            } else {
+                (49, ">")
+            };
             let _ = writeln!(out,"public static final class {name} {{ public final List<{child_name}> value; private final byte[] wire; public {name}(List<{child_name}> value){{nonNull(value);if((long)value.size(){cmp}{n}L)throw refusal(\"INVALID_VALUE\");ArrayList<{child_name}> copy=new ArrayList<>();Writer w=new Writer();w.b({tag});w.u32(value.size());for({child_name} item:value){{nonNull(item);copy.add(item);w.put(item.canonicalBytes());}}this.value=Collections.unmodifiableList(copy);wire=w.bytes();}} public byte[] canonicalBytes(){{return wire.clone();}} private static {name} read(Reader r){{r.tag({tag});long count=r.u32();if(count{cmp}{n}L||count>r.remaining())throw refusal(\"NON_CANONICAL\");r.charge(count*8L);int n=r.length(count);ArrayList<{child_name}> values=new ArrayList<>(n);for(int i=0;i<n;i++)values.add({child_name}.read(r));return new {name}(values);}} }}");
         }
         Type::Option(child) => {
@@ -101,7 +121,11 @@ fn java_node(out: &mut String, t: &Type, name: &str) {
             }
             let _ = writeln!(out, "public abstract static class {name} {{ private final byte[] wire; private {name}(long tag,byte[] value){{Writer w=new Writer();w.b(80);w.u32(tag);w.put(value);wire=w.bytes();}} public final byte[] canonicalBytes(){{return wire.clone();}} public abstract long tag(); private static {name} read(Reader r){{r.tag(80);long tag=r.u32();");
             for v in variants {
-                let _ = writeln!(out, "if(tag=={}L)return new {name}Variant{}({name}Variant{}Value.read(r));",v.tag,v.tag,v.tag);
+                let _ = writeln!(
+                    out,
+                    "if(tag=={}L)return new {name}Variant{}({name}Variant{}Value.read(r));",
+                    v.tag, v.tag, v.tag
+                );
             }
             out.push_str("throw refusal(\"NON_CANONICAL\");}}\n");
             for v in variants {
@@ -120,12 +144,17 @@ fn java_entry(out: &mut String, entry: &Entry) {
     java_node(out, &entry.output, "Output");
     out.push_str("public abstract static class Failure {private Failure(){}public abstract long code();public abstract String name();}\n");
     for failure in &entry.failures {
-        let name = format!("FailureCode{}",failure.code);
+        let name = format!("FailureCode{}", failure.code);
         let detail = format!("{name}Detail");
         java_node(out, &failure.detail, &detail);
         let _ = writeln!(out,"public static final class {name} extends Failure {{public final {detail} detail;public {name}({detail} detail){{this.detail=nonNull(detail);}}public long code(){{return {}L;}}public String name(){{return \"{}\";}}}}",failure.code,failure.name);
     }
-    let disc = entry.discriminator.iter().map(|b| format!("(byte){b}")).collect::<alloc::vec::Vec<_>>().join(",");
+    let disc = entry
+        .discriminator
+        .iter()
+        .map(|b| format!("(byte){b}"))
+        .collect::<alloc::vec::Vec<_>>()
+        .join(",");
     let _ = writeln!(out,"public static Call<Output,Failure> call(Input input,String deployedCodeHash,String publishedDigest){{checkTarget(deployedCodeHash,publishedDigest);nonNull(input);return new Call<>(callBytes(new byte[]{{{disc}}},{},input.canonicalBytes()));}}",convention(&entry.input));
     let _ = writeln!(out,"public static Output decodeOutput(byte[] bytes){{Reader r=new Reader(bytes,{});Output value=Output.read(r);r.done();return value;}}",convention(&entry.output));
     out.push_str("public static Failure decodeFailure(long code,byte[] bytes){\n");
@@ -150,54 +179,68 @@ fn kotlin_node(out: &mut String, t: &Type, name: &str) {
                 (format!("if(value.size.toLong()>{max}L||value.size>MAX_BYTES-6)throw refusal(\"INVALID_VALUE\")"),
                  String::from("w.b(32);w.u32(storage.size.toLong());w.put(storage)"),
                  format!("r.tag(32);val n=r.u32();if(n>{max}L)throw refusal(\"NON_CANONICAL\");return NAME(r.take(r.length(n)))"))
-            } else { unreachable!() };
-            let dec = dec.replace("NAME",name);
+            } else {
+                unreachable!()
+            };
+            let dec = dec.replace("NAME", name);
             let _ = writeln!(out,"class {name}(value: ByteArray) {{private val storage: ByteArray;private val wire: ByteArray;init {{{check};storage=value.copyOf();val w=Writer();{enc};wire=w.bytes()}} val value: ByteArray get()=storage.copyOf();fun canonicalBytes(): ByteArray=wire.copyOf();companion object {{internal fun read(r: Reader): {name} {{{dec}}}}} }}");
         }
-        Type::Fixed(child,n) | Type::Variable(child,n) => {
-            let child_name=format!("{name}Element");
-            kotlin_node(out,child,&child_name);
-            let (tag,cmp)=if matches!(t,Type::Fixed(_, _)){(48,"!=")}else{(49,">")};
+        Type::Fixed(child, n) | Type::Variable(child, n) => {
+            let child_name = format!("{name}Element");
+            kotlin_node(out, child, &child_name);
+            let (tag, cmp) = if matches!(t, Type::Fixed(_, _)) {
+                (48, "!=")
+            } else {
+                (49, ">")
+            };
             let _=writeln!(out,"class {name}(value: List<{child_name}>) {{val value: List<{child_name}>;private val wire: ByteArray;init {{if(value.size.toLong(){cmp}{n}L)throw refusal(\"INVALID_VALUE\");val copy=ArrayList<{child_name}>();val w=Writer();w.b({tag});w.u32(value.size.toLong());for(item in value){{copy.add(item);w.put(item.canonicalBytes())}};this.value=java.util.Collections.unmodifiableList(copy);wire=w.bytes()}} fun canonicalBytes(): ByteArray=wire.copyOf();companion object {{internal fun read(r: Reader): {name} {{r.tag({tag});val count=r.u32();if(count{cmp}{n}L||count>r.remaining().toLong())throw refusal(\"NON_CANONICAL\");r.charge(count*8L);val n=r.length(count);val values=ArrayList<{child_name}>(n);repeat(n){{values.add({child_name}.read(r))}};return {name}(values)}}}} }}");
         }
         Type::Option(child) => {
-            let child_name=format!("{name}Some");
-            kotlin_node(out,child,&child_name);
+            let child_name = format!("{name}Some");
+            kotlin_node(out, child, &child_name);
             let _=writeln!(out,"class {name} private constructor(private val stored: {child_name}?) {{private val wire: ByteArray;init {{val w=Writer();w.b(64);w.b(if(stored==null)0 else 1);if(stored!=null)w.put(stored.canonicalBytes());wire=w.bytes()}} val isPresent: Boolean get()=stored!=null;val value: {child_name} get()=stored?:throw refusal(\"ABSENT_OPTION\");fun canonicalBytes(): ByteArray=wire.copyOf();companion object {{fun none(): {name}={name}(null);fun some(value: {child_name}): {name}={name}(value);internal fun read(r: Reader): {name} {{r.tag(64);return when(r.byteValue()){{0->none();1->some({child_name}.read(r));else->throw refusal(\"NON_CANONICAL\")}}}}}} }}");
         }
         Type::Union(variants) => {
             for v in variants {
-                kotlin_node(out,&v.value,&format!("{name}Variant{}Value",v.tag));
+                kotlin_node(out, &v.value, &format!("{name}Variant{}Value", v.tag));
             }
             let _=writeln!(out,"sealed class {name} private constructor(val tag: Long,value: ByteArray) {{private val wire: ByteArray;init {{val w=Writer();w.b(80);w.u32(tag);w.put(value);wire=w.bytes()}} fun canonicalBytes(): ByteArray=wire.copyOf();companion object {{internal fun read(r: Reader): {name} {{r.tag(80);return when(r.u32()){{");
             for v in variants {
-                let _=writeln!(out,"{}L->{name}Variant{}({name}Variant{}Value.read(r))",v.tag,v.tag,v.tag);
+                let _ = writeln!(
+                    out,
+                    "{}L->{name}Variant{}({name}Variant{}Value.read(r))",
+                    v.tag, v.tag, v.tag
+                );
             }
             out.push_str("else->throw refusal(\"NON_CANONICAL\")}}}\n");
             for v in variants {
-                let tag=v.tag;
+                let tag = v.tag;
                 let _=writeln!(out,"class {name}Variant{tag}(val value: {name}Variant{tag}Value): {name}({tag}L,value.canonicalBytes())");
             }
             out.push_str("}\n");
         }
-        _=>unreachable!(),
+        _ => unreachable!(),
     }
 }
 
 fn kotlin_entry(out: &mut String, entry: &Entry) {
-    let name=format!("Entry{}",hex(&entry.discriminator));
-    let _=writeln!(out,"object {name} {{const val NAME: String=\"{}\"",entry.name);
-    kotlin_node(out,&entry.input,"Input");
-    kotlin_node(out,&entry.output,"Output");
+    let name = format!("Entry{}", hex(&entry.discriminator));
+    let _ = writeln!(
+        out,
+        "object {name} {{const val NAME: String=\"{}\"",
+        entry.name
+    );
+    kotlin_node(out, &entry.input, "Input");
+    kotlin_node(out, &entry.output, "Output");
     out.push_str("sealed class Failure {abstract val code: Long;abstract val name: String\n");
     for failure in &entry.failures {
-        let name=format!("FailureCode{}",failure.code);
-        let detail=format!("{name}Detail");
-        kotlin_node(out,&failure.detail,&detail);
+        let name = format!("FailureCode{}", failure.code);
+        let detail = format!("{name}Detail");
+        kotlin_node(out, &failure.detail, &detail);
         let _=writeln!(out,"class {name}(val detail: {detail}): Failure() {{override val code: Long={}L;override val name: String=\"{}\"}}",failure.code,failure.name);
     }
     out.push_str("}\n");
-    let suffix=hex(&entry.discriminator);
+    let suffix = hex(&entry.discriminator);
     let _=writeln!(out,"fun call(input: Input,deployedCodeHash: String,publishedDigest: String): Call<Output,Failure> = Call.entry{suffix}(input,deployedCodeHash,publishedDigest)");
     let _=writeln!(out,"fun decodeOutput(bytes: ByteArray): Output {{val r=Reader(bytes,{});val value=Output.read(r);r.done();return value}}",convention(&entry.output));
     out.push_str("fun decodeFailure(code: Long,bytes: ByteArray): Failure {return when(code){\n");
@@ -340,45 +383,64 @@ impl BindingGenerator {
     pub fn generate_java_consumer(&self) -> String {
         let mut out=String::from("import java.math.BigInteger;\nimport java.util.Arrays;\nimport java.util.Collections;\npublic final class BindingConsumer {\nprivate static void equal(byte[] a,byte[] b){if(!Arrays.equals(a,b))throw new AssertionError(\"canonical bytes differ\");}\nprivate static void refused(String code,Runnable action){try{action.run();}catch(ProgramBindings.BindingRefusal e){if(!e.code.equals(code))throw new AssertionError(e.code);return;}throw new AssertionError(\"missing refusal: \"+code);}\npublic static void main(String[] args){\n");
         for entry in &self.entries {
-            let prefix=format!("ProgramBindings.Entry{}",hex(&entry.discriminator));
-            let (sample,bytes)=sample_value(&entry.input,&prefix,"Input",false,false);
-            let expected=message_bytes(&bytes,convention(&entry.input),Some(entry.discriminator));
+            let prefix = format!("ProgramBindings.Entry{}", hex(&entry.discriminator));
+            let (sample, bytes) = sample_value(&entry.input, &prefix, "Input", false, false);
+            let expected =
+                message_bytes(&bytes, convention(&entry.input), Some(entry.discriminator));
             let _=writeln!(out,"{{{prefix}.Input input={sample};equal({prefix}.call(input,ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST).bytes(),{});",java_bytes(&expected));
-            let (_,output)=sample_value(&entry.output,&prefix,"Output",false,false);
-            let message=message_bytes(&output,convention(&entry.output),None);
-            let _=writeln!(out,"equal({prefix}.decodeOutput({}).canonicalBytes(),{});",java_bytes(&message),java_bytes(&output));
+            let (_, output) = sample_value(&entry.output, &prefix, "Output", false, false);
+            let message = message_bytes(&output, convention(&entry.output), None);
+            let _ = writeln!(
+                out,
+                "equal({prefix}.decodeOutput({}).canonicalBytes(),{});",
+                java_bytes(&message),
+                java_bytes(&output)
+            );
             let _=writeln!(out,"refused(\"CODE_HASH_MISMATCH\",()->{prefix}.call(input,\"{}\",ProgramBindings.INTERFACE_DIGEST));refused(\"STALE_INTERFACE\",()->{prefix}.call(input,ProgramBindings.CODE_HASH,\"{}\"));",wrong_hash(self.code_hash),wrong_hash(self.digest));
-            emit_java_decode_negatives(&mut out,&prefix,&message);
-            emit_java_schema_refusal(&mut out,&prefix,&entry.output);
-            if matches!(entry.output,Type::Option(_)|Type::Union(_)) {
-                let (_,alternate)=sample_value(&entry.output,&prefix,"Output",false,true);
-                let framed=message_bytes(&alternate,convention(&entry.output),None);
-                let _=writeln!(out,"equal({prefix}.decodeOutput({}).canonicalBytes(),{});",java_bytes(&framed),java_bytes(&alternate));
+            emit_java_decode_negatives(&mut out, &prefix, &message);
+            emit_java_schema_refusal(&mut out, &prefix, &entry.output);
+            if matches!(entry.output, Type::Option(_) | Type::Union(_)) {
+                let (_, alternate) = sample_value(&entry.output, &prefix, "Output", false, true);
+                let framed = message_bytes(&alternate, convention(&entry.output), None);
+                let _ = writeln!(
+                    out,
+                    "equal({prefix}.decodeOutput({}).canonicalBytes(),{});",
+                    java_bytes(&framed),
+                    java_bytes(&alternate)
+                );
             }
             for failure in &entry.failures {
-                let detail_name=format!("FailureCode{}Detail",failure.code);
-                let (_,detail)=sample_value(&failure.detail,&prefix,&detail_name,false,false);
-                let framed=message_bytes(&detail,convention(&failure.detail),None);
+                let detail_name = format!("FailureCode{}Detail", failure.code);
+                let (_, detail) =
+                    sample_value(&failure.detail, &prefix, &detail_name, false, false);
+                let framed = message_bytes(&detail, convention(&failure.detail), None);
                 let _=writeln!(out,"{{{prefix}.Failure failure={prefix}.decodeFailure({}L,{});if(!(failure instanceof {prefix}.FailureCode{})||failure.code()!={}L||!failure.name().equals(\"{}\"))throw new AssertionError(\"typed failure\");equal((({prefix}.FailureCode{})failure).detail.canonicalBytes(),{});}}",failure.code,java_bytes(&framed),failure.code,failure.code,failure.name,failure.code,java_bytes(&detail));
             }
-            let unknown=unknown_failure(entry);
+            let unknown = unknown_failure(entry);
             let _=writeln!(out,"refused(\"UNKNOWN_FAILURE\",()->{prefix}.decodeFailure({unknown}L,new byte[]{{}}));");
-            if matches!(entry.input,Type::Option(_)|Type::Union(_)) {
-                let (alternate,bytes)=sample_value(&entry.input,&prefix,"Input",false,true);
-                let expected=message_bytes(&bytes,convention(&entry.input),Some(entry.discriminator));
+            if matches!(entry.input, Type::Option(_) | Type::Union(_)) {
+                let (alternate, bytes) = sample_value(&entry.input, &prefix, "Input", false, true);
+                let expected =
+                    message_bytes(&bytes, convention(&entry.input), Some(entry.discriminator));
                 let _=writeln!(out,"equal({prefix}.call({alternate},ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST).bytes(),{});",java_bytes(&expected));
             }
-            let _=writeln!(out,"System.out.println(\"BINDING_CASE roundtrip_{}\");}}",entry.name);
+            let _ = writeln!(
+                out,
+                "System.out.println(\"BINDING_CASE roundtrip_{}\");}}",
+                entry.name
+            );
         }
-        emit_java_construction_refusal(&mut out,self);
+        emit_java_construction_refusal(&mut out, self);
         out.push_str("System.out.println(\"BINDING_CASE typed_failure\");System.out.println(\"BINDING_CASE stale_digest\");System.out.println(\"BINDING_CASE wrong_code_hash\");System.out.println(\"BINDING_CASE malformed_call\");\n}}\n");
         out
     }
 
     #[must_use]
     pub fn generate_java_malformed_consumer(&self) -> String {
-        let mut out=String::from("public final class BindingMalformed {public static void main(String[] args){\n");
-        if let Some(entry)=self.entries.first() {
+        let mut out = String::from(
+            "public final class BindingMalformed {public static void main(String[] args){\n",
+        );
+        if let Some(entry) = self.entries.first() {
             let _=writeln!(out,"ProgramBindings.Entry{}.call(\"not a typed input\",ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST);",hex(&entry.discriminator));
         }
         out.push_str("}}\n");
@@ -389,45 +451,66 @@ impl BindingGenerator {
     pub fn generate_kotlin_consumer(&self) -> String {
         let mut out=String::from("import java.math.BigInteger\nprivate fun equal(a: ByteArray,b: ByteArray){check(a.contentEquals(b)){\"canonical bytes differ\"}}\nprivate fun refused(code: String,action: ()->Unit){try{action()}catch(e: ProgramBindings.BindingRefusal){check(e.code==code){e.code};return};error(\"missing refusal: $code\")}\nfun main(){\n");
         for entry in &self.entries {
-            let prefix=format!("ProgramBindings.Entry{}",hex(&entry.discriminator));
-            let (sample,bytes)=sample_value(&entry.input,&prefix,"Input",true,false);
-            let expected=message_bytes(&bytes,convention(&entry.input),Some(entry.discriminator));
+            let prefix = format!("ProgramBindings.Entry{}", hex(&entry.discriminator));
+            let (sample, bytes) = sample_value(&entry.input, &prefix, "Input", true, false);
+            let expected =
+                message_bytes(&bytes, convention(&entry.input), Some(entry.discriminator));
             let _=writeln!(out,"run{{val input={sample};equal({prefix}.call(input,ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST).bytes,{})",kotlin_bytes(&expected));
-            let (_,output)=sample_value(&entry.output,&prefix,"Output",true,false);
-            let message=message_bytes(&output,convention(&entry.output),None);
-            let _=writeln!(out,"equal({prefix}.decodeOutput({}).canonicalBytes(),{})",kotlin_bytes(&message),kotlin_bytes(&output));
+            let (_, output) = sample_value(&entry.output, &prefix, "Output", true, false);
+            let message = message_bytes(&output, convention(&entry.output), None);
+            let _ = writeln!(
+                out,
+                "equal({prefix}.decodeOutput({}).canonicalBytes(),{})",
+                kotlin_bytes(&message),
+                kotlin_bytes(&output)
+            );
             let _=writeln!(out,"refused(\"CODE_HASH_MISMATCH\"){{{prefix}.call(input,\"{}\",ProgramBindings.INTERFACE_DIGEST)}};refused(\"STALE_INTERFACE\"){{{prefix}.call(input,ProgramBindings.CODE_HASH,\"{}\")}}",wrong_hash(self.code_hash),wrong_hash(self.digest));
-            emit_kotlin_decode_negatives(&mut out,&prefix,&message);
-            emit_kotlin_schema_refusal(&mut out,&prefix,&entry.output);
-            if matches!(entry.output,Type::Option(_)|Type::Union(_)) {
-                let (_,alternate)=sample_value(&entry.output,&prefix,"Output",true,true);
-                let framed=message_bytes(&alternate,convention(&entry.output),None);
-                let _=writeln!(out,"equal({prefix}.decodeOutput({}).canonicalBytes(),{})",kotlin_bytes(&framed),kotlin_bytes(&alternate));
+            emit_kotlin_decode_negatives(&mut out, &prefix, &message);
+            emit_kotlin_schema_refusal(&mut out, &prefix, &entry.output);
+            if matches!(entry.output, Type::Option(_) | Type::Union(_)) {
+                let (_, alternate) = sample_value(&entry.output, &prefix, "Output", true, true);
+                let framed = message_bytes(&alternate, convention(&entry.output), None);
+                let _ = writeln!(
+                    out,
+                    "equal({prefix}.decodeOutput({}).canonicalBytes(),{})",
+                    kotlin_bytes(&framed),
+                    kotlin_bytes(&alternate)
+                );
             }
             for failure in &entry.failures {
-                let detail_name=format!("FailureCode{}Detail",failure.code);
-                let (_,detail)=sample_value(&failure.detail,&format!("{prefix}.Failure"),&detail_name,true,false);
-                let framed=message_bytes(&detail,convention(&failure.detail),None);
+                let detail_name = format!("FailureCode{}Detail", failure.code);
+                let (_, detail) = sample_value(
+                    &failure.detail,
+                    &format!("{prefix}.Failure"),
+                    &detail_name,
+                    true,
+                    false,
+                );
+                let framed = message_bytes(&detail, convention(&failure.detail), None);
                 let _=writeln!(out,"run{{val failure={prefix}.decodeFailure({}L,{});check(failure is {prefix}.Failure.FailureCode{});check(failure.code=={}L&&failure.name==\"{}\");equal(failure.detail.canonicalBytes(),{})}}",failure.code,kotlin_bytes(&framed),failure.code,failure.code,failure.name,kotlin_bytes(&detail));
             }
-            let unknown=unknown_failure(entry);
-            let _=writeln!(out,"refused(\"UNKNOWN_FAILURE\"){{{prefix}.decodeFailure({unknown}L,byteArrayOf())}}");
-            if matches!(entry.input,Type::Option(_)|Type::Union(_)) {
-                let (alternate,bytes)=sample_value(&entry.input,&prefix,"Input",true,true);
-                let expected=message_bytes(&bytes,convention(&entry.input),Some(entry.discriminator));
+            let unknown = unknown_failure(entry);
+            let _ = writeln!(
+                out,
+                "refused(\"UNKNOWN_FAILURE\"){{{prefix}.decodeFailure({unknown}L,byteArrayOf())}}"
+            );
+            if matches!(entry.input, Type::Option(_) | Type::Union(_)) {
+                let (alternate, bytes) = sample_value(&entry.input, &prefix, "Input", true, true);
+                let expected =
+                    message_bytes(&bytes, convention(&entry.input), Some(entry.discriminator));
                 let _=writeln!(out,"equal({prefix}.call({alternate},ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST).bytes,{})",kotlin_bytes(&expected));
             }
-            let _=writeln!(out,"println(\"BINDING_CASE roundtrip_{}\")}}",entry.name);
+            let _ = writeln!(out, "println(\"BINDING_CASE roundtrip_{}\")}}", entry.name);
         }
-        emit_kotlin_construction_refusal(&mut out,self);
+        emit_kotlin_construction_refusal(&mut out, self);
         out.push_str("println(\"BINDING_CASE typed_failure\");println(\"BINDING_CASE stale_digest\");println(\"BINDING_CASE wrong_code_hash\");println(\"BINDING_CASE malformed_call\")\n}\n");
         out
     }
 
     #[must_use]
     pub fn generate_kotlin_malformed_consumer(&self) -> String {
-        let mut out=String::from("fun main(){\n");
-        if let Some(entry)=self.entries.first() {
+        let mut out = String::from("fun main(){\n");
+        if let Some(entry) = self.entries.first() {
             let _=writeln!(out,"ProgramBindings.Entry{}.call(\"not a typed input\",ProgramBindings.CODE_HASH,ProgramBindings.INTERFACE_DIGEST)",hex(&entry.discriminator));
         }
         out.push_str("}\n");
@@ -435,164 +518,312 @@ impl BindingGenerator {
     }
 }
 
-fn wrong_hash(mut value: [u8;32]) -> String {
-    value[0]^=1;
+fn wrong_hash(mut value: [u8; 32]) -> String {
+    value[0] ^= 1;
     hex(&value)
 }
 
 fn unknown_failure(entry: &Entry) -> u32 {
-    let mut candidate=0u32;
-    while entry.failures.iter().any(|f|f.code==candidate) {candidate+=1;}
+    let mut candidate = 0u32;
+    while entry.failures.iter().any(|f| f.code == candidate) {
+        candidate += 1;
+    }
     candidate
 }
 
-fn message_bytes(payload: &[u8], convention: u8, discriminator: Option<[u8;4]>) -> alloc::vec::Vec<u8> {
-    let mut bytes=alloc::vec::Vec::new();
-    if let Some(discriminator)=discriminator {bytes.extend_from_slice(&discriminator);}
+fn message_bytes(
+    payload: &[u8],
+    convention: u8,
+    discriminator: Option<[u8; 4]>,
+) -> alloc::vec::Vec<u8> {
+    let mut bytes = alloc::vec::Vec::new();
+    if let Some(discriminator) = discriminator {
+        bytes.extend_from_slice(&discriminator);
+    }
     bytes.push(convention);
     bytes.extend_from_slice(payload);
     bytes
 }
 
 fn java_bytes(bytes: &[u8]) -> String {
-    format!("new byte[]{{{}}}",bytes.iter().map(|b|format!("(byte){b}")).collect::<alloc::vec::Vec<_>>().join(","))
+    format!(
+        "new byte[]{{{}}}",
+        bytes
+            .iter()
+            .map(|b| format!("(byte){b}"))
+            .collect::<alloc::vec::Vec<_>>()
+            .join(",")
+    )
 }
 
 fn kotlin_bytes(bytes: &[u8]) -> String {
-    format!("byteArrayOf({})",bytes.iter().map(|b|format!("{b}.toByte()")).collect::<alloc::vec::Vec<_>>().join(","))
+    format!(
+        "byteArrayOf({})",
+        bytes
+            .iter()
+            .map(|b| format!("{b}.toByte()"))
+            .collect::<alloc::vec::Vec<_>>()
+            .join(",")
+    )
 }
 
-fn sample_value(t: &Type,prefix: &str,name: &str,kotlin: bool,alternate: bool) -> (String,alloc::vec::Vec<u8>) {
-    let ctor=if kotlin{String::new()}else{String::from("new ")};
-    let ty=format!("{prefix}.{name}");
-    if let Some((tag,width,signed))=integer(t) {
-        let value=if alternate{"0"}else if signed{"-1"}else{"1"};
-        let mut bytes=alloc::vec![if signed&&!alternate{255}else{0};width as usize+1];
-        bytes[0]=tag;
-        if !signed&&!alternate {bytes[width as usize]=1;}
-        return (format!("{ctor}{ty}({ctor}BigInteger(\"{value}\"))"),bytes);
+fn sample_value(
+    t: &Type,
+    prefix: &str,
+    name: &str,
+    kotlin: bool,
+    alternate: bool,
+) -> (String, alloc::vec::Vec<u8>) {
+    let ctor = if kotlin {
+        String::new()
+    } else {
+        String::from("new ")
+    };
+    let ty = format!("{prefix}.{name}");
+    if let Some(sample) = sample_integer(t, &ctor, &ty, alternate) {
+        return sample;
     }
     match t {
         Type::Bytes(_) => {
-            let bytes=alloc::vec![0x20,0,0,0,1,42];
-            let raw=if kotlin{"byteArrayOf(42)"}else{"new byte[]{42}"};
-            (format!("{ctor}{ty}({raw})"),bytes)
+            let bytes = alloc::vec![0x20, 0, 0, 0, 1, 42];
+            let raw = if kotlin {
+                "byteArrayOf(42)"
+            } else {
+                "new byte[]{42}"
+            };
+            (format!("{ctor}{ty}({raw})"), bytes)
         }
         Type::EvmHead => {
-            let mut bytes=alloc::vec![0;32];bytes[31]=1;
-            let literal=if kotlin{kotlin_bytes(&bytes)}else{java_bytes(&bytes)};
-            (format!("{ctor}{ty}({literal})"),bytes)
+            let mut bytes = alloc::vec![0;32];
+            bytes[31] = 1;
+            let literal = if kotlin {
+                kotlin_bytes(&bytes)
+            } else {
+                java_bytes(&bytes)
+            };
+            (format!("{ctor}{ty}({literal})"), bytes)
         }
-        Type::Fixed(child,count)|Type::Variable(child,count) => {
-            let n=if matches!(t,Type::Fixed(_, _)){*count}else{core::cmp::min(*count,2)};
-            let (child_expr,child_bytes)=sample_value(child,prefix,&format!("{name}Element"),kotlin,alternate);
-            let mut bytes=alloc::vec![if matches!(t,Type::Fixed(_, _)){48}else{49}];
+        Type::Fixed(child, count) | Type::Variable(child, count) => {
+            let n = if matches!(t, Type::Fixed(_, _)) {
+                *count
+            } else {
+                core::cmp::min(*count, 2)
+            };
+            let (child_expr, child_bytes) =
+                sample_value(child, prefix, &format!("{name}Element"), kotlin, alternate);
+            let mut bytes = alloc::vec![if matches!(t, Type::Fixed(_, _)) {
+                48
+            } else {
+                49
+            }];
             bytes.extend_from_slice(&n.to_be_bytes());
-            for _ in 0..n {bytes.extend_from_slice(&child_bytes);}
-            let list=if kotlin{format!("List({n}){{{child_expr}}}")}else{format!("Collections.nCopies({n},{child_expr})")};
-            (format!("{ctor}{ty}({list})"),bytes)
+            for _ in 0..n {
+                bytes.extend_from_slice(&child_bytes);
+            }
+            let list = if kotlin {
+                format!("List({n}){{{child_expr}}}")
+            } else {
+                format!("Collections.nCopies({n},{child_expr})")
+            };
+            (format!("{ctor}{ty}({list})"), bytes)
         }
         Type::Option(child) => {
-            if alternate {(format!("{ty}.none()"),alloc::vec![64,0])}else{
-                let (expr,child_bytes)=sample_value(child,prefix,&format!("{name}Some"),kotlin,false);
-                let mut bytes=alloc::vec![64,1];bytes.extend_from_slice(&child_bytes);
-                (format!("{ty}.some({expr})"),bytes)
+            if alternate {
+                (format!("{ty}.none()"), alloc::vec![64, 0])
+            } else {
+                let (expr, child_bytes) =
+                    sample_value(child, prefix, &format!("{name}Some"), kotlin, false);
+                let mut bytes = alloc::vec![64, 1];
+                bytes.extend_from_slice(&child_bytes);
+                (format!("{ty}.some({expr})"), bytes)
             }
         }
         Type::Union(variants) => {
-            let v=if alternate{variants.last()}else{variants.first()}.expect("validated nonempty union");
-            let (expr,child_bytes)=sample_value(&v.value,prefix,&format!("{name}Variant{}Value",v.tag),kotlin,alternate);
-            let mut bytes=alloc::vec![80];bytes.extend_from_slice(&v.tag.to_be_bytes());bytes.extend_from_slice(&child_bytes);
-            let variant=if kotlin{format!("{ty}.{name}Variant{}",v.tag)}else{format!("{prefix}.{name}Variant{}",v.tag)};
-            (format!("{ctor}{variant}({expr})"),bytes)
+            let v = if alternate {
+                variants.last()
+            } else {
+                variants.first()
+            }
+            .unwrap_or_else(|| panic!("validated nonempty union"));
+            let (expr, child_bytes) = sample_value(
+                &v.value,
+                prefix,
+                &format!("{name}Variant{}Value", v.tag),
+                kotlin,
+                alternate,
+            );
+            let mut bytes = alloc::vec![80];
+            bytes.extend_from_slice(&v.tag.to_be_bytes());
+            bytes.extend_from_slice(&child_bytes);
+            let variant = if kotlin {
+                format!("{ty}.{name}Variant{}", v.tag)
+            } else {
+                format!("{prefix}.{name}Variant{}", v.tag)
+            };
+            (format!("{ctor}{variant}({expr})"), bytes)
         }
-        _=>unreachable!(),
+        _ => unreachable!(),
     }
 }
 
-fn emit_java_decode_negatives(out: &mut String,prefix: &str,message: &[u8]) {
-    let mut wrong=message.to_vec();wrong[0]=0;
+fn sample_integer(
+    t: &Type,
+    ctor: &str,
+    ty: &str,
+    alternate: bool,
+) -> Option<(String, alloc::vec::Vec<u8>)> {
+    let (tag, width, signed) = integer(t)?;
+    let value = if alternate {
+        "0"
+    } else if signed {
+        "-1"
+    } else {
+        "1"
+    };
+    let mut bytes = alloc::vec![if signed && !alternate { 255 } else { 0 }; width as usize + 1];
+    bytes[0] = tag;
+    if !signed && !alternate {
+        bytes[width as usize] = 1;
+    }
+    Some((format!("{ctor}{ty}({ctor}BigInteger(\"{value}\"))"), bytes))
+}
+
+fn emit_java_decode_negatives(out: &mut String, prefix: &str, message: &[u8]) {
+    let mut wrong = message.to_vec();
+    wrong[0] = 0;
     let _=writeln!(out,"refused(\"NON_CANONICAL\",()->{prefix}.decodeOutput({}));refused(\"TRUNCATED\",()->{prefix}.decodeOutput(new byte[]{{}}));",java_bytes(&wrong));
-    if message.first()==Some(&1) {
-        let mut trailing=message.to_vec();trailing.push(0);
-        let _=writeln!(out,"refused(\"TRAILING_BYTES\",()->{prefix}.decodeOutput({}));",java_bytes(&trailing));
-        let mut tag=message.to_vec();tag[1]=0;
-        let _=writeln!(out,"refused(\"NON_CANONICAL\",()->{prefix}.decodeOutput({}));",java_bytes(&tag));
-    }else{
-        let _=writeln!(out,"refused(\"INVALID_VALUE\",()->{prefix}.decodeOutput(new byte[]{{2,0}}));");
+    if message.first() == Some(&1) {
+        let mut trailing = message.to_vec();
+        trailing.push(0);
+        let _ = writeln!(
+            out,
+            "refused(\"TRAILING_BYTES\",()->{prefix}.decodeOutput({}));",
+            java_bytes(&trailing)
+        );
+        let mut tag = message.to_vec();
+        tag[1] = 0;
+        let _ = writeln!(
+            out,
+            "refused(\"NON_CANONICAL\",()->{prefix}.decodeOutput({}));",
+            java_bytes(&tag)
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "refused(\"INVALID_VALUE\",()->{prefix}.decodeOutput(new byte[]{{2,0}}));"
+        );
     }
 }
 
-fn emit_kotlin_decode_negatives(out: &mut String,prefix: &str,message: &[u8]) {
-    let mut wrong=message.to_vec();wrong[0]=0;
+fn emit_kotlin_decode_negatives(out: &mut String, prefix: &str, message: &[u8]) {
+    let mut wrong = message.to_vec();
+    wrong[0] = 0;
     let _=writeln!(out,"refused(\"NON_CANONICAL\"){{{prefix}.decodeOutput({})}};refused(\"TRUNCATED\"){{{prefix}.decodeOutput(byteArrayOf())}}",kotlin_bytes(&wrong));
-    if message.first()==Some(&1) {
-        let mut trailing=message.to_vec();trailing.push(0);
-        let _=writeln!(out,"refused(\"TRAILING_BYTES\"){{{prefix}.decodeOutput({})}}",kotlin_bytes(&trailing));
-        let mut tag=message.to_vec();tag[1]=0;
-        let _=writeln!(out,"refused(\"NON_CANONICAL\"){{{prefix}.decodeOutput({})}}",kotlin_bytes(&tag));
-    }else{
-        let _=writeln!(out,"refused(\"INVALID_VALUE\"){{{prefix}.decodeOutput(byteArrayOf(2,0))}}");
+    if message.first() == Some(&1) {
+        let mut trailing = message.to_vec();
+        trailing.push(0);
+        let _ = writeln!(
+            out,
+            "refused(\"TRAILING_BYTES\"){{{prefix}.decodeOutput({})}}",
+            kotlin_bytes(&trailing)
+        );
+        let mut tag = message.to_vec();
+        tag[1] = 0;
+        let _ = writeln!(
+            out,
+            "refused(\"NON_CANONICAL\"){{{prefix}.decodeOutput({})}}",
+            kotlin_bytes(&tag)
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "refused(\"INVALID_VALUE\"){{{prefix}.decodeOutput(byteArrayOf(2,0))}}"
+        );
     }
 }
 
-fn emit_java_construction_refusal(out: &mut String,generator: &BindingGenerator) {
+fn emit_java_construction_refusal(out: &mut String, generator: &BindingGenerator) {
     for entry in &generator.entries {
-        if let Some((_,width,signed))=integer(&entry.input) {
-            let prefix=format!("ProgramBindings.Entry{}",hex(&entry.discriminator));
-            let bits=width*8-if signed { 1 } else { 0 };
+        if let Some((_, width, signed)) = integer(&entry.input) {
+            let prefix = format!("ProgramBindings.Entry{}", hex(&entry.discriminator));
+            let bits = width * 8 - u32::from(signed);
             let _=writeln!(out,"refused(\"INVALID_VALUE\",()->new {prefix}.Input(BigInteger.ONE.shiftLeft({bits})));");
-            if !signed {
-                let _=writeln!(out,"refused(\"INVALID_VALUE\",()->new {prefix}.Input(BigInteger.valueOf(-1)));");
-            }else{
+            if signed {
                 let _=writeln!(out,"refused(\"INVALID_VALUE\",()->new {prefix}.Input(BigInteger.ONE.shiftLeft({bits}).negate().subtract(BigInteger.ONE)));");
+            } else {
+                let _ = writeln!(
+                    out,
+                    "refused(\"INVALID_VALUE\",()->new {prefix}.Input(BigInteger.valueOf(-1)));"
+                );
             }
         }
     }
 }
 
-fn emit_kotlin_construction_refusal(out: &mut String,generator: &BindingGenerator) {
+fn emit_kotlin_construction_refusal(out: &mut String, generator: &BindingGenerator) {
     for entry in &generator.entries {
-        if let Some((_,width,signed))=integer(&entry.input) {
-            let prefix=format!("ProgramBindings.Entry{}",hex(&entry.discriminator));
-            let bits=width*8-if signed { 1 } else { 0 };
-            let _=writeln!(out,"refused(\"INVALID_VALUE\"){{{prefix}.Input(BigInteger.ONE.shiftLeft({bits}))}}");
-            if !signed {
-                let _=writeln!(out,"refused(\"INVALID_VALUE\"){{{prefix}.Input(BigInteger.valueOf(-1))}}");
-            }else{
+        if let Some((_, width, signed)) = integer(&entry.input) {
+            let prefix = format!("ProgramBindings.Entry{}", hex(&entry.discriminator));
+            let bits = width * 8 - u32::from(signed);
+            let _ = writeln!(
+                out,
+                "refused(\"INVALID_VALUE\"){{{prefix}.Input(BigInteger.ONE.shiftLeft({bits}))}}"
+            );
+            if signed {
                 let _=writeln!(out,"refused(\"INVALID_VALUE\"){{{prefix}.Input(BigInteger.ONE.shiftLeft({bits}).negate().subtract(BigInteger.ONE))}}");
+            } else {
+                let _ = writeln!(
+                    out,
+                    "refused(\"INVALID_VALUE\"){{{prefix}.Input(BigInteger.valueOf(-1))}}"
+                );
             }
         }
     }
 }
 
 fn schema_refusal(t: &Type) -> Option<alloc::vec::Vec<u8>> {
-    let mut value=alloc::vec![1];
+    let mut value = alloc::vec![1];
     match t {
-        Type::Bytes(n)|Type::Fixed(_,n)|Type::Variable(_,n) if *n<u32::MAX => {
-            value.push(match t {Type::Bytes(_)=>32,Type::Fixed(_,_)=>48,_=>49});
-            value.extend_from_slice(&(n+1).to_be_bytes());
+        Type::Bytes(n) | Type::Fixed(_, n) | Type::Variable(_, n) if *n < u32::MAX => {
+            value.push(match t {
+                Type::Bytes(_) => 32,
+                Type::Fixed(_, _) => 48,
+                _ => 49,
+            });
+            value.extend_from_slice(&(n + 1).to_be_bytes());
         }
-        Type::Option(_) => {value.extend_from_slice(&[64,2]);}
+        Type::Option(_) => {
+            value.extend_from_slice(&[64, 2]);
+        }
         Type::Union(variants) => {
-            let mut tag=0u32;
-            while variants.iter().any(|variant|variant.tag==tag){tag+=1;}
-            value.push(80);value.extend_from_slice(&tag.to_be_bytes());
+            let mut tag = 0u32;
+            while variants.iter().any(|variant| variant.tag == tag) {
+                tag += 1;
+            }
+            value.push(80);
+            value.extend_from_slice(&tag.to_be_bytes());
         }
-        _=>return None,
+        _ => return None,
     }
     Some(value)
 }
 
-fn emit_java_schema_refusal(out: &mut String,prefix: &str,t: &Type) {
-    if let Some(bytes)=schema_refusal(t) {
-        let _=writeln!(out,"refused(\"NON_CANONICAL\",()->{prefix}.decodeOutput({}));",java_bytes(&bytes));
+fn emit_java_schema_refusal(out: &mut String, prefix: &str, t: &Type) {
+    if let Some(bytes) = schema_refusal(t) {
+        let _ = writeln!(
+            out,
+            "refused(\"NON_CANONICAL\",()->{prefix}.decodeOutput({}));",
+            java_bytes(&bytes)
+        );
     }
 }
 
-fn emit_kotlin_schema_refusal(out: &mut String,prefix: &str,t: &Type) {
-    if let Some(bytes)=schema_refusal(t) {
-        let _=writeln!(out,"refused(\"NON_CANONICAL\"){{{prefix}.decodeOutput({})}}",kotlin_bytes(&bytes));
+fn emit_kotlin_schema_refusal(out: &mut String, prefix: &str, t: &Type) {
+    if let Some(bytes) = schema_refusal(t) {
+        let _ = writeln!(
+            out,
+            "refused(\"NON_CANONICAL\"){{{prefix}.decodeOutput({})}}",
+            kotlin_bytes(&bytes)
+        );
     }
 }
-

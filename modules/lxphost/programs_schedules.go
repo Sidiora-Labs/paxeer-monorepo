@@ -133,6 +133,9 @@ func InstallProgramsSchedules(ctx sdk.Context, key sdk.StoreKey, p ProgramsSched
 	if needFee && store.Has(feeHistory) || needMetering && store.Has(meteringHistory) {
 		return installed, fmt.Errorf("Programs schedule history exists without its active row")
 	}
+	if needFee && ctx.BlockHeight() <= 0 {
+		return installed, fmt.Errorf("Programs fee schedule requires a positive activation height")
+	}
 
 	var fees C.lx_programs_fee_genesis_parameters
 	fees.schedule.version = 1
@@ -165,8 +168,20 @@ func InstallProgramsSchedules(ctx sdk.Context, key sdk.StoreKey, p ProgramsSched
 		return installed, fmt.Errorf("Programs schedule genesis production: %w", err)
 	}
 	if needFee {
-		store.Set(feeActive, C.GoBytes(unsafe.Pointer(&rows.fee_active[0]), C.LXPHOST_FEE_SCHEDULE_RECORD_BYTES))
-		store.Set(feeHistory, C.GoBytes(unsafe.Pointer(&rows.fee_history[0]), C.LXPHOST_FEE_SCHEDULE_RECORD_BYTES))
+		// Native genesis produces a batch-one fee record. The upgrade installs
+		// it at the current height, where the first occupancy batch completes.
+		activationBatch := uint64(ctx.BlockHeight())
+		active := C.GoBytes(unsafe.Pointer(&rows.fee_active[0]), C.LXPHOST_FEE_SCHEDULE_RECORD_BYTES)
+		history := C.GoBytes(unsafe.Pointer(&rows.fee_history[0]), C.LXPHOST_FEE_SCHEDULE_RECORD_BYTES)
+		for _, row := range [][]byte{active, history} {
+			if binary.BigEndian.Uint64(row[145:153]) != 1 || binary.BigEndian.Uint64(row[153:161]) != 0 {
+				return installed, fmt.Errorf("Programs fee genesis batch fields are not canonical")
+			}
+			binary.BigEndian.PutUint64(row[145:153], activationBatch)
+			binary.BigEndian.PutUint64(row[153:161], activationBatch-1)
+		}
+		store.Set(feeActive, active)
+		store.Set(feeHistory, history)
 		installed.Fee = true
 	}
 	if needMetering {

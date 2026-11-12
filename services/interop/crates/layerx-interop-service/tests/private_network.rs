@@ -30,7 +30,7 @@ fn startup_error(url: &str, flag: Option<&str>) -> String {
 }
 
 fn command_error(mut command: Command) -> String {
-    let output = command.output().expect("interop gateway runs");
+    let output = command.output().or_panic("interop gateway runs");
     assert!(
         !output.status.success(),
         "gateway started without its configuration"
@@ -92,25 +92,17 @@ impl EndpointFixture {
             env!("CARGO_MANIFEST_DIR"),
             "/../../deploy/gateway/config.example.json"
         )))?;
-        let public_key: String = ed25519_dalek::SigningKey::from_bytes(&[7; 32])
+        let public_key: String = hex(&ed25519_dalek::SigningKey::from_bytes(&[7; 32])
             .verifying_key()
-            .to_bytes()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+            .to_bytes());
         manifest["x402_supported"] = json!({
             "kinds": [{"x402Version": 2, "scheme": "exact", "network": "eip155:125"}],
             "extensions": [],
             "signers": {"eip155:125": [format!("did:layerx:{public_key}")]}
         });
         let ap2_key = p256::ecdsa::SigningKey::from_bytes((&[9; 32]).into())?;
-        let ap2_public_key: String = ap2_key
-            .verifying_key()
-            .to_encoded_point(false)
-            .as_bytes()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
+        let ap2_public_key: String =
+            hex(ap2_key.verifying_key().to_encoded_point(false).as_bytes());
         for pin in manifest["ap2_keys"].as_array_mut().ok_or("AP2 keys")? {
             pin["public_key_sec1"] = json!(ap2_public_key);
         }
@@ -258,7 +250,7 @@ fn arguments_are_refused_before_configuration() {
             .env_clear()
             .args(&args)
             .output()
-            .expect("interop gateway runs");
+            .or_panic("interop gateway runs");
         assert_eq!(output.status.code(), Some(1), "{args:?}");
         assert_eq!(
             String::from_utf8_lossy(&output.stderr),
@@ -269,9 +261,41 @@ fn arguments_are_refused_before_configuration() {
 }
 
 #[path = "support/settlement_fixture.rs"]
-mod settlement_fixture;
+pub mod settlement_fixture;
 
 #[test]
 fn private_network_route_coverage() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     settlement_fixture::private_network_payment_recovers_through_mounted_route()
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }

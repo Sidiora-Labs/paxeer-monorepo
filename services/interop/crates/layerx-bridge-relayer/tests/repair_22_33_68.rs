@@ -1,17 +1,8 @@
 #[path = "outbound_isolation.rs"]
 mod outbound_isolation;
-#[path = "paxeer_rpc.rs"]
-mod paxeer_rpc;
-#[path = "paxeer_transport.rs"]
-mod paxeer_transport;
 #[allow(dead_code)]
 #[path = "support/repair_22_33_68.rs"]
 mod support;
-
-#[path = "attestation_api.rs"]
-mod attestation_api;
-#[path = "attestation_server.rs"]
-mod attestation_server;
 
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -46,16 +37,19 @@ fn capture_prerequisite_reports_missing_inputs_and_refuses_required_missing_or_u
     );
     assert!(MISSING.contains("NOT PROVEN"));
     assert!(prerequisite(None, None, true)
-        .unwrap_err()
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"))
         .contains("LAYERX_BRIDGE_CAPTURE_MANIFEST"));
     let directory = support::Directory::new();
     let path = directory.0.join("capture.json");
     let pin = "a".repeat(64);
     assert!(prerequisite(Some(&path), None, false)
-        .unwrap_err()
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"))
         .contains("SHA256"));
     assert!(prerequisite(None, Some(&pin), false)
-        .unwrap_err()
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"))
         .contains("MANIFEST"));
     for required in [true, false] {
         assert!(prerequisite(Some(Path::new("relative.json")), Some(&pin), required).is_err());
@@ -70,15 +64,17 @@ fn capture_prerequisite_reports_missing_inputs_and_refuses_required_missing_or_u
         assert!(outbound_isolation::validate_capture_manifest(&path, &pin).is_err());
     }
     let bytes = br#"{"schema":"layerx.bridge.outbound-isolation/v1"}"#;
-    std::fs::write(&path, bytes).unwrap();
+    std::fs::write(&path, bytes).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert!(outbound_isolation::validate_capture_manifest(&path, &pin)
-        .unwrap_err()
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"))
         .to_string()
         .contains("SHA256"));
     let digest = layerx_bridge_relayer::hex::encode(&Sha256::digest(bytes));
     assert!(
         outbound_isolation::validate_capture_manifest(&path, &digest)
-            .unwrap_err()
+            .err()
+            .unwrap_or_else(|| panic!("expected Err value"))
             .to_string()
             .contains("missing field")
     );

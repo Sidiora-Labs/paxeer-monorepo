@@ -49,16 +49,16 @@ func (s PolicySnapshot) Validate() error {
 	if s.Generation == "" || len(s.Generation) > 128 || !revisionOK(s.Revision) || s.FetchedAt.IsZero() || !s.FreshUntil.After(s.FetchedAt) || s.RetainUntil.Before(s.FreshUntil) || s.RetainUntil.Sub(s.FetchedAt) > 24*time.Hour || !json.Valid(s.Body) || !json.Valid(s.SourceWatermark) {
 		return errors.New("cache: invalid policy snapshot")
 	}
-	if s.Visibility != "public" && s.Visibility != "private" {
+	if s.Visibility != valuePublic && s.Visibility != valuePrivate {
 		return errors.New("cache: invalid visibility")
 	}
-	if s.Class != "public_snapshot" && s.Class != "private_account" {
+	if s.Class != valuePublicSnapshot && s.Class != "private_account" {
 		return errors.New("cache: uncacheable class")
 	}
-	if (s.Class == "public_snapshot") != (s.Visibility == "public") {
+	if (s.Class == valuePublicSnapshot) != (s.Visibility == valuePublic) {
 		return errors.New("cache: class visibility conflict")
 	}
-	if s.Class != "public_snapshot" && !s.RetainUntil.Equal(s.FreshUntil) {
+	if s.Class != valuePublicSnapshot && !s.RetainUntil.Equal(s.FreshUntil) {
 		return errors.New("cache: stale private snapshot prohibited")
 	}
 	b, e := json.Marshal(s)
@@ -151,10 +151,10 @@ func GetPolicySnapshot(ctx context.Context, c *r.Client, key string) (PolicySnap
 	if e = s.Validate(); e != nil {
 		return s, false, e
 	}
-	if string(s.Body) != "null" && (s.ContentDigest != PolicySnapshotDigest(s) || s.ProjectionDigest != PolicyProjectionDigest(s)) {
+	if string(s.Body) != valueNull && (s.ContentDigest != PolicySnapshotDigest(s) || s.ProjectionDigest != PolicyProjectionDigest(s)) {
 		return s, false, errors.New("cache: representation digest mismatch")
 	}
-	return s, time.Now().Before(s.RetainUntil) && string(s.Body) != "null", nil
+	return s, time.Now().Before(s.RetainUntil) && string(s.Body) != valueNull, nil
 }
 
 const invalidatePolicySnapshot = `local old=redis.call('GET',KEYS[1]);if old then local o=cjson.decode(old);if o.generation~=ARGV[1] then return 0 end;local a=o.revision;local b=ARGV[2];if #a>#b or (#a==#b and a>=b) then return 0 end end;redis.call('SET',KEYS[1],ARGV[3],'PX',ARGV[4]);return 1`

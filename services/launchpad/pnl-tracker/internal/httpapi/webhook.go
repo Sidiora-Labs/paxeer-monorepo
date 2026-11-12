@@ -157,7 +157,7 @@ func webhookAuth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxWebhookBodyBytes)
-			defer r.Body.Close()
+			defer func() { _ = r.Body.Close() }()
 			if r.ContentLength > maxWebhookBodyBytes {
 				sharedhttp.WriteError(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "webhook body exceeds limit")
 				return

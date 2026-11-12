@@ -25,16 +25,16 @@ func Submitted(hash common.Hash, deployment string) (TransactionState, error) {
 	if hash == (common.Hash{}) || deployment == "" {
 		return TransactionState{}, errors.New("transaction identity required")
 	}
-	return TransactionState{State: "submitted", ChainID: "125", SubmittedHash: hash, DeploymentVersion: deployment, ObservedAt: time.Now().UTC()}, nil
+	return TransactionState{State: valueSubmitted, ChainID: "125", SubmittedHash: hash, DeploymentVersion: deployment, ObservedAt: time.Now().UTC()}, nil
 }
 func (s TransactionState) AwaitingReceipt() TransactionState {
-	if s.State == "submitted" {
-		s.State = "awaiting_receipt"
+	if s.State == valueSubmitted {
+		s.State = valueAwaitingReceipt
 	}
 	return s
 }
 func (s TransactionState) Replaced(hash common.Hash) (TransactionState, error) {
-	if (s.State != "submitted" && s.State != "awaiting_receipt") || hash == (common.Hash{}) || hash == s.SubmittedHash {
+	if (s.State != valueSubmitted && s.State != valueAwaitingReceipt) || hash == (common.Hash{}) || hash == s.SubmittedHash {
 		return TransactionState{}, errors.New("invalid transaction replacement")
 	}
 	s.State = "replaced"
@@ -50,7 +50,7 @@ func WalletRejected(deployment string) TransactionState {
 // (CometBFT-backed) it is not header.Hash(), so the receipt's block identity is
 // compared with the reported hash only.
 func (s TransactionState) WithReceipt(receipt *types.Receipt, header *types.Header, blockHash common.Hash) (TransactionState, error) {
-	if s.ChainID != "125" || s.SubmittedHash == (common.Hash{}) || s.DeploymentVersion == "" || (s.State != "submitted" && s.State != "awaiting_receipt") || receipt == nil || header == nil || header.Number == nil || !header.Number.IsUint64() || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash != s.SubmittedHash || receipt.BlockNumber.Cmp(header.Number) != 0 || blockHash == (common.Hash{}) || receipt.BlockHash != blockHash || receipt.Status > 1 {
+	if s.ChainID != "125" || s.SubmittedHash == (common.Hash{}) || s.DeploymentVersion == "" || (s.State != valueSubmitted && s.State != valueAwaitingReceipt) || receipt == nil || header == nil || header.Number == nil || !header.Number.IsUint64() || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.TxHash != s.SubmittedHash || receipt.BlockNumber.Cmp(header.Number) != 0 || blockHash == (common.Hash{}) || receipt.BlockHash != blockHash || receipt.Status > 1 {
 		return TransactionState{}, errors.New("receipt committed identity mismatch")
 	}
 	for i, log := range receipt.Logs {

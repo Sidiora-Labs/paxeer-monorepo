@@ -20,7 +20,7 @@ use crate::migration_head::{
     MigrationJournalHead, ADVANCE_MIGRATION_JOURNAL_HEAD, GET_MIGRATION_JOURNAL_HEAD,
 };
 use crate::rpc::{RpcCluster, RpcQuorumConfig};
-use crate::source_codec::{decode_fixed_hex, hex};
+use crate::source_codec::hex;
 use crate::{ExternalHistoryRecord, MigrationError, HISTORY_PAGE_LIMIT};
 
 const JOURNAL_DOMAIN: &[u8] = b"LayerX/interop/migration/journal/v1\0";
@@ -84,12 +84,18 @@ pub struct AccountMappingStoreV2 {
 }
 
 impl AccountMappingStoreV2 {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn new(config: &JournalConfig) -> Result<Self, MigrationError> {
         Ok(Self {
             journal: Journal::new(config)?,
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn confirm(
         &self,
         principal: &PrincipalId,
@@ -887,26 +893,7 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
         Update::Chain {
             network,
             checkpoint,
-        } => match state.chains.get(network) {
-            Some(current) if current == checkpoint => Ok(Apply::Already),
-            Some(current) if checkpoint.height < current.height => Ok(Apply::Already),
-            Some(current) if checkpoint.height == current.height => {
-                Err(MigrationError::CheckpointConflict)
-            }
-            Some(current)
-                if checkpoint.previous_height != current.height
-                    || checkpoint.previous_hash != current.hash =>
-            {
-                Err(MigrationError::CheckpointConflict)
-            }
-            None if checkpoint.previous_height != 0 || checkpoint.previous_hash != [0; 32] => {
-                Err(MigrationError::CheckpointConflict)
-            }
-            _ => {
-                state.chains.insert(network.clone(), checkpoint.clone());
-                Ok(Apply::Applied)
-            }
-        },
+        } => apply_chain(state, network, checkpoint),
         Update::Claim { key, checkpoint } => match state.claims.get(key) {
             Some(current) if current == checkpoint => Ok(Apply::Already),
             Some(_) => Err(MigrationError::CheckpointConflict),
@@ -968,28 +955,7 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             }
         },
         Update::AccountMappingV2 { key, checkpoint } => {
-            if mapping_key_v2(checkpoint)? != *key {
-                return Err(MigrationError::CheckpointIntegrity);
-            }
-            match state.account_mappings_v2.get(key) {
-                Some(current)
-                    if current.principal == checkpoint.principal
-                        && current.source_network == checkpoint.source_network
-                        && current.source_address == checkpoint.source_address
-                        && current.layerx_identity == checkpoint.layerx_identity
-                        && current.evm_address == checkpoint.evm_address
-                        && current.evidence_digest == checkpoint.evidence_digest =>
-                {
-                    Ok(Apply::Already)
-                }
-                Some(_) => Err(MigrationError::CheckpointConflict),
-                None => {
-                    state
-                        .account_mappings_v2
-                        .insert(key.clone(), checkpoint.clone());
-                    Ok(Apply::Applied)
-                }
-            }
+            apply_account_mapping_v2(state, key, checkpoint)
         }
         Update::CustodyReference { key, claim_digest } => match state.custody_references.get(key) {
             Some(current) if current == claim_digest => Ok(Apply::Already),
@@ -1003,50 +969,111 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             principal,
             evidence_digest,
             records,
-        } => {
-            PrincipalId::new(principal.clone()).map_err(|_| MigrationError::CheckpointIntegrity)?;
-            if records.len() > HISTORY_PAGE_LIMIT || *evidence_digest == [0; 32] {
-                return Err(MigrationError::CheckpointIntegrity);
-            }
-            let mut incoming = BTreeMap::new();
-            for encoded in records {
-                let record = decode_history(encoded)?;
-                let key = record_key(&record);
-                if incoming
-                    .insert(key, record)
-                    .is_some_and(|prior| prior != record)
-                {
-                    return Err(MigrationError::CheckpointConflict);
-                }
-            }
-            let current = state.external_history.get(principal);
-            let mut added = 0_usize;
-            for (key, record) in &incoming {
-                match current.and_then(|rows| rows.get(key)) {
-                    Some(prior) if prior != record => {
-                        return Err(MigrationError::CheckpointConflict)
-                    }
-                    Some(_) => {}
-                    None => added += 1,
-                }
-            }
-            if added == 0 {
-                return Ok(Apply::Already);
-            }
-            let total = state
-                .external_records
-                .checked_add(added)
-                .filter(|total| *total <= MAX_RECORDS)
-                .ok_or(MigrationError::CheckpointIntegrity)?;
-            state
-                .external_history
-                .entry(principal.clone())
-                .or_default()
-                .extend(incoming);
-            state.external_records = total;
+        } => apply_external_history(state, principal, *evidence_digest, records),
+    }
+}
+
+fn apply_chain(
+    state: &mut State,
+    network: &str,
+    checkpoint: &ChainCheckpoint,
+) -> Result<Apply, MigrationError> {
+    match state.chains.get(network) {
+        Some(current) if current == checkpoint => Ok(Apply::Already),
+        Some(current) if checkpoint.height < current.height => Ok(Apply::Already),
+        Some(current) if checkpoint.height == current.height => {
+            Err(MigrationError::CheckpointConflict)
+        }
+        Some(current)
+            if checkpoint.previous_height != current.height
+                || checkpoint.previous_hash != current.hash =>
+        {
+            Err(MigrationError::CheckpointConflict)
+        }
+        None if checkpoint.previous_height != 0 || checkpoint.previous_hash != [0; 32] => {
+            Err(MigrationError::CheckpointConflict)
+        }
+        _ => {
+            state.chains.insert(network.to_owned(), checkpoint.clone());
             Ok(Apply::Applied)
         }
     }
+}
+
+fn apply_account_mapping_v2(
+    state: &mut State,
+    key: &str,
+    checkpoint: &MappingCheckpointV2,
+) -> Result<Apply, MigrationError> {
+    if mapping_key_v2(checkpoint)?.as_str() != key {
+        return Err(MigrationError::CheckpointIntegrity);
+    }
+    match state.account_mappings_v2.get(key) {
+        Some(current)
+            if current.principal == checkpoint.principal
+                && current.source_network == checkpoint.source_network
+                && current.source_address == checkpoint.source_address
+                && current.layerx_identity == checkpoint.layerx_identity
+                && current.evm_address == checkpoint.evm_address
+                && current.evidence_digest == checkpoint.evidence_digest =>
+        {
+            Ok(Apply::Already)
+        }
+        Some(_) => Err(MigrationError::CheckpointConflict),
+        None => {
+            state
+                .account_mappings_v2
+                .insert(key.to_owned(), checkpoint.clone());
+            Ok(Apply::Applied)
+        }
+    }
+}
+
+fn apply_external_history(
+    state: &mut State,
+    principal: &str,
+    evidence_digest: [u8; 32],
+    records: &[String],
+) -> Result<Apply, MigrationError> {
+    PrincipalId::new(principal.to_owned()).map_err(|_| MigrationError::CheckpointIntegrity)?;
+    if records.len() > HISTORY_PAGE_LIMIT || evidence_digest == [0; 32] {
+        return Err(MigrationError::CheckpointIntegrity);
+    }
+    let mut incoming = BTreeMap::new();
+    for encoded in records {
+        let record = decode_history(encoded)?;
+        let key = record_key(&record);
+        if incoming
+            .insert(key, record)
+            .is_some_and(|prior| prior != record)
+        {
+            return Err(MigrationError::CheckpointConflict);
+        }
+    }
+    let current = state.external_history.get(principal);
+    let mut added = 0_usize;
+    for (key, record) in &incoming {
+        match current.and_then(|rows| rows.get(key)) {
+            Some(prior) if prior != record => return Err(MigrationError::CheckpointConflict),
+            Some(_) => {}
+            None => added += 1,
+        }
+    }
+    if added == 0 {
+        return Ok(Apply::Already);
+    }
+    let total = state
+        .external_records
+        .checked_add(added)
+        .filter(|total| *total <= MAX_RECORDS)
+        .ok_or(MigrationError::CheckpointIntegrity)?;
+    state
+        .external_history
+        .entry(principal.to_owned())
+        .or_default()
+        .extend(incoming);
+    state.external_records = total;
+    Ok(Apply::Applied)
 }
 
 fn same_history_page(left: &HistoryCheckpoint, right: &HistoryCheckpoint) -> bool {

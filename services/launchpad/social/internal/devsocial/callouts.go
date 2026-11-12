@@ -110,7 +110,7 @@ func (rt *Runtime) listCallouts(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	at, id := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "ffffffff-ffff-ffff-ffff-ffffffffffff"
+	at, id := time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), maxUUID
 	if cursor != nil {
 		at, id = cursor.At, cursor.ID
 	}

@@ -58,7 +58,8 @@ func (s *PartitionStore) AppendTx(ctx context.Context, tx pgx.Tx, in AppendInput
 	if err := accounting.ValidatePartitionPosition(p); err != nil {
 		return p, err
 	}
-	args := []any{in.ProjectionVersion, in.PartitionKind, in.PartitionKey}
+	args := make([]any, 0, 4)
+	args = append(args, in.ProjectionVersion, in.PartitionKind, in.PartitionKey)
 	if _, err := tx.Exec(ctx, "INSERT INTO "+s.table("delivery_partition_producers")+"(projection_version,partition_kind,partition_key) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", args...); err != nil {
 		return p, err
 	}

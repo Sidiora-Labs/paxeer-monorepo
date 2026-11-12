@@ -8,8 +8,16 @@ impl BindingGenerator {
     #[must_use]
     pub fn generate_go(&self) -> String {
         let mut out = String::from(GO_PRELUDE);
-        let _ = writeln!(out, "func InterfaceDigest() [32]byte {{ return [32]byte{{{}}} }}", go_bytes(&self.digest));
-        let _ = writeln!(out, "func CodeHash() [32]byte {{ return [32]byte{{{}}} }}", go_bytes(&self.code_hash));
+        let _ = writeln!(
+            out,
+            "func InterfaceDigest() [32]byte {{ return [32]byte{{{}}} }}",
+            go_bytes(&self.digest)
+        );
+        let _ = writeln!(
+            out,
+            "func CodeHash() [32]byte {{ return [32]byte{{{}}} }}",
+            go_bytes(&self.code_hash)
+        );
         for entry in &self.entries {
             go_entry(&mut out, entry);
         }
@@ -34,7 +42,11 @@ fn go_name(entry: &Entry) -> String {
 }
 
 fn go_convention(ty: &Type) -> u8 {
-    if matches!(ty, Type::EvmHead) { 2 } else { 1 }
+    if matches!(ty, Type::EvmHead) {
+        2
+    } else {
+        1
+    }
 }
 
 fn go_integer(ty: &Type) -> Option<(&'static str, u8, u8)> {
@@ -58,17 +70,31 @@ fn go_type(out: &mut String, ty: &Type, name: &str) {
     }
     match ty {
         Type::U128 | Type::U256 | Type::I128 => {
-            let (width, tag) = match ty { Type::U256 => (32, 0x15), Type::I128 => (16, 0x1c), _ => (16, 0x14) };
+            let (width, tag) = match ty {
+                Type::U256 => (32, 0x15),
+                Type::I128 => (16, 0x1c),
+                _ => (16, 0x14),
+            };
             let _ = writeln!(out, "type {name} [{width}]byte\nfunc encode{name}(w *writer,v {name}) error {{ if e:=w.byte({tag});e!=nil {{return e}};return w.raw(v[:]) }}\nfunc read{name}(r *reader) ({name},error) {{ var v {name};if e:=r.tag({tag});e!=nil {{return v,e}};b,e:=r.take({width});if e!=nil {{return v,e}};copy(v[:],b);return v,nil }}");
         }
         Type::Bytes(_) | Type::EvmHead => {
-            let max = match ty { Type::Bytes(max) => *max, _ => 1_048_575 };
-            let condition = if matches!(ty, Type::EvmHead) { " || len(v)%32!=0" } else { "" };
+            let max = match ty {
+                Type::Bytes(max) => *max,
+                _ => 1_048_575,
+            };
+            let condition = if matches!(ty, Type::EvmHead) {
+                " || len(v)%32!=0"
+            } else {
+                ""
+            };
             let _ = writeln!(out, "type {name} struct {{ value []byte }}\nfunc New{name}(v []byte) ({name},error) {{ if len(v)>MaxCalldataBytes || uint64(len(v))>{max}{condition} {{return {name}{{}},ErrInvalidValue}};x:={name}{{value:append([]byte(nil),v...)}};if e:=encode{name}(&writer{{}},x);e!=nil {{return {name}{{}},e}};return x,nil }}\nfunc (v {name}) Value() []byte {{return append([]byte(nil),v.value...)}}\nfunc encode{name}(w *writer,v {name}) error {{ if uint64(len(v.value))>{max}{} {{return ErrInvalidValue}};", if matches!(ty, Type::EvmHead) { " || len(v.value)%32!=0" } else { "" });
             if !matches!(ty, Type::EvmHead) {
                 out.push_str("if e:=w.byte(0x20);e!=nil {return e};if e:=w.count(uint32(len(v.value)));e!=nil {return e};\n");
             }
-            let _ = writeln!(out, "return w.raw(v.value) }}\nfunc read{name}(r *reader) ({name},error) {{");
+            let _ = writeln!(
+                out,
+                "return w.raw(v.value) }}\nfunc read{name}(r *reader) ({name},error) {{"
+            );
             if matches!(ty, Type::EvmHead) {
                 out.push_str("n:=len(r.data)-r.at;if n%32!=0 {return ");
                 let _ = writeln!(out, "{name}{{}},ErrNonCanonical}};");
@@ -80,8 +106,16 @@ fn go_type(out: &mut String, ty: &Type, name: &str) {
         Type::Fixed(child, max) | Type::Variable(child, max) => {
             let child_name = format!("{name}Element");
             go_type(out, child, &child_name);
-            let compare = if matches!(ty, Type::Fixed(..)) { "!=" } else { ">" };
-            let tag = if matches!(ty, Type::Fixed(..)) { 0x30 } else { 0x31 };
+            let compare = if matches!(ty, Type::Fixed(..)) {
+                "!="
+            } else {
+                ">"
+            };
+            let tag = if matches!(ty, Type::Fixed(..)) {
+                0x30
+            } else {
+                0x31
+            };
             let _ = writeln!(out, "type {name} struct {{ value []{child_name} }}\nfunc New{name}(v []{child_name}) ({name},error) {{if uint64(len(v)){compare}{max} || uint64(len(v))>DecodedSizeLimit/uint64(reflect.TypeOf((*{child_name})(nil)).Elem().Size()) {{return {name}{{}},ErrInvalidValue}};x:={name}{{value:append([]{child_name}(nil),v...)}};if e:=encode{name}(&writer{{}},x);e!=nil {{return {name}{{}},e}};return x,nil}}\nfunc (v {name}) Value() []{child_name} {{return append([]{child_name}(nil),v.value...)}}\nfunc encode{name}(w *writer,v {name}) error {{if uint64(len(v.value)){compare}{max} {{return ErrInvalidValue}};if e:=w.byte({tag});e!=nil {{return e}};if e:=w.count(uint32(len(v.value)));e!=nil {{return e}};for _,item:=range v.value {{if e:=encode{child_name}(w,item);e!=nil {{return e}}}};return nil}}\nfunc read{name}(r *reader) ({name},error) {{if e:=r.tag({tag});e!=nil {{return {name}{{}},e}};n,e:=r.count();if e!=nil {{return {name}{{}},e}};if n{compare}{max} || uint64(n)>uint64(len(r.data)-r.at) {{return {name}{{}},ErrInvalidValue}};if e:=r.reserve(uint64(n),uint64(reflect.TypeOf((*{child_name})(nil)).Elem().Size()));e!=nil {{return {name}{{}},e}};v:=make([]{child_name},int(n));for i:=range v {{item,e:=read{child_name}(r);if e!=nil {{return {name}{{}},e}};v[i]=item}};return {name}{{value:v}},nil}}");
         }
         Type::Option(child) => {
@@ -91,7 +125,11 @@ fn go_type(out: &mut String, ty: &Type, name: &str) {
         }
         Type::Union(variants) => {
             for variant in variants {
-                go_type(out, &variant.value, &format!("{name}Variant{}Value", variant.tag));
+                go_type(
+                    out,
+                    &variant.value,
+                    &format!("{name}Variant{}Value", variant.tag),
+                );
             }
             let _ = write!(out, "type {name} struct {{valid bool;tag uint32;");
             for variant in variants {
@@ -105,7 +143,10 @@ fn go_type(out: &mut String, ty: &Type, name: &str) {
             let _ = writeln!(out, "func encode{name}(w *writer,v {name}) error {{if !v.valid {{return ErrInvalidValue}};if e:=w.byte(0x50);e!=nil {{return e}};if e:=w.count(v.tag);e!=nil {{return e}};switch v.tag {{");
             for variant in variants {
                 let tag = variant.tag;
-                let _ = writeln!(out, "case {tag}:return encode{name}Variant{tag}Value(w,v.v{tag})");
+                let _ = writeln!(
+                    out,
+                    "case {tag}:return encode{name}Variant{tag}Value(w,v.v{tag})"
+                );
             }
             let _ = writeln!(out, "default:return ErrNonCanonical}} }}\nfunc read{name}(r *reader) ({name},error) {{if e:=r.tag(0x50);e!=nil {{return {name}{{}},e}};tag,e:=r.count();if e!=nil {{return {name}{{}},e}};switch tag {{");
             for variant in variants {
@@ -114,7 +155,14 @@ fn go_type(out: &mut String, ty: &Type, name: &str) {
             }
             let _ = writeln!(out, "default:return {name}{{}},ErrNonCanonical}} }}");
         }
-        Type::U8 | Type::U16 | Type::U32 | Type::U64 | Type::I8 | Type::I16 | Type::I32 | Type::I64 => unreachable!(),
+        Type::U8
+        | Type::U16
+        | Type::U32
+        | Type::U64
+        | Type::I8
+        | Type::I16
+        | Type::I32
+        | Type::I64 => unreachable!(),
     }
 }
 
@@ -124,7 +172,10 @@ fn go_entry(out: &mut String, entry: &Entry) {
     let output = format!("{name}Output");
     go_type(out, &entry.input, &input);
     go_type(out, &entry.output, &output);
-    let _ = writeln!(out, "type {name}Failure interface {{error;Code() uint32;Name() string;sealed{name}Failure()}}");
+    let _ = writeln!(
+        out,
+        "type {name}Failure interface {{error;Code() uint32;Name() string;sealed{name}Failure()}}"
+    );
     for failure in &entry.failures {
         let fail_name = format!("{name}FailureCode{}", failure.code);
         go_type(out, &failure.detail, &format!("{fail_name}Detail"));
@@ -133,7 +184,10 @@ fn go_entry(out: &mut String, entry: &Entry) {
     let convention = go_convention(&entry.input);
     let _ = writeln!(out, "func Encode{name}(input {input},deployedCodeHash,publishedDigest [32]byte) (*call[{output},{name}Failure],error) {{if e:=checkTarget(deployedCodeHash,publishedDigest);e!=nil {{return nil,e}};w:=writer{{}};if e:=w.byte({convention});e!=nil {{return nil,e}};if e:=encode{input}(&w,input);e!=nil {{return nil,e}};if len(w.data)>MaxCalldataBytes-4 {{return nil,ErrInvalidValue}};b:=append([]byte{{{}}},w.data...);return &call[{output},{name}Failure]{{data:b,output:Decode{name}Output,failure:Decode{name}Failure}},nil}}", go_bytes(&entry.discriminator));
     let _ = writeln!(out, "func Decode{name}Output(data []byte) ({output},error) {{var zero {output};r,e:=messageReader(data,{});if e!=nil {{return zero,e}};v,e:=read{output}(r);if e!=nil {{return zero,e}};if e:=r.done();e!=nil {{return zero,e}};return v,nil}}",go_convention(&entry.output));
-    let _ = writeln!(out, "func Decode{name}Failure(code uint32,data []byte) ({name}Failure,error) {{switch code {{");
+    let _ = writeln!(
+        out,
+        "func Decode{name}Failure(code uint32,data []byte) ({name}Failure,error) {{switch code {{"
+    );
     for failure in &entry.failures {
         let fail_name = format!("{name}FailureCode{}", failure.code);
         let _ = writeln!(out,"case {}:r,e:=messageReader(data,{});if e!=nil {{return nil,e}};v,e:=read{fail_name}Detail(r);if e!=nil {{return nil,e}};if e:=r.done();e!=nil {{return nil,e}};return {fail_name}{{Detail:v}},nil",failure.code,go_convention(&failure.detail));
@@ -234,10 +288,22 @@ impl BindingGenerator {
         for entry in &self.entries {
             let name = go_name(entry);
             out.push_str("{\n");
-            let input = go_sample(&mut out, &entry.input, &format!("{name}Input"), "input", None);
+            let input = go_sample(
+                &mut out,
+                &entry.input,
+                &format!("{name}Input"),
+                "input",
+                None,
+            );
             let _ = writeln!(out, "call,e:=b.Encode{name}(input,b.CodeHash(),b.InterfaceDigest());require(e==nil,\"valid call\");encoded,e:=call.Bytes();require(e==nil,\"call bytes\");require(bytes.Equal(encoded,[]byte{{{}{}{}}}),\"canonical input\");", go_bytes(&entry.discriminator), go_convention(&entry.input), go_tail(&input));
             out.push_str("encoded[0]^=255;again,e:=call.Bytes();require(e==nil && encoded[0]!=again[0],\"immutable call bytes\");\n");
-            let output_bytes = go_sample(&mut out, &entry.output, &format!("{name}Output"), "expected", None);
+            let output_bytes = go_sample(
+                &mut out,
+                &entry.output,
+                &format!("{name}Output"),
+                "expected",
+                None,
+            );
             let _ = writeln!(out, "outputBytes:=[]byte{{{}{}}};output,e:=call.DecodeOutput(outputBytes);require(e==nil && reflect.DeepEqual(output,expected),\"typed output\");", go_convention(&entry.output), go_tail(&output_bytes));
             out.push_str("_,e=call.DecodeOutput(append(append([]byte(nil),outputBytes...),0));require(e!=nil,\"trailing output\");badConvention:=append([]byte(nil),outputBytes...);badConvention[0]^=255;_,e=call.DecodeOutput(badConvention);require(e!=nil,\"wrong convention\");\n");
             if matches!(entry.output, Type::EvmHead) {
@@ -250,12 +316,20 @@ impl BindingGenerator {
                 typed_failures = true;
                 let failure_name = format!("{name}FailureCode{}", failure.code);
                 out.push_str("{\n");
-                let detail = go_sample(&mut out, &failure.detail, &format!("{failure_name}Detail"), "detail", None);
+                let detail = go_sample(
+                    &mut out,
+                    &failure.detail,
+                    &format!("{failure_name}Detail"),
+                    "detail",
+                    None,
+                );
                 let _ = writeln!(out,"failureBytes:=[]byte{{{}{}}};failure,e:=call.DecodeFailure({},failureBytes);require(e==nil && failure.Code()=={} && failure.Name()==\"{}\",\"typed failure metadata\");typed,ok:=failure.(b.{failure_name});require(ok && reflect.DeepEqual(typed.Detail,detail),\"typed failure detail\");_,e=call.DecodeFailure({},append(append([]byte(nil),failureBytes...),0));require(e!=nil,\"trailing failure detail\");",go_convention(&failure.detail),go_tail(&detail),failure.code,failure.code,failure.name,failure.code);
                 out.push_str("}\n");
             }
             let mut unknown = 0_u32;
-            while entry.failures.iter().any(|failure| failure.code == unknown) { unknown += 1; }
+            while entry.failures.iter().any(|failure| failure.code == unknown) {
+                unknown += 1;
+            }
             let _ = writeln!(out,"_,e=call.DecodeFailure({unknown},nil);require(e==b.ErrUnknownFailure,\"unknown failure\");");
             malformed_calls |= go_invalid_input(&mut out, entry, &name);
             if let Type::Option(_) = &entry.input {
@@ -264,30 +338,49 @@ impl BindingGenerator {
             if let Type::Union(variants) = &entry.input {
                 for variant in variants {
                     out.push_str("{\n");
-                    let bytes = go_sample(&mut out,&variant.value,&format!("{name}InputVariant{}Value",variant.tag),"variant",Some(10));
-                    let mut golden = alloc::vec![1,0x50];
+                    let bytes = go_sample(
+                        &mut out,
+                        &variant.value,
+                        &format!("{name}InputVariant{}Value", variant.tag),
+                        "variant",
+                        Some(10),
+                    );
+                    let mut golden = alloc::vec![1, 0x50];
                     golden.extend_from_slice(&variant.tag.to_be_bytes());
                     golden.extend_from_slice(&bytes);
                     let _ = writeln!(out,"value,e:=b.New{name}InputVariant{}(variant);require(e==nil,\"union constructor\");unionCall,e:=b.Encode{name}(value,b.CodeHash(),b.InterfaceDigest());require(e==nil,\"union call\");unionBytes,e:=unionCall.Bytes();require(e==nil && bytes.Equal(unionBytes,[]byte{{{}{}}}),\"union canonical variant\");",variant.tag,go_bytes(&entry.discriminator),go_bytes(&golden));
                     out.push_str("}\n");
                 }
             }
-            let _ = writeln!(out,"fmt.Println(\"BINDING_CASE roundtrip_{}\")\n}}",entry.name);
+            let _ = writeln!(
+                out,
+                "fmt.Println(\"BINDING_CASE roundtrip_{}\")\n}}",
+                entry.name
+            );
         }
         if !self.entries.is_empty() {
             out.push_str("fmt.Println(\"BINDING_CASE stale_digest\");fmt.Println(\"BINDING_CASE wrong_code_hash\");\n");
         }
-        if typed_failures { out.push_str("fmt.Println(\"BINDING_CASE typed_failure\");\n"); }
-        if malformed_calls { out.push_str("fmt.Println(\"BINDING_CASE malformed_call\");\n"); }
+        if typed_failures {
+            out.push_str("fmt.Println(\"BINDING_CASE typed_failure\");\n");
+        }
+        if malformed_calls {
+            out.push_str("fmt.Println(\"BINDING_CASE malformed_call\");\n");
+        }
         out.push_str("}\nvar _ = bytes.Equal\nvar _ = reflect.DeepEqual\nvar _ = b.CodeHash\n");
         out
     }
 
     #[must_use]
     pub fn generate_go_malformed_consumer(&self) -> String {
-        let mut out = String::from("package main\nimport b \"conformance/bindings\"\nfunc main(){\n");
+        let mut out =
+            String::from("package main\nimport b \"conformance/bindings\"\nfunc main(){\n");
         if let Some(entry) = self.entries.first() {
-            let _ = writeln!(out,"_,_=b.Encode{}(\"malformed raw bytes\",b.CodeHash(),b.InterfaceDigest())",go_name(entry));
+            let _ = writeln!(
+                out,
+                "_,_=b.Encode{}(\"malformed raw bytes\",b.CodeHash(),b.InterfaceDigest())",
+                go_name(entry)
+            );
         } else {
             out.push_str("_ = b.call[uint8,error]{}\n");
         }
@@ -297,84 +390,182 @@ impl BindingGenerator {
 }
 
 fn go_tail(bytes: &[u8]) -> String {
-    if bytes.is_empty() { String::new() } else { format!(",{}",go_bytes(bytes)) }
+    if bytes.is_empty() {
+        String::new()
+    } else {
+        format!(",{}", go_bytes(bytes))
+    }
 }
 
-fn go_sample(out: &mut String, ty: &Type, name: &str, variable: &str, seed: Option<u64>) -> alloc::vec::Vec<u8> {
+fn go_sample(
+    out: &mut String,
+    ty: &Type,
+    name: &str,
+    variable: &str,
+    seed: Option<u64>,
+) -> alloc::vec::Vec<u8> {
     let mut bytes = alloc::vec::Vec::new();
-    if let Some((_,tag,width)) = go_integer(ty) {
-        let signed = matches!(ty,Type::I8|Type::I16|Type::I32|Type::I64);
-        let value = if signed { match ty { Type::I8=>-1_i64, Type::I16=>-2,Type::I32=>-3,_=>-4 } } else { i64::try_from(seed.unwrap_or(match ty {Type::U8=>127,Type::U16=>0x1234,Type::U32=>7,_=>9})).expect("conformance seed fits i64") };
-        let _ = writeln!(out,"{variable}:=b.{name}({value})");
+    if let Some((_, tag, width)) = go_integer(ty) {
+        let signed = matches!(ty, Type::I8 | Type::I16 | Type::I32 | Type::I64);
+        let value = if signed {
+            match ty {
+                Type::I8 => -1_i64,
+                Type::I16 => -2,
+                Type::I32 => -3,
+                _ => -4,
+            }
+        } else {
+            i64::try_from(seed.unwrap_or(match ty {
+                Type::U8 => 127,
+                Type::U16 => 0x1234,
+                Type::U32 => 7,
+                _ => 9,
+            }))
+            .unwrap_or_else(|_| panic!("conformance seed fits i64"))
+        };
+        let _ = writeln!(out, "{variable}:=b.{name}({value})");
         bytes.push(tag);
-        bytes.extend_from_slice(&(value as u64).to_be_bytes()[8-usize::from(width)..]);
+        bytes.extend_from_slice(&value.to_be_bytes()[8 - usize::from(width)..]);
         return bytes;
     }
     match ty {
-        Type::U128|Type::U256|Type::I128 => {
-            let (width,tag) = match ty {Type::U256=>(32,0x15),Type::I128=>(16,0x1c),_=>(16,0x14)};
+        Type::U128 | Type::U256 | Type::I128 => {
+            let (width, tag) = match ty {
+                Type::U256 => (32, 0x15),
+                Type::I128 => (16, 0x1c),
+                _ => (16, 0x14),
+            };
             let mut data = alloc::vec![0; width];
-            if matches!(ty,Type::I128) { data.fill(255);data[width-1]=251; } else {data[width-1]=if width==32 {13} else {11};}
-            let _ = writeln!(out,"{variable}:=b.{name}{{{}}}",go_bytes(&data));
-            bytes.push(tag);bytes.extend(data);
+            if matches!(ty, Type::I128) {
+                data.fill(255);
+                data[width - 1] = 251;
+            } else {
+                data[width - 1] = if width == 32 { 13 } else { 11 };
+            }
+            let _ = writeln!(out, "{variable}:=b.{name}{{{}}}", go_bytes(&data));
+            bytes.push(tag);
+            bytes.extend(data);
         }
         Type::Bytes(max) => {
             let count = (*max).min(3);
-            let data: alloc::vec::Vec<u8> = (1..=count).map(|v|v as u8).collect();
+            let data: alloc::vec::Vec<u8> = (1..=count)
+                .map(|v| {
+                    u8::try_from(v).unwrap_or_else(|_| panic!("sample is capped at three bytes"))
+                })
+                .collect();
             let _ = writeln!(out,"{variable},{variable}Err:=b.New{name}([]byte{{{}}});require({variable}Err==nil,\"byte constructor\");",go_bytes(&data));
-            bytes.push(0x20);bytes.extend_from_slice(&count.to_be_bytes());bytes.extend(data);
+            bytes.push(0x20);
+            bytes.extend_from_slice(&count.to_be_bytes());
+            bytes.extend(data);
         }
         Type::EvmHead => {
-            let mut data = [0_u8;32];data[31]=1;
+            let mut data = [0_u8; 32];
+            data[31] = 1;
             let _ = writeln!(out,"{variable},{variable}Err:=b.New{name}([]byte{{{}}});require({variable}Err==nil,\"EVM constructor\");",go_bytes(&data));
             bytes.extend_from_slice(&data);
         }
-        Type::Fixed(child,max)|Type::Variable(child,max) => {
-            let count = if matches!(ty,Type::Fixed(..)) {*max} else {(*max).min(2)};
-            if count>1024 {
-                let _ = writeln!(out,"var {variable} b.{name};panic(\"conformance sample exceeds bounded vector size\");");
-                return bytes;
-            }
-            bytes.push(if matches!(ty,Type::Fixed(..)) {0x30} else {0x31});bytes.extend_from_slice(&count.to_be_bytes());
-            let mut names = String::new();
-            for index in 0..count {
-                let child_var = format!("{variable}Item{index}");
-                bytes.extend(go_sample(out,child,&format!("{name}Element"),&child_var,Some(u64::from(index)+1)));
-                let _ = write!(names,"{child_var},");
-            }
-            let _ = writeln!(out,"{variable},{variable}Err:=b.New{name}([]b.{name}Element{{{names}}});require({variable}Err==nil,\"array constructor\");");
+        Type::Fixed(child, max) | Type::Variable(child, max) => {
+            bytes.extend(go_sample_array(out, ty, child, *max, name, variable));
         }
         Type::Option(child) => {
-            let child_bytes = go_sample(out,child,&format!("{name}SomeValue"),&format!("{variable}Some"),Some(8));
+            let child_bytes = go_sample(
+                out,
+                child,
+                &format!("{name}SomeValue"),
+                &format!("{variable}Some"),
+                Some(8),
+            );
             let _ = writeln!(out,"{variable},{variable}Err:=b.Some{name}({variable}Some);require({variable}Err==nil,\"option constructor\");");
-            bytes.extend_from_slice(&[0x40,1]);bytes.extend(child_bytes);
+            bytes.extend_from_slice(&[0x40, 1]);
+            bytes.extend(child_bytes);
         }
         Type::Union(variants) => {
             if let Some(variant) = variants.first() {
-                let child_bytes = go_sample(out,&variant.value,&format!("{name}Variant{}Value",variant.tag),&format!("{variable}Variant"),Some(9));
+                let child_bytes = go_sample(
+                    out,
+                    &variant.value,
+                    &format!("{name}Variant{}Value", variant.tag),
+                    &format!("{variable}Variant"),
+                    Some(9),
+                );
                 let _ = writeln!(out,"{variable},{variable}Err:=b.New{name}Variant{}({variable}Variant);require({variable}Err==nil,\"union constructor\");",variant.tag);
-                bytes.push(0x50);bytes.extend_from_slice(&variant.tag.to_be_bytes());bytes.extend(child_bytes);
+                bytes.push(0x50);
+                bytes.extend_from_slice(&variant.tag.to_be_bytes());
+                bytes.extend(child_bytes);
             }
         }
-        Type::U8|Type::U16|Type::U32|Type::U64|Type::I8|Type::I16|Type::I32|Type::I64 => unreachable!(),
+        Type::U8
+        | Type::U16
+        | Type::U32
+        | Type::U64
+        | Type::I8
+        | Type::I16
+        | Type::I32
+        | Type::I64 => unreachable!(),
     }
+    bytes
+}
+
+fn go_sample_array(
+    out: &mut String,
+    ty: &Type,
+    child: &Type,
+    max: u32,
+    name: &str,
+    variable: &str,
+) -> alloc::vec::Vec<u8> {
+    let mut bytes = alloc::vec::Vec::new();
+    let count = if matches!(ty, Type::Fixed(..)) {
+        max
+    } else {
+        max.min(2)
+    };
+    if count > 1024 {
+        let _ = writeln!(
+            out,
+            "var {variable} b.{name};panic(\"conformance sample exceeds bounded vector size\");"
+        );
+        return bytes;
+    }
+    bytes.push(if matches!(ty, Type::Fixed(..)) {
+        0x30
+    } else {
+        0x31
+    });
+    bytes.extend_from_slice(&count.to_be_bytes());
+    let mut names = String::new();
+    for index in 0..count {
+        let child_var = format!("{variable}Item{index}");
+        bytes.extend(go_sample(
+            out,
+            child,
+            &format!("{name}Element"),
+            &child_var,
+            Some(u64::from(index) + 1),
+        ));
+        let _ = write!(names, "{child_var},");
+    }
+    let _ = writeln!(out,"{variable},{variable}Err:=b.New{name}([]b.{name}Element{{{names}}});require({variable}Err==nil,\"array constructor\");");
     bytes
 }
 
 fn go_invalid_input(out: &mut String, entry: &Entry, name: &str) -> bool {
     match &entry.input {
         Type::Bytes(max) => {
-            let count = u64::from(*max).min(1_048_576)+1;
+            let count = u64::from(*max).min(1_048_576) + 1;
             let _ = writeln!(out,"_,e=b.New{name}Input(make([]byte,{count}));require(e!=nil,\"bounded byte refusal\");");
         }
         Type::EvmHead => {
-            let _ = writeln!(out,"_,e=b.New{name}Input([]byte{{1}});require(e!=nil,\"unaligned EVM refusal\");");
+            let _ = writeln!(
+                out,
+                "_,e=b.New{name}Input([]byte{{1}});require(e!=nil,\"unaligned EVM refusal\");"
+            );
         }
-        Type::Fixed(..)|Type::Union(..) => {
+        Type::Fixed(..) | Type::Union(..) => {
             let _ = writeln!(out,"var invalid b.{name}Input;_,e=b.Encode{name}(invalid,b.CodeHash(),b.InterfaceDigest());require(e!=nil,\"zero malformed value refusal\");");
         }
-        Type::Variable(_,max) => {
-            let count = u64::from(*max).min(1_048_576)+1;
+        Type::Variable(_, max) => {
+            let count = u64::from(*max).min(1_048_576) + 1;
             let _ = writeln!(out,"_,e=b.New{name}Input(make([]b.{name}InputElement,{count}));require(e!=nil,\"array bound refusal\");");
         }
         _ => return false,

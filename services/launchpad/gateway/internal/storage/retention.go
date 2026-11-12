@@ -3,11 +3,13 @@ package storage
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	sharedstorage "github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/jackc/pgx/v5"
@@ -20,7 +22,7 @@ type LineageObject struct {
 }
 
 func (a *Authority) RegisterLineage(ctx context.Context, object LineageObject) error {
-	if !digest.MatchString(object.Hash) || object.RetainUntil.IsZero() || (object.Kind != "original" && object.Kind != "variant" && object.Kind != "temporary" && object.Kind != "recording") {
+	if !digest.MatchString(object.Hash) || object.RetainUntil.IsZero() || (object.Kind != originalKind && object.Kind != variantKind && object.Kind != "temporary" && object.Kind != "recording") {
 		return ErrConflict
 	}
 	if strings.ContainsAny(object.Key, "%\\\r\n") || strings.Contains(object.Key, "..") || len(object.Key) > 1024 {
@@ -30,8 +32,8 @@ func (a *Authority) RegisterLineage(ctx context.Context, object LineageObject) e
 	// normalise first so an idempotent re-registration of the same instant
 	// compares equal to the stored retain_until.
 	object.RetainUntil = object.RetainUntil.Truncate(time.Microsecond)
-	prefix := map[string]string{"original": "private/", "variant": "approved/", "temporary": "temporary/", "recording": "private/recordings/"}[object.Kind]
-	if !strings.HasPrefix(object.Key, prefix) || (object.Kind == "variant" && (!ValidDeliveryKey(object.Key) || strings.Split(object.Key, "/")[1] != object.Hash)) {
+	prefix := map[string]string{originalKind: privatePrefix, variantKind: approvedPrefix, "temporary": temporaryPrefix, "recording": "private/recordings/"}[object.Kind]
+	if !strings.HasPrefix(object.Key, prefix) || (object.Kind == variantKind && (!ValidDeliveryKey(object.Key) || strings.Split(object.Key, "/")[1] != object.Hash)) {
 		return ErrConflict
 	}
 	var allowed bool
@@ -45,12 +47,12 @@ func (a *Authority) RegisterLineage(ctx context.Context, object LineageObject) e
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "media:"+object.Hash); e != nil {
 		return ErrUnavailable
 	}
 	initialRevision := int64(1)
-	initialState := "approved"
+	initialState := approvedState
 	// Keep the positive lineage FK anchor distinct from moderation revision one.
 	initialVisibility := false
 	if a.productionViews {
@@ -85,10 +87,10 @@ func (a *Authority) RegisterLineage(ctx context.Context, object LineageObject) e
 	if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM "+a.table("tombstones")+" WHERE hash=$1)", object.Hash).Scan(&tombstone); e != nil {
 		return ErrUnavailable
 	}
-	if state == "deleted" || tombstone {
+	if state == deletedState || tombstone {
 		return ErrRestricted
 	}
-	if object.Kind == "original" {
+	if object.Kind == originalKind {
 		var now time.Time
 		if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 			return ErrUnavailable
@@ -131,7 +133,7 @@ func (w DeleteWorker) RunOne(ctx context.Context) (bool, error) {
 	if e != nil {
 		return false, ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	var id, hash string
 	e = tx.QueryRow(ctx, "SELECT id::text,hash FROM "+a.table("operations")+" WHERE kind='delete' AND state IN ('requested','accepted') ORDER BY requested_at,id LIMIT 1 FOR UPDATE SKIP LOCKED").Scan(&id, &hash)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -186,10 +188,10 @@ func (w DeleteWorker) RunOne(ctx context.Context) (bool, error) {
 	if e = tx.QueryRow(ctx, "SELECT count(*) FROM "+a.table("lineage")+" WHERE hash=$1 AND removed_at IS NULL", hash).Scan(&remaining); e != nil {
 		return true, ErrUnavailable
 	}
-	state := "accepted"
+	state := acceptedState
 	proof := ""
 	if remaining == 0 {
-		state = "complete"
+		state = completeState
 		proof = "all-lineage-objects-deleted"
 	}
 	if _, e = tx.Exec(ctx, "UPDATE "+a.table("operations")+" SET state=$2,proof=$3,attempts=attempts+1,updated_at=clock_timestamp() WHERE id=$1", id, state, proof); e != nil {
@@ -202,7 +204,7 @@ func (w DeleteWorker) RunOne(ctx context.Context) (bool, error) {
 }
 
 func (w DeleteWorker) ExpireOriginal(ctx context.Context) (bool, error) {
-	if w.Authority == nil || w.Stores["original"] == nil {
+	if w.Authority == nil || w.Stores[originalKind] == nil {
 		return false, ErrUnavailable
 	}
 	a := w.Authority
@@ -210,7 +212,7 @@ func (w DeleteWorker) ExpireOriginal(ctx context.Context) (bool, error) {
 	if e != nil {
 		return false, ErrUnavailable
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), tx)
 	var hash, key string
 	e = tx.QueryRow(ctx, "SELECT hash,object_key FROM "+a.table("lineage")+" WHERE kind='original' AND NOT legal_hold AND removed_at IS NULL AND retain_until<=clock_timestamp()"+a.currentHoldPredicate()+" ORDER BY retain_until LIMIT 1 FOR UPDATE SKIP LOCKED").Scan(&hash, &key)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -220,7 +222,7 @@ func (w DeleteWorker) ExpireOriginal(ctx context.Context) (bool, error) {
 		return false, ErrUnavailable
 	}
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
-	e = w.Stores["original"].Delete(bounded, key)
+	e = w.Stores[originalKind].Delete(bounded, key)
 	cancel()
 	if e != nil {
 		return true, ErrUnavailable
@@ -246,7 +248,7 @@ func (a *Authority) PresignDownload(ctx context.Context, client *s3.PresignClien
 		return "", ErrUnavailable
 	}
 	parsed, e := url.Parse(signed.URL)
-	if e != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
+	if e != nil || parsed.Scheme != httpsScheme || parsed.Host == "" || parsed.User != nil {
 		return "", ErrUnavailable
 	}
 	return signed.URL, nil

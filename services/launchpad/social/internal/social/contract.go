@@ -25,7 +25,7 @@ func (h *Handlers) RegisterContractRoutes(r chi.Router) {
 }
 
 func contractEnvelope(r *http.Request, data any, at time.Time) map[string]any {
-	return map[string]any{"requestId": contractRequestID(r), "data": data, "nextCursor": nil, "watermark": nil, "revision": nil, "quality": "complete", "generatedAt": at.UTC().Format("2006-01-02T15:04:05.000Z")}
+	return map[string]any{"requestId": contractRequestID(r), "data": data, "nextCursor": nil, "watermark": nil, revisionField: nil, "quality": "complete", "generatedAt": at.UTC().Format("2006-01-02T15:04:05.000Z")}
 }
 
 func contractRequestID(r *http.Request) string {
@@ -38,7 +38,7 @@ func contractRequestID(r *http.Request) string {
 }
 
 func (h *Handlers) contractError(w http.ResponseWriter, r *http.Request, status int, message string) {
-	code := "DEPENDENCY_UNAVAILABLE"
+	code := dependencyUnavailableCode
 	switch status {
 	case http.StatusBadRequest:
 		code = "INVALID_REQUEST"

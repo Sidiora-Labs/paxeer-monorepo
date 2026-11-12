@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -103,7 +104,7 @@ func (d *DevelopmentStream) candleDocument(ctx context.Context, c development.Ca
 	rawPrices := []string{r.Open, r.High, r.Low, r.Close}
 	swaps := make([]developmentSwap, 0, 4)
 	for i, s := range refs {
-		if s.Position == nil || s.PoolAddress != r.PoolAddress || s.Price != rawPrices[i] || s.BlockTimestamp < r.CandleStart {
+		if s.Position == nil || s.Position.Height > math.MaxInt64 || s.LogIndex < 0 || s.LogIndex > math.MaxInt32 || s.PoolAddress != r.PoolAddress || s.Price != rawPrices[i] || s.BlockTimestamp < r.CandleStart {
 			return fail()
 		}
 		swaps = append(swaps, developmentSwap{id: s.TxHash + ":" + strconv.Itoa(s.LogIndex), poolID: s.PoolID, pool: s.PoolAddress, sender: s.Sender, isBuy: s.IsBuy, amountIn: s.AmountIn, amountOut: s.AmountOut, fee: s.Fee, price: s.Price, txHash: s.TxHash, block: int64(s.Position.Height), timestamp: s.BlockTimestamp, logIndex: int32(s.LogIndex), token: token, optical: optical})
@@ -128,10 +129,10 @@ func (d *DevelopmentStream) candleDocument(ctx context.Context, c development.Ca
 		num, _ := new(big.Int).SetString(string(value), 10)
 		ratio := new(big.Rat).SetFrac(new(big.Int).Mul(num, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(p.tokenDecimals)), nil)), new(big.Int).Exp(big.NewInt(10), big.NewInt(24), nil))
 		asset := func(address string, decimals int) map[string]any {
-			return map[string]any{"kind": "erc20", "chainId": "125", "address": address, "currencyCode": nil, "decimals": decimals}
+			return map[string]any{literalKind: "erc20", literalChainId: "125", literalAddress: address, "currencyCode": nil, literalDecimals: decimals}
 		}
 		prices[i] = map[string]any{"numerator": ratio.Num().String(), "denominator": ratio.Denom().String(), "baseAsset": asset(token, p.tokenDecimals), "quoteAsset": asset(strings.ToLower(profile.USDLAddress), 6), "source": map[string]any{
-			"kind": "post_swap_spot", "amountBasis": "effective_reserves", "sourceEventId": "125:" + p.position.TransactionHash + ":" + p.position.LogIndex, "position": chainPosition(p.position), "providerId": nil, "observedAt": wireTime(time.Unix(s.BlockTimestamp, 0)), "sourceReference": nil,
+			literalKind: "post_swap_spot", "amountBasis": "effective_reserves", "sourceEventId": "125:" + p.position.TransactionHash + ":" + p.position.LogIndex, literalPosition: chainPosition(p.position), "providerId": nil, literalObservedAt: wireTime(time.Unix(s.BlockTimestamp, 0)), "sourceReference": nil,
 		}}
 	}
 	revision := strconv.Itoa(r.TradeCount)
@@ -140,12 +141,12 @@ func (d *DevelopmentStream) candleDocument(ctx context.Context, c development.Ca
 		return nil, store.ChainWatermark{}, err
 	}
 	doc := map[string]any{
-		"poolAddress": r.PoolAddress, "interval": r.Timeframe, "start": wireTime(time.Unix(r.CandleStart, 0)),
+		literalPoolAddress: r.PoolAddress, "interval": r.Timeframe, "start": wireTime(time.Unix(r.CandleStart, 0)),
 		"open": prices[0], "high": prices[1], "low": prices[2], "close": prices[3],
 		"volumeUsdlRaw": r.VolumeUsdl, "volumeTokenRaw": r.VolumeToken, "buyVolumeUsdlRaw": r.BuyVolumeUsdl, "sellVolumeUsdlRaw": r.SellVolumeUsdl,
-		"trades": revision, "revision": revision, "synthetic": false, "coverage": "partial",
+		"trades": revision, literalRevision: revision, "synthetic": false, "coverage": literalPartial,
 		"firstPosition": chainPosition(completed[0].position), "lastPosition": chainPosition(completed[3].position),
-		"seriesModelVersion": DevelopmentSeriesModelVersion, "snapshotId": uuid.NewSHA1(uuid.NameSpaceOID, identity).String(),
+		literalSeriesModelVersion: DevelopmentSeriesModelVersion, literalSnapshotId: uuid.NewSHA1(uuid.NameSpaceOID, identity).String(),
 		"uniqueTraderCount": strconv.Itoa(r.UniqueTraders), "largeTradeCount": strconv.Itoa(r.LargeTradeCount), "largeTradePolicyId": "development-usdl-500-v1", "largeTradeThresholdUsdlRaw": "500000000",
 	}
 	raw, err := json.Marshal(doc)

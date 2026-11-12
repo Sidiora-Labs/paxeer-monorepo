@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"strconv"
 )
 
 const IdentityRevisionSubject = "identity.account.v1"
@@ -97,7 +99,7 @@ func (s *Identity) ConsumeIdentityRevision(ctx context.Context, consumer, genera
 }
 func identityEventAction(action string) bool {
 	switch action {
-	case "session_created", "session_refreshed", "session_revoked", "refresh_reuse", "wallet_link", "wallet_unlink", "wallet_link_denied", "wallet_unlink_denied", "step_up":
+	case "session_created", "session_refreshed", "session_revoked", "refresh_reuse", "wallet_link", walletUnlinkEvent, "wallet_link_denied", "wallet_unlink_denied", "step_up":
 		return true
 	}
 	return false
@@ -111,7 +113,7 @@ func (s *Identity) recordIdentityDenial(ctx context.Context, p Principal, action
 	if err != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if err = s.audit(ctx, tx, p, action); err != nil {
 		return err
 	}

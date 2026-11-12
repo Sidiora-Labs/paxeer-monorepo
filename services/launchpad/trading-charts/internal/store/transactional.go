@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5/pgconn"
 	"regexp"
 	"sort"
 	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"strconv"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"strconv"
 )
 
 var ErrStaleOwner = errors.New("stale_pool_owner")
@@ -83,7 +86,7 @@ func (s *ExactStore) transaction(ctx context.Context, c Claim, fold func(pgx.Tx,
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	q := s.Schema
 	// Serialize canonical identity before discovering all affected pools. Then lock
 	// pool rows in lexical order, including the original pool on a conflict.
@@ -268,7 +271,7 @@ func (s *ExactStore) PublishNextCommitted(ctx context.Context, publisher *natsdr
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(cleanup)
+		chartcleanup.Rollback(cleanup, tx)
 	}()
 	var id int64
 	var chain, pool, interval, revision string

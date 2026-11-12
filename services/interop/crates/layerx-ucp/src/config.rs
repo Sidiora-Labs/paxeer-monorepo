@@ -51,7 +51,7 @@ impl MerchantCurrencyBinding {
                 .ok_or(UcpError::AmountOverflow)
         } else {
             let divisor = 10_u128.pow(u32::from(self.minor_decimals - self.atomic_decimals));
-            if submission.total_minor % divisor != 0 {
+            if !submission.total_minor.is_multiple_of(divisor) {
                 return Err(UcpError::InexactAmount);
             }
             Ok(submission.total_minor / divisor)
