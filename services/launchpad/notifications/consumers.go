@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 )
 
 type Endpoint struct {
@@ -57,7 +59,7 @@ func (c TriggerConsumer) Publish(ctx context.Context, kind, id string, raw json.
 	deliveries := []DeliveryAttempt{}
 	push := false
 	for _, channel := range trigger.Rule.Channels {
-		if channel == "push" {
+		if channel == channelPush {
 			push = true
 		} else if channel != "inapp" {
 			return ErrUnavailable
@@ -68,12 +70,12 @@ func (c TriggerConsumer) Publish(ctx context.Context, kind, id string, raw json.
 			if target.AccountID != trigger.Rule.OwnerAccountID {
 				return ErrForbidden
 			}
-			if target.Status == "active" {
-				deliveries = append(deliveries, DeliveryAttempt{Channel: "push", TargetID: target.DeviceInstallationID, TargetRevision: target.Revision, ConsentRevision: target.ConsentRevision})
+			if target.Status == targetActive {
+				deliveries = append(deliveries, DeliveryAttempt{Channel: channelPush, TargetID: target.DeviceInstallationID, TargetRevision: target.Revision, ConsentRevision: target.ConsentRevision})
 			}
 		}
 	}
-	item := InboxItem{Identity: Identity{AccountID: trigger.Rule.OwnerAccountID, TriggerEventID: id, TemplateVersion: "market-crossing-v2"}, Category: "watchlist", Summary: "A watched pool crossed your threshold", ResourceID: trigger.Rule.PoolAddress, CreatedAt: trigger.CreatedAt, ExpiresAt: trigger.CreatedAt.Add(15 * time.Minute)}
+	item := InboxItem{Identity: Identity{AccountID: trigger.Rule.OwnerAccountID, TriggerEventID: id, TemplateVersion: "market-crossing-v2"}, Category: categoryWatchlist, Summary: "A watched pool crossed your threshold", ResourceID: trigger.Rule.PoolAddress, CreatedAt: trigger.CreatedAt, ExpiresAt: trigger.CreatedAt.Add(15 * time.Minute)}
 	_, _, e = c.Store.CommitTrigger(ctx, item, deliveries)
 	return e
 }
@@ -88,7 +90,7 @@ type accountRPC struct {
 func newAccountRPC(base string, client *http.Client, credentials *Credentials, tokenRef string) (accountRPC, error) {
 	var rpc accountRPC
 	u, e := url.Parse(base)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || client == nil || credentials == nil {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || client == nil || credentials == nil {
 		return rpc, ErrInvalid
 	}
 	transport, ok := client.Transport.(*http.Transport)
@@ -102,7 +104,7 @@ func newAccountRPC(base string, client *http.Client, credentials *Credentials, t
 	copyClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return accountRPC{strings.TrimRight(base, "/"), &copyClient, credentials, tokenRef}, nil
 }
-func (r accountRPC) call(ctx context.Context, method, path string, input, output any) error {
+func (r accountRPC) call(ctx context.Context, method, path string, input, output any) (callErr error) {
 	token, e := r.credentials.Get(r.tokenRef)
 	if e != nil {
 		return e
@@ -124,7 +126,7 @@ func (r accountRPC) call(ctx context.Context, method, path string, input, output
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer response.Body.Close()
+	defer func() { callErr = errors.Join(callErr, response.Body.Close()) }()
 	if response.StatusCode == 404 || response.StatusCode == 403 || response.StatusCode == 401 {
 		return ErrForbidden
 	}
@@ -173,13 +175,13 @@ func (c *AccountClient) CurrentDeliveryPreference(ctx context.Context, account s
 	}
 	for category, channels := range p.CategoryChannels {
 		switch category {
-		case "trade", "watchlist", "creator", "chat", "security", "marketing":
+		case "trade", categoryWatchlist, "creator", "chat", "security", "marketing":
 		default:
 			return p, ErrUnavailable
 		}
 		for channel := range channels {
 			switch channel {
-			case "push", "inapp", "email":
+			case channelPush, "inapp", "email":
 			default:
 				return p, ErrUnavailable
 			}
@@ -213,11 +215,11 @@ func targetValid(t PushTarget, account string) error {
 		return ErrUnavailable
 	}
 	switch t.Provider {
-	case "apns", "fcm", "webpush":
+	case providerAPNS, providerFCM, providerWebPush:
 	default:
 		return ErrUnavailable
 	}
-	if t.Status != "active" && t.Status != "revoked" && t.Status != "disabled" {
+	if t.Status != targetActive && t.Status != "revoked" && t.Status != "disabled" {
 		return ErrUnavailable
 	}
 	return nil
@@ -238,7 +240,7 @@ func (c *AccountClient) CurrentTarget(ctx context.Context, account, device strin
 }
 func (c *AccountClient) ResolveEndpoint(ctx context.Context, t PushTarget) (Endpoint, error) {
 	var endpoint Endpoint
-	if targetValid(t, t.AccountID) != nil || t.Status != "active" {
+	if targetValid(t, t.AccountID) != nil || t.Status != targetActive {
 		return endpoint, ErrForbidden
 	}
 	e := c.rpc.call(ctx, "POST", accountPath(t.AccountID)+"/targets/"+url.PathEscape(t.DeviceInstallationID)+":resolve", t, &endpoint)
@@ -287,8 +289,8 @@ func (c RecipientConsumer) EnqueueChat(ctx context.Context, event, account, reso
 		if targetValid(t, account) != nil {
 			return item, false, ErrUnavailable
 		}
-		if t.Status == "active" {
-			attempts = append(attempts, DeliveryAttempt{Channel: "push", TargetID: t.DeviceInstallationID, TargetRevision: t.Revision, ConsentRevision: t.ConsentRevision})
+		if t.Status == targetActive {
+			attempts = append(attempts, DeliveryAttempt{Channel: channelPush, TargetID: t.DeviceInstallationID, TargetRevision: t.Revision, ConsentRevision: t.ConsentRevision})
 		}
 	}
 	return c.Store.CommitTrigger(ctx, item, attempts)
