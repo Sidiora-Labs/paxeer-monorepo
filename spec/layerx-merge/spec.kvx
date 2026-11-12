@@ -13492,6 +13492,18 @@ value = "The source reads price, market value, day volume, circulating supply an
 basis = "Gotcha 4313. Decision 3392."
 affects = ["22.35.16"]
 
+[decision.3397]
+title = "Task 22.39.430 may change the lock file of the interop workspace"
+value = "The paths of task 22.39.430 gain services/interop/Cargo.lock. The lock file changes only as far as a dependency of a member under services/interop/crates requires."
+basis = "Gotcha 4314."
+affects = ["22.39.430"]
+
+[decision.3398]
+title = "An item of the ai-market member whose lint needs a public signature change carries an allow attribute"
+value = "In task 22.39.445 an item whose lint can only be met by changing a public name or signature of the member carries an allow attribute for that one lint on that one item, with a reason on the attribute. The record of the task lists each such item with its lint. Every other location is repaired in the source as before."
+basis = "Gotcha 4315. Decision 3346."
+affects = ["22.39.445"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197634,6 +197646,7 @@ time_limit_minutes = 480
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Gotcha 4315, decision 3398. Where a lint can only be met by changing a public name or signature of the member, such as the eight arguments of apply_record_deal in src/rooms.rs and the large variant of Outcome in src/canary.rs, put an allow attribute for that one lint on that one item with a reason, and list the item with its lint in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx. Repair every other location in the source. No allow attribute covers a module or the crate."
 
 [task.22.39.444]
 title = "Bring the member layerx-programs-market of the programs workspace through the lint of the recipe"
@@ -197952,7 +197965,7 @@ do_1 = "do_1 Decision 3349. The recipe interop-test runs tests/ci/interop_worksp
 do_2 = "do_2 For each stopping case decide from the source which side holds the rule. Where the case asserts a behaviour that a decision of the spec has changed, change the case to assert the behaviour as decided and name the decision in the record. Where the crate departs from its interface, repair the crate. Weaken no assertion and remove no case."
 do_3 = "do_3 Record in services/interop/crates/repair_22_39_430.kvx each repaired case with its file and the rule it asserts. A stop whose cause lies outside services/interop/crates is listed in the closing report with file and first message and is not repaired here. The lint of task 22.39.404 stays clean. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/interop/crates"]
+touches = ["services/interop/crates", "services/interop/Cargo.lock"]
 tests = []
 planned_paths = ["services/interop/crates/repair_22_39_430.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --workspace --all-targets"
