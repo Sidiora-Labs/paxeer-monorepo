@@ -164266,7 +164266,7 @@ do_4 = "do_4 Gotcha 4290, decision 3373. The reviewed deployment record sdk/laun
 
 [task.22.39.399]
 title = "Hold the type check of the launchpad web application at zero findings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.40.10", "22.39.455"]
