@@ -21460,3 +21460,8 @@ fix = "The rule names every file of the native boundary, one line each with its 
 title = "The secp256k1 crate of the programs workspace takes its big integer crate in the 0.5 line"
 symptom = "The runtime member of the programs workspace uses k256 0.13 for signature verification and key recovery, and k256 0.13 takes elliptic-curve 0.13 and with it crypto-bigint 0.5. The advisory check of the lint recipe reads programs/Cargo.lock against the advisory list, and the entries it accepts stand in programs/deny.toml with a reason each."
 fix = "The advisory settings carry one entry with its reason for the big integer crate while the runtime verifies and recovers over public inputs only."
+
+[gotcha.4328]
+title = "The payload rule of the human boundary check lets only the intents crate call the payload encoders"
+symptom = "The rule payload-encoding-entry-point of services/human/tools/boundary-check reports every file outside services/human/crates/layerx-intents that calls a payload encoding entry point. The production reads file of the service member and one of its tests build receipt payloads for fields that the intents crate offers no constructor for."
+fix = "The intents crate gains the constructors those two files need, and the files call them."

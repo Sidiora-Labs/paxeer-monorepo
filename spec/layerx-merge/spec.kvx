@@ -13582,6 +13582,12 @@ value = "The runtime member of the programs workspace calls the secp256k1 crate 
 basis = "Gotcha 4327. Decision 3410."
 affects = []
 
+[decision.3412]
+title = "The intents crate of the human workspace gains the receipt constructors the service member needs"
+value = "The paths of task 22.39.441 gain services/human/crates/layerx-intents. The crate gains constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, with the same bytes for the same fields as today, and the two files call the constructors. The payload rule of the boundary check stays as it is and no file joins an exception for it. Nothing else of the crate changes."
+basis = "Gotcha 4328. Decisions 3046 and 3402."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -290707,7 +290713,7 @@ do_1 = "do_1 Decision 3349. Run make workspace-install first. Run make -k human-
 do_2 = "do_2 Repair each stop inside services/human/tools/boundary-check, services/human/tools/copy-lint, services/human/tools/dependency-policy.sh and apps/web by the rules of decisions 3340 to 3346: no allow attribute beyond the one decision 3346 names, no change of a lint table or of a lint configuration, no removal of a check."
 do_3 = "do_3 A stop whose cause lies in a member crate is listed in the closing report with file and first message. Record in services/human/tools/repair_22_39_441.kvx what each step of the recipe covers. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider"]
+touches = ["services/human/tools/boundary-check", "services/human/tools/copy-lint", "services/human/tools/dependency-policy.sh", "apps/web", "services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support", "services/human/crates/layerx-human-kms", "services/human/crates/layerx-network-gateway", "services/human/crates/layerx-human-identity-provider", "services/human/crates/layerx-human-security-provider", "services/human/crates/layerx-intents"]
 tests = []
 planned_paths = ["services/human/tools/repair_22_39_441.kvx"]
 build_cmd = "make -n human-lint > /dev/null"
@@ -290726,6 +290732,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "do_4 Gotcha 4317, decision 3400. Run the boundary check over services/human/crates by hand and repair every file it reports for a direct read of the clock or of the random source, in the member that holds the file. Bound a wait by a count of steps or by the clock the member already injects and take a random value from the source the member already injects. Change no rule and no pattern of the boundary check and keep the behaviour of each member outside its tests. Run the tests of each changed member by hand before the counted runs and name each changed file in services/human/tools/repair_22_39_441.kvx."
 do_5 = "do_5 Gotchas 4319 and 4320, decisions 3402 to 3404. Give the boundary check the list of decision 3402 with its two files and their reasons and a case that asserts the list. Bring the policy check of apps/web and its record in line with the manifest of the wallet package as decision 3403 says. The advisory, ban and source check of the lock file is not part of this task; name its findings in the closing report only. A test of a member that already stops at the base revision is not repaired here, and a test file this task changes keeps the result it has at the base revision."
+do_6 = "do_6 Decision 3412, gotcha 4328. Add to services/human/crates/layerx-intents the constructors for the receipt payloads that src/server/production_reads.rs and tests/repair_22_33_49.rs of the service member build, and let both files call them. A test of the crate asserts for each constructor that its bytes equal the bytes the replaced code produced for the same fields. The payload rule of the boundary check keeps its list of entry points and gains no exception. The tests of the intents crate pass as at the base revision."
 
 [task.22.39.432]
 title = "Bring the static type checks of the manifest recipes through"
