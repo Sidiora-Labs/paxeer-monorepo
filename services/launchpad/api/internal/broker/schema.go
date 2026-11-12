@@ -26,7 +26,7 @@ var streamSchemas = func() map[string]map[string]any {
 	}
 	return s
 }()
-var families = []string{"BountiesEvent", "CandleEvent", "MarketPriceEvent", "MarketTradesEvent", "MessagesEvent", "NotificationsEvent", "OrdersEvent", "PortfolioEvent", "RankingEvent", "RewardsEvent", "StatsEvent", "StreamsEvent"}
+var families = []string{literalBountiesEvent, literalCandleEvent, "MarketPriceEvent", literalMarketTradesEvent, literalMessagesEvent, literalNotificationsEvent, literalOrdersEvent, literalPortfolioEvent, literalRankingEvent, literalRewardsEvent, literalStatsEvent, literalStreamsEvent}
 
 // validateSchema implements every assertion keyword in the frozen stream
 // subset. Unsupported assertion/type/format fails closed. Integers are decoded
@@ -70,7 +70,7 @@ func validateSchema(s map[string]any, v any, depth int) error {
 		return fail()
 	}
 	switch typ {
-	case "null":
+	case literalNull:
 		if v != nil {
 			return fail()
 		}
@@ -232,28 +232,28 @@ func validateTopicBinding(family, topic string, p map[string]any) error {
 	var key string
 	index := len(parts) - 1
 	switch family {
-	case "CandleEvent":
-		key = "poolAddress"
+	case literalCandleEvent:
+		key = literalPoolAddress
 		index = 2
 		if p["interval"] != parts[3] {
 			return ErrFrame
 		}
-	case "MarketTradesEvent", "StatsEvent":
-		key = "poolAddress"
-	case "MessagesEvent":
+	case literalMarketTradesEvent, literalStatsEvent:
+		key = literalPoolAddress
+	case literalMessagesEvent:
 		key = "roomId"
 		index = 1
-	case "PortfolioEvent":
+	case literalPortfolioEvent:
 		key = "wallet"
 		p = p["summary"].(map[string]any)
-	case "NotificationsEvent", "OrdersEvent", "RewardsEvent":
+	case literalNotificationsEvent, literalOrdersEvent, literalRewardsEvent:
 		key = "wallet"
-	case "RankingEvent":
+	case literalRankingEvent:
 		key = "category"
-	case "BountiesEvent":
+	case literalBountiesEvent:
 		key = "bountyId"
 		index = 1
-	case "StreamsEvent":
+	case literalStreamsEvent:
 		key = "streamId"
 		index = 1
 	}

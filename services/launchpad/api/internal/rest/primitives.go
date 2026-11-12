@@ -28,23 +28,23 @@ func WriteAPIError(w http.ResponseWriter, r *http.Request, status int, code stri
 	if strings.HasPrefix(r.URL.Path, "/v2/") {
 		switch code {
 		case "ADDRESS_INVALID", "CHAIN_UNSUPPORTED":
-			code, status = "FIELD_INVALID", 422
+			code, status = literalFIELDINVALID, 422
 		case "POOL_NOT_FOUND":
-			code, status = "NOT_FOUND", 404
-		case "DATA_UNAVAILABLE", "CACHE_FILL_SATURATED":
-			code, status = "DEPENDENCY_UNAVAILABLE", 503
+			code, status = literalNOTFOUND, 404
+		case literalDATAUNAVAILABLE, "CACHE_FILL_SATURATED":
+			code, status = literalDEPENDENCYUNAVAILABLE, 503
 		case "DATA_INTEGRITY":
-			code, status = "INTEGRITY_QUARANTINED", 503
+			code, status = literalINTEGRITYQUARANTINED, 503
 		case "CURSOR_EXPIRED", "CURSOR_SCOPE_MISMATCH":
-			code, status = "CURSOR_INVALID", 400
+			code, status = literalCURSORINVALID, 400
 		}
 		WriteV2APIError(w, r, status, code)
 		return
 	}
-	messages := map[string]string{"ADDRESS_INVALID": "Invalid pool address", "CHAIN_UNSUPPORTED": "Only chain 125 is supported", "QUERY_INVALID": "Invalid query parameters", "POOL_NOT_FOUND": "Pool not found", "DATA_UNAVAILABLE": "Market data temporarily unavailable", "DATA_INTEGRITY": "Authoritative data failed validation", "CURSOR_INVALID": "Invalid cursor; restart pagination", "CURSOR_EXPIRED": "Cursor expired; restart pagination", "CURSOR_SCOPE_MISMATCH": "Cursor does not match this request", "CACHE_FILL_SATURATED": "Public cache fills are saturated"}
+	messages := map[string]string{"ADDRESS_INVALID": "Invalid pool address", "CHAIN_UNSUPPORTED": "Only chain 125 is supported", literalQUERYINVALID: "Invalid query parameters", "POOL_NOT_FOUND": "Pool not found", literalDATAUNAVAILABLE: "Market data temporarily unavailable", "DATA_INTEGRITY": "Authoritative data failed validation", literalCURSORINVALID: "Invalid cursor; restart pagination", "CURSOR_EXPIRED": "Cursor expired; restart pagination", "CURSOR_SCOPE_MISMATCH": "Cursor does not match this request", "CACHE_FILL_SATURATED": "Public cache fills are saturated"}
 	message := messages[code]
 	if message == "" {
-		code = "DATA_UNAVAILABLE"
+		code = literalDATAUNAVAILABLE
 		message = messages[code]
 		status = 503
 	}
@@ -73,22 +73,22 @@ func WriteAPIError(w http.ResponseWriter, r *http.Request, status int, code stri
 }
 func QueryParameters(q url.Values) error {
 	if len(q) > 32 {
-		return errors.New("QUERY_INVALID")
+		return errors.New(literalQUERYINVALID)
 	}
 	for key, values := range q {
 		if len(key) > 64 {
-			return errors.New("QUERY_INVALID")
+			return errors.New(literalQUERYINVALID)
 		}
 		for _, v := range values {
 			if len(v) > 2048 {
-				return errors.New("QUERY_INVALID")
+				return errors.New(literalQUERYINVALID)
 			}
 			if len(values) > 1 && v != values[0] {
-				return errors.New("QUERY_INVALID")
+				return errors.New(literalQUERYINVALID)
 			}
 		}
 	}
-	if chain := q.Get("chainId"); chain != "" && chain != "125" {
+	if chain := q.Get(literalChainId); chain != "" && chain != "125" {
 		return errors.New("CHAIN_UNSUPPORTED")
 	}
 	return nil
@@ -98,7 +98,7 @@ func poolParameter(w http.ResponseWriter, r *http.Request) (string, bool) {
 		WriteAPIError(w, r, 400, err.Error())
 		return "", false
 	}
-	pool, err := store.Address(chi.URLParam(r, "poolAddress"))
+	pool, err := store.Address(chi.URLParam(r, literalPoolAddress))
 	if err != nil {
 		WriteAPIError(w, r, 400, "ADDRESS_INVALID")
 		return "", false
@@ -109,7 +109,7 @@ func poolParameter(w http.ResponseWriter, r *http.Request) (string, bool) {
 // PoolAddresses bounds batch cost before any database/cache lookup.
 func PoolAddresses(raw string) ([]string, error) {
 	if len(raw) > 100*43 {
-		return nil, errors.New("QUERY_INVALID")
+		return nil, errors.New(literalQUERYINVALID)
 	}
 	out := []string{}
 	seen := map[string]bool{}
@@ -126,7 +126,7 @@ func PoolAddresses(raw string) ([]string, error) {
 			seen[a] = true
 		}
 		if len(out) > 100 {
-			return nil, errors.New("QUERY_INVALID")
+			return nil, errors.New(literalQUERYINVALID)
 		}
 	}
 	return out, nil
@@ -142,7 +142,7 @@ func WriteReadError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, store.ErrPoolNotFound):
 		WriteAPIError(w, r, 404, "POOL_NOT_FOUND")
 	default:
-		WriteAPIError(w, r, 503, "DATA_UNAVAILABLE")
+		WriteAPIError(w, r, 503, literalDATAUNAVAILABLE)
 	}
 }
 
@@ -152,24 +152,24 @@ type v2ErrorRule struct {
 }
 
 var v2ErrorRules = map[string]v2ErrorRule{
-	"QUERY_INVALID":          {400, "Invalid request syntax"},
-	"FIELD_INVALID":          {422, "Field violates its declared type or range"},
-	"FIELD_UNKNOWN":          {422, "Request contains an undeclared field"},
-	"PAYLOAD_TOO_LARGE":      {413, "Request exceeds its size limit"},
-	"REVISION_CONFLICT":      {409, "Expected revision differs from current resource"},
-	"IDEMPOTENCY_CONFLICT":   {409, "Idempotency key already binds another request"},
-	"STATE_CONFLICT":         {409, "Operation conflicts with current state"},
-	"RESNAPSHOT_REQUIRED":    {409, "Snapshot history is unavailable; install a fresh snapshot"},
-	"PRECONDITION_FAILED":    {412, "Request precondition is not satisfied"},
-	"FEATURE_UNAVAILABLE":    {501, "Required capability is unavailable"},
-	"DEPENDENCY_UNAVAILABLE": {503, "Authoritative dependency temporarily unavailable"},
-	"INTEGRITY_QUARANTINED":  {503, "Authoritative data is quarantined"},
-	"CURSOR_INVALID":         {400, "Invalid cursor; restart pagination"},
-	"NOT_FOUND":              {404, "Resource not found"},
-	"AUTH_EXPIRED":           {401, "Credential expired or revoked"},
-	"SCOPE_DENIED":           {403, "Action is not permitted"},
-	"RATE_LIMITED":           {429, "Request budget exhausted"},
-	"INTERNAL_ERROR":         {500, "An unexpected error occurred"},
+	literalQUERYINVALID:          {400, "Invalid request syntax"},
+	literalFIELDINVALID:          {422, "Field violates its declared type or range"},
+	"FIELD_UNKNOWN":              {422, "Request contains an undeclared field"},
+	"PAYLOAD_TOO_LARGE":          {413, "Request exceeds its size limit"},
+	"REVISION_CONFLICT":          {409, "Expected revision differs from current resource"},
+	"IDEMPOTENCY_CONFLICT":       {409, "Idempotency key already binds another request"},
+	"STATE_CONFLICT":             {409, "Operation conflicts with current state"},
+	"RESNAPSHOT_REQUIRED":        {409, "Snapshot history is unavailable; install a fresh snapshot"},
+	"PRECONDITION_FAILED":        {412, "Request precondition is not satisfied"},
+	"FEATURE_UNAVAILABLE":        {501, "Required capability is unavailable"},
+	literalDEPENDENCYUNAVAILABLE: {503, "Authoritative dependency temporarily unavailable"},
+	literalINTEGRITYQUARANTINED:  {503, "Authoritative data is quarantined"},
+	literalCURSORINVALID:         {400, "Invalid cursor; restart pagination"},
+	literalNOTFOUND:              {404, "Resource not found"},
+	"AUTH_EXPIRED":               {401, "Credential expired or revoked"},
+	"SCOPE_DENIED":               {403, "Action is not permitted"},
+	"RATE_LIMITED":               {429, "Request budget exhausted"},
+	"INTERNAL_ERROR":             {500, "An unexpected error occurred"},
 }
 
 // ErrDependencyNotConfigured marks a read whose provider is not configured in
@@ -189,7 +189,7 @@ func WriteV2APIError(w http.ResponseWriter, r *http.Request, status int, code st
 // retryable=false, retryAfterMs=null and no Retry-After header, so clients do
 // not poll a route that cannot recover by itself.
 func WriteV2NotConfiguredError(w http.ResponseWriter, r *http.Request) {
-	writeV2Error(w, r, 503, "DEPENDENCY_UNAVAILABLE", false)
+	writeV2Error(w, r, 503, literalDEPENDENCYUNAVAILABLE, false)
 }
 
 func writeV2Error(w http.ResponseWriter, r *http.Request, status int, code string, retryable bool) {
@@ -227,7 +227,7 @@ func boundedInteger(raw string, fallback, min, max int) (int, error) {
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil || strconv.Itoa(value) != raw || value < min || value > max {
-		return 0, errors.New("FIELD_INVALID")
+		return 0, errors.New(literalFIELDINVALID)
 	}
 	return value, nil
 }

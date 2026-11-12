@@ -344,7 +344,7 @@ const DevelopmentLeaderboardMethodologyVersion = "dev-indexer-swaps-v1:trader=ne
 // database transaction clock.
 func (s *Store) DevelopmentLeaderboard(ctx context.Context, category, window string, windowEnd int64, watermark ChainWatermark) (*LeaderboardSnapshot, error) {
 	seconds, ok := leaderboardWindows[window]
-	if !ok || (category != "trader" && category != "creator" && category != "volume") || windowEnd < 0 {
+	if !ok || (category != literalTrader && category != literalCreator && category != literalVolume) || windowEnd < 0 {
 		return nil, ErrAccountingNotReady
 	}
 	ctx, cancel, tx, err := s.beginLegacyRead(ctx)
@@ -361,11 +361,11 @@ func (s *Store) DevelopmentLeaderboard(ctx context.Context, category, window str
 	const swaps = `SELECT pool_id, sender, is_buy, CASE WHEN amount_in ~ '^[0-9]{1,78}$' THEN amount_in::numeric END AS amt_in, CASE WHEN amount_out ~ '^[0-9]{1,78}$' THEN amount_out::numeric END AS amt_out, CASE WHEN fee ~ '^[0-9]{1,78}$' THEN fee::numeric END AS fee FROM indexer.swaps WHERE block_timestamp > $1 AND block_timestamp <= $2`
 	var query string
 	switch category {
-	case "trader":
+	case literalTrader:
 		query = `SELECT lower(sender), COALESCE(sum(CASE WHEN NOT is_buy THEN amt_out END), 0)::text, COALESCE(sum(CASE WHEN is_buy THEN amt_in END), 0)::text, bool_and(amt_in IS NOT NULL AND amt_out IS NOT NULL) FROM (` + swaps + `) s GROUP BY lower(sender)`
-	case "volume":
+	case literalVolume:
 		query = `SELECT lower(sender), COALESCE(sum(CASE WHEN is_buy THEN amt_in ELSE amt_out END), 0)::text, '0', bool_and(CASE WHEN is_buy THEN amt_in IS NOT NULL ELSE amt_out IS NOT NULL END) FROM (` + swaps + `) s GROUP BY lower(sender)`
-	case "creator":
+	case literalCreator:
 		query = `SELECT lower(p.creator), COALESCE(sum(CASE WHEN s.is_buy THEN s.fee END), 0)::text, '0', bool_and(NOT s.is_buy OR s.fee IS NOT NULL) FROM (` + swaps + `) s JOIN indexer.pools p ON p.pool_id=s.pool_id GROUP BY lower(p.creator)`
 	}
 	rows, err := tx.Query(ctx, query, windowEnd-seconds, windowEnd)
@@ -390,11 +390,11 @@ func (s *Store) DevelopmentLeaderboard(ctx context.Context, category, window str
 			return nil, ErrDataIntegrity
 		}
 		signed := new(big.Int).Sub(plus, minus)
-		entry := LeaderboardEntry{Wallet: normalized, MetricRaw: new(big.Int).Abs(signed).String(), Quality: "partial", signed: signed}
+		entry := LeaderboardEntry{Wallet: normalized, MetricRaw: new(big.Int).Abs(signed).String(), Quality: literalPartial, signed: signed}
 		if complete {
-			entry.Quality = "complete"
+			entry.Quality = literalComplete
 		}
-		if category == "trader" {
+		if category == literalTrader {
 			entry.MetricSigned = signed.String()
 		}
 		if len(entry.MetricRaw) > 156 {
@@ -415,12 +415,12 @@ func (s *Store) DevelopmentLeaderboard(ctx context.Context, category, window str
 		}
 		return entries[i].Wallet < entries[j].Wallet
 	})
-	quality := "complete"
+	quality := literalComplete
 	digest := sha256.New()
 	digest.Write([]byte("development|" + category + "|" + window + "|" + strconv.FormatInt(windowEnd, 10) + "|" + watermark.Height))
 	for _, entry := range entries {
-		if entry.Quality != "complete" {
-			quality = "partial"
+		if entry.Quality != literalComplete {
+			quality = literalPartial
 		}
 		digest.Write([]byte("|" + entry.Wallet + ":" + entry.signed.String() + ":" + entry.Quality))
 	}
@@ -460,7 +460,7 @@ func (s *Store) DevelopmentHolderRewardsStats(ctx context.Context, watermark Cha
 // schema: the pool creation time comes from indexer.pools because the
 // canonical creation table is production-only.
 func (s *Store) DevelopmentHolderRewardPools(ctx context.Context, sortKey string, watermark ChainWatermark) (*HolderRewardPoolsSnapshot, error) {
-	if sortKey != "rewards" && sortKey != "mcap" && sortKey != "holders" && sortKey != "age" {
+	if sortKey != literalRewards && sortKey != literalMcap && sortKey != literalHolders && sortKey != literalAge {
 		return nil, ErrDataIntegrity
 	}
 	ctx, cancel, tx, err := s.beginLegacyRead(ctx)
@@ -502,5 +502,5 @@ func DevelopmentWatermark(head DevelopmentHead, blockHash string) (ChainWatermar
 		return ChainWatermark{}, ErrDataIntegrity
 	}
 	height := strconv.FormatInt(head.Height, 10)
-	return ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: height, ObservedAt: head.UpdatedAt.UTC().Format(watermarkTimeLayout), Integrity: "healthy"}, nil
+	return ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: height, ObservedAt: head.UpdatedAt.UTC().Format(watermarkTimeLayout), Integrity: literalHealthy}, nil
 }
