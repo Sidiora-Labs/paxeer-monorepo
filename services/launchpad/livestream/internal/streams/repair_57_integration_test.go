@@ -43,6 +43,7 @@ import (
 
 type repair57Session struct {
 	Wallet    string `json:"wallet"`
+	SessionID string `json:"sessionId"`
 	Expires   int64  `json:"expires"`
 	Signature string `json:"signature"`
 }
@@ -53,6 +54,7 @@ type repair57System struct {
 	key             *ecdsa.PrivateKey
 	wallet          string
 	verifier        *sharedauth.WalletOperationVerifier
+	handlers        *Handlers
 	store           *LifecycleStore
 	database        *pgxpool.Pool
 	server, private *httptest.Server
@@ -118,6 +120,9 @@ func (f *repair57System) open() {
 		if err = f.verifier.Verify(ctx, session.Wallet, repair57SessionStatement(session), session.Signature); err != nil {
 			return Authorization{}, ErrDenied
 		}
+		if action == "stream.heartbeat" && o.Pool == "" {
+			return Authorization{Wallet: session.Wallet, SessionID: session.SessionID, Allowed: true, ExpiresAt: time.Unix(session.Expires, 0)}, nil
+		}
 		var creator string
 		if err = f.database.QueryRow(ctx, "SELECT creator FROM indexer.indexer_canonical_creations_v1 WHERE pool=$1", strings.ToLower(o.Pool)).Scan(&creator); err != nil {
 			return Authorization{}, err
@@ -129,7 +134,7 @@ func (f *repair57System) open() {
 		if err != nil {
 			return Authorization{}, err
 		}
-		return Authorization{Wallet: session.Wallet, Pool: o.Pool, Allowed: allowed, ExpiresAt: time.Unix(session.Expires, 0)}, nil
+		return Authorization{Wallet: session.Wallet, SessionID: session.SessionID, Pool: o.Pool, Allowed: allowed, ExpiresAt: time.Unix(session.Expires, 0)}, nil
 	}
 	deps := Deps{StudioWebhook: true, Lifecycle: f.store, OperationVerifier: f.verifier, OperationLedger: &sharedauth.Ledger{Pool: f.database, Environment: "test", AuditKey: []byte(strings.Repeat("a", 32))}, Restrictions: policy, Authorize: authorize, WebhookSecret: f.secret, WebhookMilliseconds: true, DecodeWebhook: DecodeStudioWebhook}
 	if f.transit != nil {
@@ -144,7 +149,8 @@ func (f *repair57System) open() {
 		f.store = deps.Lifecycle
 	}
 	router := chi.NewRouter()
-	New(deps).RegisterRoutes(router)
+	f.handlers = New(deps)
+	f.handlers.RegisterRoutes(router)
 
 	// Every HTTP exchange crosses the shared mTLS and signed-request verifier.
 	// The edge uses an actual reverse proxy, certificate and assertion issuer.
@@ -232,12 +238,16 @@ func (f *repair57System) useConnectedRuntime() {
 }
 
 func repair57SessionStatement(s repair57Session) string {
-	return "livestream repair owner session\n" + s.Wallet + "\n" + strconv.FormatInt(s.Expires, 10)
+	return "livestream repair owner session\n" + s.Wallet + "\n" + s.SessionID + "\n" + strconv.FormatInt(s.Expires, 10)
 }
 
 func (f *repair57System) session(key *ecdsa.PrivateKey) string {
 	f.t.Helper()
-	s := repair57Session{Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), Expires: time.Now().Add(5 * time.Minute).Unix()}
+	sessionID, err := randomID()
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	s := repair57Session{Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), SessionID: sessionID, Expires: time.Now().Add(5 * time.Minute).Unix()}
 	signature, err := crypto.Sign(accounts.TextHash([]byte(repair57SessionStatement(s))), key)
 	if err != nil {
 		f.t.Fatal(err)

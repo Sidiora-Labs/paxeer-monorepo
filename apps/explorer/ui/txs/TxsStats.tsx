@@ -22,6 +22,10 @@ interface Props extends BoxProps {}
 
 const DELTA_ACCURACY = 2;
 
+function formatTransactionCount(value: string | undefined): string {
+  return value === undefined ? '-' : BigNumber(value).toFormat();
+}
+
 function toShareDelta(
   part: number | string | null | undefined,
   whole: number | string | null | undefined,
@@ -70,8 +74,7 @@ const TxsStats = (props: Props) => {
 
   const txsStatsApiQuery = useApiQuery('general:txs_stats', {
     queryOptions: {
-      enabled: !isStatsFeatureEnabled,
-      placeholderData: !isStatsFeatureEnabled ? TXS_STATS : undefined,
+      placeholderData: TXS_STATS,
     },
   });
 
@@ -81,13 +84,14 @@ const TxsStats = (props: Props) => {
     },
   });
 
-  if ((isStatsFeatureEnabled && !txsStatsQuery.data) || (!isStatsFeatureEnabled && !txsStatsApiQuery.data)) {
+  if (!txsStatsApiQuery.data || (isStatsFeatureEnabled && !txsStatsQuery.data)) {
     return null;
   }
 
-  const isLoading = isStatsFeatureEnabled ? txsStatsQuery.isPlaceholderData : txsStatsApiQuery.isPlaceholderData;
+  const isLoading = txsStatsApiQuery.isPlaceholderData || (isStatsFeatureEnabled && txsStatsQuery.isPlaceholderData);
 
-  const txCount24h = isStatsFeatureEnabled ? txsStatsQuery.data?.transactions_24h?.value : txsStatsApiQuery.data?.transactions_count_24h;
+  const txCount24h = txsStatsApiQuery.data.transactions_count_24h;
+  const totalTransactions = txsStatsApiQuery.data.total_transactions_count;
   const operationalTxns24hArbitrum = isArbitrumRollup && isStatsFeatureEnabled ? txsStatsQuery.data?.operational_transactions_24h?.value : null;
   const operationalTxns24hOptimistic = isOptimisticRollup && isStatsFeatureEnabled ? txsStatsQuery.data?.op_stack_operational_transactions_24h?.value : null;
 
@@ -123,11 +127,32 @@ const TxsStats = (props: Props) => {
       label: `${ txsStatsQuery.data?.transactions_24h?.title ?
         getStatsLabelFromTitle(txsStatsQuery.data.transactions_24h.title) :
         'Transactions' } (24h)`,
-      value: Number(txCount24h).toLocaleString(),
-      delta: toShareDelta(txCount24h, statsQuery.data?.total_transactions, 'up'),
+      value: formatTransactionCount(txCount24h),
+      delta: toShareDelta(txCount24h, totalTransactions ?? statsQuery.data?.total_transactions, 'up'),
       hint: 'The last day\'s transactions as a share of every transaction the chain has recorded',
       href: chartRoute('newTxns'),
     } : null,
+    {
+      label: 'Total transactions',
+      value: formatTransactionCount(totalTransactions),
+      delta: undefined,
+      hint: undefined,
+      href: undefined,
+    },
+    {
+      label: 'Price updates (24h)',
+      value: formatTransactionCount(txsStatsApiQuery.data.price_updates_count_24h),
+      delta: undefined,
+      hint: undefined,
+      href: undefined,
+    },
+    {
+      label: 'Total price updates',
+      value: formatTransactionCount(txsStatsApiQuery.data.total_price_updates_count),
+      delta: undefined,
+      hint: undefined,
+      href: undefined,
+    },
     operationalTxns24hArbitrum ? {
       label: `${ txsStatsQuery.data?.operational_transactions_24h?.title ?
         getStatsLabelFromTitle(txsStatsQuery.data.operational_transactions_24h.title) :

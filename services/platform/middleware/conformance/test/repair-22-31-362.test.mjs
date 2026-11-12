@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { AgentEnvelopeTransport, AgentSessionCredential, PlatformSdkError, Rung, SecretBytes } from "@sidiora/layerx-sdk";
+import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, PlatformSdkError, Rung, SecretBytes } from "@sidiora/layerx-sdk";
 import { readConnectedBalance, verifyConnectedRecovery } from "../connected-balance.mjs";
 
 // The peer fixture follows read.balance's BalanceValue and VerificationStatus
@@ -35,6 +35,8 @@ async function balancePeer(t) {
   );
   const token = new SecretBytes(Buffer.alloc(32, 5));
   const session = new AgentSessionCredential(coordinates.tenant, "06".repeat(32), token, "0");
+  const gatewaySecret = new SecretBytes(new TextEncoder().encode(`lxp_live_${"07".repeat(32)}`));
+  const gatewayCredential = new LayerXKeyCredential("connected-balance", gatewaySecret);
   const calls = [];
   const failures = [];
   const server = createServer(async (request, response) => {
@@ -68,12 +70,14 @@ async function balancePeer(t) {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     store.close();
     token.destroy();
+    gatewaySecret.destroy();
     await rm(directory, { recursive: true, force: true });
     assert.deepEqual(failures, []);
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const transport = new AgentEnvelopeTransport({ endpoint: `http://127.0.0.1:${server.address().port}`, session, timeoutMs: 1000 });
+  const transport = new AgentEnvelopeTransport({ endpoint: `http://127.0.0.1:${server.address().port}`,
+    session, surface: "gateway", gatewayCredential, timeoutMs: 1000 });
   return {
     transport, calls,
     value(value) { store.prepare("UPDATE fixture SET value = ? WHERE id = 1").run(JSON.stringify(value)); },

@@ -93,7 +93,7 @@ function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, addres
   const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]);
   return { kind: "settled", format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction,
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(digest),
     receiptKey: { keyId: hex(pin.keyId), publicKey: hex(pin.publicKey),
       firstHeight: `0x${pin.first_height.toString(16)}`, lastHeight: `0x${pin.last_height.toString(16)}` } };
 }

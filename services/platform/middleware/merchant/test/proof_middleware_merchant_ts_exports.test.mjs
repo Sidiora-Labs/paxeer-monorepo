@@ -65,7 +65,7 @@ async function proofMiddlewareMerchantTsExports(context) {
     let result;
     if (body.method === "eth_getRawTransactionByHash") result = receipt?.rawTransaction ?? null;
     else if (body.method === "pax_sequencerReceipt" && receipt !== undefined) {
-      result = { txHash: receipt.txHash, rung: "receipted", receipt: receipt.signedReceipt };
+      result = { ...receipt.receiptJson, receipt: receipt.signedReceipt };
     } else {
       response.writeHead(400).end();
       return;
@@ -74,6 +74,7 @@ async function proofMiddlewareMerchantTsExports(context) {
       .end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result }));
   });
   let application;
+  const customerToken = `merchant-proof-customer-${"x".repeat(32)}`;
   const bindings = {
     MERCHANT_PROOF_TOKEN: "merchant-proof-local-token",
     MERCHANT_PROOF_PRICE: "250000",
@@ -86,6 +87,8 @@ async function proofMiddlewareMerchantTsExports(context) {
       firstHeight: key.firstHeight.toString(), lastHeight: key.lastHeight.toString(),
     }]),
     MERCHANT_PROOF_WEBHOOK_KEYS: JSON.stringify({ "seq-merchant": toHex(sequencer.publicKey) }),
+    MERCHANT_PROOF_CUSTOMER_CREDENTIALS: JSON.stringify([{ token: customerToken,
+      tenant: "merchant", principal: "merchant-proof" }]),
   };
   const previous = Object.fromEntries(Object.keys(bindings).map((name) => [name, process.env[name]]));
   delete process.env.LAYERX_EXAMPLE_STATE_ROOT;
@@ -107,12 +110,13 @@ async function proofMiddlewareMerchantTsExports(context) {
     assetEnvironment: "MERCHANT_PROOF_ASSET", payToEnvironment: "MERCHANT_PROOF_PAY_TO",
     accountEnvironment: "MERCHANT_PROOF_ACCOUNT", currencyEnvironment: "MERCHANT_PROOF_CURRENCY",
     receiptKeysEnvironment: "MERCHANT_PROOF_KEYS", webhookKeysEnvironment: "MERCHANT_PROOF_WEBHOOK_KEYS",
+    customerCredentialsEnvironment: "MERCHANT_PROOF_CUSTOMER_CREDENTIALS",
   };
   application = createMerchantApplicationServer(config);
   let baseUrl = await listen(application);
   const checkout = await fetch(`${baseUrl}/checkout`, {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ principal: "acct:merchant-proof", checkout_key: "proof-order",
+    method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${customerToken}` },
+    body: JSON.stringify({ principal: "merchant-proof", checkout_key: "proof-order",
       lines: [{ sku: "metered-report", quantity: 1 }] }),
   });
   const opened = await checkout.json();
@@ -125,7 +129,7 @@ async function proofMiddlewareMerchantTsExports(context) {
     purposeHash: opened.order.quote.paymentRequired.accepts[0].extra.layerx.purposeHash,
   });
   receipts.set(receipt.txHash, receipt);
-  const orderPath = join(directory, "state/orders/proof-order.json");
+  const orderPath = join(directory, "state/orders", `${opened.order.orderId}.json`);
   assert.deepEqual(JSON.parse(await readFile(orderPath, "utf8")), opened.order);
 
   async function reopen() {
@@ -134,7 +138,9 @@ async function proofMiddlewareMerchantTsExports(context) {
     baseUrl = await listen(application);
   }
   async function observedOrder() {
-    const response = await fetch(`${baseUrl}/orders/proof-order`);
+    const response = await fetch(`${baseUrl}/orders/${opened.order.orderId}`, {
+      headers: { authorization: `Bearer ${customerToken}` },
+    });
     assert.equal(response.status, 200);
     return response.json();
   }
@@ -159,7 +165,7 @@ async function proofMiddlewareMerchantTsExports(context) {
   assert.equal(paid.state, "paid-verified");
   assert.equal(paid.receiptDigest, receipt.receiptDigest.slice(2));
   assert.equal(paid.transaction, receipt.txHash);
-  assert.deepEqual(JSON.parse(await readFile(orderPath, "utf8")), paid);
+  assert.deepEqual(JSON.parse(await readFile(`${orderPath}.1`, "utf8")), paid);
   assert.equal(requests.length, 2);
 
   await reopen();
@@ -196,7 +202,7 @@ async function proofMiddlewareMerchantTsExports(context) {
   });
   assert.equal(requests.length, 6, "receipt evidence must be resolved afresh, without a cached success");
   assert.deepEqual(await observedOrder(), paid);
-  assert.deepEqual(JSON.parse(await readFile(orderPath, "utf8")), paid);
+  assert.deepEqual(JSON.parse(await readFile(`${orderPath}.1`, "utf8")), paid);
   receipts.set(receipt.txHash, receipt);
   assert.deepEqual(await deliver(brokenReceipt), { status: 200, body: { state: "processed" } });
   assert.equal(requests.length, 8, "a refused delivery must be retryable after evidence recovery");

@@ -21345,3 +21345,43 @@ fix = "A change to the occupancy rule of shared namespaces is run against a call
 title = "The recipe platform-test-middleware runs the tests of two integrations under sdk/integrations"
 symptom = "The recipe platform-test-middleware of services/platform/Makefile.inc runs pytest over sdk/integrations/fastapi, and the verification of the middleware tests reaches the test files of sdk/integrations/express/example."
 fix = "A task that verifies with that recipe carries both directories."
+
+[gotcha.4305]
+title = "The payout split operation of the AI market writes one credit per participant of the batch"
+symptom = "The operation writes one credit for each participant of the lap batch, one for the host and one for the protocol. Its CPU fuel grows with the number of credits of the batch."
+fix = "The fuel table states the batch at which it measures the operation."
+
+[gotcha.4306]
+title = "The interface rows of the inference series name no file of the proof tasks"
+symptom = "The fifteen interface rows of the inference series name symbols of the AI market program, of the agent daemon and of the peer package. No row names a file that task 22.38.36, 22.38.37 or 22.38.38 adds."
+fix = "The closing task of the series reconciles the rows without the proof tasks."
+
+[gotcha.4307]
+title = "The pay precompile assigns the stream of an ask a 32-byte identifier"
+symptom = "The operation streamOpenForAsk assigns the stream the idempotency key of the call as its identifier. The ask record of the AI market program holds the stream identifier as a 128-bit number and the agent daemon expands that number with sixteen leading zero bytes."
+fix = "The identifier that streamOpenForAsk assigns has sixteen leading zero bytes (decision 3388)."
+
+[gotcha.4308]
+title = "The node builds the options of its RPC server in RegisterLocalServices"
+symptom = "The px inference reads of the RPC server answer inference_program_not_configured until the server receives the option WithPxInferenceProgram. The node builds the options of the server in the function RegisterLocalServices of node/app.go."
+fix = "The node reads the program identifier and the reader address from its configuration and passes the option (decision 3389)."
+
+[gotcha.4309]
+title = "The native result source of the agent daemon reads the validator set at a consensus endpoint"
+symptom = "The function program_reader of the agent daemon connects the native result source to the node endpoint of the configuration. The validator set that the source reads is served by the consensus endpoint of a node."
+fix = "The agent daemon takes a setting for the consensus endpoint (decision 3390)."
+
+[gotcha.4310]
+title = "The market sources of the explorer backend name no source for the Chainflow price feed"
+symptom = "The explorer environment hides the native coin price and lists the daily transactions chart only, and the statistics response adds the price updates to the transaction total while the transactions statistics response counts the transactions of the day without them."
+fix = "A Chainflow market source supplies PAX and SID, and both statistics responses count the price updates."
+
+[gotcha.4311]
+title = "The statistics page of the explorer reads its counters and lines from the statistics service routes"
+symptom = "The components under apps/explorer/ui/stats read the counters route and the lines route of a statistics service, and the page feature is enabled by a statistics service address."
+fix = "The page reads the explorer API when no statistics service address is set."
+
+[gotcha.4312]
+title = "The scan script of the Next integration example names a directory the example does not hold"
+symptom = "The scan script in sdk/integrations/next/example/package.json names the directories dist/static and public, the tree holds no public directory in that example, and the middleware part of the platform test recipe runs that script."
+fix = "The example names only directories it holds."
