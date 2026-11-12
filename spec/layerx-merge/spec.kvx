@@ -189086,7 +189086,7 @@ do_5 = "do_5 Gotcha 4294, decision 3377. The task no longer requires task 22.38.
 
 [task.22.38.36]
 title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.38.21", "22.38.27", "22.31.620", "22.39.368", "22.39.369", "22.39.386", "22.39.387", "22.39.389", "22.39.390", "22.39.394", "22.39.395"]
