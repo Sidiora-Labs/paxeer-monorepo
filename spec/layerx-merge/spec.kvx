@@ -197625,7 +197625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.445]
 title = "Bring the member layerx-programs-ai-market of the programs workspace through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.400"]
