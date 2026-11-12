@@ -13504,6 +13504,12 @@ value = "In task 22.39.445 an item whose lint can only be met by changing a publ
 basis = "Gotcha 4315. Decision 3346."
 affects = ["22.39.445"]
 
+[decision.3399]
+title = "Task 22.39.445 may change the lock file of the programs workspace"
+value = "The paths of task 22.39.445 gain programs/Cargo.lock. The lock file changes only as far as a dependency of the member programs/crates/layerx-programs-ai-market requires."
+basis = "Gotcha 4316."
+affects = ["22.39.445"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197630,7 +197636,7 @@ do_1 = "do_1 Decisions 3340, 3341 and 3349. Run by hand cargo clippy --locked --
 do_2 = "do_2 Repair each location in the source of the member. Add no allow attribute beyond the one decision 3346 names and change no lint table and no clippy configuration. Keep every public name and signature of the member; where a lint can only be met by changing one, list the location in the closing report. A file under programs/vendor is not changed, and a repair changes no result of a program execution: the vectors and fixtures of the tree stay byte for byte. A repair keeps every test result of the member as at the base revision, and the workspace compiles wherever it does at the base: run cargo test for the member and cargo check for the whole workspace with all targets at the base and on the tree and compare (decision 3342)."
 do_3 = "do_3 Record in programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx the lints repaired with the count of locations of each. A location in another member is not repaired here. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["programs/crates/layerx-programs-ai-market"]
+touches = ["programs/crates/layerx-programs-ai-market", "programs/Cargo.lock"]
 tests = []
 planned_paths = ["programs/crates/layerx-programs-ai-market/repair_22_39_445.kvx"]
 build_cmd = "cargo check --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --all-targets"

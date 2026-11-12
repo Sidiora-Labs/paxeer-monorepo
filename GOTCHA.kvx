@@ -21400,3 +21400,8 @@ fix = "The paths of task 22.39.430 name the lock file of the workspace."
 title = "Two lints of the ai-market member can only be met by changing a public signature"
 symptom = "In programs/crates/layerx-programs-ai-market the function apply_record_deal of src/rooms.rs takes eight arguments and the type Outcome of src/canary.rs holds a large variant, and task 22.39.445 keeps every public name and signature of the member."
 fix = "Such an item carries an allow attribute with a reason."
+
+[gotcha.4316]
+title = "A test dependency of the ai-market member changes the lock file of the programs workspace"
+symptom = "The member programs/crates/layerx-programs-ai-market that gains a local test dependency changes programs/Cargo.lock, and the paths of task 22.39.445 name only the directory of the member."
+fix = "The paths of task 22.39.445 name the lock file of the workspace."
