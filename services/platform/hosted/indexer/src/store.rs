@@ -13,9 +13,9 @@
 
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use rusqlite::{params, Connection, OptionalExtension as _, Row};
+use rusqlite::{params, Connection, OptionalExtension as _, Row, TransactionBehavior};
 use serde_json::{json, Value};
 
 use crate::chains::{ChainRecord, ChainRow, ChainTransaction};
@@ -722,6 +722,7 @@ impl Store {
     /// Returns [`IndexError::Store`] when `SQLite` cannot open or migrate it.
     pub fn open(path: &Path) -> Result<Self, IndexError> {
         let connection = Connection::open(path)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         Self::initialise(connection)
     }
@@ -765,7 +766,7 @@ impl Store {
 
     /// Retain pre-upgrade documents for historical inspection, outside every output query.
     fn retire_settlement_documents(connection: &mut Connection) -> Result<(), IndexError> {
-        let tx = connection.transaction()?;
+        let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute_batch("CREATE TABLE IF NOT EXISTS retired_settlement_evidence(
             chain TEXT NOT NULL, activity_id TEXT NOT NULL, sequence INTEGER NOT NULL,
             document TEXT NOT NULL, last_attempt INTEGER NOT NULL,
@@ -792,7 +793,7 @@ impl Store {
         if current > 0 {
             return Ok(());
         }
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         transaction.execute_batch(
             "ALTER TABLE assets ADD COLUMN configured INTEGER NOT NULL DEFAULT 0;
              ALTER TABLE assets ADD COLUMN configured_metadata_json TEXT;
@@ -826,7 +827,7 @@ impl Store {
         };
         let transfers = has_column("transfers")?;
         let explorer = has_column("explorer_transfers")?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if !transfers {
             transaction.execute_batch(
                 "ALTER TABLE transfers ADD COLUMN tx_index INTEGER NOT NULL DEFAULT 0",
@@ -934,7 +935,7 @@ impl Store {
     /// Returns [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn commit(&self, unit: &Unit, finality_depth: u64) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let stamp = now();
         let (finalized, finalized_boundary) =
             Self::write_unit(&transaction, unit, finality_depth, stamp)?;
@@ -988,7 +989,7 @@ impl Store {
     /// [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn commit_backfill(&self, unit: &Unit, finality_depth: u64) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if let Some(live) = Self::live_position(&transaction, &unit.chain)? {
             if live >= unit.position {
                 return Err(IndexError::Integrity(format!(
@@ -1025,7 +1026,7 @@ impl Store {
         finality_depth: u64,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         match Self::live_position(&transaction, chain)? {
             Some(live) if live > cutover => {
                 return Err(IndexError::Integrity(format!(
@@ -1537,7 +1538,7 @@ impl Store {
     )]
     pub fn rollback(&self, chain: &str, fork: Option<u64>) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let finalized: Option<i64> = transaction
             .query_row(
                 "SELECT finalized_position FROM cursors WHERE chain = ?1",
@@ -1909,7 +1910,7 @@ impl Store {
     /// Returns [`IndexError::Store`] on `SQLite` failure; nothing is written.
     pub fn register_assets(&self, assets: &[AssetRow]) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for asset in assets {
             transaction.execute(
                 "INSERT INTO assets(asset, chain, kind, address, denom, first_seen, metadata_json,
@@ -2014,7 +2015,7 @@ impl Store {
         complete: bool,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         for (key, row) in rows {
             if *key >= EXPLORER_KEY_LIMIT {
                 return Err(IndexError::Store(format!(
@@ -2735,7 +2736,7 @@ impl Store {
         indexed_position: Option<u64>,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
-        let connection = connection.transaction()?;
+        let connection = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let observed_at: i64 = connection.query_row(
             "SELECT source_head_at FROM source_observations WHERE chain = ?1",
             params![chain],

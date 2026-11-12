@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use layerx_committed_proof::{
     commit::{self, Commit},
@@ -30,7 +31,7 @@ use layerx_programs_ai_market::{
     types::{ChainDomain, Digest32, MarketId, PrincipalId, ProgramId, StateDigest},
     MAX_STATE_BYTES,
 };
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use sha2::{Digest, Sha256};
 
 use crate::codec::hex0x;
@@ -1212,7 +1213,7 @@ fn quarantine(
     error: ViewError,
 ) -> ViewError {
     let outcome = (|| -> ViewResult<()> {
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute(
             "INSERT INTO ai_stream (market, observed_sequence, observed_root, next_subject, quarantine) \
              VALUES (?1, 0, NULL, 1, ?2) \
@@ -1393,6 +1394,7 @@ impl ProjectionStore {
     /// Store failures.
     pub fn open(path: &Path) -> ViewResult<Self> {
         let connection = Connection::open(path)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         Self::initialise(connection)
     }
@@ -1458,7 +1460,7 @@ impl ProjectionStore {
             }
             Err(e) => return Err(e),
         };
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let outcome = Self::insert_observation(
             &tx,
             observation,
@@ -1664,7 +1666,7 @@ impl ProjectionStore {
         }
         let mut encoded = [0u8; BINDING_MAX_BYTES];
         let n = binding.encode(&mut encoded)?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute(
             "UPDATE ai_snapshot SET projection = 3, binding = ?2, checkpoint = ?3, rank = ?4, \
              publication_time_ms = ?5, epoch = ?6 WHERE snapshot_id = ?1",
@@ -1715,7 +1717,7 @@ impl ProjectionStore {
                 ViewError::RollbackRefused,
             ));
         }
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let m = market.as_bytes().as_slice();
         let removed = tx.execute(
             "DELETE FROM ai_snapshot WHERE market = ?1 AND observed_sequence > ?2 \
@@ -1900,7 +1902,7 @@ impl ProjectionStore {
     /// `CapacityExceeded` while a cursor lease pins it.
     pub fn archive(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
         let mut conn = self.lock()?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let conn = &tx;
         let record = load_record(conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         let latest = load_stream(conn, &record.market)?.and_then(|s| s.finalized_snapshot);
@@ -1953,7 +1955,7 @@ impl ProjectionStore {
     ) -> ViewResult<()> {
         let mut conn = self.lock()?;
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let archived;
         let state = if let Some(state) = supplied {
             state
