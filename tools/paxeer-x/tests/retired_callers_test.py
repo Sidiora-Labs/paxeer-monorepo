@@ -698,6 +698,36 @@ def self_test(catalogue):
         for name, component in components.items()
         for symbol in component["symbols"]
     ]
+    attestor_path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+    attestor_patterns = [
+        ("envelope-signing", symbol, symbol_pattern(symbol))
+        for symbol in components["envelope-signing"]["symbols"]
+    ]
+    supported_call = (
+        "let mut future = signer::sign_disclosed_call("
+        "&transaction_signer, call, disclosure, from);"
+    )
+    check_equal(
+        match_line(attestor_path, 1, supported_call, attestor_patterns, allowances),
+        [],
+        "attestor disclosed transaction signing is allowed",
+    )
+    check_equal(
+        match_line(
+            attestor_path,
+            1,
+            "let mut future = signer::sign_disclosed(&transaction_signer, call, disclosure, from);",
+            attestor_patterns,
+            allowances,
+        ),
+        [(attestor_path, 1, "envelope-signing", "sign_disclosed")],
+        "attestor activity envelope signing is detected",
+    )
+    check_equal(
+        match_line("live.rs", 1, supported_call, attestor_patterns, allowances),
+        [("live.rs", 1, "envelope-signing", "sign_disclosed")],
+        "disclosed signing allowance is path scoped",
+    )
     for package, address in (
         ("layerxverify", "LayerXVerifyAddress"),
         ("layerxcustody", "LayerXCustodyAddress"),

@@ -1,9 +1,9 @@
 mod service_recording {
-    include!("node_tape.rs");
+    include!("service_recording.rs");
 }
 
 fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let config = tape.config()?;
     let captured = &tape.fixture["service"];
     let signer = service_recording::signer(3)?;
@@ -61,7 +61,7 @@ fn producer_revert_harness() -> Result<Harness, Box<dyn std::error::Error>> {
 }
 
 pub(crate) fn reverted_receipt_survives_http_status_and_restart() -> TestResult {
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let capture = &tape.fixture["service"];
     let mut harness = producer_revert_harness()?;
     let (status, quote) = harness.post("/quote", &capture["quote_body"])?;
@@ -95,9 +95,10 @@ pub(crate) fn reverted_receipt_survives_http_status_and_restart() -> TestResult 
     harness.finish()
 }
 
+#[test]
 pub(crate) fn producer_revert_retains_signed_effects_and_malformed_checks() -> TestResult {
     use layerx_gas_station::rpc::decode_full_sequencer_receipt;
-    let tape = service_recording::Tape::load("service")?;
+    let tape = service_recording::Tape::load()?;
     let answer = &tape.fixture["service"]["receipt"];
     let hash = bytes(answer["txHash"].as_str().ok_or("missing node hash")?)?
         .try_into()

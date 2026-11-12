@@ -47,9 +47,11 @@ fn attestor_key(index: u8) -> Outcome<SigningKey> {
 struct Scratch(PathBuf);
 impl Scratch {
     fn new(name: &str) -> Outcome<Self> {
+        static NEXT_SCRATCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "xweb-application-proof-{}-{name}",
-            std::process::id()
+            "xweb-application-proof-{}-{name}-{}",
+            std::process::id(),
+            NEXT_SCRATCH.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir(&path)?;
         Ok(Self(path))
@@ -91,7 +93,7 @@ pub fn xweb_0x1019_application_proof(record: &Value) -> Outcome<Value> {
         payload: unhex0x(text(record, "/payload")?).ok_or_else(|| fail("payload is not hex"))?,
     };
     let scratch = Scratch::new("application-proof")?;
-    let rpc = EvmRpc::new(&endpoint)?;
+    let rpc = EvmRpc::new(endpoint)?;
     let mut signatures = BTreeMap::new();
     let mut answers = Vec::new();
     for index in 1..=3 {
@@ -151,6 +153,7 @@ pub fn run(input: impl Read, mut output: impl Write) -> Outcome {
     Ok(())
 }
 
+#[test]
 pub fn explicit_input_and_transport_refusal() -> Outcome {
     let mut output = Vec::new();
     let empty = run(&b""[..], &mut output)
@@ -176,7 +179,8 @@ pub fn explicit_input_and_transport_refusal() -> Outcome {
         .ok_or("HTTP method refusal was accepted as an application answer")?;
     assert_eq!(
         refused.downcast_ref::<ProgramAttestError>(),
-        Some(&ProgramAttestError::Network(EvmError::Unavailable))
+        Some(&ProgramAttestError::Network(EvmError::Unavailable)),
+        "{refused:?}"
     );
     assert!(output.is_empty());
     server.shutdown()?;

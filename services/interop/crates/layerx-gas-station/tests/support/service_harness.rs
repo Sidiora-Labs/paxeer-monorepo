@@ -9,23 +9,20 @@ use std::time::Duration;
 
 use k256::ecdsa::SigningKey;
 use k256::elliptic_curve::rand_core::OsRng;
-use layerx_gas_station::config::{
-    ConfigError, PaymasterRequired, RegisteredSender, ServiceConfig, StationConfig,
-};
+use layerx_gas_station::config::{RegisteredSender, ServiceConfig, StationConfig};
 use layerx_gas_station::journal::Journal;
 use layerx_gas_station::price::PaymasterRateSource;
 use layerx_gas_station::quote::{
     address_word, keccak, quote_digest, word, Address, Quote, SIDIORA,
 };
 use layerx_gas_station::rpc::{
-    bytes, hex, ConfiguredRpc, Exchange, HttpsExchange, JsonRpc, RpcFault, Rung, SequencerEndpoint,
-    SequencerReceipt,
+    bytes, hex, ConfiguredRpc, Exchange, HttpsExchange, RpcFault, SequencerEndpoint,
 };
 use layerx_gas_station::service::{serve, Limits, Service};
 use layerx_gas_station::signer::{LocalSigner, QuoteSigner};
-use layerx_gas_station::station::{GasStation, StationError};
+use layerx_gas_station::station::GasStation;
 use layerx_gas_station::tx::{
-    authorization_digest, batch_digest, encode_sponsored, recover, Authorization, Call,
+    authorization_digest, batch_digest, encode_sponsored, Authorization, Call,
 };
 use layerx_gas_station::SignedQuote;
 use serde_json::{json, Value};
@@ -206,7 +203,8 @@ fn sequencer_endpoint_rules() -> Value {
     let finalized = json!({"blockHash": "$finalized_block", "requireCanonical": true});
     let reverted =
         serde_json::from_str::<Value>(include_str!("../fixtures/producer_22_33_71.json"))
-            .expect("committed producer recording")["service"]["receipt"]
+            .unwrap_or_else(|error| panic!("committed producer recording: {error:?}"))["service"]
+            ["receipt"]
             .clone();
     let executed = |rung: &str, status: &str, sponsor: Value| {
         json!({"rung": rung, "txHash": "$hash", "seq": "0x2a", "height": "0x11", "index": "0x0",
@@ -256,7 +254,7 @@ fn sequencer_endpoint_rules() -> Value {
         "rate_age_120": rate("0x0000000000000000000000000000000000000000000000000000000000000370"),
     });
     for nonce in 2..=4 {
-        rules["*"].as_array_mut().expect("recorded RPC rules").push(json!({
+        rules["*"].as_array_mut().unwrap_or_else(|| panic!("recorded RPC rules")).push(json!({
             "method": "eth_call",
             "params": [{"to": "$account", "data": format!("$consumed_call_{nonce}")}, finalized],
             "result": "$zero",

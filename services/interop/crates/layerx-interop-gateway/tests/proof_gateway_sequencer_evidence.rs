@@ -1,14 +1,14 @@
-//! Proves: SequencerEvidence, SettlementRung, canonical_receipt_digest, GatewayError::ReceiptPending -> public Rust settlement and error-emission bytes -> GatewayCore::settle_with_sequencer_evidence, ExternalState::settlement_error_response, redaction::decode.
+//! Proves: `SequencerEvidence`, `SettlementRung`, `canonical_receipt_digest`, `GatewayError::ReceiptPending` -> public Rust settlement and error-emission bytes -> `GatewayCore::settle_with_sequencer_evidence`, `ExternalState::settlement_error_response`, `redaction::decode`.
 //!
 //! Receipts and logs are unchanged outputs of the real producer recorded by
-//! rpc/sequencer_receipt_vectors_test.go, not locally assembled signed messages.
+//! `rpc/sequencer_receipt_vectors_test.go`, not locally assembled signed messages.
 //! The evidence surface has no persistence or reopen operation: each observation
 //! calls the real consumers again, including malformed evidence after settlement.
 //!
-//! Repairs src/evidence.rs::canonical_receipt_digest accepting a malformed receipt
+//! Repairs `src/evidence.rs::canonical_receipt_digest` accepting a malformed receipt
 //! body with valid signature framing: canonical decoding must precede hashing.
 //!
-//! The recorded PaymentExact reference is checked against the real transaction's
+//! The recorded `PaymentExact` reference is checked against the real transaction's
 //! calldata, and evidence for that reference cannot settle another translation.
 
 use layerx_interop_gateway::adapter::{
@@ -45,7 +45,7 @@ fn bytes(value: &Value) -> Vec<u8> {
     let hex = value
         .as_str()
         .and_then(|text| text.strip_prefix("0x"))
-        .unwrap_or_else(|| panic!("expected producer hex bytes: {value}"));
+        .or_panic(&format!("expected producer hex bytes: {value}"));
     assert_eq!(hex.len() % 2, 0);
     (0..hex.len())
         .step_by(2)
@@ -71,10 +71,10 @@ fn payment_case() -> Value {
     );
     document["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing producer cases"))
+        .or_panic("missing producer cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("missing real payExact output"))
+        .or_panic("missing real payExact output")
         .clone()
 }
 
@@ -84,12 +84,12 @@ fn evidence(case: &Value) -> SequencerEvidence {
     assert_eq!(bytes(&response["receipt"]), bytes(&case["signedReceipt"]));
     let logs = response["logs"]
         .as_array()
-        .unwrap_or_else(|| panic!("producer logs missing"))
+        .or_panic("producer logs missing")
         .iter()
         .map(|log| {
             let topics = log["topics"]
                 .as_array()
-                .unwrap_or_else(|| panic!("producer topics missing"))
+                .or_panic("producer topics missing")
                 .iter()
                 .map(array)
                 .collect();
@@ -97,7 +97,7 @@ fn evidence(case: &Value) -> SequencerEvidence {
                 .as_str()
                 .and_then(|text| text.strip_prefix("0x"))
                 .and_then(|text| u64::from_str_radix(text, 16).ok())
-                .unwrap_or_else(|| panic!("producer log index missing"));
+                .or_panic("producer log index missing");
             SequencerLog::new(array(&log["address"]), topics, bytes(&log["data"]), index)
         })
         .collect();
@@ -114,12 +114,8 @@ fn keys(case: &Value) -> [SequencerAuthorization; 1] {
     [SequencerAuthorization::new(
         array(&pin["keyId"]),
         array(&pin["publicKey"]),
-        pin["firstHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("first height")),
-        pin["lastHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("last height")),
+        pin["firstHeight"].as_u64().or_panic("first height"),
+        pin["lastHeight"].as_u64().or_panic("last height"),
     )]
 }
 
@@ -189,26 +185,22 @@ fn Vec() {
                 &evidence.signed_receipt,
                 ReceiptKeys::HeightRanges(&keys),
             )
-            .unwrap_or_else(|error| panic!("real signature consumer: {error:?}"));
-            assert_eq!(
-                encode(&receipt).unwrap_or_else(|error| panic!("encode: {error:?}")),
-                evidence.signed_receipt
-            );
+            .or_panic("real signature consumer");
+            assert_eq!(encode(&receipt).or_panic("encode"), evidence.signed_receipt);
             assert_eq!(
                 receipt
                     .protocol()
-                    .unwrap_or_else(|| panic!("protocol receipt"))
+                    .or_panic("protocol receipt")
                     .activity_id(),
                 evidence.transaction_hash
             );
-            let verified_logs = verify_logs(&receipt, evidence.logs.clone())
-                .unwrap_or_else(|error| panic!("real log consumer: {error:?}"));
+            let verified_logs =
+                verify_logs(&receipt, evidence.logs.clone()).or_panic("real log consumer");
             assert_eq!(verified_logs.logs(), evidence.logs);
             assert_eq!(verified_logs.summary().log_count(), 1);
-            let unsigned = encode_unsigned(&receipt)
-                .unwrap_or_else(|error| panic!("canonical unsigned producer: {error:?}"));
+            let unsigned = encode_unsigned(&receipt).or_panic("canonical unsigned producer");
             assert_eq!(
-                receipt_digest(&unsigned).unwrap_or_else(|error| panic!("wire digest: {error:?}")),
+                receipt_digest(&unsigned).or_panic("wire digest"),
                 expected_digest
             );
             assert_eq!(
@@ -225,26 +217,15 @@ fn Vec() {
                     receipt_digest: expected_digest
                 })
             );
-            let audit = core
-                .principal_audit(&principal)
-                .unwrap_or_else(|| panic!("missing real audit"));
-            assert_eq!(
-                audit.entries().len(),
-                2,
-                "re-observation must not duplicate completion"
-            );
-            assert_eq!(
-                audit.entries()[1].kind(),
-                AuditEventKind::TranslationCompleted
-            );
-            assert_eq!(audit.entries()[1].subject(), expected_digest);
+            assert_completed_audit(&core, &principal, expected_digest);
         }
         let settled = format!("{core:?}");
         let mut malformed = evidence.clone();
         malformed.signed_receipt.truncate(10);
         let error = core
             .settle_with_sequencer_evidence(&principal, key, &malformed, &keys, &trace, 5)
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(
             error.error(),
             &SequencerSettlementError::Gateway(rejected(ReceiptCheck::Decode))
@@ -254,11 +235,12 @@ fn Vec() {
         let signature_byte = tampered
             .signed_receipt
             .last_mut()
-            .unwrap_or_else(|| panic!("missing producer signature"));
+            .or_panic("missing producer signature");
         *signature_byte ^= 1;
         let error = core
             .settle_with_sequencer_evidence(&principal, key, &tampered, &keys, &trace, 6)
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(
             error.error(),
             &SequencerSettlementError::Gateway(rejected(ReceiptCheck::SequencerSignature))
@@ -269,6 +251,22 @@ fn Vec() {
             "refusals must preserve settled state"
         );
     }
+}
+
+fn assert_completed_audit(core: &GatewayCore, principal: &PrincipalId, digest: [u8; 32]) {
+    let audit = core
+        .principal_audit(principal)
+        .or_panic("missing real audit");
+    assert_eq!(
+        audit.entries().len(),
+        2,
+        "re-observation must not duplicate completion"
+    );
+    assert_eq!(
+        audit.entries()[1].kind(),
+        AuditEventKind::TranslationCompleted
+    );
+    assert_eq!(audit.entries()[1].subject(), digest);
 }
 
 #[test]
@@ -285,7 +283,8 @@ fn submitted_result_reaches_the_error_response_consumer_twice_without_writes() {
     for now in [3, 4] {
         let error = core
             .settle_with_sequencer_evidence(&principal, key, &evidence, &[], &trace, now)
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(error.trace(), &trace);
         let SequencerSettlementError::Gateway(pending) = *error.error() else {
             panic!("submitted evidence did not return a gateway error");
@@ -302,12 +301,12 @@ fn submitted_result_reaches_the_error_response_consumer_twice_without_writes() {
         let emission =
             redaction::decode(&wire).unwrap_or_else(|error| panic!("real error consumer: {error}"));
         assert_eq!(emission.schema().name, ERROR_RESPONSE_SCHEMA);
-        let [FieldValue::Label(code), FieldValue::Label(retriability), FieldValue::Trace(observed)] =
+        let [FieldValue::Label(error_code), FieldValue::Label(retriability), FieldValue::Trace(observed)] =
             emission.values()
         else {
             panic!("error response shape changed");
         };
-        assert_eq!(code.as_str(), "receipt-pending");
+        assert_eq!(error_code.as_str(), "receipt-pending");
         assert_eq!(retriability.as_str(), "retriable");
         assert_eq!(observed, &trace);
         wire.push(0);
@@ -356,10 +355,8 @@ fn canonical_digest_refuses_malformed_bodies_even_with_a_valid_signature_trailer
             canonical_receipt_digest(trailer_only),
             Err(rejected(ReceiptCheck::Decode))
         );
-        let decoded = decode(&evidence.signed_receipt)
-            .unwrap_or_else(|error| panic!("real producer receipt: {error:?}"));
-        let unsigned = encode_unsigned(&decoded)
-            .unwrap_or_else(|error| panic!("real unsigned producer: {error:?}"));
+        let decoded = decode(&evidence.signed_receipt).or_panic("real producer receipt");
+        let unsigned = encode_unsigned(&decoded).or_panic("real unsigned producer");
         assert_eq!(
             canonical_receipt_digest(&unsigned),
             Err(rejected(ReceiptCheck::MissingSignature))
@@ -405,10 +402,26 @@ fn producer_reference_is_indexed_and_a_different_translation_is_refused() {
                 &trace,
                 now,
             )
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(error.error(), &SequencerSettlementError::PaymentUnmatched);
         assert_eq!(format!("{core:?}"), before);
     }
+}
+
+fn assert_authenticated_receipt(original: &SequencerEvidence, keys: &[SequencerAuthorization]) {
+    let receipt =
+        verify_sequencer_signature(&original.signed_receipt, ReceiptKeys::HeightRanges(keys))
+            .or_panic("real signature consumer");
+    assert_eq!(
+        receipt
+            .protocol()
+            .or_panic("protocol receipt")
+            .activity_id(),
+        original.transaction_hash
+    );
+    let verified = verify_logs(&receipt, original.logs.clone()).or_panic("real log consumer");
+    assert_eq!(verified.logs(), original.logs);
 }
 
 #[test]
@@ -416,19 +429,7 @@ fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
     let case = payment_case();
     let original = evidence(&case);
     let keys = keys(&case);
-    let receipt =
-        verify_sequencer_signature(&original.signed_receipt, ReceiptKeys::HeightRanges(&keys))
-            .unwrap_or_else(|error| panic!("real signature consumer: {error:?}"));
-    assert_eq!(
-        receipt
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt"))
-            .activity_id(),
-        original.transaction_hash
-    );
-    let verified = verify_logs(&receipt, original.logs.clone())
-        .unwrap_or_else(|error| panic!("real log consumer: {error:?}"));
-    assert_eq!(verified.logs(), original.logs);
+    assert_authenticated_receipt(&original, &keys);
     let key = original.logs[0].topics()[1];
     let expected_digest = array(&case["receiptDigest"]);
 
@@ -454,12 +455,18 @@ fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
         let before = format!("{core:?}");
         let audit_before = core
             .principal_audit(&principal)
-            .unwrap_or_else(|| panic!("missing pending audit"))
+            .or_panic("missing pending audit")
             .export();
         for now in [3, 4] {
             let error = core
                 .settle_with_sequencer_evidence(&principal, key, &changed, &keys, &trace, now)
-                .expect_err("transport transaction hash must match the authenticated activity id");
+                .err()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{}",
+                        "transport transaction hash must match the authenticated activity id"
+                    )
+                });
             assert_eq!(
                 error.error(),
                 &SequencerSettlementError::Gateway(rejected(ReceiptCheck::ActivityId))
@@ -471,7 +478,7 @@ fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
             );
             let audit = core
                 .principal_audit(&principal)
-                .unwrap_or_else(|| panic!("missing audit after refusal"));
+                .or_panic("missing audit after refusal");
             assert_eq!(audit.export(), audit_before);
             assert!(audit
                 .entries()
@@ -481,7 +488,13 @@ fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
 
             let error = core
                 .settle_with_sequencer_evidence(&absent, key, &changed, &keys, &trace, now)
-                .expect_err("identity mismatch must be refused before creating principal state");
+                .err()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{}",
+                        "identity mismatch must be refused before creating principal state"
+                    )
+                });
             assert_eq!(
                 error.error(),
                 &SequencerSettlementError::Gateway(rejected(ReceiptCheck::ActivityId))
@@ -501,11 +514,33 @@ fn changed_transaction_hash_is_refused_without_state_or_audit_writes() {
         );
         let audit = core
             .principal_audit(&principal)
-            .unwrap_or_else(|| panic!("missing completion audit"));
+            .or_panic("missing completion audit");
         assert_eq!(audit.entries().len(), audit_before.len() + 1);
         let completion = &audit.entries()[audit_before.len()];
         assert_eq!(completion.kind(), AuditEventKind::TranslationCompleted);
         assert_eq!(completion.subject(), expected_digest);
         assert_eq!(completion.trace(), &trace);
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

@@ -1058,6 +1058,7 @@ impl AttestorSigner {
             session: approval.session_id,
             result: Mutex::new(None),
         };
+        // Bind the disclosed EIP-1559 call to the attestor transaction signer.
         let mut future = signer::sign_disclosed_call(&transaction_signer, call, disclosure, from);
         let mut context = std::task::Context::from_waker(std::task::Waker::noop());
         let signature = match future.as_mut().poll(&mut context) {

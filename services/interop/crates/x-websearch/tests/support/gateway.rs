@@ -210,3 +210,28 @@ impl Drop for Gateway {
         }
     }
 }
+
+#[test]
+fn gateway_records_rpc_parameters() -> std::io::Result<()> {
+    let gateway = Gateway::start_with_chain_id(None)?;
+    let mut stream = TcpStream::connect(gateway.address)?;
+    let body = json!({"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}).to_string();
+    write!(
+        stream,
+        "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )?;
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response)?;
+    assert!(response.starts_with(b"HTTP/1.1 200 OK"));
+    assert_eq!(gateway.params("eth_chainId"), vec![json!([])]);
+    assert_eq!(
+        gateway
+            .calls
+            .lock()
+            .map_err(|_| std::io::Error::other("gateway call state"))?
+            .len(),
+        1
+    );
+    Ok(())
+}

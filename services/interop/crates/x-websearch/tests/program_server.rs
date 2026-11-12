@@ -139,7 +139,7 @@ fn a_peer_reads_the_attestation_of_an_evm_program_request() -> Checked {
     for request in [&request, &other_program, &other_request] {
         let answer = attestor.attest(request)?;
         assert!(!answer.response.is_empty());
-        exchange.record(answer.clone());
+        exchange.record(answer.clone())?;
         let (status, record) = get(&server, &hex(&request.program_id), request.request_id)?;
         assert_eq!(status, 200);
         assert_eq!(
@@ -179,7 +179,7 @@ fn an_unknown_program_request_answers_not_found() -> Checked {
         get(&server, &hex(&request.program_id), request.request_id)?,
         (404, json!({"error": "not_found"}))
     );
-    exchange.record(attestor(&scratch)?.attest(&request)?);
+    exchange.record(attestor(&scratch)?.attest(&request)?)?;
     for (program, request_id) in [
         ([0xcd; 32], request.request_id),
         (request.program_id, request.request_id - 1),

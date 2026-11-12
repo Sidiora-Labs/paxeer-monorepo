@@ -202,6 +202,45 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	if !in.Complete || in.CutoffHeight != 200 || len(in.Candidates) != 3 {
 		t.Fatalf("universe: complete=%v height=%d candidates=%d", in.Complete, in.CutoffHeight, len(in.Candidates))
 	}
+	exec("UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=199 WHERE stream_id=$1", universeStream)
+	if _, err := frozen.Freeze(ctx, uuid.NewString(), cutoff); err == nil {
+		t.Fatal("unequal indexer watermarks accepted")
+	}
+	exec("UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=200 WHERE stream_id=$1", universeStream)
+	exec("UPDATE indexer.indexer_block_completeness SET fetch_complete=false WHERE stream_id=$1 AND height=200", universeStream)
+	if _, err := frozen.Freeze(ctx, uuid.NewString(), cutoff); err == nil {
+		t.Fatal("incomplete cutoff block accepted")
+	}
+	exec("UPDATE indexer.indexer_block_completeness SET fetch_complete=true WHERE stream_id=$1 AND height=200", universeStream)
+	exec("UPDATE indexer.indexer_ingest_leases SET expires_at=clock_timestamp()-interval '1 second' WHERE stream_id=$1", universeStream)
+	if _, err := frozen.Freeze(ctx, uuid.NewString(), cutoff); err == nil {
+		t.Fatal("expired indexer lease accepted")
+	}
+	exec("UPDATE indexer.indexer_ingest_leases SET expires_at=clock_timestamp()+interval '1 minute' WHERE stream_id=$1", universeStream)
+	reader.Visibility = newFixtureVisibility(t, cutoff.Add(-time.Second), map[string]bool{poolA: true})
+	if _, err := frozen.Freeze(ctx, uuid.NewString(), cutoff); err == nil {
+		t.Fatal("incomplete moderation universe accepted")
+	}
+	reader.Visibility = visibility
+	marshaled, err := reader.MarshalUniverse(ctx, pool, runID, cutoff)
+	if err != nil {
+		t.Fatalf("marshal universe: %v", err)
+	}
+	var encoded ranker.InputSnapshot
+	if err := json.Unmarshal(marshaled, &encoded); err != nil || encoded.RunID != in.RunID || encoded.CutoffHeight != in.CutoffHeight || len(encoded.Candidates) != len(in.Candidates) {
+		t.Fatalf("marshaled universe identity: %+v, %v", encoded, err)
+	}
+	plan, err := reader.ExplainUniverse(ctx, pool, in.CutoffHeight, cutoff)
+	if err != nil || !json.Valid(plan) || len(plan) == 0 {
+		t.Fatalf("universe query plan: %v", err)
+	}
+	if _, err := reader.ExplainUniverse(ctx, pool, 0, cutoff); err == nil {
+		t.Fatal("unbounded universe query accepted")
+	}
+	revision, observedAt, err := visibility.CurrentRankingRevision(ctx)
+	if err != nil || len(revision) != 64 || !observedAt.Equal(cutoff.Add(-time.Second)) {
+		t.Fatalf("visibility revision = %q, %v, %v", revision, observedAt, err)
+	}
 	a := in.Candidates[0]
 	if a.Pool.PoolAddress != poolA || a.Pool.Volume24h != "630.000000" || a.Pool.Volume1h != "630.000000" || a.Pool.Volume5m != "130.000000" || a.Pool.BuyCount24h != 1 || a.Pool.SellCount24h != 1 || a.Pool.UniqueTraders24h != 1 || a.Pool.HolderCount != 2 {
 		t.Fatalf("pool A window features: %+v", a.Pool)
@@ -224,9 +263,31 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := NewPublicationStore(pool, "ranking", nil); err == nil {
+		t.Fatal("publication without an epoch guard accepted")
+	}
 	publication, err := NewPublicationStore(pool, "ranking", guard)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if err := publication.Complete(ctx, nil); err == nil {
+		t.Fatal("incomplete category set accepted")
+	}
+	if _, err := publication.CommitStreamOnce(ctx, nil, 10); err == nil {
+		t.Fatal("stream commit without a writer accepted")
+	}
+	if _, err := publication.DispatchOnce(ctx, nil, "market.rankings", 10); err == nil {
+		t.Fatal("broker dispatch without a publisher accepted")
+	}
+	if _, err := publication.Prune(ctx, time.Time{}, 1); err == nil {
+		t.Fatal("pruning without a cutoff accepted")
+	}
+	trendingOnly, err := ranker.BuildSnapshot(in, "trending", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := publication.Complete(ctx, []ranker.Snapshot{trendingOnly}); err == nil {
+		t.Fatal("trending-only completion accepted")
 	}
 	coordinator, err := ranker.NewCoordinator(frozen, publication)
 	if err != nil {
@@ -235,6 +296,11 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	heavy, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, false)
 	if err != nil || len(heavy) != len(ranker.HeavyCategoryNames()) {
 		t.Fatalf("heavy run: %v", err)
+	}
+	duplicate := append([]ranker.Snapshot(nil), heavy...)
+	duplicate[0] = duplicate[1]
+	if err := publication.Complete(ctx, duplicate); err == nil {
+		t.Fatal("duplicate category completion accepted")
 	}
 	assertHeavyMembership(t, heavy)
 	newest, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, true)
@@ -266,6 +332,59 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 				t.Fatalf("%s rank %d = %s, want %s", category, i+1, page.Items[i].Address, address)
 			}
 		}
+	}
+	rdb := internaltest.NewRedis(t)
+	cache, err := NewSnapshotCache(rdb, "ranking-universe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cache.Rebuild(ctx, publication.SnapshotStore, "trending"); err != nil {
+		t.Fatalf("rebuild ranking cache: %v", err)
+	}
+	trendingHead, err := publication.Current(ctx, "trending")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromCache, err := cache.Get(ctx, trendingHead, 0, 100)
+	if err != nil || len(fromCache.Items) != 1 || fromCache.Items[0].Address != poolA {
+		t.Fatalf("rebuilt trending cache: %+v, %v", fromCache, err)
+	}
+	newHead, err := publication.Current(ctx, "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPage, err := publication.Page(ctx, newHead, 0, 100)
+	if err != nil || len(newPage.Items) != 2 {
+		t.Fatalf("new ranking page: %+v, %v", newPage, err)
+	}
+	reference := ranker.PageReference{RunID: newHead.RunID, Category: newHead.Category, InputDigest: newHead.InputDigest, OutputDigest: newHead.OutputDigest, Offset: 1, LastScore: newPage.Items[0].Score, LastAddress: newPage.Items[0].Address, Expires: newHead.CutoffTime + 900}
+	if err := publication.ValidateBoundary(ctx, newHead, reference); err != nil {
+		t.Fatalf("committed page boundary: %v", err)
+	}
+	reference.LastAddress = poolC
+	if err := publication.ValidateBoundary(ctx, newHead, reference); err == nil {
+		t.Fatal("changed page boundary accepted")
+	}
+	reference.LastAddress = newPage.Items[0].Address
+	canceled, stop := context.WithCancel(ctx)
+	stop()
+	if _, err := publication.Header(canceled, newHead.RunID, "new"); err == nil {
+		t.Fatal("canceled header read accepted")
+	}
+	if _, err := publication.Page(canceled, trendingHead, 0, 100); err == nil {
+		t.Fatal("canceled page read accepted")
+	}
+	if err := publication.ValidateBoundary(canceled, newHead, reference); err == nil {
+		t.Fatal("canceled boundary read accepted")
+	}
+	if _, err := publication.PublicationHealth(canceled, cutoff, 10); err == nil {
+		t.Fatal("canceled publication health read accepted")
+	}
+	if _, err := publication.Prune(canceled, cutoff.Add(time.Hour), 1); err == nil {
+		t.Fatal("canceled snapshot pruning accepted")
+	}
+	if _, err := publication.CommitStreamOnce(canceled, delivery.StreamWriter{Schema: "api_stream"}, 10); err == nil {
+		t.Fatal("canceled stream commit accepted")
 	}
 	// Trending's top 50 are excluded from movers by policy; the only eligible
 	// pool is trending's leader, so movers is a complete empty ranking.
@@ -328,6 +447,16 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	health, err := publication.PublicationHealth(ctx, cutoff, 10)
 	if err != nil || health.Pending != 0 || health.Exhausted != 0 {
 		t.Fatalf("publication health: %+v %v", health, err)
+	}
+	staleHealth, err := publication.PublicationHealth(ctx, cutoff.Add(10*time.Minute), 10)
+	if err != nil || staleHealth.AllHeavyStaleSince == nil || !staleHealth.AllHeavyStaleForFiveMinutes {
+		t.Fatalf("stale category health: %+v %v", staleHealth, err)
+	}
+	if _, err := publication.PublicationHealth(ctx, cutoff.Add(-time.Second), 10); err == nil {
+		t.Fatal("future category cutoff accepted")
+	}
+	if _, err := publication.PublicationHealth(ctx, cutoff, 0); err == nil {
+		t.Fatal("unbounded publication health accepted")
 	}
 	// A forged frame (entries that are not the committed snapshot) is refused
 	// by the api_stream function itself.

@@ -440,6 +440,7 @@ fn new_publisher(ethereum: &Ethereum, solana: &Solana) -> GenericPublisher<Ether
     .unwrap_or_else(|error| panic!("publisher construction failed: {error:?}"))
 }
 
+#[test]
 pub(crate) fn assert_committed_publication_on_both_test_networks() {
     let archive = build_archive(4, sealed_head(4));
     assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());

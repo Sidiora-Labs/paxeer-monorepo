@@ -48,7 +48,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
                 } else {
                     prefix - 0xf7
                 });
-                let length = input[1..1 + width]
+                let length = input[1..=width]
                     .iter()
                     .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                 (1 + width, length)
@@ -75,7 +75,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     std::array::from_fn(|index| {
         calldata[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .or_panic("expected Ok value")
     })
 }
 
@@ -84,21 +84,19 @@ fn recorded_case() -> Value {
         serde_json::from_str(FIXTURE).unwrap_or_else(|error| panic!("recorded fixture: {error}"));
     fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("fixture cases"))
+        .or_panic("fixture cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("recorded PaymentExact case"))
+        .or_panic("recorded PaymentExact case")
         .clone()
 }
 
 fn text(value: &Value) -> &str {
-    value.as_str().unwrap_or_else(|| panic!("fixture string"))
+    value.as_str().or_panic("fixture string")
 }
 
 fn bytes(value: &str) -> Vec<u8> {
-    let digits = value
-        .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("hex prefix"));
+    let digits = value.strip_prefix("0x").or_panic("hex prefix");
     assert_eq!(digits.len() % 2, 0);
     (0..digits.len())
         .step_by(2)
@@ -121,14 +119,14 @@ fn recorded_evidence(case: &Value) -> SequencerEvidence {
         signed_receipt: bytes(text(&case["signedReceipt"])),
         logs: case["receiptJson"]["logs"]
             .as_array()
-            .unwrap_or_else(|| panic!("logs"))
+            .or_panic("logs")
             .iter()
             .map(|log| {
                 SequencerLog::new(
                     array(text(&log["address"])),
                     log["topics"]
                         .as_array()
-                        .unwrap_or_else(|| panic!("topics"))
+                        .or_panic("topics")
                         .iter()
                         .map(|topic| array(text(topic)))
                         .collect(),
@@ -147,22 +145,16 @@ fn receipt_keys(case: &Value) -> Vec<SequencerAuthorization> {
     vec![SequencerAuthorization::new(
         array(text(&key["keyId"])),
         array(text(&key["publicKey"])),
-        key["firstHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("first height")),
-        key["lastHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("last height")),
+        key["firstHeight"].as_u64().or_panic("first height"),
+        key["lastHeight"].as_u64().or_panic("last height"),
     )]
 }
 
 fn request(transaction: &str) -> FacilitatorRequest {
     let account = "agent:did:layerx:payee:main";
-    let pay_to = account_identifiers(account).unwrap_or_else(|error| panic!("merchant: {error}"))
-        [1]
-    .iter()
-    .map(|byte| format!("{byte:02x}"))
-    .collect::<String>();
+    let pay_to = hex_lower(
+        &account_identifiers(account).unwrap_or_else(|error| panic!("merchant: {error}"))[1],
+    );
     let requirements = PaymentRequirements {
         scheme: "exact".to_owned(),
         network: "eip155:125".to_owned(),
@@ -234,54 +226,13 @@ fn facilitator_settles_receipted_evidence() {
     let request = request(transaction);
     let mut evidence = recorded_evidence(&case);
     let recorded_keys = receipt_keys(&case);
-    let recorded_receipt =
-        verify_sequencer_signature(&evidence.signed_receipt, recorded_keys.as_slice())
-            .unwrap_or_else(|error| panic!("recorded signature: {error:?}"));
-    assert!(verify_logs(&recorded_receipt, evidence.logs.clone()).is_ok());
-    assert_eq!(
-        canonical_receipt_digest(&evidence.signed_receipt),
-        Ok(array(text(&case["receiptDigest"])))
-    );
-
+    assert_recorded_receipt(&case, &evidence, &recorded_keys);
     let (facilitator, mut gateway, principal, trace) = context();
     let stable = [0x42; 32];
-    let identity = SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single)
-        .unwrap_or_else(|error| panic!("identity: {error}"));
+    let identity = receipt_identity(&principal, &request, stable);
 
-    // Preserve the recorded txHash, amount and asset. Sign the payment for
-    // this request's account profile and derived settlement identity, which
-    // differ from the standalone conformance vector's payee and payment key.
-    let log = &evidence.logs[0];
-    let mut topics = log.topics().to_vec();
-    let payee = array(&format!("0x{}", request.payment_requirements.pay_to));
-    let recorded_topics = topics.concat();
-    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
-    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
-    topics[1] = identity.idempotency_key;
-    topics[3] = payee;
-    replace(
-        &mut evidence.signed_receipt,
-        &recorded_topics,
-        &topics.concat(),
-    );
-    evidence.logs = vec![SequencerLog::new(
-        log.address(),
-        topics,
-        log.data().to_vec(),
-        log.log_index(),
-    )];
-    let signer = SigningKey::from_bytes(&[0x72; 32]);
-    let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
-        .unwrap_or_else(|error| panic!("receipt digest: {error}"));
-    let signature_start = evidence.signed_receipt.len() - 64;
-    evidence.signed_receipt[signature_start..]
-        .copy_from_slice(&signer.sign(&receipt_digest).to_bytes());
-    let keys = vec![SequencerAuthorization::new(
-        array(text(&case["pinnedKey"]["keyId"])),
-        signer.verifying_key().to_bytes(),
-        1000,
-        1999,
-    )];
+    let (words, payee, signer, receipt_digest, signature_start, keys) =
+        bind_receipted_payment(&mut evidence, &case, &request, &identity);
     let mut plane = SequencerFacilitatorPlane::new(evidence.clone(), keys.clone());
     let response = facilitator
         .settle(
@@ -299,13 +250,7 @@ fn facilitator_settles_receipted_evidence() {
     assert_eq!(response.transaction, transaction);
     assert_eq!(
         response.payer.as_deref(),
-        Some(
-            words[0]
-                .iter()
-                .map(|byte| format!("{byte:02x}"))
-                .collect::<String>()
-                .as_str()
-        )
+        Some(hex_lower(&words[0]).as_str())
     );
     assert_eq!(response.amount, Some(request.payment_requirements.amount));
     assert_eq!(
@@ -353,7 +298,7 @@ fn facilitator_settles_receipted_evidence() {
         .unwrap_or_else(|error| panic!("legacy receipt digest: {error}"));
     legacy.signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
     let verified = verify_sequencer_signature(&legacy.signed_receipt, keys.as_slice())
-        .unwrap_or_else(|error| panic!("legacy signature: {error:?}"));
+        .or_panic("legacy signature");
     assert!(verify_logs(&verified, legacy.logs.clone()).is_ok());
     for (evidence, keys) in [
         (evidence.clone(), recorded_keys),
@@ -380,6 +325,81 @@ fn facilitator_settles_receipted_evidence() {
             Some(TranslationStatus::Pending)
         );
     }
+}
+
+type BoundReceipt = (
+    [[u8; 32]; 6],
+    [u8; 32],
+    SigningKey,
+    [u8; 32],
+    usize,
+    Vec<SequencerAuthorization>,
+);
+
+fn receipt_identity(
+    principal: &PrincipalId,
+    request: &FacilitatorRequest,
+    stable: [u8; 32],
+) -> SettlementIdentity {
+    SettlementIdentity::derive(principal, request, stable, SettlementStep::Single)
+        .unwrap_or_else(|error| panic!("identity: {error}"))
+}
+
+fn assert_recorded_receipt(
+    case: &Value,
+    evidence: &SequencerEvidence,
+    recorded_keys: &[SequencerAuthorization],
+) {
+    let recorded_receipt = verify_sequencer_signature(&evidence.signed_receipt, recorded_keys)
+        .or_panic("recorded signature");
+    assert!(verify_logs(&recorded_receipt, evidence.logs.clone()).is_ok());
+    assert_eq!(
+        canonical_receipt_digest(&evidence.signed_receipt),
+        Ok(array(text(&case["receiptDigest"])))
+    );
+}
+
+fn bind_receipted_payment(
+    evidence: &mut SequencerEvidence,
+    case: &Value,
+    request: &FacilitatorRequest,
+    identity: &SettlementIdentity,
+) -> BoundReceipt {
+    // Preserve the recorded txHash, amount and asset. Sign the payment for
+    // this request's account profile and derived settlement identity, which
+    // differ from the standalone conformance vector's payee and payment key.
+    let log = &evidence.logs[0];
+    let mut topics = log.topics().to_vec();
+    let payee = array(&format!("0x{}", request.payment_requirements.pay_to));
+    let recorded_topics = topics.concat();
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+    topics[1] = identity.idempotency_key;
+    topics[3] = payee;
+    replace(
+        &mut evidence.signed_receipt,
+        &recorded_topics,
+        &topics.concat(),
+    );
+    evidence.logs = vec![SequencerLog::new(
+        log.address(),
+        topics,
+        log.data().to_vec(),
+        log.log_index(),
+    )];
+    let signer = SigningKey::from_bytes(&[0x72; 32]);
+    let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
+        .unwrap_or_else(|error| panic!("receipt digest: {error}"));
+    let signature_start = evidence.signed_receipt.len() - 64;
+    evidence.signed_receipt[signature_start..]
+        .copy_from_slice(&signer.sign(&receipt_digest).to_bytes());
+    let keys = vec![SequencerAuthorization::new(
+        array(text(&case["pinnedKey"]["keyId"])),
+        signer.verifying_key().to_bytes(),
+        1000,
+        1999,
+    )];
+    (words, payee, signer, receipt_digest, signature_start, keys)
 }
 
 #[test]
@@ -453,31 +473,29 @@ fn facilitator_pending_reports_the_relayed_hash() {
 fn committed_string<'a>(value: &'a Value, field: &str) -> &'a str {
     value[field]
         .as_str()
-        .unwrap_or_else(|| panic!("missing string {field}"))
+        .or_panic(&format!("missing string {field}"))
 }
 
 fn committed_number(value: &Value, field: &str) -> u64 {
     value[field]
         .as_u64()
-        .unwrap_or_else(|| panic!("missing unsigned number {field}"))
+        .or_panic(&format!("missing unsigned number {field}"))
 }
 
 fn committed_signed(value: &Value, field: &str) -> i64 {
     value[field]
         .as_i64()
-        .unwrap_or_else(|| panic!("missing signed number {field}"))
+        .or_panic(&format!("missing signed number {field}"))
 }
 
 fn committed_array<'a>(value: &'a Value, field: &str) -> &'a [Value] {
     value[field]
         .as_array()
-        .unwrap_or_else(|| panic!("missing array {field}"))
+        .or_panic(&format!("missing array {field}"))
 }
 
 fn committed_hex_bytes(hex: &str) -> Vec<u8> {
-    let hex = hex
-        .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("missing hex prefix"));
+    let hex = hex.strip_prefix("0x").or_panic("missing hex prefix");
     assert!(hex.is_ascii());
     assert_eq!(hex.len() % 2, 0);
     (0..hex.len())
@@ -587,9 +605,9 @@ fn committed_proof(case: &Value) -> CommittedProof {
         batch_aunts: committed_array(batch, "aunts")
             .iter()
             .map(|aunt| {
-                committed_hex_bytes(aunt.as_str().unwrap())
+                committed_hex_bytes(aunt.as_str().or_panic("expected Some value"))
                     .try_into()
-                    .unwrap()
+                    .or_panic("expected Ok value")
             })
             .collect(),
         signed_receipt: committed_bytes(case, "signedReceipt"),
@@ -606,11 +624,11 @@ fn facilitator_reports_committed_only_with_a_proof() {
     let case = committed_array(&vectors, "cases")
         .iter()
         .find(|case| case["id"] == "committed-payExact")
-        .unwrap_or_else(|| panic!("recorded committed payment"));
+        .or_panic("recorded committed payment");
     let recording: Value = serde_json::from_str(include_str!(
         "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
     ))
-    .unwrap();
+    .or_panic("expected Ok value");
     assert_eq!(case["signedReceipt"], recording["positive"]["receipt"]);
     let mut proof = committed_proof(case);
     let validators: Vec<_> = committed_array(case, "validators")
@@ -624,7 +642,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
     let mut evidence = recorded_evidence(case);
     let recorded_keys = receipt_keys(case);
     let verified = verify_sequencer_signature(&evidence.signed_receipt, recorded_keys.as_slice())
-        .unwrap_or_else(|error| panic!("recorded signature: {error:?}"));
+        .or_panic("recorded signature");
     assert!(verify_logs(&verified, evidence.logs.clone()).is_ok());
     let recorded_digest = canonical_receipt_digest(&evidence.signed_receipt)
         .unwrap_or_else(|error| panic!("recorded digest: {error}"));
@@ -640,13 +658,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
     let transaction = text(&case["receiptJson"]["txHash"]);
     let mut request = request(transaction);
     let log = &evidence.logs[1];
-    request.payment_requirements.asset = format!(
-        "0x{}",
-        log.data()[..32]
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
+    request.payment_requirements.asset = format!("0x{}", hex_lower(&log.data()[..32]));
     request.payment_requirements.amount = AtomicAmount::from_u128(u128::from_be_bytes(
         log.data()[48..]
             .try_into()
@@ -691,6 +703,55 @@ fn facilitator_reports_committed_only_with_a_proof() {
         chain_id,
     };
 
+    let context = CommittedCase {
+        case,
+        commitment: &commitment,
+        evidence: &evidence,
+        keys: &keys,
+        request: &request,
+        identity: &identity,
+        stable,
+        block,
+        transaction,
+        digest,
+    };
+    assert_commitment_levels(&context);
+    assert_invalid_commitments(&context);
+}
+
+struct CommittedCase<'a> {
+    case: &'a Value,
+    commitment: &'a FacilitatorCommitment,
+    evidence: &'a SequencerEvidence,
+    keys: &'a Vec<SequencerAuthorization>,
+    request: &'a FacilitatorRequest,
+    identity: &'a SettlementIdentity,
+    stable: [u8; 32],
+    block: layerx_committed_proof::CommittedBlock,
+    transaction: &'a str,
+    digest: [u8; 32],
+}
+
+fn assert_commitment_levels(ctx: &CommittedCase<'_>) {
+    let CommittedCase {
+        commitment,
+        evidence,
+        keys,
+        request,
+        identity,
+        stable,
+        block,
+        transaction,
+        digest,
+        ..
+    } = ctx;
+    let commitment = (*commitment).clone();
+    let evidence = (*evidence).clone();
+    let keys = (*keys).clone();
+    let transaction = *transaction;
+    let stable = *stable;
+    let block = *block;
+    let digest = *digest;
     for supplied in [None, Some(commitment.clone())] {
         let (facilitator, mut gateway, principal, trace) = context();
         let has_proof = supplied.is_some();
@@ -706,7 +767,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
             .settle(
                 &mut gateway,
                 &principal,
-                &request,
+                request,
                 stable,
                 SettlementStep::Single,
                 &mut plane,
@@ -731,7 +792,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
             assert_eq!(layerx["verificationLevel"], "receipted");
             assert!(layerx.get("blockNumber").is_none());
             assert!(layerx.get("blockHash").is_none());
-            let wire = serde_json::to_value(&response).unwrap();
+            let wire = serde_json::to_value(&response).or_panic("expected Ok value");
             assert!(wire["extensions"]["layerx"].get("blockNumber").is_none());
             assert!(wire["extensions"]["layerx"].get("blockHash").is_none());
         }
@@ -743,7 +804,25 @@ fn facilitator_reports_committed_only_with_a_proof() {
             })
         );
     }
+}
 
+fn assert_invalid_commitments(ctx: &CommittedCase<'_>) {
+    let CommittedCase {
+        case,
+        commitment,
+        evidence,
+        keys,
+        request,
+        identity,
+        stable,
+        block,
+        ..
+    } = ctx;
+    let commitment = (*commitment).clone();
+    let evidence = (*evidence).clone();
+    let keys = (*keys).clone();
+    let stable = *stable;
+    let block = *block;
     let (facilitator, mut gateway, principal, trace) = context();
     let mut plane = SequencerFacilitatorPlane::new(evidence.clone(), keys.clone());
     assert_eq!(
@@ -751,7 +830,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
             .settle(
                 &mut gateway,
                 &principal,
-                &request,
+                request,
                 stable,
                 SettlementStep::Single,
                 &mut plane,
@@ -768,7 +847,7 @@ fn facilitator_reports_committed_only_with_a_proof() {
     bad_signature.proof.commit.signatures[0]
         .signature
         .as_mut()
-        .unwrap()[0] ^= 1;
+        .or_panic("expected Some value")[0] ^= 1;
     let mut unrelated_receipt = commitment.clone();
     unrelated_receipt.proof.signed_receipt = bytes(text(&case["signedReceipt"]));
     let mut wrong_chain = commitment.clone();
@@ -801,14 +880,15 @@ fn facilitator_reports_committed_only_with_a_proof() {
             .settle(
                 &mut gateway,
                 &principal,
-                &request,
+                request,
                 stable,
                 SettlementStep::Single,
                 &mut plane,
                 &trace,
                 1,
             )
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(error.into_error(), X402Error::EvidenceMismatch);
         assert_eq!(
             gateway.translation(&principal, identity.idempotency_key),
@@ -823,4 +903,36 @@ mod repair_path;
 #[test]
 fn facilitator_extensions_cross_transport_into_buyer_unchanged() {
     repair_path::facilitator_capture();
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

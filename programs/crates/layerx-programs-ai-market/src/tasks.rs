@@ -450,7 +450,7 @@ fn set_binding<'a>(
         state.section(Section::ReputationAdmission)?,
     )?)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch)
         .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?
         .row;
     let binding = SetBinding {
@@ -628,8 +628,13 @@ fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     )?;
     let admission = AdmissionTable::decode(table)?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
-    let row = crate::rewards::committed_row(state.section(Section::SettlementClaims)?, epoch)
-        .map_err(|e| if e == NOT_FOUND { WRONG_EPOCH } else { e })?;
+    let row = crate::rewards::committed_row(state.room_market()?.0, epoch).map_err(|e| {
+        if e == NOT_FOUND {
+            WRONG_EPOCH
+        } else {
+            e
+        }
+    })?;
     let binding = SetBinding {
         market: section.header.market_id,
         epoch,
