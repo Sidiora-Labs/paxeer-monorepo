@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 )
 
 type ReconcileWorker struct {
@@ -42,21 +43,21 @@ func (w *ReconcileWorker) Step(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if o.State == "ENDED" || o.State == "FAILED" || o.ProviderID == "" {
-		reason = "idle"
+	if o.State == stateEnded || o.State == stateFailed || o.ProviderID == "" {
+		reason = idleOutcome
 		return nil
 	}
 	allowed, err := w.Restrictions.Allowed(bounded, o.Wallet, o.Pool)
 	if err != nil {
 		return err
 	}
-	if !allowed && o.State != "SUSPENDED" {
+	if !allowed && o.State != stateSuspended {
 		o, err = w.Store.Suspend(bounded, id, SuspensionDecision{OperationID: id, Revision: o.Revision, Actor: "policy_reconciler", Reason: "active_restriction", Allowed: true, ExpiresAt: time.Now().Add(15 * time.Second)})
 		if err != nil {
 			return err
 		}
 	}
-	if o.State == "SUSPENDED" || o.Intent == "rotate" {
+	if o.State == stateSuspended || o.Intent == rotateAction {
 		if err = w.Provider.DeleteStream(bounded, o.ProviderID); err != nil {
 			var deleted *livepeer.ProviderError
 			if !errors.As(err, &deleted) || deleted.Status != 404 {
@@ -65,24 +66,24 @@ func (w *ReconcileWorker) Step(ctx context.Context, id string) error {
 			}
 		}
 	}
-	if o.State == "ENDING" && o.Intent != "rotate" {
+	if o.State == stateEnding && o.Intent != rotateAction {
 		if err = w.Store.ReconcileTermination(bounded, id, w.Provider); err != nil {
 			return err
 		}
 	}
 	remote, err := w.Provider.GetStream(bounded, o.ProviderID)
-	state := "READY"
+	state := stateReady
 	var providerError *livepeer.ProviderError
 	if err != nil {
-		if (o.State == "ENDING" || o.State == "SUSPENDED" || o.Intent == "rotate") && errors.As(err, &providerError) && providerError.Status == 404 {
-			state = "ENDED"
+		if (o.State == stateEnding || o.State == stateSuspended || o.Intent == rotateAction) && errors.As(err, &providerError) && providerError.Status == 404 {
+			state = stateEnded
 		} else {
 			return ErrUnavailable
 		}
 	} else if remote.IsActive {
-		state = "LIVE"
-	} else if o.State == "ENDING" {
-		state = "ENDED"
+		state = stateLive
+	} else if o.State == stateEnding {
+		state = stateEnded
 	}
 	now := time.Now().UTC()
 	if state != o.State {

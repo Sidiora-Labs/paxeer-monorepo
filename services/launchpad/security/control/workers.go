@@ -31,8 +31,8 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 	var obligation Obligation
 	claim := id()
 	var attempt payoutAttempt
-	err := w.store.run(ctx, credential, "settlement", scope, reason, func(t *transaction) error {
-		if err := t.get("settlement", k, &obligation); err != nil {
+	err := w.store.run(ctx, credential, controlSettlement, scope, reason, func(t *transaction) error {
+		if err := t.get(controlSettlement, k, &obligation); err != nil {
 			return err
 		}
 		if obligation.Scope != scope {
@@ -41,7 +41,7 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		if obligation.IdempotencyKey != k {
 			return Conflict
 		}
-		if obligation.State == "settled" {
+		if obligation.State == controlSettled {
 			return nil
 		}
 		if obligation.AuthorityReference != w.provider.AuthorityReference {
@@ -57,12 +57,12 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		attempt.Until = t.now.Add(15 * time.Second)
 		return t.put("payout_attempt", k, attempt)
 	})
-	if err != nil || obligation.State == "settled" {
+	if err != nil || obligation.State == controlSettled {
 		return obligation, err
 	}
 	result, providerErr := w.provider.Lookup(ctx, k)
-	if providerErr == nil && result.State == "absent" {
-		err = w.store.run(ctx, credential, "settlement", scope, reason, func(t *transaction) error {
+	if providerErr == nil && result.State == controlAbsent {
+		err = w.store.run(ctx, credential, controlSettlement, scope, reason, func(t *transaction) error {
 			var current payoutAttempt
 			if err := t.get("payout_attempt", k, &current); err != nil {
 				return err
@@ -71,7 +71,7 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 				return Conflict
 			}
 			current.Submitted = true
-			current.State = "unknown"
+			current.State = controlUnknown
 			return t.put("payout_attempt", k, current)
 		})
 		if err != nil {
@@ -79,10 +79,10 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		}
 		result, providerErr = w.provider.Submit(ctx, obligation)
 	}
-	if providerErr != nil || result.State == "absent" {
-		result = PayoutResult{State: "unknown"}
+	if providerErr != nil || result.State == controlAbsent {
+		result = PayoutResult{State: controlUnknown}
 	}
-	err = w.store.run(ctx, credential, "settlement", scope, reason, func(t *transaction) error {
+	err = w.store.run(ctx, credential, controlSettlement, scope, reason, func(t *transaction) error {
 		var current payoutAttempt
 		if err := t.get("payout_attempt", k, &current); err != nil {
 			return err
@@ -92,28 +92,28 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 		}
 		current.State = result.State
 		current.Reference = result.Reference
-		if providerErr == nil && (result.State == "pending" || result.State == "confirmed") {
+		if providerErr == nil && (result.State == controlPending || result.State == controlConfirmed) {
 			current.Accepted = true
 		}
 		current.Claim = ""
 		current.Until = time.Time{}
 		var o Obligation
-		if err := t.get("settlement", k, &o); err != nil {
+		if err := t.get(controlSettlement, k, &o); err != nil {
 			return err
 		}
 		if o.Scope != scope {
 			return Denied
 		}
-		if o.State != "settled" {
+		if o.State != controlSettled {
 			if o.Revision == ^uint64(0) {
 				return Conflict
 			}
-			o.State = "pending"
-			if result.State == "unknown" {
-				o.State = "unknown"
+			o.State = controlPending
+			if result.State == controlUnknown {
+				o.State = controlUnknown
 			}
 			o.Revision++
-			if err := t.put("settlement", k, o); err != nil {
+			if err := t.put(controlSettlement, k, o); err != nil {
 				return err
 			}
 		}
@@ -127,8 +127,8 @@ func (w *SettlementWorker) Process(ctx context.Context, credential, scope, k, re
 			return obligation, err
 		}
 	}
-	err = w.store.Read(ctx, credential, scope, reason, "settlement", k, &obligation)
-	if err == nil && (providerErr != nil || result.State == "unknown") {
+	err = w.store.Read(ctx, credential, scope, reason, controlSettlement, k, &obligation)
+	if err == nil && (providerErr != nil || result.State == controlUnknown) {
 		err = Unavailable
 	}
 	return obligation, err
@@ -155,7 +155,7 @@ func (w ReconciliationWorker) Run(ctx context.Context) error {
 	defer ticker.Stop()
 	for {
 		for _, asset := range w.Assets {
-			err := w.Store.Reconcile(ctx, w.Credential, "platform", "scheduled confirmed inventory reconciliation", asset)
+			err := w.Store.Reconcile(ctx, w.Credential, controlPlatform, "scheduled confirmed inventory reconciliation", asset)
 			w.Observe(asset.Key(), err)
 		}
 		select {
@@ -178,7 +178,7 @@ func (w IncidentWorker) Drain(ctx context.Context) error {
 	if w.Store == nil || w.Credential == "" || w.Observe == nil {
 		return Invalid
 	}
-	items, err := w.Store.claimWork(ctx, w.Credential, "incident", "incident")
+	items, err := w.Store.claimWork(ctx, w.Credential, controlIncident, controlIncident)
 	if err != nil {
 		return err
 	}
@@ -191,12 +191,12 @@ func (w IncidentWorker) Drain(ctx context.Context) error {
 		pending = append(pending, i)
 	}
 	for _, incident := range pending {
-		err = w.Store.run(ctx, w.Credential, "incident", incident.Scope, "revoke compromised identity credentials", func(t *transaction) error {
+		err = w.Store.run(ctx, w.Credential, controlIncident, incident.Scope, "revoke compromised identity credentials", func(t *transaction) error {
 			var outbox map[string]string
 			if err := t.get("incident_outbox", incident.ID, &outbox); err != nil {
 				return err
 			}
-			if outbox["state"] == "credentials_revoked" || outbox["state"] == "completed" {
+			if outbox[controlState] == "credentials_revoked" || outbox[controlState] == controlCompleted {
 				return nil
 			}
 			if outbox["identity"] != incident.ServiceIdentity {
@@ -205,7 +205,7 @@ func (w IncidentWorker) Drain(ctx context.Context) error {
 			if err := t.revokeIdentity(incident.ServiceIdentity); err != nil {
 				return err
 			}
-			outbox["state"] = "credentials_revoked"
+			outbox[controlState] = "credentials_revoked"
 			outbox["rotation"] = "credential-revocation:" + incident.ID
 			return t.put("incident_outbox", incident.ID, outbox)
 		})
@@ -225,7 +225,7 @@ func (w IncidentWorker) Drain(ctx context.Context) error {
 			w.Observe(incident.ID, revocationErr)
 			continue
 		}
-		err = w.Store.run(ctx, w.Credential, "incident", incident.Scope, "record verified secret revocation and cache invalidation", func(t *transaction) error {
+		err = w.Store.run(ctx, w.Credential, controlIncident, incident.Scope, "record verified secret revocation and cache invalidation", func(t *transaction) error {
 			var outbox map[string]string
 			if err := t.get("incident_outbox", incident.ID, &outbox); err != nil {
 				return err
@@ -233,7 +233,7 @@ func (w IncidentWorker) Drain(ctx context.Context) error {
 			if outbox["identity"] != ack.Identity {
 				return Conflict
 			}
-			outbox["state"] = "completed"
+			outbox[controlState] = controlCompleted
 			outbox["rotation"] = ack.Rotation
 			outbox["integrity"] = ack.Integrity
 			return t.put("incident_outbox", incident.ID, outbox)
@@ -264,7 +264,7 @@ func (w *SettlementWorker) Drain(ctx context.Context, credential string, observe
 	if observe == nil || credential == "" {
 		return Invalid
 	}
-	items, err := w.store.claimWork(ctx, credential, "settlement", "settlement")
+	items, err := w.store.claimWork(ctx, credential, controlSettlement, controlSettlement)
 	if err != nil {
 		return err
 	}

@@ -35,7 +35,7 @@ func (s *LifecycleStore) FailBeforeProvision(ctx context.Context, id string, rev
 		return Operation{}, err
 	}
 	var recordedReason string
-	if o.State == "FAILED" && o.Revision == revision+1 && o.ProviderID == "" {
+	if o.State == stateFailed && o.Revision == revision+1 && o.ProviderID == "" {
 		err = tx.QueryRow(ctx, fmt.Sprintf("SELECT last_reason FROM %s.stream_operations WHERE id=$1", s.schema), id).Scan(&recordedReason)
 		if err != nil {
 			return Operation{}, err
@@ -44,7 +44,7 @@ func (s *LifecycleStore) FailBeforeProvision(ctx context.Context, id string, rev
 			return o, tx.Commit(ctx)
 		}
 	}
-	if o.State != "REQUESTED" || o.ProviderID != "" || o.Revision != revision {
+	if o.State != stateRequested || o.ProviderID != "" || o.Revision != revision {
 		return Operation{}, ErrConflict
 	}
 	o, err = readOperation(tx.QueryRow(ctx, fmt.Sprintf("UPDATE %s.stream_operations SET state='FAILED',last_reason=$2,retry_at=NULL,revision=revision+1,terminal_at=clock_timestamp() WHERE id=$1 RETURNING "+opColumns, s.schema), id, string(reason)))

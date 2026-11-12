@@ -2,11 +2,12 @@ package fanout
 
 import (
 	"context"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/gorilla/websocket"
 	"net/http"
 	"strings"
 	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/gorilla/websocket"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/common"
 )

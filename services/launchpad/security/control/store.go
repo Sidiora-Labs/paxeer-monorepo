@@ -96,10 +96,10 @@ func (s *Store) Install(ctx context.Context) error {
 }
 func permission(p Principal, op, scope string) bool {
 	allowed := map[string]map[string]bool{
-		"infrastructure": {"action": true, "caps": true, "incident": true, "infrastructure_read": true},
-		"finance":        {"inventory": true, "bounty": true, "settlement": true, "finance_read": true},
+		"infrastructure": {"action": true, controlCaps: true, controlIncident: true, controlInfrastructureRead: true},
+		"finance":        {controlInventory: true, "bounty": true, controlSettlement: true, controlFinanceRead: true},
 		"moderator":      {"moderation_read": true}, "support": {"support_read": true},
-		"user": {"automation": true},
+		controlUser: {"automation": true},
 	}
 	if !key(p.ID) || !allowed[p.Role][op] {
 		return false
@@ -253,17 +253,17 @@ func (t *transaction) quarantined(identity string) (bool, error) {
 		}
 		return true, err
 	}
-	if marker["state"] != "recovered" {
+	if marker[controlState] != controlRecovered {
 		return true, nil
 	}
 	var incident Incident
-	if err := t.get("incident", marker["incident"], &incident); err != nil {
+	if err := t.get(controlIncident, marker[controlIncident], &incident); err != nil {
 		if err == Missing {
 			return true, nil
 		}
 		return true, err
 	}
-	return incident.ID != marker["incident"] || incident.ServiceIdentity != identity || incident.State != "recovered" || !text(incident.RotationReference, 256) || !text(incident.IntegrityReference, 256), nil
+	return incident.ID != marker[controlIncident] || incident.ServiceIdentity != identity || incident.State != controlRecovered || !text(incident.RotationReference, 256) || !text(incident.IntegrityReference, 256), nil
 }
 
 func (s *Store) Read(ctx context.Context, credential, scope, reason, kind, k string, out any) error {
@@ -275,19 +275,19 @@ func (s *Store) Read(ctx context.Context, credential, scope, reason, kind, k str
 		return Invalid
 	}
 	accepted := reflect.New(output.Elem().Type())
-	op := map[string]string{"action": "infrastructure_read", "caps": "infrastructure_read", "incident": "infrastructure_read", "inventory": "finance_read", "bounty": "finance_read", "settlement": "finance_read"}[kind]
+	op := map[string]string{"action": controlInfrastructureRead, controlCaps: controlInfrastructureRead, controlIncident: controlInfrastructureRead, controlInventory: controlFinanceRead, "bounty": controlFinanceRead, controlSettlement: controlFinanceRead}[kind]
 	if op == "" {
 		return Denied
 	}
 	err := s.run(ctx, credential, op, scope, reason, func(t *transaction) error {
-		if (kind == "inventory" || kind == "caps") && scope != "platform" {
+		if (kind == controlInventory || kind == controlCaps) && scope != controlPlatform {
 			return Denied
 		}
 		var raw json.RawMessage
 		if e := t.get(kind, k, &raw); e != nil {
 			return e
 		}
-		if kind != "inventory" && kind != "caps" {
+		if kind != controlInventory && kind != controlCaps {
 			var resource struct{ Scope string }
 			if e := json.Unmarshal(raw, &resource); e != nil {
 				return e

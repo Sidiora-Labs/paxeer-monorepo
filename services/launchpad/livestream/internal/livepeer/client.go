@@ -102,7 +102,7 @@ func (c *Client) CreateStream(ctx context.Context, name string) (*CreateResponse
 		if !correlationID.MatchString(operation) {
 			return nil, errors.New("livepeer: playback operation invalid")
 		}
-		payload["playbackPolicy"] = PlaybackPolicy{Type: "webhook", WebhookID: c.playbackWebhook, Context: map[string]string{"operationId": operation}, RefreshInterval: 1}
+		payload["playbackPolicy"] = PlaybackPolicy{Type: webhookPolicy, WebhookID: c.playbackWebhook, Context: map[string]string{"operationId": operation}, RefreshInterval: 1}
 	}
 	var out CreateResponse
 	if err := c.do(ctx, http.MethodPost, "/stream", payload, &out); err != nil {
@@ -168,7 +168,7 @@ func (e *ProviderError) Error() string {
 }
 
 // do performs an authenticated JSON request, decoding into out when non-nil.
-func (c *Client) do(ctx context.Context, method, path string, body, out any) error {
+func (c *Client) do(ctx context.Context, method, path string, body, out any) (resultErr error) {
 	if strings.TrimSpace(c.apiKey) == "" {
 		return errors.New("livepeer provider unavailable")
 	}
@@ -194,7 +194,11 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	if err != nil {
 		return errors.New("livepeer: request unavailable")
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil && resultErr == nil {
+			resultErr = errors.New("livepeer: response close failed")
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &ProviderError{Status: resp.StatusCode}
@@ -225,7 +229,7 @@ func safeID(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' && c != '_' {
 			return false
 		}
 	}
@@ -293,7 +297,7 @@ func (c *Client) ValidatePlaybackWebhook(ctx context.Context, id, endpoint, secr
 		return errors.New("livepeer: playback webhook configuration missing")
 	}
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return errors.New("livepeer: playback callback invalid")
 	}
 	var webhook PlaybackWebhook
@@ -315,7 +319,7 @@ func (c *Client) RegisterPlaybackWebhook(ctx context.Context, name, endpoint, se
 		return PlaybackWebhook{}, errors.New("livepeer: playback registration invalid")
 	}
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return PlaybackWebhook{}, errors.New("livepeer: playback callback invalid")
 	}
 	var webhook PlaybackWebhook
@@ -335,7 +339,7 @@ func (c *Client) EnsurePlaybackPolicy(ctx context.Context, id, operation string)
 	if !safeID(id) || !correlationID.MatchString(operation) || !safeID(c.playbackWebhook) {
 		return errors.New("livepeer: gated playback configuration missing")
 	}
-	policy := PlaybackPolicy{Type: "webhook", WebhookID: c.playbackWebhook, Context: map[string]string{"operationId": operation}, RefreshInterval: 1}
+	policy := PlaybackPolicy{Type: webhookPolicy, WebhookID: c.playbackWebhook, Context: map[string]string{"operationId": operation}, RefreshInterval: 1}
 	if err := c.do(ctx, http.MethodPatch, "/stream/"+url.PathEscape(id), map[string]any{"playbackPolicy": policy}, nil); err != nil {
 		return err
 	}
@@ -349,7 +353,7 @@ func (c *Client) EnsurePlaybackPolicy(ctx context.Context, id, operation string)
 	return nil
 }
 func (c *Client) PlaybackPolicyMatches(stream *Stream, operation string) bool {
-	return stream != nil && stream.PlaybackPolicy != nil && stream.PlaybackPolicy.Type == "webhook" && stream.PlaybackPolicy.WebhookID == c.playbackWebhook && stream.PlaybackPolicy.RefreshInterval == 1 && stream.PlaybackPolicy.Context["operationId"] == operation
+	return stream != nil && stream.PlaybackPolicy != nil && stream.PlaybackPolicy.Type == webhookPolicy && stream.PlaybackPolicy.WebhookID == c.playbackWebhook && stream.PlaybackPolicy.RefreshInterval == 1 && stream.PlaybackPolicy.Context["operationId"] == operation
 }
 
 func (c *Client) GetViewerMinutes(ctx context.Context, from, to time.Time) (string, error) {

@@ -3,9 +3,10 @@ package streams
 import (
 	"context"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"regexp"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

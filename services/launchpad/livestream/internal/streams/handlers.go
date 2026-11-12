@@ -157,7 +157,7 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 		v.Get("/streams", h.listV2)
 		v.Post("/streams", provisioned(h, h.connectedCreate))
 		v.Patch("/streams/{id}", h.provisioned(h.connectedEdit))
-		v.Post("/streams/{id}/rotate-key", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "rotate") }))
+		v.Post("/streams/{id}/rotate-key", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, rotateAction) }))
 		v.Post("/streams/{id}/restore", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "restore") }))
 		v.Get("/streams/{id}/key-rotation", h.provisioned(h.keyRotation))
 		v.Get("/streams/{id}/private-playback", h.provisioned(h.privatePlayback))
@@ -168,10 +168,10 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 		v.Post("/streams/{id}/ingest-credential", provisioned(h, h.retiredIngestCredential))
 		v.Post("/streams/{id}/ingest-key", provisioned(h, h.connectedCredential))
 		v.Post("/streams/{id}/go-live", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "start") }))
-		v.Post("/streams/{id}/end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "end") }))
+		v.Post("/streams/{id}/end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, endAction) }))
 		v.Post("/streams/{id}/heartbeat", h.connectedHeartbeat)
 		v.Post("/streams/{id}:start", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "start") }))
-		v.Post("/streams/{id}:end", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "end") }))
+		v.Post("/streams/{id}:end", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, endAction) }))
 		v.Post("/streams/{id}/viewers:heartbeat", alias(h.frozenHeartbeat))
 		v.Get("/streams/{id}", h.getByID)
 	})
@@ -249,7 +249,7 @@ func (h *Handlers) create(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Location", "/v2/streams/operations/"+o.ID)
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, http.StatusAccepted, map[string]any{"operation": result})
+	writeJSON(w, http.StatusAccepted, map[string]any{operationField: result})
 }
 func (h *Handlers) action(w http.ResponseWriter, r *http.Request, action string) {
 	if h.lifecycle == nil {
@@ -282,7 +282,7 @@ func (h *Handlers) action(w http.ResponseWriter, r *http.Request, action string)
 		h.lifecycleError(w, err)
 		return
 	}
-	if action == "end" {
+	if action == endAction {
 		if err = h.lifecycle.ReconcileTermination(r.Context(), o.ID, h.livepeer); err != nil {
 			h.lifecycleError(w, err)
 			return
@@ -294,10 +294,10 @@ func (h *Handlers) action(w http.ResponseWriter, r *http.Request, action string)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 202, map[string]any{"operation": result})
+	writeJSON(w, 202, map[string]any{operationField: result})
 }
 func (h *Handlers) goLive(w http.ResponseWriter, r *http.Request) { h.action(w, r, "start") }
-func (h *Handlers) end(w http.ResponseWriter, r *http.Request)    { h.action(w, r, "end") }
+func (h *Handlers) end(w http.ResponseWriter, r *http.Request)    { h.action(w, r, endAction) }
 func (h *Handlers) operationStatus(w http.ResponseWriter, r *http.Request) {
 	if h.lifecycle == nil {
 		h.lifecycleError(w, ErrUnavailable)
@@ -343,17 +343,17 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 		return V2Stream{}, ErrUnavailable
 	}
 	if !allowed {
-		o.State = "SUSPENDED"
+		o.State = stateSuspended
 	}
 	private, _, err := h.lifecycle.PlaybackPrivacy(ctx, o.ID)
 	if err != nil {
 		return V2Stream{}, ErrUnavailable
 	}
 	if private {
-		o.State = "SUSPENDED"
+		o.State = stateSuspended
 	}
 	var sources PlaybackSources
-	if o.State == "LIVE" {
+	if o.State == stateLive {
 		if h.playback == nil {
 			// A read-only deployment has no provider to resolve playback: the
 			// live document cannot be served here (a deployment state), while
@@ -370,13 +370,13 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 		}
 	}
 	var count *int64
-	quality := "unavailable"
+	quality := qualityUnavailable
 	if h.viewers != nil {
 		if estimate, err := h.viewers.Estimate(ctx, o.ID); err == nil {
 			count = &estimate.Count
-			quality = "verified"
+			quality = qualityVerified
 			if estimate.Stale {
-				quality = "stale"
+				quality = qualityStale
 			}
 		}
 	}
@@ -399,7 +399,7 @@ func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
 		if valid {
 			switch key {
 			case "status":
-				valid = values[0] == "live"
+				valid = values[0] == statusLive
 			case "poolAddress":
 				valid = addressPattern.MatchString(values[0])
 			case "cursor":
@@ -421,7 +421,7 @@ func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	live := query.Get("status") == "live"
+	live := query.Get("status") == statusLive
 	operations, nextCursor, err := h.lifecycle.Page(r.Context(), query.Get("poolAddress"), live, query.Get("cursor"), limit)
 	if err != nil {
 		if errors.Is(err, ErrInvalid) {
@@ -437,7 +437,7 @@ func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
 			h.lifecycleError(w, err)
 			return
 		}
-		if live && item.Status != "live" {
+		if live && item.Status != statusLive {
 			continue
 		}
 		items = append(items, item)
@@ -472,7 +472,7 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request, pool string, liv
 			h.lifecycleError(w, err)
 			return
 		}
-		if live && item.Status != "live" {
+		if live && item.Status != statusLive {
 			continue
 		}
 		result = append(result, item)
@@ -480,7 +480,7 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request, pool string, liv
 	writeJSON(w, 200, map[string]any{"streams": result, "nextCursor": nextCursor, "generatedAt": h.clock().UTC().Format(time.RFC3339Nano)})
 }
 func (h *Handlers) listByPool(w http.ResponseWriter, r *http.Request) {
-	h.list(w, r, chi.URLParam(r, "poolAddress"), r.URL.Query().Get("live") == "true")
+	h.list(w, r, chi.URLParam(r, "poolAddress"), r.URL.Query().Get(statusLive) == "true")
 }
 func (h *Handlers) listLive(w http.ResponseWriter, r *http.Request) {
 	switch sort := r.URL.Query().Get("sort"); sort {
@@ -580,9 +580,9 @@ func (h *Handlers) heartbeat(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
-	quality := "verified"
+	quality := qualityVerified
 	if estimate.Stale {
-		quality = "stale"
+		quality = qualityStale
 	}
 	writeJSON(w, 200, map[string]any{"viewerCount": estimate.Count, "viewerQuality": quality})
 }
