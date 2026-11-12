@@ -290665,7 +290665,7 @@ do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/
 
 [task.22.39.454]
 title = "Bring the whole lint recipe of the programs workspace through"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.442", "22.39.443", "22.39.444", "22.39.445", "22.39.446", "22.39.447", "22.39.448", "22.39.449", "22.39.450", "22.39.451", "22.39.452", "22.39.453", "22.39.456"]
