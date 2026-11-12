@@ -21405,3 +21405,8 @@ fix = "Such an item carries an allow attribute with a reason."
 title = "A test dependency of the ai-market member changes the lock file of the programs workspace"
 symptom = "The member programs/crates/layerx-programs-ai-market that gains a local test dependency changes programs/Cargo.lock, and the paths of task 22.39.445 name only the directory of the member."
 fix = "The paths of task 22.39.445 name the lock file of the workspace."
+
+[gotcha.4317]
+title = "The boundary check of the human workspace reads test files as well as source files"
+symptom = "The boundary check reads every Rust file under services/human/crates, test files included, and reports a file that reads the clock or the random source directly. The recipe human-lint runs the check, and the paths of task 22.39.441 name only the tools of the workspace and apps/web."
+fix = "A reported file is repaired in its member: a wait is bounded by a count of steps or by the clock the member injects, and a random value comes from the source the member injects."
