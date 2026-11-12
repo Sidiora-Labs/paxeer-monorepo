@@ -659,6 +659,9 @@ config :explorer, Explorer.Market.Source.DIA,
   secondary_coin_address_hash: System.get_env("MARKET_DIA_SECONDARY_COIN_ADDRESS_HASH")
 
 config :explorer, Explorer.Market.Source.Chainflow,
+  api_key: System.get_env("MARKET_CHAINFLOW_API_KEY"),
+  coin_id: System.get_env("MARKET_CHAINFLOW_COIN_ID", "paxeer"),
+  secondary_coin_id: System.get_env("MARKET_CHAINFLOW_SECONDARY_COIN_ID", "sidiora"),
   base_url: ConfigHelper.parse_url_env_var("MARKET_CHAINFLOW_BASE_URL", "https://data.feed.chainflowtrading.com"),
   market: System.get_env("MARKET_CHAINFLOW_MARKET"),
   coin_symbol: System.get_env("MARKET_CHAINFLOW_COIN_SYMBOL", "PAX"),

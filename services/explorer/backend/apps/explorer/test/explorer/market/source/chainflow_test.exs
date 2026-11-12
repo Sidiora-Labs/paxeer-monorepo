@@ -21,6 +21,8 @@ defmodule Explorer.Market.Source.ChainflowTest do
 
     config = [
       base_url: "http://localhost:#{bypass.port}",
+      coin_id: "paxeer",
+      secondary_coin_id: "sidiora",
       coin_symbol: "PAX",
       secondary_coin_symbol: "SID",
       tokens: [[@wpax, "PAX"], [@sid, "SID"]]
@@ -59,26 +61,38 @@ defmodule Explorer.Market.Source.ChainflowTest do
         volume_24h: nil
       )
 
-    data = start_supervised!({Agent, fn -> %{pax: "2.5", sid: "4", volume: "120", history: :candles} end})
+    data =
+      start_supervised!({Agent, fn -> %{pax: "2.5", sid: "4", volume: "120", history: :candles, sid_supply: "400"} end})
 
     Bypass.expect(bypass, fn conn ->
       conn = Conn.fetch_query_params(conn)
       values = Agent.get(data, & &1)
-      ["api", market, route] = String.split(conn.request_path, "/", trim: true)
+      parts = String.split(conn.request_path, "/", trim: true)
+
+      {market, route} =
+        case parts do
+          ["api", "v3", "coins", "paxeer"] -> {"pax", "coin"}
+          ["api", "v3", "coins", "sidiora"] -> {"sid", "coin"}
+          ["api", market, "history"] when market in ["pax", "sid", "native-pax"] -> {market, "history"}
+        end
+
       assert market in ["pax", "sid", "native-pax"]
       price = if market == "sid", do: values.sid, else: values.pax
 
       body =
         case route do
-          "price" ->
+          "coin" ->
             %{
-              "price" => price,
-              "symbol" => if(market == "sid", do: "SID", else: "PAX"),
-              "timestamp" => "2026-01-02T00:00:00Z"
+              "name" => if(market == "sid", do: "Sidiora", else: "Paxeer"),
+              "symbol" => if(market == "sid", do: "sid", else: "pax"),
+              "market_data" => %{
+                "current_price" => %{"usd" => price},
+                "market_cap" => %{"usd" => nil},
+                "total_volume" => %{"usd" => values.volume},
+                "circulating_supply" => if(market == "sid", do: values.sid_supply),
+                "last_updated" => "2026-01-02T00:00:00Z"
+              }
             }
-
-          "stats" ->
-            if is_nil(values.volume), do: %{}, else: %{"volume_24h" => values.volume}
 
           "history" ->
             assert conn.query_params["symbol"] == if(market == "sid", do: "SID", else: "PAX")
@@ -183,7 +197,8 @@ defmodule Explorer.Market.Source.ChainflowTest do
     assert quote.market_cap == nil
   end
 
-  test "unknown token supply leaves market cap nil", %{sid: sid} do
+  test "unknown token supply leaves market cap nil", %{sid: sid, data: data} do
+    Agent.update(data, &%{&1 | sid_supply: nil})
     sid |> Ecto.Changeset.change(total_supply: nil) |> Repo.update!()
     assert {:ok, quote} = Chainflow.fetch_secondary_coin()
     assert quote.available_supply == nil
@@ -193,7 +208,7 @@ defmodule Explorer.Market.Source.ChainflowTest do
     assert Decimal.equal?(token.fiat_value, 4)
   end
 
-  test "unreachable price and statistics feeds leave stored token rows unchanged", context do
+  test "unreachable coin and history feeds leave stored token rows unchanged", context do
     assert {:noreply, state} = TokenFetcher.handle_info({:fetch, 0}, token_state())
     before = Enum.map([context.wpax, context.sid], &Repo.get!(ChainToken, &1.contract_address_hash))
     Bypass.down(context.bypass)
@@ -206,8 +221,8 @@ defmodule Explorer.Market.Source.ChainflowTest do
     assert Enum.map([context.wpax, context.sid], &Repo.get!(ChainToken, &1.contract_address_hash)) == before
   end
 
-  test "a statistics error prevents importing a partially fetched batch", context do
-    Bypass.expect(context.bypass, "GET", "/api/sid/stats", fn conn -> Conn.resp(conn, 503, "unavailable") end)
+  test "a secondary coin error prevents importing a partially fetched batch", context do
+    Bypass.expect(context.bypass, "GET", "/api/v3/coins/sidiora", fn conn -> Conn.resp(conn, 503, "unavailable") end)
     before = Enum.map([context.wpax, context.sid], &Repo.get!(ChainToken, &1.contract_address_hash))
     assert {:error, _} = Chainflow.fetch_tokens(nil, 2)
     assert {:noreply, _} = TokenFetcher.handle_info({:fetch, 5}, token_state())
@@ -223,7 +238,7 @@ defmodule Explorer.Market.Source.ChainflowTest do
     assert {:error, _} = Chainflow.fetch_market_cap_history(2)
   end
 
-  test "native market override also serves the wrapped native token", %{config: config} do
+  test "native market override preserves coin quotes and wrapped native token figures", %{config: config} do
     Application.put_env(:explorer, Chainflow, Keyword.put(config, :market, "native-pax"))
     assert {:ok, native} = Chainflow.fetch_native_coin()
     assert Decimal.equal?(native.fiat_value, "2.5")
@@ -231,6 +246,7 @@ defmodule Explorer.Market.Source.ChainflowTest do
     assert Decimal.equal?(wpax.fiat_value, native.fiat_value)
     assert {:ok, secondary} = Chainflow.fetch_secondary_coin()
     assert secondary.symbol == "SID"
+    assert {:ok, [_first, _last]} = Chainflow.fetch_native_coin_price_history(2)
   end
 
   test "source selection recognizes Chainflow for each supported market stream" do
