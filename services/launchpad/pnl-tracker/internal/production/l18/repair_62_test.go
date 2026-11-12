@@ -43,15 +43,15 @@ func repair62Rewards(t *testing.T, h http.Handler, cursor string, limit int) ifa
 	return out
 }
 
-func TestRepair_62_SchemaSequenceGrants(t *testing.T) {
+func TestSchemaSequenceGrants(t *testing.T) {
 	d := repair62Bootstrap(t)
-	for _, id := range []int64{180000, 180001, 190001} {
+	for _, id := range []int64{160004, 180000, 180001, 190001} {
 		if d.catalog.Applied[id] == "" {
 			t.Fatalf("reviewed migration %d not applied", id)
 		}
 	}
-	if len(d.catalog.Applied) != 37 {
-		t.Fatalf("complete coordinator dependency plan=%d, want 37", len(d.catalog.Applied))
+	if len(d.catalog.Applied) != 38 {
+		t.Fatalf("complete coordinator dependency plan=%d, want 38", len(d.catalog.Applied))
 	}
 	if d.manifest.RuntimeRole != "pnl_runtime" || d.manifest.OwnerRole != "pnl_owner" || d.manifest.Superuser || d.manifest.CreateDB || d.manifest.CreateRole || d.manifest.BypassRLS || d.manifest.RuntimeOwnsObjects {
 		t.Fatal("runtime gained administrative authority")
@@ -92,7 +92,7 @@ func TestRepair_62_SchemaSequenceGrants(t *testing.T) {
 	}
 }
 
-func TestRepair_62_JourneyIndexerGrants(t *testing.T) {
+func TestJourneyIndexerGrants(t *testing.T) {
 	f := repair62Chain(t)
 	b := Checkpoint{Number: f.db.peers.Initial, Hash: repair62Hash(f.db.peers.Initial)}
 	h := f.handler(f.chain.Alice)
@@ -156,7 +156,7 @@ func TestRepair_62_JourneyIndexerGrants(t *testing.T) {
 	}
 }
 
-func TestRepair_62_RewardHistoryAgeOutage(t *testing.T) {
+func TestRewardHistoryAgeOutage(t *testing.T) {
 	f := repair62Chain(t)
 	ctx := context.Background()
 	b := f.advance(f.db.peers.Aged)
@@ -189,7 +189,7 @@ func TestRepair_62_RewardHistoryAgeOutage(t *testing.T) {
 	}
 }
 
-func TestRepair_62_IndexedPagingIntegrity(t *testing.T) {
+func TestIndexedPagingIntegrity(t *testing.T) {
 	f := repair62Chain(t)
 	b := f.advance(f.db.peers.Aged)
 	// A whole 500-row boundary plus a trailing row must be summed exactly once,
