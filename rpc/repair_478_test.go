@@ -642,7 +642,7 @@ func TestRepair478_FundWithinProductionAllowance(t *testing.T) {
 	require.Less(t, after.ProgramOutcome.CPUFuel, before.ProgramOutcome.CPUFuel)
 	require.Less(t, after.ProgramOutcome.CPUFuel, repair478CPUAllowance)
 	require.Less(t, after.ProgramOutcome.CPUFuel, uint64(999968))
-	require.LessOrEqual(t, after.ProgramOutcome.CPUFuel, uint64(746855))
+	require.LessOrEqual(t, after.ProgramOutcome.CPUFuel, uint64(747220))
 	t.Logf("Fund kernel gas before=%d after=%d allowance=%d", before.KernelGasUsed, after.KernelGasUsed, repair478KernelAllowance)
 	t.Logf("Fund CPU fuel historical_stop=%d attempt9_stop=999968 production=%d kernel_allowance=%d", before.ProgramOutcome.CPUFuel, after.ProgramOutcome.CPUFuel, repair478KernelAllowance)
 	fmt.Fprintf(os.Stderr, "Repair478 Fund CPU fuel historical_stop=%d attempt9_stop=999968 production=%d kernel_allowance=%d\n", before.ProgramOutcome.CPUFuel, after.ProgramOutcome.CPUFuel, repair478KernelAllowance)

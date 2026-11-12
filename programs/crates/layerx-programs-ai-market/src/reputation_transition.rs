@@ -2,15 +2,15 @@ use crate::types::GuestIndex as _;
 use crate::{
     codec::{Reader, Writer},
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F07_BINDING_MISMATCH, F07_EPOCH_NOT_SEALED,
+        ARITHMETIC, CAPACITY, CONFLICT, CodecResult, F07_BINDING_MISMATCH, F07_EPOCH_NOT_SEALED,
         F07_GENERATION_MISMATCH, F07_SEGMENT_MISMATCH, F07_UNKNOWN_WORKER, NON_CANONICAL,
         RETENTION_FULL, WRONG_EPOCH,
     },
     reputation::{
-        check_storage_budget, evidence_coverage, missing_quality, next_count, qualified_quality,
-        ClosureReason, CompletedHistory, CompletionIdentity, HistoryStatus, Observation,
-        ReputationCurrent, ReputationState, SegmentKey, CURRENT_BYTES, HEADER_BYTES, HISTORY_BYTES,
-        LIMIT,
+        CURRENT_BYTES, ClosureReason, CompletedHistory, CompletionIdentity, HEADER_BYTES,
+        HISTORY_BYTES, HistoryStatus, LIMIT, Observation, ReputationCurrent, ReputationState,
+        SegmentKey, check_storage_budget, evidence_coverage, missing_quality, next_count,
+        qualified_quality,
     },
     reputation_codec::{
         closure_digest, decode_section, encode_section, segment_digest, state_root,
@@ -60,13 +60,13 @@ pub fn reset_segment(
     }
     match reason {
         ClosureReason::ModelChanged if new_model == old_key.model => {
-            return Err(F07_BINDING_MISMATCH)
+            return Err(F07_BINDING_MISMATCH);
         }
         ClosureReason::PolicyChanged
             if new_model != old_key.model
                 || new_config == old_key.config && new_policy == old_key.policy =>
         {
-            return Err(F07_BINDING_MISMATCH)
+            return Err(F07_BINDING_MISMATCH);
         }
         _ => (),
     }
@@ -1222,7 +1222,7 @@ fn bind_opened_roster(
             let existing = editor.ordered_record(entry.worker, &mut cursor);
             match existing {
                 Some(r) if r.owner != entry.owner || r.status == HistoryStatus::Retired => {
-                    return Err(F07_BINDING_MISMATCH)
+                    return Err(F07_BINDING_MISMATCH);
                 }
                 Some(_) => (),
                 None => {

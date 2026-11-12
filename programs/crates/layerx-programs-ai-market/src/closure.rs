@@ -22,32 +22,32 @@
 use crate::types::GuestIndex as _;
 use crate::{
     admission::AdmissionTable,
-    codec::{self, derive_market, EventCommon, Reader, ValidatedEnvelope, Writer},
+    codec::{self, EventCommon, Reader, ValidatedEnvelope, Writer, derive_market},
     dispatch::{self, Operation},
     errors::{
-        CodecResult, ARITHMETIC, CAPACITY, F01_ALREADY_CLOSING, F01_INVALID_REASON,
+        ARITHMETIC, CAPACITY, CodecResult, F01_ALREADY_CLOSING, F01_INVALID_REASON,
         F01_LIFECYCLE_CLOSED, F01_OBLIGATIONS_OUTSTANDING, F01_STALE_REVISION, F01_WRONG_LIFECYCLE,
         NON_CANONICAL, NOT_FOUND, STALE_CURSOR, UNAUTHORIZED, UNKNOWN_OPERATION, WRONG_CONFIG,
         WRONG_MARKET, WRONG_PHASE,
     },
     policy::{
-        fold_policy_history, PendingPolicy, PolicyHistoryHeader, MAX_RECENT_POLICY_HEADERS,
-        POLICY_HISTORY_HEADER_BYTES, TASK_POLICY_BYTES,
+        MAX_RECENT_POLICY_HEADERS, POLICY_HISTORY_HEADER_BYTES, PendingPolicy, PolicyHistoryHeader,
+        TASK_POLICY_BYTES, fold_policy_history,
     },
-    registry::{check_f01_capacity, market_clock, OperatorGrant, OPERATOR_GRANT_BYTES},
+    registry::{OPERATOR_GRANT_BYTES, OperatorGrant, check_f01_capacity, market_clock},
     registry_ops::{
-        CallContext, PolicySection, ACTIVE, CANCELLED, CLOSED, RECEIPT_MAX_BYTES, REGISTERED,
+        ACTIVE, CANCELLED, CLOSED, CallContext, PolicySection, RECEIPT_MAX_BYTES, REGISTERED,
         SUSPENDED, WINDING_DOWN,
     },
     rewards::{
-        decode_reward_state, EpochStatus, FundingPhase, RefundRequest, RewardEffect, RewardOutcome,
-        RewardState, REWARD_STATE_BYTES,
+        EpochStatus, FundingPhase, REWARD_STATE_BYTES, RefundRequest, RewardEffect, RewardOutcome,
+        RewardState, decode_reward_state,
     },
     state::{
-        decode_shared_state, encode_shared_state, ActorSlot, ReplayDecision, ReplayRequest,
-        RetainedResult, Section, SharedState,
+        ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section, SharedState,
+        decode_shared_state, encode_shared_state,
     },
-    tasks::{terminal_task_set, TaskSet},
+    tasks::{TaskSet, terminal_task_set},
     types::{Amount, Presence, RequestDigest, ResultDigest, Version},
 };
 

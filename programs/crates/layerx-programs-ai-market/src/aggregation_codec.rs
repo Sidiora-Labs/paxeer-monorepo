@@ -6,12 +6,13 @@
 //! authenticated evidence admission; it has no invented per-cell generation.
 use crate::types::GuestIndex as _;
 use crate::{
+    SCHEMA_VERSION,
     codec::{
-        decode_report, domain_hash, report_digest, roster_digest, Reader, ReportBody, Roster,
-        Writer,
+        Reader, ReportBody, Roster, Writer, decode_report, domain_hash, report_digest,
+        roster_digest,
     },
     errors::{
-        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, F05_REPORT_INVARIANT,
+        ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, CodecResult, F05_REPORT_INVARIANT,
         NON_CANONICAL, WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE,
         WRONG_PROGRAM, WRONG_ROSTER,
     },
@@ -19,7 +20,6 @@ use crate::{
         Digest32, EpochWindows, EvaluatorId, FrozenBinding, Presence, ReportDigest, RosterDigest,
         Score, Version, WorkerId, WorkerRosterEntry,
     },
-    SCHEMA_VERSION,
 };
 
 pub const WORKER_AGGREGATE_BYTES: usize = 50;
@@ -708,7 +708,7 @@ impl CurrentAggregation<'_> {
                 }
                 match self.phase {
                     AggregationPhase::Processing if self.root != Presence::Absent => {
-                        return Err(NON_CANONICAL)
+                        return Err(NON_CANONICAL);
                     }
                     AggregationPhase::Terminal => {
                         let Presence::Present(input) = self.input else {
@@ -1912,7 +1912,7 @@ fn score_cell(
             core::cmp::Ordering::Less => left = mid + 1,
             core::cmp::Ordering::Greater => right = mid,
             core::cmp::Ordering::Equal => {
-                return Ok(Some(crate::types::ScoreEntry { worker, score }))
+                return Ok(Some(crate::types::ScoreEntry { worker, score }));
             }
         }
     }
