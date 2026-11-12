@@ -197606,7 +197606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.425]
 title = "Bring the cli member of the platform tools through the lint of the recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.424"]
