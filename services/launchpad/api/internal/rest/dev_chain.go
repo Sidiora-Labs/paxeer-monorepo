@@ -62,7 +62,7 @@ type headResolution struct {
 // under the 400ms ResponseMetadata deadline; an uncached head hash used to
 // consume it on the chain RPC and leave the next store transaction an
 // expired context (a 503 on every indexer head advance).
-const developmentHeadReserve = 200 * time.Millisecond
+const developmentHeadReserve = 275 * time.Millisecond
 
 func newDevelopmentChain(ctx context.Context, rawURL string) (*developmentChain, error) {
 	c := &developmentChain{positions: map[string]accounting.SourcePosition{}}
