@@ -13408,6 +13408,12 @@ value = "Tasks 22.39.493, 22.39.494 and 22.39.495 bring the merge rehearsal test
 basis = "Gotchas 4299 to 4301 and decision 3019."
 affects = ["22.39.493", "22.39.494", "22.39.495", "22.39.182"]
 
+[decision.3383]
+title = "The platform lint task verifies the steps of the recipe before the lock file checks"
+value = "The verification of task 22.39.403 runs every step of the recipe platform-lint up to and including the dependency policy script. The advisory, ban and source checks of the lock files are not part of this task."
+basis = "Gotcha 4302 and the fifth item of the task."
+affects = ["22.39.403"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -198241,7 +198247,7 @@ touches = ["services/platform/hosted/internal", "services/platform/hosted/identi
 tests = []
 planned_paths = ["services/platform/hosted/internal/repair_22_39_403.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --workspace --all-targets"
-verify_cmd = "test -s services/platform/hosted/internal/repair_22_39_403.kvx && make -s platform-lint"
+verify_cmd = "test -s services/platform/hosted/internal/repair_22_39_403.kvx && d=$(mktemp -d) && make -n platform-lint > $d/steps.txt && grep -q clippy $d/steps.txt && grep -v 'cargo deny' $d/steps.txt | sh -e"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"

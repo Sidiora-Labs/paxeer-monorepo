@@ -21330,3 +21330,8 @@ fix = "A role that enters the golden file enters the role list of the release pr
 title = "The retired caller scan reads the attestor source of the key management member of the human service"
 symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py matches the symbols of the component envelope-signing of tools/paxeer-x/retired_callers.json in services/human/crates/layerx-human-kms/src/attestor.rs and applies the allowances of that component to each matching line."
 fix = "A task that changes a matching line of that file runs the scan."
+
+[gotcha.4302]
+title = "The recipe platform-lint ends with the advisory and ban checks of the three platform manifests"
+symptom = "The recipe platform-lint of services/platform/Makefile.inc runs the lint of the three manifests, the workspace check, the lint of the marketplace example and the dependency policy script, and then the advisory, ban and source checks of each manifest lock file."
+fix = "The lint steps and the lock file checks are verified by separate commands."
