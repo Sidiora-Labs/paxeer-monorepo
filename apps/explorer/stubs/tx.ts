@@ -68,6 +68,9 @@ export const TXS_STATS: TransactionsStats = {
   transaction_fees_avg_24h: '22342870314428',
   transaction_fees_sum_24h: '22184012506492688277',
   transactions_count_24h: '992890',
+  total_transactions_count: '100000000',
+  price_updates_count_24h: '250000',
+  total_price_updates_count: '20000000',
 };
 
 export const TXS_STATS_MICROSERVICE: stats.TransactionsPageStats = {
