@@ -2998,6 +2998,62 @@ fn participant_call_totals(rows: &[Row], sweep: &str, tasks: usize, workers: u8,
     }
 }
 
+#[derive(Clone, Copy)]
+struct FuelRatio {
+    numerator: i128,
+    denominator: u8,
+}
+
+impl FuelRatio {
+    fn delta(now: u64, old: u64, units: u8) -> Self {
+        assert!(units.is_power_of_two());
+        Self {
+            numerator: i128::from(now) - i128::from(old),
+            denominator: units,
+        }
+    }
+
+    fn project(self, fuel: u64, units: u8) -> Self {
+        Self {
+            numerator: i128::from(fuel) * i128::from(self.denominator)
+                + self.numerator * i128::from(units),
+            denominator: self.denominator,
+        }
+    }
+
+    fn format(&self, f: &mut fmt::Formatter<'_>, integral_suffix: &str) -> fmt::Result {
+        let numerator = self.numerator.unsigned_abs();
+        let denominator = u128::from(self.denominator);
+        if self.numerator < 0 {
+            f.write_str("-")?;
+        }
+        write!(f, "{}", numerator / denominator)?;
+        let mut remainder = numerator % denominator;
+        if remainder == 0 {
+            return f.write_str(integral_suffix);
+        }
+        f.write_str(".")?;
+        while remainder != 0 {
+            remainder *= 10;
+            write!(f, "{}", remainder / denominator)?;
+            remainder %= denominator;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Debug for FuelRatio {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.format(f, ".0")
+    }
+}
+
+impl fmt::Display for FuelRatio {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.format(f, "")
+    }
+}
+
 #[test]
 fn maximum_state_fuel_scaling() -> Checked {
     let module = guest_module()?;
@@ -3018,11 +3074,8 @@ fn maximum_state_fuel_scaling() -> Checked {
             .find(|row| row.operation == dispatch::ADMIT_TASK && row.height == 1410)
             .required_with("last task admission must execute");
         let slope = |now: Option<u64>, old: Option<u64>, count: usize| {
-            now.zip(old).map(|(now, old)| {
-                (now.to_string().parse::<f64>().required()
-                    - old.to_string().parse::<f64>().required())
-                    / count.to_string().parse::<f64>().required()
-            })
+            now.zip(old)
+                .map(|(now, old)| FuelRatio::delta(now, old, u8::try_from(count).required()))
         };
         let (open_per_task, admit_per_task) = match previous {
             Some((count, open, admit)) => (
@@ -3112,9 +3165,7 @@ fn fixed_roster_task_fuel_scaling() -> Checked {
                 previous
                     .insert(operation.selector(), (tasks, fuel))
                     .map(|(old_tasks, old_fuel)| {
-                        (fuel.to_string().parse::<f64>().required()
-                            - old_fuel.to_string().parse::<f64>().required())
-                            / (tasks - old_tasks).to_string().parse::<f64>().required()
+                        FuelRatio::delta(fuel, old_fuel, u8::try_from(tasks - old_tasks).required())
                     })
             });
             println!(
@@ -3547,12 +3598,11 @@ fn roster_state_fuel_scaling() -> Checked {
                 chunk = 0;
             }
             if let Some((old_workers, old_fuel)) = previous.insert(chunk, (workers, fuel)) {
+                let slope = FuelRatio::delta(fuel, old_fuel, workers - old_workers);
                 println!(
                     "handler_slope selector={selector:04x} chunk={chunk} workers={workers} fuel={fuel} fuel_per_added_worker={} implied_32={}",
-                    (fuel.to_string().parse::<f64>().required() - old_fuel.to_string().parse::<f64>().required()) / f64::from(workers - old_workers),
-                    fuel.to_string().parse::<f64>().required()
-                        + (fuel.to_string().parse::<f64>().required() - old_fuel.to_string().parse::<f64>().required()) / f64::from(workers - old_workers)
-                            * f64::from(32 - workers)
+                    slope,
+                    slope.project(fuel, 32 - workers)
                 );
             }
             chunk += 1;
