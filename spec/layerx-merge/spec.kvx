@@ -314091,7 +314091,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.496]
 title = "Admit a call of another principal within the standing occupancy responsibility of the program owner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
