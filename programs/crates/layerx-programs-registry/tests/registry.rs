@@ -1,5 +1,11 @@
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
+
 use std::collections::BTreeMap;
 
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 pub mod support;
 
 use ed25519_dalek::{Signer, SigningKey};
@@ -102,13 +108,13 @@ fn registry_consumes_runtime_produced_deployment_and_refuses_duplicate() {
     let verifier = verifier_for_fixture(&fixture, 1_000);
     let evidence = verifier
         .verify_deployment(&fixture.proof, NOW)
-        .expect("verified producer");
+        .or_panic("verified producer");
     assert_eq!(evidence.record(), &expected);
     drop(runtime);
     let mut registry = Registry::new();
     registry
         .record_verified_deployment(&evidence)
-        .expect("consumer admission");
+        .or_panic("consumer admission");
     assert_eq!(
         registry.record_verified_deployment(&evidence),
         Err(RegistryError::VersionHistoryMismatch)
@@ -116,9 +122,57 @@ fn registry_consumes_runtime_produced_deployment_and_refuses_duplicate() {
     assert_eq!(
         registry
             .resolve_deployment(evidence)
-            .expect("consumer resolution")
+            .or_panic("consumer resolution")
             .module(),
         PROTOCOL_WASM_V1
+    );
+}
+
+fn verify_alternate_deployment_is_unverified(
+    verifier: &ProtocolDeploymentVerifier,
+    registry: &Registry,
+    first: &layerx_programs::VerifiedDeploymentEvidence,
+    policy: UpgradePolicy,
+) {
+    let mut alternate_entries = first
+        .interface()
+        .unwrap_or_else(|| panic!("{}", "deployed interface"))
+        .entries()
+        .to_vec();
+    alternate_entries[0].calldata =
+        layerx_programs::ValueSchema::layerx(layerx_programs::ValueType::Bytes { max_len: 128 });
+    let alternate_interface =
+        ProgramInterface::bind(PROTOCOL_WASM_V1, ABI_V1_VERSION, alternate_entries).unwrap_or_else(
+            |error| {
+                let message = "alternate interface";
+                panic!("{message}: {error:?}")
+            },
+        );
+    let alternate = verifier
+        .verify_deployment(
+            &support::deploy_fixture_with_interface(
+                PROTOCOL_WASM_V1,
+                policy,
+                73,
+                NOW - 500,
+                &alternate_interface,
+            )
+            .proof,
+            NOW,
+        )
+        .unwrap_or_else(|error| panic!("alternate receipt evidence: {error}"));
+    assert_eq!(alternate.program(), first.program());
+    assert_eq!(alternate.version(), first.version());
+    assert_eq!(alternate.code_hash(), first.code_hash());
+    assert_eq!(alternate.abi_version(), first.abi_version());
+    assert_eq!(
+        alternate.record().upgrade_policy,
+        first.record().upgrade_policy
+    );
+    assert_ne!(alternate.receipt_digest(), first.receipt_digest());
+    assert_eq!(
+        registry.resolve_deployment(alternate),
+        Err(RegistryError::UnverifiedRead)
     );
 }
 
@@ -166,43 +220,7 @@ fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     assert_eq!(latest.code_hash(), fixture_code_hash(PROTOCOL_WASM_V2));
     assert_eq!(latest.receipt_digest(), second.receipt_digest());
     assert_eq!(latest.module(), PROTOCOL_WASM_V2);
-    let mut alternate_entries = first
-        .interface()
-        .expect("deployed interface")
-        .entries()
-        .to_vec();
-    alternate_entries[0].calldata =
-        layerx_programs::ValueSchema::layerx(layerx_programs::ValueType::Bytes { max_len: 128 });
-    let alternate_interface =
-        ProgramInterface::bind(PROTOCOL_WASM_V1, ABI_V1_VERSION, alternate_entries)
-            .expect("alternate interface");
-    let alternate = verifier
-        .verify_deployment(
-            &support::deploy_fixture_with_interface(
-                PROTOCOL_WASM_V1,
-                policy,
-                73,
-                NOW - 500,
-                &alternate_interface,
-            )
-            .proof,
-            NOW,
-        )
-        .unwrap_or_else(|error| panic!("alternate receipt evidence: {error}"));
-    assert_eq!(alternate.program(), first.program());
-    assert_eq!(alternate.version(), first.version());
-    assert_eq!(alternate.code_hash(), first.code_hash());
-    assert_eq!(alternate.abi_version(), first.abi_version());
-    assert_eq!(
-        alternate.record().upgrade_policy,
-        first.record().upgrade_policy
-    );
-    assert_ne!(alternate.receipt_digest(), first.receipt_digest());
-    assert_eq!(
-        registry.resolve_deployment(alternate),
-        Err(RegistryError::UnverifiedRead)
-    );
-
+    verify_alternate_deployment_is_unverified(&verifier, &registry, &first, policy);
     let mut executable = VerifiedProgramCatalog::declared()
         .unwrap_or_else(|error| panic!("verified catalog: {error}"));
     executable
@@ -238,7 +256,7 @@ fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
     let verifier = verifier_for_fixture(&fixture, 100);
     let valid = verifier
         .verify_deployment(&fixture.proof, NOW)
-        .expect("fully signed deployment");
+        .or_panic("fully signed deployment");
     fixture.chain.commit.signatures.truncate(2);
     assert_eq!(fixture.chain.verifier.validators.total_power(), 4);
     assert_eq!(fixture.chain.commit.signatures.len(), 2);
@@ -254,9 +272,9 @@ fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
         &fixture
             .chain
             .encode_key(&forged.state.commitment.key)
-            .expect("underpowered commitment"),
+            .or_panic("underpowered commitment"),
     )
-    .expect("decode underpowered commitment");
+    .or_panic("decode underpowered commitment");
     assert_eq!(
         verifier.verify_deployment(&forged, NOW),
         Err(ProtocolEvidenceError::ChainProof)
@@ -300,7 +318,7 @@ fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
         fixture.chain.verifier.validators.validators().to_vec(),
         100,
     )
-    .expect("foreign chain trust");
+    .or_panic("foreign chain trust");
     assert_eq!(
         foreign_network.verify_deployment(&fixture.proof, NOW),
         Err(ProtocolEvidenceError::ChainProof)
@@ -312,7 +330,7 @@ fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
         foreign_set.verifier.validators.validators().to_vec(),
         100,
     )
-    .expect("different validator trust");
+    .or_panic("different validator trust");
     assert_eq!(
         foreign_domain.verify_deployment(&fixture.proof, NOW),
         Err(ProtocolEvidenceError::InvalidTrustAnchor)
@@ -327,31 +345,16 @@ fn forged_batch_journal_and_stale_evidence_never_create_deployment_authority() {
     unauthorized.state.commitment = decode_commitment_proof(
         &rotated
             .encode_key(&unauthorized.state.commitment.key)
-            .expect("rotated commitment"),
+            .or_panic("rotated commitment"),
     )
-    .expect("decode rotated commitment");
+    .or_panic("decode rotated commitment");
     assert_eq!(
         verifier.verify_deployment(&unauthorized, NOW),
         Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
 }
 
-#[test]
-fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
-    let historical_program = fixture_program();
-    let current_program = ProgramId::new([0x32; 32]).expect("second program");
-    let (mut historical, mut historical_proof) = chain_deployment_fixture(
-        historical_program,
-        PROTOCOL_WASM_V1,
-        &VALIDATOR_SEEDS,
-        Some(support::fixture_interface(PROTOCOL_WASM_V1)),
-    );
-    let (mut current, mut current_proof) = chain_deployment_fixture(
-        current_program,
-        PROTOCOL_WASM_V2,
-        &VALIDATOR_SEEDS,
-        Some(support::fixture_interface(PROTOCOL_WASM_V2)),
-    );
+fn rotated_validators(historical: &ChainFixture) -> ValidatorSet {
     let mut rotated = ROTATED_SEEDS
         .iter()
         .map(|seed| {
@@ -360,75 +363,83 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
         })
         .collect::<Vec<_>>();
     rotated.sort_by_key(|validator| validator.address);
-    let rotated = ValidatorSet::new(rotated).expect("rotated validators");
+    let rotated = ValidatorSet::new(rotated).or_panic("rotated validators");
     assert!(rotated.validators().iter().all(|validator| !historical
         .verifier
         .validators
         .validators()
         .contains(validator)));
-    historical.header.height = 71;
-    historical.header.time.seconds = 1_700_000_130;
-    historical.header.time.nanos = 0;
-    sign_chain(&mut historical, &VALIDATOR_SEEDS);
-    historical_proof.state.commitment = decode_commitment_proof(
-        &historical
-            .encode_key(&historical_proof.state.commitment.key)
-            .expect("historical commitment"),
-    )
-    .expect("decode historical commitment");
-    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
-        &historical.verifier.chain_id,
-        historical.verifier.validators.validators().to_vec(),
-        50,
-    )
-    .expect("original validator trust");
-    let original_head = historical
-        .verifier
-        .verify_head(&historical.header, &historical.commit)
-        .expect("original deployment head");
-    let original_step = (
-        historical.header.clone(),
-        historical.commit.clone(),
-        historical.verifier.validators.clone(),
-    );
-    let original = verifier
-        .verify_deployment(&historical_proof, NOW - 20_000)
-        .expect("deployment before rotation");
+    rotated
+}
 
+type TrustHistoryStep = (
+    layerx_programs::chain_proof::header::ChainHeader,
+    layerx_programs::chain_proof::Commit,
+    ValidatorSet,
+);
+
+fn rotate_and_collect_history(
+    historical: &mut ChainFixture,
+    current: &mut ChainFixture,
+    current_proof: &mut DeploymentProof,
+    rotated: ValidatorSet,
+    original_head: &layerx_programs::chain_proof::VerifiedChainHead,
+    original_step: TrustHistoryStep,
+) -> (
+    layerx_programs::chain_proof::VerifiedChainHead,
+    Vec<TrustHistoryStep>,
+) {
     let mut transition = historical.header.clone();
     transition.height += 1;
     transition.time.seconds += 10;
-    transition.last_block_id.hash = historical.commit.block_id.hash.clone();
+    transition
+        .last_block_id
+        .hash
+        .clone_from(&historical.commit.block_id.hash);
     transition.last_block_id.part_set_total = historical.commit.block_id.part_set_header.total;
-    transition.last_block_id.part_set_hash =
-        historical.commit.block_id.part_set_header.hash.clone();
+    transition
+        .last_block_id
+        .part_set_hash
+        .clone_from(&historical.commit.block_id.part_set_header.hash);
     transition.next_validators_hash = rotated.hash().to_vec();
     historical.header = transition;
-    sign_chain(&mut historical, &VALIDATOR_SEEDS);
+    sign_chain(historical, &VALIDATOR_SEEDS);
     let transition_trust = historical
         .verifier
         .advance(
-            &original_head,
+            original_head,
             &historical.header,
             &historical.commit,
             historical.verifier.validators.clone(),
         )
-        .expect("old validators authorize next validator set");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "old validators authorize next validator set"
+            )
+        });
     let transition_head = transition_trust
         .verify_head(&historical.header, &historical.commit)
-        .expect("authenticated rotation announcement");
+        .or_panic("authenticated rotation announcement");
     current.header.height = historical.header.height + 1;
     current.header.time.seconds = 1_700_000_150;
     current.header.time.nanos = 0;
-    current.header.last_block_id.hash = historical.commit.block_id.hash.clone();
+    current
+        .header
+        .last_block_id
+        .hash
+        .clone_from(&historical.commit.block_id.hash);
     current.header.last_block_id.part_set_total = historical.commit.block_id.part_set_header.total;
-    current.header.last_block_id.part_set_hash =
-        historical.commit.block_id.part_set_header.hash.clone();
+    current
+        .header
+        .last_block_id
+        .part_set_hash
+        .clone_from(&historical.commit.block_id.part_set_header.hash);
     current.verifier.validators = rotated;
     current.header.validators_hash = current.verifier.validators.hash().to_vec();
     current.header.next_validators_hash = current.header.validators_hash.clone();
     current.header.proposer_address = current.verifier.validators.validators()[0].address.to_vec();
-    sign_chain(&mut current, &ROTATED_SEEDS);
+    sign_chain(current, &ROTATED_SEEDS);
     current.verifier = transition_trust
         .advance(
             &transition_head,
@@ -436,17 +447,22 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
             &current.commit,
             current.verifier.validators.clone(),
         )
-        .expect("authenticate rotated validators through the chain");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "authenticate rotated validators through the chain"
+            )
+        });
     let current_head = current
         .verifier
         .verify_head(&current.header, &current.commit)
-        .expect("head after rotation");
+        .or_panic("head after rotation");
     current_proof.state.commitment = decode_commitment_proof(
         &current
             .encode_key(&current_proof.state.commitment.key)
-            .expect("current commitment"),
+            .or_panic("current commitment"),
     )
-    .expect("decode current commitment");
+    .or_panic("decode current commitment");
     let history = vec![
         original_step,
         (
@@ -460,69 +476,95 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
             current.verifier.validators.clone(),
         ),
     ];
+    (current_head, history)
+}
+
+fn verify_rotated_history(
+    verifier: &ProtocolDeploymentVerifier,
+    historical_proof: &DeploymentProof,
+    current_proof: &DeploymentProof,
+    current_head: &layerx_programs::chain_proof::VerifiedChainHead,
+    history: &[TrustHistoryStep],
+    current: &ChainFixture,
+    original: &layerx_programs::VerifiedDeploymentEvidence,
+) -> (
+    layerx_programs::VerifiedDeploymentEvidence,
+    layerx_programs::VerifiedDeploymentEvidence,
+) {
     assert_eq!(
-        verifier.verify_deployment(&historical_proof, NOW),
+        verifier.verify_deployment(historical_proof, NOW),
         Err(ProtocolEvidenceError::Stale)
     );
     let first = verifier
-        .verify_historical_deployment(&historical_proof, &current_head, &history, NOW)
-        .expect("historical deployment verified across rotation");
-    assert_eq!(first, original);
+        .verify_historical_deployment(historical_proof, current_head, history, NOW)
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "historical deployment verified across rotation"
+            )
+        });
+    assert_eq!(&first, original);
     let current_verifier = ProtocolDeploymentVerifier::from_chain_trust(
         &current.verifier.chain_id,
         current.verifier.validators.validators().to_vec(),
         50,
     )
-    .expect("verifier derived from authenticated rotated validators");
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "verifier derived from authenticated rotated validators"
+        )
+    });
     let second = current_verifier
-        .verify_historical_deployment(&current_proof, &current_head, &history[2..], NOW)
-        .expect("deployment after rotation");
+        .verify_historical_deployment(current_proof, current_head, &history[2..], NOW)
+        .or_panic("deployment after rotation");
     assert_eq!(
-        current_verifier.verify_deployment(&current_proof, NOW),
+        current_verifier.verify_deployment(current_proof, NOW),
         Ok(second.clone())
     );
     assert_eq!(
-        current_verifier.verify_historical_deployment(
-            &historical_proof,
-            &current_head,
-            &history,
-            NOW
-        ),
+        current_verifier.verify_historical_deployment(historical_proof, current_head, history, NOW),
         Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
     let missing_rotation = [history[0].clone(), history[2].clone()];
     assert_eq!(
         verifier.verify_historical_deployment(
-            &historical_proof,
-            &current_head,
+            historical_proof,
+            current_head,
             &missing_rotation,
             NOW
         ),
         Err(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
-    let mut forged_history = history.clone();
+    let mut forged_history = history.to_vec();
     forged_history[1].1.signatures.truncate(2);
     assert_eq!(
-        verifier.verify_historical_deployment(
-            &historical_proof,
-            &current_head,
-            &forged_history,
-            NOW
-        ),
+        verifier.verify_historical_deployment(historical_proof, current_head, &forged_history, NOW),
         Err(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
-    let mut wrong_anchor = history.clone();
-    wrong_anchor[0].2 = current.verifier.validators.clone();
+    let mut wrong_anchor = history.to_vec();
+    wrong_anchor[0].2.clone_from(&current.verifier.validators);
     assert_eq!(
-        verifier.verify_historical_deployment(&historical_proof, &current_head, &wrong_anchor, NOW),
+        verifier.verify_historical_deployment(historical_proof, current_head, &wrong_anchor, NOW),
         Err(ProtocolEvidenceError::InvalidTrustAnchor)
     );
 
+    (first, second)
+}
+
+fn verify_rotated_registry_reads(
+    first: &layerx_programs::VerifiedDeploymentEvidence,
+    second: &layerx_programs::VerifiedDeploymentEvidence,
+    original_head: &layerx_programs::chain_proof::VerifiedChainHead,
+    current_head: &layerx_programs::chain_proof::VerifiedChainHead,
+    historical_program: ProgramId,
+    current_program: ProgramId,
+) {
     let records = [second.record().clone(), first.record().clone()];
     let mut registry = Registry::new();
     registry
         .replay_journal(&records)
-        .expect("replay both chain-verified deployments");
+        .or_panic("replay both chain-verified deployments");
     assert_eq!(
         registry.program_ids(),
         vec![historical_program, current_program]
@@ -538,7 +580,7 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
         assert_eq!(registry.latest_version(evidence.program()), Ok(1));
         let entry = registry
             .entry_for_wind_down(evidence.program())
-            .expect("replayed entry");
+            .or_panic("replayed entry");
         assert_eq!(entry.versions.len(), 1);
         assert_eq!(entry.versions[0].code_hash, evidence.code_hash());
         assert_eq!(entry.versions[0].abi_version, evidence.abi_version());
@@ -561,11 +603,11 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
         NOW,
         50,
     )
-    .expect("canonical deployment journal authority");
+    .or_panic("canonical deployment journal authority");
     for evidence in [&first, &second] {
         let read = registry
             .read(evidence.program(), &authority)
-            .expect("authenticated journal read");
+            .or_panic("authenticated journal read");
         assert_eq!(read.entry.versions[0].code_hash, evidence.code_hash());
         assert_eq!(
             read.entry.versions[0].deployment_receipt_digest,
@@ -575,7 +617,79 @@ fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
 }
 
 #[test]
-fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed() {
+fn historical_deployments_replay_across_an_explicit_sequencer_rotation() {
+    let historical_program = fixture_program();
+    let current_program = ProgramId::new([0x32; 32]).or_panic("second program");
+    let (mut historical, mut historical_proof) = chain_deployment_fixture(
+        historical_program,
+        PROTOCOL_WASM_V1,
+        &VALIDATOR_SEEDS,
+        Some(support::fixture_interface(PROTOCOL_WASM_V1)),
+    );
+    let (mut current, mut current_proof) = chain_deployment_fixture(
+        current_program,
+        PROTOCOL_WASM_V2,
+        &VALIDATOR_SEEDS,
+        Some(support::fixture_interface(PROTOCOL_WASM_V2)),
+    );
+    let rotated = rotated_validators(&historical);
+    historical.header.height = 71;
+    historical.header.time.seconds = 1_700_000_130;
+    historical.header.time.nanos = 0;
+    sign_chain(&mut historical, &VALIDATOR_SEEDS);
+    historical_proof.state.commitment = decode_commitment_proof(
+        &historical
+            .encode_key(&historical_proof.state.commitment.key)
+            .or_panic("historical commitment"),
+    )
+    .or_panic("decode historical commitment");
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &historical.verifier.chain_id,
+        historical.verifier.validators.validators().to_vec(),
+        50,
+    )
+    .or_panic("original validator trust");
+    let original_head = historical
+        .verifier
+        .verify_head(&historical.header, &historical.commit)
+        .or_panic("original deployment head");
+    let original_step = (
+        historical.header.clone(),
+        historical.commit.clone(),
+        historical.verifier.validators.clone(),
+    );
+    let original = verifier
+        .verify_deployment(&historical_proof, NOW - 20_000)
+        .or_panic("deployment before rotation");
+
+    let (current_head, history) = rotate_and_collect_history(
+        &mut historical,
+        &mut current,
+        &mut current_proof,
+        rotated,
+        &original_head,
+        original_step,
+    );
+    let (first, second) = verify_rotated_history(
+        &verifier,
+        &historical_proof,
+        &current_proof,
+        &current_head,
+        &history,
+        &current,
+        &original,
+    );
+    verify_rotated_registry_reads(
+        &first,
+        &second,
+        &original_head,
+        &current_head,
+        historical_program,
+        current_program,
+    );
+}
+
+fn verify_swapped_receipt_and_invalid_module() -> ProtocolDeploymentVerifier {
     let (invalid_chain, invalid_proof) =
         chain_deployment_fixture(fixture_program(), INVALID_WASM, &VALIDATOR_SEEDS, None);
     let fixture = deploy_fixture(
@@ -592,17 +706,20 @@ fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed(
     );
     let verifier = verifier_for_fixture(&fixture, 1_000);
     let mut swapped_receipt = fixture.proof.clone();
-    swapped_receipt.state.transaction = other.proof.state.transaction.clone();
+    swapped_receipt
+        .state
+        .transaction
+        .clone_from(&other.proof.state.transaction);
     swapped_receipt.state.transaction[0] ^= 1;
     let signed_header = layerx_programs::chain_proof::header::ChainHeader::decode(
         &swapped_receipt.state.commitment.signed_header,
     )
-    .expect("decode signed chain header");
+    .or_panic("decode signed chain header");
     let signed_head = fixture
         .chain
         .verifier
         .verify_head(&signed_header, &fixture.chain.commit)
-        .expect("signed chain head");
+        .or_panic("signed chain head");
     assert!(layerx_programs::verify_tx(
         &signed_head,
         &swapped_receipt.state.transaction,
@@ -619,7 +736,7 @@ fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed(
         invalid_chain.verifier.validators.validators().to_vec(),
         1_000,
     )
-    .expect("invalid module chain verifier");
+    .or_panic("invalid module chain verifier");
     let malformed_evidence = invalid_verifier
         .verify_deployment(&invalid_proof, NOW)
         .unwrap_or_else(|error| panic!("malformed module protocol evidence: {error}"));
@@ -631,6 +748,12 @@ fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed(
     ));
     assert!(executable.is_empty());
 
+    verifier
+}
+
+#[test]
+fn mismatched_receipt_invalid_module_stale_head_and_deprecation_are_fail_closed() {
+    let verifier = verify_swapped_receipt_and_invalid_module();
     let valid = deploy_fixture(
         PROTOCOL_WASM_V1,
         UpgradePolicy::Authority(AUTHORITY),
@@ -980,7 +1103,7 @@ fn registry_replay_applies_every_supported_abi_transition_without_rewriting_hist
 
 fn sign_chain(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
     fixture.commit.height = fixture.header.height;
-    fixture.commit.block_id.hash = fixture.header.hash().expect("chain header hash").to_vec();
+    fixture.commit.block_id.hash = fixture.header.hash().or_panic("chain header hash").to_vec();
     let timestamp = Timestamp {
         seconds: fixture.header.time.seconds,
         nanos: fixture.header.time.nanos,
@@ -992,7 +1115,7 @@ fn sign_chain(fixture: &mut ChainFixture, seeds: &[[u8; 32]]) {
         Some(&fixture.commit.block_id),
         timestamp,
     )
-    .expect("canonical vote bytes");
+    .or_panic("canonical vote bytes");
     let mut keys = seeds.iter().map(SigningKey::from_bytes).collect::<Vec<_>>();
     keys.sort_by_key(|key| TrustedValidator::new(key.verifying_key().to_bytes(), 1).address);
     fixture.commit.signatures = keys
@@ -1029,7 +1152,7 @@ fn chain_deployment_fixture(
         seeds,
         vec![(program_key.clone(), record.clone())],
     )
-    .expect("real chain state fixture");
+    .or_panic("real chain state fixture");
     let interface = interface.map(|value| value.canonical_encoding().to_vec());
     let mut transaction = program.bytes().to_vec();
     transaction.extend_from_slice(&ABI_V1_VERSION.to_be_bytes());
@@ -1037,13 +1160,13 @@ fn chain_deployment_fixture(
     transaction.extend_from_slice(&fixture_code_hash(wasm));
     transaction.extend_from_slice(
         &u32::try_from(wasm.len())
-            .expect("module length")
+            .or_panic("module length")
             .to_be_bytes(),
     );
     let interface_length = interface.as_ref().map_or(0, Vec::len);
     transaction.extend_from_slice(
         &u32::try_from(interface_length)
-            .expect("interface length")
+            .or_panic("interface length")
             .to_be_bytes(),
     );
     if let Some(encoding) = &interface {
@@ -1057,17 +1180,20 @@ fn chain_deployment_fixture(
     sign_chain(&mut fixture, seeds);
     let state = ChainProgramStateProof {
         program,
-        ops: fixture.prove(&program_key).expect("program membership"),
+        ops: fixture.prove(&program_key).or_panic("program membership"),
     };
     let status_ops = fixture
         .prove_absent(&status_key)
-        .expect("active lifecycle absence");
+        .or_panic("active lifecycle absence");
     let proof = DeploymentProof {
         state: ProgramStateProof {
-            commitment: decode_commitment_proof(
-                &fixture.encode_key(&program_key).expect("chain commitment"),
-            )
-            .expect("decode chain commitment"),
+            commitment: decode_commitment_proof(&fixture.encode_key(&program_key).unwrap_or_else(
+                |error| {
+                    let message = "chain commitment";
+                    panic!("{message}: {error:?}")
+                },
+            ))
+            .or_panic("decode chain commitment"),
             state: state.clone(),
             lifecycle: ProgramLifecycleProof(ChainLifecycleProof {
                 program,

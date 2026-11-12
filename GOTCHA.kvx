@@ -21165,3 +21165,63 @@ fix = "Decisions 3344 to 3346 and task 22.39.425."
 title = "The option --no-deps also leaves out a dependency that the manifest names by path outside the workspace"
 symptom = "A member of the platform workspace can depend by path on a package of another workspace. Clippy with the package option reports on that package as well. With the option --no-deps the report covers the named members only."
 fix = "Decision 3347."
+
+[gotcha.4269]
+title = "The split tool numbers its parts with two digits unless a suffix length is given"
+symptom = "With the numeric suffix option and no suffix length, split writes the parts of a file with the suffixes 00, 01, 02 and 03 when asked for four parts. A recipe that reads a part by the number of its group passes the suffix length that matches the group names."
+fix = "Decision 3348 and task 22.39.431."
+
+[gotcha.4270]
+title = "A database role belongs to the whole Postgres server and outlives the database of a test"
+symptom = "A role that a statement of a test creates stays on the server when the private database of the test is dropped. A second run of the same test on that server finds the role present."
+fix = "Decision 3351."
+
+[gotcha.4271]
+title = "The chart recovery test file of the launchpad web application runs against the joined services of the prepared test environment"
+symptom = "Its seven cases read the local chain and the trades endpoint that the environment script starts, and the time the file takes inside the whole web run varies with the run."
+fix = "Decision 3352."
+
+[gotcha.4272]
+title = "The Go package listing of a module prints no package when one directory under it does not load"
+symptom = "A directory that holds test files of more than one package, or C sources beside Go sources built without cgo, stops the listing of the whole module before it prints."
+fix = "Decision 3353."
+
+[gotcha.4273]
+title = "The argument count lint applies to public functions whose signatures other code holds"
+symptom = "Two public functions of the step module of the arbiter member take nine and ten arguments, and a test of the member holds their signatures."
+fix = "Decision 3354."
+
+[gotcha.4274]
+title = "A source file that a test target of another member includes by path resolves crate paths in the including crate"
+symptom = "A reference written as crate::name inside such a file names a module of the including crate, which need not hold that module."
+fix = "Decision 3356."
+
+[gotcha.4275]
+title = "The library, an example and the fuel cases of the AI market program compile one support fixture source through a path include"
+symptom = "The file tests/support/repair_478_fixture.rs of the program is declared by path in src/lib.rs, in the example of the same name and in tests/fuel_budget.rs."
+fix = "Decision 3358."
+
+[gotcha.4276]
+title = "A test target of the identity provider member of the human workspace compiles a source file of the service member through a path include"
+symptom = "The file tests/client.rs of services/human/crates/layerx-human-identity-provider declares the identity entry file of src/server of the service member by path, so the lint of the provider member reads that file and the files it pulls in."
+fix = "Decision 3359."
+
+[gotcha.4277]
+title = "Two kinds of Go source under the root module run only inside another package or module"
+symptom = "The three test files of services/platform/ramps/toolkit/src/repair_22_31_211 are compiled into the packages they test through an overlay written by services/platform/ramps/toolkit/tests/repair_22_31_211.rs. The program apps/launchpad/web/src/core/repair-22-31-22/attest.go is run by file path from sdk/launchpad/shared by a web case and imports packages of that module."
+fix = "Decision 3360."
+
+[gotcha.4278]
+title = "The all-target lint of the gateway member of the platform reads source files of other members through path includes"
+symptom = "tests/repair_22_33_1439.rs of services/platform/hosted/gateway declares sources of the program SDK and of the AI market program by path, and src/lib.rs declares the committed proof library of the interop workspace by path. In the including target the compiler reports items, imports and braces of those files as unused, and the lint reads the committed proof sources again."
+fix = "Decision 3361."
+
+[gotcha.4279]
+title = "A test target of the program SDK compiles a generated client from a fixture file"
+symptom = "tests/support/bytes_call_boundary.rs of programs/sdk/rust includes tests/fixtures/repair_22_33_242/client.inc as source and also compares it as text, so the lint of the member reads generated code that stays byte for byte."
+fix = "Decision 3362."
+
+[gotcha.4280]
+title = "The human service member holds a type of the crypto member that is marked deprecated"
+symptom = "The lint with warnings denied reports each use of the onboarding consent type of layerx_crypto in services/human/crates/layerx-human-service as a use of a deprecated item."
+fix = "Decision 3363."

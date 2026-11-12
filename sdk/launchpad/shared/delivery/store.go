@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -576,7 +577,7 @@ func (s *Store) QuarantineAfterRollback(ctx context.Context, in QuarantineInput,
 	if !token.MatchString(in.ConsumerID) || !token.MatchString(in.Generation) || len(in.Subject) > 256 || !subjectToken.MatchString(in.Subject) || len(in.Wire) > MaxEnvelopeBytes || string(in.WireSHA256) != Hash(in.Wire) || !partitionDigest.MatchString(string(in.EvidenceDigest)) || !poisonClass(in.Class) || len(in.PublicationID) > 128 || len(in.AffectedPools) > 128 {
 		return errors.New("delivery: invalid quarantine evidence")
 	}
-	pools := append([]string(nil), in.AffectedPools...)
+	pools := append([]string{}, in.AffectedPools...)
 	sort.Strings(pools)
 	unique := pools[:0]
 	for _, pool := range pools {
@@ -660,7 +661,7 @@ func (s *Store) QuarantineAfterRollback(ctx context.Context, in QuarantineInput,
 	if err = tx.QueryRow(cleanup, "SELECT subject,publication_id,envelope,affected_pools,evidence_digest FROM "+s.table("delivery_ordered_quarantine")+" WHERE consumer_id=$1 AND projection_generation=$2 AND envelope_hash=$3 AND failure_class=$4 FOR UPDATE", in.ConsumerID, in.Generation, string(in.WireSHA256), string(in.Class)).Scan(&recordedSubject, &recordedPublication, &recordedWire, &recordedPools, &recordedEvidence); err != nil {
 		return err
 	}
-	if recordedSubject != in.Subject || recordedPublication != in.PublicationID || !bytes.Equal(recordedWire, in.Wire) || recordedEvidence != string(in.EvidenceDigest) || !reflect.DeepEqual(recordedPools, unique) {
+	if recordedSubject != in.Subject || recordedPublication != in.PublicationID || !bytes.Equal(recordedWire, in.Wire) || recordedEvidence != string(in.EvidenceDigest) || !slices.Equal(recordedPools, unique) {
 		return ErrIntegrity
 	}
 	if freeze != nil && len(unique) > 0 {

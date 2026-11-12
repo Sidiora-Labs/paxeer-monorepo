@@ -26,6 +26,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -1045,10 +1046,20 @@ func (a *ReadAdapter) Snapshot(ctx context.Context, pin BlockPin, pool common.Ad
 	return PoolSnapshot{ChainID: "125", PoolAddress: pool, BlockNumber: new(big.Int).SetUint64(pin.Number).String(), BlockHash: pin.Hash, DeploymentVersion: pin.DeploymentVersion, ManifestHash: a.binding.ManifestHash, InterfaceHash: a.binding.InterfaceHash, CapabilityHash: a.binding.CapabilityHash, ConfigurationRevision: a.configurationRevision, ObservedAt: pin.ObservedAt, VirtualUSDLReserve: raw[0], RealUSDLBalance: raw[1], TokenReserve: raw[2], FeeBps: uint16(new(big.Int).SetBytes(values[3]).Uint64())}, nil
 }
 
-// surfaceRuntimeHash identifies the runtime installed at the v6.12.0 activation.
-var surfaceRuntimeHash = common.HexToHash("0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f")
-
-var stagedSurfaceRuntimeHash = common.HexToHash(deployment.StagedSurfaceRuntimeHash)
+func surfaceRuntimeHash(manifest deployment.Manifest) map[common.Hash]struct{} {
+	hashes := make(map[common.Hash]struct{})
+	for _, role := range manifest.Roles {
+		if role.Kind != "surface" {
+			continue
+		}
+		for _, hash := range []string{role.RuntimeHash, role.StagedRuntimeHash} {
+			if role.AcceptsRuntimeHash(hash) {
+				hashes[common.HexToHash(hash)] = struct{}{}
+			}
+		}
+	}
+	return hashes
+}
 
 // identifyPool requires PoolRegistry membership at pin, then the pool code: a
 // surface runtime is identified by its code hash alone; a pool proxy runtime
@@ -1070,6 +1081,7 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 	if err := decodePoolMembership(membership); err != nil {
 		return err
 	}
+	surfaceHashes := surfaceRuntimeHash(a.manifest)
 	_, err = readVerified(a.client, ctx, "pool_code_identity", func(ctx context.Context, e *ethclient.Client) (bool, error) {
 		err := a.client.atPinned(ctx, e, pin, func(height *big.Int, _ *types.Header) error {
 			code, err := e.CodeAt(ctx, pool, height)
@@ -1079,11 +1091,11 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 			if len(code) == 0 {
 				return errors.New("pool proxy runtime identity mismatch")
 			}
-			switch crypto.Keccak256Hash(code) {
-			case surfaceRuntimeHash, stagedSurfaceRuntimeHash:
+			hash := crypto.Keccak256Hash(code)
+			if _, ok := surfaceHashes[hash]; ok {
 				return nil
-			case a.poolProxyRuntimeHash:
-			default:
+			}
+			if hash != a.poolProxyRuntimeHash {
 				return errors.New("pool proxy runtime identity mismatch")
 			}
 			slot, err := e.StorageAt(ctx, pool, deployment.BeaconSlot, height)
@@ -1508,7 +1520,9 @@ func RunChainMeasurement(ctx context.Context, adapter *ReadAdapter, durable *pgx
 	if err != nil {
 		return nil, errors.New("measurement executable build hash mismatch")
 	}
-	buildFile.Close()
+	if err := buildFile.Close(); err != nil {
+		return nil, err
+	}
 	for _, address := range cfg.LogAddresses {
 		if address == (common.Address{}) {
 			return nil, errors.New("approved log source address required")
@@ -1723,13 +1737,19 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err != nil {
 			return fail("ENVIRONMENT_OR_TOPOLOGY_ARTIFACT_MISSING", err)
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return fail("ENVIRONMENT_OR_TOPOLOGY_ARTIFACT_CLOSE_FAILED", err)
+		}
 	}
 	workloadFile, err := run.capture.OpenArtifact("mixed-workload", evidence.Workload)
 	if err != nil {
 		return fail("MISSING_WORKLOAD_EVIDENCE", err)
 	}
-	defer workloadFile.Close()
+	defer func() {
+		if err := workloadFile.Close(); err != nil {
+			slog.Warn("close measurement artifact", "error", err)
+		}
+	}()
 	var workload struct {
 		Bindings struct {
 			Candidate string `json:"candidate"`
@@ -1802,7 +1822,7 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err == nil && hostDecoder.Decode(new(any)) != io.EOF {
 			err = errors.New("host report trailing data")
 		}
-		hostFile.Close()
+		err = errors.Join(err, hostFile.Close())
 		if err != nil {
 			return fail("MALFORMED_WORKLOAD_HOST_REPORT", err)
 		}
@@ -1821,7 +1841,7 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 		if err == nil && manifestDecoder.Decode(new(any)) != io.EOF {
 			err = errors.New("artifact manifest trailing data")
 		}
-		manifestFile.Close()
+		err = errors.Join(err, manifestFile.Close())
 		if err != nil {
 			return fail("MALFORMED_WORKLOAD_RAW_MANIFEST", err)
 		}
@@ -1835,14 +1855,20 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 			if err != nil {
 				return fail("WORKLOAD_RAW_CAPTURE_CHANGED", err)
 			}
-			raw.Close()
+			if err := raw.Close(); err != nil {
+				return fail("WORKLOAD_RAW_CAPTURE_CLOSE_FAILED", err)
+			}
 		}
 	}
 	compatibilityFile, err := run.capture.OpenArtifact("compatibility", evidence.Compatibility)
 	if err != nil {
 		return fail("MISSING_COMPATIBILITY_EVIDENCE", err)
 	}
-	defer compatibilityFile.Close()
+	defer func() {
+		if err := compatibilityFile.Close(); err != nil {
+			slog.Warn("close measurement artifact", "error", err)
+		}
+	}()
 	var compatibility struct {
 		Binding   readpolicy.MeasurementBinding `json:"binding"`
 		Scenarios map[string]struct {
@@ -1879,23 +1905,20 @@ func FinishChainMeasurement(run *ChainMeasurementRun, evidence ChainMeasurementE
 				Package string
 			}
 			if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
-				raw.Close()
-				return fail("COMPATIBILITY_RAW_EVIDENCE_MALFORMED", err)
+				return fail("COMPATIBILITY_RAW_EVIDENCE_MALFORMED", errors.Join(err, raw.Close()))
 			}
 			if event.Test == requiredTests[id] {
 				if !strings.HasPrefix(event.Package, "github.com/Sidiora-Technologies/KindleLaunch/shared/chain") || event.Action == "fail" || event.Action == "skip" {
-					raw.Close()
-					return fail("COMPATIBILITY_REAL_PATH_FAILED", errors.New("required genuine compatibility test failed or skipped"))
+					return fail("COMPATIBILITY_REAL_PATH_FAILED", errors.Join(errors.New("required genuine compatibility test failed or skipped"), raw.Close()))
 				}
 				if event.Action == "pass" {
 					passed = true
 				}
 			}
 		}
-		scanErr := scanner.Err()
-		raw.Close()
+		scanErr := errors.Join(scanner.Err(), raw.Close())
 		if scanErr != nil || !passed {
-			return fail("COMPATIBILITY_REAL_PATH_MISSING", errors.New("required actual go-test-json passing scenario record absent"))
+			return fail("COMPATIBILITY_REAL_PATH_MISSING", errors.Join(errors.New("required actual go-test-json passing scenario record absent"), scanErr))
 		}
 	}
 	if len(run.IngestLatencies) == 0 {

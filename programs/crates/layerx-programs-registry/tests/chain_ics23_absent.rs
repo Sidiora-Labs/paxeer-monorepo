@@ -1,9 +1,11 @@
 use layerx_programs::chain_proof::{proto, ChainProofError};
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ics23.rs"]
 mod ics23;
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ics23_absent.rs"]
 mod ics23_absent;
 
@@ -18,10 +20,10 @@ struct Tree {
 
 fn varint(mut value: u64, bytes: &mut Vec<u8>) {
     while value >= 128 {
-        bytes.push((value as u8 & 0x7f) | 0x80);
+        bytes.push((u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")) & 0x7f) | 0x80);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")));
 }
 
 fn leaf(key: &[u8]) -> Tree {

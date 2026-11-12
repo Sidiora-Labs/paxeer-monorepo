@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -30,6 +31,7 @@ pub const WASM_V1: &[u8] = &[
 
 const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
 const NOW: u64 = 1_700_000_000_123;
+const PERSISTED_TRUST: &str = "LAYERX_CHAIN_TRUST_ONLY_TEST_ROOT";
 
 fn key(prefix: &[u8], program: ProgramId) -> Vec<u8> {
     let mut key = prefix.to_vec();
@@ -37,9 +39,8 @@ fn key(prefix: &[u8], program: ProgramId) -> Vec<u8> {
     chain_evidence::programs_state_key(&key)
 }
 
-fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
-    let program = ProgramId::new([0x31; 32]).unwrap();
-    let interface = ProgramInterface::bind(
+fn fixture_interface() -> ProgramInterface {
+    ProgramInterface::bind(
         WASM_V1,
         1,
         vec![InterfaceEntryPoint {
@@ -52,7 +53,46 @@ fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
             failures: Vec::new(),
         }],
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"))
+}
+
+fn prepare_signed_transaction(fixture: &mut chain::ChainFixture) -> (Vec<u8>, [u8; 32]) {
+    let transaction = b"chain deployment transaction".to_vec();
+    let tx_hash: [u8; 32] = Sha256::digest(&transaction).into();
+    let tx_root = hash_from_byte_slices(&[&tx_hash]);
+    fixture.header.data_hash = tx_root.to_vec();
+    fixture.commit.block_id.hash = fixture
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_vec();
+    let keys: Vec<_> = SEEDS.iter().map(SigningKey::from_bytes).collect();
+    for signature in &mut fixture.commit.signatures {
+        let signer = keys
+            .iter()
+            .find(|key| {
+                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                    .address
+                    .as_slice()
+                    == signature.validator_address
+            })
+            .unwrap_or_else(|| panic!("expected value"));
+        let bytes = vote_sign_bytes(
+            &fixture.header.chain_id,
+            fixture.commit.height,
+            fixture.commit.round,
+            Some(&fixture.commit.block_id),
+            signature.timestamp,
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        signature.signature = signer.sign(&bytes).to_bytes().to_vec();
+    }
+    (transaction, tx_root)
+}
+
+fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
+    let program = ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let interface = fixture_interface();
     let mut record = vec![0; 33];
     record.extend_from_slice(&interface.code_hash());
     record.extend_from_slice(&1_u16.to_be_bytes());
@@ -66,48 +106,31 @@ fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
             (program_key.clone(), record.clone()),
             (
                 interface_key.clone(),
-                interface_state_value(program, 7, &interface).unwrap(),
+                interface_state_value(program, 7, &interface)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
             ),
         ],
     )
-    .unwrap();
-    let transaction = b"chain deployment transaction".to_vec();
-    let tx_hash: [u8; 32] = Sha256::digest(&transaction).into();
-    let tx_root = hash_from_byte_slices(&[&tx_hash]);
-    fixture.header.data_hash = tx_root.to_vec();
-    fixture.commit.block_id.hash = fixture.header.hash().unwrap().to_vec();
-    let keys: Vec<_> = SEEDS.iter().map(SigningKey::from_bytes).collect();
-    for signature in &mut fixture.commit.signatures {
-        let signer = keys
-            .iter()
-            .find(|key| {
-                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
-                    .address
-                    .as_slice()
-                    == signature.validator_address
-            })
-            .unwrap();
-        let bytes = vote_sign_bytes(
-            &fixture.header.chain_id,
-            fixture.commit.height,
-            fixture.commit.round,
-            Some(&fixture.commit.block_id),
-            signature.timestamp,
-        )
-        .unwrap();
-        signature.signature = signer.sign(&bytes).to_bytes().to_vec();
-    }
-    let commitment = decode_commitment_proof(&fixture.encode_key(&program_key).unwrap()).unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let (transaction, tx_root) = prepare_signed_transaction(&mut fixture);
+    let commitment = decode_commitment_proof(
+        &fixture
+            .encode_key(&program_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let state = ChainProgramStateProof {
         program,
-        ops: fixture.prove(&program_key).unwrap(),
+        ops: fixture
+            .prove(&program_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
     };
     let wind_down = ChainWindDownProof {
         program,
         value: None,
         ops: fixture
             .prove_absent(&key(b"wind-down\0s", program))
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
     };
     let lifecycle = ProgramLifecycleProof(ChainLifecycleProof {
         program,
@@ -140,79 +163,32 @@ fn fixture() -> (chain::ChainFixture, DeploymentProof, ProgramStateBundle) {
         commitment,
         program,
         program_record_ops: state.ops,
-        interface_ops: fixture.prove(&interface_key).unwrap(),
+        interface_ops: fixture
+            .prove(&interface_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
         wind_down: Some(wind_down),
     };
     (fixture, deployment, bundle)
 }
 
-#[test]
-fn verifier_public_methods_accept_chain_evidence() {
-    let (fixture, proof, bundle) = fixture();
-    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
-        &fixture.verifier.chain_id,
-        fixture.verifier.validators.validators().to_vec(),
-        5_000,
-    )
-    .unwrap();
-    let verified_header = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let root = verified_header.app_hash();
-    let tx_hash: [u8; 32] = Sha256::digest(&proof.state.transaction).into();
-    let bytes = proof.canonical_encoding().unwrap();
-    assert_eq!(&bytes[..5], b"LXDP\x02");
-    assert_eq!(DeploymentProof::decode(&bytes).unwrap(), proof);
-    assert_eq!(proof.claimed_receipt_digest().unwrap(), tx_hash);
-    let deployment = verifier.verify_deployment(&proof, NOW).unwrap();
-    assert_eq!(deployment.state_root(), root);
-    assert_eq!(deployment.programs_root(), root);
-    assert_eq!(deployment.receipt_digest(), tx_hash);
-    assert_eq!(deployment.activity_id(), tx_hash);
-    assert_eq!(
-        layerx_programs::chain_proof::header::ChainHeader::decode(
-            &deployment.proof().state.commitment.signed_header
-        )
-        .unwrap()
-        .hash()
-        .unwrap(),
-        verified_header.header_hash()
-    );
-    assert_eq!(
-        deployment.freshness().observed_sequence,
-        verified_header.height() as u64
-    );
-    assert_eq!(deployment.freshness().observed_at, NOW);
-    assert_eq!(deployment.module(), WASM_V1);
-    assert!(deployment.interface_present());
-    assert_eq!(deployment.version(), 7);
-    assert_eq!(deployment.lifecycle(), ProgramLifecycle::Active);
-    let history = [(
-        fixture.header.clone(),
-        fixture.commit.clone(),
-        fixture.verifier.validators.clone(),
-    )];
-    assert_eq!(
-        verifier
-            .verify_historical_deployment(&proof, &verified_header, &history, NOW)
-            .unwrap(),
-        deployment
-    );
-    let program = verifier
-        .verify_current_program(&proof.state, bundle.program, NOW)
-        .unwrap();
-    assert_eq!(program.state_root(), root);
-    assert_eq!(program.programs_root(), root);
-    assert_eq!(program.receipt_digest(), tx_hash);
-    assert_eq!(program.valid_until_ms(), NOW + 5_000);
+fn verify_protocol_head_methods(
+    fixture: &chain::ChainFixture,
+    proof: &DeploymentProof,
+    verifier: &ProtocolDeploymentVerifier,
+    root: [u8; 32],
+    tx_hash: [u8; 32],
+    expected_freshness: layerx_programs::ReadFreshness,
+) {
     let commitment = &proof.state.commitment;
     let protocol = ProtocolHeadProof {
         commitment,
         chain: ChainProtocolHeadProof {
             ops: &commitment.proof_ops,
             kernel_key: &commitment.key[3..],
-            value: commitment.value.as_deref().unwrap(),
+            value: commitment
+                .value
+                .as_deref()
+                .unwrap_or_else(|| panic!("expected value")),
             store_name: &commitment.store_name,
             verifier: &fixture.verifier,
             header: &fixture.header,
@@ -223,33 +199,46 @@ fn verifier_public_methods_accept_chain_evidence() {
     };
     let head = verifier
         .verify_current_protocol_head(&protocol, NOW)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(head.state_root(), root);
     assert_eq!(head.receipt_digest(), tx_hash);
     assert_eq!(head.activity_id(), tx_hash);
-    assert_eq!(head.freshness(), deployment.freshness());
+    assert_eq!(head.freshness(), expected_freshness);
     assert_eq!(
         verifier
             .verify_current_protocol_head_proof(&protocol, NOW)
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         head
     );
     assert_eq!(
         verifier
             .verify_historical_protocol_head(&protocol, &fixture.header, &fixture.commit, &[])
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         head
     );
     assert_eq!(
         verifier
             .verify_historical_protocol_head_proof(&protocol, &fixture.header, &fixture.commit, &[])
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
         head
     );
-    let encoded_bundle = bundle.canonical_encoding().unwrap();
+}
+
+fn verify_program_bundle_methods(
+    verifier: &ProtocolDeploymentVerifier,
+    proof: &DeploymentProof,
+    bundle: &ProgramStateBundle,
+    root: [u8; 32],
+    tx_hash: [u8; 32],
+) {
+    let commitment = &proof.state.commitment;
+    let encoded_bundle = bundle
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(&encoded_bundle[..5], b"LXPB\x02");
-    let decoded_bundle = ProgramStateBundle::decode(&encoded_bundle).unwrap();
-    assert_eq!(decoded_bundle, bundle);
+    let decoded_bundle =
+        ProgramStateBundle::decode(&encoded_bundle).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(&decoded_bundle, bundle);
     for kind in [ProgramHeadKind::Ordinary, ProgramHeadKind::Maintenance] {
         let chain = verifier
             .verify_current_chain_head(
@@ -259,19 +248,27 @@ fn verifier_public_methods_accept_chain_evidence() {
                 &proof.state.transaction_proof,
                 NOW,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(chain.state_root(), root);
         assert_eq!(chain.receipt_digest(), tx_hash);
         assert_eq!(chain.head_kind(), kind);
         assert_eq!(chain.receipt_evidence_digest().bytes(), tx_hash);
-        let verified = verifier
+        let authenticated_bundle = verifier
             .verify_current_program_bundle(&decoded_bundle, &chain, bundle.program, NOW)
-            .unwrap();
-        assert_eq!(verified.program_head().state_root(), root);
-        assert_eq!(verified.program_head().programs_root(), root);
-        assert_eq!(verified.chain_head().state_root(), root);
-        assert_eq!(verified.interface().state_root, root);
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(authenticated_bundle.program_head().state_root(), root);
+        assert_eq!(authenticated_bundle.program_head().programs_root(), root);
+        assert_eq!(authenticated_bundle.chain_head().state_root(), root);
+        assert_eq!(authenticated_bundle.interface().state_root, root);
     }
+}
+
+fn verify_public_evidence_rejections(
+    verifier: &ProtocolDeploymentVerifier,
+    proof: &DeploymentProof,
+    bundle: &ProgramStateBundle,
+    tx_hash: [u8; 32],
+) {
     assert_eq!(ProgramHeadKind::Ordinary.wire_byte(), 0);
     assert_eq!(ProgramHeadKind::Maintenance.wire_byte(), 1);
     assert_eq!(
@@ -297,10 +294,11 @@ fn verifier_public_methods_accept_chain_evidence() {
     assert!(verifier
         .verify_current_program(&tampered.state, bundle.program, NOW)
         .is_err());
-    assert!(verifier.verify_deployment(&proof, NOW + 5_001).is_err());
+    assert!(verifier.verify_deployment(proof, NOW + 5_001).is_err());
     let mut tampered = proof.clone();
     tampered.deployment.code[0] ^= 1;
     assert!(verifier.verify_deployment(&tampered, NOW).is_err());
+    let commitment = &proof.state.commitment;
     let mut forged = bundle.clone();
     forged.commitment.commit[0] ^= 1;
     let chain = verifier
@@ -311,10 +309,94 @@ fn verifier_public_methods_accept_chain_evidence() {
             &proof.state.transaction_proof,
             NOW,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(verifier
         .verify_current_program_bundle(&forged, &chain, bundle.program, NOW)
         .is_err());
+}
+
+#[test]
+fn verifier_public_methods_accept_chain_evidence() {
+    let (fixture, proof, bundle) = fixture();
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        &fixture.verifier.chain_id,
+        fixture.verifier.validators.validators().to_vec(),
+        5_000,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let verified_header = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let root = verified_header.app_hash();
+    let tx_hash: [u8; 32] = Sha256::digest(&proof.state.transaction).into();
+    let bytes = proof
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(&bytes[..5], b"LXDP\x02");
+    assert_eq!(
+        DeploymentProof::decode(&bytes).unwrap_or_else(|error| panic!("{error:?}")),
+        proof
+    );
+    assert_eq!(
+        proof
+            .claimed_receipt_digest()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        tx_hash
+    );
+    let deployment = verifier
+        .verify_deployment(&proof, NOW)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(deployment.state_root(), root);
+    assert_eq!(deployment.programs_root(), root);
+    assert_eq!(deployment.receipt_digest(), tx_hash);
+    assert_eq!(deployment.activity_id(), tx_hash);
+    assert_eq!(
+        layerx_programs::chain_proof::header::ChainHeader::decode(
+            &deployment.proof().state.commitment.signed_header
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}")),
+        verified_header.header_hash()
+    );
+    assert_eq!(
+        deployment.freshness().observed_sequence,
+        u64::from_le_bytes((verified_header.height()).to_le_bytes())
+    );
+    assert_eq!(deployment.freshness().observed_at, NOW);
+    assert_eq!(deployment.module(), WASM_V1);
+    assert!(deployment.interface_present());
+    assert_eq!(deployment.version(), 7);
+    assert_eq!(deployment.lifecycle(), ProgramLifecycle::Active);
+    let history = [(
+        fixture.header.clone(),
+        fixture.commit.clone(),
+        fixture.verifier.validators.clone(),
+    )];
+    assert_eq!(
+        verifier
+            .verify_historical_deployment(&proof, &verified_header, &history, NOW)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        deployment
+    );
+    let program = verifier
+        .verify_current_program(&proof.state, bundle.program, NOW)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(program.state_root(), root);
+    assert_eq!(program.programs_root(), root);
+    assert_eq!(program.receipt_digest(), tx_hash);
+    assert_eq!(program.valid_until_ms(), NOW + 5_000);
+    verify_protocol_head_methods(
+        &fixture,
+        &proof,
+        &verifier,
+        root,
+        tx_hash,
+        deployment.freshness(),
+    );
+    verify_program_bundle_methods(&verifier, &proof, &bundle, root, tx_hash);
+    verify_public_evidence_rejections(&verifier, &proof, &bundle, tx_hash);
 }
 
 #[test]
@@ -327,26 +409,36 @@ fn verifier_public_methods_refuse_kernel_batch_evidence() {
         include_bytes!("fixtures/maintained-head/header").as_slice(),
         include_bytes!("fixtures/maintained-head/header.signature").as_slice(),
     ] {
-        kernel.extend_from_slice(&(material.len() as u32).to_be_bytes());
+        kernel.extend_from_slice(
+            &u32::try_from(material.len())
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .to_be_bytes(),
+        );
         kernel.extend_from_slice(material);
     }
     assert_eq!(
         DeploymentProof::decode(&kernel),
         Err(ProtocolEvidenceError::Encoding)
     );
-    let mut old_version = proof.canonical_encoding().unwrap();
+    let mut old_version = proof
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     old_version[4] = 1;
     assert_eq!(
         DeploymentProof::decode(&old_version),
         Err(ProtocolEvidenceError::Encoding)
     );
-    let mut trailing = proof.canonical_encoding().unwrap();
+    let mut trailing = proof
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     trailing.push(0);
     assert_eq!(
         DeploymentProof::decode(&trailing),
         Err(ProtocolEvidenceError::Encoding)
     );
-    let mut old_bundle = bundle.canonical_encoding().unwrap();
+    let mut old_bundle = bundle
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     old_bundle[4] = 1;
     assert!(ProgramStateBundle::decode(&old_bundle).is_err());
     assert!(ProgramStateBundle::decode(b"LayerX/programs/state-proof/v1\0").is_err());
@@ -358,63 +450,90 @@ fn verifier_public_methods_refuse_kernel_batch_evidence() {
         fixture().0.verifier.validators.validators().to_vec(),
         5_000,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(verifier.verify_deployment(&kernel_header, NOW).is_err());
+}
+
+fn verify_trust_in_empty_directory() {
+    use layerx_programs::chain_proof::trust_store::TrustRoot;
+    use std::fs;
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let (fixture, _, _) = fixture();
+    let header = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let trust = TrustRoot::from_head(&header, fixture.verifier.validators.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let directory = std::env::temp_dir().join(format!(
+        "layerx-chain-trust-only-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .as_nanos()
+    ));
+    fs::create_dir(&directory).unwrap_or_else(|error| panic!("{error:?}"));
+    let trust_path = directory.join("chain-trust-root");
+    fs::write(
+        &trust_path,
+        trust
+            .canonical_bytes()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let persisted_bytes = fs::read(&trust_path).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        TrustRoot::decode(&persisted_bytes).unwrap_or_else(|error| panic!("{error:?}")),
+        trust
+    );
+    fs::remove_file(&trust_path).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        0
+    );
+    let output = Command::new(std::env::current_exe().unwrap_or_else(|error| panic!("{error:?}")))
+        .args([
+            "--exact",
+            "verifier_needs_no_trust_history_file",
+            "--nocapture",
+        ])
+        .current_dir(&directory)
+        .env(
+            PERSISTED_TRUST,
+            layerx_programs::hex::encode(&persisted_bytes),
+        )
+        .output()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert!(
+        output.status.success(),
+        "empty-directory verification failed: {}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        0
+    );
+    fs::remove_dir(directory).unwrap_or_else(|error| panic!("{error:?}"));
 }
 
 #[test]
 fn verifier_needs_no_trust_history_file() {
     use layerx_programs::chain_proof::trust_store::TrustRoot;
     use std::fs;
-    use std::process::Command;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    const PERSISTED_TRUST: &str = "LAYERX_CHAIN_TRUST_ONLY_TEST_ROOT";
     let persisted = match std::env::var(PERSISTED_TRUST) {
-        Ok(encoded) => TrustRoot::decode(&layerx_programs::hex::decode(&encoded).unwrap()).unwrap(),
+        Ok(encoded) => TrustRoot::decode(
+            &layerx_programs::hex::decode(&encoded).unwrap_or_else(|error| panic!("{error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}")),
         Err(std::env::VarError::NotPresent) => {
-            let (fixture, _, _) = fixture();
-            let header = fixture
-                .verifier
-                .verify_head(&fixture.header, &fixture.commit)
-                .unwrap();
-            let trust = TrustRoot::from_head(&header, fixture.verifier.validators.clone()).unwrap();
-            let directory = std::env::temp_dir().join(format!(
-                "layerx-chain-trust-only-{}-{}",
-                std::process::id(),
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-            fs::create_dir(&directory).unwrap();
-            let trust_path = directory.join("chain-trust-root");
-            fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
-            let persisted_bytes = fs::read(&trust_path).unwrap();
-            assert_eq!(TrustRoot::decode(&persisted_bytes).unwrap(), trust);
-            fs::remove_file(&trust_path).unwrap();
-            assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
-            let output = Command::new(std::env::current_exe().unwrap())
-                .args([
-                    "--exact",
-                    "verifier_needs_no_trust_history_file",
-                    "--nocapture",
-                ])
-                .current_dir(&directory)
-                .env(
-                    PERSISTED_TRUST,
-                    layerx_programs::hex::encode(&persisted_bytes),
-                )
-                .output()
-                .unwrap();
-            assert!(
-                output.status.success(),
-                "empty-directory verification failed: {}\n{}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-            assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
-            fs::remove_dir(directory).unwrap();
+            verify_trust_in_empty_directory();
             return;
         }
         Err(error) => panic!("invalid persisted trust environment: {error}"),
@@ -423,12 +542,20 @@ fn verifier_needs_no_trust_history_file() {
     let header = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let directory = std::env::current_dir().unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let directory = std::env::current_dir().unwrap_or_else(|error| panic!("{error:?}"));
     let history_path = directory.join("sequencer-trust-history");
-    assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
     assert_eq!(
-        fs::symlink_metadata(&history_path).unwrap_err().kind(),
+        fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        0
+    );
+    assert_eq!(
+        fs::symlink_metadata(&history_path)
+            .err()
+            .unwrap_or_else(|| panic!("expected an error"))
+            .kind(),
         std::io::ErrorKind::NotFound
     );
     let verifier = ProtocolDeploymentVerifier::from_chain_trust(
@@ -436,8 +563,10 @@ fn verifier_needs_no_trust_history_file() {
         persisted.validators.validators().to_vec(),
         5_000,
     )
-    .unwrap();
-    let deployment = verifier.verify_deployment(&proof, NOW).unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let deployment = verifier
+        .verify_deployment(&proof, NOW)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(deployment.program(), proof.deployment.program_state.program);
     assert_eq!(deployment.module(), WASM_V1);
     assert_eq!(
@@ -451,7 +580,7 @@ fn verifier_needs_no_trust_history_file() {
     );
     assert_eq!(
         deployment.freshness().observed_sequence,
-        header.height() as u64
+        u64::from_le_bytes((header.height()).to_le_bytes())
     );
     assert_eq!(deployment.freshness().observed_at, NOW);
     assert_eq!(deployment.lifecycle(), ProgramLifecycle::Active);
@@ -464,8 +593,16 @@ fn verifier_needs_no_trust_history_file() {
         Err(ProtocolEvidenceError::Stale)
     );
     assert_eq!(
-        fs::symlink_metadata(&history_path).unwrap_err().kind(),
+        fs::symlink_metadata(&history_path)
+            .err()
+            .unwrap_or_else(|| panic!("expected an error"))
+            .kind(),
         std::io::ErrorKind::NotFound
     );
-    assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
+    assert_eq!(
+        fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        0
+    );
 }

@@ -1,22 +1,12 @@
-//! Proves: EvidenceNode::serve, raw_receipt_evidence, evidence_gate, AdmissionRecord -> HTTP JSON-RPC / public Rust evidence -> NodeRpc, Gate::readiness_gate, EvidenceAuthority::verify_receipt, AdmissionJournal::recover.
+//! The evidence node serves JSON-RPC requests consumed by `NodeRpc` and the readiness gate.
 //!
-//! The current consumers in agent parity, boundary and client sequencer tests use
-//! JSON-RPC, replacing the indexed UnixListener/LNI serve interface. This proof
-//! uses that current crossing and its actual decoders, without reviving LNI.
-//! The committed receipt proof below uses the recorded paxd chain and reopens
-//! the human evidence store; the locally constructed proofs cover codecs only.
-//! The journey_faults, move_money and spend consumers construct raw receipt
-//! evidence and verify it under the readiness gate's pinned authority identically.
+//! The agent and client consumers use the node's JSON-RPC boundary and its decoders.
+//! Committed receipt evidence uses a recorded chain receipt and a reopened human
+//! evidence store. Local receipt vectors exercise the codec and verifier.
 //!
-//! Repairs evidence_node.rs::AdmissionJournal::open: recovery discarded an invalid
-//! tail logically but left it on disk, hiding every subsequent appended record.
-//! The stop/reopen and second admission below prove truncation before append.
-//! Repairs evidence_node.rs::EvidenceNode::result: px_getReceiptKeys must emit
-//! the keys object with numeric height ranges required by the client's decoder.
-//! lib.rs::serve_readiness_node now uses EvidenceNode::serve rather than a second
-//! scripted HTTP implementation. No environment-provisioned producer is required.
-//! A truncated producer header is refused by EvidenceAuthority::verify_receipt
-//! at its canonical decoder, independently of the receipt-signature refusal.
+//! `AdmissionJournal::open` truncates an incomplete tail before another admission.
+//! `px_getReceiptKeys` returns key height ranges accepted by the client decoder.
+//! `EvidenceAuthority::verify_receipt` rejects a truncated producer header.
 
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
@@ -43,8 +33,10 @@ use layerx_types::verify::VerificationLevel;
 
 // This is the boundary consumer's own function, also called by its conformance suite.
 #[path = "../../../../agent/tests/boundary/cases.rs"]
+#[allow(dead_code)]
 mod boundary;
 #[path = "../../../../agent/tests/boundary/gaps.rs"]
+#[allow(dead_code)]
 mod gaps;
 
 struct Directory(PathBuf);
@@ -55,17 +47,22 @@ impl Directory {
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("proof_human_test_support.rs: remove producer journal");
+        fs::remove_dir_all(&self.0).unwrap_or_else(|error| {
+            panic!("proof_human_test_support.rs: remove producer journal: {error:?}")
+        });
     }
 }
 
 fn listener() -> (TcpListener, NodeRpcConfig) {
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .expect("evidence_node.rs::serve: local producer listener required");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| {
+        panic!("evidence_node.rs::serve: local producer listener required: {error:?}")
+    });
     let config = NodeRpcConfig {
         url: format!(
             "http://{}/",
-            listener.local_addr().expect("producer address")
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("producer address: {error:?}"))
         ),
         chain_id: 125,
         deadline: Duration::from_secs(2),
@@ -84,12 +81,16 @@ fn signed_transaction(nonce: u64) -> Vec<u8> {
         data: Vec::new(),
     }
     .sign(&[0x52; 32])
-    .expect("layerx-crypto::Eip1559Call::sign: real producer signature")
+    .unwrap_or_else(|error| {
+        panic!("layerx-crypto::Eip1559Call::sign: real producer signature: {error:?}")
+    })
 }
 
 fn sender(raw: &[u8]) -> [u8; 20] {
-    let (transaction, signature) = decode_signed(raw).expect("signed transaction producer");
-    recover_sender(&transaction, &signature).expect("authenticated producer sender")
+    let (transaction, signature) =
+        decode_signed(raw).unwrap_or_else(|error| panic!("signed transaction producer: {error:?}"));
+    recover_sender(&transaction, &signature)
+        .unwrap_or_else(|error| panic!("authenticated producer sender: {error:?}"))
 }
 
 #[test]
@@ -102,7 +103,8 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
     producer.register_sender(sender(&first));
     let (tcp, config) = listener();
     let server = producer.serve(tcp);
-    let endpoint = SequencerEndpoint::new(&config.url, &[]).expect("real sequencer consumer");
+    let endpoint = SequencerEndpoint::new(&config.url, &[])
+        .unwrap_or_else(|error| panic!("real sequencer consumer: {error:?}"));
     // Each iteration reaches the producer twice: submit and receipt lookup.
     for _ in 0..2 {
         assert_eq!(
@@ -121,7 +123,7 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
         );
     }
     boundary::verify_human_test_support_refusals(&endpoint)
-        .expect("real boundary refusal consumer");
+        .unwrap_or_else(|error| panic!("real boundary refusal consumer: {error:?}"));
     let stranger = Eip1559Call {
         chain_id: 125,
         nonce: 2,
@@ -132,12 +134,14 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
         data: Vec::new(),
     }
     .sign(&[0x53; 32])
-    .expect("foreign signer");
+    .unwrap_or_else(|error| panic!("foreign signer: {error:?}"));
     assert!(
         matches!(submit_signed(&endpoint, &stranger), Err(SubmitError::Refused { result, .. })
         if result.raw() == KnownResult::UnknownDid.raw())
     );
-    let producer = server.join().expect("evidence_node.rs::serve must finish");
+    let producer = server
+        .join()
+        .unwrap_or_else(|error| panic!("evidence_node.rs::serve must finish: {error:?}"));
     assert_eq!(producer.served().len(), 9);
     assert_eq!(
         producer
@@ -151,8 +155,21 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
         tx_hash: first_hash,
         raw_transaction: first.clone(),
     };
-    assert_eq!(producer.journal().records(), &[expected.clone()]);
+    assert_eq!(
+        producer.journal().records(),
+        std::slice::from_ref(&expected)
+    );
     drop(producer);
+    assert_recovered_admission(&directory, &signer, expected);
+}
+
+fn assert_recovered_admission(
+    directory: &Directory,
+    signer: &SigningKey,
+    expected: AdmissionRecord,
+) {
+    let first_hash = expected.tx_hash;
+    let first = expected.raw_transaction.clone();
     assert_eq!(
         AdmissionJournal::recover(&directory.0, EVIDENCE_NETWORK_ID),
         vec![expected.clone()]
@@ -162,10 +179,11 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
     let mut file = OpenOptions::new()
         .append(true)
         .open(directory.0.join("admission.journal"))
-        .expect("producer journal");
+        .unwrap_or_else(|error| panic!("producer journal: {error:?}"));
     file.write_all(b"LXAR\0\0\0")
-        .expect("interrupt producer append");
-    file.sync_data().expect("persist torn producer tail");
+        .unwrap_or_else(|error| panic!("interrupt producer append: {error:?}"));
+    file.sync_data()
+        .unwrap_or_else(|error| panic!("persist torn producer tail: {error:?}"));
     drop(file);
     assert_eq!(
         AdmissionJournal::recover(&directory.0, EVIDENCE_NETWORK_ID),
@@ -173,11 +191,12 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
     );
     let second = signed_transaction(2);
     let second_hash = transaction_hash(&second);
-    let mut reopened = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, &signer, 4);
+    let mut reopened = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, signer, 4);
     reopened.register_sender(sender(&second));
     let (tcp, config) = listener();
     let server = reopened.serve(tcp);
-    let endpoint = SequencerEndpoint::new(&config.url, &[]).expect("reopened sequencer consumer");
+    let endpoint = SequencerEndpoint::new(&config.url, &[])
+        .unwrap_or_else(|error| panic!("reopened sequencer consumer: {error:?}"));
     assert_eq!(
         endpoint.sequencer_receipt(&first_hash),
         Ok(Some(SequencerReceipt::Submitted {
@@ -206,7 +225,9 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
             nonce: 2
         }))
     );
-    let reopened = server.join().expect("reopened producer must finish");
+    let reopened = server
+        .join()
+        .unwrap_or_else(|error| panic!("reopened producer must finish: {error:?}"));
     assert_eq!(reopened.journal().records().len(), 2);
     drop(reopened);
     let records = AdmissionJournal::recover(&directory.0, EVIDENCE_NETWORK_ID);
@@ -225,11 +246,13 @@ fn proof_human_test_support_admission_crosses_rpc_and_recovers_after_torn_tail()
     assert!(reopened.contains(&second_hash));
     drop(reopened);
     let journal_path = directory.0.join("admission.journal");
-    let mut malformed_record = fs::read(&journal_path).expect("real persisted producer records");
+    let mut malformed_record = fs::read(&journal_path)
+        .unwrap_or_else(|error| panic!("real persisted producer records: {error:?}"));
     *malformed_record
         .last_mut()
-        .expect("producer record checksum") ^= 1;
-    fs::write(&journal_path, malformed_record).expect("corrupt producer checksum");
+        .unwrap_or_else(|| panic!("producer record checksum")) ^= 1;
+    fs::write(&journal_path, malformed_record)
+        .unwrap_or_else(|error| panic!("corrupt producer checksum: {error:?}"));
     assert_eq!(
         AdmissionJournal::recover(&directory.0, EVIDENCE_NETWORK_ID),
         vec![expected]
@@ -240,9 +263,13 @@ fn signed_receipt(signer: &SigningKey) -> Vec<u8> {
     // The repository's canonical receipt encoder is the producer; only its
     // committed batch identifier is bound to this execution before signing.
     let encode = |signature| {
-        let mut bytes = receipt(signature).expect("layerx-intents::vectors::receipt producer");
-        let decoded = decode_receipt(&bytes).expect("canonical producer receipt");
-        let protocol = decoded.protocol().expect("protocol receipt");
+        let mut bytes = receipt(signature)
+            .unwrap_or_else(|error| panic!("layerx-intents::vectors::receipt producer: {error:?}"));
+        let decoded = decode_receipt(&bytes)
+            .unwrap_or_else(|error| panic!("canonical producer receipt: {error:?}"));
+        let protocol = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt"));
         let batch = support::committed_execution_batch_id(
             protocol.previous_state_root(),
             protocol.activity_root(),
@@ -258,13 +285,17 @@ fn signed_receipt(signer: &SigningKey) -> Vec<u8> {
         bytes
     };
     let unsigned = encode(None);
-    let digest = receipt_signing_digest(&unsigned).expect("real receipt signing digest");
+    let digest = receipt_signing_digest(&unsigned)
+        .unwrap_or_else(|error| panic!("real receipt signing digest: {error:?}"));
     encode(Some(signer.sign(&digest).to_bytes()))
 }
 
 fn evidence(bytes: Vec<u8>, signer: &SigningKey) -> support::RawReceiptEvidence {
-    let decoded = decode_receipt(&bytes).expect("producer canonical receipt");
-    let protocol = decoded.protocol().expect("producer protocol receipt");
+    let decoded = decode_receipt(&bytes)
+        .unwrap_or_else(|error| panic!("producer canonical receipt: {error:?}"));
+    let protocol = decoded
+        .protocol()
+        .unwrap_or_else(|| panic!("producer protocol receipt"));
     let previous = protocol.previous_state_root();
     let resulting = protocol.resulting_state_root();
     let sequence = protocol.global_sequence();
@@ -291,9 +322,12 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
     let producer = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, &signer, 3);
     let (tcp, config) = listener();
     let server = producer.serve(tcp);
-    let node = NodeRpc::connect(&config).expect("NodeRpc must connect to in-process producer");
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("NodeRpc must connect to in-process producer: {error:?}"));
     for generation in 1..=2 {
-        let ready = gate.readiness_gate(&node).expect("real readiness consumer");
+        let ready = gate
+            .readiness_gate(&node)
+            .unwrap_or_else(|error| panic!("real readiness consumer: {error:?}"));
         assert_eq!(ready.generation, generation);
         assert_eq!(ready.chain_id, 125);
         assert_eq!(ready.receipt_keys.len(), 1);
@@ -305,7 +339,9 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
         );
         assert_eq!(gate.guard_write(|| generation), Ok(generation));
     }
-    let producer = server.join().expect("readiness producer must finish");
+    let producer = server
+        .join()
+        .unwrap_or_else(|error| panic!("readiness producer must finish: {error:?}"));
     assert_eq!(
         producer.served(),
         &["eth_chainId", "px_getReceiptKeys", "px_getReceiptKeys"]
@@ -313,20 +349,21 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
     drop(producer);
     let authority = gate
         .evidence_authority()
-        .expect("gated evidence authority")
+        .unwrap_or_else(|error| panic!("gated evidence authority: {error:?}"))
         .clone();
     for _ in 0..2 {
         let raw = evidence(signed_receipt(&signer), &signer);
         let verified = authority
             .verify_receipt(&raw)
-            .expect("real service receipt consumer");
+            .unwrap_or_else(|error| panic!("real service receipt consumer: {error:?}"));
         assert_eq!(verified.activity_id(), [1; 32]);
         assert_eq!(verified.global_sequence(), 9);
         assert_eq!(verified.amount(), 25);
         assert_eq!(verified.result_code(), 0);
         assert_eq!(verified.level(), VerificationLevel::BATCH_INCLUDED);
         assert_eq!(verified.canonical_receipt(), raw.canonical_receipt());
-        let header = decode_batch_header(raw.canonical_header()).expect("consumer header decode");
+        let header = decode_batch_header(raw.canonical_header())
+            .unwrap_or_else(|error| panic!("consumer header decode: {error:?}"));
         assert_eq!(header.sequencer_id(), signer.verifying_key().to_bytes());
     }
     let raw = evidence(signed_receipt(&foreign), &foreign);
@@ -337,7 +374,9 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
         ))
     );
     let mut malformed = signed_receipt(&signer);
-    *malformed.last_mut().expect("producer receipt signature") ^= 1;
+    *malformed
+        .last_mut()
+        .unwrap_or_else(|| panic!("producer receipt signature")) ^= 1;
     // The public producer emits a correctly signed inclusion proof over the
     // damaged receipt; the actual receipt verifier must decode and refuse it.
     let malformed = evidence(malformed, &signer);
@@ -347,7 +386,9 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
     ));
     let raw = evidence(signed_receipt(&signer), &signer);
     let mut truncated_header = raw.canonical_header().to_vec();
-    truncated_header.pop().expect("producer header bytes");
+    truncated_header
+        .pop()
+        .unwrap_or_else(|| panic!("producer header bytes"));
     let malformed = support::RawReceiptEvidence::new(
         raw.canonical_receipt().to_vec(),
         raw.proof().clone(),
@@ -363,14 +404,17 @@ fn proof_human_test_support_gate_and_receipts_are_reobserved_and_refuse_foreign_
     gate.disconnected();
     assert_eq!(gate.guard_write(|| ()), Err(WriteGateError::NotReady));
     let (config, server) = support::serve_readiness_node(&foreign);
-    let foreign_node = NodeRpc::connect(&config).expect("foreign in-process producer");
+    let foreign_node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("foreign in-process producer: {error:?}"));
     assert_eq!(
         gate.readiness_gate(&foreign_node),
         Err(GateError::Evidence(VerifierPolicyError::HandshakeKey))
     );
     assert_eq!(gate.status(), &Status::NotReady);
     assert_eq!(gate.guard_write(|| ()), Err(WriteGateError::NotReady));
-    server.join().expect("foreign producer must finish");
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("foreign producer must finish: {error:?}"));
 }
 
 #[path = "support/committed_evidence.rs"]

@@ -41,9 +41,9 @@ CREATE INDEX ON public.blocks(number);
 CREATE INDEX ON public.blocks(hash);
 CREATE INDEX ON public.transactions(block_hash,"index");
 CREATE INDEX ON public.logs(address_hash,block_number,transaction_index,"index");
-CREATE ROLE explorer_reader LOGIN PASSWORD 'owned-fixture-reader' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT USAGE ON SCHEMA public TO explorer_reader;
-GRANT SELECT ON public.blocks,public.transactions,public.logs TO explorer_reader;
+CREATE ROLE %s LOGIN PASSWORD 'owned-fixture-reader' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT USAGE ON SCHEMA public TO %s;
+GRANT SELECT ON public.blocks,public.transactions,public.logs TO %s;
 `
 
 func historicalHTTPClient(t *testing.T) *http.Client {
@@ -281,8 +281,31 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	canonical.Complete = true
+	var readerRole string
+	t.Cleanup(func() {
+		if readerRole == "" {
+			return
+		}
+		cleanup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		admin, err := pgx.Connect(cleanup, os.Getenv(internaltest.ExternalPostgresEnv))
+		if err != nil {
+			t.Errorf("connect to drop explorer reader role: %v", err)
+			return
+		}
+		defer admin.Close(context.Background())
+		if _, err := admin.Exec(cleanup, "DROP ROLE IF EXISTS "+pgx.Identifier{readerRole}.Sanitize()); err != nil {
+			t.Errorf("drop explorer reader role: %v", err)
+		}
+	})
 	dsn, pool := internaltest.NewPostgres(t)
-	if _, err = pool.Exec(ctx, canonicalExplorerSchema); err != nil {
+	readerURL, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readerRole = "explorer_reader_" + strings.TrimPrefix(readerURL.Path, "/indexer_test_")
+	quotedRole := pgx.Identifier{readerRole}.Sanitize()
+	if _, err = pool.Exec(ctx, fmt.Sprintf(canonicalExplorerSchema, quotedRole, quotedRole, quotedRole)); err != nil {
 		t.Fatal(err)
 	}
 	seedBlocks := func(from, to uint64) {
@@ -331,12 +354,8 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 		}
 	}
 	seedBlocks(1, 100)
-	readerURL, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	readerURL.User = url.UserPassword("explorer_reader", "owned-fixture-reader")
-	explorer, err := NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "owned-explorer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: "explorer_reader", MaxConnections: 2, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource})
+	readerURL.User = url.UserPassword(readerRole, "owned-fixture-reader")
+	explorer, err := NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "owned-explorer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: readerRole, MaxConnections: 2, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,7 +475,7 @@ func TestHistoricalRealRangeExplorerSuffixAndParity(t *testing.T) {
 	if _, err = NewCommittedPaxscan(ctx, dsn, CommittedPaxscanOptions{SourceID: "denied-writer", SchemaVersion: ExplorerSchemaV1, ExpectedRole: "kl", ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
 		t.Fatal("write-capable explorer role accepted")
 	}
-	if _, err = NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "denied-schema", SchemaVersion: "unknown", ExpectedRole: "explorer_reader", ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
+	if _, err = NewCommittedPaxscan(ctx, readerURL.String(), CommittedPaxscanOptions{SourceID: "denied-schema", SchemaVersion: "unknown", ExpectedRole: readerRole, ManifestDigest: manifest, Epochs: options.Epochs, RPC: rpcSource}); err == nil {
 		t.Fatal("unapproved explorer schema accepted")
 	}
 }

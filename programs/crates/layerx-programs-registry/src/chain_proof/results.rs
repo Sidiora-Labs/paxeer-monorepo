@@ -8,6 +8,10 @@ pub struct TxResult {
     pub gas_used: i64,
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_tx_result(
     next: &VerifiedChainHead,
     result: &TxResult,

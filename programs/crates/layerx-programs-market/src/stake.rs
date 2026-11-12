@@ -537,7 +537,7 @@ mod tests {
     fn dispute(
         offer: Offer<'static>,
         lease: &ComputeLease<'static>,
-        claim: UsageClaim,
+        claim: &UsageClaim,
         height: u64,
     ) -> (UsageClaim, UsageChallenge<'static>) {
         let mut index = [0; 8];
@@ -548,7 +548,7 @@ mod tests {
         ok(challenge(
             offer,
             lease,
-            claim,
+            *claim,
             &ChallengeRequest {
                 challenge_id: id,
                 challenger: account(13, index),
@@ -567,8 +567,8 @@ mod tests {
     }
     fn verdict(
         offer: Offer<'static>,
-        lease: ComputeLease<'static>,
-        frozen: UsageClaim,
+        lease: &ComputeLease<'static>,
+        frozen: &UsageClaim,
         dispute: &UsageChallenge<'static>,
         verdict: ArbiterVerdict,
     ) -> (
@@ -579,8 +579,8 @@ mod tests {
     ) {
         ok(resolve(
             offer,
-            lease,
-            frozen,
+            *lease,
+            *frozen,
             dispute,
             ArbiterResolution {
                 claim_id: frozen.id,
@@ -673,7 +673,7 @@ mod tests {
         assert!(stake
             .release(&open_lease, None, open_lease.expires_at)
             .is_err());
-        let (frozen, _) = dispute(offer, &open_lease, pending, pending.challenge_deadline);
+        let (frozen, _) = dispute(offer, &open_lease, &pending, pending.challenge_deadline);
         assert!(stake
             .release(&open_lease, Some(&frozen), open_lease.expires_at)
             .is_err());
@@ -725,11 +725,11 @@ mod tests {
         let (offer, disputed) = ok(lease(offer, 1, 10, 2));
         let stake = ok(stake.lock(&offer, &disputed, 2));
         let pending = claim(offer, &disputed, 6, 25, 3);
-        let (frozen, challenge) = dispute(offer, &disputed, pending, 5);
+        let (frozen, challenge) = dispute(offer, &disputed, &pending, 5);
         let (offer, settled, resolved, plan) = verdict(
             offer,
-            disputed,
-            frozen,
+            &disputed,
+            &frozen,
             &challenge,
             ArbiterVerdict::Challenger,
         );
@@ -795,11 +795,11 @@ mod tests {
         let (offer, disputed) = ok(lease(offer, 1, 10, 2));
         let stake = ok(stake.lock(&offer, &disputed, 2));
         let pending = claim(offer, &disputed, 6, 25, 3);
-        let (frozen, challenge) = dispute(offer, &disputed, pending, 5);
+        let (frozen, challenge) = dispute(offer, &disputed, &pending, 5);
         let (offer, settled, resolved, plan) = verdict(
             offer,
-            disputed,
-            frozen,
+            &disputed,
+            &frozen,
             &challenge,
             ArbiterVerdict::Provider,
         );
@@ -852,11 +852,11 @@ mod tests {
             .iter()
             .map(|lease| claim(current, lease, 6, 25, 3))
             .collect();
-        let (frozen, challenge) = dispute(current, &leases[1], claims[1], 5);
+        let (frozen, challenge) = dispute(current, &leases[1], &claims[1], 5);
         let (offer, settled, resolved, plan) = verdict(
             current,
-            leases[1],
-            frozen,
+            &leases[1],
+            &frozen,
             &challenge,
             ArbiterVerdict::Challenger,
         );
@@ -939,114 +939,127 @@ mod tests {
         let mut disputes = 0;
         let mut slashes = 0;
         for seed in 0..64 {
-            let mut random = Random(seed);
-            let mut ledger = Ledger(BTreeMap::new());
-            let mut offer = offer(150 + random.below(400));
-            ledger.mint(provider(), offer.stake);
-            let mut minted = offer.stake.value();
-            let mut stake = ok(Stake::post(&offer));
-            ledger.pay(provider(), offer.stake_account, offer.stake);
-            let mut index = 0;
-            for round in 0..12u64 {
-                let base = 100 + round * 100;
-                let mut active = Vec::new();
-                for _ in 0..=random.below(5) {
-                    index += 1;
-                    let units = 2 + random.below(19);
-                    let Ok((next, lease)) = lease(offer, index, units, base) else {
-                        continue;
-                    };
-                    ledger.mint(lease.tenant, lease.funded);
-                    minted += lease.funded.value();
-                    let Ok(locked) = stake.lock(&next, &lease, base) else {
-                        assert!(ok(stake.locked.checked_add(value_at_risk(&lease))) > stake.posted);
-                        continue;
-                    };
-                    ledger.pay(lease.tenant, lease.escrow_account, lease.funded);
-                    stake = locked;
-                    offer = next;
-                    active.push(lease);
-                }
-                assert_eq!(ledger.supply(), minted);
-                for lease in active {
-                    let outcome = random.below(5);
-                    if outcome == 0 {
-                        let (next, refunded) = ok(expire(offer, lease, lease.expires_at));
-                        ledger.pay(lease.escrow_account, lease.tenant_refund, lease.funded);
-                        stake = ok(stake.release(&refunded, None, lease.expires_at));
-                        offer = next;
-                    } else {
-                        let used = 1 + random.below(lease.units);
-                        let committed = claim(offer, &lease, used, 1 + random.below(30), base + 1);
-                        if outcome == 1 {
-                            let at = committed.challenge_deadline + 1;
-                            let (next, settled, finalized, plan) =
-                                ok(finalize_unchallenged(offer, lease, committed, at));
-                            ledger.pay(lease.escrow_account, lease.provider_payout, plan.provider);
-                            ledger.pay(lease.escrow_account, lease.tenant_refund, plan.tenant);
-                            stake = ok(stake.release(&settled, Some(&finalized), at));
-                            offer = next;
-                        } else {
-                            disputes += 1;
-                            let (frozen, challenge) = dispute(offer, &lease, committed, base + 2);
-                            ledger.mint(challenge.challenger, challenge.stake);
-                            ledger.pay(
-                                challenge.challenger,
-                                challenge.stake_account,
-                                challenge.stake,
-                            );
-                            minted += challenge.stake.value();
-                            let side = if outcome == 2 {
-                                ArbiterVerdict::Challenger
-                            } else {
-                                ArbiterVerdict::Provider
-                            };
-                            let before = stake;
-                            let (next, settled, resolved, plan) =
-                                verdict(offer, lease, frozen, &challenge, side);
-                            let (after, set) =
-                                ok(slash(stake, &next, &settled, &resolved, &challenge, plan));
-                            let moved = ledger.supply();
-                            ledger.apply(&set);
-                            assert_eq!(ledger.supply(), moved);
-                            assert_eq!(ledger.balance(lease.escrow_account), 0);
-                            assert_eq!(ledger.balance(challenge.stake_account), 0);
-                            let forfeited = ok(before.posted.checked_sub(after.posted));
-                            if side == ArbiterVerdict::Challenger {
-                                slashes += 1;
-                                assert_eq!(forfeited, value_at_risk(&lease));
-                                assert_eq!(
-                                    ledger.balance(challenge.challenger),
-                                    ok(challenge.stake.checked_add(forfeited)).value()
-                                );
-                            } else {
-                                assert_eq!(forfeited, Amount::ZERO);
-                                assert_eq!(ledger.balance(challenge.challenger), 0);
-                            }
-                            stake = after;
-                            offer = next;
-                        }
-                        assert_eq!(ledger.balance(lease.escrow_account), 0);
-                    }
-                    assert!(stake.locked <= stake.posted);
-                    assert_eq!(ledger.balance(offer.stake_account), stake.posted.value());
-                    assert_eq!(ok(stake.posted.checked_add(stake.slashed)), offer.stake);
-                    assert_eq!(ledger.supply(), minted);
-                }
-                assert_eq!(stake.locked, Amount::ZERO);
-            }
-            let closed = ok(close(offer, provider()));
-            let (empty, set) = ok(stake.withdraw(&closed, provider()));
-            ledger.apply(&set);
-            assert_eq!(ledger.supply(), minted);
-            assert_eq!(ledger.balance(closed.stake_account), 0);
-            assert_eq!(empty.posted, Amount::ZERO);
-            assert_eq!(
-                ledger.balance(provider()) + empty.slashed.value(),
-                offer.stake.value()
-            );
+            let (history_disputes, history_slashes) = dispute_history(seed);
+            disputes += history_disputes;
+            slashes += history_slashes;
         }
         assert!(disputes > 100);
         assert!(slashes > 50);
+    }
+
+    fn dispute_history(seed: u64) -> (usize, usize) {
+        let mut disputes = 0;
+        let mut slashes = 0;
+        let mut random = Random(seed);
+        let mut ledger = Ledger(BTreeMap::new());
+        let mut offer = offer(150 + random.below(400));
+        ledger.mint(provider(), offer.stake);
+        let mut minted = offer.stake.value();
+        let mut stake = ok(Stake::post(&offer));
+        ledger.pay(provider(), offer.stake_account, offer.stake);
+        let mut index = 0;
+        for round in 0..12u64 {
+            let base = 100 + round * 100;
+            let mut active = Vec::new();
+            for _ in 0..=random.below(5) {
+                index += 1;
+                let units = 2 + random.below(19);
+                let Ok((next, lease)) = lease(offer, index, units, base) else {
+                    continue;
+                };
+                ledger.mint(lease.tenant, lease.funded);
+                minted += lease.funded.value();
+                let Ok(locked) = stake.lock(&next, &lease, base) else {
+                    assert!(ok(stake.locked.checked_add(value_at_risk(&lease))) > stake.posted);
+                    continue;
+                };
+                ledger.pay(lease.tenant, lease.escrow_account, lease.funded);
+                stake = locked;
+                offer = next;
+                active.push(lease);
+            }
+            assert_eq!(ledger.supply(), minted);
+            for lease in active {
+                let outcome = random.below(5);
+                if outcome == 0 {
+                    let (next, refunded) = ok(expire(offer, lease, lease.expires_at));
+                    ledger.pay(lease.escrow_account, lease.tenant_refund, lease.funded);
+                    stake = ok(stake.release(&refunded, None, lease.expires_at));
+                    offer = next;
+                } else {
+                    let used = 1 + random.below(lease.units);
+                    let committed = claim(offer, &lease, used, 1 + random.below(30), base + 1);
+                    if outcome == 1 {
+                        let at = committed.challenge_deadline + 1;
+                        let (next, settled, finalized, plan) =
+                            ok(finalize_unchallenged(offer, lease, committed, at));
+                        ledger.pay(lease.escrow_account, lease.provider_payout, plan.provider);
+                        ledger.pay(lease.escrow_account, lease.tenant_refund, plan.tenant);
+                        stake = ok(stake.release(&settled, Some(&finalized), at));
+                        offer = next;
+                    } else {
+                        disputes += 1;
+                        let (frozen, challenge) = dispute(offer, &lease, &committed, base + 2);
+                        ledger.mint(challenge.challenger, challenge.stake);
+                        ledger.pay(
+                            challenge.challenger,
+                            challenge.stake_account,
+                            challenge.stake,
+                        );
+                        minted += challenge.stake.value();
+                        let side = if outcome == 2 {
+                            ArbiterVerdict::Challenger
+                        } else {
+                            ArbiterVerdict::Provider
+                        };
+                        let before = stake;
+                        let (next, settled, resolved, plan) =
+                            verdict(offer, &lease, &frozen, &challenge, side);
+                        let (after, set) =
+                            ok(slash(stake, &next, &settled, &resolved, &challenge, plan));
+                        let moved = ledger.supply();
+                        ledger.apply(&set);
+                        assert_eq!(ledger.supply(), moved);
+                        assert_eq!(ledger.balance(lease.escrow_account), 0);
+                        assert_eq!(ledger.balance(challenge.stake_account), 0);
+                        let forfeited = ok(before.posted.checked_sub(after.posted));
+                        if side == ArbiterVerdict::Challenger {
+                            slashes += 1;
+                            assert_eq!(forfeited, value_at_risk(&lease));
+                            assert_eq!(
+                                ledger.balance(challenge.challenger),
+                                ok(challenge.stake.checked_add(forfeited)).value()
+                            );
+                        } else {
+                            assert_eq!(forfeited, Amount::ZERO);
+                            assert_eq!(ledger.balance(challenge.challenger), 0);
+                        }
+                        stake = after;
+                        offer = next;
+                    }
+                    assert_eq!(ledger.balance(lease.escrow_account), 0);
+                }
+                assert!(stake.locked <= stake.posted);
+                assert_eq!(ledger.balance(offer.stake_account), stake.posted.value());
+                assert_eq!(ok(stake.posted.checked_add(stake.slashed)), offer.stake);
+                assert_eq!(ledger.supply(), minted);
+            }
+            assert_eq!(stake.locked, Amount::ZERO);
+        }
+        conclude_history(offer, stake, &mut ledger, minted);
+        (disputes, slashes)
+    }
+
+    fn conclude_history(offer: Offer<'static>, stake: Stake, ledger: &mut Ledger, minted: u128) {
+        let closed = ok(close(offer, provider()));
+        let (empty, set) = ok(stake.withdraw(&closed, provider()));
+        ledger.apply(&set);
+        assert_eq!(ledger.supply(), minted);
+        assert_eq!(ledger.balance(closed.stake_account), 0);
+        assert_eq!(empty.posted, Amount::ZERO);
+        assert_eq!(
+            ledger.balance(provider()) + empty.slashed.value(),
+            offer.stake.value()
+        );
     }
 }

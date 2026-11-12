@@ -11,74 +11,88 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct VerifiedProtocolHead {
+pub struct VerifiedProtocolHead {
     header: VerifiedHeader,
     receipt_digest: [u8; 32],
     freshness: ReadFreshness,
 }
 
 impl VerifiedProtocolHead {
-    pub(crate) const fn state_root(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn state_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
 
-    pub(crate) const fn header_hash(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn header_hash(&self) -> [u8; 32] {
         self.header.header_hash()
     }
 
-    pub(crate) const fn header_height(&self) -> i64 {
+    #[must_use]
+    pub const fn header_height(&self) -> i64 {
         self.header.height()
     }
 
-    pub(crate) const fn receipt_digest(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
     }
 
-    pub(crate) const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
+    #[must_use]
+    pub const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
         ReceiptEvidenceDigest::OrdinaryUnsignedReceipt(self.receipt_digest)
     }
 
-    pub(crate) const fn head_kind(&self) -> ProgramHeadKind {
-        ProgramHeadKind::Ordinary
+    #[must_use]
+    pub const fn head_kind(&self) -> ProgramHeadKind {
+        self.receipt_evidence_digest().head_kind()
     }
 
-    pub(crate) const fn freshness(&self) -> ReadFreshness {
+    #[must_use]
+    pub const fn freshness(&self) -> ReadFreshness {
         self.freshness
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct VerifiedChainHead {
+pub struct VerifiedChainHead {
     protocol: VerifiedProtocolHead,
     evidence_digest: ReceiptEvidenceDigest,
 }
 
 impl VerifiedChainHead {
-    pub(crate) const fn state_root(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn state_root(&self) -> [u8; 32] {
         self.protocol.state_root()
     }
 
-    pub(crate) const fn header_hash(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn header_hash(&self) -> [u8; 32] {
         self.protocol.header_hash()
     }
 
-    pub(crate) const fn header_height(&self) -> i64 {
+    #[must_use]
+    pub const fn header_height(&self) -> i64 {
         self.protocol.header_height()
     }
 
-    pub(crate) const fn head_kind(&self) -> ProgramHeadKind {
+    #[must_use]
+    pub const fn head_kind(&self) -> ProgramHeadKind {
         self.evidence_digest.head_kind()
     }
 
-    pub(crate) const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
+    #[must_use]
+    pub const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
         self.evidence_digest
     }
 
-    pub(crate) const fn receipt_digest(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn receipt_digest(&self) -> [u8; 32] {
         self.evidence_digest.bytes()
     }
 
-    pub(crate) const fn freshness(&self) -> ReadFreshness {
+    #[must_use]
+    pub const fn freshness(&self) -> ReadFreshness {
         self.protocol.freshness()
     }
 }
